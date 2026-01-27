@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect, ReactNode } from 'react'
 
-export type Theme = 'light' | 'dark' | 'mono-light' | 'mono-dark'
-export type ColorPalette = 'vivid' | 'pastel' | 'earth' | 'ocean' | 'sunset'
+export type Theme = 'mono-light' | 'mono-dark'
+export type ColorPalette = 'vivid' | 'sunset' | 'ocean'
 
 interface ThemeContextType {
   theme: Theme
@@ -37,7 +37,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const root = document.documentElement
     
     // Remover todas as classes de tema
-    root.classList.remove('light', 'dark', 'mono-light', 'mono-dark')
+    root.classList.remove('mono-light', 'mono-dark')
     
     // Adicionar nova classe
     root.classList.add(newTheme)
@@ -49,58 +49,20 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         expense: '#ef4444',
         balance: '#3b82f6',
       },
-      pastel: {
-        income: '#86efac',
-        expense: '#fca5a5',
-        balance: '#93c5fd',
-      },
-      earth: {
-        income: '#92400e',
-        expense: '#7c2d12',
-        balance: '#8b5cf6',
+      sunset: {
+        income: '#ff6b35',
+        expense: '#f43f5e',
+        balance: '#a855f7',
       },
       ocean: {
         income: '#0369a1',
         expense: '#06b6d4',
         balance: '#0ea5e9',
       },
-      sunset: {
-        income: '#d97706',
-        expense: '#dc2626',
-        balance: '#f59e0b',
-      },
     }
 
     // Aplicar variáveis CSS
     const themes: Record<Theme, Record<string, string>> = {
-      light: {
-        '--color-bg-primary': '#ffffff',
-        '--color-bg-secondary': '#f3f4f6',
-        '--color-bg-tertiary': '#e5e7eb',
-        '--color-text-primary': '#1f2937',
-        '--color-text-secondary': '#6b7280',
-        '--color-border': '#e5e7eb',
-        '--color-primary': '#0ea5e9',
-        '--color-primary-dark': '#0284c7',
-        '--color-primary-light': '#bae6fd',
-        '--color-success': '#10b981',
-        '--color-warning': '#f59e0b',
-        '--color-danger': '#ef4444',
-      },
-      dark: {
-        '--color-bg-primary': '#111827',
-        '--color-bg-secondary': '#1f2937',
-        '--color-bg-tertiary': '#374151',
-        '--color-text-primary': '#f3f4f6',
-        '--color-text-secondary': '#9ca3af',
-        '--color-border': '#374151',
-        '--color-primary': '#38bdf8',
-        '--color-primary-dark': '#06b6d4',
-        '--color-primary-light': '#0ea5e9',
-        '--color-success': '#10b981',
-        '--color-warning': '#f59e0b',
-        '--color-danger': '#ef4444',
-      },
       'mono-light': {
         '--color-bg-primary': '#ffffff',
         '--color-bg-secondary': '#f8f8f8',
@@ -108,12 +70,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         '--color-text-primary': '#000000',
         '--color-text-secondary': '#555555',
         '--color-border': '#d0d0d0',
-        '--color-primary': '#404040',
+        '--color-primary': '#6b7280',
         '--color-primary-dark': '#1a1a1a',
         '--color-primary-light': '#808080',
+        '--color-button-text': '#ffffff',
         '--color-success': '#2d5016',
         '--color-warning': '#5a4a00',
         '--color-danger': '#8b0000',
+        '--color-hover': '#f0f0f0',
+        '--color-focus': '#b0b0b0',
+        '--color-disabled': '#d8d8d8',
+        '--color-active': '#e0e0e0',
+        '--transition-fast': '200ms',
+        '--transition-normal': '300ms',
       },
       'mono-dark': {
         '--color-bg-primary': '#0f0f0f',
@@ -122,12 +91,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         '--color-text-primary': '#ffffff',
         '--color-text-secondary': '#b0b0b0',
         '--color-border': '#404040',
-        '--color-primary': '#808080',
+        '--color-primary': '#ffffff',
         '--color-primary-dark': '#505050',
         '--color-primary-light': '#a0a0a0',
+        '--color-button-text': '#000000',
         '--color-success': '#90ee90',
         '--color-warning': '#ffd700',
         '--color-danger': '#ff6b6b',
+        '--color-hover': '#2a2a2a',
+        '--color-focus': '#606060',
+        '--color-disabled': '#5a5a5a',
+        '--color-active': '#1a1a1a',
+        '--transition-fast': '200ms',
+        '--transition-normal': '300ms',
       },
     }
 

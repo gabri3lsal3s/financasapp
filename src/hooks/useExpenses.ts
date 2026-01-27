@@ -53,57 +53,39 @@ export function useExpenses(month?: string) {
 
   const createExpense = async (expense: Omit<Expense, 'id' | 'created_at' | 'category'>) => {
     try {
+      // Validar campos obrigatórios
+      if (!expense.category_id || !expense.amount) {
+        throw new Error('Categoria e valor são obrigatórios')
+      }
+
       const expenseData = {
-        ...expense,
+        amount: expense.amount,
         date: expense.date || format(new Date(), 'yyyy-MM-dd'),
+        category_id: expense.category_id,
+        ...(expense.description && { description: expense.description }),
       }
 
-      // Se for parcelado, criar múltiplas despesas
-      if (expense.is_fixed && expense.installments && expense.installments > 1) {
-        const expenses = []
-        const baseDate = new Date(expenseData.date)
-        
-        for (let i = 0; i < expense.installments; i++) {
-          const installmentDate = new Date(baseDate)
-          installmentDate.setMonth(installmentDate.getMonth() + i)
-          
-          expenses.push({
-            ...expenseData,
-            date: format(installmentDate, 'yyyy-MM-dd'),
-            current_installment: i + 1,
-            installments: expense.installments,
-          })
-        }
+      console.log('Enviando dados de despesa:', expenseData)
 
-        const { data, error: insertError } = await supabase
-          .from('expenses')
-          .insert(expenses)
-          .select(`
-            *,
-            category:categories(*)
-          `)
+      const { data, error: insertError } = await supabase
+        .from('expenses')
+        .insert([expenseData])
+        .select(`
+          *,
+          category:categories(*)
+        `)
+        .single()
 
-        if (insertError) throw insertError
-        
-        setExpenses((prev) => [...prev, ...data])
-        return { data, error: null }
-      } else {
-        const { data, error: insertError } = await supabase
-          .from('expenses')
-          .insert([expenseData])
-          .select(`
-            *,
-            category:categories(*)
-          `)
-          .single()
-
-        if (insertError) throw insertError
-        
-        setExpenses((prev) => [...prev, data])
-        return { data, error: null }
+      if (insertError) {
+        console.error('Erro do Supabase:', insertError)
+        throw insertError
       }
+      
+      setExpenses((prev) => [...prev, data])
+      return { data, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar despesa'
+      console.error('Erro completo:', err)
       return { data: null, error: errorMessage }
     }
   }

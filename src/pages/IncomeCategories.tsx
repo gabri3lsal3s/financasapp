@@ -5,20 +5,20 @@ import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
-import { useCategories } from '@/hooks/useCategories'
+import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
-import { Category } from '@/types'
+import { IncomeCategory } from '@/types'
 import { getCategoryColor, getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 
-export default function Categories() {
-  const { categories, loading, createCategory, updateCategory, deleteCategory } = useCategories()
+export default function IncomeCategories() {
+  const { incomeCategories, loading, createIncomeCategory, updateIncomeCategory, deleteIncomeCategory } = useIncomeCategories()
   const { colorPalette } = usePaletteColors()
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [editingCategory, setEditingCategory] = useState<IncomeCategory | null>(null)
   const [formData, setFormData] = useState({ name: '' })
 
-  const handleOpenModal = (category?: Category) => {
+  const handleOpenModal = (category?: IncomeCategory) => {
     if (category) {
       setEditingCategory(category)
       setFormData({ name: category.name })
@@ -41,7 +41,7 @@ export default function Categories() {
     if (!formData.name.trim()) return
 
     if (editingCategory) {
-      const { error } = await updateCategory(editingCategory.id, formData)
+      const { error } = await updateIncomeCategory(editingCategory.id, { name: formData.name })
       if (!error) {
         handleCloseModal()
       } else {
@@ -51,7 +51,8 @@ export default function Categories() {
       const randomIndex = Math.floor(Math.random() * 20)
       const randomColor = getCategoryColor(randomIndex, 'vivid')
       const categoryData = { ...formData, color: randomColor }
-      const { error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
+
+      const { error } = await createIncomeCategory(categoryData as Omit<IncomeCategory, 'id' | 'created_at'>)
       if (!error) {
         handleCloseModal()
       } else {
@@ -62,7 +63,7 @@ export default function Categories() {
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta categoria?')) {
-      const { error } = await deleteCategory(id)
+      const { error } = await deleteIncomeCategory(id)
       if (error) {
         alert('Erro ao deletar categoria: ' + error)
       }
@@ -72,8 +73,8 @@ export default function Categories() {
   return (
     <div>
       <PageHeader
-        title="Categorias"
-        subtitle="Organize suas categorias de despesas"
+        title="Categorias de Rendas"
+        subtitle="Organize categorias para suas fontes de renda"
         action={
           <Button
             size="sm"
@@ -87,42 +88,46 @@ export default function Categories() {
         }
       />
 
-      <div className="p-4">
+      <div className="p-4 lg:p-6">
         {loading ? (
-          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
-        ) : categories.length === 0 ? (
+          <div className="text-center py-8 text-[var(--color-text-secondary)]">Carregando...</div>
+        ) : incomeCategories.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>Nenhuma categoria cadastrada</p>
+            <p className="text-[var(--color-text-secondary)] mb-4">Nenhuma categoria de renda criada</p>
             <Button onClick={() => handleOpenModal()}>Criar primeira categoria</Button>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {(() => {
-              const assigned = assignUniquePaletteColors(categories, colorPalette)
-              return categories.map((category, idx) => (
-                <Card key={category.id}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+              const assigned = assignUniquePaletteColors(incomeCategories, colorPalette)
+              return incomeCategories.map((category, idx) => (
+                <Card key={category.id} className="py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div
                         className="w-1 h-6 rounded-sm flex-shrink-0"
                         style={{ backgroundColor: assigned[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
                       />
-                      <span className="font-medium text-[var(--color-text-primary)]">{category.name}</span>
+                      <p className="font-medium text-[var(--color-text-primary)] truncate">
+                        {category.name}
+                      </p>
                     </div>
                   <div className="flex items-center gap-2">
                     <IconButton
-                      icon={<Edit2 size={18} />}
+                      icon={<Edit2 size={16} />}
                       variant="neutral"
-                      size="md"
+                      size="sm"
                       label="Editar categoria"
                       onClick={() => handleOpenModal(category)}
+                      className="flex-shrink-0"
                     />
                     <IconButton
-                      icon={<Trash2 size={18} />}
+                      icon={<Trash2 size={16} />}
                       variant="danger"
-                      size="md"
+                      size="sm"
                       label="Deletar categoria"
                       onClick={() => handleDelete(category.id)}
+                      className="flex-shrink-0"
                     />
                   </div>
                 </div>
@@ -135,15 +140,17 @@ export default function Categories() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+        title={editingCategory ? 'Editar Categoria de Renda' : 'Nova Categoria de Renda'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Nome da Categoria"
+            label="Nome"
+            type="text"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Ex: Alimentação, Transporte..."
+            onChange={(e) => setFormData({ name: e.target.value })}
+            placeholder="Ex: Salário, Freelancer..."
             required
+            autoFocus
           />
 
           <div className="flex gap-3 pt-4">
@@ -164,5 +171,3 @@ export default function Categories() {
     </div>
   )
 }
-
-

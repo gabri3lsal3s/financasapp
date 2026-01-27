@@ -119,13 +119,13 @@ export default function Settings() {
   const getStatusColor = (status: TestResult['status']) => {
     switch (status) {
       case 'testing':
-        return 'border-accent-primary bg-secondary'
+        return 'border-[var(--color-focus)] bg-[var(--color-hover)]'
       case 'success':
-        return 'border-green-600 bg-secondary'
+        return 'border-green-600 bg-[var(--color-hover)]'
       case 'error':
-        return 'border-red-600 bg-secondary'
+        return 'border-red-600 bg-[var(--color-hover)]'
       default:
-        return 'border-primary bg-primary'
+        return 'border-[var(--color-border)] bg-[var(--color-bg-primary)]'
     }
   }
 
@@ -146,35 +146,35 @@ export default function Settings() {
         {/* Supabase Configuration */}
         <section className="space-y-4">
           <div>
-            <h2 className="text-xl font-semibold text-primary mb-2">Banco de Dados</h2>
-            <p className="text-secondary text-sm">Verifique a conexão com o Supabase</p>
+            <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">Banco de Dados</h2>
+            <p className="text-[var(--color-text-secondary)] text-sm">Verifique a conexão com o Supabase</p>
           </div>
 
           <Card>
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-primary mb-2">
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
                   Status da Configuração
                 </h3>
                 <div className="flex items-center gap-2 mb-4">
                   {isSupabaseConfigured ? (
                     <>
                       <Check className="text-green-600" size={20} />
-                      <span className="text-sm text-primary">
+                      <span className="text-sm text-[var(--color-text-primary)]">
                         Variáveis de ambiente configuradas
                       </span>
                     </>
                   ) : (
                     <>
                       <AlertCircle className="text-yellow-600" size={20} />
-                      <span className="text-sm text-primary">
+                      <span className="text-sm text-[var(--color-text-primary)]">
                         Variáveis de ambiente não configuradas
                       </span>
                     </>
                   )}
                 </div>
                 {isSupabaseConfigured && (
-                  <div className="text-xs text-secondary space-y-1 bg-secondary p-3 rounded-lg">
+                  <div className="text-xs text-[var(--color-text-secondary)] space-y-1 bg-[var(--color-hover)] p-3 rounded-lg">
                     <p>
                       <strong>URL:</strong>{' '}
                       {import.meta.env.VITE_SUPABASE_URL?.substring(0, 30)}...
@@ -199,7 +199,7 @@ export default function Settings() {
                         {connectionTest.message}
                       </p>
                       {connectionTest.details && (
-                        <p className="text-xs text-secondary mt-1">
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1">
                           {connectionTest.details}
                         </p>
                       )}
@@ -209,6 +209,7 @@ export default function Settings() {
                     onClick={testConnection}
                     disabled={connectionTest.status === 'testing'}
                     size="sm"
+                    variant="outline"
                     fullWidth
                     className="mt-2"
                   >
@@ -225,7 +226,7 @@ export default function Settings() {
                     >
                       <p className="text-sm font-medium mb-1">{tableTest.message}</p>
                       {tableTest.details && (
-                        <p className="text-xs text-secondary mt-1">
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1">
                           {tableTest.details}
                         </p>
                       )}
@@ -235,6 +236,7 @@ export default function Settings() {
                     onClick={testTables}
                     disabled={tableTest.status === 'testing'}
                     size="sm"
+                    variant="outline"
                     fullWidth
                     className="mt-2"
                   >

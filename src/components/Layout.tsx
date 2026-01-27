@@ -18,6 +18,11 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/settings', icon: Settings, label: 'Configurações' },
   ]
 
+  const categoryItems = [
+    { path: '/expense-categories', label: 'Categorias de Despesas' },
+    { path: '/income-categories', label: 'Categorias de Rendas' },
+  ]
+
   return (
     <div className="min-h-screen bg-primary transition-colors duration-300">
       {/* Mobile Layout - Bottom Navigation */}
@@ -87,6 +92,32 @@ export default function Layout({ children }: LayoutProps) {
                       <Icon size={20} />
                       <span className="font-medium">{item.label}</span>
                     </div>
+                    {isActive && <ChevronRight size={16} />}
+                  </Link>
+                )
+              })}
+            </div>
+            
+            {/* Divider */}
+            <div className="my-4 border-t border-primary"></div>
+            
+            {/* Categories Section */}
+            <div className="space-y-2">
+              <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Categorias</p>
+              {categoryItems.map((item) => {
+                const isActive = location.pathname === item.path
+                
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-sm ${
+                      isActive
+                        ? 'bg-accent-primary text-primary'
+                        : 'text-primary hover:bg-tertiary'
+                    }`}
+                  >
+                    <span className="font-medium">{item.label}</span>
                     {isActive && <ChevronRight size={16} />}
                   </Link>
                 )

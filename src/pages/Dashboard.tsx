@@ -117,7 +117,7 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
+          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
         ) : (
           <>
             {/* Resumo Financeiro */}
@@ -125,7 +125,7 @@ export default function Dashboard() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm text-secondary">Rendas</p>
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Rendas</p>
                     <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-income)' }}>
                       {formatCurrency(totalIncomes)}
                     </p>
@@ -137,7 +137,7 @@ export default function Dashboard() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm text-secondary">Despesas</p>
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Despesas</p>
                     <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-expense)' }}>
                       {formatCurrency(totalExpenses)}
                     </p>
@@ -149,7 +149,7 @@ export default function Dashboard() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm text-secondary">Investimentos</p>
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Investimentos</p>
                     <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-balance)' }}>
                       {formatCurrency(totalInvestments)}
                     </p>
@@ -161,7 +161,7 @@ export default function Dashboard() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm text-secondary">Saldo</p>
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Saldo</p>
                     <p
                       className="text-2xl font-bold mt-1"
                       style={{

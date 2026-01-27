@@ -1,8 +1,17 @@
 -- Script SQL para criar as tabelas no Supabase
 -- Execute este script no SQL Editor do Supabase
 
--- Tabela de categorias
+-- Tabela de categorias de despesas
 CREATE TABLE IF NOT EXISTS categories (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  user_id UUID
+);
+
+-- Tabela de categorias de rendas
+CREATE TABLE IF NOT EXISTS income_categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   color TEXT NOT NULL,
@@ -17,10 +26,6 @@ CREATE TABLE IF NOT EXISTS expenses (
   date DATE NOT NULL,
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
   description TEXT,
-  is_fixed BOOLEAN DEFAULT FALSE,
-  is_recurring BOOLEAN DEFAULT FALSE,
-  installments INTEGER,
-  current_installment INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   user_id UUID
 );
@@ -30,7 +35,8 @@ CREATE TABLE IF NOT EXISTS incomes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   amount DECIMAL(10, 2) NOT NULL,
   date DATE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('salary', 'freelancer', 'dividends', 'rent', 'other')),
+  type TEXT DEFAULT 'other',
+  income_category_id UUID REFERENCES income_categories(id) ON DELETE CASCADE,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   user_id UUID
@@ -49,14 +55,29 @@ CREATE TABLE IF NOT EXISTS investments (
 -- Índices para melhor performance
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
 CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);
+CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes(income_category_id);
+CREATE INDEX IF NOT EXISTS idx_incomes_user ON incomes(user_id);
+CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
+CREATE INDEX IF NOT EXISTS idx_income_categories_user ON income_categories(user_id);
 CREATE INDEX IF NOT EXISTS idx_investments_month ON investments(month);
+CREATE INDEX IF NOT EXISTS idx_investments_user ON investments(user_id);
 
 -- Habilitar Row Level Security (RLS) se necessário
 -- ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- DESABILITAR RLS (se estiver habilitado e causando problemas)
+-- ============================================
+ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
+ALTER TABLE incomes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE income_categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE investments DISABLE ROW LEVEL SECURITY;
 
 -- Políticas RLS (ajuste conforme sua necessidade de autenticação)
 -- CREATE POLICY "Users can view own categories" ON categories FOR SELECT USING (auth.uid() = user_id);

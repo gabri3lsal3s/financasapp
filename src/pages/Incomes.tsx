@@ -3,32 +3,38 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useIncomes } from '@/hooks/useIncomes'
-import { Income, IncomeType } from '@/types'
+import { useIncomeCategories } from '@/hooks/useIncomeCategories'
+import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { Income } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/format'
+import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
-
-const INCOME_TYPES: { value: IncomeType; label: string }[] = [
-  { value: 'salary', label: 'Salário' },
-  { value: 'freelancer', label: 'Freelancer' },
-  { value: 'dividends', label: 'Dividendos' },
-  { value: 'rent', label: 'Aluguel' },
-  { value: 'other', label: 'Outros' },
-]
+import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Incomes() {
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes()
+  const { incomeCategories } = useIncomeCategories()
+  const { colorPalette } = usePaletteColors()
+  const assignedIncomeCategories = assignUniquePaletteColors(incomeCategories, colorPalette)
+  const incomeCategoryColorMap: Record<string, string> = {}
+  incomeCategories.forEach((c, i) => {
+    if (c && c.id) incomeCategoryColorMap[c.id] = assignedIncomeCategories[i] || getCategoryColorForPalette(c.color, colorPalette)
+  })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingIncome, setEditingIncome] = useState<Income | null>(null)
   const [formData, setFormData] = useState({
     amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    type: 'salary' as IncomeType,
+    income_category_id: '',
     description: '',
   })
+
+  const [removingIds, setRemovingIds] = useState<string[]>([])
 
   const handleOpenModal = (income?: Income) => {
     if (income) {
@@ -36,7 +42,7 @@ export default function Incomes() {
       setFormData({
         amount: income.amount.toString(),
         date: income.date,
-        type: income.type,
+        income_category_id: income.income_category_id,
         description: income.description || '',
       })
     } else {
@@ -44,7 +50,7 @@ export default function Incomes() {
       setFormData({
         amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        type: 'salary',
+        income_category_id: incomeCategories[0]?.id || '',
         description: '',
       })
     }
@@ -54,12 +60,22 @@ export default function Incomes() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setEditingIncome(null)
+    setFormData({
+      amount: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      income_category_id: incomeCategories[0]?.id || '',
+      description: '',
+    })
   }
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.amount) return
+    if (!formData.amount || !formData.income_category_id) {
+      alert('Por favor, preencha todos os campos obrigatórios')
+      return
+    }
 
     const amount = parseFloat(formData.amount)
     if (isNaN(amount) || amount <= 0) {
@@ -67,11 +83,11 @@ export default function Incomes() {
       return
     }
 
-    const incomeData: Omit<Income, 'id' | 'created_at'> = {
+    const incomeData: Omit<Income, 'id' | 'created_at' | 'income_category' | 'type'> = {
       amount,
       date: formData.date,
-      type: formData.type,
-      description: formData.description || undefined,
+      income_category_id: formData.income_category_id,
+      ...(formData.description && { description: formData.description }),
     }
 
     if (editingIncome) {
@@ -92,25 +108,28 @@ export default function Incomes() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta renda?')) {
+    if (!confirm('Tem certeza que deseja excluir esta renda?')) return
+
+    setRemovingIds((s) => [...s, id])
+
+    setTimeout(async () => {
       const { error } = await deleteIncome(id)
       if (error) {
         alert('Erro ao deletar renda: ' + error)
       }
-    }
-  }
-
-  const getIncomeTypeLabel = (type: IncomeType) => {
-    return INCOME_TYPES.find((t) => t.value === type)?.label || type
+      setRemovingIds((s) => s.filter((x) => x !== id))
+    }, 260)
   }
 
   return (
     <div>
       <PageHeader
         title="Rendas"
+        subtitle="Registre suas fontes de renda"
         action={
           <Button
             size="sm"
+            variant="outline"
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2"
           >
@@ -122,54 +141,56 @@ export default function Incomes() {
 
       <div className="p-4 lg:p-6">
         {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
+          <div className="text-center py-8 text-[var(--color-text-secondary)]">Carregando...</div>
         ) : incomes.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhuma renda cadastrada</p>
+            <p className="text-[var(--color-text-secondary)] mb-4">Nenhuma renda cadastrada</p>
             <Button onClick={() => handleOpenModal()}>Adicionar primeira renda</Button>
           </Card>
         ) : (
           <div className="space-y-3">
             {incomes.map((income) => (
-              <Card key={income.id}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div
-                        className="w-1 h-6 rounded-sm flex-shrink-0"
-                        style={{
-                          backgroundColor: 'var(--color-income)',
-                        }}
-                      />
-                      <p className="font-medium text-primary truncate">
-                        {income.description || getIncomeTypeLabel(income.type)}
+              <AnimatedListItem key={income.id} isRemoving={removingIds.includes(income.id)}>
+                <Card>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div
+                          className="w-1 h-6 rounded-sm flex-shrink-0"
+                          style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
+                        />
+                        <p className="font-medium text-[var(--color-text-primary)] truncate">
+                          {income.description || income.income_category?.name}
+                        </p>
+                      </div>
+                      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                        {income.income_category?.name} • {formatDate(income.date)}
+                      </p>
+                      <div className="flex gap-2 mt-3">
+                        <IconButton
+                          icon={<Edit2 size={16} />}
+                          variant="neutral"
+                          size="sm"
+                          label="Editar renda"
+                          onClick={() => handleOpenModal(income)}
+                        />
+                        <IconButton
+                          icon={<Trash2 size={16} />}
+                          variant="danger"
+                          size="sm"
+                          label="Deletar renda"
+                          onClick={() => handleDelete(income.id)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
+                      <p className="text-lg font-semibold text-primary">
+                        {formatCurrency(income.amount)}
                       </p>
                     </div>
-                    <p className="text-sm text-secondary">
-                      {getIncomeTypeLabel(income.type)} • {formatDate(income.date)}
-                    </p>
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => handleOpenModal(income)}
-                        className="p-1.5 hover:bg-secondary rounded transition-colors"
-                      >
-                        <Edit2 size={16} className="text-accent-primary" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(income.id)}
-                        className="p-1.5 hover:bg-secondary rounded transition-colors"
-                      >
-                        <Trash2 size={16} style={{ color: 'var(--color-expense)' }} />
-                      </button>
-                    </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-3">
-                    <p className="text-lg font-semibold text-primary">
-                      {formatCurrency(income.amount)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </AnimatedListItem>
             ))}
           </div>
         )}
@@ -201,10 +222,13 @@ export default function Incomes() {
           />
 
           <Select
-            label="Tipo de Renda"
-            value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value as IncomeType })}
-            options={INCOME_TYPES}
+            label="Categoria de Renda"
+            value={formData.income_category_id}
+            onChange={(e) => setFormData({ ...formData, income_category_id: e.target.value })}
+            options={incomeCategories.map((cat) => ({
+              value: cat.id,
+              label: cat.name,
+            }))}
             required
           />
 
@@ -233,4 +257,5 @@ export default function Incomes() {
     </div>
   )
 }
+
 

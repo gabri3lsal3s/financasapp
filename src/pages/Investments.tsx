@@ -3,12 +3,14 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
 import { formatCurrency, formatMonth } from '@/utils/format'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
+import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Investments() {
   const { investments, loading, createInvestment, updateInvestment, deleteInvestment } = useInvestments()
@@ -78,13 +80,20 @@ export default function Investments() {
     }
   }
 
+  const [removingIds, setRemovingIds] = useState<string[]>([])
+
   const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este investimento?')) {
+    if (!confirm('Tem certeza que deseja excluir este investimento?')) return
+
+    setRemovingIds((s) => [...s, id])
+
+    setTimeout(async () => {
       const { error } = await deleteInvestment(id)
       if (error) {
         alert('Erro ao deletar investimento: ' + error)
       }
-    }
+      setRemovingIds((s) => s.filter((x) => x !== id))
+    }, 260)
   }
 
   return (
@@ -95,6 +104,7 @@ export default function Investments() {
         action={
           <Button
             size="sm"
+            variant="outline"
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2"
           >
@@ -106,10 +116,10 @@ export default function Investments() {
 
       <div className="p-4 lg:p-6">
         {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
+          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
         ) : investments.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhum investimento cadastrado</p>
+            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>Nenhum investimento cadastrado</p>
             <Button onClick={() => handleOpenModal()}>Adicionar primeiro investimento</Button>
           </Card>
         ) : (
@@ -117,7 +127,8 @@ export default function Investments() {
             {investments
               .sort((a, b) => b.month.localeCompare(a.month))
               .map((investment) => (
-                <Card key={investment.id}>
+                <AnimatedListItem key={investment.id} isRemoving={removingIds.includes(investment.id)}>
+                  <Card key={investment.id}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -131,22 +142,24 @@ export default function Investments() {
                           {investment.description || 'Investimento'}
                         </p>
                       </div>
-                      <p className="text-sm text-secondary">
+                      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                         {formatMonth(investment.month)}
                       </p>
                       <div className="flex gap-2 mt-3">
-                        <button
+                        <IconButton
+                          icon={<Edit2 size={16} />}
+                          variant="neutral"
+                          size="sm"
+                          label="Editar investimento"
                           onClick={() => handleOpenModal(investment)}
-                          className="p-1.5 hover:bg-secondary rounded transition-colors"
-                        >
-                          <Edit2 size={16} className="text-accent-primary" />
-                        </button>
-                        <button
+                        />
+                        <IconButton
+                          icon={<Trash2 size={16} />}
+                          variant="danger"
+                          size="sm"
+                          label="Deletar investimento"
                           onClick={() => handleDelete(investment.id)}
-                          className="p-1.5 hover:bg-secondary rounded transition-colors"
-                        >
-                          <Trash2 size={16} style={{ color: 'var(--color-expense)' }} />
-                        </button>
+                        />
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-3">
@@ -155,7 +168,8 @@ export default function Investments() {
                       </p>
                     </div>
                   </div>
-                </Card>
+                  </Card>
+                </AnimatedListItem>
               ))}
           </div>
         )}

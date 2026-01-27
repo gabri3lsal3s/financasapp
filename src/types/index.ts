@@ -12,10 +12,6 @@ export interface Expense {
   date: string
   category_id: string
   description?: string
-  is_fixed: boolean
-  is_recurring: boolean
-  installments?: number
-  current_installment?: number
   created_at: string
   user_id?: string
   category?: Category
@@ -26,7 +22,17 @@ export interface Income {
   amount: number
   date: string
   type: IncomeType
+  income_category_id: string
   description?: string
+  created_at: string
+  user_id?: string
+  income_category?: IncomeCategory
+}
+
+export interface IncomeCategory {
+  id: string
+  name: string
+  color: string
   created_at: string
   user_id?: string
 }

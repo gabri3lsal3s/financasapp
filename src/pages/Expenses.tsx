@@ -3,38 +3,35 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import CategoryColorBar from '@/components/CategoryColorBar'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
-import { Expense, Category } from '@/types'
+import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { Expense } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/format'
+import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
-
-const COLORS = [
-  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
-  '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
-  '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
-  '#ec4899', '#f43f5e', '#6b7280', '#374151', '#1f2937',
-]
+import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Expenses() {
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses()
-  const { categories, createCategory } = useCategories()
+  const { categories } = useCategories()
+  const { colorPalette } = usePaletteColors()
+  const assignedCategories = assignUniquePaletteColors(categories, colorPalette)
+  const categoryColorMap: Record<string, string> = {}
+  categories.forEach((c, i) => {
+    if (c && c.id) categoryColorMap[c.id] = assignedCategories[i] || getCategoryColorForPalette(c.color, colorPalette)
+  })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
-  const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCategoryData, setNewCategoryData] = useState({ name: '' })
   const [formData, setFormData] = useState({
     amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     category_id: '',
     description: '',
-    is_fixed: false,
-    is_recurring: false,
-    installments: '',
   })
 
   const handleOpenModal = (expense?: Expense) => {
@@ -45,9 +42,6 @@ export default function Expenses() {
         date: expense.date,
         category_id: expense.category_id,
         description: expense.description || '',
-        is_fixed: expense.is_fixed,
-        is_recurring: expense.is_recurring,
-        installments: expense.installments?.toString() || '',
       })
     } else {
       setEditingExpense(null)
@@ -56,9 +50,6 @@ export default function Expenses() {
         date: format(new Date(), 'yyyy-MM-dd'),
         category_id: categories[0]?.id || '',
         description: '',
-        is_fixed: false,
-        is_recurring: false,
-        installments: '',
       })
     }
     setIsModalOpen(true)
@@ -67,29 +58,14 @@ export default function Expenses() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setEditingExpense(null)
-    setShowNewCategory(false)
-    setNewCategoryData({ name: '' })
+    setFormData({
+      amount: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      category_id: categories[0]?.id || '',
+      description: '',
+    })
   }
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    if (!newCategoryData.name.trim()) return
-
-    // Gerar cor aleatória para a categoria
-    const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)]
-    const categoryData = { ...newCategoryData, color: randomColor }
-
-    const { data, error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
-    if (!error && data) {
-      setFormData({ ...formData, category_id: data.id })
-      setShowNewCategory(false)
-      setNewCategoryData({ name: '' })
-    } else {
-      alert('Erro ao criar categoria: ' + (error || 'Erro desconhecido'))
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,15 +82,7 @@ export default function Expenses() {
       amount,
       date: formData.date,
       category_id: formData.category_id,
-      description: formData.description || undefined,
-      is_fixed: formData.is_fixed,
-      is_recurring: formData.is_recurring,
-      installments: formData.installments ? parseInt(formData.installments) : undefined,
-    }
-
-    if (expenseData.installments && (isNaN(expenseData.installments) || expenseData.installments < 1)) {
-      alert('O número de parcelas deve ser maior que zero')
-      return
+      ...(formData.description && { description: formData.description }),
     }
 
     if (editingExpense) {
@@ -134,22 +102,33 @@ export default function Expenses() {
     }
   }
 
+  const [removingIds, setRemovingIds] = useState<string[]>([])
+
   const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta despesa?')) {
+    if (!confirm('Tem certeza que deseja excluir esta despesa?')) return
+
+    // mark as removing to play animation
+    setRemovingIds((s) => [...s, id])
+
+    // wait animation then call API
+    setTimeout(async () => {
       const { error } = await deleteExpense(id)
       if (error) {
         alert('Erro ao deletar despesa: ' + error)
       }
-    }
+      setRemovingIds((s) => s.filter((x) => x !== id))
+    }, 260)
   }
 
   return (
     <div>
       <PageHeader
         title="Despesas"
+        subtitle="Registre e gerencie suas despesas"
         action={
           <Button
             size="sm"
+            variant="outline"
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2"
           >
@@ -161,10 +140,10 @@ export default function Expenses() {
 
       <div className="p-4 lg:p-6">
         {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
+          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
         ) : expenses.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhuma despesa cadastrada</p>
+            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>Nenhuma despesa cadastrada</p>
             <Button onClick={() => handleOpenModal()}>
               Adicionar primeira despesa
             </Button>
@@ -172,50 +151,37 @@ export default function Expenses() {
         ) : (
           <div className="space-y-3">
             {expenses.map((expense) => (
-              <Card key={expense.id}>
+              <AnimatedListItem key={expense.id} isRemoving={removingIds.includes(expense.id)}>
+                <Card>
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <CategoryColorBar color={expense.category?.color || 'var(--color-primary)'} />
+                      <div 
+                        className="w-1 h-6 rounded-sm flex-shrink-0" 
+                        style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }} 
+                      />
                       <p className="font-medium text-primary truncate">
                         {expense.description || expense.category?.name || 'Sem descrição'}
                       </p>
                     </div>
-                    <p className="text-sm text-secondary">
+                    <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                       {expense.category?.name} • {formatDate(expense.date)}
                     </p>
-                    {expense.installments && (
-                      <p className="text-xs text-secondary mt-1">
-                        Parcela {expense.current_installment}/{expense.installments}
-                      </p>
-                    )}
-                    {(expense.is_fixed || expense.is_recurring) && (
-                      <div className="flex gap-2 mt-2">
-                        {expense.is_fixed && (
-                          <span className="text-xs px-2 py-0.5 bg-accent-primary text-white rounded">
-                            Fixa
-                          </span>
-                        )}
-                        {expense.is_recurring && (
-                          <span className="text-xs px-2 py-0.5" style={{ backgroundColor: 'var(--color-income)', color: 'white' }}>
-                            Recorrente
-                          </span>
-                        )}
-                      </div>
-                    )}
                     <div className="flex gap-2 mt-3">
-                      <button
+                      <IconButton
+                        icon={<Edit2 size={16} />}
+                        variant="neutral"
+                        size="sm"
+                        label="Editar despesa"
                         onClick={() => handleOpenModal(expense)}
-                        className="p-1.5 hover:bg-secondary rounded transition-colors"
-                      >
-                        <Edit2 size={16} className="text-accent-primary" />
-                      </button>
-                      <button
+                      />
+                      <IconButton
+                        icon={<Trash2 size={16} />}
+                        variant="danger"
+                        size="sm"
+                        label="Deletar despesa"
                         onClick={() => handleDelete(expense.id)}
-                        className="p-1.5 hover:bg-secondary rounded transition-colors"
-                      >
-                        <Trash2 size={16} style={{ color: 'var(--color-expense)' }} />
-                      </button>
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-3">
@@ -224,7 +190,8 @@ export default function Expenses() {
                     </p>
                   </div>
                 </div>
-              </Card>
+                </Card>
+              </AnimatedListItem>
             ))}
           </div>
         )}
@@ -256,61 +223,18 @@ export default function Expenses() {
           />
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-primary">
-                Categoria
-              </label>
-              {!showNewCategory && (
-                <button
-                  type="button"
-                  onClick={() => setShowNewCategory(true)}
-                  className="text-xs hover:text-accent-primary flex items-center gap-1 transition-colors"
-                >
-                  <Plus size={12} />
-                  Nova categoria
-                </button>
-              )}
-            </div>
-
-            {showNewCategory ? (
-              <div className="space-y-3 p-3 bg-secondary rounded-lg border border-secondary">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-primary">Criar nova categoria</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNewCategory(false)
-                      setNewCategoryData({ name: '', color: COLORS[0] })
-                    }}
-                    className="text-xs text-secondary hover:text-primary transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-                <form onSubmit={handleCreateCategory} className="space-y-3">
-                  <Input
-                    label="Nome da Categoria"
-                    value={newCategoryData.name}
-                    onChange={(e) => setNewCategoryData({ ...newCategoryData, name: e.target.value })}
-                    placeholder="Ex: Alimentação, Transporte..."
-                    required
-                  />
-                  <Button type="submit" size="sm" fullWidth>
-                    Criar Categoria
-                  </Button>
-                </form>
-              </div>
-            ) : (
-              <Select
-                value={formData.category_id}
-                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                options={categories.map((cat) => ({
-                  value: cat.id,
-                  label: cat.name,
-                }))}
-                required
-              />
-            )}
+            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+              Categoria
+            </label>
+            <Select
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              options={categories.map((cat) => ({
+                value: cat.id,
+                label: cat.name,
+              }))}
+              required
+            />
           </div>
 
           <Input
@@ -319,45 +243,6 @@ export default function Expenses() {
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             placeholder="Ex: Almoço, Uber..."
           />
-
-          <div className="space-y-3">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.is_fixed}
-                onChange={(e) => {
-                  setFormData({
-                    ...formData,
-                    is_fixed: e.target.checked,
-                    installments: e.target.checked ? formData.installments : '',
-                  })
-                }}
-                className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-              />
-              <span className="text-sm text-gray-700">Despesa fixa</span>
-            </label>
-
-            {formData.is_fixed && (
-              <Input
-                label="Número de parcelas (opcional)"
-                type="number"
-                min="1"
-                value={formData.installments}
-                onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
-                placeholder="Ex: 12"
-              />
-            )}
-
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.is_recurring}
-                onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
-                className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-              />
-              <span className="text-sm text-gray-700">Despesa recorrente (mensal)</span>
-            </label>
-          </div>
 
           <div className="flex gap-3 pt-4">
             <Button
@@ -371,7 +256,7 @@ export default function Expenses() {
             <Button 
               type="submit" 
               fullWidth
-              disabled={!formData.category_id || showNewCategory}
+              disabled={!formData.category_id}
             >
               {editingExpense ? 'Salvar' : 'Adicionar'}
             </Button>

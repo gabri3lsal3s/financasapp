@@ -18,7 +18,7 @@ export function useIncomes(month?: string) {
       setLoading(true)
       let query = supabase
         .from('incomes')
-        .select('*')
+        .select('*, income_category:income_categories(*)')
         .order('date', { ascending: false })
 
       if (month) {
@@ -48,25 +48,39 @@ export function useIncomes(month?: string) {
     }
   }
 
-  const createIncome = async (income: Omit<Income, 'id' | 'created_at'>) => {
+  const createIncome = async (income: Omit<Income, 'id' | 'created_at' | 'type'>) => {
     try {
-      const incomeData = {
-        ...income,
-        date: income.date || format(new Date(), 'yyyy-MM-dd'),
+      // Validar campos obrigatórios
+      if (!income.income_category_id || !income.amount) {
+        throw new Error('Categoria e valor são obrigatórios')
       }
+
+      const incomeData = {
+        amount: income.amount,
+        date: income.date || format(new Date(), 'yyyy-MM-dd'),
+        type: 'other',
+        income_category_id: income.income_category_id,
+        ...(income.description && { description: income.description }),
+      }
+
+      console.log('Enviando dados de renda:', incomeData)
 
       const { data, error: insertError } = await supabase
         .from('incomes')
         .insert([incomeData])
-        .select()
+        .select('*, income_category:income_categories(*)')
         .single()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error('Erro do Supabase:', insertError)
+        throw insertError
+      }
       
       setIncomes((prev) => [data, ...prev])
       return { data, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar renda'
+      console.error('Erro completo:', err)
       return { data: null, error: errorMessage }
     }
   }

@@ -136,7 +136,7 @@ export default function SupabaseTest() {
       case 'error':
         return 'border-red-200 bg-red-50'
       default:
-        return 'border-gray-200 bg-white'
+        return 'border-secondary bg-secondary'
     }
   }
 
@@ -147,28 +147,28 @@ export default function SupabaseTest() {
         <Card>
         <div className="space-y-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-primary mb-2">
               Status da Configuração
             </h3>
             <div className="flex items-center gap-2 mb-4">
               {isSupabaseConfigured ? (
                 <>
                   <CheckCircle className="text-green-600" size={20} />
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-primary">
                     Variáveis de ambiente configuradas
                   </span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="text-yellow-600" size={20} />
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-primary">
                     Variáveis de ambiente não configuradas
                   </span>
                 </>
               )}
             </div>
             {isSupabaseConfigured && (
-              <div className="text-xs text-gray-500 space-y-1">
+              <div className="text-xs text-secondary space-y-1">
                 <p>
                   <strong>URL:</strong>{' '}
                   {import.meta.env.VITE_SUPABASE_URL?.substring(0, 30)}...
@@ -184,7 +184,7 @@ export default function SupabaseTest() {
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-primary">
                   Teste de Conexão
                 </span>
                 {getStatusIcon(connectionTest.status)}
@@ -199,7 +199,7 @@ export default function SupabaseTest() {
                     {connectionTest.message}
                   </p>
                   {connectionTest.details && (
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-secondary mt-1">
                       {connectionTest.details}
                     </p>
                   )}
@@ -218,7 +218,7 @@ export default function SupabaseTest() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-primary">
                   Verificar Tabelas
                 </span>
                 {getStatusIcon(tableTest.status)}
@@ -231,7 +231,7 @@ export default function SupabaseTest() {
                 >
                   <p className="text-sm font-medium mb-1">{tableTest.message}</p>
                   {tableTest.details && (
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-secondary mt-1">
                       {tableTest.details}
                     </p>
                   )}
