@@ -11,8 +11,8 @@ Aplicação React + TypeScript para controle financeiro pessoal, com foco em usa
 - Indicadores de categorias de despesas para atenção (peso percentual no mês).
 - Navegação responsiva: menu móvel (drawer) e sidebar desktop colapsável.
 - Sistema de tema (light/dark) e paletas de cores com persistência.
-- PWA instalável com atualização automática e aviso de nova versão.
-- Suporte offline com fila de alterações (create/update/delete) e sincronização automática ao reconectar.
+- PWA instalável com atualização de versão no cliente.
+- Operação offline com fila local para create/update/delete e sincronização automática ao reconectar.
 
 ## Stack
 
@@ -56,6 +56,22 @@ npm run dev
 - `npm run build`: valida TypeScript e gera build de produção.
 - `npm run preview`: serve build localmente.
 
+## PWA e Offline
+
+- Service Worker ativo com precache de assets da aplicação.
+- Prompt de atualização quando existe nova versão publicada.
+- Política de cache evita conflito com dados do Supabase (API não é cacheada no SW).
+- Em modo offline, mutações de despesas/rendas/investimentos entram em fila local.
+- Ao voltar conexão, a fila é enviada automaticamente para o banco.
+
+### Fluxo de sincronização offline
+
+1. Usuário cria/edita/deleta um registro sem internet.
+2. A operação é armazenada localmente na fila (`localStorage`).
+3. A UI reflete a alteração local imediatamente.
+4. Quando `online` retorna, o app processa a fila e sincroniza com o Supabase.
+5. Os hooks recarregam os dados para garantir consistência final.
+
 ## Estrutura (resumo)
 
 ```text
@@ -74,34 +90,20 @@ src/
 - Fechamento de modal por `Esc`, clique no fundo e botão de fechar.
 - Foco automático no primeiro campo ao abrir formulários.
 - Tokens semânticos de cor para manter consistência visual em light/dark.
-- Prompt de atualização da PWA (nova versão disponível / modo offline pronto).
-
-## PWA e sincronização offline
-
-- O app pode ser instalado como PWA (desktop/mobile) via navegador compatível.
-- O service worker faz precache dos assets do front-end para funcionamento offline da interface.
-- Chamadas de API do Supabase não são cacheadas pelo service worker para evitar conflitos de consistência.
-- Quando offline, operações de escrita (despesas, rendas, investimentos) entram em fila local.
-- Ao reconectar, a fila é sincronizada automaticamente com o banco.
-
-### Fluxo resumido
-
-1. Usuário registra alteração sem conexão.
-2. Alteração é armazenada localmente em fila.
-3. Evento `online` dispara sincronização.
-4. App envia pendências ao Supabase e recarrega dados.
-
-### Arquivos principais da implementação
-
-- [vite.config.ts](vite.config.ts): configuração PWA e Workbox.
-- [src/components/PwaUpdatePrompt.tsx](src/components/PwaUpdatePrompt.tsx): prompt de atualização/estado offline.
-- [src/components/OfflineSyncManager.tsx](src/components/OfflineSyncManager.tsx): gatilho de sincronização ao reconectar.
-- [src/utils/offlineQueue.ts](src/utils/offlineQueue.ts): fila local e flush de pendências.
-- [src/hooks/useExpenses.ts](src/hooks/useExpenses.ts), [src/hooks/useIncomes.ts](src/hooks/useIncomes.ts), [src/hooks/useInvestments.ts](src/hooks/useInvestments.ts): fallback offline nas operações de escrita.
 
 ## Observações de build
 
 O Vite pode exibir aviso de chunk grande (`>500kB`) na build de produção. Isso não bloqueia o deploy; otimizações de code-splitting podem ser aplicadas em etapa futura.
+
+## Checklist rápido de validação (PWA)
+
+1. Rode `npm run build` e confirme geração de `dist/sw.js`.
+2. Sirva com `npm run preview`.
+3. Instale o app no dispositivo/navegador (Add to Home Screen / Instalar app).
+4. Teste offline:
+  - desligue a internet;
+  - faça um lançamento (despesa/renda/investimento);
+  - religue a internet e confirme sincronização automática.
 
 
 

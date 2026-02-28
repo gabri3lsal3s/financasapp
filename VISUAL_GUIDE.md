@@ -1,4 +1,4 @@
-# Guia Visual: Setup e Migração no Supabase
+# Guia Visual: Setup, PWA e Sincronização Offline
 
 Este guia rápido cobre os dois cenários atuais do projeto:
 
@@ -78,32 +78,39 @@ Se tudo acima funcionar, o ambiente está pronto.
 
 ---
 
-## 6) Validar PWA e modo offline
+## 6) Validar instalação como PWA
 
-### Instalação da PWA
+1. Rode `npm run build`.
+2. Rode `npm run preview`.
+3. Abra no navegador suportado (Chrome/Edge).
+4. Procure o botão/ação de **Instalar app**.
+5. Instale e abra a versão instalada.
 
-1. Abra o app em um navegador compatível (Chrome/Edge).
-2. Procure opção **Instalar aplicativo** na barra de endereço/menu.
-3. Instale e abra o app como aplicativo standalone.
+Resultado esperado:
 
-### Atualização de versão
+- App abre em modo standalone.
+- Ícone e nome do app aparecem corretamente.
 
-1. Publique uma nova versão.
-2. Abra o app já instalado.
-3. Verifique o prompt **Nova versão disponível**.
-4. Clique em **Atualizar** para aplicar imediatamente.
+---
 
-### Teste offline com sincronização
+## 7) Validar modo offline e sincronização
 
-1. Abra o app e depois desligue a internet (ou use modo offline no DevTools).
-2. Crie/edite/exclua uma despesa, renda ou investimento.
-3. Confirme que a alteração aparece localmente.
-4. Ligue a internet novamente.
-5. Aguarde sincronização automática.
-6. Recarregue e valide os dados persistidos no Supabase.
+1. Com app aberto, desligue internet (modo avião ou devtools offline).
+2. Faça operações de inclusão/edição/exclusão em despesas, rendas ou investimentos.
+3. Reative a conexão.
+4. Aguarde alguns segundos.
+5. Atualize a tela ou navegue entre páginas para confirmar persistência no banco.
 
-### Resultado esperado
+Resultado esperado:
 
-- Interface continua utilizável sem conexão.
-- Alterações offline não são perdidas.
-- Ao reconectar, pendências são enviadas ao banco sem intervenção manual.
+- Sem erro crítico de cache na API.
+- Operações feitas offline sincronizam ao voltar conexão.
+
+---
+
+## 8) Diagnóstico rápido se algo falhar
+
+- Confirme variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+- Confirme que `dist/sw.js` foi gerado no build.
+- Limpe dados do site (Application > Storage) e reinstale a PWA.
+- Verifique se a conexão foi realmente restaurada antes da sincronização.
