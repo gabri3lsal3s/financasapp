@@ -1,6 +1,6 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X } from 'lucide-react'
 
 interface LayoutProps {
   children: ReactNode
@@ -8,6 +8,10 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
+  const activeItemClasses = 'bg-tertiary accent-primary'
+  const inactiveItemClasses = 'text-primary hover:bg-tertiary'
 
   const navItems = [
     { path: '/', icon: Home, label: 'Início' },
@@ -19,106 +23,226 @@ export default function Layout({ children }: LayoutProps) {
   ]
 
   const categoryItems = [
-    { path: '/expense-categories', label: 'Categorias de Despesas' },
-    { path: '/income-categories', label: 'Categorias de Rendas' },
+    { path: '/expense-categories', icon: TrendingDown, label: 'Categorias de Despesas' },
+    { path: '/income-categories', icon: TrendingUp, label: 'Categorias de Rendas' },
   ]
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!isMobileMenuOpen && !isDesktopMenuExpanded) {
+      return
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false)
+        setIsDesktopMenuExpanded(false)
+      }
+    }
+
+    document.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [isMobileMenuOpen, isDesktopMenuExpanded])
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : ''
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobileMenuOpen])
+
   return (
-    <div className="min-h-screen bg-primary transition-colors duration-300">
-      {/* Mobile Layout - Bottom Navigation */}
+    <div className="min-h-screen bg-secondary motion-standard">
       <div className="lg:hidden">
-        <main className="pb-20 safe-area-bottom">
-          <div className="max-w-md mx-auto">
-            {children}
+        <header className="sticky top-0 z-40 bg-secondary border-b border-primary safe-area-top">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="h-14 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen((currentValue) => !currentValue)}
+                aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+                aria-expanded={isMobileMenuOpen}
+                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+              >
+                {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              </button>
+              <h1 className="text-lg font-bold text-primary">Finanças</h1>
+            </div>
+          </div>
+        </header>
+
+        {isMobileMenuOpen && (
+          <>
+            <button
+              type="button"
+              aria-label="Fechar menu"
+              className="fixed inset-0 z-40 bg-[var(--color-bg-secondary)]/75 animate-fade-in motion-standard"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+
+            <aside className="fixed top-0 left-0 bottom-0 z-50 w-[85vw] max-w-[340px] bg-secondary border-r border-primary safe-area-top safe-area-bottom overflow-y-auto animate-slide-in-left motion-emphasis">
+              <div className="p-4 border-b border-primary flex items-center justify-between">
+                <h2 className="text-base font-semibold text-primary">Menu</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  aria-label="Fechar menu de navegação"
+                  className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <nav className="p-4">
+                <div className="space-y-2">
+                  {navItems.map((item) => {
+                    const Icon = item.icon
+                    const isActive = location.pathname === item.path
+
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${
+                          isActive
+                            ? activeItemClasses
+                            : inactiveItemClasses
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon size={18} />
+                          <span className="font-medium">{item.label}</span>
+                        </div>
+                        {isActive && <ChevronRight size={16} />}
+                      </Link>
+                    )
+                  })}
+                </div>
+
+                <div className="my-4 border-t border-primary"></div>
+
+                <div className="space-y-2">
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Categorias</p>
+                  {categoryItems.map((item) => {
+                    const isActive = location.pathname === item.path
+
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm motion-standard hover-lift-subtle ${
+                          isActive
+                            ? activeItemClasses
+                            : inactiveItemClasses
+                        }`}
+                      >
+                        <span className="font-medium">{item.label}</span>
+                        {isActive && <ChevronRight size={16} />}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </nav>
+            </aside>
+          </>
+        )}
+
+        <main className="safe-area-bottom">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-6">
+            <section key={location.pathname} className="animate-page-enter">
+              {children}
+            </section>
           </div>
         </main>
-        
-        {/* Bottom Navigation Bar */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-primary border-t border-primary shadow-lg safe-area-bottom">
-          <div className="max-w-md mx-auto">
-            <div className="grid grid-cols-6 gap-0">
-              {navItems.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.path
-                
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex flex-col items-center justify-center py-3 px-1 transition-colors ${
-                      isActive
-                        ? 'text-primary bg-accent-primary'
-                        : 'text-primary hover:bg-secondary'
-                    }`}
-                  >
-                    <Icon size={20} />
-                    <span className="text-xs mt-1 text-center font-medium">{item.label}</span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </nav>
       </div>
 
-      {/* Desktop Layout - Side Navigation */}
-      <div className="hidden lg:grid grid-cols-[250px_1fr] min-h-screen gap-0">
-        {/* Sidebar */}
-        <aside className="bg-secondary border-r border-primary sticky top-0 h-screen overflow-y-auto">
-          {/* Logo/Header */}
-          <div className="p-6 border-b border-primary">
-            <h1 className="text-2xl font-bold text-primary">Finanças</h1>
-            <p className="text-sm text-secondary mt-1">Seu gestor financeiro</p>
+      <div className="hidden lg:grid min-h-screen grid-cols-[auto_1fr]">
+        <aside
+          className={`sticky top-0 h-screen bg-secondary border-r border-primary overflow-y-auto motion-emphasis ${
+            isDesktopMenuExpanded ? 'w-72' : 'w-20'
+          }`}
+        >
+          <div className={`h-16 px-3 border-b border-primary flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
+            {isDesktopMenuExpanded && <h2 className="text-lg font-bold text-primary">Finanças</h2>}
+            <button
+              type="button"
+              onClick={() => setIsDesktopMenuExpanded((currentValue) => !currentValue)}
+              aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+              aria-expanded={isDesktopMenuExpanded}
+              className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+            >
+              {isDesktopMenuExpanded ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="p-4">
+          <nav className="p-3">
             <div className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
-                
+
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                    title={item.label}
+                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${
+                      isDesktopMenuExpanded
+                        ? 'justify-between px-4 py-3'
+                        : 'justify-center p-3'
+                    } ${
                       isActive
-                        ? 'bg-accent-primary text-primary'
-                        : 'text-primary hover:bg-tertiary'
+                        ? activeItemClasses
+                        : inactiveItemClasses
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon size={20} />
-                      <span className="font-medium">{item.label}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon size={20} className="flex-shrink-0" />
+                      {isDesktopMenuExpanded && <span className="font-medium truncate">{item.label}</span>}
                     </div>
-                    {isActive && <ChevronRight size={16} />}
+                    {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
                   </Link>
                 )
               })}
             </div>
-            
-            {/* Divider */}
+
             <div className="my-4 border-t border-primary"></div>
-            
-            {/* Categories Section */}
+
             <div className="space-y-2">
-              <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Categorias</p>
+              {isDesktopMenuExpanded && (
+                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Categorias</p>
+              )}
               {categoryItems.map((item) => {
+                const Icon = item.icon
                 const isActive = location.pathname === item.path
-                
+
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-sm ${
+                    title={item.label}
+                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${
+                      isDesktopMenuExpanded
+                        ? 'justify-between px-4 py-3'
+                        : 'justify-center p-3'
+                    } ${
                       isActive
-                        ? 'bg-accent-primary text-primary'
-                        : 'text-primary hover:bg-tertiary'
+                        ? activeItemClasses
+                        : inactiveItemClasses
                     }`}
                   >
-                    <span className="font-medium">{item.label}</span>
-                    {isActive && <ChevronRight size={16} />}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon size={20} className="flex-shrink-0" />
+                      {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">{item.label}</span>}
+                    </div>
+                    {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
                   </Link>
                 )
               })}
@@ -126,10 +250,11 @@ export default function Layout({ children }: LayoutProps) {
           </nav>
         </aside>
 
-        {/* Main Content */}
-        <main className="overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            {children}
+        <main className="safe-area-bottom">
+          <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-8">
+            <section key={location.pathname} className="animate-page-enter">
+              {children}
+            </section>
           </div>
         </main>
       </div>

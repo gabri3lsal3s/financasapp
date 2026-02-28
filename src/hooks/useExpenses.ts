@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Expense } from '@/types'
 import { format } from 'date-fns'
+import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 
 export function useExpenses(month?: string) {
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -12,6 +13,16 @@ export function useExpenses(month?: string) {
     loadExpenses()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month])
+
+  useEffect(() => {
+    const onQueueProcessed = () => {
+      loadExpenses()
+    }
+
+    window.addEventListener('offline-queue-processed', onQueueProcessed)
+    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadExpenses = async () => {
     try {
@@ -79,6 +90,31 @@ export function useExpenses(month?: string) {
       setExpenses((prev) => [...prev, data])
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'expenses',
+          action: 'create',
+          payload: {
+            amount: expense.amount,
+            date: expense.date || format(new Date(), 'yyyy-MM-dd'),
+            category_id: expense.category_id,
+            ...(expense.description && { description: expense.description }),
+          },
+        })
+
+        const offlineExpense: Expense = {
+          id: `offline-${Date.now()}`,
+          amount: expense.amount,
+          date: expense.date || format(new Date(), 'yyyy-MM-dd'),
+          category_id: expense.category_id,
+          ...(expense.description && { description: expense.description }),
+          created_at: new Date().toISOString(),
+        }
+
+        setExpenses((prev) => [offlineExpense, ...prev])
+        return { data: offlineExpense, error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar despesa'
       return { data: null, error: errorMessage }
     }
@@ -103,6 +139,18 @@ export function useExpenses(month?: string) {
       )
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'expenses',
+          action: 'update',
+          recordId: id,
+          payload: updates as Record<string, unknown>,
+        })
+
+        setExpenses((prev) => prev.map((exp) => (exp.id === id ? { ...exp, ...updates } : exp)))
+        return { data: { id, ...updates }, error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar despesa'
       return { data: null, error: errorMessage }
     }
@@ -120,6 +168,17 @@ export function useExpenses(month?: string) {
       setExpenses((prev) => prev.filter((exp) => exp.id !== id))
       return { error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'expenses',
+          action: 'delete',
+          recordId: id,
+        })
+
+        setExpenses((prev) => prev.filter((exp) => exp.id !== id))
+        return { error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar despesa'
       return { error: errorMessage }
     }

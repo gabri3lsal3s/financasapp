@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Income } from '@/types'
 import { format } from 'date-fns'
+import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 
 export function useIncomes(month?: string) {
   const [incomes, setIncomes] = useState<Income[]>([])
@@ -12,6 +13,16 @@ export function useIncomes(month?: string) {
     loadIncomes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month])
+
+  useEffect(() => {
+    const onQueueProcessed = () => {
+      loadIncomes()
+    }
+
+    window.addEventListener('offline-queue-processed', onQueueProcessed)
+    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadIncomes = async () => {
     try {
@@ -74,6 +85,33 @@ export function useIncomes(month?: string) {
       setIncomes((prev) => [data, ...prev])
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'incomes',
+          action: 'create',
+          payload: {
+            amount: income.amount,
+            date: income.date || format(new Date(), 'yyyy-MM-dd'),
+            type: 'other',
+            income_category_id: income.income_category_id,
+            ...(income.description && { description: income.description }),
+          },
+        })
+
+        const offlineIncome: Income = {
+          id: `offline-${Date.now()}`,
+          amount: income.amount,
+          date: income.date || format(new Date(), 'yyyy-MM-dd'),
+          type: 'other',
+          income_category_id: income.income_category_id,
+          ...(income.description && { description: income.description }),
+          created_at: new Date().toISOString(),
+        }
+
+        setIncomes((prev) => [offlineIncome, ...prev])
+        return { data: offlineIncome, error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar renda'
       return { data: null, error: errorMessage }
     }
@@ -95,6 +133,18 @@ export function useIncomes(month?: string) {
       )
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'incomes',
+          action: 'update',
+          recordId: id,
+          payload: updates as Record<string, unknown>,
+        })
+
+        setIncomes((prev) => prev.map((inc) => (inc.id === id ? { ...inc, ...updates } : inc)))
+        return { data: { id, ...updates }, error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar renda'
       return { data: null, error: errorMessage }
     }
@@ -112,6 +162,17 @@ export function useIncomes(month?: string) {
       setIncomes((prev) => prev.filter((inc) => inc.id !== id))
       return { error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'incomes',
+          action: 'delete',
+          recordId: id,
+        })
+
+        setIncomes((prev) => prev.filter((inc) => inc.id !== id))
+        return { error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar renda'
       return { error: errorMessage }
     }

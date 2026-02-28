@@ -95,7 +95,7 @@ export default function IncomeCategories() {
         }
       />
 
-      <div className="p-4 lg:p-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : incomeCategories.length === 0 ? (
@@ -116,7 +116,7 @@ export default function IncomeCategories() {
                           className="w-1 h-6 rounded-sm flex-shrink-0"
                           style={{ backgroundColor: assigned[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
                         />
-                        <p className="font-medium text-[var(--color-text-primary)] truncate">
+                        <p className="font-medium text-primary truncate">
                           {category.name}
                         </p>
                       </div>

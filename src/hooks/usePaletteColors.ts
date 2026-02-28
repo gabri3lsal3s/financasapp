@@ -12,13 +12,13 @@ export function usePaletteColors() {
       name: 'Vivid',
       colors: ['#10b981', '#ef4444', '#3b82f6'],
     },
-    sunset: {
-      name: 'Sunset',
-      colors: ['#ff6b35', '#f43f5e', '#a855f7'],
+    monochrome: {
+      name: 'Monocromática',
+      colors: ['#e5e7eb', '#9ca3af', '#6b7280'],
     },
-    ocean: {
-      name: 'Oceano',
-      colors: ['#0369a1', '#06b6d4', '#0ea5e9'],
+    'neon-green': {
+      name: 'Verde Neon',
+      colors: ['#6ee787', '#4ade80', '#84cc16'],
     },
   }
 

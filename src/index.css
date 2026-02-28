@@ -16,6 +16,8 @@
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+  --easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --easing-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -33,6 +35,17 @@
   * {
     border-color: var(--color-border);
     @apply transition-colors duration-300;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* Scrollbar customizado */
@@ -182,12 +195,79 @@
     }
   }
 
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+      opacity: 0.96;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes surface-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .animate-fade-in {
     animation: fade-in 0.2s ease-in-out;
   }
 
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.24s ease-out;
+  }
+
+  .animate-page-enter {
+    animation: page-enter 0.22s ease-out;
+  }
+
+  .animate-surface-enter {
+    animation: surface-enter 0.2s var(--easing-standard);
+  }
+
+  .motion-standard {
+    transition-property: transform, opacity, box-shadow, background-color, border-color, color;
+    transition-duration: var(--transition-fast);
+    transition-timing-function: var(--easing-standard);
+    will-change: transform;
+  }
+
+  .motion-emphasis {
+    transition-property: transform, opacity, box-shadow, background-color, border-color, color;
+    transition-duration: var(--transition-normal);
+    transition-timing-function: var(--easing-emphasis);
+    will-change: transform;
+  }
+
+  .hover-lift-subtle:hover {
+    transform: translateY(-1px);
+  }
+
+  .press-subtle:active {
+    transform: translateY(0) scale(0.99);
   }
   
   @keyframes fade-out {

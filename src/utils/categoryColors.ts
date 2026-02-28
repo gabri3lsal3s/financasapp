@@ -1,4 +1,4 @@
-export type ColorPalette = 'vivid' | 'sunset' | 'ocean'
+export type ColorPalette = 'vivid' | 'monochrome' | 'neon-green'
 
 export const categoryColorPalettes: Record<ColorPalette, string[]> = {
   vivid: [
@@ -17,37 +17,37 @@ export const categoryColorPalettes: Record<ColorPalette, string[]> = {
     // Purples
     '#8b5cf6', '#d8b4fe',
   ],
-  sunset: [
-    // Deep Reds & Magentas
-    '#dc2626', '#991b1b', '#f43f5e',
-    // Warm Corals & Oranges
-    '#ff6b35', '#ff8c42', '#ff6348',
-    // Golden & Warm Yellows
-    '#fcd34d', '#f59e0b', '#ff9500',
-    // Vibrant Pinks & Hot Pinks
-    '#ec4899', '#f72585', '#be185d',
-    // Deep Purples & Magentas
-    '#a855f7', '#d946ef', '#7e22ce',
-    // Warm Rust & Bronze
-    '#ea580c', '#c2410c', '#dc2626',
-    // Coral Shades
-    '#ff6b6b', '#ff7f7f', '#ff5252',
+  monochrome: [
+    // Neutral grayscale
+    '#f5f5f5', '#e5e5e5', '#d4d4d4',
+    // Cool light grays
+    '#cfcfcf', '#bdbdbd', '#a3a3a3',
+    // Mid grays
+    '#8a8a8a', '#737373', '#6b7280',
+    // Deep grays
+    '#5a5a5a', '#4b5563', '#444444',
+    // Charcoal shades
+    '#3a3a3a', '#333333', '#2a2a2a',
+    // Near-black accents
+    '#242424', '#1f1f1f', '#181818',
+    // Alternate neutrals
+    '#9ca3af', '#7c7c7c', '#525252',
   ],
-  ocean: [
-    // Navy shades
-    '#082f49', '#0c4a6e', '#1e3a8a',
-    // Blue-slate
-    '#0369a1', '#0284c7', '#0ea5e9',
-    // Cyan shades
-    '#06b6d4', '#14b8a6', '#2dd4bf',
-    // Sky shades
-    '#bfdbfe', '#93c5fd', '#60a5fa',
-    // Teal shades
-    '#0891b2', '#164e63', '#0e7490',
-    // Indigo
-    '#312e81', '#3730a3', '#4338ca',
-    // Emerald
-    '#047857', '#059669',
+  'neon-green': [
+    // Soft neon highlights
+    '#6ee787', '#4ade80', '#84cc16',
+    // Lime support
+    '#a3e635', '#bef264', '#9acd32',
+    // Fresh green tones
+    '#22c55e', '#34d399', '#10b981',
+    // Medium greens
+    '#16a34a', '#65a30d', '#4d7c0f',
+    // Deep support greens for contrast
+    '#166534', '#14532d', '#1f5f3a',
+    // Mint accents
+    '#86efac', '#6ee7b7', '#5eead4',
+    // Alternate balanced accents
+    '#7ddf64', '#57cc99', '#6fbf73',
   ],
 }
 

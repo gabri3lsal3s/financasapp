@@ -1,139 +1,107 @@
 # Minhas Finanças
 
-Aplicativo mobile first para organização de finanças pessoais mensais, com foco em simplicidade e visualização clara de dados financeiros.
+Aplicação React + TypeScript para controle financeiro pessoal, com foco em usabilidade, responsividade e análise mensal/anual de desempenho.
 
-## Funcionalidades
+## Principais recursos
 
-- ✅ **Gestão de Categorias**: Adicionar, editar e remover categorias de despesa
-- ✅ **Controle de Despesas**: 
-  - Adicionar despesas com valor, data e categoria
-  - Despesas fixas com parcelamento automático
-  - Despesas recorrentes (mensais)
-- ✅ **Registro de Rendas**: Incluir renda mensal com tipos (salário, freelancer, dividendos, aluguel, outros)
-- ✅ **Planejamento Financeiro**: Campo para valor reservado a investimentos ou poupança mensal
-- ✅ **Relatórios e Visualizações**:
-  - Gráficos mensais e anuais das despesas
-  - Categorias de gasto organizadas
-  - Análise de evolução ao longo do tempo
+- Dashboard com KPIs mensais (rendas, despesas, investimentos e saldo).
+- Inclusão rápida na Home (despesa, renda e investimento) sem redirecionamento.
+- CRUD completo para despesas, rendas, investimentos e categorias.
+- Relatórios com visualização Ano/Mês e múltiplos gráficos (line, bar, area, pie e radar).
+- Indicadores de categorias de despesas para atenção (peso percentual no mês).
+- Navegação responsiva: menu móvel (drawer) e sidebar desktop colapsável.
+- Sistema de tema (light/dark) e paletas de cores com persistência.
+- PWA instalável com atualização automática e aviso de nova versão.
+- Suporte offline com fila de alterações (create/update/delete) e sincronização automática ao reconectar.
 
-## Tecnologias
+## Stack
 
 - React 18 + TypeScript
 - Vite
 - Tailwind CSS
-- Supabase (banco de dados)
-- Recharts (gráficos)
-- React Router (navegação)
+- Supabase
+- Recharts
+- React Router
+- Lucide React
 
-## Configuração
+## Setup local
 
-1. Instale as dependências:
+1) Instalar dependências:
+
 ```bash
 npm install
 ```
 
-2. Configure as variáveis de ambiente:
-```bash
-cp .env.example .env
-```
+2) Criar arquivo `.env` com as credenciais do Supabase:
 
-Edite o arquivo `.env` e adicione suas credenciais do Supabase:
-```
+```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anon
 ```
 
-3. Configure o banco de dados no Supabase:
+3) Configurar banco no Supabase SQL Editor:
 
-Execute os seguintes SQLs no Supabase SQL Editor:
+- Para instalação inicial completa: execute [database.sql](database.sql).
+- Para atualizar uma base antiga: execute [MIGRATION.sql](MIGRATION.sql).
 
-```sql
--- Tabela de categorias
-CREATE TABLE categories (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
-);
+4) Rodar em desenvolvimento:
 
--- Tabela de despesas
-CREATE TABLE expenses (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  amount DECIMAL(10, 2) NOT NULL,
-  date DATE NOT NULL,
-  category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
-  description TEXT,
-  is_fixed BOOLEAN DEFAULT FALSE,
-  is_recurring BOOLEAN DEFAULT FALSE,
-  installments INTEGER,
-  current_installment INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
-);
-
--- Tabela de rendas
-CREATE TABLE incomes (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  amount DECIMAL(10, 2) NOT NULL,
-  date DATE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('salary', 'freelancer', 'dividends', 'rent', 'other')),
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
-);
-
--- Tabela de investimentos
-CREATE TABLE investments (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  amount DECIMAL(10, 2) NOT NULL,
-  month TEXT NOT NULL, -- formato YYYY-MM
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
-);
-
--- Índices para melhor performance
-CREATE INDEX idx_expenses_date ON expenses(date);
-CREATE INDEX idx_expenses_category ON expenses(category_id);
-CREATE INDEX idx_incomes_date ON incomes(date);
-CREATE INDEX idx_investments_month ON investments(month);
-```
-
-4. Execute o projeto:
 ```bash
 npm run dev
 ```
 
-## Estrutura do Projeto
+## Scripts
 
-```
+- `npm run dev`: ambiente local.
+- `npm run build`: valida TypeScript e gera build de produção.
+- `npm run preview`: serve build localmente.
+
+## Estrutura (resumo)
+
+```text
 src/
-├── components/     # Componentes reutilizáveis
-├── hooks/          # Custom hooks para gerenciar dados
-├── pages/          # Páginas da aplicação
-├── lib/            # Configurações (Supabase)
-├── types/          # Tipos TypeScript
-└── utils/          # Funções utilitárias
+  components/   # componentes reutilizáveis (layout, modal, inputs, cards)
+  contexts/     # contexto de tema/paleta
+  hooks/        # hooks de dados (Supabase)
+  pages/        # páginas principais
+  types/        # contratos TypeScript
+  utils/        # formatadores e helpers
 ```
 
-## Desenvolvimento
+## UX e padrões de interface
 
-O projeto está configurado para desenvolvimento mobile first, com:
-- Layout responsivo otimizado para telas pequenas
-- Navegação por abas na parte inferior
-- Modais para formulários
-- Gráficos responsivos
+- Modais centralizados e padronizados em todas as telas.
+- Fechamento de modal por `Esc`, clique no fundo e botão de fechar.
+- Foco automático no primeiro campo ao abrir formulários.
+- Tokens semânticos de cor para manter consistência visual em light/dark.
+- Prompt de atualização da PWA (nova versão disponível / modo offline pronto).
 
-## Build
+## PWA e sincronização offline
 
-Para gerar a build de produção:
+- O app pode ser instalado como PWA (desktop/mobile) via navegador compatível.
+- O service worker faz precache dos assets do front-end para funcionamento offline da interface.
+- Chamadas de API do Supabase não são cacheadas pelo service worker para evitar conflitos de consistência.
+- Quando offline, operações de escrita (despesas, rendas, investimentos) entram em fila local.
+- Ao reconectar, a fila é sincronizada automaticamente com o banco.
 
-```bash
-npm run build
-```
+### Fluxo resumido
 
-Os arquivos estarão na pasta `dist/`.
+1. Usuário registra alteração sem conexão.
+2. Alteração é armazenada localmente em fila.
+3. Evento `online` dispara sincronização.
+4. App envia pendências ao Supabase e recarrega dados.
+
+### Arquivos principais da implementação
+
+- [vite.config.ts](vite.config.ts): configuração PWA e Workbox.
+- [src/components/PwaUpdatePrompt.tsx](src/components/PwaUpdatePrompt.tsx): prompt de atualização/estado offline.
+- [src/components/OfflineSyncManager.tsx](src/components/OfflineSyncManager.tsx): gatilho de sincronização ao reconectar.
+- [src/utils/offlineQueue.ts](src/utils/offlineQueue.ts): fila local e flush de pendências.
+- [src/hooks/useExpenses.ts](src/hooks/useExpenses.ts), [src/hooks/useIncomes.ts](src/hooks/useIncomes.ts), [src/hooks/useInvestments.ts](src/hooks/useInvestments.ts): fallback offline nas operações de escrita.
+
+## Observações de build
+
+O Vite pode exibir aviso de chunk grande (`>500kB`) na build de produção. Isso não bloqueia o deploy; otimizações de code-splitting podem ser aplicadas em etapa futura.
 
 
 

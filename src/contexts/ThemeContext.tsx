@@ -1,7 +1,35 @@
 import { createContext, useState, useEffect, ReactNode } from 'react'
 
 export type Theme = 'mono-light' | 'mono-dark'
-export type ColorPalette = 'vivid' | 'sunset' | 'ocean'
+export type ColorPalette = 'vivid' | 'monochrome' | 'neon-green'
+
+const VALID_THEMES: Theme[] = ['mono-light', 'mono-dark']
+const VALID_PALETTES: ColorPalette[] = ['vivid', 'monochrome', 'neon-green']
+
+const LEGACY_PALETTE_MAP: Record<string, ColorPalette> = {
+  sunset: 'monochrome',
+  ocean: 'neon-green',
+}
+
+const isTheme = (value: string | null): value is Theme => {
+  return value !== null && VALID_THEMES.includes(value as Theme)
+}
+
+const isColorPalette = (value: string | null): value is ColorPalette => {
+  return value !== null && VALID_PALETTES.includes(value as ColorPalette)
+}
+
+const normalizePalette = (value: string | null): ColorPalette | null => {
+  if (!value) {
+    return null
+  }
+
+  if (isColorPalette(value)) {
+    return value
+  }
+
+  return LEGACY_PALETTE_MAP[value] ?? null
+}
 
 interface ThemeContextType {
   theme: Theme
@@ -22,11 +50,24 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   // Carregar tema e paleta do localStorage ao montar
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme | null
-    const savedPalette = localStorage.getItem('colorPalette') as ColorPalette | null
-    
-    const initialTheme: Theme = savedTheme || 'mono-dark'
-    const initialPalette: ColorPalette = savedPalette || 'vivid'
+    const savedTheme = localStorage.getItem('theme')
+    const savedPalette = localStorage.getItem('colorPalette')
+
+    const hasValidTheme = isTheme(savedTheme)
+    const normalizedPalette = normalizePalette(savedPalette)
+    const hasValidPalette = normalizedPalette !== null
+
+    const initialTheme: Theme = hasValidTheme ? savedTheme : 'mono-dark'
+    const initialPalette: ColorPalette = hasValidPalette ? normalizedPalette : 'vivid'
+
+    if (!hasValidTheme) {
+      localStorage.setItem('theme', initialTheme)
+    }
+
+    if (!hasValidPalette) {
+      localStorage.setItem('colorPalette', initialPalette)
+    }
+
     setThemeState(initialTheme)
     setColorPaletteState(initialPalette)
     applyTheme(initialTheme, initialPalette)
@@ -49,15 +90,15 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         expense: '#ef4444',
         balance: '#3b82f6',
       },
-      sunset: {
-        income: '#ff6b35',
-        expense: '#f43f5e',
-        balance: '#a855f7',
+      monochrome: {
+        income: '#e5e7eb',
+        expense: '#9ca3af',
+        balance: '#6b7280',
       },
-      ocean: {
-        income: '#0369a1',
-        expense: '#06b6d4',
-        balance: '#0ea5e9',
+      'neon-green': {
+        income: '#6ee787',
+        expense: '#4ade80',
+        balance: '#84cc16',
       },
     }
 
@@ -85,23 +126,23 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         '--transition-normal': '300ms',
       },
       'mono-dark': {
-        '--color-bg-primary': '#0f0f0f',
-        '--color-bg-secondary': '#1a1a1a',
-        '--color-bg-tertiary': '#3a3a3a',
-        '--color-text-primary': '#ffffff',
-        '--color-text-secondary': '#b0b0b0',
-        '--color-border': '#404040',
-        '--color-primary': '#ffffff',
-        '--color-primary-dark': '#505050',
-        '--color-primary-light': '#a0a0a0',
-        '--color-button-text': '#000000',
-        '--color-success': '#90ee90',
-        '--color-warning': '#ffd700',
-        '--color-danger': '#ff6b6b',
-        '--color-hover': '#2a2a2a',
-        '--color-focus': '#606060',
-        '--color-disabled': '#5a5a5a',
-        '--color-active': '#1a1a1a',
+        '--color-bg-primary': '#101010',
+        '--color-bg-secondary': '#181818',
+        '--color-bg-tertiary': '#262626',
+        '--color-text-primary': '#eef2f7',
+        '--color-text-secondary': '#b3b3b3',
+        '--color-border': '#3b3b3b',
+        '--color-primary': '#e5e7eb',
+        '--color-primary-dark': '#9ca3af',
+        '--color-primary-light': '#f9fafb',
+        '--color-button-text': '#101010',
+        '--color-success': '#86efac',
+        '--color-warning': '#facc15',
+        '--color-danger': '#f87171',
+        '--color-hover': '#2d2d2d',
+        '--color-focus': '#5f5f5f',
+        '--color-disabled': '#4e4e4e',
+        '--color-active': '#353535',
         '--transition-fast': '200ms',
         '--transition-normal': '300ms',
       },
@@ -109,6 +150,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     const themeVars = themes[newTheme]
     const paletteVars = colorPalettes[newPalette]
+
+    if (!themeVars || !paletteVars) {
+      return
+    }
     
     // Aplicar variáveis de tema
     Object.entries(themeVars).forEach(([key, value]) => {

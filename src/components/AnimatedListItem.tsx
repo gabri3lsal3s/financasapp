@@ -15,7 +15,7 @@ export default function AnimatedListItem({ children, className = '', isRemoving 
     return () => clearTimeout(t)
   }, [])
 
-  const enterClass = mounted ? 'animate-fade-in' : ''
+  const enterClass = mounted ? 'animate-surface-enter' : ''
   const exitClass = isRemoving ? 'animate-fade-out animate-slide-down' : ''
 
   return (

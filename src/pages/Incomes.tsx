@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -18,6 +18,7 @@ import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 import AnimatedListItem from '@/components/AnimatedListItem'
+import { useSearchParams } from 'react-router-dom'
 
 export default function Incomes() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
@@ -37,6 +38,7 @@ export default function Incomes() {
     income_category_id: '',
     description: '',
   })
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [removingIds, setRemovingIds] = useState<string[]>([])
 
@@ -71,6 +73,33 @@ export default function Incomes() {
       description: '',
     })
   }
+
+  useEffect(() => {
+    const quickAdd = searchParams.get('quickAdd')
+    const monthParam = searchParams.get('month')
+    const isValidMonth = monthParam ? /^\d{4}-\d{2}$/.test(monthParam) : false
+    const targetMonth = isValidMonth && monthParam ? monthParam : currentMonth
+
+    if (isValidMonth && monthParam && monthParam !== currentMonth) {
+      setCurrentMonth(monthParam)
+    }
+
+    if (quickAdd === '1') {
+      setEditingIncome(null)
+      setFormData({
+        amount: '',
+        date: `${targetMonth}-01`,
+        income_category_id: incomeCategories[0]?.id || '',
+        description: '',
+      })
+      setIsModalOpen(true)
+
+      const next = new URLSearchParams(searchParams)
+      next.delete('quickAdd')
+      next.delete('month')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, setSearchParams, incomeCategories, currentMonth])
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,7 +172,7 @@ export default function Incomes() {
         }
       />
 
-      <div className="p-4 lg:p-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
@@ -164,11 +193,11 @@ export default function Incomes() {
                           className="w-1 h-6 rounded-sm flex-shrink-0"
                           style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
                         />
-                        <p className="font-medium text-[var(--color-text-primary)] truncate">
+                        <p className="font-medium text-primary truncate">
                           {income.description || income.income_category?.name}
                         </p>
                       </div>
-                      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                      <p className="text-sm text-secondary">
                         {income.income_category?.name} • {formatDate(income.date)}
                       </p>
                       <div className="flex gap-2 mt-3">
@@ -206,7 +235,7 @@ export default function Incomes() {
         onClose={handleCloseModal}
         title={editingIncome ? 'Editar Renda' : 'Nova Renda'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
           <Input
             label="Valor"
             type="number"

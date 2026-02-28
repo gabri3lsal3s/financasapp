@@ -8,8 +8,8 @@ export default function ColorPaletteSwitcher() {
     <Card>
       <div className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-1">Paleta de Cores</h3>
-          <p className="text-[var(--color-text-secondary)] text-sm">
+          <h3 className="text-lg font-semibold text-primary mb-1">Paleta de Cores</h3>
+          <p className="text-secondary text-sm">
             Escolha a paleta de cores para elementos da interface
           </p>
         </div>
@@ -21,8 +21,8 @@ export default function ColorPaletteSwitcher() {
               onClick={() => setColorPalette(key as any)}
               className={`p-4 rounded-lg border-2 transition-all ${
                 colorPalette === key
-                  ? 'border-[var(--color-primary)] bg-[var(--color-active)]'
-                  : 'border-[var(--color-border)] hover:border-[var(--color-focus)]'
+                  ? 'border-[var(--color-primary)] bg-tertiary'
+                  : 'border-primary bg-secondary hover:border-[var(--color-focus)]'
               }`}
             >
               <div className="flex gap-2 mb-2">
@@ -34,7 +34,7 @@ export default function ColorPaletteSwitcher() {
                   />
                 ))}
               </div>
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">{palette.name}</p>
+              <p className="text-sm font-medium text-primary">{palette.name}</p>
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
 interface ModalProps {
   isOpen: boolean
@@ -9,6 +10,9 @@ interface ModalProps {
 }
 
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+  const modalPanelRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -21,25 +25,68 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isOpen) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [isOpen, onClose])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const timer = window.setTimeout(() => {
+      const container = modalPanelRef.current
+      if (!container) return
+
+      const firstFocusable = container.querySelector<HTMLElement>(
+        'input, select, textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+
+      firstFocusable?.focus()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [isOpen])
+
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black bg-opacity-50 safe-area-top safe-area-bottom animate-fade-in">
-      <div className="bg-[var(--color-bg-primary)] w-full max-w-md max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col border border-[var(--color-border)] animate-slide-up">
-        <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
-          <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{title}</h2>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black bg-opacity-50 safe-area-top safe-area-bottom animate-fade-in motion-standard p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        ref={modalPanelRef}
+        className="bg-primary w-full max-w-md max-h-[calc(100vh-2rem)] rounded-2xl shadow-xl border border-primary overflow-hidden animate-slide-up motion-emphasis"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-primary">
+          <h2 id={titleId} className="text-xl font-bold text-primary">{title}</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-[var(--color-hover)] rounded-full transition-all duration-[var(--transition-fast)] hover:scale-[1.05] active:scale-[0.95]"
+            className="p-2 hover:bg-tertiary rounded-full motion-standard hover-lift-subtle press-subtle"
           >
-            <X size={20} className="text-[var(--color-text-primary)]" />
+            <X size={20} className="text-primary" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-4 text-[var(--color-text-primary)]">
+        <div className="overflow-y-auto p-4 text-primary max-h-[calc(100vh-10rem)]">
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Investment } from '@/types'
 import { format } from 'date-fns'
+import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 
 export function useInvestments(month?: string) {
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -12,6 +13,16 @@ export function useInvestments(month?: string) {
     loadInvestments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month])
+
+  useEffect(() => {
+    const onQueueProcessed = () => {
+      loadInvestments()
+    }
+
+    window.addEventListener('offline-queue-processed', onQueueProcessed)
+    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadInvestments = async () => {
     try {
@@ -58,6 +69,29 @@ export function useInvestments(month?: string) {
       setInvestments((prev) => [data, ...prev])
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'investments',
+          action: 'create',
+          payload: {
+            amount: investment.amount,
+            month: investment.month || format(new Date(), 'yyyy-MM'),
+            ...(investment.description && { description: investment.description }),
+          },
+        })
+
+        const offlineInvestment: Investment = {
+          id: `offline-${Date.now()}`,
+          amount: investment.amount,
+          month: investment.month || format(new Date(), 'yyyy-MM'),
+          ...(investment.description && { description: investment.description }),
+          created_at: new Date().toISOString(),
+        }
+
+        setInvestments((prev) => [offlineInvestment, ...prev])
+        return { data: offlineInvestment, error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar investimento'
       return { data: null, error: errorMessage }
     }
@@ -79,6 +113,18 @@ export function useInvestments(month?: string) {
       )
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'investments',
+          action: 'update',
+          recordId: id,
+          payload: updates as Record<string, unknown>,
+        })
+
+        setInvestments((prev) => prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)))
+        return { data: { id, ...updates }, error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar investimento'
       return { data: null, error: errorMessage }
     }
@@ -96,6 +142,17 @@ export function useInvestments(month?: string) {
       setInvestments((prev) => prev.filter((inv) => inv.id !== id))
       return { error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'investments',
+          action: 'delete',
+          recordId: id,
+        })
+
+        setInvestments((prev) => prev.filter((inv) => inv.id !== id))
+        return { error: null }
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar investimento'
       return { error: errorMessage }
     }

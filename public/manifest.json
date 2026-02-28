@@ -1,10 +1,53 @@
 {
+  "id": "/",
   "name": "Minhas Finanças",
   "short_name": "Finanças",
   "description": "Organização de finanças pessoais mensais",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "theme_color": "#0ea5e9",
   "background_color": "#ffffff",
-  "lang": "pt-BR"
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/pwa-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Adicionar despesa",
+      "short_name": "Despesa",
+      "url": "/expenses",
+      "description": "Lançar nova despesa"
+    },
+    {
+      "name": "Adicionar renda",
+      "short_name": "Renda",
+      "url": "/incomes",
+      "description": "Lançar nova renda"
+    },
+    {
+      "name": "Adicionar investimento",
+      "short_name": "Investimento",
+      "url": "/investments",
+      "description": "Lançar novo investimento"
+    }
+  ]
 }

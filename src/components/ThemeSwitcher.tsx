@@ -14,10 +14,10 @@ export default function ThemeSwitcher() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <Palette size={24} className="text-[var(--color-primary)]" />
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Aparência</h2>
+          <Palette size={24} className="accent-primary" />
+          <h2 className="text-xl font-semibold text-primary">Aparência</h2>
         </div>
-        <p className="text-[var(--color-text-secondary)] text-sm mb-6">Escolha um tema para personalizar a aparência do app</p>
+        <p className="text-secondary text-sm mb-6">Escolha um tema para personalizar a aparência do app</p>
       </div>
 
       {/* Grid de temas */}
@@ -27,7 +27,7 @@ export default function ThemeSwitcher() {
             key={t.id}
             className={`cursor-pointer transition-all ${
               theme === t.id
-                ? 'ring-2 ring-[var(--color-primary)] shadow-lg'
+                ? 'ring-2 ring-[var(--color-primary)] bg-tertiary shadow-lg'
                 : 'hover:shadow-md'
             }`}
             onClick={() => setTheme(t.id)}
@@ -36,29 +36,29 @@ export default function ThemeSwitcher() {
             <div className="mb-4 h-24 rounded-lg flex gap-1 overflow-hidden">
               {t.id === 'mono-light' && (
                 <>
-                  <div className="flex-1 bg-white border border-gray-300"></div>
-                  <div className="flex-1 bg-gray-100"></div>
-                  <div className="flex-1 bg-gray-500"></div>
+                  <div className="flex-1" style={{ backgroundColor: '#ffffff', border: '1px solid #d0d0d0' }}></div>
+                  <div className="flex-1" style={{ backgroundColor: '#f8f8f8' }}></div>
+                  <div className="flex-1" style={{ backgroundColor: '#808080' }}></div>
                 </>
               )}
               {t.id === 'mono-dark' && (
                 <>
-                  <div className="flex-1 bg-gray-950 border border-gray-700"></div>
-                  <div className="flex-1 bg-gray-800"></div>
-                  <div className="flex-1 bg-gray-400"></div>
+                  <div className="flex-1" style={{ backgroundColor: '#101010', border: '1px solid #3b3b3b' }}></div>
+                  <div className="flex-1" style={{ backgroundColor: '#181818' }}></div>
+                  <div className="flex-1" style={{ backgroundColor: '#b3b3b3' }}></div>
                 </>
               )}
             </div>
 
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-semibold text-[var(--color-text-primary)]">{t.name}</h3>
-                <p className="text-sm text-[var(--color-text-secondary)] mt-1">{t.description}</p>
+                <h3 className="font-semibold text-primary">{t.name}</h3>
+                <p className="text-sm text-secondary mt-1">{t.description}</p>
               </div>
               {theme === t.id && (
                 <div className="flex-shrink-0">
                   <div className="w-5 h-5 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                    <div className="w-2 h-2 bg-[var(--color-button-text)] rounded-full"></div>
                   </div>
                 </div>
               )}
