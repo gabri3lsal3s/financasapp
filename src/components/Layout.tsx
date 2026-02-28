@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X } from 'lucide-react'
 
@@ -10,6 +10,10 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
+  const mobileMenuRef = useRef<HTMLElement | null>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const desktopMenuRef = useRef<HTMLElement | null>(null)
+  const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const activeItemClasses = 'bg-tertiary accent-primary'
   const inactiveItemClasses = 'text-primary hover:bg-tertiary'
 
@@ -23,8 +27,7 @@ export default function Layout({ children }: LayoutProps) {
   ]
 
   const categoryItems = [
-    { path: '/expense-categories', icon: TrendingDown, label: 'Categorias de Despesas' },
-    { path: '/income-categories', icon: TrendingUp, label: 'Categorias de Rendas' },
+    { path: '/categories', icon: TrendingDown, label: 'Categorias' },
   ]
 
   useEffect(() => {
@@ -51,6 +54,41 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen, isDesktopMenuExpanded])
 
   useEffect(() => {
+    if (!isMobileMenuOpen && !isDesktopMenuExpanded) {
+      return
+    }
+
+    const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+
+      if (isMobileMenuOpen) {
+        const clickedMobileMenu = mobileMenuRef.current?.contains(target)
+        const clickedMobileToggle = mobileMenuButtonRef.current?.contains(target)
+        if (!clickedMobileMenu && !clickedMobileToggle) {
+          setIsMobileMenuOpen(false)
+        }
+      }
+
+      if (isDesktopMenuExpanded) {
+        const clickedDesktopMenu = desktopMenuRef.current?.contains(target)
+        const clickedDesktopToggle = desktopMenuButtonRef.current?.contains(target)
+        if (!clickedDesktopMenu && !clickedDesktopToggle) {
+          setIsDesktopMenuExpanded(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('touchstart', closeOnOutsideClick)
+
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('touchstart', closeOnOutsideClick)
+    }
+  }, [isMobileMenuOpen, isDesktopMenuExpanded])
+
+  useEffect(() => {
     document.body.style.overflow = isMobileMenuOpen ? 'hidden' : ''
 
     return () => {
@@ -59,17 +97,18 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   return (
-    <div className="min-h-screen bg-secondary motion-standard">
+    <div className="min-h-screen bg-secondary">
       <div className="lg:hidden">
-        <header className="sticky top-0 z-40 bg-secondary border-b border-primary safe-area-top">
+        <header className="fixed top-0 inset-x-0 z-40 bg-secondary border-b border-primary safe-area-top">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="h-14 flex items-center gap-3">
               <button
+                ref={mobileMenuButtonRef}
                 type="button"
                 onClick={() => setIsMobileMenuOpen((currentValue) => !currentValue)}
                 aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
                 aria-expanded={isMobileMenuOpen}
-                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
               >
                 {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
@@ -87,14 +126,14 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setIsMobileMenuOpen(false)}
             />
 
-            <aside className="fixed top-0 left-0 bottom-0 z-50 w-[85vw] max-w-[340px] bg-secondary border-r border-primary safe-area-top safe-area-bottom overflow-y-auto animate-slide-in-left motion-emphasis">
+            <aside ref={mobileMenuRef} className="fixed top-0 left-0 bottom-0 z-50 w-[85vw] max-w-[340px] bg-secondary border-r border-primary safe-area-top safe-area-bottom overflow-y-auto animate-slide-in-left motion-emphasis">
               <div className="p-4 border-b border-primary flex items-center justify-between">
                 <h2 className="text-base font-semibold text-primary">Menu</h2>
                 <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
                   aria-label="Fechar menu de navegação"
-                  className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+                  className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
                 >
                   <X size={20} />
                 </button>
@@ -154,7 +193,7 @@ export default function Layout({ children }: LayoutProps) {
           </>
         )}
 
-        <main className="safe-area-bottom">
+        <main className="safe-area-bottom pt-[calc(3.5rem+env(safe-area-inset-top))]">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-6">
             <section key={location.pathname} className="animate-page-enter">
               {children}
@@ -165,6 +204,7 @@ export default function Layout({ children }: LayoutProps) {
 
       <div className="hidden lg:grid min-h-screen grid-cols-[auto_1fr]">
         <aside
+          ref={desktopMenuRef}
           className={`sticky top-0 h-screen bg-secondary border-r border-primary overflow-y-auto motion-emphasis ${
             isDesktopMenuExpanded ? 'w-72' : 'w-20'
           }`}
@@ -172,11 +212,12 @@ export default function Layout({ children }: LayoutProps) {
           <div className={`h-16 px-3 border-b border-primary flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
             {isDesktopMenuExpanded && <h2 className="text-lg font-bold text-primary">Finanças</h2>}
             <button
+              ref={desktopMenuButtonRef}
               type="button"
               onClick={() => setIsDesktopMenuExpanded((currentValue) => !currentValue)}
               aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
               aria-expanded={isDesktopMenuExpanded}
-              className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+              className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
             >
               {isDesktopMenuExpanded ? <X size={20} /> : <Menu size={20} />}
             </button>

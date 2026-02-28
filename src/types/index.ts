@@ -9,6 +9,7 @@ export interface Category {
 export interface Expense {
   id: string
   amount: number
+  report_weight?: number
   date: string
   category_id: string
   description?: string
@@ -20,6 +21,7 @@ export interface Expense {
 export interface Income {
   id: string
   amount: number
+  report_weight?: number
   date: string
   type: IncomeType
   income_category_id: string
@@ -33,6 +35,24 @@ export interface IncomeCategory {
   id: string
   name: string
   color: string
+  created_at: string
+  user_id?: string
+}
+
+export interface ExpenseCategoryMonthLimit {
+  id: string
+  category_id: string
+  month: string
+  limit_amount: number | null
+  created_at: string
+  user_id?: string
+}
+
+export interface IncomeCategoryMonthExpectation {
+  id: string
+  income_category_id: string
+  month: string
+  expectation_amount: number | null
   created_at: string
   user_id?: string
 }

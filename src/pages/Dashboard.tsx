@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
@@ -10,7 +11,7 @@ import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { formatCurrency, getCurrentMonthString } from '@/utils/format'
+import { addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, RefreshCw, Plus, Wallet, WalletCards } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
@@ -38,23 +39,46 @@ export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [quickAddType, setQuickAddType] = useState<QuickAddType>('expense')
+  const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
   const [formData, setFormData] = useState({
     amount: '',
-    date: `${getCurrentMonthString()}-01`,
+    report_amount: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
     month: getCurrentMonthString(),
     category_id: '',
     income_category_id: '',
     description: '',
   })
+
+  const handleAmountChange = (nextAmount: string) => {
+    setFormData((prev) => {
+      const prevAmount = parseMoneyInput(prev.amount)
+      const prevReportAmount = parseMoneyInput(prev.report_amount)
+      const shouldSyncReportAmount =
+        !prev.report_amount ||
+        (!Number.isNaN(prevAmount) &&
+          !Number.isNaN(prevReportAmount) &&
+          Math.abs(prevReportAmount - prevAmount) < 0.009)
+
+      return {
+        ...prev,
+        amount: nextAmount,
+        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
+      }
+    })
+  }
   const { colorPalette } = usePaletteColors()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
   const { expenses, loading: expensesLoading, refreshExpenses, createExpense } = useExpenses(currentMonth)
+  const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
+  const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
   const { investments, loading: investmentsLoading, refreshInvestments, createInvestment } = useInvestments(currentMonth)
 
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
-  const totalIncomes = incomes.reduce((sum, inc) => sum + inc.amount, 0)
+  const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount * (exp.report_weight ?? 1)), 0)
+  const totalIncomes = incomes.reduce((sum, inc) => sum + (inc.amount * (inc.report_weight ?? 1)), 0)
   const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0)
   const balance = totalIncomes - totalExpenses - totalInvestments
   const loading = expensesLoading || incomesLoading || investmentsLoading
@@ -69,18 +93,19 @@ export default function Dashboard() {
   )
 
   const expenseByCategory = useMemo(() => {
-    const map = new Map<string, { name: string; color: string; value: number }>()
+    const map = new Map<string, { categoryId: string; name: string; color: string; value: number }>()
 
     expenses.forEach((expense) => {
       const name = expense.category?.name || 'Sem categoria'
-      const key = expense.category?.id || name
+      const categoryId = expense.category?.id || expense.category_id || ''
+      const key = categoryId || name
       const color = getCategoryColorForPalette(expense.category?.color || 'var(--color-primary)', colorPalette)
       const current = map.get(key)
 
       if (current) {
-        current.value += expense.amount
+        current.value += expense.amount * (expense.report_weight ?? 1)
       } else {
-        map.set(key, { name, color, value: expense.amount })
+        map.set(key, { categoryId, name, color, value: expense.amount * (expense.report_weight ?? 1) })
       }
     })
 
@@ -93,7 +118,7 @@ export default function Dashboard() {
     const top = expenseByCategory.slice(0, 5)
     const othersValue = expenseByCategory.slice(5).reduce((sum, item) => sum + item.value, 0)
 
-    return [...top, { name: 'Outras', color: 'var(--color-text-secondary)', value: othersValue }]
+    return [...top, { categoryId: '', name: 'Outras', color: 'var(--color-text-secondary)', value: othersValue }]
   }, [expenseByCategory])
 
   const expenseAttentionCategories = useMemo(() => {
@@ -118,12 +143,12 @@ export default function Dashboard() {
 
     incomes.forEach((income) => {
       const day = new Date(`${income.date}T00:00:00`).getDate()
-      if (day >= 1 && day <= daysInMonth) series[day - 1].Rendas += income.amount
+      if (day >= 1 && day <= daysInMonth) series[day - 1].Rendas += income.amount * (income.report_weight ?? 1)
     })
 
     expenses.forEach((expense) => {
       const day = new Date(`${expense.date}T00:00:00`).getDate()
-      if (day >= 1 && day <= daysInMonth) series[day - 1].Despesas += expense.amount
+      if (day >= 1 && day <= daysInMonth) series[day - 1].Despesas += expense.amount * (expense.report_weight ?? 1)
     })
 
     investments.forEach((investment) => {
@@ -139,9 +164,11 @@ export default function Dashboard() {
   const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) return null
 
+    const isDayLabel = typeof label === 'string' && /^\d{1,2}$/.test(label)
+
     return (
       <div className="rounded-lg border border-primary bg-primary px-3 py-2 shadow-sm">
-        {label && <p className="text-xs text-secondary mb-1">Dia {label}</p>}
+        {label && <p className="text-xs text-secondary mb-1">{isDayLabel ? `Dia ${label}` : label}</p>}
         <div className="space-y-1">
           {payload.map((entry, index) => (
             <p key={`${entry.name}-${index}`} className="text-sm text-primary">
@@ -153,11 +180,71 @@ export default function Dashboard() {
     )
   }
 
+  const openExpenseCategoryDetails = (categoryId: string, categoryName: string) => {
+    if (!categoryId) return
+
+    setSelectedExpenseCategory({ id: categoryId, name: categoryName })
+  }
+
+  const selectedExpenseCategoryDetails = useMemo(() => {
+    if (!selectedExpenseCategory) return null
+
+    const currentItems = expenses.filter((expense) => (expense.category?.id || expense.category_id || '') === selectedExpenseCategory.id)
+    const previousItems = previousMonthExpenses.filter((expense) => (expense.category?.id || expense.category_id || '') === selectedExpenseCategory.id)
+
+    const currentTotal = currentItems.reduce((sum, item) => sum + item.amount * (item.report_weight ?? 1), 0)
+    const previousTotal = previousItems.reduce((sum, item) => sum + item.amount * (item.report_weight ?? 1), 0)
+
+    return {
+      currentItems,
+      currentTotal,
+      previousTotal,
+    }
+  }, [selectedExpenseCategory, expenses, previousMonthExpenses])
+
+  const toggleDailyFlowSeries = (dataKey: string) => {
+    setHiddenDailyFlowSeries((prev) =>
+      prev.includes(dataKey) ? prev.filter((key) => key !== dataKey) : [...prev, dataKey]
+    )
+  }
+
+  const renderInteractiveLegend = ({ payload }: { payload?: any[] }) => {
+    if (!payload?.length) return null
+
+    return (
+      <div className="flex flex-wrap gap-2 pt-2">
+        {payload.map((entry: any) => {
+          const dataKey = String(entry.dataKey ?? entry.value ?? '')
+          const isHidden = hiddenDailyFlowSeries.includes(dataKey)
+
+          return (
+            <button
+              key={dataKey}
+              type="button"
+              onClick={() => toggleDailyFlowSeries(dataKey)}
+              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle ${
+                isHidden ? 'opacity-50 bg-secondary' : 'bg-primary'
+              }`}
+              aria-pressed={!isHidden}
+            >
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="text-primary">{entry.value}</span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const interactiveRowButtonClasses =
+    'w-full rounded-lg p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+
   const openQuickAdd = (type: QuickAddType) => {
     setQuickAddType(type)
     setFormData({
       amount: '',
-      date: `${currentMonth}-01`,
+      report_amount: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
       month: currentMonth,
       category_id: categories[0]?.id || '',
       income_category_id: incomeCategories[0]?.id || '',
@@ -179,11 +266,19 @@ export default function Dashboard() {
   const handleQuickAddSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    const amount = Number(formData.amount)
+    const amount = parseMoneyInput(formData.amount)
     if (!amount || amount <= 0) {
       alert('Insira um valor válido maior que zero.')
       return
     }
+
+    const reportAmount = formData.report_amount ? parseMoneyInput(formData.report_amount) : amount
+    if (quickAddType !== 'investment' && (Number.isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount)) {
+      alert('O valor no relatório deve estar entre 0 e o valor total.')
+      return
+    }
+
+    const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
 
     if (quickAddType === 'expense') {
       if (!formData.category_id) {
@@ -193,6 +288,7 @@ export default function Dashboard() {
 
       const { error } = await createExpense({
         amount,
+        report_weight: reportWeight,
         date: formData.date,
         category_id: formData.category_id,
         ...(formData.description && { description: formData.description }),
@@ -212,6 +308,7 @@ export default function Dashboard() {
 
       const { error } = await createIncome({
         amount,
+        report_weight: reportWeight,
         date: formData.date,
         income_category_id: formData.income_category_id,
         ...(formData.description && { description: formData.description }),
@@ -224,9 +321,10 @@ export default function Dashboard() {
     }
 
     if (quickAddType === 'investment') {
+      const selectedDate = formData.date || format(new Date(), 'yyyy-MM-dd')
       const { error } = await createInvestment({
         amount,
-        month: formData.month,
+        month: selectedDate.substring(0, 7),
         ...(formData.description && { description: formData.description }),
       })
 
@@ -401,10 +499,10 @@ export default function Dashboard() {
                       tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
                     />
                     <Tooltip content={chartTooltip} />
-                    <Legend />
-                    <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} />
+                    <Legend content={renderInteractiveLegend} />
+                    <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} />
+                    <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} />
+                    <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} />
                   </LineChart>
                 </ResponsiveContainer>
               </Card>
@@ -419,7 +517,19 @@ export default function Dashboard() {
                   <>
                     <ResponsiveContainer width="100%" height={260}>
                       <PieChart>
-                        <Pie data={expenseCategoriesPieData} dataKey="value" nameKey="name" outerRadius={86} labelLine={false} label={false}>
+                        <Pie
+                          data={expenseCategoriesPieData}
+                          dataKey="value"
+                          nameKey="name"
+                          outerRadius={86}
+                          labelLine={false}
+                          label={false}
+                          onClick={(entry: { categoryId?: string; name?: string }) => {
+                            if (entry?.categoryId && entry?.name) {
+                              openExpenseCategoryDetails(entry.categoryId, entry.name)
+                            }
+                          }}
+                        >
                           {expenseCategoriesPieData.map((entry) => (
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
@@ -432,13 +542,18 @@ export default function Dashboard() {
                       {expenseCategoriesPieData.map((item) => {
                         const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
                         return (
-                          <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
+                            className={`${interactiveRowButtonClasses} flex items-center justify-between gap-3 text-sm`}
+                          >
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
                               <span className="text-primary truncate">{item.name}</span>
                             </div>
                             <span className="text-secondary flex-shrink-0">{percentage.toFixed(1)}%</span>
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
@@ -453,7 +568,13 @@ export default function Dashboard() {
                 ) : (
                   <div className="space-y-3">
                     {expenseAttentionCategories.map((item) => (
-                      <div key={item.name}>
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
+                        disabled={!item.categoryId}
+                        className={`${interactiveRowButtonClasses} disabled:cursor-not-allowed disabled:opacity-60`}
+                      >
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
@@ -468,7 +589,7 @@ export default function Dashboard() {
                           <div className="h-2 rounded-full" style={{ width: `${Math.min(item.percentage, 100)}%`, backgroundColor: item.color }} />
                         </div>
                         <p className="text-xs text-secondary mt-1">{formatCurrency(item.value)} no mês</p>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -513,32 +634,45 @@ export default function Dashboard() {
           </div>
           <Input
             label="Valor"
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={formData.amount}
-            onChange={(event) => setFormData((prev) => ({ ...prev, amount: event.target.value }))}
+            onChange={(event) => handleAmountChange(event.target.value)}
+            onBlur={() => {
+              const parsed = parseMoneyInput(formData.amount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                handleAmountChange(formatMoneyInput(parsed))
+              }
+            }}
             placeholder="0,00"
             required
           />
 
-          {quickAddType === 'investment' ? (
+          {quickAddType !== 'investment' && (
             <Input
-              label="Mês"
-              type="month"
-              value={formData.month}
-              onChange={(event) => setFormData((prev) => ({ ...prev, month: event.target.value }))}
-              required
-            />
-          ) : (
-            <Input
-              label="Data"
-              type="date"
-              value={formData.date}
-              onChange={(event) => setFormData((prev) => ({ ...prev, date: event.target.value }))}
-              required
+              label="Valor no relatório (opcional)"
+              type="text"
+              inputMode="decimal"
+              value={formData.report_amount}
+              onChange={(event) => setFormData((prev) => ({ ...prev, report_amount: event.target.value }))}
+              onBlur={() => {
+                if (!formData.report_amount) return
+                const parsed = parseMoneyInput(formData.report_amount)
+                if (!Number.isNaN(parsed) && parsed >= 0) {
+                  setFormData((prev) => ({ ...prev, report_amount: formatMoneyInput(parsed) }))
+                }
+              }}
+              placeholder="Se vazio, usa o valor total"
             />
           )}
+
+          <Input
+            label="Data"
+            type="date"
+            value={formData.date}
+            onChange={(event) => setFormData((prev) => ({ ...prev, date: event.target.value }))}
+            required
+          />
 
           {quickAddType === 'expense' && (
             <Select
@@ -576,6 +710,51 @@ export default function Dashboard() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(selectedExpenseCategory)}
+        onClose={() => setSelectedExpenseCategory(null)}
+        title={selectedExpenseCategory ? `Detalhamento: ${selectedExpenseCategory.name}` : 'Detalhamento'}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-primary bg-secondary p-3">
+              <p className="text-xs text-secondary">Total em {formatMonth(currentMonth)}</p>
+              <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.currentTotal ?? 0)}</p>
+            </div>
+            <div className="rounded-lg border border-primary bg-secondary p-3">
+              <p className="text-xs text-secondary">Total em {formatMonth(previousMonth)}</p>
+              <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.previousTotal ?? 0)}</p>
+            </div>
+          </div>
+
+          {selectedExpenseCategoryDetails && selectedExpenseCategoryDetails.currentItems.length > 0 ? (
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+              {selectedExpenseCategoryDetails.currentItems.map((item) => {
+                const reportAmount = item.amount * (item.report_weight ?? 1)
+                const showOriginal = Math.abs(reportAmount - item.amount) > 0.009
+
+                return (
+                  <div key={item.id} className="rounded-lg border border-primary bg-primary p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-primary truncate">{item.description || 'Sem descrição'}</p>
+                        <p className="text-xs text-secondary mt-0.5">{formatDate(item.date)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-primary">{formatCurrency(reportAmount)}</p>
+                        {showOriginal && <p className="text-xs text-secondary">Total: {formatCurrency(item.amount)}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-secondary">Sem lançamentos dessa categoria no mês selecionado.</p>
+          )}
+        </div>
       </Modal>
     </div>
   )

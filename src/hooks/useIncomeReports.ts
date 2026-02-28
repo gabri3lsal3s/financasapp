@@ -11,7 +11,7 @@ export interface IncomeByCategory {
 /** Rendas por categoria por mês (yyyy-MM -> lista) */
 export type MonthlyIncomeByCategory = Record<string, IncomeByCategory[]>
 
-export function useIncomeReports(year: number) {
+export function useIncomeReports(year: number, includeReportWeights = true) {
   const [incomeByCategory, setIncomeByCategory] = useState<IncomeByCategory[]>([])
   const [monthlyIncomeByCategory, setMonthlyIncomeByCategory] = useState<MonthlyIncomeByCategory>({})
   const [loading, setLoading] = useState(true)
@@ -19,18 +19,26 @@ export function useIncomeReports(year: number) {
 
   useEffect(() => {
     loadIncomeByCategory()
-  }, [year])
+  }, [year, includeReportWeights])
 
   const loadIncomeByCategory = async () => {
     try {
       setLoading(true)
+      const hasMissingReportWeightError = (error: unknown) => {
+        const message = typeof error === 'object' && error && 'message' in error
+          ? String((error as { message?: string }).message)
+          : ''
+        return message.toLowerCase().includes('report_weight')
+      }
+
       const startDate = `${year}-01-01`
       const endDate = `${year}-12-31`
 
-      const { data: incomes, error: incomesError } = await supabase
+      let { data: incomes, error: incomesError } = await supabase
         .from('incomes')
         .select(`
           amount,
+          report_weight,
           date,
           income_category_id,
           income_categories (name, color)
@@ -38,17 +46,36 @@ export function useIncomeReports(year: number) {
         .gte('date', startDate)
         .lte('date', endDate)
 
+      if (incomesError && hasMissingReportWeightError(incomesError)) {
+        const fallback = await supabase
+          .from('incomes')
+          .select(`
+            amount,
+            date,
+            income_category_id,
+            income_categories (name, color)
+          `)
+          .gte('date', startDate)
+          .lte('date', endDate)
+
+        incomes = (fallback.data || []).map((income) => ({ ...income, report_weight: 1 }))
+        incomesError = fallback.error
+      }
+
       if (incomesError) throw incomesError
 
       const annual: Record<string, IncomeByCategory> = {}
       const byMonth: MonthlyIncomeByCategory = {}
 
-      ;(incomes || []).forEach((income: { amount: number; date: string; income_category_id: string; income_categories?: { name?: string; color?: string } | { name?: string; color?: string }[] | null }) => {
+      ;(incomes || []).forEach((income: { amount: number; report_weight?: number | null; date: string; income_category_id: string; income_categories?: { name?: string; color?: string } | { name?: string; color?: string }[] | null }) => {
         const cat = Array.isArray(income.income_categories) ? income.income_categories[0] : income.income_categories
         const categoryId = income.income_category_id
         const categoryName = cat?.name ?? 'Sem categoria'
         const categoryColor = cat?.color ?? '#808080'
         const monthStr = income.date.substring(0, 7)
+        const weightedAmount = includeReportWeights
+          ? income.amount * (income.report_weight ?? 1)
+          : income.amount
 
         if (!annual[categoryId]) {
           annual[categoryId] = {
@@ -58,18 +85,18 @@ export function useIncomeReports(year: number) {
             color: categoryColor,
           }
         }
-        annual[categoryId].total += income.amount
+        annual[categoryId].total += weightedAmount
 
         if (!byMonth[monthStr]) byMonth[monthStr] = []
         const monthList = byMonth[monthStr]
         const existing = monthList.find((c) => c.income_category_id === categoryId)
         if (existing) {
-          existing.total += income.amount
+          existing.total += weightedAmount
         } else {
           monthList.push({
             income_category_id: categoryId,
             category_name: categoryName,
-            total: income.amount,
+            total: weightedAmount,
             color: categoryColor,
           })
         }

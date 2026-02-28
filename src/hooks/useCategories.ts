@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Category } from '@/types'
 
+const DEFAULT_CATEGORY_NAME = 'Sem categoria'
+const DEFAULT_CATEGORY_COLOR = '#9ca3af'
+
 export function useCategories() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,6 +74,62 @@ export function useCategories() {
 
   const deleteCategory = async (id: string) => {
     try {
+      const { data: currentCategory } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('id', id)
+        .single()
+
+      if (currentCategory?.name === DEFAULT_CATEGORY_NAME) {
+        return { error: 'A categoria padrão "Sem categoria" não pode ser excluída.' }
+      }
+
+      const { count: linkedExpensesCount, error: countError } = await supabase
+        .from('expenses')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', id)
+
+      if (countError) throw countError
+
+      if ((linkedExpensesCount ?? 0) > 0) {
+        let defaultCategoryId: string | null = null
+
+        const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .eq('name', DEFAULT_CATEGORY_NAME)
+          .limit(1)
+          .maybeSingle()
+
+        if (defaultFetchError) throw defaultFetchError
+
+        if (existingDefaultCategory?.id) {
+          defaultCategoryId = existingDefaultCategory.id
+        } else {
+          const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
+            .from('categories')
+            .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
+            .select()
+            .single()
+
+          if (defaultCreateError) throw defaultCreateError
+          defaultCategoryId = createdDefaultCategory.id
+
+          setCategories((prev) => [...prev, createdDefaultCategory])
+        }
+
+        if (!defaultCategoryId || defaultCategoryId === id) {
+          return { error: 'Não foi possível reatribuir os itens para a categoria padrão.' }
+        }
+
+        const { error: reassignError } = await supabase
+          .from('expenses')
+          .update({ category_id: defaultCategoryId })
+          .eq('category_id', id)
+
+        if (reassignError) throw reassignError
+      }
+
       const { error: deleteError } = await supabase
         .from('categories')
         .delete()

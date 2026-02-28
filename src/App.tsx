@@ -8,6 +8,7 @@ import Incomes from './pages/Incomes'
 import Reports from './pages/Reports'
 import Investments from './pages/Investments'
 import Settings from './pages/Settings'
+import CategoriesHome from './pages/CategoriesHome'
 import Categories from './pages/Categories'
 import IncomeCategories from './pages/IncomeCategories'
 
@@ -20,6 +21,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/expenses" element={<Expenses />} />
+            <Route path="/categories" element={<CategoriesHome />} />
             <Route path="/expense-categories" element={<Categories />} />
             <Route path="/incomes" element={<Incomes />} />
             <Route path="/income-categories" element={<IncomeCategories />} />

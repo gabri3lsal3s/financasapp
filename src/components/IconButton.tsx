@@ -15,7 +15,7 @@ export default function IconButton({
   className = '',
   ...props
 }: IconButtonProps) {
-  const baseStyles = 'rounded-full transition-all duration-[var(--transition-fast)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.05] active:scale-[0.95]'
+  const baseStyles = 'rounded-full motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed'
   
   const variantStyles = {
     neutral: 'text-primary hover:bg-tertiary',

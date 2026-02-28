@@ -76,7 +76,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           <h2 id={titleId} className="text-xl font-bold text-primary">{title}</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-tertiary rounded-full motion-standard hover-lift-subtle press-subtle"
+            className="p-2 hover:bg-tertiary rounded-full motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
           >
             <X size={20} className="text-primary" />
           </button>

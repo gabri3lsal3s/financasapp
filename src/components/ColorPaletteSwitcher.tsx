@@ -19,7 +19,7 @@ export default function ColorPaletteSwitcher() {
             <button
               key={key}
               onClick={() => setColorPalette(key as any)}
-              className={`p-4 rounded-lg border-2 transition-all ${
+              className={`p-4 rounded-lg border-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
                 colorPalette === key
                   ? 'border-[var(--color-primary)] bg-tertiary'
                   : 'border-primary bg-secondary hover:border-[var(--color-focus)]'

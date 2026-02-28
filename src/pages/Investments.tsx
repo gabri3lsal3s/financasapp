@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
-import { formatCurrency, formatMonth, getCurrentMonthString } from '@/utils/format'
-import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
+import { formatCurrency, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Edit2, Trash2 } from 'lucide-react'
-import AnimatedListItem from '@/components/AnimatedListItem'
+import { Plus } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 export default function Investments() {
@@ -22,16 +20,22 @@ export default function Investments() {
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null)
   const [formData, setFormData] = useState({
     amount: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
     month: getCurrentMonthString(),
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const handleAmountChange = (nextAmount: string) => {
+    setFormData((prev) => ({ ...prev, amount: nextAmount }))
+  }
+
   const handleOpenModal = (investment?: Investment) => {
     if (investment) {
       setEditingInvestment(investment)
       setFormData({
-        amount: investment.amount.toString(),
+        amount: formatMoneyInput(investment.amount),
+        date: `${investment.month}-01`,
         month: investment.month,
         description: investment.description || '',
       })
@@ -39,6 +43,7 @@ export default function Investments() {
       setEditingInvestment(null)
       setFormData({
         amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         month: currentMonth,
         description: '',
       })
@@ -65,6 +70,7 @@ export default function Investments() {
       setEditingInvestment(null)
       setFormData({
         amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         month: targetMonth,
         description: '',
       })
@@ -82,15 +88,18 @@ export default function Investments() {
     
     if (!formData.amount) return
 
-    const amount = parseFloat(formData.amount)
+    const amount = parseMoneyInput(formData.amount)
     if (isNaN(amount) || amount <= 0) {
       alert('Por favor, insira um valor válido maior que zero')
       return
     }
 
+    const selectedDate = formData.date || format(new Date(), 'yyyy-MM-dd')
+    const selectedMonth = selectedDate.substring(0, 7)
+
     const investmentData: Omit<Investment, 'id' | 'created_at'> = {
       amount,
-      month: formData.month,
+      month: selectedMonth,
       description: formData.description || undefined,
     }
 
@@ -111,20 +120,17 @@ export default function Investments() {
     }
   }
 
-  const [removingIds, setRemovingIds] = useState<string[]>([])
-
-  const handleDelete = async (id: string) => {
+  const handleDeleteFromModal = async () => {
+    if (!editingInvestment) return
     if (!confirm('Tem certeza que deseja excluir este investimento?')) return
 
-    setRemovingIds((s) => [...s, id])
+    const { error } = await deleteInvestment(editingInvestment.id)
+    if (error) {
+      alert('Erro ao excluir investimento: ' + error)
+      return
+    }
 
-    setTimeout(async () => {
-      const { error } = await deleteInvestment(id)
-      if (error) {
-        alert('Erro ao deletar investimento: ' + error)
-      }
-      setRemovingIds((s) => s.filter((x) => x !== id))
-    }, LIST_ITEM_EXIT_MS)
+    handleCloseModal()
   }
 
   return (
@@ -140,7 +146,7 @@ export default function Investments() {
             className="flex items-center gap-2"
           >
             <Plus size={16} />
-            Novo
+            Adicionar
           </Button>
         }
       />
@@ -150,16 +156,16 @@ export default function Investments() {
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : investments.length === 0 ? (
-          <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhum investimento cadastrado</p>
-            <Button onClick={() => handleOpenModal()}>Adicionar primeiro investimento</Button>
+          <Card className="text-center py-10 space-y-3">
+            <p className="text-secondary">Nenhum investimento no mês selecionado.</p>
+            <Button onClick={() => handleOpenModal()}>Adicionar investimento</Button>
           </Card>
         ) : (
           <div className="space-y-3">
+            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {investments.map((investment) => (
-                <AnimatedListItem key={investment.id} isRemoving={removingIds.includes(investment.id)}>
-                  <Card>
-                  <div className="flex items-start justify-between">
+                  <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <div
@@ -175,31 +181,14 @@ export default function Investments() {
                       <p className="text-sm text-secondary">
                         {formatMonth(investment.month)}
                       </p>
-                      <div className="flex gap-2 mt-3">
-                        <IconButton
-                          icon={<Edit2 size={16} />}
-                          variant="neutral"
-                          size="sm"
-                          label="Editar investimento"
-                          onClick={() => handleOpenModal(investment)}
-                        />
-                        <IconButton
-                          icon={<Trash2 size={16} />}
-                          variant="danger"
-                          size="sm"
-                          label="Deletar investimento"
-                          onClick={() => handleDelete(investment.id)}
-                        />
-                      </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-3">
+                    <div className="ml-2 text-right">
                       <p className="text-lg font-semibold text-primary">
                         {formatCurrency(investment.amount)}
                       </p>
                     </div>
                   </div>
                   </Card>
-                </AnimatedListItem>
               ))}
           </div>
         )}
@@ -208,25 +197,30 @@ export default function Investments() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingInvestment ? 'Editar Investimento' : 'Novo Investimento'}
+        title={editingInvestment ? 'Editar investimento' : 'Adicionar investimento'}
       >
         <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
           <Input
             label="Valor"
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) => handleAmountChange(e.target.value)}
+            onBlur={() => {
+              const parsed = parseMoneyInput(formData.amount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                handleAmountChange(formatMoneyInput(parsed))
+              }
+            }}
             placeholder="0,00"
             required
           />
 
           <Input
-            label="Mês"
-            type="month"
-            value={formData.month}
-            onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+            label="Data"
+            type="date"
+            value={formData.date}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             required
           />
 
@@ -238,18 +232,19 @@ export default function Investments() {
           />
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              fullWidth
-              onClick={handleCloseModal}
-            >
+            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
               Cancelar
             </Button>
             <Button type="submit" fullWidth>
-              {editingInvestment ? 'Salvar' : 'Adicionar'}
+              {editingInvestment ? 'Salvar alterações' : 'Salvar'}
             </Button>
           </div>
+
+          {editingInvestment && (
+            <Button type="button" variant="danger" fullWidth onClick={handleDeleteFromModal}>
+              Excluir investimento
+            </Button>
+          )}
         </form>
       </Modal>
     </div>

@@ -35,7 +35,77 @@ ALTER TABLE expenses DROP COLUMN IF EXISTS installments;
 ALTER TABLE expenses DROP COLUMN IF EXISTS current_installment;
 
 -- ============================================
--- 5. CRIAR ÍNDICES PARA PERFORMANCE
+-- 5. ADICIONAR PESO DE INCLUSÃO NOS RELATÓRIOS
+-- ============================================
+
+-- 5.1 Garantir colunas
+ALTER TABLE expenses
+ADD COLUMN IF NOT EXISTS report_weight DECIMAL(5, 4) NOT NULL DEFAULT 1.0;
+
+ALTER TABLE incomes
+ADD COLUMN IF NOT EXISTS report_weight DECIMAL(5, 4) NOT NULL DEFAULT 1.0;
+
+-- 5.2 Normalizar dados existentes
+UPDATE expenses
+SET report_weight = 1.0
+WHERE report_weight IS NULL;
+
+UPDATE incomes
+SET report_weight = 1.0
+WHERE report_weight IS NULL;
+
+UPDATE expenses
+SET report_weight = LEAST(GREATEST(report_weight, 0), 1)
+WHERE report_weight < 0 OR report_weight > 1;
+
+UPDATE incomes
+SET report_weight = LEAST(GREATEST(report_weight, 0), 1)
+WHERE report_weight < 0 OR report_weight > 1;
+
+-- 5.3 Garantir tipo e regras da coluna (mesmo se já existia)
+ALTER TABLE expenses
+ALTER COLUMN report_weight TYPE DECIMAL(5, 4) USING ROUND(report_weight::numeric, 4),
+ALTER COLUMN report_weight SET DEFAULT 1.0,
+ALTER COLUMN report_weight SET NOT NULL;
+
+ALTER TABLE incomes
+ALTER COLUMN report_weight TYPE DECIMAL(5, 4) USING ROUND(report_weight::numeric, 4),
+ALTER COLUMN report_weight SET DEFAULT 1.0,
+ALTER COLUMN report_weight SET NOT NULL;
+
+-- 5.4 Reforçar constraints de faixa válida
+ALTER TABLE expenses
+DROP CONSTRAINT IF EXISTS expenses_report_weight_check;
+
+ALTER TABLE incomes
+DROP CONSTRAINT IF EXISTS incomes_report_weight_check;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'expenses_report_weight_check'
+  ) THEN
+    ALTER TABLE expenses
+    ADD CONSTRAINT expenses_report_weight_check CHECK (report_weight >= 0 AND report_weight <= 1);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'incomes_report_weight_check'
+  ) THEN
+    ALTER TABLE incomes
+    ADD CONSTRAINT incomes_report_weight_check CHECK (report_weight >= 0 AND report_weight <= 1);
+  END IF;
+END $$;
+
+-- ============================================
+-- 6. CRIAR ÍNDICES PARA PERFORMANCE
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_income_categories_user ON income_categories(user_id);
 CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes(income_category_id);
@@ -44,7 +114,47 @@ CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
 CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
 
 -- ============================================
--- 6. CRIAR ALGUMAS CATEGORIAS DE RENDAS PADRÃO (OPCIONAL)
+-- 7. LIMITES DE DESPESA E EXPECTATIVAS DE RENDA (MENSAL)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS expense_category_month_limits (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  month TEXT NOT NULL CHECK (month ~ '^\d{4}-\d{2}$'),
+  limit_amount DECIMAL(10, 2) CHECK (limit_amount IS NULL OR limit_amount >= 0),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  user_id UUID
+);
+
+CREATE TABLE IF NOT EXISTS income_category_month_expectations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  income_category_id UUID NOT NULL REFERENCES income_categories(id) ON DELETE CASCADE,
+  month TEXT NOT NULL CHECK (month ~ '^\d{4}-\d{2}$'),
+  expectation_amount DECIMAL(10, 2) CHECK (expectation_amount IS NULL OR expectation_amount >= 0),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  user_id UUID
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_limits_category_month_unique
+ON expense_category_month_limits(category_id, month);
+
+CREATE INDEX IF NOT EXISTS idx_expense_limits_month
+ON expense_category_month_limits(month);
+
+CREATE INDEX IF NOT EXISTS idx_expense_limits_user
+ON expense_category_month_limits(user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_income_expectations_category_month_unique
+ON income_category_month_expectations(income_category_id, month);
+
+CREATE INDEX IF NOT EXISTS idx_income_expectations_month
+ON income_category_month_expectations(month);
+
+CREATE INDEX IF NOT EXISTS idx_income_expectations_user
+ON income_category_month_expectations(user_id);
+
+-- ============================================
+-- 8. CRIAR ALGUMAS CATEGORIAS DE RENDAS PADRÃO (OPCIONAL)
 -- ============================================
 -- Descomente e execute se quiser adicionar categorias padrão
 -- INSERT INTO income_categories (name, color, user_id) 

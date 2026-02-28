@@ -3,7 +3,6 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -11,13 +10,11 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Income } from '@/types'
-import { formatCurrency, formatDate, getCurrentMonthString } from '@/utils/format'
+import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
-import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Edit2, Trash2 } from 'lucide-react'
-import AnimatedListItem from '@/components/AnimatedListItem'
+import { Plus } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 export default function Incomes() {
@@ -34,19 +31,37 @@ export default function Incomes() {
   const [editingIncome, setEditingIncome] = useState<Income | null>(null)
   const [formData, setFormData] = useState({
     amount: '',
+    report_amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     income_category_id: '',
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [removingIds, setRemovingIds] = useState<string[]>([])
+  const handleAmountChange = (nextAmount: string) => {
+    setFormData((prev) => {
+      const prevAmount = parseMoneyInput(prev.amount)
+      const prevReportAmount = parseMoneyInput(prev.report_amount)
+      const shouldSyncReportAmount =
+        !prev.report_amount ||
+        (!Number.isNaN(prevAmount) &&
+          !Number.isNaN(prevReportAmount) &&
+          Math.abs(prevReportAmount - prevAmount) < 0.009)
+
+      return {
+        ...prev,
+        amount: nextAmount,
+        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
+      }
+    })
+  }
 
   const handleOpenModal = (income?: Income) => {
     if (income) {
       setEditingIncome(income)
       setFormData({
-        amount: income.amount.toString(),
+        amount: formatMoneyInput(income.amount),
+        report_amount: formatMoneyInput(income.amount * (income.report_weight ?? 1)),
         date: income.date,
         income_category_id: income.income_category_id,
         description: income.description || '',
@@ -55,7 +70,8 @@ export default function Incomes() {
       setEditingIncome(null)
       setFormData({
         amount: '',
-        date: `${currentMonth}-01`,
+        report_amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         income_category_id: incomeCategories[0]?.id || '',
         description: '',
       })
@@ -68,6 +84,7 @@ export default function Incomes() {
     setEditingIncome(null)
     setFormData({
       amount: '',
+      report_amount: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       income_category_id: incomeCategories[0]?.id || '',
       description: '',
@@ -78,7 +95,6 @@ export default function Incomes() {
     const quickAdd = searchParams.get('quickAdd')
     const monthParam = searchParams.get('month')
     const isValidMonth = monthParam ? /^\d{4}-\d{2}$/.test(monthParam) : false
-    const targetMonth = isValidMonth && monthParam ? monthParam : currentMonth
 
     if (isValidMonth && monthParam && monthParam !== currentMonth) {
       setCurrentMonth(monthParam)
@@ -88,7 +104,8 @@ export default function Incomes() {
       setEditingIncome(null)
       setFormData({
         amount: '',
-        date: `${targetMonth}-01`,
+        report_amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         income_category_id: incomeCategories[0]?.id || '',
         description: '',
       })
@@ -110,14 +127,23 @@ export default function Incomes() {
       return
     }
 
-    const amount = parseFloat(formData.amount)
+    const amount = parseMoneyInput(formData.amount)
     if (isNaN(amount) || amount <= 0) {
       alert('Por favor, insira um valor válido maior que zero')
       return
     }
 
+    const reportAmount = formData.report_amount ? parseMoneyInput(formData.report_amount) : amount
+    if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
+      alert('O valor no relatório deve estar entre 0 e o valor da renda')
+      return
+    }
+
+    const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+
     const incomeData: Omit<Income, 'id' | 'created_at' | 'income_category' | 'type'> = {
       amount,
+      report_weight: reportWeight,
       date: formData.date,
       income_category_id: formData.income_category_id,
       ...(formData.description && { description: formData.description }),
@@ -140,18 +166,17 @@ export default function Incomes() {
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteFromModal = async () => {
+    if (!editingIncome) return
     if (!confirm('Tem certeza que deseja excluir esta renda?')) return
 
-    setRemovingIds((s) => [...s, id])
+    const { error } = await deleteIncome(editingIncome.id)
+    if (error) {
+      alert('Erro ao excluir renda: ' + error)
+      return
+    }
 
-    setTimeout(async () => {
-      const { error } = await deleteIncome(id)
-      if (error) {
-        alert('Erro ao deletar renda: ' + error)
-      }
-      setRemovingIds((s) => s.filter((x) => x !== id))
-    }, LIST_ITEM_EXIT_MS)
+    handleCloseModal()
   }
 
   return (
@@ -167,7 +192,7 @@ export default function Incomes() {
             className="flex items-center gap-2"
           >
             <Plus size={16} />
-            Nova
+            Adicionar
           </Button>
         }
       />
@@ -177,16 +202,16 @@ export default function Incomes() {
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : incomes.length === 0 ? (
-          <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhuma renda cadastrada</p>
-            <Button onClick={() => handleOpenModal()}>Adicionar primeira renda</Button>
+          <Card className="text-center py-10 space-y-3">
+            <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
+            <Button onClick={() => handleOpenModal()}>Adicionar renda</Button>
           </Card>
         ) : (
           <div className="space-y-3">
+            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {incomes.map((income) => (
-              <AnimatedListItem key={income.id} isRemoving={removingIds.includes(income.id)}>
-                <Card>
-                  <div className="flex items-start justify-between">
+                <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <div
@@ -200,31 +225,19 @@ export default function Incomes() {
                       <p className="text-sm text-secondary">
                         {income.income_category?.name} • {formatDate(income.date)}
                       </p>
-                      <div className="flex gap-2 mt-3">
-                        <IconButton
-                          icon={<Edit2 size={16} />}
-                          variant="neutral"
-                          size="sm"
-                          label="Editar renda"
-                          onClick={() => handleOpenModal(income)}
-                        />
-                        <IconButton
-                          icon={<Trash2 size={16} />}
-                          variant="danger"
-                          size="sm"
-                          label="Deletar renda"
-                          onClick={() => handleDelete(income.id)}
-                        />
-                      </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-3">
+                    <div className="ml-2 text-right">
                       <p className="text-lg font-semibold text-primary">
                         {formatCurrency(income.amount)}
                       </p>
+                      {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
+                        <p className="text-xs text-secondary">
+                          {formatCurrency(income.amount * (income.report_weight ?? 1))}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </Card>
-              </AnimatedListItem>
             ))}
           </div>
         )}
@@ -233,18 +246,39 @@ export default function Incomes() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingIncome ? 'Editar Renda' : 'Nova Renda'}
+        title={editingIncome ? 'Editar renda' : 'Adicionar renda'}
       >
         <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
           <Input
             label="Valor"
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) => handleAmountChange(e.target.value)}
+            onBlur={() => {
+              const parsed = parseMoneyInput(formData.amount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                handleAmountChange(formatMoneyInput(parsed))
+              }
+            }}
             placeholder="0,00"
             required
+          />
+
+          <Input
+            label="Valor no relatório (opcional)"
+            type="text"
+            inputMode="decimal"
+            value={formData.report_amount}
+            onChange={(e) => setFormData({ ...formData, report_amount: e.target.value })}
+            onBlur={() => {
+              if (!formData.report_amount) return
+              const parsed = parseMoneyInput(formData.report_amount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                setFormData({ ...formData, report_amount: formatMoneyInput(parsed) })
+              }
+            }}
+            placeholder="Se vazio, usa o valor total"
           />
 
           <Input
@@ -274,18 +308,19 @@ export default function Incomes() {
           />
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              fullWidth
-              onClick={handleCloseModal}
-            >
+            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
               Cancelar
             </Button>
             <Button type="submit" fullWidth>
-              {editingIncome ? 'Salvar' : 'Adicionar'}
+              {editingIncome ? 'Salvar alterações' : 'Salvar'}
             </Button>
           </div>
+
+          {editingIncome && (
+            <Button type="button" variant="danger" fullWidth onClick={handleDeleteFromModal}>
+              Excluir renda
+            </Button>
+          )}
         </form>
       </Modal>
     </div>

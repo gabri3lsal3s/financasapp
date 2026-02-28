@@ -4,11 +4,15 @@ Aplicação React + TypeScript para controle financeiro pessoal, com foco em usa
 
 ## Principais recursos
 
-- Dashboard com KPIs mensais (rendas, despesas, investimentos e saldo).
+- Dashboard com KPIs mensais (rendas, despesas, investimentos e saldo) e atalhos de detalhamento.
 - Inclusão rápida na Home (despesa, renda e investimento) sem redirecionamento.
 - CRUD completo para despesas, rendas, investimentos e categorias.
-- Relatórios com visualização Ano/Mês e múltiplos gráficos (line, bar, area, pie e radar).
-- Indicadores de categorias de despesas para atenção (peso percentual no mês).
+- Página unificada de categorias (`/categories`) com atalhos para categorias de despesa e renda.
+- Limites mensais por categoria de despesa e expectativas mensais por categoria de renda.
+- Herança automática do mês anterior para limites/expectativas quando o mês atual ainda não possui valor definido.
+- Exclusão segura de categorias com reatribuição automática para `Sem categoria` quando houver lançamentos vinculados.
+- Relatórios com visualização Ano/Mês, detalhamento por categoria no próprio fluxo, comparação anual com ano anterior e botão discreto `Ver mais` para listas extensas.
+- Seletores por item em despesas e rendas para inclusão total/parcial/zero nos relatórios (útil para reembolsos).
 - Navegação responsiva: menu móvel (drawer) e sidebar desktop colapsável.
 - Sistema de tema (light/dark) e paletas de cores com persistência.
 - PWA instalável com atualização de versão no cliente.
@@ -56,6 +60,15 @@ npm run dev
 - `npm run build`: valida TypeScript e gera build de produção.
 - `npm run preview`: serve build localmente.
 
+## Estrutura de dados (resumo)
+
+Além das tabelas principais (`categories`, `income_categories`, `expenses`, `incomes`, `investments`), o projeto usa:
+
+- `expense_category_month_limits`: limite mensal por categoria de despesa.
+- `income_category_month_expectations`: expectativa mensal por categoria de renda.
+
+Os scripts [database.sql](database.sql) e [MIGRATION.sql](MIGRATION.sql) já incluem criação de tabelas, constraints e índices dessas estruturas.
+
 ## PWA e Offline
 
 - Service Worker ativo com precache de assets da aplicação.
@@ -89,7 +102,13 @@ src/
 - Modais centralizados e padronizados em todas as telas.
 - Fechamento de modal por `Esc`, clique no fundo e botão de fechar.
 - Foco automático no primeiro campo ao abrir formulários.
+- Itens de lista clicáveis para edição rápida; ações destrutivas concentradas no modal de edição.
 - Tokens semânticos de cor para manter consistência visual em light/dark.
+
+## Segurança e autenticação
+
+- O script padrão está preparado para ambiente sem autenticação (RLS desabilitado).
+- Para produção multiusuário, habilite RLS e políticas por `user_id` antes de publicar.
 
 ## Observações de build
 
@@ -104,6 +123,14 @@ O Vite pode exibir aviso de chunk grande (`>500kB`) na build de produção. Isso
   - desligue a internet;
   - faça um lançamento (despesa/renda/investimento);
   - religue a internet e confirme sincronização automática.
+
+## Checklist funcional rápido
+
+1. Crie categorias em despesas e rendas.
+2. Em `Categorias`, defina limite/expectativa no mês atual e confirme salvamento.
+3. Troque para o mês seguinte e valide herança automática do valor anterior.
+4. Abra `Relatórios` e teste detalhamento por categoria (mês e ano).
+5. Delete uma categoria com lançamentos e confirme reatribuição para `Sem categoria`.
 
 
 

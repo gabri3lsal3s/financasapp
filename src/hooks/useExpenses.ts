@@ -24,6 +24,13 @@ export function useExpenses(month?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const sortExpensesByDate = (list: Expense[]) =>
+    [...list].sort((a, b) => {
+      const dateDiff = b.date.localeCompare(a.date)
+      if (dateDiff !== 0) return dateDiff
+      return b.created_at.localeCompare(a.created_at)
+    })
+
   const loadExpenses = async () => {
     try {
       setLoading(true)
@@ -52,7 +59,7 @@ export function useExpenses(month?: string) {
       const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
-      setExpenses(data || [])
+      setExpenses(sortExpensesByDate(data || []))
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar despesas')
@@ -73,6 +80,7 @@ export function useExpenses(month?: string) {
         amount: expense.amount,
         date: expense.date || format(new Date(), 'yyyy-MM-dd'),
         category_id: expense.category_id,
+        ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
         ...(expense.description && { description: expense.description }),
       }
 
@@ -87,7 +95,7 @@ export function useExpenses(month?: string) {
 
       if (insertError) throw insertError
       
-      setExpenses((prev) => [...prev, data])
+      setExpenses((prev) => sortExpensesByDate([...prev, data]))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
@@ -98,6 +106,7 @@ export function useExpenses(month?: string) {
             amount: expense.amount,
             date: expense.date || format(new Date(), 'yyyy-MM-dd'),
             category_id: expense.category_id,
+            ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
             ...(expense.description && { description: expense.description }),
           },
         })
@@ -107,11 +116,12 @@ export function useExpenses(month?: string) {
           amount: expense.amount,
           date: expense.date || format(new Date(), 'yyyy-MM-dd'),
           category_id: expense.category_id,
+          ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
           ...(expense.description && { description: expense.description }),
           created_at: new Date().toISOString(),
         }
 
-        setExpenses((prev) => [offlineExpense, ...prev])
+        setExpenses((prev) => sortExpensesByDate([offlineExpense, ...prev]))
         return { data: offlineExpense, error: null }
       }
 
@@ -134,9 +144,7 @@ export function useExpenses(month?: string) {
 
       if (updateError) throw updateError
       
-      setExpenses((prev) =>
-        prev.map((exp) => (exp.id === id ? data : exp))
-      )
+      setExpenses((prev) => sortExpensesByDate(prev.map((exp) => (exp.id === id ? data : exp))))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
@@ -147,7 +155,7 @@ export function useExpenses(month?: string) {
           payload: updates as Record<string, unknown>,
         })
 
-        setExpenses((prev) => prev.map((exp) => (exp.id === id ? { ...exp, ...updates } : exp)))
+        setExpenses((prev) => sortExpensesByDate(prev.map((exp) => (exp.id === id ? { ...exp, ...updates } : exp))))
         return { data: { id, ...updates }, error: null }
       }
 

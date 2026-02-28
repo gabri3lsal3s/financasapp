@@ -3,7 +3,6 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -11,13 +10,11 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Expense } from '@/types'
-import { formatCurrency, formatDate, getCurrentMonthString } from '@/utils/format'
+import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
-import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Edit2, Trash2 } from 'lucide-react'
-import AnimatedListItem from '@/components/AnimatedListItem'
+import { Plus } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 export default function Expenses() {
@@ -34,17 +31,37 @@ export default function Expenses() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [formData, setFormData] = useState({
     amount: '',
+    report_amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     category_id: '',
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const handleAmountChange = (nextAmount: string) => {
+    setFormData((prev) => {
+      const prevAmount = parseMoneyInput(prev.amount)
+      const prevReportAmount = parseMoneyInput(prev.report_amount)
+      const shouldSyncReportAmount =
+        !prev.report_amount ||
+        (!Number.isNaN(prevAmount) &&
+          !Number.isNaN(prevReportAmount) &&
+          Math.abs(prevReportAmount - prevAmount) < 0.009)
+
+      return {
+        ...prev,
+        amount: nextAmount,
+        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
+      }
+    })
+  }
+
   const handleOpenModal = (expense?: Expense) => {
     if (expense) {
       setEditingExpense(expense)
       setFormData({
-        amount: expense.amount.toString(),
+        amount: formatMoneyInput(expense.amount),
+        report_amount: formatMoneyInput(expense.amount * (expense.report_weight ?? 1)),
         date: expense.date,
         category_id: expense.category_id,
         description: expense.description || '',
@@ -53,7 +70,8 @@ export default function Expenses() {
       setEditingExpense(null)
       setFormData({
         amount: '',
-        date: `${currentMonth}-01`,
+        report_amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -66,6 +84,7 @@ export default function Expenses() {
     setEditingExpense(null)
     setFormData({
       amount: '',
+      report_amount: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       category_id: categories[0]?.id || '',
       description: '',
@@ -76,7 +95,6 @@ export default function Expenses() {
     const quickAdd = searchParams.get('quickAdd')
     const monthParam = searchParams.get('month')
     const isValidMonth = monthParam ? /^\d{4}-\d{2}$/.test(monthParam) : false
-    const targetMonth = isValidMonth && monthParam ? monthParam : currentMonth
 
     if (isValidMonth && monthParam && monthParam !== currentMonth) {
       setCurrentMonth(monthParam)
@@ -86,7 +104,8 @@ export default function Expenses() {
       setEditingExpense(null)
       setFormData({
         amount: '',
-        date: `${targetMonth}-01`,
+        report_amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -105,14 +124,23 @@ export default function Expenses() {
     
     if (!formData.amount || !formData.category_id) return
 
-    const amount = parseFloat(formData.amount)
+    const amount = parseMoneyInput(formData.amount)
     if (isNaN(amount) || amount <= 0) {
       alert('Por favor, insira um valor válido maior que zero')
       return
     }
 
+    const reportAmount = formData.report_amount ? parseMoneyInput(formData.report_amount) : amount
+    if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
+      alert('O valor no relatório deve estar entre 0 e o valor da despesa')
+      return
+    }
+
+    const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+
     const expenseData: Omit<Expense, 'id' | 'created_at' | 'category'> = {
       amount,
+      report_weight: reportWeight,
       date: formData.date,
       category_id: formData.category_id,
       ...(formData.description && { description: formData.description }),
@@ -135,20 +163,17 @@ export default function Expenses() {
     }
   }
 
-  const [removingIds, setRemovingIds] = useState<string[]>([])
-
-  const handleDelete = async (id: string) => {
+  const handleDeleteFromModal = async () => {
+    if (!editingExpense) return
     if (!confirm('Tem certeza que deseja excluir esta despesa?')) return
 
-    setRemovingIds((s) => [...s, id])
+    const { error } = await deleteExpense(editingExpense.id)
+    if (error) {
+      alert('Erro ao excluir despesa: ' + error)
+      return
+    }
 
-    setTimeout(async () => {
-      const { error } = await deleteExpense(id)
-      if (error) {
-        alert('Erro ao deletar despesa: ' + error)
-      }
-      setRemovingIds((s) => s.filter((x) => x !== id))
-    }, LIST_ITEM_EXIT_MS)
+    handleCloseModal()
   }
 
   return (
@@ -164,7 +189,7 @@ export default function Expenses() {
             className="flex items-center gap-2"
           >
             <Plus size={16} />
-            Nova
+            Adicionar
           </Button>
         }
       />
@@ -174,23 +199,23 @@ export default function Expenses() {
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : expenses.length === 0 ? (
-          <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhuma despesa cadastrada</p>
+          <Card className="text-center py-10 space-y-3">
+            <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
             <Button onClick={() => handleOpenModal()}>
-              Adicionar primeira despesa
+              Adicionar despesa
             </Button>
           </Card>
         ) : (
           <div className="space-y-3">
+            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {expenses.map((expense) => (
-              <AnimatedListItem key={expense.id} isRemoving={removingIds.includes(expense.id)}>
-                <Card>
-                <div className="flex items-start justify-between">
+                <Card key={expense.id} className="py-3" onClick={() => handleOpenModal(expense)}>
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <div 
-                        className="w-1 h-6 rounded-sm flex-shrink-0" 
-                        style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }} 
+                      <div
+                        className="w-1 h-6 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }}
                       />
                       <p className="font-medium text-primary truncate">
                         {expense.description || expense.category?.name || 'Sem descrição'}
@@ -199,31 +224,19 @@ export default function Expenses() {
                     <p className="text-sm text-secondary">
                       {expense.category?.name} • {formatDate(expense.date)}
                     </p>
-                    <div className="flex gap-2 mt-3">
-                      <IconButton
-                        icon={<Edit2 size={16} />}
-                        variant="neutral"
-                        size="sm"
-                        label="Editar despesa"
-                        onClick={() => handleOpenModal(expense)}
-                      />
-                      <IconButton
-                        icon={<Trash2 size={16} />}
-                        variant="danger"
-                        size="sm"
-                        label="Deletar despesa"
-                        onClick={() => handleDelete(expense.id)}
-                      />
-                    </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-3">
+                  <div className="ml-2 text-right">
                     <p className="text-lg font-semibold text-primary">
                       {formatCurrency(expense.amount)}
                     </p>
+                    {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
+                      <p className="text-xs text-secondary">
+                        {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
+                      </p>
+                    )}
                   </div>
                 </div>
                 </Card>
-              </AnimatedListItem>
             ))}
           </div>
         )}
@@ -232,18 +245,39 @@ export default function Expenses() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingExpense ? 'Editar Despesa' : 'Nova Despesa'}
+        title={editingExpense ? 'Editar despesa' : 'Adicionar despesa'}
       >
         <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
           <Input
             label="Valor"
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            onChange={(e) => handleAmountChange(e.target.value)}
+            onBlur={() => {
+              const parsed = parseMoneyInput(formData.amount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                handleAmountChange(formatMoneyInput(parsed))
+              }
+            }}
             placeholder="0,00"
             required
+          />
+
+          <Input
+            label="Valor no relatório (opcional)"
+            type="text"
+            inputMode="decimal"
+            value={formData.report_amount}
+            onChange={(e) => setFormData({ ...formData, report_amount: e.target.value })}
+            onBlur={() => {
+              if (!formData.report_amount) return
+              const parsed = parseMoneyInput(formData.report_amount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                setFormData({ ...formData, report_amount: formatMoneyInput(parsed) })
+              }
+            }}
+            placeholder="Se vazio, usa o valor total"
           />
 
           <Input
@@ -277,22 +311,19 @@ export default function Expenses() {
           />
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              fullWidth
-              onClick={handleCloseModal}
-            >
+            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
               Cancelar
             </Button>
-            <Button 
-              type="submit" 
-              fullWidth
-              disabled={!formData.category_id}
-            >
-              {editingExpense ? 'Salvar' : 'Adicionar'}
+            <Button type="submit" fullWidth disabled={!formData.category_id}>
+              {editingExpense ? 'Salvar alterações' : 'Salvar'}
             </Button>
           </div>
+
+          {editingExpense && (
+            <Button type="button" variant="danger" fullWidth onClick={handleDeleteFromModal}>
+              Excluir despesa
+            </Button>
+          )}
         </form>
       </Modal>
     </div>

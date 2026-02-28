@@ -2,17 +2,14 @@ import { useState } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { IncomeCategory } from '@/types'
 import { getCategoryColor, getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Edit2, Trash2 } from 'lucide-react'
-import AnimatedListItem from '@/components/AnimatedListItem'
+import { Plus } from 'lucide-react'
 
 export default function IncomeCategories() {
   const { incomeCategories, loading, createIncomeCategory, updateIncomeCategory, deleteIncomeCategory } = useIncomeCategories()
@@ -20,7 +17,7 @@ export default function IncomeCategories() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<IncomeCategory | null>(null)
   const [formData, setFormData] = useState({ name: '' })
-  const [removingIds, setRemovingIds] = useState<string[]>([])
+  const assignedIncomeCategoryColors = assignUniquePaletteColors(incomeCategories, colorPalette)
 
   const handleOpenModal = (category?: IncomeCategory) => {
     if (category) {
@@ -67,14 +64,14 @@ export default function IncomeCategories() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta categoria?')) return
-    setRemovingIds((s) => [...s, id])
-    setTimeout(async () => {
-      const { error } = await deleteIncomeCategory(id)
-      if (error) {
-        alert('Erro ao deletar categoria: ' + error)
-      }
-      setRemovingIds((s) => s.filter((x) => x !== id))
-    }, LIST_ITEM_EXIT_MS)
+    if (!confirm('Os itens vinculados serão movidos para "Sem categoria". Deseja continuar?')) return
+
+    const { error } = await deleteIncomeCategory(id)
+    if (error) {
+      alert('Erro ao excluir categoria: ' + error)
+      return
+    }
+    handleCloseModal()
   }
 
   return (
@@ -90,7 +87,7 @@ export default function IncomeCategories() {
             className="flex items-center gap-2"
           >
             <Plus size={16} />
-            Nova
+            Adicionar
           </Button>
         }
       />
@@ -99,49 +96,28 @@ export default function IncomeCategories() {
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : incomeCategories.length === 0 ? (
-          <Card className="text-center py-8">
-            <p className="text-secondary mb-4">Nenhuma categoria de renda criada</p>
-            <Button onClick={() => handleOpenModal()}>Criar primeira categoria</Button>
+          <Card className="text-center py-10 space-y-3">
+            <p className="text-secondary">Nenhuma categoria de renda cadastrada.</p>
+            <Button onClick={() => handleOpenModal()}>Adicionar categoria de renda</Button>
           </Card>
         ) : (
           <div className="space-y-3">
-            {(() => {
-              const assigned = assignUniquePaletteColors(incomeCategories, colorPalette)
-              return incomeCategories.map((category, idx) => (
-                <AnimatedListItem key={category.id} isRemoving={removingIds.includes(category.id)}>
-                  <Card className="py-3">
+            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
+            {incomeCategories.map((category, idx) => (
+                  <Card key={category.id} className="py-3" onClick={() => handleOpenModal(category)}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div
                           className="w-1 h-6 rounded-sm flex-shrink-0"
-                          style={{ backgroundColor: assigned[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
+                          style={{ backgroundColor: assignedIncomeCategoryColors[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
                         />
                         <p className="font-medium text-primary truncate">
                           {category.name}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <IconButton
-                          icon={<Edit2 size={16} />}
-                          variant="neutral"
-                          size="sm"
-                          label="Editar categoria"
-                          onClick={() => handleOpenModal(category)}
-                          className="flex-shrink-0"
-                        />
-                        <IconButton
-                          icon={<Trash2 size={16} />}
-                          variant="danger"
-                          size="sm"
-                          label="Deletar categoria"
-                          onClick={() => handleDelete(category.id)}
-                          className="flex-shrink-0"
-                        />
-                      </div>
                     </div>
                   </Card>
-                </AnimatedListItem>
-            ))})()}
+            ))}
           </div>
         )}
       </div>
@@ -149,7 +125,7 @@ export default function IncomeCategories() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingCategory ? 'Editar Categoria de Renda' : 'Nova Categoria de Renda'}
+        title={editingCategory ? 'Editar categoria de renda' : 'Adicionar categoria de renda'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -163,18 +139,19 @@ export default function IncomeCategories() {
           />
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              fullWidth
-              onClick={handleCloseModal}
-            >
+            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
               Cancelar
             </Button>
             <Button type="submit" fullWidth>
-              {editingCategory ? 'Salvar' : 'Criar'}
+              {editingCategory ? 'Salvar alterações' : 'Salvar'}
             </Button>
           </div>
+
+          {editingCategory && (
+            <Button type="button" variant="danger" fullWidth onClick={() => handleDelete(editingCategory.id)}>
+              Excluir categoria de renda
+            </Button>
+          )}
         </form>
       </Modal>
     </div>

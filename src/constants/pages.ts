@@ -21,7 +21,7 @@ export const PAGE_HEADERS = {
   },
   categories: {
     title: 'Categorias',
-    description: 'Organize suas categorias de despesas',
+    description: 'Acesse e gerencie categorias de despesas e rendas',
   },
   incomeCategories: {
     title: 'Categorias de Rendas',

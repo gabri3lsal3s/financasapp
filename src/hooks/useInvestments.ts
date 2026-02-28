@@ -24,6 +24,13 @@ export function useInvestments(month?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const sortInvestmentsByMonth = (list: Investment[]) =>
+    [...list].sort((a, b) => {
+      const monthDiff = b.month.localeCompare(a.month)
+      if (monthDiff !== 0) return monthDiff
+      return b.created_at.localeCompare(a.created_at)
+    })
+
   const loadInvestments = async () => {
     try {
       setLoading(true)
@@ -41,7 +48,7 @@ export function useInvestments(month?: string) {
       const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
-      setInvestments(data || [])
+      setInvestments(sortInvestmentsByMonth(data || []))
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar investimentos')
@@ -66,7 +73,7 @@ export function useInvestments(month?: string) {
 
       if (insertError) throw insertError
       
-      setInvestments((prev) => [data, ...prev])
+      setInvestments((prev) => sortInvestmentsByMonth([data, ...prev]))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
@@ -88,7 +95,7 @@ export function useInvestments(month?: string) {
           created_at: new Date().toISOString(),
         }
 
-        setInvestments((prev) => [offlineInvestment, ...prev])
+        setInvestments((prev) => sortInvestmentsByMonth([offlineInvestment, ...prev]))
         return { data: offlineInvestment, error: null }
       }
 
@@ -108,9 +115,7 @@ export function useInvestments(month?: string) {
 
       if (updateError) throw updateError
       
-      setInvestments((prev) =>
-        prev.map((inv) => (inv.id === id ? data : inv))
-      )
+      setInvestments((prev) => sortInvestmentsByMonth(prev.map((inv) => (inv.id === id ? data : inv))))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
@@ -121,7 +126,7 @@ export function useInvestments(month?: string) {
           payload: updates as Record<string, unknown>,
         })
 
-        setInvestments((prev) => prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)))
+        setInvestments((prev) => sortInvestmentsByMonth(prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv))))
         return { data: { id, ...updates }, error: null }
       }
 

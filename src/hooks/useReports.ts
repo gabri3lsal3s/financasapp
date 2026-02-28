@@ -15,7 +15,7 @@ export interface UseReportsReturn {
   refreshReports: () => Promise<void>
 }
 
-export function useReports(year?: number): UseReportsReturn {
+export function useReports(year?: number, includeReportWeights = true): UseReportsReturn {
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([])
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
   const [monthlyCategoryExpenses, setMonthlyCategoryExpenses] = useState<MonthlyCategoryExpenses>({})
@@ -26,18 +26,35 @@ export function useReports(year?: number): UseReportsReturn {
 
   useEffect(() => {
     loadReports()
-  }, [targetYear])
+  }, [targetYear, includeReportWeights])
 
   const loadReports = async () => {
     try {
       setLoading(true)
+      const hasMissingReportWeightError = (error: unknown) => {
+        const message = typeof error === 'object' && error && 'message' in error
+          ? String((error as { message?: string }).message)
+          : ''
+        return message.toLowerCase().includes('report_weight')
+      }
+
+      const getWeightedAmount = (entry: { amount: number; report_weight?: number | null }) => {
+        if (!includeReportWeights) {
+          return entry.amount
+        }
+
+        const weight = entry.report_weight ?? 1
+        return entry.amount * weight
+      }
+
       const startDate = startOfYear(new Date(targetYear, 0, 1))
       const endDate = endOfYear(new Date(targetYear, 11, 31))
 
-      const { data: expenses, error: expensesError } = await supabase
+      let { data: expenses, error: expensesError } = await supabase
         .from('expenses')
         .select(`
           amount,
+          report_weight,
           date,
           category_id,
           category:categories(id, name, color)
@@ -45,13 +62,40 @@ export function useReports(year?: number): UseReportsReturn {
         .gte('date', format(startDate, 'yyyy-MM-dd'))
         .lte('date', format(endDate, 'yyyy-MM-dd'))
 
+      if (expensesError && hasMissingReportWeightError(expensesError)) {
+        const fallback = await supabase
+          .from('expenses')
+          .select(`
+            amount,
+            date,
+            category_id,
+            category:categories(id, name, color)
+          `)
+          .gte('date', format(startDate, 'yyyy-MM-dd'))
+          .lte('date', format(endDate, 'yyyy-MM-dd'))
+
+        expenses = (fallback.data || []).map((exp) => ({ ...exp, report_weight: 1 }))
+        expensesError = fallback.error
+      }
+
       if (expensesError) throw expensesError
 
-      const { data: incomes, error: incomesError } = await supabase
+      let { data: incomes, error: incomesError } = await supabase
         .from('incomes')
-        .select('amount, date')
+        .select('amount, report_weight, date')
         .gte('date', format(startDate, 'yyyy-MM-dd'))
         .lte('date', format(endDate, 'yyyy-MM-dd'))
+
+      if (incomesError && hasMissingReportWeightError(incomesError)) {
+        const fallback = await supabase
+          .from('incomes')
+          .select('amount, date')
+          .gte('date', format(startDate, 'yyyy-MM-dd'))
+          .lte('date', format(endDate, 'yyyy-MM-dd'))
+
+        incomes = (fallback.data || []).map((inc) => ({ ...inc, report_weight: 1 }))
+        incomesError = fallback.error
+      }
 
       if (incomesError) throw incomesError
 
@@ -80,8 +124,8 @@ export function useReports(year?: number): UseReportsReturn {
         )
         const monthInvestments = (investments || []).filter((inv) => inv.month === monthStr)
 
-        const totalExpenses = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0)
-        const totalIncomes = monthIncomes.reduce((sum, inc) => sum + inc.amount, 0)
+        const totalExpenses = monthExpenses.reduce((sum, exp) => sum + getWeightedAmount(exp), 0)
+        const totalIncomes = monthIncomes.reduce((sum, inc) => sum + getWeightedAmount(inc), 0)
         const totalInvestments = monthInvestments.reduce((sum, inv) => sum + inv.amount, 0)
 
         summaries.push({
@@ -104,7 +148,7 @@ export function useReports(year?: number): UseReportsReturn {
               color: cat?.color ?? '#6b7280',
             })
           }
-          categoryMap.get(catId)!.total += exp.amount
+          categoryMap.get(catId)!.total += getWeightedAmount(exp)
         })
         byMonth[monthStr] = Array.from(categoryMap.values())
       })
@@ -124,7 +168,7 @@ export function useReports(year?: number): UseReportsReturn {
             color: cat?.color ?? '#6b7280',
           })
         }
-        annualCategoryMap.get(catId)!.total += exp.amount
+        annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
       })
       setCategoryExpenses(Array.from(annualCategoryMap.values()))
       setError(null)

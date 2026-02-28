@@ -35,7 +35,7 @@ Este guia rápido cobre os dois cenários atuais do projeto:
 ### Sucesso
 
 - Mensagens de `CREATE TABLE`, `ALTER TABLE` e `CREATE INDEX`
-- Tabelas presentes: `categories`, `income_categories`, `expenses`, `incomes`, `investments`
+- Tabelas presentes: `categories`, `income_categories`, `expenses`, `incomes`, `investments`, `expense_category_month_limits`, `income_category_month_expectations`
 
 ### Avisos aceitáveis
 
@@ -54,6 +54,7 @@ No painel **Table Editor / Explore**, confirme:
 
 - `incomes` possui `income_category_id`
 - `expenses` não depende das colunas legadas de parcelamento
+- existem tabelas mensais de limites/expectativas por categoria
 - índices principais foram criados
 
 Depois rode localmente:
@@ -69,9 +70,13 @@ npm run dev
 
 1. Crie categorias de despesa e renda.
 2. Registre uma despesa, uma renda e um investimento.
-3. Verifique:
+3. Acesse a página **Categorias** e confirme os atalhos para `Categorias de despesas` e `Categorias de rendas`.
+4. Defina um limite de despesa e uma expectativa de renda no mês atual.
+5. Troque para o mês seguinte e valide a herança automática (mês anterior) quando não houver valor salvo no mês novo.
+6. Verifique:
    - Home: indicadores e inclusão rápida
    - Relatórios: visão ano/mês e gráficos
+   - Relatórios: detalhamento por categoria no período mensal e anual
    - Modais: abertura/fechamento corretos (`Esc`, clique no fundo e botão fechar)
 
 Se tudo acima funcionar, o ambiente está pronto.
@@ -114,3 +119,4 @@ Resultado esperado:
 - Confirme que `dist/sw.js` foi gerado no build.
 - Limpe dados do site (Application > Storage) e reinstale a PWA.
 - Verifique se a conexão foi realmente restaurada antes da sincronização.
+- Se limites/expectativas não aparecerem, confirme no banco se o campo `month` está no formato `YYYY-MM`.

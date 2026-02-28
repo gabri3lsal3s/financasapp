@@ -24,6 +24,13 @@ export function useIncomes(month?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const sortIncomesByDate = (list: Income[]) =>
+    [...list].sort((a, b) => {
+      const dateDiff = b.date.localeCompare(a.date)
+      if (dateDiff !== 0) return dateDiff
+      return b.created_at.localeCompare(a.created_at)
+    })
+
   const loadIncomes = async () => {
     try {
       setLoading(true)
@@ -49,7 +56,7 @@ export function useIncomes(month?: string) {
       const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
-      setIncomes(data || [])
+      setIncomes(sortIncomesByDate(data || []))
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar rendas')
@@ -71,6 +78,7 @@ export function useIncomes(month?: string) {
         date: income.date || format(new Date(), 'yyyy-MM-dd'),
         type: 'other',
         income_category_id: income.income_category_id,
+        ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
         ...(income.description && { description: income.description }),
       }
 
@@ -82,7 +90,7 @@ export function useIncomes(month?: string) {
 
       if (insertError) throw insertError
       
-      setIncomes((prev) => [data, ...prev])
+      setIncomes((prev) => sortIncomesByDate([data, ...prev]))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
@@ -94,6 +102,7 @@ export function useIncomes(month?: string) {
             date: income.date || format(new Date(), 'yyyy-MM-dd'),
             type: 'other',
             income_category_id: income.income_category_id,
+            ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
             ...(income.description && { description: income.description }),
           },
         })
@@ -104,11 +113,12 @@ export function useIncomes(month?: string) {
           date: income.date || format(new Date(), 'yyyy-MM-dd'),
           type: 'other',
           income_category_id: income.income_category_id,
+          ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
           ...(income.description && { description: income.description }),
           created_at: new Date().toISOString(),
         }
 
-        setIncomes((prev) => [offlineIncome, ...prev])
+        setIncomes((prev) => sortIncomesByDate([offlineIncome, ...prev]))
         return { data: offlineIncome, error: null }
       }
 
@@ -123,14 +133,12 @@ export function useIncomes(month?: string) {
         .from('incomes')
         .update(updates)
         .eq('id', id)
-        .select()
+        .select('*, income_category:income_categories(*)')
         .single()
 
       if (updateError) throw updateError
       
-      setIncomes((prev) =>
-        prev.map((inc) => (inc.id === id ? data : inc))
-      )
+      setIncomes((prev) => sortIncomesByDate(prev.map((inc) => (inc.id === id ? data : inc))))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
@@ -141,7 +149,7 @@ export function useIncomes(month?: string) {
           payload: updates as Record<string, unknown>,
         })
 
-        setIncomes((prev) => prev.map((inc) => (inc.id === id ? { ...inc, ...updates } : inc)))
+        setIncomes((prev) => sortIncomesByDate(prev.map((inc) => (inc.id === id ? { ...inc, ...updates } : inc))))
         return { data: { id, ...updates }, error: null }
       }
 

@@ -22,6 +22,27 @@ export function formatCurrency(value: number): string {
   }).format(value)
 }
 
+export function parseMoneyInput(value: string): number {
+  const cleaned = value
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/R\$/g, '')
+    .replace(/[^\d,.-]/g, '')
+
+  if (!cleaned) return Number.NaN
+
+  if (cleaned.includes(',')) {
+    const normalized = cleaned.replace(/\./g, '').replace(',', '.')
+    return Number(normalized)
+  }
+
+  return Number(cleaned.replace(/,/g, ''))
+}
+
+export function formatMoneyInput(value: number): string {
+  return Number(value).toFixed(2).replace('.', ',')
+}
+
 export function formatDate(date: string | Date): string {
   const dateObj = typeof date === 'string' ? parseISO(date) : date
   return dateFormat(dateObj, 'dd/MM/yyyy', { locale: ptBR })
