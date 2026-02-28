@@ -16,10 +16,6 @@ export function usePaletteColors() {
       name: 'Monocromática',
       colors: ['#e5e7eb', '#9ca3af', '#6b7280'],
     },
-    'neon-green': {
-      name: 'Verde Neon',
-      colors: ['#6ee787', '#4ade80', '#84cc16'],
-    },
   }
 
   return {

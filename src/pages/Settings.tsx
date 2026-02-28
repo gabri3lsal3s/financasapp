@@ -134,17 +134,15 @@ export default function Settings() {
     <div>
       <PageHeader title={PAGE_HEADERS.settings.title} subtitle={PAGE_HEADERS.settings.description} />
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        {/* Theme Switcher */}
-        <section>
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-primary mb-1">Aparência</h2>
+            <p className="text-secondary text-sm">Personalize tema e paleta de cores da interface</p>
+          </div>
           <ThemeSwitcher />
-        </section>
-
-        {/* Color Palette Switcher */}
-        <section>
           <ColorPaletteSwitcher />
         </section>
 
-        {/* Supabase Configuration */}
         <section className="space-y-4">
           <div>
             <h2 className="text-xl font-semibold text-primary mb-2">Banco de Dados</h2>

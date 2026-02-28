@@ -10,6 +10,8 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useInvestments } from '@/hooks/useInvestments'
+import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
+import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { supabase } from '@/lib/supabase'
 import { addMonths, formatCurrency, formatDate, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
@@ -271,6 +273,10 @@ export default function Reports() {
   const { expenses: previousMonthExpenses, loading: loadingPreviousMonthExpenses } = useExpenses(previousMonth)
   const { incomes: previousMonthIncomes, loading: loadingPreviousMonthIncomes } = useIncomes(previousMonth)
   const { investments: monthInvestments, loading: loadingMonthInvestments } = useInvestments(selectedMonth)
+  const { limits: monthExpenseLimits } = useExpenseCategoryLimits(selectedMonth)
+  const { limits: previousMonthExpenseLimits } = useExpenseCategoryLimits(previousMonth)
+  const { expectations: monthIncomeExpectations } = useIncomeCategoryExpectations(selectedMonth)
+  const { expectations: previousMonthIncomeExpectations } = useIncomeCategoryExpectations(previousMonth)
 
   const expenseCategoryIdToColor = useMemo(() => {
     const assigned = assignUniquePaletteColors(categories, colorPalette)
@@ -591,6 +597,91 @@ export default function Reports() {
   const detailDifferencePct = detailPreviousTotal > 0
     ? (detailDifference / detailPreviousTotal) * 100
     : null
+
+  const monthExpenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    monthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
+    return map
+  }, [monthExpenseLimits])
+
+  const previousMonthExpenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    previousMonthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
+    return map
+  }, [previousMonthExpenseLimits])
+
+  const monthIncomeExpectationMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    monthIncomeExpectations.forEach((item) => map.set(item.income_category_id, item.expectation_amount))
+    return map
+  }, [monthIncomeExpectations])
+
+  const previousMonthIncomeExpectationMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    previousMonthIncomeExpectations.forEach((item) => map.set(item.income_category_id, item.expectation_amount))
+    return map
+  }, [previousMonthIncomeExpectations])
+
+  const detailMonthlyGoal = useMemo(() => {
+    if (detailModal.period !== 'month' || !detailModal.categoryId) return null
+
+    if (detailModal.type === 'expense') {
+      const currentValue = monthExpenseLimitMap.get(detailModal.categoryId)
+      const fallbackValue = previousMonthExpenseLimitMap.get(detailModal.categoryId)
+      const limitAmount = currentValue !== undefined ? currentValue : fallbackValue
+
+      if (limitAmount === undefined || limitAmount === null) {
+        return {
+          label: 'Limite',
+          configured: false,
+        }
+      }
+
+      const exceededAmount = Math.max(detailCurrentTotal - limitAmount, 0)
+      const remainingAmount = Math.max(limitAmount - detailCurrentTotal, 0)
+
+      return {
+        label: 'Limite',
+        configured: true,
+        targetAmount: limitAmount,
+        currentAmount: detailCurrentTotal,
+        differenceAmount: exceededAmount > 0 ? exceededAmount : remainingAmount,
+        isExceeded: exceededAmount > 0,
+      }
+    }
+
+    const currentValue = monthIncomeExpectationMap.get(detailModal.categoryId)
+    const fallbackValue = previousMonthIncomeExpectationMap.get(detailModal.categoryId)
+    const expectationAmount = currentValue !== undefined ? currentValue : fallbackValue
+
+    if (expectationAmount === undefined || expectationAmount === null) {
+      return {
+        label: 'Expectativa',
+        configured: false,
+      }
+    }
+
+    const exceededAmount = Math.max(detailCurrentTotal - expectationAmount, 0)
+    const remainingAmount = Math.max(expectationAmount - detailCurrentTotal, 0)
+
+    return {
+      label: 'Expectativa',
+      configured: true,
+      targetAmount: expectationAmount,
+      currentAmount: detailCurrentTotal,
+      differenceAmount: exceededAmount > 0 ? exceededAmount : remainingAmount,
+      isExceeded: exceededAmount > 0,
+    }
+  }, [
+    detailModal.period,
+    detailModal.type,
+    detailModal.categoryId,
+    detailCurrentTotal,
+    monthExpenseLimitMap,
+    previousMonthExpenseLimitMap,
+    monthIncomeExpectationMap,
+    previousMonthIncomeExpectationMap,
+  ])
 
   useEffect(() => {
     setDetailVisibleCount(DETAIL_ITEMS_STEP)
@@ -1042,7 +1133,7 @@ export default function Reports() {
             </div>
           </div>
           <p className="text-xs text-secondary mt-3">
-            {includeReportWeights ? 'Rótulo: valores ajustados pelos pesos dos lançamentos.' : 'Rótulo: valores brutos, sem aplicação de pesos.'}
+            {includeReportWeights ? 'Valores ajustados pelos pesos dos lançamentos' : 'Valores brutos, sem aplicação de pesos'}
           </p>
         </Card>
 
@@ -1114,6 +1205,11 @@ export default function Reports() {
                   </Card>
                 </div>
 
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+                  {renderPieCard(`Despesas por categoria (${selectedYear})`, annualPieExpenses)}
+                  {renderPieCard(`Rendas por categoria (${selectedYear})`, annualPieIncomes)}
+                </div>
+
                 <div className="space-y-4 lg:space-y-6">
                   <Card className="h-full flex flex-col">
                     <h3 className="text-lg font-semibold text-primary mb-4">Evolução mensal por categoria (despesas)</h3>
@@ -1182,11 +1278,6 @@ export default function Reports() {
                       </ResponsiveContainer>
                     )}
                   </Card>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
-                  {renderPieCard(`Despesas por categoria (${selectedYear})`, annualPieExpenses)}
-                  {renderPieCard(`Rendas por categoria (${selectedYear})`, annualPieIncomes)}
                 </div>
 
               </div>
@@ -1309,10 +1400,13 @@ export default function Reports() {
                   {renderPieCard(`Rendas por categoria (${formatMonth(selectedMonth)})`, monthPieIncomes)}
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+                <div className="grid grid-cols-1 gap-4 items-stretch">
                   <Card className="h-full">
-                    <h3 className="text-lg font-semibold text-primary mb-4">Detalhamento despesas</h3>
-                    <div className="space-y-3">
+                    <div className="mb-3">
+                      <h3 className="text-lg font-semibold text-primary">Detalhamento despesas</h3>
+                      <p className="text-xs text-secondary">Categorias do mês com distribuição proporcional.</p>
+                    </div>
+                    <div className="space-y-2">
                       {[...monthExpenseCategories]
                         .sort((a, b) => b.total - a.total)
                         .map((category) => {
@@ -1324,19 +1418,23 @@ export default function Reports() {
                               key={category.category_id}
                               type="button"
                               onClick={() => openDetailModal('expense', category.category_id, category.category_name, 'month')}
-                              className={interactiveRowButtonClasses}
+                              className={`${interactiveRowButtonClasses} p-2.5`}
                             >
-                              <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                                   <span className="text-primary truncate">{category.category_name}</span>
                                 </div>
-                                <span className="text-primary font-semibold flex-shrink-0">{formatCurrency(category.total)}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-primary font-semibold flex-shrink-0">
+                                  {formatCurrency(category.total)}
+                                </span>
                               </div>
-                              <div className="w-full h-2 rounded-full bg-secondary">
+
+                              <div className="w-full h-1.5 rounded-full bg-secondary mt-2">
                                 <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                               </div>
-                              <p className="text-xs text-secondary mt-1">{pct.toFixed(1)}% do total</p>
+
+                              <p className="text-[11px] text-secondary mt-1.5">{pct.toFixed(1)}% do total</p>
                             </button>
                           )
                         })}
@@ -1344,8 +1442,11 @@ export default function Reports() {
                   </Card>
 
                   <Card className="h-full">
-                    <h3 className="text-lg font-semibold text-primary mb-4">Detalhamento rendas</h3>
-                    <div className="space-y-3">
+                    <div className="mb-3">
+                      <h3 className="text-lg font-semibold text-primary">Detalhamento rendas</h3>
+                      <p className="text-xs text-secondary">Categorias do mês com distribuição proporcional.</p>
+                    </div>
+                    <div className="space-y-2">
                       {[...monthIncomeCategories]
                         .sort((a, b) => b.total - a.total)
                         .map((category) => {
@@ -1357,19 +1458,23 @@ export default function Reports() {
                               key={category.income_category_id}
                               type="button"
                               onClick={() => openDetailModal('income', category.income_category_id, category.category_name, 'month')}
-                              className={interactiveRowButtonClasses}
+                              className={`${interactiveRowButtonClasses} p-2.5`}
                             >
-                              <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                                   <span className="text-primary truncate">{category.category_name}</span>
                                 </div>
-                                <span className="text-primary font-semibold flex-shrink-0">{formatCurrency(category.total)}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-primary font-semibold flex-shrink-0">
+                                  {formatCurrency(category.total)}
+                                </span>
                               </div>
-                              <div className="w-full h-2 rounded-full bg-secondary">
+
+                              <div className="w-full h-1.5 rounded-full bg-secondary mt-2">
                                 <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                               </div>
-                              <p className="text-xs text-secondary mt-1">{pct.toFixed(1)}% do total</p>
+
+                              <p className="text-[11px] text-secondary mt-1.5">{pct.toFixed(1)}% do total</p>
                             </button>
                           )
                         })}
@@ -1395,22 +1500,46 @@ export default function Reports() {
         title={`${detailModal.type === 'expense' ? 'Despesas' : 'Rendas'} • ${detailModal.categoryName}`}
       >
         <div className="space-y-4">
-          <div className="rounded-lg border border-primary p-3 bg-secondary">
-            <p className="text-sm text-secondary">Total em {detailModal.period === 'year' ? selectedYear : formatMonth(selectedMonth)}</p>
-            <p className="text-xl font-bold text-primary">{formatCurrency(detailCurrentTotal)}</p>
-            <p className="text-sm text-secondary mt-2">Comparação com {detailModal.period === 'year' ? selectedYear - 1 : formatMonth(previousMonth)}</p>
-            <p className="text-sm text-primary">
-              {formatCurrency(detailPreviousTotal)}
-              {' • '}
-              <span style={{ color: detailDifference >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
-                {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
-                {detailDifferencePct !== null ? ` (${detailDifferencePct >= 0 ? '+' : ''}${detailDifferencePct.toFixed(1)}%)` : ''}
-              </span>
-            </p>
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação Mensal</p>
+            <div className="rounded-lg border border-primary p-3 bg-secondary">
+              <p className="text-sm text-secondary">Total em {detailModal.period === 'year' ? selectedYear : formatMonth(selectedMonth)}</p>
+              <p className="text-xl font-bold text-primary">{formatCurrency(detailCurrentTotal)}</p>
+              <p className="text-sm text-secondary mt-2">Comparação com {detailModal.period === 'year' ? selectedYear - 1 : formatMonth(previousMonth)}</p>
+              <p className="text-sm text-primary">
+                {formatCurrency(detailPreviousTotal)}
+                {' • '}
+                <span style={{ color: detailDifference >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
+                  {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
+                  {detailDifferencePct !== null ? ` (${detailDifferencePct >= 0 ? '+' : ''}${detailDifferencePct.toFixed(1)}%)` : ''}
+                </span>
+              </p>
+            </div>
           </div>
 
+          {detailModal.period === 'month' && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do Mês</p>
+              <div className="rounded-lg border border-primary p-3 bg-secondary">
+                {detailMonthlyGoal?.configured ? (
+                  <>
+                    <p className="text-sm text-primary">{detailMonthlyGoal.label}: {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}</p>
+                    <p className="text-sm text-primary">Atual: {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)}</p>
+                    <p className={`text-sm font-medium ${(detailMonthlyGoal.isExceeded ?? false) ? 'text-expense' : 'text-income'}`}>
+                      {(detailMonthlyGoal.isExceeded ?? false)
+                        ? `Acima da meta: ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)}`
+                        : `Faltam: ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)}`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-secondary">Sem meta configurada para esta categoria no mês.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">Buscar lançamento</label>
+            <label className="block text-xs font-medium uppercase tracking-wide text-secondary mb-2">Buscar lançamento</label>
             <input
               type="text"
               value={detailSearch}
@@ -1419,6 +1548,8 @@ export default function Reports() {
               className="w-full px-3 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
             />
           </div>
+
+          <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do Mês</p>
 
           {filteredDetailItems.length === 0 ? (
             <p className="text-sm text-secondary">

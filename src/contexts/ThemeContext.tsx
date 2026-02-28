@@ -1,14 +1,15 @@
 import { createContext, useState, useEffect, ReactNode } from 'react'
 
 export type Theme = 'mono-light' | 'mono-dark'
-export type ColorPalette = 'vivid' | 'monochrome' | 'neon-green'
+export type ColorPalette = 'vivid' | 'monochrome'
 
 const VALID_THEMES: Theme[] = ['mono-light', 'mono-dark']
-const VALID_PALETTES: ColorPalette[] = ['vivid', 'monochrome', 'neon-green']
+const VALID_PALETTES: ColorPalette[] = ['vivid', 'monochrome']
 
 const LEGACY_PALETTE_MAP: Record<string, ColorPalette> = {
   sunset: 'monochrome',
-  ocean: 'neon-green',
+  ocean: 'vivid',
+  'neon-green': 'vivid',
 }
 
 const isTheme = (value: string | null): value is Theme => {
@@ -94,11 +95,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         income: '#e5e7eb',
         expense: '#9ca3af',
         balance: '#6b7280',
-      },
-      'neon-green': {
-        income: '#6ee787',
-        expense: '#4ade80',
-        balance: '#84cc16',
       },
     }
 

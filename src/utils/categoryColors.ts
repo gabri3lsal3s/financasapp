@@ -1,4 +1,4 @@
-export type ColorPalette = 'vivid' | 'monochrome' | 'neon-green'
+export type ColorPalette = 'vivid' | 'monochrome'
 
 export const categoryColorPalettes: Record<ColorPalette, string[]> = {
   vivid: [
@@ -32,22 +32,6 @@ export const categoryColorPalettes: Record<ColorPalette, string[]> = {
     '#242424', '#1f1f1f', '#181818',
     // Alternate neutrals
     '#9ca3af', '#7c7c7c', '#525252',
-  ],
-  'neon-green': [
-    // Soft neon highlights
-    '#6ee787', '#4ade80', '#84cc16',
-    // Lime support
-    '#a3e635', '#bef264', '#9acd32',
-    // Fresh green tones
-    '#22c55e', '#34d399', '#10b981',
-    // Medium greens
-    '#16a34a', '#65a30d', '#4d7c0f',
-    // Deep support greens for contrast
-    '#166534', '#14532d', '#1f5f3a',
-    // Mint accents
-    '#86efac', '#6ee7b7', '#5eead4',
-    // Alternate balanced accents
-    '#7ddf64', '#57cc99', '#6fbf73',
   ],
 }
 

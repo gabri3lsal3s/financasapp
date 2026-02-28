@@ -14,12 +14,12 @@ export default function ColorPaletteSwitcher() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {(Object.entries(colorPalettes) as Array<[string, any]>).map(([key, palette]) => (
             <button
               key={key}
               onClick={() => setColorPalette(key as any)}
-              className={`p-4 rounded-lg border-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+              className={`p-3 rounded-lg border-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
                 colorPalette === key
                   ? 'border-[var(--color-primary)] bg-tertiary'
                   : 'border-primary bg-secondary hover:border-[var(--color-focus)]'
@@ -29,12 +29,15 @@ export default function ColorPaletteSwitcher() {
                 {palette.colors.map((color: string, idx: number) => (
                   <div
                     key={idx}
-                    className="w-6 h-6 rounded-md"
+                    className="w-5 h-5 rounded-md"
                     style={{ backgroundColor: color }}
                   />
                 ))}
               </div>
-              <p className="text-sm font-medium text-primary">{palette.name}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-primary">{palette.name}</p>
+                {colorPalette === key && <span className="text-xs text-secondary">Ativa</span>}
+              </div>
             </button>
           ))}
         </div>

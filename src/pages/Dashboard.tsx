@@ -9,6 +9,7 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useInvestments } from '@/hooks/useInvestments'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
+import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
@@ -34,6 +35,7 @@ import {
 } from 'recharts'
 
 type QuickAddType = 'expense' | 'income' | 'investment'
+const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
 export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
@@ -76,12 +78,19 @@ export default function Dashboard() {
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
   const { investments, loading: investmentsLoading, refreshInvestments, createInvestment } = useInvestments(currentMonth)
+  const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading } = useExpenseCategoryLimits(currentMonth)
+  const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount * (exp.report_weight ?? 1)), 0)
   const totalIncomes = incomes.reduce((sum, inc) => sum + (inc.amount * (inc.report_weight ?? 1)), 0)
   const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0)
   const balance = totalIncomes - totalExpenses - totalInvestments
-  const loading = expensesLoading || incomesLoading || investmentsLoading
+  const loading =
+    expensesLoading ||
+    incomesLoading ||
+    investmentsLoading ||
+    expenseLimitsLoading ||
+    previousExpenseLimitsLoading
 
   const monthlyOverviewData = useMemo(
     () => [
@@ -112,6 +121,63 @@ export default function Dashboard() {
     return Array.from(map.values()).sort((a, b) => b.value - a.value)
   }, [expenses, colorPalette])
 
+  const currentMonthExpenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    currentMonthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
+    return map
+  }, [currentMonthExpenseLimits])
+
+  const previousMonthExpenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    previousMonthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
+    return map
+  }, [previousMonthExpenseLimits])
+
+  const expenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+
+    categories.forEach((category) => {
+      const currentValue = currentMonthExpenseLimitMap.get(category.id)
+      if (currentValue !== undefined) {
+        map.set(category.id, currentValue)
+        return
+      }
+
+      const previousValue = previousMonthExpenseLimitMap.get(category.id)
+      if (previousValue !== undefined) {
+        map.set(category.id, previousValue)
+      }
+    })
+
+    return map
+  }, [categories, currentMonthExpenseLimitMap, previousMonthExpenseLimitMap])
+
+  const expenseLimitAlerts = useMemo(() => {
+    return expenseByCategory
+      .map((item) => {
+        const limitAmount = item.categoryId ? expenseLimitMap.get(item.categoryId) : undefined
+        const hasLimit = limitAmount !== null && limitAmount !== undefined
+
+        if (!hasLimit) return null
+
+        const exceededAmount = item.value - (limitAmount || 0)
+        if (exceededAmount <= 0) return null
+
+        const exceededPercentage = (limitAmount || 0) > 0 ? (exceededAmount / (limitAmount || 1)) * 100 : 100
+        const usagePercentage = (limitAmount || 0) > 0 ? (item.value / (limitAmount || 1)) * 100 : 100
+
+        return {
+          ...item,
+          limitAmount: limitAmount || 0,
+          exceededAmount,
+          exceededPercentage,
+          usagePercentage,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((a, b) => b.exceededAmount - a.exceededAmount)
+  }, [expenseByCategory, expenseLimitMap])
+
   const expenseCategoriesPieData = useMemo(() => {
     if (expenseByCategory.length <= 5) return expenseByCategory
 
@@ -122,14 +188,67 @@ export default function Dashboard() {
   }, [expenseByCategory])
 
   const expenseAttentionCategories = useMemo(() => {
-    if (totalExpenses <= 0) return []
+    return expenseByCategory
+      .map((item) => {
+        const limitAmount = item.categoryId ? expenseLimitMap.get(item.categoryId) : undefined
+        const hasLimit = limitAmount !== null && limitAmount !== undefined
 
-    return expenseByCategory.slice(0, 5).map((item) => {
-      const percentage = (item.value / totalExpenses) * 100
-      const level = percentage >= 35 ? 'Alta' : percentage >= 20 ? 'Média' : 'Baixa'
-      return { ...item, percentage, level }
-    })
-  }, [expenseByCategory, totalExpenses])
+        if (!hasLimit || (limitAmount || 0) <= 0) return null
+
+        const usagePercentage = (item.value / (limitAmount || 1)) * 100
+        const isNearLimit = usagePercentage >= EXPENSE_LIMIT_WARNING_THRESHOLD && usagePercentage < 100
+
+        if (!isNearLimit) return null
+
+        const level = usagePercentage >= 95 ? 'Crítica' : usagePercentage >= 90 ? 'Alta' : 'Média'
+
+        return {
+          ...item,
+          level,
+          usagePercentage,
+          limitAmount: limitAmount || 0,
+          remainingAmount: (limitAmount || 0) - item.value,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((a, b) => b.usagePercentage - a.usagePercentage)
+  }, [expenseByCategory, expenseLimitMap])
+
+  const prioritizedExpenseCategoryItems = useMemo(() => {
+    return expenseByCategory
+      .map((item) => {
+        const exceeded = expenseLimitAlerts.find((alert) => alert.categoryId === item.categoryId)
+        if (exceeded) {
+          return {
+            ...item,
+            alertPriority: 2,
+            alertStatusLabel: 'Ultrapassou',
+            alertStatusClass: 'text-secondary',
+          }
+        }
+
+        const nearLimit = expenseAttentionCategories.find((alert) => alert.categoryId === item.categoryId)
+        if (nearLimit) {
+          return {
+            ...item,
+            alertPriority: 1,
+            alertStatusLabel: nearLimit.level,
+            alertStatusClass: 'text-secondary',
+          }
+        }
+
+        return {
+          ...item,
+          alertPriority: 0,
+          alertStatusLabel: '',
+          alertStatusClass: 'text-secondary',
+        }
+      })
+      .sort((a, b) => {
+        if (b.alertPriority !== a.alertPriority) return b.alertPriority - a.alertPriority
+        return b.value - a.value
+      })
+  }, [expenseByCategory, expenseLimitAlerts, expenseAttentionCategories])
 
   const dailyFlowData = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number)
@@ -201,6 +320,28 @@ export default function Dashboard() {
       previousTotal,
     }
   }, [selectedExpenseCategory, expenses, previousMonthExpenses])
+
+  const selectedExpenseCategoryLimitDetails = useMemo(() => {
+    if (!selectedExpenseCategory || !selectedExpenseCategoryDetails) return null
+
+    const rawLimit = expenseLimitMap.get(selectedExpenseCategory.id)
+    const hasLimit = rawLimit !== null && rawLimit !== undefined
+
+    if (!hasLimit) return null
+
+    const limitAmount = rawLimit || 0
+    const currentTotal = selectedExpenseCategoryDetails.currentTotal
+    const exceededAmount = Math.max(currentTotal - limitAmount, 0)
+    const remainingAmount = Math.max(limitAmount - currentTotal, 0)
+
+    return {
+      limitAmount,
+      currentTotal,
+      exceededAmount,
+      remainingAmount,
+      isExceeded: currentTotal > limitAmount,
+    }
+  }, [selectedExpenseCategory, selectedExpenseCategoryDetails, expenseLimitMap])
 
   const toggleDailyFlowSeries = (dataKey: string) => {
     setHiddenDailyFlowSeries((prev) =>
@@ -508,9 +649,12 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+            <div className="grid grid-cols-1 gap-4 items-stretch">
               <Card className="h-full flex flex-col">
-                <h3 className="text-lg font-semibold text-primary mb-4">Despesas por categoria</h3>
+                <div className="mb-3">
+                  <h3 className="text-lg font-semibold text-primary">Despesas por categoria</h3>
+                  <p className="text-xs text-secondary">Gráfico por porcentagem e lista priorizada por alertas de limite.</p>
+                </div>
                 {expenseCategoriesPieData.length === 0 ? (
                   <p className="text-sm text-secondary">Sem despesas no mês selecionado.</p>
                 ) : (
@@ -539,59 +683,42 @@ export default function Dashboard() {
                     </ResponsiveContainer>
 
                     <div className="space-y-2 mt-3">
-                      {expenseCategoriesPieData.map((item) => {
+                      {prioritizedExpenseCategoryItems.map((item) => {
                         const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
                         return (
                           <button
                             key={item.name}
                             type="button"
                             onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
-                            className={`${interactiveRowButtonClasses} flex items-center justify-between gap-3 text-sm`}
+                            className={`${interactiveRowButtonClasses} p-2.5`}
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                              <span className="text-primary truncate">{item.name}</span>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                                <span className="text-primary truncate">{item.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {item.alertPriority > 0 && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary ${item.alertStatusClass}`}>
+                                    {item.alertStatusLabel}
+                                  </span>
+                                )}
+                                <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">
+                                  {percentage.toFixed(1)}%
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-secondary flex-shrink-0">{percentage.toFixed(1)}%</span>
+
+                            <div className="w-full h-1.5 rounded-full bg-secondary mt-2">
+                              <div className="h-2 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }} />
+                            </div>
+
+                            <p className="text-[11px] text-secondary mt-1.5 truncate">Total: {formatCurrency(item.value)}</p>
                           </button>
                         )
                       })}
                     </div>
                   </>
-                )}
-              </Card>
-
-              <Card className="h-full">
-                <h3 className="text-lg font-semibold text-primary mb-4">Categorias para atenção</h3>
-                {expenseAttentionCategories.length === 0 ? (
-                  <p className="text-sm text-secondary">Sem dados de despesas para priorização neste mês.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {expenseAttentionCategories.map((item) => (
-                      <button
-                        key={item.name}
-                        type="button"
-                        onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
-                        disabled={!item.categoryId}
-                        className={`${interactiveRowButtonClasses} disabled:cursor-not-allowed disabled:opacity-60`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                            <span className="text-primary truncate">{item.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">{item.level}</span>
-                            <span className="text-sm font-medium text-primary">{item.percentage.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                        <div className="w-full h-2 rounded-full bg-secondary">
-                          <div className="h-2 rounded-full" style={{ width: `${Math.min(item.percentage, 100)}%`, backgroundColor: item.color }} />
-                        </div>
-                        <p className="text-xs text-secondary mt-1">{formatCurrency(item.value)} no mês</p>
-                      </button>
-                    ))}
-                  </div>
                 )}
               </Card>
             </div>
@@ -718,16 +845,36 @@ export default function Dashboard() {
         title={selectedExpenseCategory ? `Detalhamento: ${selectedExpenseCategory.name}` : 'Detalhamento'}
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-lg border border-primary bg-secondary p-3">
-              <p className="text-xs text-secondary">Total em {formatMonth(currentMonth)}</p>
-              <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.currentTotal ?? 0)}</p>
-            </div>
-            <div className="rounded-lg border border-primary bg-secondary p-3">
-              <p className="text-xs text-secondary">Total em {formatMonth(previousMonth)}</p>
-              <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.previousTotal ?? 0)}</p>
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação mensal</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-lg border border-primary bg-secondary p-3">
+                <p className="text-xs text-secondary">Total em {formatMonth(currentMonth)}</p>
+                <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.currentTotal ?? 0)}</p>
+              </div>
+              <div className="rounded-lg border border-primary bg-secondary p-3">
+                <p className="text-xs text-secondary">Total em {formatMonth(previousMonth)}</p>
+                <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.previousTotal ?? 0)}</p>
+              </div>
             </div>
           </div>
+
+          {selectedExpenseCategoryLimitDetails && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do mês</p>
+              <div className="rounded-lg border border-primary bg-secondary p-3">
+                <p className="text-sm text-primary">Limite: {formatCurrency(selectedExpenseCategoryLimitDetails.limitAmount)}</p>
+                <p className="text-sm text-primary">Gasto: {formatCurrency(selectedExpenseCategoryLimitDetails.currentTotal)}</p>
+                <p className={`text-sm font-medium ${selectedExpenseCategoryLimitDetails.isExceeded ? 'text-expense' : 'text-income'}`}>
+                  {selectedExpenseCategoryLimitDetails.isExceeded
+                    ? `Excesso: ${formatCurrency(selectedExpenseCategoryLimitDetails.exceededAmount)}`
+                    : `Restante: ${formatCurrency(selectedExpenseCategoryLimitDetails.remainingAmount)}`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do mês</p>
 
           {selectedExpenseCategoryDetails && selectedExpenseCategoryDetails.currentItems.length > 0 ? (
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
