@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -13,11 +13,13 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, RefreshCw, Plus, Wallet, WalletCards } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, RefreshCw, Plus, Wallet, WalletCards, Sparkles } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import { useAssistant } from '@/hooks/useAssistant'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import {
   Bar,
   BarChart,
@@ -38,8 +40,26 @@ type QuickAddType = 'expense' | 'income' | 'investment'
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
 export default function Dashboard() {
+  const {
+    loading: assistantLoading,
+    error: assistantError,
+    lastInterpretation,
+    lastConfirmation,
+    ensureSession,
+    interpret,
+    confirm,
+  } = useAssistant('web-dashboard-device')
+
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false)
+  const [voiceStatus, setVoiceStatus] = useState('')
+  const [voiceListening, setVoiceListening] = useState(false)
+  const [voicePhase, setVoicePhase] = useState<'idle' | 'listening' | 'stopped'>('idle')
+  const [lastHeardCommand, setLastHeardCommand] = useState('')
+  const [editableConfirmationText, setEditableConfirmationText] = useState('')
+  const [isEditingConfirmationText, setIsEditingConfirmationText] = useState(false)
+  const activeRecognitionRef = useRef<any | null>(null)
   const [quickAddType, setQuickAddType] = useState<QuickAddType>('expense')
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
@@ -404,6 +424,311 @@ export default function Dashboard() {
       ? 'Nova renda'
       : 'Novo investimento'
 
+  const voiceSupport = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { recognition: false }
+    }
+
+    const hasRecognition = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+
+    return {
+      recognition: hasRecognition,
+    }
+  }, [])
+
+  const playAssistantBeep = (type: 'start' | 'end' | 'heard' | 'executed' = 'start') => {
+    if (typeof window === 'undefined') return
+
+    const AudioContextCtor = (window as any).AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextCtor) return
+
+    const context = new AudioContextCtor()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+
+    oscillator.type = 'sine'
+    const toneMap: Record<'start' | 'end' | 'heard' | 'executed', { start: number; end: number }> = {
+      start: { start: 880, end: 1040 },
+      end: { start: 520, end: 420 },
+      heard: { start: 700, end: 760 },
+      executed: { start: 980, end: 1180 },
+    }
+
+    const startFrequency = toneMap[type].start
+    const endFrequency = toneMap[type].end
+    oscillator.frequency.setValueAtTime(startFrequency, context.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(endFrequency, context.currentTime + 0.14)
+    gain.gain.setValueAtTime(0.001, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.14)
+
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.14)
+
+    oscillator.onended = () => {
+      context.close().catch(() => undefined)
+    }
+  }
+
+  const openAssistant = () => {
+    setIsAssistantOpen(true)
+    setVoiceStatus('')
+    setVoicePhase('idle')
+    void handleVoiceInterpret()
+  }
+
+  const closeAssistant = () => {
+    if (activeRecognitionRef.current) {
+      activeRecognitionRef.current.stop()
+    }
+    setIsAssistantOpen(false)
+    setVoiceListening(false)
+    setVoicePhase('idle')
+  }
+
+  const stopActiveListening = () => {
+    if (!activeRecognitionRef.current) return
+    setVoiceStatus('Finalizando escuta...')
+    activeRecognitionRef.current.stop()
+  }
+
+  useEffect(() => {
+    if (!lastInterpretation) return
+    setEditableConfirmationText(lastInterpretation.confirmationText)
+    setIsEditingConfirmationText(false)
+  }, [lastInterpretation])
+
+  const resolveVoiceConfirmation = (spokenText: string) => {
+    const normalized = spokenText.trim().toLowerCase()
+    if (!normalized) return true
+
+    if (
+      normalized.includes('não')
+      || normalized.includes('nao')
+      || normalized.includes('cancelar')
+      || normalized.includes('negar')
+    ) {
+      return false
+    }
+
+    return true
+  }
+
+  const getSpeechRecognitionErrorMessage = (errorCode?: string) => {
+    const code = (errorCode || '').toLowerCase()
+
+    if (code === 'network') {
+      return 'Falha de rede no reconhecimento de voz. Use o comando em texto e toque em Interpretar.'
+    }
+
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      return 'Permissão de microfone negada. Libere o microfone nas permissões do navegador.'
+    }
+
+    if (code === 'no-speech') {
+      return 'Nenhuma fala detectada. Fale novamente após tocar no botão.'
+    }
+
+    if (code === 'audio-capture') {
+      return 'Não foi possível acessar o microfone. Verifique se outro app está usando o áudio.'
+    }
+
+    return 'Erro ao capturar voz. Use o modo de texto como alternativa.'
+  }
+
+  const captureSpeech = async (prompt?: string): Promise<string> => {
+    if (!voiceSupport.recognition) {
+      throw new Error('Reconhecimento de voz não suportado neste navegador/dispositivo.')
+    }
+
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      throw new Error('Reconhecimento de voz requer contexto seguro (HTTPS ou localhost).')
+    }
+
+    return new Promise((resolve, reject) => {
+      const RecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      const recognition = new RecognitionCtor()
+      let isSettled = false
+      let hasHeardSpeech = false
+      let transcriptBuffer = ''
+      let silenceTimer: ReturnType<typeof setTimeout> | null = null
+      let initialSpeechTimer: ReturnType<typeof setTimeout> | null = null
+
+      const scheduleSilenceStop = (delayMs: number) => {
+        if (silenceTimer) clearTimeout(silenceTimer)
+        silenceTimer = setTimeout(() => {
+          if (!isSettled) {
+            recognition.stop()
+          }
+        }, delayMs)
+      }
+
+      recognition.lang = 'pt-BR'
+      recognition.interimResults = true
+      recognition.maxAlternatives = 1
+      recognition.continuous = false
+
+      setVoiceStatus(prompt || 'Ouvindo...')
+      setVoiceListening(true)
+      setVoicePhase('listening')
+      activeRecognitionRef.current = recognition
+      initialSpeechTimer = setTimeout(() => {
+        if (!isSettled) {
+          setVoiceStatus('Não detectei sua voz ainda. Tente falar mais próximo ao microfone.')
+          recognition.stop()
+        }
+      }, 7000)
+
+      recognition.onspeechstart = () => {
+        hasHeardSpeech = true
+        if (initialSpeechTimer) {
+          clearTimeout(initialSpeechTimer)
+          initialSpeechTimer = null
+        }
+      }
+
+      recognition.onresult = (event: any) => {
+        const chunks: string[] = []
+
+        for (let index = 0; index < (event.results?.length || 0); index += 1) {
+          const result = event.results[index]
+          const chunk = result?.[0]?.transcript?.trim()
+          if (chunk) chunks.push(chunk)
+        }
+
+        const mergedTranscript = chunks.join(' ').replace(/\s+/g, ' ').trim()
+
+        if (mergedTranscript) {
+          hasHeardSpeech = true
+          if (initialSpeechTimer) {
+            clearTimeout(initialSpeechTimer)
+            initialSpeechTimer = null
+          }
+          transcriptBuffer = mergedTranscript
+          setVoiceStatus(`Escutando: ${transcriptBuffer}`)
+          scheduleSilenceStop(2500)
+        }
+      }
+
+      recognition.onspeechend = () => {
+        if (!isSettled && hasHeardSpeech) {
+          scheduleSilenceStop(1200)
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        if (isSettled) return
+        isSettled = true
+        if (silenceTimer) clearTimeout(silenceTimer)
+        if (initialSpeechTimer) clearTimeout(initialSpeechTimer)
+        setVoiceListening(false)
+        setVoicePhase('stopped')
+        activeRecognitionRef.current = null
+
+        if (event?.error === 'no-speech') {
+          const transcript = transcriptBuffer.trim()
+          setLastHeardCommand(transcript)
+          if (transcript) {
+            playAssistantBeep('heard')
+            setVoiceStatus(`Reconhecido: ${transcript}`)
+            resolve(transcript)
+            return
+          }
+
+          setVoiceStatus('Nenhuma fala detectada. Tente novamente falando logo após tocar no botão.')
+          resolve('')
+          return
+        }
+
+        const errorMessage = getSpeechRecognitionErrorMessage(event?.error)
+        setVoiceStatus(errorMessage)
+        reject(new Error(errorMessage))
+      }
+
+      recognition.onend = () => {
+        if (isSettled) return
+        isSettled = true
+        if (silenceTimer) clearTimeout(silenceTimer)
+        if (initialSpeechTimer) clearTimeout(initialSpeechTimer)
+        setVoiceListening(false)
+        setVoicePhase('stopped')
+        activeRecognitionRef.current = null
+        playAssistantBeep('end')
+
+        const transcript = transcriptBuffer.trim()
+        setLastHeardCommand(transcript)
+
+        if (transcript) {
+          playAssistantBeep('heard')
+          setVoiceStatus(`Reconhecido: ${transcript}`)
+          resolve(transcript)
+          return
+        }
+
+        setVoiceStatus('Nenhuma fala reconhecida.')
+        resolve('')
+      }
+
+      recognition.start()
+    })
+  }
+
+  const handleConfirmAssistant = async (confirmed: boolean) => {
+    if (!lastInterpretation?.command.id || !isSupabaseConfigured) return
+    const spokenText = editableConfirmationText.trim() || undefined
+    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText)
+    if (result.status === 'executed') {
+      playAssistantBeep('executed')
+    }
+    closeAssistant()
+  }
+
+  const handleVoiceInterpret = async () => {
+    if (!isSupabaseConfigured || assistantLoading) return
+
+    if (voiceListening) {
+      stopActiveListening()
+      return
+    }
+
+    try {
+      playAssistantBeep()
+      const transcript = await captureSpeech('Fale seu comando')
+      if (!transcript) return
+
+      await ensureSession()
+      const result = await interpret(transcript)
+      if (!result.requiresConfirmation) {
+        playAssistantBeep('executed')
+      }
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.')
+    }
+  }
+
+  const handleVoiceConfirm = async () => {
+    if (!isSupabaseConfigured || assistantLoading || !lastInterpretation?.command.id) return
+    if (lastInterpretation.intent === 'add_expense') {
+      setVoiceStatus('Para despesas, a confirmação é manual pelos botões Confirmar/Negar.')
+      return
+    }
+
+    try {
+      const transcript = await captureSpeech('Confirme por voz')
+      if (!transcript) return
+
+      const confirmed = resolveVoiceConfirmation(transcript)
+      const result = await confirm(lastInterpretation.command.id, confirmed, transcript)
+      if (result.status === 'executed') {
+        playAssistantBeep('executed')
+      }
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao confirmar por voz.')
+    }
+  }
+
   const handleQuickAddSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
@@ -487,19 +812,31 @@ export default function Dashboard() {
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              refreshExpenses()
-              refreshIncomes()
-              refreshInvestments()
-            }}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw size={16} />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={openAssistant}
+              className="flex items-center gap-2"
+              aria-label="Assistente"
+              title="Assistente"
+            >
+              <Sparkles size={16} />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                refreshExpenses()
+                refreshIncomes()
+                refreshInvestments()
+              }}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw size={16} />
+              Atualizar
+            </Button>
+          </div>
         }
       />
       
@@ -901,6 +1238,95 @@ export default function Dashboard() {
           ) : (
             <p className="text-sm text-secondary">Sem lançamentos dessa categoria no mês selecionado.</p>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isAssistantOpen}
+        onClose={closeAssistant}
+        title="Assistente"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Status de escuta</p>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${voicePhase === 'listening' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'}`} />
+              <p className="text-sm text-primary">
+                {voicePhase === 'listening' ? 'Escutando...' : voicePhase === 'stopped' ? 'Parou de escutar' : 'Pronto para iniciar'}
+              </p>
+            </div>
+            {lastHeardCommand && (
+              <p className="text-sm text-primary">
+                <strong>Comando ouvido:</strong> {lastHeardCommand}
+              </p>
+            )}
+          </div>
+
+          <Button
+            onClick={handleVoiceInterpret}
+              disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition}
+            variant="outline"
+            fullWidth
+          >
+              {voiceListening ? 'Parar Escuta' : 'Falar Comando'}
+          </Button>
+
+          {lastInterpretation?.requiresConfirmation && (
+            <div className="space-y-2 rounded-lg border border-primary bg-secondary p-3">
+              {isEditingConfirmationText ? (
+                <Input
+                  label="Texto da confirmação"
+                  value={editableConfirmationText}
+                  onChange={(event) => setEditableConfirmationText(event.target.value)}
+                  onBlur={() => setIsEditingConfirmationText(false)}
+                  autoFocus
+                  disabled={assistantLoading || !isSupabaseConfigured}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingConfirmationText(true)}
+                  className="w-full text-left text-sm text-primary rounded-md px-1 py-1 hover:bg-tertiary motion-standard"
+                >
+                  {editableConfirmationText || lastInterpretation.confirmationText}
+                </button>
+              )}
+              <div className={`grid grid-cols-1 gap-2 ${lastInterpretation.intent === 'add_expense' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+                <Button
+                  onClick={() => handleConfirmAssistant(true)}
+                  disabled={assistantLoading || !isSupabaseConfigured}
+                  fullWidth
+                >
+                  Confirmar
+                </Button>
+                <Button
+                  onClick={() => handleConfirmAssistant(false)}
+                  disabled={assistantLoading || !isSupabaseConfigured}
+                  variant="outline"
+                  fullWidth
+                >
+                  Negar
+                </Button>
+                {lastInterpretation.intent !== 'add_expense' && (
+                  <Button
+                    onClick={handleVoiceConfirm}
+                    disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition || voiceListening}
+                    variant="outline"
+                    fullWidth
+                  >
+                    {voiceListening ? 'Ouvindo...' : 'Confirmar por Voz'}
+                  </Button>
+                )}
+              </div>
+              {lastInterpretation.intent === 'add_expense' && (
+                <p className="text-xs text-secondary">Para despesas, a confirmação é feita manualmente pelos botões acima.</p>
+              )}
+            </div>
+          )}
+
+          {voiceStatus && <p className="text-xs text-secondary">{voiceStatus}</p>}
+          {assistantError && <p className="text-xs text-[var(--color-danger)]">{assistantError}</p>}
+          {lastConfirmation && <p className="text-sm text-primary">{lastConfirmation.message}</p>}
         </div>
       </Modal>
     </div>

@@ -461,7 +461,7 @@ export default function Settings() {
           </Card>
         </section>
 
-        <section className="space-y-4">
+        <section id="assistant-mvp" className="space-y-4 scroll-mt-24">
           <div>
             <h2 className="text-xl font-semibold text-primary mb-2">Assistente (MVP)</h2>
             <p className="text-secondary text-sm">Teste o fluxo: interpretar comando, confirmar e executar</p>
