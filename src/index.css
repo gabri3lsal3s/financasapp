@@ -201,13 +201,16 @@
   }
 
   .animate-fade-out {
-    animation: fade-out 0.22s ease-in-out forwards;
+    animation: fade-out 0.26s ease-in-out forwards;
   }
 
   .animate-slide-down {
-    animation: slide-down 0.22s ease-in-out forwards;
+    animation: slide-down 0.26s ease-in-out forwards;
   }
 }
+
+
+
 
 
 

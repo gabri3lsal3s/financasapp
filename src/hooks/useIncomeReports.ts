@@ -8,21 +8,22 @@ export interface IncomeByCategory {
   color: string
 }
 
+/** Rendas por categoria por mês (yyyy-MM -> lista) */
+export type MonthlyIncomeByCategory = Record<string, IncomeByCategory[]>
+
 export function useIncomeReports(year: number) {
   const [incomeByCategory, setIncomeByCategory] = useState<IncomeByCategory[]>([])
+  const [monthlyIncomeByCategory, setMonthlyIncomeByCategory] = useState<MonthlyIncomeByCategory>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadIncomeByCategory()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year])
 
   const loadIncomeByCategory = async () => {
     try {
       setLoading(true)
-      
-      // Pegar todas as rendas do ano
       const startDate = `${year}-01-01`
       const endDate = `${year}-12-31`
 
@@ -30,42 +31,55 @@ export function useIncomeReports(year: number) {
         .from('incomes')
         .select(`
           amount,
+          date,
           income_category_id,
-          income_categories (
-            name,
-            color
-          )
+          income_categories (name, color)
         `)
         .gte('date', startDate)
         .lte('date', endDate)
 
       if (incomesError) throw incomesError
 
-      // Agrupar por categoria
-      const groupedByCategory: Record<string, IncomeByCategory> = {}
+      const annual: Record<string, IncomeByCategory> = {}
+      const byMonth: MonthlyIncomeByCategory = {}
 
-      incomes.forEach((income: any) => {
+      ;(incomes || []).forEach((income: { amount: number; date: string; income_category_id: string; income_categories?: { name?: string; color?: string } | { name?: string; color?: string }[] | null }) => {
+        const cat = Array.isArray(income.income_categories) ? income.income_categories[0] : income.income_categories
         const categoryId = income.income_category_id
-        const categoryName = income.income_categories?.name || 'Sem categoria'
-        const categoryColor = income.income_categories?.color || '#808080'
+        const categoryName = cat?.name ?? 'Sem categoria'
+        const categoryColor = cat?.color ?? '#808080'
+        const monthStr = income.date.substring(0, 7)
 
-        if (!groupedByCategory[categoryId]) {
-          groupedByCategory[categoryId] = {
+        if (!annual[categoryId]) {
+          annual[categoryId] = {
             income_category_id: categoryId,
             category_name: categoryName,
             total: 0,
             color: categoryColor,
           }
         }
+        annual[categoryId].total += income.amount
 
-        groupedByCategory[categoryId].total += income.amount
+        if (!byMonth[monthStr]) byMonth[monthStr] = []
+        const monthList = byMonth[monthStr]
+        const existing = monthList.find((c) => c.income_category_id === categoryId)
+        if (existing) {
+          existing.total += income.amount
+        } else {
+          monthList.push({
+            income_category_id: categoryId,
+            category_name: categoryName,
+            total: income.amount,
+            color: categoryColor,
+          })
+        }
       })
 
-      setIncomeByCategory(Object.values(groupedByCategory))
+      setIncomeByCategory(Object.values(annual))
+      setMonthlyIncomeByCategory(byMonth)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar relatórios de renda')
-      console.error('Error loading income reports:', err)
     } finally {
       setLoading(false)
     }
@@ -73,6 +87,7 @@ export function useIncomeReports(year: number) {
 
   return {
     incomeByCategory,
+    monthlyIncomeByCategory,
     loading,
     error,
   }

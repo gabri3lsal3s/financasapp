@@ -63,24 +63,18 @@ export function useIncomes(month?: string) {
         ...(income.description && { description: income.description }),
       }
 
-      console.log('Enviando dados de renda:', incomeData)
-
       const { data, error: insertError } = await supabase
         .from('incomes')
         .insert([incomeData])
         .select('*, income_category:income_categories(*)')
         .single()
 
-      if (insertError) {
-        console.error('Erro do Supabase:', insertError)
-        throw insertError
-      }
+      if (insertError) throw insertError
       
       setIncomes((prev) => [data, ...prev])
       return { data, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar renda'
-      console.error('Erro completo:', err)
       return { data: null, error: errorMessage }
     }
   }

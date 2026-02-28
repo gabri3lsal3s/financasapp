@@ -11,13 +11,17 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Income } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatCurrency, formatDate, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
+import MonthSelector from '@/components/MonthSelector'
+import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
+import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Incomes() {
-  const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes()
+  const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
   const { incomeCategories } = useIncomeCategories()
   const { colorPalette } = usePaletteColors()
   const assignedIncomeCategories = assignUniquePaletteColors(incomeCategories, colorPalette)
@@ -49,7 +53,7 @@ export default function Incomes() {
       setEditingIncome(null)
       setFormData({
         amount: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: `${currentMonth}-01`,
         income_category_id: incomeCategories[0]?.id || '',
         description: '',
       })
@@ -118,14 +122,14 @@ export default function Incomes() {
         alert('Erro ao deletar renda: ' + error)
       }
       setRemovingIds((s) => s.filter((x) => x !== id))
-    }, 260)
+    }, LIST_ITEM_EXIT_MS)
   }
 
   return (
     <div>
       <PageHeader
-        title="Rendas"
-        subtitle="Registre suas fontes de renda"
+        title={PAGE_HEADERS.incomes.title}
+        subtitle={PAGE_HEADERS.incomes.description}
         action={
           <Button
             size="sm"
@@ -140,11 +144,12 @@ export default function Incomes() {
       />
 
       <div className="p-4 lg:p-6">
+        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
         {loading ? (
-          <div className="text-center py-8 text-[var(--color-text-secondary)]">Carregando...</div>
+          <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : incomes.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="text-[var(--color-text-secondary)] mb-4">Nenhuma renda cadastrada</p>
+            <p className="text-secondary mb-4">Nenhuma renda cadastrada</p>
             <Button onClick={() => handleOpenModal()}>Adicionar primeira renda</Button>
           </Card>
         ) : (

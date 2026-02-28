@@ -11,13 +11,17 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Expense } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatCurrency, formatDate, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
+import MonthSelector from '@/components/MonthSelector'
+import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
+import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Expenses() {
-  const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses()
+  const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
   const { categories } = useCategories()
   const { colorPalette } = usePaletteColors()
   const assignedCategories = assignUniquePaletteColors(categories, colorPalette)
@@ -47,7 +51,7 @@ export default function Expenses() {
       setEditingExpense(null)
       setFormData({
         amount: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: `${currentMonth}-01`,
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -107,24 +111,22 @@ export default function Expenses() {
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta despesa?')) return
 
-    // mark as removing to play animation
     setRemovingIds((s) => [...s, id])
 
-    // wait animation then call API
     setTimeout(async () => {
       const { error } = await deleteExpense(id)
       if (error) {
         alert('Erro ao deletar despesa: ' + error)
       }
       setRemovingIds((s) => s.filter((x) => x !== id))
-    }, 260)
+    }, LIST_ITEM_EXIT_MS)
   }
 
   return (
     <div>
       <PageHeader
-        title="Despesas"
-        subtitle="Registre e gerencie suas despesas"
+        title={PAGE_HEADERS.expenses.title}
+        subtitle={PAGE_HEADERS.expenses.description}
         action={
           <Button
             size="sm"
@@ -139,11 +141,12 @@ export default function Expenses() {
       />
 
       <div className="p-4 lg:p-6">
+        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
         {loading ? (
-          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
+          <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : expenses.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>Nenhuma despesa cadastrada</p>
+            <p className="text-secondary mb-4">Nenhuma despesa cadastrada</p>
             <Button onClick={() => handleOpenModal()}>
               Adicionar primeira despesa
             </Button>

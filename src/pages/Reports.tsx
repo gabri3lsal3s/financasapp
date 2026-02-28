@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
+import { PAGE_HEADERS } from '@/constants/pages'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
+import { useCategories } from '@/hooks/useCategories'
+import { useIncomeCategories } from '@/hooks/useIncomeCategories'
+import { useInvestments } from '@/hooks/useInvestments'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
-import { formatCurrency, formatMonthShort } from '@/utils/format'
+import { formatCurrency, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import {
   BarChart,
@@ -22,156 +26,185 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
+const startYear = 2025
+
+function ChartTooltip({ active, payload, formatValue = formatCurrency }: { active?: boolean; payload?: any[]; formatValue?: (n: number) => string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
+      {payload.map((entry: any, i: number) => (
+        <p key={i} style={{ color: entry.color }} className="text-sm font-medium">
+          {entry.name}: {formatValue(Number(entry.value))}
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export default function Reports() {
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const { monthlySummaries, categoryExpenses, loading } = useReports(selectedYear)
-  const { incomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear)
+  const currentYear = new Date().getFullYear()
+  const currentMonth = getCurrentMonthString()
+  const years = Array.from(
+    { length: Math.max(1, currentYear - startYear + 1) },
+    (_, i) => startYear + i
+  )
+
+  const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+
   const { colorPalette } = usePaletteColors()
+  const { categories } = useCategories()
+  const { incomeCategories } = useIncomeCategories()
+  const { monthlySummaries, categoryExpenses, monthlyCategoryExpenses, loading } = useReports(selectedYear)
+  const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear)
+  const { investments: monthInvestments } = useInvestments(selectedMonth)
 
-  const years = Array.from({ length: Math.max(0, new Date().getFullYear() - 2025) }, (_, i) => 2026 + i)
+  const expenseCategoryIdToColor = useMemo(() => {
+    const assigned = assignUniquePaletteColors(categories, colorPalette)
+    const map: Record<string, string> = {}
+    categories.forEach((c, i) => {
+      if (c?.id) map[c.id] = assigned[i] ?? getCategoryColorForPalette(c.color, colorPalette)
+    })
+    return map
+  }, [categories, colorPalette])
 
-  // Preparar dados para gráficos
-  const monthlyData = monthlySummaries.map((summary) => ({
-    month: formatMonthShort(summary.month),
-    Rendas: summary.total_income,
-    Despesas: summary.total_expenses,
-    Investimentos: summary.total_investments,
-    Saldo: summary.balance,
-  }))
+  const incomeCategoryIdToColor = useMemo(() => {
+    const assigned = assignUniquePaletteColors(incomeCategories, colorPalette)
+    const map: Record<string, string> = {}
+    incomeCategories.forEach((c, i) => {
+      if (c?.id) map[c.id] = assigned[i] ?? getCategoryColorForPalette(c.color, colorPalette)
+    })
+    return map
+  }, [incomeCategories, colorPalette])
 
-  // Assign unique colors for expense categories based on selected palette
-  const assignedExpenseColors = assignUniquePaletteColors(categoryExpenses, colorPalette)
-  const pieData = categoryExpenses.map((cat, idx) => ({
+  const getExpenseColor = (categoryId: string, fallback: string) =>
+    expenseCategoryIdToColor[categoryId] ?? fallback
+  const getIncomeColor = (categoryId: string, fallback: string) =>
+    incomeCategoryIdToColor[categoryId] ?? fallback
+
+  const monthlyData = useMemo(
+    () =>
+      monthlySummaries.map((s: { month: string; total_income: number; total_expenses: number; total_investments: number; balance: number }) => ({
+        month: formatMonthShort(s.month),
+        Rendas: s.total_income,
+        Despesas: s.total_expenses,
+        Investimentos: s.total_investments,
+        Saldo: s.balance,
+      })),
+    [monthlySummaries]
+  )
+
+  const annualPieExpenses = useMemo(
+    () =>
+      categoryExpenses.map((cat: { category_id: string; category_name: string; total: number; color: string }) => ({
+        name: cat.category_name,
+        value: cat.total,
+        color: getExpenseColor(cat.category_id, cat.color),
+      })),
+    [categoryExpenses, expenseCategoryIdToColor]
+  )
+
+  const annualPieIncomes = useMemo(
+    () =>
+      incomeByCategory.map((cat) => ({
+        name: cat.category_name,
+        value: cat.total,
+        color: getIncomeColor(cat.income_category_id, cat.color),
+      })),
+    [incomeByCategory, incomeCategoryIdToColor]
+  )
+
+  const monthSummary = monthlySummaries.find((s) => s.month === selectedMonth)
+  const monthExpenseCategories = selectedMonth ? (monthlyCategoryExpenses[selectedMonth] ?? []) : []
+  const monthIncomeCategories = selectedMonth ? (monthlyIncomeByCategory[selectedMonth] ?? []) : []
+  const monthPieExpenses = monthExpenseCategories.map((cat) => ({
     name: cat.category_name,
     value: cat.total,
-    color: assignedExpenseColors[idx] || getCategoryColorForPalette(cat.color, colorPalette),
+    color: getExpenseColor(cat.category_id, cat.color),
+  }))
+  const monthPieIncomes = monthIncomeCategories.map((cat) => ({
+    name: cat.category_name,
+    value: cat.total,
+    color: getIncomeColor(cat.income_category_id, cat.color),
   }))
 
-  const COLORS = pieData.map((item) => item.color)
-  const assignedIncomeColors = assignUniquePaletteColors(incomeByCategory, colorPalette)
+  const yearMonths = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = String(i + 1).padStart(2, '0')
+      return { value: `${selectedYear}-${m}`, label: formatMonthShort(`${selectedYear}-${m}`) }
+    })
+  }, [selectedYear])
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
-          {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }} className="text-sm font-medium">
-              {entry.name}: {formatCurrency(entry.value)}
-            </p>
-          ))}
-        </div>
-      )
-    }
-    return null
-  }
+  const loadingState = loading || loadingIncomes
 
   return (
     <div>
-      <PageHeader title="Relatórios" subtitle="Visão mensal e por categoria" />
+      <PageHeader title={PAGE_HEADERS.reports.title} subtitle={PAGE_HEADERS.reports.description} />
 
       <div className="p-4 lg:p-6 space-y-6">
-        {/* Seletor de Ano */}
         <Card>
-          <label className="block text-sm font-medium text-primary mb-2">
-            Ano
-          </label>
+          <label className="block text-sm font-medium text-primary mb-2">Ano</label>
           <select
             value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            onChange={(e) => {
+              const y = parseInt(e.target.value)
+              setSelectedYear(y)
+              const firstMonth = `${y}-01`
+              setSelectedMonth(y === currentYear ? currentMonth : firstMonth)
+            }}
             className="w-full px-4 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary"
           >
             {years.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
+              <option key={year} value={year}>{year}</option>
             ))}
           </select>
         </Card>
 
-        {loading || loadingIncomes ? (
+        {loadingState ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : (
           <>
-            {/* Gráfico de Linha - Evolução Mensal */}
+            {/* Visão geral do ano */}
             <Card>
-              <h3 className="text-lg font-semibold text-primary mb-4">
-                Evolução Mensal
-              </h3>
+              <h3 className="text-lg font-semibold text-primary mb-4">Evolução mensal</h3>
               <div className="w-full overflow-x-auto -mx-4 lg:mx-0">
                 <div className="min-w-full px-4 lg:px-0">
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={monthlyData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis
-                        dataKey="month"
-                        stroke="var(--color-text-secondary)"
-                        fontSize={12}
-                        tick={{ fill: 'var(--color-text-secondary)' }}
-                      />
+                      <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
                       <YAxis
                         stroke="var(--color-text-secondary)"
                         fontSize={12}
                         tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => {
-                          if (value >= 1000) return `R$ ${(value / 1000).toFixed(0)}k`
-                          return `R$ ${value}`
-                        }}
+                        tickFormatter={(v) => (v >= 1000 ? `R$ ${(v / 1000).toFixed(0)}k` : `R$ ${v}`)}
                       />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<ChartTooltip />} />
                       <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="Rendas"
-                        stroke="var(--color-income)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Despesas"
-                        stroke="var(--color-expense)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Investimentos"
-                        stroke="var(--color-balance)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                      />
+                      <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={{ r: 4 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             </Card>
 
-            {/* Gráfico de Barras - Comparação Mensal */}
             <Card>
-              <h3 className="text-lg font-semibold text-primary mb-4">
-                Comparação Mensal
-              </h3>
+              <h3 className="text-lg font-semibold text-primary mb-4">Comparação mensal</h3>
               <div className="w-full overflow-x-auto -mx-4 lg:mx-0">
                 <div className="min-w-full px-4 lg:px-0">
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={monthlyData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis
-                        dataKey="month"
-                        stroke="var(--color-text-secondary)"
-                        fontSize={12}
-                        tick={{ fill: 'var(--color-text-secondary)' }}
-                      />
+                      <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
                       <YAxis
                         stroke="var(--color-text-secondary)"
                         fontSize={12}
                         tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => {
-                          if (value >= 1000) return `R$ ${(value / 1000).toFixed(0)}k`
-                          return `R$ ${value}`
-                        }}
+                        tickFormatter={(v) => (v >= 1000 ? `R$ ${(v / 1000).toFixed(0)}k` : `R$ ${v}`)}
                       />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<ChartTooltip />} />
                       <Legend />
                       <Bar dataKey="Rendas" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="Despesas" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
@@ -182,18 +215,293 @@ export default function Reports() {
               </div>
             </Card>
 
-            {/* Gráfico de Pizza - Gastos por Categoria */}
-            {pieData.length > 0 && (
+            <Card>
+              <h3 className="text-lg font-semibold text-primary mb-4">Resumo anual {selectedYear}</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-secondary">Total de Rendas</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-income)' }}>
+                    {formatCurrency(monthlySummaries.reduce((s, m) => s + m.total_income, 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-secondary">Total de Despesas</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-expense)' }}>
+                    {formatCurrency(monthlySummaries.reduce((s, m) => s + m.total_expenses, 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-secondary">Total de Investimentos</span>
+                  <span className="font-semibold" style={{ color: 'var(--color-balance)' }}>
+                    {formatCurrency(monthlySummaries.reduce((s: number, m: { total_investments: number }) => s + m.total_investments, 0))}
+                  </span>
+                </div>
+                <div className="border-t border-primary pt-3 mt-3">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="font-semibold text-primary">Saldo anual</span>
+                    <span
+                      className="font-bold text-lg"
+                      style={{
+                        color:
+                          monthlySummaries.reduce((s: number, m: { balance: number }) => s + m.balance, 0) >= 0
+                            ? 'var(--color-income)'
+                            : 'var(--color-expense)',
+                      }}
+                    >
+                      {formatCurrency(monthlySummaries.reduce((s: number, m: { balance: number }) => s + m.balance, 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Detalhamento por mês */}
+            <Card>
+              <h3 className="text-lg font-semibold text-primary mb-2">Detalhamento do mês</h3>
+              <label className="block text-sm font-medium text-secondary mb-2">Mês</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full px-4 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary"
+              >
+                {yearMonths.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </Card>
+
+            {monthSummary && (
+              <>
+                <Card>
+                  <h3 className="text-lg font-semibold text-primary mb-4">Resumo de {formatMonth(selectedMonth)}</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-secondary">Rendas</span>
+                      <span className="font-semibold" style={{ color: 'var(--color-income)' }}>
+                        {formatCurrency(monthSummary.total_income)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-secondary">Despesas</span>
+                      <span className="font-semibold" style={{ color: 'var(--color-expense)' }}>
+                        {formatCurrency(monthSummary.total_expenses)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-secondary">Investimentos</span>
+                      <span className="font-semibold" style={{ color: 'var(--color-balance)' }}>
+                        {formatCurrency(monthSummary.total_investments)}
+                      </span>
+                    </div>
+                    <div className="border-t border-primary pt-3 mt-3">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="font-semibold text-primary">Saldo do mês</span>
+                        <span
+                          className="font-bold text-lg"
+                          style={{
+                            color: monthSummary.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
+                          }}
+                        >
+                          {formatCurrency(monthSummary.balance)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {monthPieExpenses.length > 0 && (
+                  <Card>
+                    <h3 className="text-lg font-semibold text-primary mb-4">Despesas por categoria</h3>
+                    <div className="w-full overflow-x-auto -mx-4 lg:mx-0">
+                      <div className="min-w-full px-4 lg:px-0">
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={monthPieExpenses}
+                              cx="50%"
+                              cy="45%"
+                              labelLine={false}
+                              label={false}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {monthPieExpenses.map((_item: { name: string; value: number; color: string }, i: number) => (
+                                <Cell key={`e-${i}`} fill={monthPieExpenses[i].color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.[0]) return null
+                                const p = payload[0].payload
+                                return (
+                                  <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
+                                    <p className="text-sm font-medium text-primary">{p.name}</p>
+                                    <p className="text-sm text-secondary">{formatCurrency(p.value)}</p>
+                                  </div>
+                                )
+                              }}
+                            />
+                            <Legend
+                              layout="vertical"
+                              align="right"
+                              verticalAlign="middle"
+                              wrapperStyle={{ paddingLeft: '20px' }}
+                              formatter={(value, entry: any) => {
+                                const item = monthPieExpenses[entry.index]
+                                if (!item) return value
+                                const total = monthPieExpenses.reduce((s: number, d: { value: number }) => s + d.value, 0)
+                                const pct = total ? ((item.value / total) * 100).toFixed(0) : '0'
+                                return `${value} (${pct}%)`
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {monthExpenseCategories.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-primary mb-3">Detalhamento despesas por categoria</h3>
+                    <div className="space-y-2">
+                      {[...monthExpenseCategories].sort((a, b) => b.total - a.total).map((cat: { category_id: string; category_name: string; total: number; color: string }) => {
+                        const total = monthExpenseCategories.reduce((s: number, c: { total: number }) => s + c.total, 0)
+                        const pct = total ? (cat.total / total) * 100 : 0
+                        const color = getExpenseColor(cat.category_id, cat.color)
+                        return (
+                          <Card key={cat.category_id} className="py-3">
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-4 h-4 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                                <span className="font-medium text-primary truncate">{cat.category_name}</span>
+                              </div>
+                              <span className="font-semibold text-primary flex-shrink-0">{formatCurrency(cat.total)}</span>
+                            </div>
+                            <div className="w-full bg-secondary rounded-full h-2">
+                              <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                            </div>
+                            <p className="text-xs text-secondary mt-1">{pct.toFixed(1)}% do total</p>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {monthPieIncomes.length > 0 && (
+                  <Card>
+                    <h3 className="text-lg font-semibold text-primary mb-4">Rendas por categoria</h3>
+                    <div className="w-full overflow-x-auto -mx-4 lg:mx-0">
+                      <div className="min-w-full px-4 lg:px-0">
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={monthPieIncomes}
+                              cx="50%"
+                              cy="45%"
+                              labelLine={false}
+                              label={false}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {monthPieIncomes.map((_item: { name: string; value: number; color: string }, i: number) => (
+                                <Cell key={`i-${i}`} fill={monthPieIncomes[i].color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.[0]) return null
+                                const p = payload[0].payload
+                                return (
+                                  <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
+                                    <p className="text-sm font-medium text-primary">{p.name}</p>
+                                    <p className="text-sm text-secondary">{formatCurrency(p.value)}</p>
+                                  </div>
+                                )
+                              }}
+                            />
+                            <Legend
+                              layout="vertical"
+                              align="right"
+                              verticalAlign="middle"
+                              wrapperStyle={{ paddingLeft: '20px' }}
+                              formatter={(value, entry: any) => {
+                                const item = monthPieIncomes[entry.index]
+                                if (!item) return value
+                                const total = monthPieIncomes.reduce((s: number, d: { value: number }) => s + d.value, 0)
+                                const pct = total ? ((item.value / total) * 100).toFixed(0) : '0'
+                                return `${value} (${pct}%)`
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {monthIncomeCategories.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-primary mb-3">Detalhamento rendas por categoria</h3>
+                    <div className="space-y-2">
+                      {[...monthIncomeCategories].sort((a, b) => b.total - a.total).map((cat: { income_category_id: string; category_name: string; total: number; color: string }) => {
+                        const total = monthIncomeCategories.reduce((s: number, c: { total: number }) => s + c.total, 0)
+                        const pct = total ? (cat.total / total) * 100 : 0
+                        const color = getIncomeColor(cat.income_category_id, cat.color)
+                        return (
+                          <Card key={cat.income_category_id} className="py-3">
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-4 h-4 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                                <span className="font-medium text-primary truncate">{cat.category_name}</span>
+                              </div>
+                              <span className="font-semibold text-primary flex-shrink-0">{formatCurrency(cat.total)}</span>
+                            </div>
+                            <div className="w-full bg-secondary rounded-full h-2">
+                              <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                            </div>
+                            <p className="text-xs text-secondary mt-1">{pct.toFixed(1)}% do total</p>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <Card>
+                  <h3 className="text-lg font-semibold text-primary mb-4">Investimentos em {formatMonth(selectedMonth)}</h3>
+                  <p className="text-secondary text-sm mb-2">
+                    Total: <span className="font-semibold" style={{ color: 'var(--color-balance)' }}>{formatCurrency(monthSummary.total_investments)}</span>
+                  </p>
+                  {monthInvestments.length === 0 ? (
+                    <p className="text-secondary text-sm">Nenhum investimento registrado neste mês.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {monthInvestments.map((inv) => (
+                        <li key={inv.id} className="flex justify-between items-center text-primary">
+                          <span className="truncate">{inv.description || 'Investimento'}</span>
+                          <span className="font-medium flex-shrink-0 ml-2">{formatCurrency(inv.amount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Card>
+              </>
+            )}
+
+            {/* Gráficos anuais por categoria (opcional, mantidos no fim) */}
+            {annualPieExpenses.length > 0 && (
               <Card>
-                <h3 className="text-lg font-semibold text-primary mb-4">
-                  Gastos por Categoria
-                </h3>
+                <h3 className="text-lg font-semibold text-primary mb-4">Gastos por categoria (ano {selectedYear})</h3>
                 <div className="w-full overflow-x-auto -mx-4 lg:mx-0">
                   <div className="min-w-full px-4 lg:px-0">
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={300}>
                       <PieChart>
                         <Pie
-                          data={pieData}
+                          data={annualPieExpenses}
                           cx="50%"
                           cy="45%"
                           labelLine={false}
@@ -202,39 +510,33 @@ export default function Reports() {
                           fill="#8884d8"
                           dataKey="value"
                         >
-                          {pieData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                          {annualPieExpenses.map((_item: { name: string; value: number; color: string }, i: number) => (
+                            <Cell key={`ae-${i}`} fill={annualPieExpenses[i].color} />
                           ))}
                         </Pie>
                         <Tooltip
                           content={({ active, payload }) => {
-                            if (active && payload && payload[0]) {
-                              return (
-                                <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
-                                  <p className="text-sm font-medium text-primary">
-                                    {payload[0].payload.name}
-                                  </p>
-                                  <p className="text-sm text-secondary">
-                                    {formatCurrency(payload[0].value as number)}
-                                  </p>
-                                </div>
-                              )
-                            }
-                            return null
+                            if (!active || !payload?.[0]) return null
+                            const p = payload[0].payload
+                            return (
+                              <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
+                                <p className="text-sm font-medium text-primary">{p.name}</p>
+                                <p className="text-sm text-secondary">{formatCurrency(p.value)}</p>
+                              </div>
+                            )
                           }}
                         />
-                        <Legend 
-                          layout="vertical" 
-                          align="right" 
+                        <Legend
+                          layout="vertical"
+                          align="right"
                           verticalAlign="middle"
                           wrapperStyle={{ paddingLeft: '20px' }}
                           formatter={(value, entry: any) => {
-                            if (entry.index === undefined || !pieData[entry.index]) {
-                              return value
-                            }
-                            const item = pieData[entry.index]
-                            const percent = ((item.value / pieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(0)
-                            return `${value} (${percent}%)`
+                            const item = annualPieExpenses[entry.index]
+                            if (!item) return value
+                            const total = annualPieExpenses.reduce((s: number, d: { value: number }) => s + d.value, 0)
+                            const pct = total ? ((item.value / total) * 100).toFixed(0) : '0'
+                            return `${value} (${pct}%)`
                           }}
                         />
                       </PieChart>
@@ -244,264 +546,61 @@ export default function Reports() {
               </Card>
             )}
 
-            {/* Lista de Categorias */}
-            {categoryExpenses.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-primary mb-3">
-                  Detalhamento por Categoria
-                </h3>
-                <div className="space-y-2">
-                  {/** build map from category id to assigned color to keep colors unique even after sorting */}
-                  {/* eslint-disable-next-line no-unused-vars */}
-                  {
-                    (() => {
-                      const expenseColorMap: Record<string, string> = {}
-                      categoryExpenses.forEach((c, i) => {
-                        expenseColorMap[c.category_id] = assignedExpenseColors[i] || getCategoryColorForPalette(c.color, colorPalette)
-                      })
-                      return null
-                    })()
-                  }
-                  {categoryExpenses
-                    .sort((a, b) => b.total - a.total)
-                    .map((category) => {
-                      const totalExpenses = categoryExpenses.reduce(
-                        (sum, cat) => sum + cat.total,
-                        0
-                      )
-                      const percentage = (category.total / totalExpenses) * 100
-
-                      return (
-                        <Card key={category.category_id} className="py-3">
-                          <div className="flex items-center justify-between mb-2 gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div
-                                className="w-4 h-4 flex-shrink-0 rounded-full"
-                                style={{ backgroundColor: (category && (assignedExpenseColors[categoryExpenses.findIndex(c=>c.category_id===category.category_id)])) || category.color }}
-                              />
-                              <span className="font-medium text-primary truncate">
-                                {category.category_name}
-                              </span>
-                            </div>
-                            <span className="font-semibold text-primary flex-shrink-0">
-                              {formatCurrency(category.total)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-secondary rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full transition-all"
-                              style={{
-                                width: `${percentage}%`,
-                                backgroundColor: (category && (assignedExpenseColors[categoryExpenses.findIndex(c=>c.category_id===category.category_id)])) || category.color,
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs text-secondary mt-1">
-                            {percentage.toFixed(1)}% do total
-                          </p>
-                        </Card>
-                      )
-                    })}
-                </div>
-              </div>
-            )}
-
-            {/* Gráfico de Pizza - Rendas por Categoria */}
-            {incomeByCategory.length > 0 && (
+            {annualPieIncomes.length > 0 && (
               <Card>
-                <h3 className="text-lg font-semibold text-primary mb-4">
-                  Rendas por Categoria
-                </h3>
+                <h3 className="text-lg font-semibold text-primary mb-4">Rendas por categoria (ano {selectedYear})</h3>
                 <div className="w-full overflow-x-auto -mx-4 lg:mx-0">
                   <div className="min-w-full px-4 lg:px-0">
-                    {(() => {
-                      const assignedIncomeColors = assignUniquePaletteColors(incomeByCategory, colorPalette)
-                      const incomePieData = incomeByCategory.map((cat, i) => ({
-                        name: cat.category_name,
-                        value: cat.total,
-                        color: assignedIncomeColors[i] || getCategoryColorForPalette(cat.color, colorPalette),
-                      }))
-
-                      return (
-                        <ResponsiveContainer width="100%" height={400}>
-                          <PieChart>
-                            <Pie
-                              data={incomePieData}
-                              cx="50%"
-                              cy="45%"
-                              labelLine={false}
-                              label={false}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {incomePieData.map((_, index) => (
-                                <Cell
-                                  key={`income-cell-${index}`}
-                                  fill={incomePieData[index].color}
-                                />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              content={({ active, payload }) => {
-                                if (active && payload && payload[0]) {
-                                  return (
-                                    <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
-                                      <p className="text-sm font-medium text-primary">
-                                        {payload[0].payload.name}
-                                      </p>
-                                      <p className="text-sm text-secondary">
-                                        {formatCurrency(payload[0].value as number)}
-                                      </p>
-                                    </div>
-                                  )
-                                }
-                                return null
-                              }}
-                            />
-                            <Legend 
-                              layout="vertical" 
-                              align="right" 
-                              verticalAlign="middle"
-                              wrapperStyle={{ paddingLeft: '20px' }}
-                              formatter={(value, entry: any) => {
-                                if (entry.index === undefined || !incomePieData[entry.index]) {
-                                  return value
-                                }
-                                const total = incomePieData.reduce((sum, d) => sum + d.value, 0)
-                                const item = incomePieData[entry.index]
-                                const percent = ((item.value / total) * 100).toFixed(0)
-                                return `${value} (${percent}%)`
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      )
-                    })()}
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={annualPieIncomes}
+                          cx="50%"
+                          cy="45%"
+                          labelLine={false}
+                          label={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {annualPieIncomes.map((_item: { name: string; value: number; color: string }, i: number) => (
+                            <Cell key={`ai-${i}`} fill={annualPieIncomes[i].color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.[0]) return null
+                            const p = payload[0].payload
+                            return (
+                              <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
+                                <p className="text-sm font-medium text-primary">{p.name}</p>
+                                <p className="text-sm text-secondary">{formatCurrency(p.value)}</p>
+                              </div>
+                            )
+                          }}
+                        />
+                        <Legend
+                          layout="vertical"
+                          align="right"
+                          verticalAlign="middle"
+                          wrapperStyle={{ paddingLeft: '20px' }}
+                          formatter={(value, entry: any) => {
+                            const item = annualPieIncomes[entry.index]
+                            if (!item) return value
+                            const total = annualPieIncomes.reduce((s: number, d: { value: number }) => s + d.value, 0)
+                            const pct = total ? ((item.value / total) * 100).toFixed(0) : '0'
+                            return `${value} (${pct}%)`
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               </Card>
             )}
-
-            {/* Lista de Categorias de Rendas */}
-            {incomeByCategory.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-primary mb-3">
-                  Detalhamento por Categoria de Renda
-                </h3>
-                <div className="space-y-2">
-                  {incomeByCategory
-                    .sort((a, b) => b.total - a.total)
-                    .map((category) => {
-                      const totalIncome = incomeByCategory.reduce(
-                        (sum, cat) => sum + cat.total,
-                        0
-                      )
-                      const percentage = (category.total / totalIncome) * 100
-
-                      return (
-                        <Card key={category.income_category_id} className="py-3">
-                          <div className="flex items-center justify-between mb-2 gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div
-                                className="w-4 h-4 flex-shrink-0 rounded-full"
-                                style={{
-                                  backgroundColor: assignedIncomeColors[incomeByCategory.findIndex(c => c.income_category_id === category.income_category_id)] || getCategoryColorForPalette(category.color, colorPalette),
-                                }}
-                              />
-                              <span className="font-medium text-primary truncate">
-                                {category.category_name}
-                              </span>
-                            </div>
-                            <span className="font-semibold text-primary flex-shrink-0">
-                              {formatCurrency(category.total)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-secondary rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full transition-all"
-                              style={{
-                                width: `${percentage}%`,
-                                backgroundColor: assignedIncomeColors[incomeByCategory.findIndex(c => c.income_category_id === category.income_category_id)] || getCategoryColorForPalette(category.color, colorPalette),
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs text-secondary mt-1">
-                            {percentage.toFixed(1)}% do total
-                          </p>
-                        </Card>
-                      )
-                    })}
-                </div>
-              </div>
-            )}
-
-            {/* Resumo Anual */}
-            <Card>
-              <h3 className="text-lg font-semibold text-primary mb-4">
-                Resumo Anual {selectedYear}
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-secondary">Total de Rendas</span>
-                  <span className="font-semibold" style={{ color: 'var(--color-income)' }}>
-                    {formatCurrency(
-                      monthlySummaries.reduce(
-                        (sum, s) => sum + s.total_income,
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-secondary">Total de Despesas</span>
-                  <span className="font-semibold" style={{ color: 'var(--color-expense)' }}>
-                    {formatCurrency(
-                      monthlySummaries.reduce(
-                        (sum, s) => sum + s.total_expenses,
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-secondary">Total de Investimentos</span>
-                  <span className="font-semibold" style={{ color: 'var(--color-balance)' }}>
-                    {formatCurrency(
-                      monthlySummaries.reduce(
-                        (sum, s) => sum + s.total_investments,
-                        0
-                      )
-                    )}
-                  </span>
-                </div>
-                <div className="border-t border-primary pt-3 mt-3">
-                  <div className="flex justify-between items-center gap-2">
-                    <span className="font-semibold text-primary">Saldo Anual</span>
-                    <span
-                      className="font-bold text-lg"
-                      style={{
-                        color:
-                          monthlySummaries.reduce(
-                            (sum, s) => sum + s.balance,
-                            0
-                          ) >= 0
-                            ? 'var(--color-income)'
-                            : 'var(--color-expense)',
-                      }}
-                    >
-                      {formatCurrency(
-                        monthlySummaries.reduce((sum, s) => sum + s.balance, 0)
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </>
         )}
       </div>
     </div>
   )
 }
-

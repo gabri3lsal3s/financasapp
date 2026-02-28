@@ -3,13 +3,26 @@ import { supabase } from '@/lib/supabase'
 import { MonthlySummary, CategoryExpense } from '@/types'
 import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 'date-fns'
 
-export function useReports(year?: number) {
+/** Gastos por categoria em um mês (yyyy-MM -> lista) */
+export type MonthlyCategoryExpenses = Record<string, CategoryExpense[]>
+
+export interface UseReportsReturn {
+  monthlySummaries: MonthlySummary[]
+  categoryExpenses: CategoryExpense[]
+  monthlyCategoryExpenses: MonthlyCategoryExpenses
+  loading: boolean
+  error: string | null
+  refreshReports: () => Promise<void>
+}
+
+export function useReports(year?: number): UseReportsReturn {
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([])
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
+  const [monthlyCategoryExpenses, setMonthlyCategoryExpenses] = useState<MonthlyCategoryExpenses>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const targetYear = year || new Date().getFullYear()
+  const targetYear = year ?? new Date().getFullYear()
 
   useEffect(() => {
     loadReports()
@@ -18,11 +31,9 @@ export function useReports(year?: number) {
   const loadReports = async () => {
     try {
       setLoading(true)
-      
       const startDate = startOfYear(new Date(targetYear, 0, 1))
       const endDate = endOfYear(new Date(targetYear, 11, 31))
-      
-      // Carregar despesas do ano
+
       const { data: expenses, error: expensesError } = await supabase
         .from('expenses')
         .select(`
@@ -36,7 +47,6 @@ export function useReports(year?: number) {
 
       if (expensesError) throw expensesError
 
-      // Carregar rendas do ano
       const { data: incomes, error: incomesError } = await supabase
         .from('incomes')
         .select('amount, date')
@@ -45,7 +55,6 @@ export function useReports(year?: number) {
 
       if (incomesError) throw incomesError
 
-      // Carregar investimentos do ano
       const { data: investments, error: investmentsError } = await supabase
         .from('investments')
         .select('amount, month')
@@ -54,9 +63,11 @@ export function useReports(year?: number) {
 
       if (investmentsError) throw investmentsError
 
-      // Processar resumos mensais
       const months = eachMonthOfInterval({ start: startDate, end: endDate })
-      const summaries: MonthlySummary[] = months.map((month) => {
+      const summaries: MonthlySummary[] = []
+      const byMonth: MonthlyCategoryExpenses = {}
+
+      months.forEach((month) => {
         const monthStr = format(month, 'yyyy-MM')
         const monthStart = format(month, 'yyyy-MM-dd')
         const monthEnd = format(endOfMonth(month), 'yyyy-MM-dd')
@@ -67,51 +78,58 @@ export function useReports(year?: number) {
         const monthIncomes = (incomes || []).filter(
           (inc) => inc.date >= monthStart && inc.date <= monthEnd
         )
-        const monthInvestments = (investments || []).filter(
-          (inv) => inv.month === monthStr
-        )
+        const monthInvestments = (investments || []).filter((inv) => inv.month === monthStr)
 
         const totalExpenses = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0)
         const totalIncomes = monthIncomes.reduce((sum, inc) => sum + inc.amount, 0)
         const totalInvestments = monthInvestments.reduce((sum, inv) => sum + inv.amount, 0)
 
-        return {
+        summaries.push({
           month: monthStr,
           total_income: totalIncomes,
           total_expenses: totalExpenses,
           total_investments: totalInvestments,
           balance: totalIncomes - totalExpenses - totalInvestments,
-        }
+        })
+
+        const categoryMap = new Map<string, CategoryExpense>()
+        monthExpenses.forEach((exp) => {
+          const catId = exp.category_id
+          const cat = exp.category as { id?: string; name?: string; color?: string } | null
+          if (!categoryMap.has(catId)) {
+            categoryMap.set(catId, {
+              category_id: catId,
+              category_name: cat?.name ?? 'Sem categoria',
+              total: 0,
+              color: cat?.color ?? '#6b7280',
+            })
+          }
+          categoryMap.get(catId)!.total += exp.amount
+        })
+        byMonth[monthStr] = Array.from(categoryMap.values())
       })
 
       setMonthlySummaries(summaries)
+      setMonthlyCategoryExpenses(byMonth)
 
-      // Processar gastos por categoria
-      const categoryMap = new Map<string, CategoryExpense>()
-      
+      const annualCategoryMap = new Map<string, CategoryExpense>()
       ;(expenses || []).forEach((exp) => {
         const catId = exp.category_id
-        const cat = exp.category as any
-        
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, {
+        const cat = exp.category as { id?: string; name?: string; color?: string } | null
+        if (!annualCategoryMap.has(catId)) {
+          annualCategoryMap.set(catId, {
             category_id: catId,
-            category_name: cat?.name || 'Sem categoria',
+            category_name: cat?.name ?? 'Sem categoria',
             total: 0,
-            color: cat?.color || '#6b7280',
+            color: cat?.color ?? '#6b7280',
           })
         }
-        
-        const categoryExpense = categoryMap.get(catId)!
-        categoryExpense.total += exp.amount
+        annualCategoryMap.get(catId)!.total += exp.amount
       })
-
-      setCategoryExpenses(Array.from(categoryMap.values()))
-
+      setCategoryExpenses(Array.from(annualCategoryMap.values()))
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar relatórios')
-      console.error('Error loading reports:', err)
     } finally {
       setLoading(false)
     }
@@ -120,6 +138,7 @@ export function useReports(year?: number) {
   return {
     monthlySummaries,
     categoryExpenses,
+    monthlyCategoryExpenses,
     loading,
     error,
     refreshReports: loadReports,

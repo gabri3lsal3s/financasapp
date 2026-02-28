@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -8,17 +7,21 @@ import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
-import { formatCurrency, formatMonth } from '@/utils/format'
+import { formatCurrency, formatMonth, getCurrentMonthString } from '@/utils/format'
+import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
+import MonthSelector from '@/components/MonthSelector'
+import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Investments() {
-  const { investments, loading, createInvestment, updateInvestment, deleteInvestment } = useInvestments()
+  const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const { investments, loading, createInvestment, updateInvestment, deleteInvestment } = useInvestments(currentMonth)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null)
   const [formData, setFormData] = useState({
     amount: '',
-    month: format(new Date(), 'yyyy-MM'),
+    month: getCurrentMonthString(),
     description: '',
   })
 
@@ -34,7 +37,7 @@ export default function Investments() {
       setEditingInvestment(null)
       setFormData({
         amount: '',
-        month: format(new Date(), 'yyyy-MM'),
+        month: currentMonth,
         description: '',
       })
     }
@@ -93,14 +96,14 @@ export default function Investments() {
         alert('Erro ao deletar investimento: ' + error)
       }
       setRemovingIds((s) => s.filter((x) => x !== id))
-    }, 260)
+    }, LIST_ITEM_EXIT_MS)
   }
 
   return (
     <div>
       <PageHeader
-        title="Investimentos"
-        subtitle="Valor reservado para investimentos ou poupança"
+        title={PAGE_HEADERS.investments.title}
+        subtitle={PAGE_HEADERS.investments.description}
         action={
           <Button
             size="sm"
@@ -115,20 +118,19 @@ export default function Investments() {
       />
 
       <div className="p-4 lg:p-6">
+        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
         {loading ? (
-          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
+          <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : investments.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>Nenhum investimento cadastrado</p>
+            <p className="text-secondary mb-4">Nenhum investimento cadastrado</p>
             <Button onClick={() => handleOpenModal()}>Adicionar primeiro investimento</Button>
           </Card>
         ) : (
           <div className="space-y-3">
-            {investments
-              .sort((a, b) => b.month.localeCompare(a.month))
-              .map((investment) => (
+            {investments.map((investment) => (
                 <AnimatedListItem key={investment.id} isRemoving={removingIds.includes(investment.id)}>
-                  <Card key={investment.id}>
+                  <Card>
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">

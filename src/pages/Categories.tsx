@@ -9,7 +9,10 @@ import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
 import { getCategoryColor, getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
+import { LIST_ITEM_EXIT_MS } from '@/constants/animation'
+import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
+import AnimatedListItem from '@/components/AnimatedListItem'
 
 export default function Categories() {
   const { categories, loading, createCategory, updateCategory, deleteCategory } = useCategories()
@@ -17,6 +20,7 @@ export default function Categories() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: '' })
+  const [removingIds, setRemovingIds] = useState<string[]>([])
 
   const handleOpenModal = (category?: Category) => {
     if (category) {
@@ -61,19 +65,22 @@ export default function Categories() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta categoria?')) {
+    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return
+    setRemovingIds((s) => [...s, id])
+    setTimeout(async () => {
       const { error } = await deleteCategory(id)
       if (error) {
         alert('Erro ao deletar categoria: ' + error)
       }
-    }
+      setRemovingIds((s) => s.filter((x) => x !== id))
+    }, LIST_ITEM_EXIT_MS)
   }
 
   return (
     <div>
       <PageHeader
-        title="Categorias"
-        subtitle="Organize suas categorias de despesas"
+        title={PAGE_HEADERS.categories.title}
+        subtitle={PAGE_HEADERS.categories.description}
         action={
           <Button
             size="sm"
@@ -87,12 +94,12 @@ export default function Categories() {
         }
       />
 
-      <div className="p-4">
+      <div className="p-4 lg:p-6">
         {loading ? (
-          <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>Carregando...</div>
+          <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : categories.length === 0 ? (
           <Card className="text-center py-8">
-            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>Nenhuma categoria cadastrada</p>
+            <p className="mb-4 text-secondary">Nenhuma categoria cadastrada</p>
             <Button onClick={() => handleOpenModal()}>Criar primeira categoria</Button>
           </Card>
         ) : (
@@ -100,33 +107,35 @@ export default function Categories() {
             {(() => {
               const assigned = assignUniquePaletteColors(categories, colorPalette)
               return categories.map((category, idx) => (
-                <Card key={category.id}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-1 h-6 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: assigned[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
-                      />
-                      <span className="font-medium text-[var(--color-text-primary)]">{category.name}</span>
+                <AnimatedListItem key={category.id} isRemoving={removingIds.includes(category.id)}>
+                  <Card>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-1 h-6 rounded-sm flex-shrink-0"
+                          style={{ backgroundColor: assigned[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
+                        />
+                        <span className="font-medium text-[var(--color-text-primary)]">{category.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <IconButton
+                          icon={<Edit2 size={18} />}
+                          variant="neutral"
+                          size="md"
+                          label="Editar categoria"
+                          onClick={() => handleOpenModal(category)}
+                        />
+                        <IconButton
+                          icon={<Trash2 size={18} />}
+                          variant="danger"
+                          size="md"
+                          label="Deletar categoria"
+                          onClick={() => handleDelete(category.id)}
+                        />
+                      </div>
                     </div>
-                  <div className="flex items-center gap-2">
-                    <IconButton
-                      icon={<Edit2 size={18} />}
-                      variant="neutral"
-                      size="md"
-                      label="Editar categoria"
-                      onClick={() => handleOpenModal(category)}
-                    />
-                    <IconButton
-                      icon={<Trash2 size={18} />}
-                      variant="danger"
-                      size="md"
-                      label="Deletar categoria"
-                      onClick={() => handleDelete(category.id)}
-                    />
-                  </div>
-                </div>
-              </Card>
+                  </Card>
+                </AnimatedListItem>
             ))})()}
           </div>
         )}
@@ -164,5 +173,8 @@ export default function Categories() {
     </div>
   )
 }
+
+
+
 
 

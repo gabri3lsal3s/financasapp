@@ -65,8 +65,6 @@ export function useExpenses(month?: string) {
         ...(expense.description && { description: expense.description }),
       }
 
-      console.log('Enviando dados de despesa:', expenseData)
-
       const { data, error: insertError } = await supabase
         .from('expenses')
         .insert([expenseData])
@@ -76,16 +74,12 @@ export function useExpenses(month?: string) {
         `)
         .single()
 
-      if (insertError) {
-        console.error('Erro do Supabase:', insertError)
-        throw insertError
-      }
+      if (insertError) throw insertError
       
       setExpenses((prev) => [...prev, data])
       return { data, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar despesa'
-      console.error('Erro completo:', err)
       return { data: null, error: errorMessage }
     }
   }

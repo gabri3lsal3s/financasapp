@@ -1,6 +1,20 @@
 import { format as dateFormat, parseISO } from 'date-fns'
 import ptBR from 'date-fns/locale/pt-BR'
 
+/** Retorna o mês atual no formato yyyy-MM */
+export function getCurrentMonthString(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** Avança ou retrocede um mês a partir de yyyy-MM; retorna novo yyyy-MM */
+export function addMonths(monthStr: string, delta: number): string {
+  const [y, m] = monthStr.split('-').map(Number)
+  const date = new Date(y, m - 1, 1)
+  date.setMonth(date.getMonth() + delta)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',

@@ -86,3 +86,6 @@ ALTER TABLE investments DISABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "Users can delete own categories" ON categories FOR DELETE USING (auth.uid() = user_id);
 
 
+
+
+

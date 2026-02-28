@@ -1,0 +1,10 @@
+{
+  "name": "Minhas Finanças",
+  "short_name": "Finanças",
+  "description": "Organização de finanças pessoais mensais",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0ea5e9",
+  "background_color": "#ffffff",
+  "lang": "pt-BR"
+}

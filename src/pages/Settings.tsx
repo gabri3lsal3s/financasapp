@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
+import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
@@ -131,7 +132,7 @@ export default function Settings() {
 
   return (
     <div>
-      <PageHeader title="Configurações" subtitle="Personalize seu app" />
+      <PageHeader title={PAGE_HEADERS.settings.title} subtitle={PAGE_HEADERS.settings.description} />
       <div className="p-4 lg:p-6 space-y-8">
         {/* Theme Switcher */}
         <section>
