@@ -183,13 +183,6 @@ export interface AssistantMonthlyInsightsResult {
   recommendations: string[]
 }
 
-export type {
-  AssistantBridgeTurnRequest,
-  AssistantBridgeTurnResponse,
-  AssistantBridgeTurnType,
-  AssistantBridgeOptionItem,
-} from './assistantBridge'
-
 
 
 

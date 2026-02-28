@@ -1044,9 +1044,12 @@ const saveMappingIfPossible = async (command: AssistantCommand, confirmed: boole
     return
   }
 
+  const mappingUserId = command.user_id || await getCurrentUserId()
+  if (!mappingUserId) return
+
   const transactionType = command.interpreted_intent === 'add_expense' ? 'expense' : 'income'
   const payload = {
-    user_id: command.user_id || await getCurrentUserId() || null,
+    user_id: mappingUserId,
     phrase: command.slots_json.description,
     transaction_type: transactionType,
     confidence: command.slots_json.category.confidence,
@@ -1064,14 +1067,19 @@ const ensureSession = async (
 ): Promise<AssistantSession> => {
   const userId = await getCurrentUserId()
 
-  const { data: activeSession } = await supabase
+  let activeSessionQuery = supabase
     .from('assistant_sessions')
     .select('*')
     .eq('device_id', deviceId)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(1)
-    .maybeSingle()
+
+  if (userId) {
+    activeSessionQuery = activeSessionQuery.eq('user_id', userId)
+  }
+
+  const { data: activeSession } = await activeSessionQuery.maybeSingle()
 
   if (activeSession) {
     if (!activeSession.user_id && userId) {

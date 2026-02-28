@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -41,6 +41,7 @@ export default function Settings() {
   const [confirmationSpokenText, setConfirmationSpokenText] = useState('confirmar')
   const [voiceStatus, setVoiceStatus] = useState<string>('')
   const [voiceListening, setVoiceListening] = useState(false)
+  const assistantInputRef = useRef<HTMLInputElement | null>(null)
 
   const voiceSupport = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -220,9 +221,53 @@ export default function Settings() {
     return true
   }
 
+  const getSpeechRecognitionErrorMessage = (errorCode?: string) => {
+    const code = (errorCode || '').toLowerCase()
+
+    if (code === 'network') {
+      return 'Falha de rede no reconhecimento de voz. Verifique internet ativa, HTTPS e, se persistir, use o comando em texto no campo abaixo.'
+    }
+
+    if (code === 'not-allowed' || code === 'service-not-allowed') {
+      return 'Permissão de microfone negada. Libere o microfone nas permissões do navegador.'
+    }
+
+    if (code === 'no-speech') {
+      return 'Nenhuma fala detectada. Fale novamente após tocar no botão.'
+    }
+
+    if (code === 'audio-capture') {
+      return 'Não foi possível acessar o microfone. Verifique se outro app está usando o áudio.'
+    }
+
+    if (code === 'aborted') {
+      return 'Captura de voz interrompida. Tente novamente.'
+    }
+
+    return 'Erro ao capturar voz. Use o modo de texto como alternativa.'
+  }
+
+  const moveToTextFallback = () => {
+    assistantInputRef.current?.focus()
+    setVoiceStatus((previous) => {
+      if (!previous) {
+        return 'Fallback ativado: digite o comando no campo de texto e toque em Interpretar.'
+      }
+      return `${previous} Fallback: use o campo de texto e toque em Interpretar.`
+    })
+  }
+
   const captureSpeech = async (prompt?: string): Promise<string> => {
     if (!voiceSupport.recognition) {
       throw new Error('Reconhecimento de voz não suportado neste navegador/dispositivo.')
+    }
+
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      throw new Error('Reconhecimento de voz requer contexto seguro (HTTPS ou localhost).')
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Você está offline. Conecte-se à internet para usar reconhecimento de voz.')
     }
 
     return new Promise((resolve, reject) => {
@@ -246,8 +291,9 @@ export default function Settings() {
 
       recognition.onerror = (event: any) => {
         setVoiceListening(false)
-        setVoiceStatus('Erro ao capturar voz.')
-        reject(new Error(event?.error || 'speech-recognition-error'))
+        const errorMessage = getSpeechRecognitionErrorMessage(event?.error)
+        setVoiceStatus(errorMessage)
+        reject(new Error(errorMessage))
       }
 
       recognition.onend = () => {
@@ -270,7 +316,11 @@ export default function Settings() {
       const result = await interpret(transcript)
       await speakText(result.confirmationText)
     } catch (error) {
-      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.')
+      const message = error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.'
+      setVoiceStatus(message)
+      if (message.toLowerCase().includes('rede') || message.toLowerCase().includes('network')) {
+        moveToTextFallback()
+      }
     }
   }
 
@@ -286,7 +336,11 @@ export default function Settings() {
       const result = await confirm(lastInterpretation.command.id, confirmed, transcript)
       await speakText(result.message)
     } catch (error) {
-      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao confirmar por voz.')
+      const message = error instanceof Error ? error.message : 'Erro ao confirmar por voz.'
+      setVoiceStatus(message)
+      if (message.toLowerCase().includes('rede') || message.toLowerCase().includes('network')) {
+        moveToTextFallback()
+      }
     }
   }
 
@@ -416,6 +470,7 @@ export default function Settings() {
           <Card>
             <div className="space-y-4">
               <Input
+                ref={assistantInputRef}
                 label="Comando de voz (texto de teste)"
                 value={assistantText}
                 onChange={(event) => setAssistantText(event.target.value)}
