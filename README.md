@@ -77,6 +77,19 @@ Os scripts [database.sql](database.sql) e [MIGRATION.sql](MIGRATION.sql) já inc
 - Em modo offline, mutações de despesas/rendas/investimentos entram em fila local.
 - Ao voltar conexão, a fila é enviada automaticamente para o banco.
 
+### Assistente por voz no PWA
+
+- A tela de `Configurações` inclui modo de voz para o assistente (captura e resposta falada).
+- Requisitos de navegador:
+  - HTTPS ativo (ou localhost em desenvolvimento);
+  - navegador com Web Speech API (Chrome/Edge Android);
+  - permissão de microfone concedida.
+- Fluxo recomendado de validação:
+  1. Abrir `Configurações` > bloco `Assistente (MVP)`;
+  2. Usar `Falar Comando` para interpretar;
+  3. Em comandos de escrita, usar `Responder por Voz` para confirmar;
+  4. Validar retorno falado de sucesso e persistência no Supabase.
+
 ### Fluxo de sincronização offline
 
 1. Usuário cria/edita/deleta um registro sem internet.

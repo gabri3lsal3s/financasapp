@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
+import Input from '@/components/Input'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
+import { useAssistant } from '@/hooks/useAssistant'
 import { AlertCircle, Check } from 'lucide-react'
 
 interface TestResult {
@@ -15,6 +17,18 @@ interface TestResult {
 }
 
 export default function Settings() {
+  const {
+    loading: assistantLoading,
+    error: assistantError,
+    lastInterpretation,
+    lastConfirmation,
+    lastInsights,
+    ensureSession,
+    interpret,
+    confirm,
+    getInsights,
+  } = useAssistant('web-settings-device')
+
   const [connectionTest, setConnectionTest] = useState<TestResult>({
     status: 'idle',
     message: '',
@@ -23,6 +37,24 @@ export default function Settings() {
     status: 'idle',
     message: '',
   })
+  const [assistantText, setAssistantText] = useState('')
+  const [confirmationSpokenText, setConfirmationSpokenText] = useState('confirmar')
+  const [voiceStatus, setVoiceStatus] = useState<string>('')
+  const [voiceListening, setVoiceListening] = useState(false)
+
+  const voiceSupport = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { recognition: false, synthesis: false }
+    }
+
+    const hasRecognition = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+    const hasSynthesis = Boolean(window.speechSynthesis)
+
+    return {
+      recognition: hasRecognition,
+      synthesis: hasSynthesis,
+    }
+  }, [])
 
   const testConnection = async () => {
     if (!isSupabaseConfigured) {
@@ -77,7 +109,16 @@ export default function Settings() {
 
     setTableTest({ status: 'testing', message: 'Verificando tabelas...' })
 
-    const tables = ['categories', 'expenses', 'incomes', 'investments']
+    const tables = [
+      'categories',
+      'expenses',
+      'incomes',
+      'investments',
+      'assistant_sessions',
+      'assistant_commands',
+      'assistant_confirmations',
+      'assistant_category_mappings',
+    ]
     const results: { [key: string]: boolean } = {}
 
     try {
@@ -127,6 +168,125 @@ export default function Settings() {
         return 'border-[var(--color-danger)] bg-tertiary'
       default:
         return 'border-primary bg-secondary'
+    }
+  }
+
+  const handleInterpretAssistant = async () => {
+    if (!assistantText.trim() || !isSupabaseConfigured) return
+    await ensureSession()
+    const result = await interpret(assistantText.trim())
+    await speakText(result.confirmationText)
+  }
+
+  const handleConfirmAssistant = async (confirmed: boolean) => {
+    if (!lastInterpretation?.command.id || !isSupabaseConfigured) return
+    const result = await confirm(lastInterpretation.command.id, confirmed, confirmationSpokenText.trim() || undefined)
+    await speakText(result.message)
+  }
+
+  const handleInsightsAssistant = async () => {
+    if (!isSupabaseConfigured) return
+    const insights = await getInsights()
+    const speakMessage = [
+      `Insights de ${insights.month}.`,
+      ...insights.highlights,
+      ...insights.recommendations,
+    ].join(' ')
+    await speakText(speakMessage)
+  }
+
+  const speakText = async (text: string) => {
+    if (!voiceSupport.synthesis || !text.trim()) return
+
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'pt-BR'
+    window.speechSynthesis.speak(utterance)
+  }
+
+  const resolveVoiceConfirmation = (spokenText: string) => {
+    const normalized = spokenText.trim().toLowerCase()
+    if (!normalized) return true
+
+    if (
+      normalized.includes('não')
+      || normalized.includes('nao')
+      || normalized.includes('cancelar')
+      || normalized.includes('negar')
+    ) {
+      return false
+    }
+
+    return true
+  }
+
+  const captureSpeech = async (prompt?: string): Promise<string> => {
+    if (!voiceSupport.recognition) {
+      throw new Error('Reconhecimento de voz não suportado neste navegador/dispositivo.')
+    }
+
+    return new Promise((resolve, reject) => {
+      const RecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      const recognition = new RecognitionCtor()
+
+      recognition.lang = 'pt-BR'
+      recognition.interimResults = false
+      recognition.maxAlternatives = 1
+      recognition.continuous = false
+
+      setVoiceStatus(prompt || 'Ouvindo...')
+      setVoiceListening(true)
+
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || ''
+        setVoiceListening(false)
+        setVoiceStatus(transcript ? `Reconhecido: ${transcript}` : 'Nenhuma fala reconhecida.')
+        resolve(transcript)
+      }
+
+      recognition.onerror = (event: any) => {
+        setVoiceListening(false)
+        setVoiceStatus('Erro ao capturar voz.')
+        reject(new Error(event?.error || 'speech-recognition-error'))
+      }
+
+      recognition.onend = () => {
+        setVoiceListening(false)
+      }
+
+      recognition.start()
+    })
+  }
+
+  const handleVoiceInterpret = async () => {
+    if (!isSupabaseConfigured || assistantLoading) return
+
+    try {
+      const transcript = await captureSpeech('Fale o comando inicial')
+      if (!transcript) return
+
+      setAssistantText(transcript)
+      await ensureSession()
+      const result = await interpret(transcript)
+      await speakText(result.confirmationText)
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.')
+    }
+  }
+
+  const handleVoiceConfirm = async () => {
+    if (!isSupabaseConfigured || assistantLoading || !lastInterpretation?.command.id) return
+
+    try {
+      const transcript = await captureSpeech('Confirme por voz')
+      if (!transcript) return
+
+      setConfirmationSpokenText(transcript)
+      const confirmed = resolveVoiceConfirmation(transcript)
+      const result = await confirm(lastInterpretation.command.id, confirmed, transcript)
+      await speakText(result.message)
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao confirmar por voz.')
     }
   }
 
@@ -243,6 +403,161 @@ export default function Settings() {
                   </Button>
                 </div>
               </div>
+            </div>
+          </Card>
+        </section>
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-primary mb-2">Assistente (MVP)</h2>
+            <p className="text-secondary text-sm">Teste o fluxo: interpretar comando, confirmar e executar</p>
+          </div>
+
+          <Card>
+            <div className="space-y-4">
+              <Input
+                label="Comando de voz (texto de teste)"
+                value={assistantText}
+                onChange={(event) => setAssistantText(event.target.value)}
+                placeholder="Ex.: adicionar despesa de 42 almoço"
+                disabled={assistantLoading || !isSupabaseConfigured}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  onClick={handleInterpretAssistant}
+                  disabled={assistantLoading || !assistantText.trim() || !isSupabaseConfigured}
+                  variant="outline"
+                  fullWidth
+                >
+                  Interpretar
+                </Button>
+                <Button
+                  onClick={handleInsightsAssistant}
+                  disabled={assistantLoading || !isSupabaseConfigured}
+                  variant="outline"
+                  fullWidth
+                >
+                  Gerar Insights do Mês
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  onClick={handleVoiceInterpret}
+                  disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition || voiceListening}
+                  variant="secondary"
+                  fullWidth
+                >
+                  {voiceListening ? 'Ouvindo...' : 'Falar Comando'}
+                </Button>
+                <Button
+                  onClick={handleVoiceConfirm}
+                  disabled={
+                    assistantLoading
+                    || !isSupabaseConfigured
+                    || !voiceSupport.recognition
+                    || voiceListening
+                    || !lastInterpretation?.requiresConfirmation
+                    || !lastInterpretation?.command.id
+                  }
+                  variant="secondary"
+                  fullWidth
+                >
+                  {voiceListening ? 'Ouvindo...' : 'Responder por Voz'}
+                </Button>
+              </div>
+
+              {!voiceSupport.recognition && (
+                <p className="text-xs text-secondary">
+                  Reconhecimento de voz indisponível neste navegador. Use Chrome/Edge Android com HTTPS.
+                </p>
+              )}
+
+              {voiceStatus && (
+                <div className="p-3 rounded-lg border border-primary bg-tertiary">
+                  <p className="text-xs text-secondary">{voiceStatus}</p>
+                </div>
+              )}
+
+              {assistantError && (
+                <div className="p-3 rounded-lg border border-[var(--color-danger)] bg-tertiary">
+                  <p className="text-sm font-medium text-primary">Erro no assistente</p>
+                  <p className="text-xs text-secondary mt-1">{assistantError}</p>
+                </div>
+              )}
+
+              {lastInterpretation && (
+                <div className="space-y-3 p-3 rounded-lg border border-primary bg-secondary">
+                  <div className="space-y-1">
+                    <p className="text-sm text-primary">
+                      <strong>Intenção:</strong> {lastInterpretation.intent}
+                    </p>
+                    <p className="text-sm text-primary">
+                      <strong>Confiança:</strong> {(lastInterpretation.confidence * 100).toFixed(0)}%
+                    </p>
+                    <p className="text-sm text-primary">
+                      <strong>Resumo:</strong> {lastInterpretation.confirmationText}
+                    </p>
+                  </div>
+
+                  {lastInterpretation.requiresConfirmation && (
+                    <div className="space-y-2">
+                      <Input
+                        label="Texto falado da confirmação"
+                        value={confirmationSpokenText}
+                        onChange={(event) => setConfirmationSpokenText(event.target.value)}
+                        placeholder="confirmar"
+                        disabled={assistantLoading || !isSupabaseConfigured}
+                      />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Button
+                          onClick={() => handleConfirmAssistant(true)}
+                          disabled={assistantLoading || !isSupabaseConfigured}
+                          variant="primary"
+                          fullWidth
+                        >
+                          Confirmar
+                        </Button>
+                        <Button
+                          onClick={() => handleConfirmAssistant(false)}
+                          disabled={assistantLoading || !isSupabaseConfigured}
+                          variant="outline"
+                          fullWidth
+                        >
+                          Negar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {lastConfirmation && (
+                <div className="p-3 rounded-lg border border-primary bg-tertiary">
+                  <p className="text-sm font-medium text-primary">Resultado da confirmação</p>
+                  <p className="text-xs text-secondary mt-1">{lastConfirmation.message}</p>
+                </div>
+              )}
+
+              {lastInsights && (
+                <div className="p-3 rounded-lg border border-primary bg-tertiary space-y-2">
+                  <p className="text-sm font-medium text-primary">Insights de {lastInsights.month}</p>
+                  <p className="text-xs text-secondary">Destaques:</p>
+                  <ul className="space-y-1 text-xs text-secondary list-disc list-inside">
+                    {lastInsights.highlights.map((highlight) => (
+                      <li key={highlight}>{highlight}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-secondary pt-1">Recomendações:</p>
+                  <ul className="space-y-1 text-xs text-secondary list-disc list-inside">
+                    {lastInsights.recommendations.map((recommendation) => (
+                      <li key={recommendation}>{recommendation}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </Card>
         </section>
