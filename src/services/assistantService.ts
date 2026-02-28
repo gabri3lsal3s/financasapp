@@ -47,9 +47,6 @@ const WRITE_INTENTS: AssistantIntent[] = [
   'add_expense',
   'add_income',
   'add_investment',
-  'update_transaction',
-  'delete_transaction',
-  'create_category',
 ]
 
 const normalizeText = (value: string) =>
@@ -124,6 +121,8 @@ const extractDescription = (text: string, intent: AssistantIntent): string | und
     .replace(/^(adicion(?:e|ar)?|registre|registrar|lance|lancar|lançar|inclua|incluir|atualize|atualizar|edite|editar|corrija|corrigir|apague|apagar|exclua|excluir|delete|deletar|remova|remover)\s+/i, '')
     .replace(/^(uma|um)\s+/i, '')
 
+  description = description.replace(/^(a|o|as|os)\s+/i, '')
+
   if (intent === 'create_category') {
     description = description
       .replace(/^(crie|criar|adicione|adicionar)\s+/i, '')
@@ -135,15 +134,15 @@ const extractDescription = (text: string, intent: AssistantIntent): string | und
   }
 
   if (intent === 'add_expense') {
-    description = description.replace(/^(despesa|gasto|conta)\s+(de\s+)?/i, '')
+    description = description.replace(/^(despesa|gasto|conta)\s*(de|da|do|das|dos)?\s*/i, '')
   }
 
   if (intent === 'add_income') {
-    description = description.replace(/^(renda|receita|ganho|sal[aá]rio)\s+(de\s+)?/i, '')
+    description = description.replace(/^(renda|receita|ganho|sal[aá]rio)\s*(de|da|do|das|dos)?\s*/i, '')
   }
 
   if (intent === 'add_investment') {
-    description = description.replace(/^(investimento|aporte)\s+(de\s+)?/i, '')
+    description = description.replace(/^(investimento|aporte)\s*(de|da|do|das|dos)?\s*/i, '')
   }
 
   if (intent === 'update_transaction') {
@@ -162,36 +161,123 @@ const extractDescription = (text: string, intent: AssistantIntent): string | und
   }
 
   description = description
+    .replace(/\b(despesa|gasto|conta|renda|receita|ganho|sal[aá]rio|investimento|aporte)\b/gi, ' ')
     .replace(/\b(no\s+valor\s+de|valor\s+de|valor)\b/gi, ' ')
+    .replace(/\b(adiciona(?:r)?|adicione|adicionar|registre|registrar|lance|lançar|lancar|inclua|incluir)\b/gi, ' ')
     .replace(/\br\$\s*\d+[\d.,]*/gi, ' ')
     .replace(/\b\d+[\d.,]*\b/g, ' ')
+    .replace(/\b(de|da|do|das|dos)\s+(para|pra)\b/gi, ' ')
     .replace(/\b(hoje|ontem)\b/gi, ' ')
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, ' ')
     .replace(/[,:;.!?]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
-  description = description.replace(/^(de|da|do|das|dos)\s+/i, '').trim()
+  description = description
+    .replace(/^(de|da|do|das|dos|em|no|na|nos|nas)\s+/i, '')
+    .replace(/^(para|pra)\s+(o|a|os|as)\s+/i, '')
+    .replace(/^(para|pra)\s+/i, '')
+    .replace(/^(a|o|as|os)\s+/i, '')
+    .replace(/\s+(no|na|nos|nas)\s*$/i, '')
+    .trim()
+
+  if (intent === 'add_expense' || intent === 'add_income' || intent === 'add_investment') {
+    const contextualMatch = description.match(/(?:para|pra)\s+(?:o|a|os|as)?\s*(.+)$/i)
+      || description.match(/(?:de|da|do|das|dos)\s+(?:um|uma)?\s*(.+)$/i)
+
+    if (contextualMatch?.[1]) {
+      const contextualDescription = contextualMatch[1]
+        .replace(/[,:;.!?]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      if (contextualDescription.length >= 2) {
+        description = contextualDescription
+      }
+    }
+  }
 
   if (!description) return undefined
 
   return normalizeDescriptionCasing(description)
 }
 
+const cleanSpeechNoise = (text: string) => {
+  return text
+    .replace(/\b(ah+|eh+|uh+|hum+|hã+|tipo|assim|né|né\?)\b/gi, ' ')
+    .replace(/[\-–—]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const extractAddItemsFromText = (
+  text: string,
+  intent: AssistantIntent,
+  fallbackDate: string,
+): AssistantSlots['items'] => {
+  if (intent !== 'add_expense' && intent !== 'add_income' && intent !== 'add_investment') {
+    return undefined
+  }
+
+  const cleaned = cleanSpeechNoise(text)
+  const commandRemoved = cleaned
+    .replace(/^(adicion(?:a|ar|e)?|registre|registrar|lance|lan[çc]ar|inclua|incluir)\s+/i, '')
+    .replace(/^(uma|um|as|os)\s+/i, '')
+    .replace(/^(a|o)\s+/i, '')
+
+  const chunkCandidates = commandRemoved
+    .split(/\s+(?:e|mais|tamb[eé]m)\s+|;|,/i)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+
+  if (!chunkCandidates.length) return undefined
+
+  const parsedItems = chunkCandidates
+    .map((chunk) => {
+      const amountMatch = chunk.match(/(?:r\$\s*)?(\d+[\d.,]*)/i)
+      if (!amountMatch) return null
+
+      const amount = normalizeAmount(amountMatch[1])
+      if (!amount) return null
+
+      const rawDescription = chunk
+        .replace(amountMatch[0], ' ')
+        .replace(/\b(despesa|gasto|conta|renda|receita|ganho|sal[aá]rio|investimento|aporte)\b/gi, ' ')
+        .replace(/[,:;.!?]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      const polishedDescription = rawDescription
+        ? normalizeDescriptionCasing(
+          rawDescription
+            .replace(/^(de|da|do|das|dos|para|pra|a|o|as|os)\s+/i, '')
+            .trim(),
+        )
+        : undefined
+
+      if (intent === 'add_investment') {
+        return {
+          amount,
+          description: polishedDescription,
+          date: fallbackDate,
+          month: fallbackDate.substring(0, 7),
+        }
+      }
+
+      return {
+        amount,
+        description: polishedDescription,
+        date: fallbackDate,
+        month: fallbackDate.substring(0, 7),
+      }
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+
+  return parsedItems.length > 1 ? parsedItems : undefined
+}
+
 const inferIntent = (text: string): { intent: AssistantIntent; confidence: number } => {
   const normalized = normalizeText(text)
-
-  if (/insight|resumo|analise|análise/.test(normalized)) {
-    return { intent: 'monthly_insights', confidence: 0.9 }
-  }
-
-  if (/saldo|balanco|balanço/.test(normalized)) {
-    return { intent: 'get_month_balance', confidence: 0.88 }
-  }
-
-  if (/listar|ultim|recent/.test(normalized)) {
-    return { intent: 'list_recent_transactions', confidence: 0.82 }
-  }
 
   if (/invest|aporte/.test(normalized) && /adicion|registr|lanc/.test(normalized)) {
     return { intent: 'add_investment', confidence: 0.9 }
@@ -205,18 +291,6 @@ const inferIntent = (text: string): { intent: AssistantIntent; confidence: numbe
     return { intent: 'add_expense', confidence: 0.9 }
   }
 
-  if (/apagar|delet|excluir|remover/.test(normalized)) {
-    return { intent: 'delete_transaction', confidence: 0.76 }
-  }
-
-  if (/atualiz|editar|corrig/.test(normalized)) {
-    return { intent: 'update_transaction', confidence: 0.75 }
-  }
-
-  if (/criar categoria|nova categoria/.test(normalized)) {
-    return { intent: 'create_category', confidence: 0.8 }
-  }
-
   return { intent: 'unknown', confidence: 0.3 }
 }
 
@@ -224,6 +298,7 @@ const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => {
   const amount = extractAmount(text)
   const date = extractDate(text)
   const description = extractDescription(text, intent)
+  const items = extractAddItemsFromText(text, intent, date)
 
   if (intent === 'add_investment') {
     return {
@@ -231,6 +306,7 @@ const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => {
       description,
       month: date.substring(0, 7),
       date,
+      items,
     }
   }
 
@@ -239,6 +315,7 @@ const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => {
     description,
     date,
     month: date.substring(0, 7),
+    items,
   }
 }
 
@@ -307,26 +384,56 @@ const resolveByCategoryName = (
   }
 }
 
-const resolveFallbackUncategorized = (
-  categories: CategoryLookupItem[],
-): AssistantResolvedCategory => {
-  const uncategorized = categories.find(
-    (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
-  )
+const isUncategorizedCategory = (categoryName: string) =>
+  normalizeText(categoryName) === normalizeText('Sem categoria')
 
-  if (uncategorized) {
+const getPreferredCategoryPool = (categories: CategoryLookupItem[]) => {
+  const nonUncategorized = categories.filter((category) => !isUncategorizedCategory(category.name))
+  return nonUncategorized.length ? nonUncategorized : categories
+}
+
+const resolveBestCategoryFallback = (
+  categories: CategoryLookupItem[],
+  description?: string,
+): AssistantResolvedCategory => {
+  const pool = getPreferredCategoryPool(categories)
+
+  if (!pool.length) {
     return {
-      id: uncategorized.id,
-      name: uncategorized.name,
-      confidence: 0.4,
+      name: 'Sem categoria',
+      confidence: 0.2,
       source: 'fallback_uncategorized',
     }
   }
 
+  const tokens = normalizeText(description || '')
+    .split(/\s+/)
+    .filter((token) => token.length >= 3)
+
+  if (tokens.length) {
+    const bestByToken = pool
+      .map((category) => {
+        const categoryName = normalizeText(category.name)
+        const score = tokens.reduce((sum, token) => (categoryName.includes(token) ? sum + 1 : sum), 0)
+        return { category, score }
+      })
+      .sort((a, b) => b.score - a.score)
+
+    if ((bestByToken[0]?.score || 0) > 0) {
+      return {
+        id: bestByToken[0].category.id,
+        name: bestByToken[0].category.name,
+        confidence: 0.58,
+        source: 'name_match',
+      }
+    }
+  }
+
   return {
-    name: 'Sem categoria',
-    confidence: 0.3,
-    source: 'fallback_uncategorized',
+    id: pool[0].id,
+    name: pool[0].name,
+    confidence: isUncategorizedCategory(pool[0].name) ? 0.35 : 0.55,
+    source: isUncategorizedCategory(pool[0].name) ? 'fallback_uncategorized' : 'name_match',
   }
 }
 
@@ -390,24 +497,29 @@ const resolveCategory = async (
     ])
 
     const categories = categoriesResult.data || []
+    const preferredCategories = getPreferredCategoryPool(categories)
 
     if (mapping?.category_id) {
       const mapped = categories.find((category) => category.id === mapping.category_id)
       if (mapped) {
-        return {
-          selectedCategory: {
-            id: mapped.id,
-            name: mapped.name,
-            confidence: mapping.confidence ?? 0.9,
-            source: 'mapping',
-          },
-          candidates: [],
-          needsDisambiguation: false,
+        if (isUncategorizedCategory(mapped.name) && preferredCategories.some((category) => !isUncategorizedCategory(category.name))) {
+          // Ignora mapeamento para "Sem categoria" quando existem categorias melhores.
+        } else {
+          return {
+            selectedCategory: {
+              id: mapped.id,
+              name: mapped.name,
+              confidence: mapping.confidence ?? 0.9,
+              source: 'mapping',
+            },
+            candidates: [],
+            needsDisambiguation: false,
+          }
         }
       }
     }
 
-    const byKeyword = resolveByKeyword(slots.description, categories, EXPENSE_KEYWORDS)
+    const byKeyword = resolveByKeyword(slots.description, preferredCategories, EXPENSE_KEYWORDS)
     if (byKeyword) {
       return {
         selectedCategory: byKeyword,
@@ -416,7 +528,7 @@ const resolveCategory = async (
       }
     }
 
-    const byName = resolveByCategoryName(slots.description, categories)
+    const byName = resolveByCategoryName(slots.description, preferredCategories)
     if (byName) {
       return {
         selectedCategory: byName,
@@ -425,7 +537,7 @@ const resolveCategory = async (
       }
     }
 
-    const similarityCandidates = resolveBySimilarityCandidates(slots.description, categories)
+    const similarityCandidates = resolveBySimilarityCandidates(slots.description, preferredCategories)
     if (similarityCandidates.length) {
       const [bestCandidate] = similarityCandidates
       const needsDisambiguation =
@@ -439,7 +551,7 @@ const resolveCategory = async (
       }
     }
 
-    const fallback = resolveFallbackUncategorized(categories)
+    const fallback = resolveBestCategoryFallback(preferredCategories, slots.description)
     return {
       selectedCategory: fallback,
       candidates: [fallback],
@@ -453,24 +565,29 @@ const resolveCategory = async (
   ])
 
   const incomeCategories = incomeCategoriesResult.data || []
+  const preferredIncomeCategories = getPreferredCategoryPool(incomeCategories)
 
   if (mapping?.income_category_id) {
     const mapped = incomeCategories.find((category) => category.id === mapping.income_category_id)
     if (mapped) {
-      return {
-        selectedCategory: {
-          id: mapped.id,
-          name: mapped.name,
-          confidence: mapping.confidence ?? 0.9,
-          source: 'mapping',
-        },
-        candidates: [],
-        needsDisambiguation: false,
+      if (isUncategorizedCategory(mapped.name) && preferredIncomeCategories.some((category) => !isUncategorizedCategory(category.name))) {
+        // Ignora mapeamento para "Sem categoria" quando existem categorias melhores.
+      } else {
+        return {
+          selectedCategory: {
+            id: mapped.id,
+            name: mapped.name,
+            confidence: mapping.confidence ?? 0.9,
+            source: 'mapping',
+          },
+          candidates: [],
+          needsDisambiguation: false,
+        }
       }
     }
   }
 
-  const byKeyword = resolveByKeyword(slots.description, incomeCategories, INCOME_KEYWORDS)
+  const byKeyword = resolveByKeyword(slots.description, preferredIncomeCategories, INCOME_KEYWORDS)
   if (byKeyword) {
     return {
       selectedCategory: byKeyword,
@@ -479,7 +596,7 @@ const resolveCategory = async (
     }
   }
 
-  const byName = resolveByCategoryName(slots.description, incomeCategories)
+  const byName = resolveByCategoryName(slots.description, preferredIncomeCategories)
   if (byName) {
     return {
       selectedCategory: byName,
@@ -488,7 +605,7 @@ const resolveCategory = async (
     }
   }
 
-  const similarityCandidates = resolveBySimilarityCandidates(slots.description, incomeCategories)
+  const similarityCandidates = resolveBySimilarityCandidates(slots.description, preferredIncomeCategories)
   if (similarityCandidates.length) {
     const [bestCandidate] = similarityCandidates
     const needsDisambiguation =
@@ -502,7 +619,7 @@ const resolveCategory = async (
     }
   }
 
-  const fallback = resolveFallbackUncategorized(incomeCategories)
+  const fallback = resolveBestCategoryFallback(preferredIncomeCategories, slots.description)
   return {
     selectedCategory: fallback,
     candidates: [fallback],
@@ -525,6 +642,25 @@ const buildConfirmationText = (
       .map((candidate) => candidate.name)
       .join(', ')
     return `Preciso confirmar a categoria. Diga a categoria desejada: ${optionsText}.`
+  }
+
+  if (slots.items && slots.items.length > 1) {
+    const preview = slots.items
+      .slice(0, 3)
+      .map((item) => `${item.description || 'Sem descrição'} (R$${item.amount.toFixed(2)})`)
+      .join(', ')
+
+    if (intent === 'add_expense') {
+      return `Confirma adicionar ${slots.items.length} despesas: ${preview}?`
+    }
+
+    if (intent === 'add_income') {
+      return `Confirma adicionar ${slots.items.length} rendas: ${preview}?`
+    }
+
+    if (intent === 'add_investment') {
+      return `Confirma adicionar ${slots.items.length} investimentos: ${preview}?`
+    }
   }
 
   if (intent === 'add_expense') {
@@ -732,96 +868,189 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
   const slots = command.slots_json || {}
   const userId = command.user_id || await getCurrentUserId()
 
+  if (
+    command.interpreted_intent !== 'add_expense'
+    && command.interpreted_intent !== 'add_income'
+    && command.interpreted_intent !== 'add_investment'
+  ) {
+    return {
+      status: 'failed',
+      message: 'No momento, o assistente executa apenas adições de despesas, rendas e investimentos.',
+      commandId: command.id,
+    }
+  }
+
+  const addItems =
+    (slots.items && slots.items.length
+      ? slots.items
+      : (slots.amount
+          ? [{
+            amount: Number(slots.amount),
+            description: slots.description,
+            date: slots.date,
+            month: slots.month,
+            category: slots.category,
+          }]
+          : []))
+
   if (command.interpreted_intent === 'add_expense') {
-    if (!slots.amount || !slots.category?.id || !slots.date) {
+    if (!addItems.length) {
       return { status: 'failed', message: 'Comando incompleto para despesa.', commandId: command.id }
+    }
+
+    const { data: expenseCategories } = await supabase
+      .from('categories')
+      .select('id, name, color')
+      .order('name', { ascending: true })
+
+    const uncategorizedExpenseId = (expenseCategories || []).find(
+      (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
+    )?.id
+
+    const payload = await Promise.all(addItems.map(async (item) => {
+      let resolvedCategoryId = item.category?.id
+
+      if (!resolvedCategoryId && item.description) {
+        const resolution = await resolveCategory('add_expense', {
+          amount: item.amount,
+          description: item.description,
+          date: item.date || slots.date,
+          month: item.month || slots.month,
+        })
+        resolvedCategoryId = resolution.selectedCategory?.id
+      }
+
+      resolvedCategoryId = resolvedCategoryId || uncategorizedExpenseId
+
+      return {
+        amount: item.amount,
+        date: item.date || slots.date,
+        category_id: resolvedCategoryId,
+        description: item.description,
+        user_id: userId,
+      }
+    }))
+
+    if (payload.some((item) => !item.date || !item.category_id)) {
+      return { status: 'failed', message: 'Não foi possível resolver data/categoria para todas as despesas.', commandId: command.id }
     }
 
     const { data, error } = await supabase
       .from('expenses')
-      .insert([
-        {
-          amount: slots.amount,
-          date: slots.date,
-          category_id: slots.category.id,
-          description: slots.description,
-          user_id: userId,
-        },
-      ])
+      .insert(payload)
       .select('id')
-      .single()
 
     if (error) {
       return { status: 'failed', message: error.message, commandId: command.id }
     }
 
+    const createdIds = data?.map((item) => item.id) || []
     return {
       status: 'executed',
-      message: 'Despesa adicionada com sucesso.',
+      message: createdIds.length > 1
+        ? `${createdIds.length} despesas adicionadas com sucesso.`
+        : 'Despesa adicionada com sucesso.',
       commandId: command.id,
-      transactionId: data.id,
+      transactionId: createdIds[0],
     }
   }
 
   if (command.interpreted_intent === 'add_income') {
-    if (!slots.amount || !slots.category?.id || !slots.date) {
+    if (!addItems.length) {
       return { status: 'failed', message: 'Comando incompleto para renda.', commandId: command.id }
+    }
+
+    const { data: incomeCategories } = await supabase
+      .from('income_categories')
+      .select('id, name, color')
+      .order('name', { ascending: true })
+
+    const uncategorizedIncomeId = (incomeCategories || []).find(
+      (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
+    )?.id
+
+    const payload = await Promise.all(addItems.map(async (item) => {
+      let resolvedCategoryId = item.category?.id
+
+      if (!resolvedCategoryId && item.description) {
+        const resolution = await resolveCategory('add_income', {
+          amount: item.amount,
+          description: item.description,
+          date: item.date || slots.date,
+          month: item.month || slots.month,
+        })
+        resolvedCategoryId = resolution.selectedCategory?.id
+      }
+
+      resolvedCategoryId = resolvedCategoryId || uncategorizedIncomeId
+
+      return {
+        amount: item.amount,
+        date: item.date || slots.date,
+        income_category_id: resolvedCategoryId,
+        type: 'other',
+        description: item.description,
+        user_id: userId,
+      }
+    }))
+
+    if (payload.some((item) => !item.date || !item.income_category_id)) {
+      return { status: 'failed', message: 'Não foi possível resolver data/categoria para todas as rendas.', commandId: command.id }
     }
 
     const { data, error } = await supabase
       .from('incomes')
-      .insert([
-        {
-          amount: slots.amount,
-          date: slots.date,
-          income_category_id: slots.category.id,
-          type: 'other',
-          description: slots.description,
-          user_id: userId,
-        },
-      ])
+      .insert(payload)
       .select('id')
-      .single()
 
     if (error) {
       return { status: 'failed', message: error.message, commandId: command.id }
     }
 
+    const createdIds = data?.map((item) => item.id) || []
     return {
       status: 'executed',
-      message: 'Renda adicionada com sucesso.',
+      message: createdIds.length > 1
+        ? `${createdIds.length} rendas adicionadas com sucesso.`
+        : 'Renda adicionada com sucesso.',
       commandId: command.id,
-      transactionId: data.id,
+      transactionId: createdIds[0],
     }
   }
 
   if (command.interpreted_intent === 'add_investment') {
-    if (!slots.amount || !slots.month) {
+    if (!addItems.length) {
       return { status: 'failed', message: 'Comando incompleto para investimento.', commandId: command.id }
+    }
+
+    const payload = addItems.map((item) => ({
+      amount: item.amount,
+      month: item.month || slots.month,
+      description: item.description,
+      user_id: userId,
+    }))
+
+    if (payload.some((item) => !item.month)) {
+      return { status: 'failed', message: 'Não foi possível resolver o mês para todos os investimentos.', commandId: command.id }
     }
 
     const { data, error } = await supabase
       .from('investments')
-      .insert([
-        {
-          amount: slots.amount,
-          month: slots.month,
-          description: slots.description,
-          user_id: userId,
-        },
-      ])
+      .insert(payload)
       .select('id')
-      .single()
 
     if (error) {
       return { status: 'failed', message: error.message, commandId: command.id }
     }
 
+    const createdIds = data?.map((item) => item.id) || []
     return {
       status: 'executed',
-      message: 'Investimento adicionado com sucesso.',
+      message: createdIds.length > 1
+        ? `${createdIds.length} investimentos adicionados com sucesso.`
+        : 'Investimento adicionado com sucesso.',
       commandId: command.id,
-      transactionId: data.id,
+      transactionId: createdIds[0],
     }
   }
 
@@ -1168,7 +1397,7 @@ const resolveReadOnlyIntent = async (
   }
 
   return {
-    message: 'Intenção reconhecida, mas sem executor de leitura configurado.',
+    message: 'No momento, posso adicionar despesas, rendas e investimentos por comando de voz.',
   }
 }
 

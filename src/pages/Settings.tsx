@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -22,11 +22,9 @@ export default function Settings() {
     error: assistantError,
     lastInterpretation,
     lastConfirmation,
-    lastInsights,
     ensureSession,
     interpret,
     confirm,
-    getInsights,
   } = useAssistant('web-settings-device')
 
   const [connectionTest, setConnectionTest] = useState<TestResult>({
@@ -38,10 +36,14 @@ export default function Settings() {
     message: '',
   })
   const [assistantText, setAssistantText] = useState('')
-  const [confirmationSpokenText, setConfirmationSpokenText] = useState('confirmar')
+  const [editableConfirmationText, setEditableConfirmationText] = useState('')
+  const [isEditingConfirmationText, setIsEditingConfirmationText] = useState(false)
   const [voiceStatus, setVoiceStatus] = useState<string>('')
   const [voiceListening, setVoiceListening] = useState(false)
+  const [voicePhase, setVoicePhase] = useState<'idle' | 'listening' | 'stopped'>('idle')
+  const [lastHeardCommand, setLastHeardCommand] = useState('')
   const assistantInputRef = useRef<HTMLInputElement | null>(null)
+  const activeRecognitionRef = useRef<any | null>(null)
 
   const voiceSupport = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -181,19 +183,10 @@ export default function Settings() {
 
   const handleConfirmAssistant = async (confirmed: boolean) => {
     if (!lastInterpretation?.command.id || !isSupabaseConfigured) return
-    const result = await confirm(lastInterpretation.command.id, confirmed, confirmationSpokenText.trim() || undefined)
+    const spokenText = editableConfirmationText.trim() || undefined
+    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText)
     await speakText(result.message)
-  }
-
-  const handleInsightsAssistant = async () => {
-    if (!isSupabaseConfigured) return
-    const insights = await getInsights()
-    const speakMessage = [
-      `Insights de ${insights.month}.`,
-      ...insights.highlights,
-      ...insights.recommendations,
-    ].join(' ')
-    await speakText(speakMessage)
+    setIsEditingConfirmationText(false)
   }
 
   const speakText = async (text: string) => {
@@ -220,6 +213,12 @@ export default function Settings() {
 
     return true
   }
+
+  useEffect(() => {
+    if (!lastInterpretation) return
+    setEditableConfirmationText(lastInterpretation.confirmationText)
+    setIsEditingConfirmationText(false)
+  }, [lastInterpretation])
 
   const getSpeechRecognitionErrorMessage = (errorCode?: string) => {
     const code = (errorCode || '').toLowerCase()
@@ -273,39 +272,134 @@ export default function Settings() {
     return new Promise((resolve, reject) => {
       const RecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       const recognition = new RecognitionCtor()
+      let isSettled = false
+      let hasHeardSpeech = false
+      let transcriptBuffer = ''
+      let silenceTimer: ReturnType<typeof setTimeout> | null = null
+      let initialSpeechTimer: ReturnType<typeof setTimeout> | null = null
+
+      const scheduleSilenceStop = (delayMs: number) => {
+        if (silenceTimer) clearTimeout(silenceTimer)
+        silenceTimer = setTimeout(() => {
+          if (!isSettled) {
+            recognition.stop()
+          }
+        }, delayMs)
+      }
 
       recognition.lang = 'pt-BR'
-      recognition.interimResults = false
+      recognition.interimResults = true
       recognition.maxAlternatives = 1
       recognition.continuous = false
 
       setVoiceStatus(prompt || 'Ouvindo...')
       setVoiceListening(true)
+      setVoicePhase('listening')
+      activeRecognitionRef.current = recognition
+      initialSpeechTimer = setTimeout(() => {
+        if (!isSettled) {
+          setVoiceStatus('Não detectei sua voz ainda. Tente falar mais próximo ao microfone.')
+          recognition.stop()
+        }
+      }, 7000)
+
+      recognition.onspeechstart = () => {
+        hasHeardSpeech = true
+        if (initialSpeechTimer) {
+          clearTimeout(initialSpeechTimer)
+          initialSpeechTimer = null
+        }
+      }
 
       recognition.onresult = (event: any) => {
-        const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || ''
-        setVoiceListening(false)
-        setVoiceStatus(transcript ? `Reconhecido: ${transcript}` : 'Nenhuma fala reconhecida.')
-        resolve(transcript)
+        const chunks: string[] = []
+
+        for (let index = 0; index < (event.results?.length || 0); index += 1) {
+          const result = event.results[index]
+          const chunk = result?.[0]?.transcript?.trim()
+          if (chunk) chunks.push(chunk)
+        }
+
+        const mergedTranscript = chunks.join(' ').replace(/\s+/g, ' ').trim()
+
+        if (mergedTranscript) {
+          hasHeardSpeech = true
+          if (initialSpeechTimer) {
+            clearTimeout(initialSpeechTimer)
+            initialSpeechTimer = null
+          }
+          transcriptBuffer = mergedTranscript
+          setVoiceStatus(`Escutando: ${transcriptBuffer}`)
+          scheduleSilenceStop(2500)
+        }
+      }
+
+      recognition.onspeechend = () => {
+        if (!isSettled && hasHeardSpeech) {
+          scheduleSilenceStop(1200)
+        }
       }
 
       recognition.onerror = (event: any) => {
+        if (isSettled) return
+        isSettled = true
+        if (silenceTimer) clearTimeout(silenceTimer)
+        if (initialSpeechTimer) clearTimeout(initialSpeechTimer)
         setVoiceListening(false)
+        setVoicePhase('stopped')
+        activeRecognitionRef.current = null
+
+        if (event?.error === 'no-speech') {
+          const transcript = transcriptBuffer.trim()
+          setLastHeardCommand(transcript)
+          if (transcript) {
+            setVoiceStatus(`Reconhecido: ${transcript}`)
+            resolve(transcript)
+            return
+          }
+
+          setVoiceStatus('Nenhuma fala detectada. Tente novamente falando logo após tocar no botão.')
+          resolve('')
+          return
+        }
+
         const errorMessage = getSpeechRecognitionErrorMessage(event?.error)
         setVoiceStatus(errorMessage)
         reject(new Error(errorMessage))
       }
 
       recognition.onend = () => {
+        if (isSettled) return
+        isSettled = true
+        if (silenceTimer) clearTimeout(silenceTimer)
+        if (initialSpeechTimer) clearTimeout(initialSpeechTimer)
         setVoiceListening(false)
+        setVoicePhase('stopped')
+        activeRecognitionRef.current = null
+
+        const transcript = transcriptBuffer.trim()
+        setLastHeardCommand(transcript)
+        setVoiceStatus(transcript ? `Reconhecido: ${transcript}` : 'Nenhuma fala reconhecida.')
+        resolve(transcript)
       }
 
       recognition.start()
     })
   }
 
+  const stopActiveListening = () => {
+    if (!activeRecognitionRef.current) return
+    setVoiceStatus('Finalizando escuta...')
+    activeRecognitionRef.current.stop()
+  }
+
   const handleVoiceInterpret = async () => {
     if (!isSupabaseConfigured || assistantLoading) return
+
+    if (voiceListening) {
+      stopActiveListening()
+      return
+    }
 
     try {
       const transcript = await captureSpeech('Fale o comando inicial')
@@ -327,11 +421,15 @@ export default function Settings() {
   const handleVoiceConfirm = async () => {
     if (!isSupabaseConfigured || assistantLoading || !lastInterpretation?.command.id) return
 
+    if (lastInterpretation.intent === 'add_expense') {
+      setVoiceStatus('Para despesas, a confirmação é manual pelos botões Confirmar/Negar.')
+      return
+    }
+
     try {
       const transcript = await captureSpeech('Confirme por voz')
       if (!transcript) return
 
-      setConfirmationSpokenText(transcript)
       const confirmed = resolveVoiceConfirmation(transcript)
       const result = await confirm(lastInterpretation.command.id, confirmed, transcript)
       await speakText(result.message)
@@ -464,7 +562,7 @@ export default function Settings() {
         <section id="assistant-mvp" className="space-y-4 scroll-mt-24">
           <div>
             <h2 className="text-xl font-semibold text-primary mb-2">Assistente (MVP)</h2>
-            <p className="text-secondary text-sm">Teste o fluxo: interpretar comando, confirmar e executar</p>
+            <p className="text-secondary text-sm">Teste adições por voz/texto: despesas, rendas e investimentos</p>
           </div>
 
           <Card>
@@ -480,46 +578,20 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
+                  onClick={handleVoiceInterpret}
+                  disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition}
+                  variant="primary"
+                  fullWidth
+                >
+                  {voiceListening ? 'Parar Escuta' : 'Falar Comando'}
+                </Button>
+                <Button
                   onClick={handleInterpretAssistant}
                   disabled={assistantLoading || !assistantText.trim() || !isSupabaseConfigured}
                   variant="outline"
                   fullWidth
                 >
-                  Interpretar
-                </Button>
-                <Button
-                  onClick={handleInsightsAssistant}
-                  disabled={assistantLoading || !isSupabaseConfigured}
-                  variant="outline"
-                  fullWidth
-                >
-                  Gerar Insights do Mês
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button
-                  onClick={handleVoiceInterpret}
-                  disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition || voiceListening}
-                  variant="secondary"
-                  fullWidth
-                >
-                  {voiceListening ? 'Ouvindo...' : 'Falar Comando'}
-                </Button>
-                <Button
-                  onClick={handleVoiceConfirm}
-                  disabled={
-                    assistantLoading
-                    || !isSupabaseConfigured
-                    || !voiceSupport.recognition
-                    || voiceListening
-                    || !lastInterpretation?.requiresConfirmation
-                    || !lastInterpretation?.command.id
-                  }
-                  variant="secondary"
-                  fullWidth
-                >
-                  {voiceListening ? 'Ouvindo...' : 'Responder por Voz'}
+                  Interpretar Texto
                 </Button>
               </div>
 
@@ -529,6 +601,21 @@ export default function Settings() {
                 </p>
               )}
 
+              <div className="p-3 rounded-lg border border-primary bg-secondary space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-secondary">Status de escuta</p>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex h-2.5 w-2.5 rounded-full ${voicePhase === 'listening' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'}`} />
+                  <p className="text-sm text-primary">
+                    {voicePhase === 'listening' ? 'Escutando...' : voicePhase === 'stopped' ? 'Parou de escutar' : 'Pronto para iniciar'}
+                  </p>
+                </div>
+                {lastHeardCommand && (
+                  <p className="text-sm text-primary">
+                    <strong>Comando ouvido:</strong> {lastHeardCommand}
+                  </p>
+                )}
+              </div>
+
               {voiceStatus && (
                 <div className="p-3 rounded-lg border border-primary bg-tertiary">
                   <p className="text-xs text-secondary">{voiceStatus}</p>
@@ -537,7 +624,7 @@ export default function Settings() {
 
               {assistantError && (
                 <div className="p-3 rounded-lg border border-[var(--color-danger)] bg-tertiary">
-                  <p className="text-sm font-medium text-primary">Erro no assistente</p>
+                  <p className="text-sm font-medium text-[var(--color-danger)]">Erro no assistente</p>
                   <p className="text-xs text-secondary mt-1">{assistantError}</p>
                 </div>
               )}
@@ -558,15 +645,33 @@ export default function Settings() {
 
                   {lastInterpretation.requiresConfirmation && (
                     <div className="space-y-2">
-                      <Input
-                        label="Texto falado da confirmação"
-                        value={confirmationSpokenText}
-                        onChange={(event) => setConfirmationSpokenText(event.target.value)}
-                        placeholder="confirmar"
-                        disabled={assistantLoading || !isSupabaseConfigured}
-                      />
+                      <div className="rounded-md border border-primary bg-tertiary px-3 py-2">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-secondary">Descrição que será salva</p>
+                        <p className="text-sm text-primary mt-1">
+                          {lastInterpretation.slots.description || 'Sem descrição'}
+                        </p>
+                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {isEditingConfirmationText ? (
+                        <Input
+                          label="Texto da confirmação"
+                          value={editableConfirmationText}
+                          onChange={(event) => setEditableConfirmationText(event.target.value)}
+                          onBlur={() => setIsEditingConfirmationText(false)}
+                          autoFocus
+                          disabled={assistantLoading || !isSupabaseConfigured}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingConfirmationText(true)}
+                          className="w-full text-left text-sm text-primary rounded-md px-1 py-1 hover:bg-tertiary motion-standard"
+                        >
+                          {editableConfirmationText || lastInterpretation.confirmationText}
+                        </button>
+                      )}
+
+                      <div className={`grid grid-cols-1 gap-2 ${lastInterpretation.intent === 'add_expense' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
                         <Button
                           onClick={() => handleConfirmAssistant(true)}
                           disabled={assistantLoading || !isSupabaseConfigured}
@@ -583,7 +688,28 @@ export default function Settings() {
                         >
                           Negar
                         </Button>
+
+                        {lastInterpretation.intent !== 'add_expense' && (
+                          <Button
+                            onClick={handleVoiceConfirm}
+                            disabled={
+                              assistantLoading
+                              || !isSupabaseConfigured
+                              || !voiceSupport.recognition
+                              || voiceListening
+                              || !lastInterpretation?.command.id
+                            }
+                            variant="outline"
+                            fullWidth
+                          >
+                            {voiceListening ? 'Ouvindo...' : 'Responder por Voz'}
+                          </Button>
+                        )}
                       </div>
+
+                      {lastInterpretation.intent === 'add_expense' && (
+                        <p className="text-xs text-secondary">Para despesas, a confirmação é manual pelos botões acima.</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -596,23 +722,6 @@ export default function Settings() {
                 </div>
               )}
 
-              {lastInsights && (
-                <div className="p-3 rounded-lg border border-primary bg-tertiary space-y-2">
-                  <p className="text-sm font-medium text-primary">Insights de {lastInsights.month}</p>
-                  <p className="text-xs text-secondary">Destaques:</p>
-                  <ul className="space-y-1 text-xs text-secondary list-disc list-inside">
-                    {lastInsights.highlights.map((highlight) => (
-                      <li key={highlight}>{highlight}</li>
-                    ))}
-                  </ul>
-                  <p className="text-xs text-secondary pt-1">Recomendações:</p>
-                  <ul className="space-y-1 text-xs text-secondary list-disc list-inside">
-                    {lastInsights.recommendations.map((recommendation) => (
-                      <li key={recommendation}>{recommendation}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           </Card>
         </section>

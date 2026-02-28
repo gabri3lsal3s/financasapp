@@ -116,6 +116,13 @@ export interface AssistantSlots {
   date?: string
   month?: string
   category?: AssistantResolvedCategory
+  items?: Array<{
+    amount: number
+    description?: string
+    date?: string
+    month?: string
+    category?: AssistantResolvedCategory
+  }>
 }
 
 export interface AssistantSession {

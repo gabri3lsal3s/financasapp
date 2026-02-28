@@ -79,16 +79,34 @@ Os scripts [database.sql](database.sql) e [MIGRATION.sql](MIGRATION.sql) já inc
 
 ### Assistente por voz no PWA
 
-- A tela de `Configurações` inclui modo de voz para o assistente (captura e resposta falada).
+- O `Dashboard` possui atalho de uso final do assistente (fluxo por voz, sem redirecionamento de página).
+- A tela de `Configurações` concentra as funções de teste/diagnóstico do assistente (texto, voz, insights e validação).
 - Requisitos de navegador:
   - HTTPS ativo (ou localhost em desenvolvimento);
   - navegador com Web Speech API (Chrome/Edge Android);
   - permissão de microfone concedida.
+- Padrões de UX do assistente:
+  - botão de voz com toggle (`Falar Comando` / `Parar Escuta`);
+  - finalização por silêncio após a fala;
+  - estado visual de escuta (`Escutando`, `Parou`, `Comando ouvido`);
+  - confirmação manual editável por clique no texto antes de confirmar;
+  - para `add_expense`, confirmação é somente manual no app.
+- Escopo atual do assistente:
+  - adição de `despesa`, `renda` e `investimento`.
+  - demais funções ficam fora do fluxo principal de voz.
+- Regra de descrição:
+  - o assistente salva descrições curtas e polidas (`Almoço`, `Almoço com Glenda`, `Hambúrguer com Gabi`) em vez de gravar o comando completo.
+- Comandos com múltiplos itens:
+  - o assistente aceita lote na mesma frase para adição, por exemplo:
+    - `adicionar despesa 25 almoço e 18 uber`
+    - `registrar renda 3000 salário e 450 freelancer`
+    - `adicionar investimento 200 tesouro e 150 reserva`
+  - cada item é interpretado e salvo separadamente, com retorno de quantidade adicionada.
 - Fluxo recomendado de validação:
-  1. Abrir `Configurações` > bloco `Assistente (MVP)`;
-  2. Usar `Falar Comando` para interpretar;
-  3. Em comandos de escrita, usar `Responder por Voz` para confirmar;
-  4. Validar retorno falado de sucesso e persistência no Supabase.
+  1. Dashboard: tocar no atalho do assistente e falar um comando completo;
+  2. Confirmar manualmente quando o comando exigir confirmação;
+  3. Configurações: usar bloco `Assistente (MVP)` para testes de texto, voz e insights;
+  4. Validar persistência no Supabase e feedback visual do comando reconhecido.
 
 ### Fluxo de sincronização offline
 

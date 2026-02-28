@@ -1273,6 +1273,13 @@ export default function Dashboard() {
 
           {lastInterpretation?.requiresConfirmation && (
             <div className="space-y-2 rounded-lg border border-primary bg-secondary p-3">
+              <div className="rounded-md border border-primary bg-tertiary px-3 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-secondary">Descrição que será salva</p>
+                <p className="text-sm text-primary mt-1">
+                  {lastInterpretation.slots.description || 'Sem descrição'}
+                </p>
+              </div>
+
               {isEditingConfirmationText ? (
                 <Input
                   label="Texto da confirmação"
