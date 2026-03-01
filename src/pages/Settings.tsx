@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Input from '@/components/Input'
-import Select from '@/components/Select'
+import AssistantEditableSlots from '@/components/AssistantEditableSlots'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
@@ -12,8 +12,7 @@ import { useAssistant } from '@/hooks/useAssistant'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useAppSettings } from '@/hooks/useAppSettings'
-import { formatMoneyInput, parseMoneyInput } from '@/utils/format'
-import type { AssistantResolvedCategory, AssistantSlots } from '@/types'
+import type { AssistantSlots } from '@/types'
 import { AlertCircle, Check } from 'lucide-react'
 
 interface TestResult {
@@ -234,43 +233,6 @@ export default function Settings() {
       const base = previous || {}
       return updater(base)
     })
-  }
-
-  const setSlotCategory = (categoryId: string, transactionType: 'expense' | 'income') => {
-    const sourceList = transactionType === 'expense' ? categories : incomeCategories
-    const selected = sourceList.find((item) => item.id === categoryId)
-    if (!selected) return
-
-    const categoryPayload: AssistantResolvedCategory = {
-      id: selected.id,
-      name: selected.name,
-      confidence: 0.99,
-      source: 'name_match',
-    }
-
-    updateEditableSlots((previous) => ({ ...previous, category: categoryPayload }))
-  }
-
-  const setItemCategory = (index: number, categoryId: string, transactionType: 'expense' | 'income') => {
-    const sourceList = transactionType === 'expense' ? categories : incomeCategories
-    const selected = sourceList.find((item) => item.id === categoryId)
-    if (!selected) return
-
-    const categoryPayload: AssistantResolvedCategory = {
-      id: selected.id,
-      name: selected.name,
-      confidence: 0.99,
-      source: 'name_match',
-    }
-
-    updateEditableSlots((previous) => ({
-      ...previous,
-      items: (previous.items || []).map((item, itemIndex) => (
-        itemIndex === index
-          ? { ...item, category: categoryPayload }
-          : item
-      )),
-    }))
   }
 
   const getSpeechRecognitionErrorMessage = (errorCode?: string) => {
@@ -743,226 +705,14 @@ export default function Settings() {
                           disabled={assistantLoading || !isSupabaseConfigured}
                         />
 
-                        {(editableSlots?.items?.length || 0) > 0 ? (
-                          <div className="space-y-3">
-                            {(editableSlots?.items || []).map((item, index) => {
-                              const transactionType = item.transactionType || 'expense'
-                              const reportAmount = item.amount > 0 && Number.isFinite(item.report_weight)
-                                ? item.amount * Number(item.report_weight)
-                                : item.amount
-
-                              return (
-                                <div key={`assistant-settings-item-${index}`} className="rounded-md border border-primary bg-tertiary p-3 space-y-2">
-                                  <p className="text-xs font-medium text-secondary">Lançamento {index + 1}</p>
-
-                                  <Select
-                                    label="Tipo"
-                                    value={transactionType}
-                                    onChange={(event) => {
-                                      const nextType = event.target.value as 'expense' | 'income' | 'investment'
-                                      updateEditableSlots((previous) => ({
-                                        ...previous,
-                                        items: (previous.items || []).map((currentItem, itemIndex) => (
-                                          itemIndex === index
-                                            ? { ...currentItem, transactionType: nextType }
-                                            : currentItem
-                                        )),
-                                      }))
-                                    }}
-                                    options={[
-                                      { value: 'expense', label: 'Despesa' },
-                                      { value: 'income', label: 'Renda' },
-                                      { value: 'investment', label: 'Investimento' },
-                                    ]}
-                                    disabled={assistantLoading || !isSupabaseConfigured}
-                                  />
-
-                                  <Input
-                                    label="Descrição"
-                                    value={item.description || ''}
-                                    onChange={(event) => {
-                                      const value = event.target.value
-                                      updateEditableSlots((previous) => ({
-                                        ...previous,
-                                        items: (previous.items || []).map((currentItem, itemIndex) => (
-                                          itemIndex === index
-                                            ? { ...currentItem, description: value }
-                                            : currentItem
-                                        )),
-                                      }))
-                                    }}
-                                    disabled={assistantLoading || !isSupabaseConfigured}
-                                  />
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <Input
-                                      label="Valor"
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={formatMoneyInput(Number(item.amount || 0))}
-                                      onChange={(event) => {
-                                        const parsed = parseMoneyInput(event.target.value)
-                                        if (Number.isNaN(parsed)) return
-                                        updateEditableSlots((previous) => ({
-                                          ...previous,
-                                          items: (previous.items || []).map((currentItem, itemIndex) => (
-                                            itemIndex === index
-                                              ? { ...currentItem, amount: parsed }
-                                              : currentItem
-                                          )),
-                                        }))
-                                      }}
-                                      disabled={assistantLoading || !isSupabaseConfigured}
-                                    />
-
-                                    {transactionType !== 'investment' && (
-                                      <Input
-                                        label="Valor no relatório"
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={formatMoneyInput(Number(reportAmount || 0))}
-                                        onChange={(event) => {
-                                          const parsed = parseMoneyInput(event.target.value)
-                                          if (Number.isNaN(parsed) || !item.amount || item.amount <= 0) return
-                                          const reportWeight = Math.min(1, Math.max(0, Number((parsed / item.amount).toFixed(4))))
-                                          updateEditableSlots((previous) => ({
-                                            ...previous,
-                                            items: (previous.items || []).map((currentItem, itemIndex) => (
-                                              itemIndex === index
-                                                ? { ...currentItem, report_weight: reportWeight }
-                                                : currentItem
-                                            )),
-                                          }))
-                                        }}
-                                        disabled={assistantLoading || !isSupabaseConfigured}
-                                      />
-                                    )}
-                                  </div>
-
-                                  {transactionType === 'expense' && (
-                                    <Select
-                                      label="Categoria"
-                                      value={item.category?.id || ''}
-                                      onChange={(event) => setItemCategory(index, event.target.value, 'expense')}
-                                      options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
-                                      disabled={assistantLoading || !isSupabaseConfigured}
-                                    />
-                                  )}
-
-                                  {transactionType === 'income' && (
-                                    <Select
-                                      label="Categoria de renda"
-                                      value={item.category?.id || ''}
-                                      onChange={(event) => setItemCategory(index, event.target.value, 'income')}
-                                      options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
-                                      disabled={assistantLoading || !isSupabaseConfigured}
-                                    />
-                                  )}
-
-                                  {transactionType === 'investment' ? (
-                                    <Input
-                                      label="Mês"
-                                      type="month"
-                                      value={item.month || editableSlots?.month || ''}
-                                      onChange={(event) => {
-                                        const value = event.target.value
-                                        updateEditableSlots((previous) => ({
-                                          ...previous,
-                                          items: (previous.items || []).map((currentItem, itemIndex) => (
-                                            itemIndex === index
-                                              ? { ...currentItem, month: value }
-                                              : currentItem
-                                          )),
-                                        }))
-                                      }}
-                                      disabled={assistantLoading || !isSupabaseConfigured}
-                                    />
-                                  ) : (
-                                    <Input
-                                      label="Data"
-                                      type="date"
-                                      value={item.date || editableSlots?.date || ''}
-                                      onChange={(event) => {
-                                        const value = event.target.value
-                                        updateEditableSlots((previous) => ({
-                                          ...previous,
-                                          items: (previous.items || []).map((currentItem, itemIndex) => (
-                                            itemIndex === index
-                                              ? { ...currentItem, date: value }
-                                              : currentItem
-                                          )),
-                                        }))
-                                      }}
-                                      disabled={assistantLoading || !isSupabaseConfigured}
-                                    />
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ) : (
-                          <>
-                            <Input
-                              label="Descrição"
-                              value={editableSlots?.description || ''}
-                              onChange={(event) => updateEditableSlots((previous) => ({ ...previous, description: event.target.value }))}
-                              disabled={assistantLoading || !isSupabaseConfigured}
-                            />
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <Input
-                                label="Valor"
-                                type="text"
-                                inputMode="decimal"
-                                value={formatMoneyInput(Number(editableSlots?.amount || 0))}
-                                onChange={(event) => {
-                                  const parsed = parseMoneyInput(event.target.value)
-                                  if (Number.isNaN(parsed)) return
-                                  updateEditableSlots((previous) => ({ ...previous, amount: parsed }))
-                                }}
-                                disabled={assistantLoading || !isSupabaseConfigured}
-                              />
-
-                              {lastInterpretation.intent === 'add_investment' ? (
-                                <Input
-                                  label="Mês"
-                                  type="month"
-                                  value={editableSlots?.month || ''}
-                                  onChange={(event) => updateEditableSlots((previous) => ({ ...previous, month: event.target.value }))}
-                                  disabled={assistantLoading || !isSupabaseConfigured}
-                                />
-                              ) : (
-                                <Input
-                                  label="Data"
-                                  type="date"
-                                  value={editableSlots?.date || ''}
-                                  onChange={(event) => updateEditableSlots((previous) => ({ ...previous, date: event.target.value }))}
-                                  disabled={assistantLoading || !isSupabaseConfigured}
-                                />
-                              )}
-                            </div>
-
-                            {lastInterpretation.intent === 'add_expense' && (
-                              <Select
-                                label="Categoria"
-                                value={editableSlots?.category?.id || ''}
-                                onChange={(event) => setSlotCategory(event.target.value, 'expense')}
-                                options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
-                                disabled={assistantLoading || !isSupabaseConfigured}
-                              />
-                            )}
-
-                            {lastInterpretation.intent === 'add_income' && (
-                              <Select
-                                label="Categoria de renda"
-                                value={editableSlots?.category?.id || ''}
-                                onChange={(event) => setSlotCategory(event.target.value, 'income')}
-                                options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
-                                disabled={assistantLoading || !isSupabaseConfigured}
-                              />
-                            )}
-                          </>
-                        )}
+                        <AssistantEditableSlots
+                          editableSlots={editableSlots}
+                          intent={lastInterpretation.intent}
+                          categories={categories.map((category) => ({ id: category.id, name: category.name }))}
+                          incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
+                          disabled={assistantLoading || !isSupabaseConfigured}
+                          onUpdate={updateEditableSlots}
+                        />
                       </div>
 
                       <div className={`grid grid-cols-1 gap-2 ${lastInterpretation.intent === 'add_expense' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>

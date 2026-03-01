@@ -1,4 +1,4 @@
-import { format, isValid, parse, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { addMonths, format, isValid, parse, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import type {
   AssistantCommand,
@@ -49,7 +49,7 @@ const EXPENSE_CONTEXT_HINTS = [
 ]
 
 const EXPENSE_ACTION_HINTS = ['gastei', 'paguei', 'comprei', 'deu', 'custou', 'fui', 'pagar', 'gastou']
-const INCOME_CONTEXT_HINTS = ['recebi', 'recebemos', 'recebimento', 'ganhei', 'caiu', 'entrou', 'pix', 'pagamento', 'salario', 'salário', 'renda', 'receita']
+const INCOME_CONTEXT_HINTS = ['recebi', 'recebemos', 'recebimento', 'ganhei', 'caiu', 'entrou', 'salario', 'salário', 'renda', 'receita', 'freela', 'dividendo', 'provento', 'comissao', 'comissão']
 const INVESTMENT_CONTEXT_HINTS = ['investi', 'investimento', 'aporte', 'apliquei', 'aplicacao', 'aplicação', 'corretora']
 
 const WRITE_INTENTS: AssistantIntent[] = [
@@ -66,12 +66,235 @@ const normalizeText = (value: string) =>
     .trim()
 
 const normalizeAmount = (value: string): number | undefined => {
-  const cleaned = value.replace(/\s+/g, '').replace(/\./g, '').replace(',', '.')
-  const parsed = Number(cleaned)
+  const compact = value.replace(/\s+/g, '')
+  if (!compact) return undefined
+
+  let normalized = compact
+  const hasComma = compact.includes(',')
+  const hasDot = compact.includes('.')
+
+  if (hasComma && hasDot) {
+    const lastComma = compact.lastIndexOf(',')
+    const lastDot = compact.lastIndexOf('.')
+    const decimalSeparator = lastComma > lastDot ? ',' : '.'
+
+    if (decimalSeparator === ',') {
+      normalized = compact.replace(/\./g, '').replace(',', '.')
+    } else {
+      normalized = compact.replace(/,/g, '')
+    }
+  } else if (hasComma) {
+    normalized = /,\d{1,2}$/.test(compact)
+      ? compact.replace(',', '.')
+      : compact.replace(/,/g, '')
+  } else if (hasDot) {
+    normalized = /\.\d{1,2}$/.test(compact)
+      ? compact
+      : compact.replace(/\./g, '')
+  }
+
+  const parsed = Number(normalized)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
 }
 
+const WORD_NUMBER_MAP: Record<string, number> = {
+  zero: 0,
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  três: 3,
+  quatro: 4,
+  cinco: 5,
+  seis: 6,
+  sete: 7,
+  oito: 8,
+  nove: 9,
+  dez: 10,
+  onze: 11,
+  doze: 12,
+  treze: 13,
+  catorze: 14,
+  quatorze: 14,
+  quinze: 15,
+  dezesseis: 16,
+  dezasseis: 16,
+  dezessete: 17,
+  dezoito: 18,
+  dezenove: 19,
+  vinte: 20,
+  trinta: 30,
+  quarenta: 40,
+  cinquenta: 50,
+  sessenta: 60,
+  setenta: 70,
+  oitenta: 80,
+  noventa: 90,
+}
+
+const parseWordNumberUpTo99 = (rawTokens: string[]): number | undefined => {
+  const tokens = rawTokens
+    .map((token) => normalizeText(token))
+    .filter((token) => token && token !== 'e')
+
+  if (!tokens.length) return undefined
+
+  if (tokens.length === 1) {
+    return WORD_NUMBER_MAP[tokens[0]]
+  }
+
+  if (tokens.length === 2) {
+    const tens = WORD_NUMBER_MAP[tokens[0]]
+    const unit = WORD_NUMBER_MAP[tokens[1]]
+    if (Number.isFinite(tens) && Number.isFinite(unit) && tens >= 20 && unit <= 9) {
+      return tens + unit
+    }
+  }
+
+  return undefined
+}
+
+const parseNumericOrWordNumberUpTo99 = (rawTokens: string[]): number | undefined => {
+  const tokens = rawTokens
+    .map((token) => normalizeText(token))
+    .filter((token) => token && token !== 'e')
+
+  if (!tokens.length) return undefined
+
+  const numericToken = tokens.join('')
+  if (/^\d{1,2}$/.test(numericToken)) {
+    const parsed = Number(numericToken)
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed < 100) return parsed
+  }
+
+  return parseWordNumberUpTo99(tokens)
+}
+
+const parseNumericOrWordWholeAmount = (rawTokens: string[]): number | undefined => {
+  const tokens = rawTokens
+    .map((token) => normalizeText(token))
+    .filter((token) => token && token !== 'e')
+
+  if (!tokens.length) return undefined
+
+  const numericToken = tokens.join('')
+  if (/^\d{1,7}$/.test(numericToken)) {
+    const parsed = Number(numericToken)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+
+  return parseWordNumberUpTo99(tokens)
+}
+
+const extractSpokenCurrencyAmount = (text: string): number | undefined => {
+  const normalized = normalizeText(text)
+
+  const numericWithComMatch = normalized.match(/\b(\d{1,6})\s+com\s+(\d{1,2})\b/)
+  if (numericWithComMatch) {
+    const whole = Number(numericWithComMatch[1])
+    const cents = Number(numericWithComMatch[2].padEnd(2, '0').slice(0, 2))
+    if (Number.isFinite(whole) && Number.isFinite(cents) && cents >= 0 && cents < 100) {
+      return Number(`${whole}.${String(cents).padStart(2, '0')}`)
+    }
+  }
+
+  const numericSplitMatch = normalized.match(/\b(\d{1,6})\s*e\s*(\d{1,2})\s+reais?\b/)
+  if (numericSplitMatch) {
+    const whole = Number(numericSplitMatch[1])
+    const cents = Number(numericSplitMatch[2].padEnd(2, '0').slice(0, 2))
+    if (Number.isFinite(whole) && Number.isFinite(cents) && cents >= 0 && cents < 100) {
+      return Number(`${whole}.${String(cents).padStart(2, '0')}`)
+    }
+  }
+
+  const tokenized = normalized.split(/\s+/).filter(Boolean)
+
+  for (let index = 0; index < tokenized.length; index += 1) {
+    const token = tokenized[index]
+    if (token !== 'real' && token !== 'reais') continue
+
+    const centIndex = tokenized
+      .slice(index + 1, index + 9)
+      .findIndex((value) => value === 'centavo' || value === 'centavos')
+
+    if (centIndex < 0) continue
+
+    const absoluteCentIndex = index + 1 + centIndex
+    const wholeWindow = tokenized.slice(Math.max(0, index - 4), index)
+    const centsWindow = tokenized
+      .slice(index + 1, absoluteCentIndex)
+      .filter((value) => value !== 'e')
+
+    let whole: number | undefined
+    for (let start = 0; start < wholeWindow.length; start += 1) {
+      const candidate = parseNumericOrWordWholeAmount(wholeWindow.slice(start))
+      if (typeof candidate === 'number') {
+        whole = candidate
+        break
+      }
+    }
+
+    if (typeof whole !== 'number') continue
+
+    let cents: number | undefined
+    for (let start = 0; start < centsWindow.length; start += 1) {
+      const candidate = parseNumericOrWordNumberUpTo99(centsWindow.slice(start))
+      if (typeof candidate === 'number') {
+        cents = candidate
+        break
+      }
+    }
+
+    if (typeof cents !== 'number' || cents < 0 || cents >= 100) continue
+
+    return Number(`${whole}.${String(cents).padStart(2, '0')}`)
+  }
+
+  for (let index = 0; index < tokenized.length; index += 1) {
+    const token = tokenized[index]
+    if (token !== 'real' && token !== 'reais') continue
+
+    const leftWindow = tokenized.slice(Math.max(0, index - 7), index)
+    const splitIndexes = leftWindow
+      .map((value, idx) => (value === 'e' ? idx : -1))
+      .filter((idx) => idx > 0 && idx < leftWindow.length - 1)
+
+    for (const splitIndex of splitIndexes) {
+      let whole: number | undefined
+
+      for (let start = 0; start < splitIndex; start += 1) {
+        const candidate = parseWordNumberUpTo99(leftWindow.slice(start, splitIndex))
+        if (typeof candidate === 'number') {
+          whole = candidate
+          break
+        }
+      }
+
+      if (typeof whole !== 'number') continue
+
+      let cents: number | undefined
+      for (let end = leftWindow.length; end > splitIndex + 1; end -= 1) {
+        const candidate = parseWordNumberUpTo99(leftWindow.slice(splitIndex + 1, end))
+        if (typeof candidate === 'number') {
+          cents = candidate
+          break
+        }
+      }
+
+      if (typeof cents !== 'number' || cents < 0 || cents >= 100) continue
+
+      return Number(`${whole}.${String(cents).padStart(2, '0')}`)
+    }
+  }
+
+  return undefined
+}
+
 const extractAmount = (text: string): number | undefined => {
+  const spokenAmount = extractSpokenCurrencyAmount(text)
+  if (spokenAmount) return spokenAmount
+
   const amountMatch = text.match(/(?:r\$\s*)?(\d+[\d.,]*)/i)
   if (!amountMatch) return undefined
   return normalizeAmount(amountMatch[1])
@@ -366,11 +589,66 @@ const cleanSpeechNoise = (text: string) => {
     .trim()
 }
 
-const inferWriteItemType = (text: string): 'expense' | 'income' | 'investment' => {
+const countHints = (normalizedText: string, hints: string[]) =>
+  hints.reduce((score, hint) => (normalizedText.includes(normalizeText(hint)) ? score + 1 : score), 0)
+
+const classifyWriteTransactionType = (text: string): {
+  type: 'expense' | 'income' | 'investment'
+  scores: Record<'expense' | 'income' | 'investment', number>
+} => {
   const normalized = normalizeText(text)
-  if (INVESTMENT_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))) return 'investment'
-  if (INCOME_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))) return 'income'
-  return 'expense'
+
+  const scores: Record<'expense' | 'income' | 'investment', number> = {
+    expense: 0,
+    income: 0,
+    investment: 0,
+  }
+
+  scores.expense += countHints(normalized, EXPENSE_CONTEXT_HINTS) * 2
+  scores.expense += countHints(normalized, EXPENSE_ACTION_HINTS) * 3
+  scores.income += countHints(normalized, INCOME_CONTEXT_HINTS) * 2
+  scores.investment += countHints(normalized, INVESTMENT_CONTEXT_HINTS) * 3
+
+  if (/\b(paguei|gastei|comprei|debito|débito|fatura|boleto|conta|parcela)\b/.test(normalized)) scores.expense += 6
+  if (/\b(recebi|ganhei|entrou|caiu|credito|crédito)\b/.test(normalized)) scores.income += 6
+  if (/\b(investi|aportei|apliquei|aporte|investimento|tesouro|cdb|lci|lca|fii|corretora|bolsa)\b/.test(normalized)) scores.investment += 7
+
+  if (/\bpix\b/.test(normalized)) {
+    if (/\b(recebi|entrou|caiu|ganhei)\b/.test(normalized)) scores.income += 4
+    if (/\b(paguei|enviei|transferi|sa[ií]u)\b/.test(normalized)) scores.expense += 4
+  }
+
+  if (/\bpagamento\b/.test(normalized)) {
+    if (/\b(recebi|entrou|caiu|cliente)\b/.test(normalized)) scores.income += 3
+    if (/\b(paguei|efetuei)\b/.test(normalized)) scores.expense += 3
+  }
+
+  if (/\breembolso\b/.test(normalized)) {
+    if (/\b(recebi|entrou|caiu)\b/.test(normalized)) scores.income += 3
+    if (/\b(paguei|fiz)\b/.test(normalized)) scores.expense += 2
+  }
+
+  const entries = Object.entries(scores) as Array<['expense' | 'income' | 'investment', number]>
+  entries.sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1]
+
+    const priority: Record<'expense' | 'income' | 'investment', number> = {
+      investment: 3,
+      income: 2,
+      expense: 1,
+    }
+
+    return priority[b[0]] - priority[a[0]]
+  })
+
+  return {
+    type: entries[0][0],
+    scores,
+  }
+}
+
+const inferWriteItemType = (text: string): 'expense' | 'income' | 'investment' => {
+  return classifyWriteTransactionType(text).type
 }
 
 const parseSharedParticipants = (
@@ -477,6 +755,9 @@ const computeReportWeightFromContext = (
 }
 
 const extractMonetaryAmount = (text: string): number | undefined => {
+  const spokenAmount = extractSpokenCurrencyAmount(text)
+  if (spokenAmount) return spokenAmount
+
   const matches = [...text.matchAll(/(?:r\$\s*)?(\d+[\d.,]*)/gi)]
   if (!matches.length) return undefined
 
@@ -501,6 +782,56 @@ const extractMonetaryAmount = (text: string): number | undefined => {
   return undefined
 }
 
+const normalizeInstallmentCount = (value: number | undefined): number | undefined => {
+  if (!Number.isFinite(value)) return undefined
+  const rounded = Math.floor(Number(value))
+  if (rounded < 2 || rounded > 48) return undefined
+  return rounded
+}
+
+const extractInstallmentCount = (text: string): number | undefined => {
+  const normalized = normalizeText(text)
+
+  const patterns = [
+    /\b(\d{1,2})\s*x\b/i,
+    /\bem\s+(\d{1,2})\s+parcelas?\b/i,
+    /\bparcelad[oa]\s+em\s+(\d{1,2})\b/i,
+    /\b(\d{1,2})\s+parcelas?\b/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern)
+    const parsed = match?.[1] ? Number(match[1]) : undefined
+    const normalizedCount = normalizeInstallmentCount(parsed)
+    if (normalizedCount) return normalizedCount
+  }
+
+  return undefined
+}
+
+const splitInstallmentAmounts = (totalAmount: number, installmentCount: number): number[] => {
+  const totalCents = Math.round(totalAmount * 100)
+  const baseCents = Math.floor(totalCents / installmentCount)
+  let remainder = totalCents - baseCents * installmentCount
+
+  return Array.from({ length: installmentCount }, () => {
+    const value = baseCents + (remainder > 0 ? 1 : 0)
+    if (remainder > 0) remainder -= 1
+    return value / 100
+  })
+}
+
+const buildInstallmentDates = (startDate: string, installmentCount: number): string[] => {
+  const parsedDate = new Date(`${startDate}T12:00:00`)
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return Array.from({ length: installmentCount }, () => startDate)
+  }
+
+  return Array.from({ length: installmentCount }, (_, index) =>
+    format(addMonths(parsedDate, index), 'yyyy-MM-dd'),
+  )
+}
+
 const normalizeItemDescriptionByType = (
   text: string,
   type: 'expense' | 'income' | 'investment',
@@ -519,14 +850,28 @@ const extractMixedItemsFromText = (
   text: string,
   fallbackDate: string,
 ): AssistantSlots['items'] => {
+  const normalized = normalizeText(text)
+  const looksLikeSingleReaisCentavos =
+    /\b\d{1,6}\s+reais?\s+e\s+\d{1,2}\s+centavos?\b/.test(normalized)
+    || /\b\d{1,6}\s+com\s+\d{1,2}\b/.test(normalized)
+
+  if (looksLikeSingleReaisCentavos) {
+    return undefined
+  }
+
   const amountMatches = [...text.matchAll(/(?:r\$\s*)?(\d+[\d.,]*)/gi)]
   if (amountMatches.length < 1) return undefined
 
   const cleaned = cleanSpeechNoise(text)
-  const protectedDecimals = cleaned.replace(/(\d+),(\d{1,2})/g, '$1__DECIMAL__$2')
+  const protectedDecimals = cleaned
+    .replace(/(\d+),(\d{1,2})/g, '$1__DECIMAL__$2')
+    .replace(/(\d+)\.(\d{1,2})/g, '$1__DOTDECIMAL__$2')
   const chunks = protectedDecimals
     .split(/\s*(?:,|;|\.|\bem\s+seguida\b|\bdepois\b|\bent[aã]o\b)\s*/i)
-    .map((chunk) => chunk.replace(/__DECIMAL__/g, ',').trim())
+    .map((chunk) => chunk
+      .replace(/__DECIMAL__/g, ',')
+      .replace(/__DOTDECIMAL__/g, '.')
+      .trim())
     .filter(Boolean)
 
   if (!chunks.length) return undefined
@@ -574,6 +919,9 @@ const extractMixedItemsFromText = (
     items.push({
       transactionType: itemType,
       amount: chunkAmount,
+      ...(itemType === 'expense'
+        ? { installment_count: extractInstallmentCount(combined) }
+        : {}),
       description,
       date: fallbackDate,
       month: fallbackDate.substring(0, 7),
@@ -600,6 +948,16 @@ const extractAddItemsFromText = (
   }
 
   const cleaned = cleanSpeechNoise(text)
+  const normalizedCleaned = normalizeText(cleaned)
+  const looksLikeSingleSpokenDecimal =
+    /\b\d{1,6}\s+reais?\s+e\s+\d{1,2}\s+centavos?\b/.test(normalizedCleaned)
+    || /\b\d{1,6}\s+com\s+\d{1,2}\b/.test(normalizedCleaned)
+    || /\breais?\s+e\s+[a-z\s]+centavos?\b/.test(normalizedCleaned)
+
+  if (looksLikeSingleSpokenDecimal && extractSpokenCurrencyAmount(cleaned)) {
+    return undefined
+  }
+
   const mixedItems = extractMixedItemsFromText(cleaned, fallbackDate)
   if (mixedItems?.length) {
     return mixedItems
@@ -610,9 +968,16 @@ const extractAddItemsFromText = (
     .replace(/^(uma|um|as|os)\s+/i, '')
     .replace(/^(a|o)\s+/i, '')
 
-  const chunkCandidates = commandRemoved
+  const protectedCommandDecimals = commandRemoved
+    .replace(/(\d+),(\d{1,2})/g, '$1__DECIMAL__$2')
+    .replace(/(\d+)\.(\d{1,2})/g, '$1__DOTDECIMAL__$2')
+
+  const chunkCandidates = protectedCommandDecimals
     .split(/\s+(?:e|mais|tamb[eé]m)\s+|;|,/i)
-    .map((chunk) => chunk.trim())
+    .map((chunk) => chunk
+      .replace(/__DECIMAL__/g, ',')
+      .replace(/__DOTDECIMAL__/g, '.')
+      .trim())
     .filter(Boolean)
 
   if (!chunkCandidates.length) return undefined
@@ -651,6 +1016,9 @@ const extractAddItemsFromText = (
 
       return {
         amount,
+        ...(intent === 'add_expense'
+          ? { installment_count: extractInstallmentCount(chunk) }
+          : {}),
         description: polishedDescription,
         date: fallbackDate,
         month: fallbackDate.substring(0, 7),
@@ -694,6 +1062,18 @@ const inferIntent = (text: string): { intent: AssistantIntent; confidence: numbe
   }
 
   if (hasAmount) {
+    const classification = classifyWriteTransactionType(text)
+
+    if (classification.type === 'investment' && classification.scores.investment >= 4) {
+      return { intent: 'add_investment', confidence: 0.83 }
+    }
+
+    if (classification.type === 'income' && classification.scores.income >= 4) {
+      return { intent: 'add_income', confidence: 0.81 }
+    }
+  }
+
+  if (hasAmount) {
     return { intent: 'add_expense', confidence: 0.68 }
   }
 
@@ -705,9 +1085,21 @@ const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => {
   const date = extractDate(text)
   const description = extractDescription(text, intent)
   const items = extractAddItemsFromText(text, intent, date)
+  const installmentCount = intent === 'add_expense'
+    ? extractInstallmentCount(text)
+    : undefined
+  const transactionType: 'expense' | 'income' | 'investment' | undefined =
+    intent === 'add_investment'
+      ? 'investment'
+      : intent === 'add_income'
+        ? 'income'
+        : intent === 'add_expense'
+          ? 'expense'
+          : undefined
 
   if (intent === 'add_investment') {
     return {
+      transactionType,
       amount,
       description,
       month: date.substring(0, 7),
@@ -717,7 +1109,9 @@ const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => {
   }
 
   return {
+    transactionType,
     amount,
+    installment_count: installmentCount,
     description,
     date,
     month: date.substring(0, 7),
@@ -1059,7 +1453,11 @@ const buildConfirmationText = (
           : item.transactionType === 'income'
             ? 'renda'
             : 'despesa'
-        return `${label}: ${item.description || 'Sem descrição'} (R$${item.amount.toFixed(2)})`
+        const installmentLabel =
+          item.transactionType === 'expense' && item.installment_count && item.installment_count > 1
+            ? `, ${item.installment_count}x`
+            : ''
+        return `${label}: ${item.description || 'Sem descrição'} (R$${item.amount.toFixed(2)}${installmentLabel})`
       })
       .join(', ')
 
@@ -1090,7 +1488,10 @@ const buildConfirmationText = (
   }
 
   if (intent === 'add_expense') {
-    return `Confirma despesa de R$${(slots.amount ?? 0).toFixed(2)} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
+    const installmentLabel = slots.installment_count && slots.installment_count > 1
+      ? ` em ${slots.installment_count} parcelas`
+      : ''
+    return `Confirma despesa de R$${(slots.amount ?? 0).toFixed(2)}${installmentLabel} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
   }
 
   if (intent === 'add_income') {
@@ -1197,6 +1598,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
   const addItems: Array<{
     transactionType: WritableTransactionType
     amount: number
+    installment_count?: number
     report_weight?: number
     description?: string
     date?: string
@@ -1206,6 +1608,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
     (slots.items && slots.items.length
       ? slots.items.map((item) => ({
         ...item,
+        installment_count: normalizeInstallmentCount(item.installment_count),
         transactionType:
           item.transactionType
           || (command.interpreted_intent === 'add_investment'
@@ -1217,14 +1620,23 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       : (slots.amount
           ? (() => {
             const singleItemParticipants = parseSharedParticipants(command.command_text)
+            const slotTransactionType = slots.transactionType === 'investment'
+              ? 'investment'
+              : slots.transactionType === 'income'
+                ? 'income'
+                : slots.transactionType === 'expense'
+                  ? 'expense'
+                  : undefined
             return [{
             transactionType:
-              command.interpreted_intent === 'add_investment'
+              slotTransactionType
+              || (command.interpreted_intent === 'add_investment'
                 ? 'investment'
                 : command.interpreted_intent === 'add_income'
                   ? 'income'
-                  : 'expense',
+                  : 'expense'),
             amount: Number(slots.amount),
+            installment_count: normalizeInstallmentCount(slots.installment_count),
             report_weight: Number.isFinite(singleItemParticipants)
               ? Number((1 / Number(singleItemParticipants)).toFixed(4))
               : undefined,
@@ -1256,7 +1668,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
     )?.id
 
-    const expensePayload = await Promise.all(expenseItems.map(async (item) => {
+    const expensePayloadNested = await Promise.all(expenseItems.map(async (item) => {
       let resolvedCategoryId = item.category?.id
 
       if (!resolvedCategoryId && item.description) {
@@ -1271,15 +1683,44 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
 
       resolvedCategoryId = resolvedCategoryId || uncategorizedExpenseId
 
-      return {
-        amount: item.amount,
+      const effectiveDate = item.date || slots.date
+      const installmentCount = normalizeInstallmentCount(item.installment_count) || 1
+
+      if (!effectiveDate || !resolvedCategoryId) {
+        return []
+      }
+
+      if (installmentCount <= 1) {
+        return [{
+          amount: item.amount,
+          report_weight: item.report_weight,
+          date: effectiveDate,
+          category_id: resolvedCategoryId,
+          description: item.description,
+          user_id: userId,
+        }]
+      }
+
+      const installmentGroupId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      const installmentAmounts = splitInstallmentAmounts(item.amount, installmentCount)
+      const installmentDates = buildInstallmentDates(effectiveDate, installmentCount)
+
+      return installmentAmounts.map((installmentAmount, index) => ({
+        amount: installmentAmount,
         report_weight: item.report_weight,
-        date: item.date || slots.date,
+        date: installmentDates[index],
         category_id: resolvedCategoryId,
         description: item.description,
+        installment_group_id: installmentGroupId,
+        installment_number: index + 1,
+        installment_total: installmentCount,
         user_id: userId,
-      }
+      }))
     }))
+
+    const expensePayload = expensePayloadNested.flat()
 
     if (expensePayload.some((item) => !item.date || !item.category_id)) {
       return { status: 'failed', message: 'Não foi possível resolver data/categoria para todas as despesas.', commandId: command.id }
@@ -1615,6 +2056,72 @@ const safePercent = (value: number, total: number) => {
   return (value / total) * 100
 }
 
+const normalizeInsightKey = (message: string) =>
+  normalizeText(message)
+    .replace(/r\$\s*\d+[\d.,]*/g, 'valor')
+    .replace(/\d+[\d.,]*/g, 'n')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const getInsightScore = (message: string, kind: 'highlight' | 'recommendation') => {
+  const normalized = normalizeText(message)
+  let score = 0
+
+  if (/saldo.*negativ|passou do limite|acima da meta|perdeu forca|perdeu força/.test(normalized)) score += 100
+  if (/pode virar negativ|aceler|fora da media|fora da média|abaixo da media|abaixo da média/.test(normalized)) score += 70
+  if (/perto do limite|atencao especial|atenção especial|pressao|pressão/.test(normalized)) score += 50
+  if (/proxim|próxim|fechamento|curto prazo/.test(normalized)) score += 35
+  if (/\d+%|r\$\s*\d+/.test(normalized)) score += 12
+  if (kind === 'recommendation' && /priorizar|revisar|ajuste|reduzir|adiar|automatizar|definir teto/.test(normalized)) score += 30
+  if (kind === 'recommendation' && /renegoci|acompanhar|separar|distribuir/.test(normalized)) score += 20
+  if (/estavel|estável|bom ritmo|sem sinais criticos|sem sinais críticos/.test(normalized)) score -= 40
+
+  return score
+}
+
+const isInsightTooGeneric = (message: string) => {
+  const normalized = normalizeText(message)
+  return /no geral|bom ritmo|sem sinais criticos|sem sinais críticos|comportamento esperado/.test(normalized)
+}
+
+const hasActionableRecommendation = (message: string) => {
+  const normalized = normalizeText(message)
+  return /revisar|ajuste|ajustar|reduzir|definir|adiar|automatizar|renegoci|acompanhar|separar|distribuir|priorizar/.test(normalized)
+}
+
+const prioritizeInsightLines = (
+  messages: string[],
+  maxItems: number,
+  kind: 'highlight' | 'recommendation',
+) => {
+  const seen = new Set<string>()
+
+  const unique = messages.filter((message) => {
+    const key = normalizeInsightKey(message)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  const useful = unique.filter((message) => {
+    if (isInsightTooGeneric(message)) return false
+    if (kind === 'recommendation' && !hasActionableRecommendation(message)) return false
+    return true
+  })
+
+  const source = useful.length ? useful : unique
+
+  return source
+    .map((message) => ({ message, score: getInsightScore(message, kind) }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return a.message.length - b.message.length
+    })
+    .slice(0, maxItems)
+    .map((item) => item.message)
+}
+
 const median = (values: number[]) => {
   if (!values.length) return 0
   const sorted = [...values].sort((a, b) => a - b)
@@ -1876,6 +2383,7 @@ export async function confirmAssistantCommand(params: {
       ?.map((item) => ({
         ...item,
         amount: Number(item.amount),
+        installment_count: normalizeInstallmentCount(item.installment_count),
         report_weight: Number.isFinite(item.report_weight) ? Number(item.report_weight) : undefined,
         description: item.description?.trim() || undefined,
         date: item.date?.trim() || undefined,
@@ -1887,6 +2395,7 @@ export async function confirmAssistantCommand(params: {
       ...baseSlots,
       ...editedSlots,
       amount: Number.isFinite(editedSlots.amount) ? Number(editedSlots.amount) : baseSlots.amount,
+      installment_count: normalizeInstallmentCount(editedSlots.installment_count) || baseSlots.installment_count,
       description: editedSlots.description?.trim() || baseSlots.description,
       date: editedSlots.date?.trim() || baseSlots.date,
       month: editedSlots.month?.trim() || baseSlots.month,
@@ -2022,8 +2531,8 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   if (currentData.expenses.length === 0 && currentData.incomes.length === 0 && currentData.investments.length === 0) {
     return {
       month: targetMonth,
-      highlights: ['Ainda não encontrei movimentações suficientes para montar um retrato confiável deste mês.'],
-      recommendations: ['Assim que você fizer os primeiros lançamentos, eu trago uma leitura mais personalizada e útil.'],
+      highlights: ['Ainda não há dados suficientes deste mês para gerar insights úteis.'],
+      recommendations: ['Registre os próximos lançamentos para receber uma leitura curta e acionável.'],
     }
   }
 
@@ -2043,7 +2552,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     const topCategoryShare = safePercent(topCategoryEntry[1], currentTotals.expenses)
 
     if (topCategoryShare >= 45) {
-      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) puxou boa parte do mês e concentrou uma fatia muito relevante das despesas.`)
+      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) concentrou ${topCategoryShare.toFixed(0)}% das despesas do mês.`)
 
       if (topCategoryImportance === 'essential') {
         recommendations.push(`Como ${topCategoryEntry[0]} é uma categoria essencial, a melhor estratégia é buscar eficiência (renegociação ou ajuste de frequência) sem perder qualidade.`)
@@ -2053,7 +2562,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
         recommendations.push(`${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão até o fechamento.`)
       }
     } else if (topCategoryShare >= 30) {
-      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) lidera seus gastos e já ocupa uma parte importante das despesas do período.`)
+      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) lidera seus gastos com ${topCategoryShare.toFixed(0)}% do total.`)
     }
   }
 
@@ -2082,8 +2591,9 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     if (exceededLimit) {
       const importance = getCategoryImportance(exceededLimit.categoryName)
       const importanceLabel = getImportanceLabel(importance)
+      const overLimitPct = safePercent(exceededLimit.used - exceededLimit.limit, Math.max(exceededLimit.limit, 1))
 
-      highlights.push(`${exceededLimit.categoryName} (${importanceLabel}) passou do limite e está acima da meta planejada para o mês.`)
+      highlights.push(`${exceededLimit.categoryName} (${importanceLabel}) passou do limite em ${overLimitPct.toFixed(0)}%.`)
 
       if (importance === 'essential') {
         recommendations.push(`Como é uma categoria essencial, o foco aqui é otimizar custos sem cortar o necessário (troca de plano, fornecedor ou frequência).`)
@@ -2097,7 +2607,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       if (nearLimit) {
         const importance = getCategoryImportance(nearLimit.categoryName)
         const importanceLabel = getImportanceLabel(importance)
-        highlights.push(`${nearLimit.categoryName} (${importanceLabel}) está perto do limite e merece atenção especial nos próximos dias.`)
+        highlights.push(`${nearLimit.categoryName} (${importanceLabel}) já consumiu ${nearLimit.usage.toFixed(0)}% do limite mensal.`)
 
         if (importance === 'essential') {
           recommendations.push(`Para ${nearLimit.categoryName}, prefira ajustes finos de eficiência no dia a dia em vez de cortes abruptos.`)
@@ -2147,24 +2657,6 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     }
   }
 
-  const recurringExpenses = currentData.expenses.reduce((map, item) => {
-    const key = normalizeText(item.description || '')
-    if (!key || key.length < 4) return map
-    map.set(key, (map.get(key) || 0) + 1)
-    return map
-  }, new Map<string, number>())
-
-  const topRecurringExpense = Array.from(recurringExpenses.entries()).sort((a, b) => b[1] - a[1])[0]
-  if (topRecurringExpense && topRecurringExpense[1] >= 2) {
-    const recurringLabel = topRecurringExpense[0]
-      .split(' ')
-      .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
-      .join(' ')
-
-    highlights.push(`Percebi recorrência em "${recurringLabel}", que vem aparecendo com frequência ao longo do mês.`)
-    recommendations.push(`Transformar "${recurringLabel}" em item planejado tende a reduzir decisões de última hora.`)
-  }
-
   const today = new Date()
   const isCurrentMonth = format(today, 'yyyy-MM') === targetMonth
   const daysInMonth = endOfMonth(currentMonthDate).getDate()
@@ -2193,19 +2685,19 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   const expensesDelta = currentTotals.expenses - previousTotals.expenses
   const expensesDeltaPct = safePercent(Math.abs(expensesDelta), Math.max(previousTotals.expenses, 1))
   if (expensesDelta > 0 && expensesDeltaPct >= 12) {
-    highlights.push('Seu ritmo de despesas ficou acima do mês anterior e mostrou uma aceleração perceptível.')
+    highlights.push(`As despesas subiram ${expensesDeltaPct.toFixed(0)}% em relação ao mês anterior.`)
     recommendations.push('Revisar os três maiores lançamentos recentes costuma ser um caminho rápido para recuperar equilíbrio.')
   } else if (expensesDelta < 0 && expensesDeltaPct >= 12) {
-    highlights.push('Você desacelerou bem as despesas em relação ao mês anterior, o que é um ótimo sinal de ajuste.')
+    highlights.push(`As despesas caíram ${expensesDeltaPct.toFixed(0)}% versus o mês anterior.`)
   }
 
   const incomesDelta = currentTotals.incomes - previousTotals.incomes
   const incomesDeltaPct = safePercent(Math.abs(incomesDelta), Math.max(previousTotals.incomes, 1))
   if (incomesDelta < 0 && incomesDeltaPct >= 10) {
-    highlights.push('A entrada de renda veio mais fraca que no mês anterior e isso merece atenção no curto prazo.')
-    recommendations.push('Enquanto o fluxo de entrada normaliza, priorizar compromissos fixos pode trazer mais tranquilidade.')
+    highlights.push(`A renda recuou ${incomesDeltaPct.toFixed(0)}% frente ao mês anterior.`)
+    recommendations.push('Revise despesas variáveis deste mês para compensar a queda da renda com menor impacto no essencial.')
   } else if (incomesDelta > 0 && incomesDeltaPct >= 10) {
-    highlights.push('Seu fluxo de renda está acima do mês anterior, o que abre espaço para decisões mais estratégicas.')
+    highlights.push(`A renda subiu ${incomesDeltaPct.toFixed(0)}% em comparação ao mês anterior.`)
   }
 
   if (currentBalance < previousBalance) {
@@ -2255,10 +2747,13 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     recommendations.push('Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.')
   }
 
+  const prioritizedHighlights = prioritizeInsightLines(highlights, 2, 'highlight')
+  const prioritizedRecommendations = prioritizeInsightLines(recommendations, 2, 'recommendation')
+
   return {
     month: targetMonth,
-    highlights: highlights.slice(0, 3),
-    recommendations: recommendations.slice(0, 3),
+    highlights: prioritizedHighlights,
+    recommendations: prioritizedRecommendations,
   }
 }
 

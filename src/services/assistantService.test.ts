@@ -132,6 +132,24 @@ describe('assistant parser - rendas por contexto de categoria', () => {
     expect(intent).toBe('add_income')
     expect(slots.amount).toBe(1500)
   })
+
+  it('classifica pix recebido como renda', () => {
+    const text = 'Recebi pix do cliente 480,00'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_income')
+    expect(slots.amount).toBe(480)
+  })
+
+  it('classifica pagamento via pix como despesa', () => {
+    const text = 'Paguei pix do aluguel 1200,00'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(1200)
+  })
 })
 
 describe('assistant parser - investimentos e casos de controle', () => {
@@ -144,6 +162,104 @@ describe('assistant parser - investimentos e casos de controle', () => {
     expect(confidence).toBeGreaterThanOrEqual(0.8)
     expect(slots.amount).toBe(500)
     expect(slots.month).toBeDefined()
+  })
+
+  it('classifica aporte no tesouro como investimento', () => {
+    const text = 'Aportei 350 no tesouro'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_investment')
+    expect(slots.amount).toBe(350)
+  })
+
+  it('interpreta decimal com vírgula sem quebrar em dois lançamentos', () => {
+    const text = 'Paguei 19,98 reais no café'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(19.98)
+    expect(slots.items).toBeUndefined()
+  })
+
+  it('interpreta decimal com ponto sem quebrar em dois lançamentos', () => {
+    const text = 'Paguei 19.98 reais no café'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(19.98)
+    expect(slots.items).toBeUndefined()
+  })
+
+  it('interpreta valor falado com reais e centavos por extenso', () => {
+    const text = 'Paguei dezenove e noventa e oito reais no café'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(19.98)
+    expect(slots.items).toBeUndefined()
+  })
+
+  it('interpreta valor com conectivo "com"', () => {
+    const text = 'Paguei 19 com 98 no café'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(19.98)
+    expect(slots.items).toBeUndefined()
+  })
+
+  it('interpreta valor com reais e centavos numéricos', () => {
+    const text = 'Paguei 19 reais e 98 centavos no café'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(19.98)
+    expect(slots.items).toBeUndefined()
+  })
+
+  it('interpreta valor com reais e centavos por extenso', () => {
+    const text = 'Paguei dezenove reais e noventa e oito centavos no café'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(19.98)
+    expect(slots.items).toBeUndefined()
+  })
+
+  it('extrai parcelamento no formato "em X parcelas"', () => {
+    const text = 'Paguei 1200 em 6 parcelas no notebook'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(1200)
+    expect(slots.installment_count).toBe(6)
+  })
+
+  it('extrai parcelamento no formato "Xx"', () => {
+    const text = 'Registre despesa de 450 3x academia'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.amount).toBe(450)
+    expect(slots.installment_count).toBe(3)
+  })
+
+  it('não confunde divisão de conta com parcelamento', () => {
+    const text = 'Jantar 90 e dividimos em 3'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.installment_count).toBeUndefined()
   })
 
   it('mantém unknown quando não há valor financeiro', () => {

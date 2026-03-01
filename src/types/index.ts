@@ -11,6 +11,9 @@ export interface Expense {
   amount: number
   report_weight?: number
   date: string
+  installment_group_id?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
   category_id: string
   description?: string
   created_at: string
@@ -111,7 +114,9 @@ export interface AssistantResolvedCategory {
 }
 
 export interface AssistantSlots {
+  transactionType?: 'expense' | 'income' | 'investment'
   amount?: number
+  installment_count?: number
   description?: string
   date?: string
   month?: string
@@ -119,6 +124,7 @@ export interface AssistantSlots {
   items?: Array<{
     transactionType?: 'expense' | 'income' | 'investment'
     amount: number
+    installment_count?: number
     report_weight?: number
     description?: string
     date?: string

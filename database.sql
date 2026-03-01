@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS expenses (
   amount DECIMAL(10, 2) NOT NULL,
   report_weight DECIMAL(5, 4) NOT NULL DEFAULT 1.0 CHECK (report_weight >= 0 AND report_weight <= 1),
   date DATE NOT NULL,
+  installment_group_id UUID,
+  installment_number INTEGER CHECK (installment_number IS NULL OR installment_number >= 1),
+  installment_total INTEGER CHECK (installment_total IS NULL OR installment_total >= 1),
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -78,6 +81,7 @@ CREATE TABLE IF NOT EXISTS income_category_month_expectations (
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_installment_group ON expenses(installment_group_id);
 CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);
 CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes(income_category_id);
 CREATE INDEX IF NOT EXISTS idx_incomes_user ON incomes(user_id);

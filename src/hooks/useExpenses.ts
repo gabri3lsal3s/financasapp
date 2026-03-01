@@ -1,8 +1,51 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Expense } from '@/types'
-import { format } from 'date-fns'
+import { addMonths, format } from 'date-fns'
 import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
+
+const splitAmountIntoInstallments = (totalAmount: number, installments: number) => {
+  const totalInCents = Math.round(totalAmount * 100)
+  const baseInstallment = Math.floor(totalInCents / installments)
+  const remainder = totalInCents - (baseInstallment * installments)
+
+  return Array.from({ length: installments }, (_, index) => {
+    const cents = baseInstallment + (index < remainder ? 1 : 0)
+    return Number((cents / 100).toFixed(2))
+  })
+}
+
+const generateInstallmentPayloads = (
+  expense: Omit<Expense, 'id' | 'created_at' | 'category'>,
+  installments: number,
+) => {
+  const installmentTotal = Math.max(1, Math.min(60, Math.trunc(installments || 1)))
+  const baseDate = new Date(`${expense.date || format(new Date(), 'yyyy-MM-dd')}T00:00:00`)
+
+  if (installmentTotal <= 1) {
+    return [{
+      amount: expense.amount,
+      date: expense.date || format(new Date(), 'yyyy-MM-dd'),
+      category_id: expense.category_id,
+      ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
+      ...(expense.description && { description: expense.description }),
+    }]
+  }
+
+  const groupId = crypto.randomUUID()
+  const installmentAmounts = splitAmountIntoInstallments(expense.amount, installmentTotal)
+
+  return installmentAmounts.map((installmentAmount, index) => ({
+    amount: installmentAmount,
+    date: format(addMonths(baseDate, index), 'yyyy-MM-dd'),
+    category_id: expense.category_id,
+    ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
+    ...(expense.description && { description: expense.description }),
+    installment_group_id: groupId,
+    installment_number: index + 1,
+    installment_total: installmentTotal,
+  }))
+}
 
 export function useExpenses(month?: string) {
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -94,53 +137,57 @@ export function useExpenses(month?: string) {
         throw new Error('Categoria e valor são obrigatórios')
       }
 
-      const expenseData = {
-        amount: expense.amount,
-        date: expense.date || format(new Date(), 'yyyy-MM-dd'),
-        category_id: expense.category_id,
-        ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
-        ...(expense.description && { description: expense.description }),
-      }
+      const installments = Number(expense.installment_total || 1)
+      const expenseData = generateInstallmentPayloads(expense, installments)
 
       const { data, error: insertError } = await supabase
         .from('expenses')
-        .insert([expenseData])
+        .insert(expenseData)
         .select(`
           *,
           category:categories(*)
         `)
-        .single()
 
       if (insertError) throw insertError
-      
-      setExpenses((prev) => sortExpensesByDate([...prev, data]))
-      return { data, error: null }
+
+      const inserted = data || []
+      setExpenses((prev) => sortExpensesByDate([...prev, ...inserted]))
+      return { data: inserted[0] || null, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'expenses',
-          action: 'create',
-          payload: {
-            amount: expense.amount,
-            date: expense.date || format(new Date(), 'yyyy-MM-dd'),
-            category_id: expense.category_id,
-            ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
-            ...(expense.description && { description: expense.description }),
-          },
+        const installments = Number(expense.installment_total || 1)
+        const expenseData = generateInstallmentPayloads(expense, installments)
+
+        expenseData.forEach((payload) => {
+          enqueueOfflineOperation({
+            entity: 'expenses',
+            action: 'create',
+            payload,
+          })
         })
 
-        const offlineExpense: Expense = {
-          id: `offline-${Date.now()}`,
-          amount: expense.amount,
-          date: expense.date || format(new Date(), 'yyyy-MM-dd'),
-          category_id: expense.category_id,
-          ...(expense.report_weight !== undefined && { report_weight: expense.report_weight }),
-          ...(expense.description && { description: expense.description }),
-          created_at: new Date().toISOString(),
-        }
+        const nowIso = new Date().toISOString()
+        const offlineExpenses: Expense[] = expenseData.map((payload, index) => {
+          const installmentGroupId = 'installment_group_id' in payload ? payload.installment_group_id : undefined
+          const installmentNumber = 'installment_number' in payload ? payload.installment_number : undefined
+          const installmentTotal = 'installment_total' in payload ? payload.installment_total : undefined
 
-        setExpenses((prev) => sortExpensesByDate([offlineExpense, ...prev]))
-        return { data: offlineExpense, error: null }
+          return {
+            id: `offline-${Date.now()}-${index}`,
+            amount: Number(payload.amount),
+            report_weight: payload.report_weight !== undefined ? Number(payload.report_weight) : undefined,
+            date: String(payload.date),
+            category_id: String(payload.category_id),
+            installment_group_id: installmentGroupId ? String(installmentGroupId) : null,
+            installment_number: installmentNumber !== undefined ? Number(installmentNumber) : null,
+            installment_total: installmentTotal !== undefined ? Number(installmentTotal) : null,
+            description: payload.description ? String(payload.description) : undefined,
+            created_at: nowIso,
+          }
+        })
+
+        setExpenses((prev) => sortExpensesByDate([...offlineExpenses, ...prev]))
+        return { data: offlineExpenses[0] || null, error: null }
       }
 
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar despesa'

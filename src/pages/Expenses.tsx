@@ -33,6 +33,7 @@ export default function Expenses() {
     amount: '',
     report_amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
+    installment_total: '1',
     category_id: '',
     description: '',
   })
@@ -63,6 +64,7 @@ export default function Expenses() {
         amount: formatMoneyInput(expense.amount),
         report_amount: formatMoneyInput(expense.amount * (expense.report_weight ?? 1)),
         date: expense.date,
+        installment_total: String(expense.installment_total || 1),
         category_id: expense.category_id,
         description: expense.description || '',
       })
@@ -72,6 +74,7 @@ export default function Expenses() {
         amount: '',
         report_amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
+        installment_total: '1',
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -86,6 +89,7 @@ export default function Expenses() {
       amount: '',
       report_amount: '',
       date: format(new Date(), 'yyyy-MM-dd'),
+      installment_total: '1',
       category_id: categories[0]?.id || '',
       description: '',
     })
@@ -106,6 +110,7 @@ export default function Expenses() {
         amount: '',
         report_amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
+        installment_total: '1',
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -137,11 +142,18 @@ export default function Expenses() {
     }
 
     const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+    const installmentTotal = Math.max(1, Math.min(60, Number(formData.installment_total || '1')))
+
+    if (!Number.isInteger(installmentTotal) || installmentTotal < 1) {
+      alert('Informe um número válido de parcelas (mínimo 1).')
+      return
+    }
 
     const expenseData: Omit<Expense, 'id' | 'created_at' | 'category'> = {
       amount,
       report_weight: reportWeight,
       date: formData.date,
+      installment_total: installmentTotal,
       category_id: formData.category_id,
       ...(formData.description && { description: formData.description }),
     }
@@ -223,6 +235,9 @@ export default function Expenses() {
                     </div>
                     <p className="text-sm text-secondary">
                       {expense.category?.name} • {formatDate(expense.date)}
+                      {Number(expense.installment_total || 1) > 1 && (
+                        <> • Parcela {expense.installment_number || 1}/{expense.installment_total}</>
+                      )}
                     </p>
                   </div>
                   <div className="ml-2 text-right">
@@ -287,6 +302,24 @@ export default function Expenses() {
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             required
           />
+
+          {!editingExpense && (
+            <Input
+              label="Parcelas"
+              type="number"
+              min="1"
+              max="60"
+              value={formData.installment_total}
+              onChange={(e) => setFormData({ ...formData, installment_total: e.target.value })}
+              placeholder="1"
+            />
+          )}
+
+          {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
+            <p className="text-xs text-secondary">
+              Esta despesa pertence ao parcelamento {editingExpense.installment_number || 1}/{editingExpense.installment_total}. A edição afeta apenas esta parcela.
+            </p>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-primary mb-2">

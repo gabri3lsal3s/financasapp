@@ -26,13 +26,45 @@ ADD COLUMN IF NOT EXISTS income_category_id UUID REFERENCES income_categories(id
 -- ALTER TABLE incomes DROP COLUMN IF EXISTS type;
 
 -- ============================================
--- 4. REMOVER COLUNAS ANTIGAS DE EXPENSES
+-- 4. AJUSTES DE PARCELAMENTO EM EXPENSES
 -- ============================================
--- Remover colunas de parcela que não são mais usadas
+-- Remover colunas antigas de parcelamento
 ALTER TABLE expenses DROP COLUMN IF EXISTS is_recurring;
 ALTER TABLE expenses DROP COLUMN IF EXISTS is_fixed;
 ALTER TABLE expenses DROP COLUMN IF EXISTS installments;
 ALTER TABLE expenses DROP COLUMN IF EXISTS current_installment;
+
+-- Adicionar estrutura nova de parcelamento
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS installment_group_id UUID;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS installment_number INTEGER;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS installment_total INTEGER;
+
+ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_installment_number_check;
+ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_installment_total_check;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'expenses_installment_number_check'
+  ) THEN
+    ALTER TABLE expenses
+      ADD CONSTRAINT expenses_installment_number_check
+      CHECK (installment_number IS NULL OR installment_number >= 1);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'expenses_installment_total_check'
+  ) THEN
+    ALTER TABLE expenses
+      ADD CONSTRAINT expenses_installment_total_check
+      CHECK (installment_total IS NULL OR installment_total >= 1);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_expenses_installment_group ON expenses(installment_group_id);
 
 -- ============================================
 -- 5. ADICIONAR PESO DE INCLUSÃO NOS RELATÓRIOS

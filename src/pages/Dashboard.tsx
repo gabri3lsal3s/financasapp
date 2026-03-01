@@ -18,11 +18,12 @@ import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import AssistantEditableSlots from '@/components/AssistantEditableSlots'
 import { useAssistant } from '@/hooks/useAssistant'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { getAssistantMonthlyInsights } from '@/services/assistantService'
-import type { AssistantResolvedCategory, AssistantSlots } from '@/types'
+import type { AssistantSlots } from '@/types'
 import {
   Bar,
   BarChart,
@@ -70,6 +71,7 @@ export default function Dashboard() {
     amount: '',
     report_amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
+    installment_total: '1',
     month: getCurrentMonthString(),
     category_id: '',
     income_category_id: '',
@@ -271,7 +273,7 @@ export default function Dashboard() {
           .map((item) => item.trim())
           .filter(Boolean)
 
-        setMonthlyInsights(mergedInsights.slice(0, 4))
+        setMonthlyInsights(mergedInsights.slice(0, 3))
       } catch (error) {
         if (isCancelled) return
         setInsightsError(error instanceof Error ? error.message : 'Falha ao atualizar insights do mês.')
@@ -473,7 +475,7 @@ export default function Dashboard() {
 
     if (normalized.length === 1) {
       const single = normalized[0].replace(/[.!?]+$/, '')
-      return `Resumo do seu mês: ${single.toLowerCase()}.`
+      return `${single}.`
     }
 
     const lowerFirst = (value: string) => {
@@ -485,39 +487,13 @@ export default function Dashboard() {
     }
 
     const withoutTrailingDot = normalized.map((item) => item.replace(/[.!?]+$/, ''))
-    const firstSentence = `Resumo do seu mês: ${lowerFirst(withoutTrailingDot[0])}.`
+    const firstSentence = `${withoutTrailingDot[0]}.`
 
     if (withoutTrailingDot.length === 2) {
-      return `${firstSentence} E, olhando para o restante do cenário, ${lowerFirst(withoutTrailingDot[1])}.`
+      return `${firstSentence} ${lowerFirst(withoutTrailingDot[1])}.`
     }
 
-    const middleConnectors = [
-      'Além disso,',
-      'Também vale destacar que',
-      'Quando olhamos com calma,',
-      'Outro ponto importante é que',
-    ]
-
-    const closingConnectors = [
-      'Com isso em mente,',
-      'Para os próximos dias,',
-      'Na prática,',
-      'Fechando o panorama,',
-    ]
-
-    const middleSentences = withoutTrailingDot.slice(1, -1).map((sentence, index) => {
-      const connector = middleConnectors[index % middleConnectors.length]
-      return `${connector} ${lowerFirst(sentence)}.`
-    })
-
-    const lastSentence = withoutTrailingDot[withoutTrailingDot.length - 1]
-    const closingConnector = closingConnectors[(withoutTrailingDot.length - 1) % closingConnectors.length]
-
-    return [
-      firstSentence,
-      ...middleSentences,
-      `${closingConnector} ${lowerFirst(lastSentence)}.`,
-    ].join(' ')
+    return `${firstSentence} ${lowerFirst(withoutTrailingDot[1])}. Para os próximos dias, ${lowerFirst(withoutTrailingDot[2])}.`
   }, [monthlyInsights])
 
   const openQuickAdd = (type: QuickAddType) => {
@@ -526,6 +502,7 @@ export default function Dashboard() {
       amount: '',
       report_amount: '',
       date: format(new Date(), 'yyyy-MM-dd'),
+      installment_total: '1',
       month: currentMonth,
       category_id: categories[0]?.id || '',
       income_category_id: incomeCategories[0]?.id || '',
@@ -625,43 +602,6 @@ export default function Dashboard() {
       const base = previous || {}
       return updater(base)
     })
-  }
-
-  const setSlotCategory = (categoryId: string, transactionType: 'expense' | 'income') => {
-    const sourceList = transactionType === 'expense' ? categories : incomeCategories
-    const selected = sourceList.find((item) => item.id === categoryId)
-    if (!selected) return
-
-    const categoryPayload: AssistantResolvedCategory = {
-      id: selected.id,
-      name: selected.name,
-      confidence: 0.99,
-      source: 'name_match',
-    }
-
-    updateEditableSlots((previous) => ({ ...previous, category: categoryPayload }))
-  }
-
-  const setItemCategory = (index: number, categoryId: string, transactionType: 'expense' | 'income') => {
-    const sourceList = transactionType === 'expense' ? categories : incomeCategories
-    const selected = sourceList.find((item) => item.id === categoryId)
-    if (!selected) return
-
-    const categoryPayload: AssistantResolvedCategory = {
-      id: selected.id,
-      name: selected.name,
-      confidence: 0.99,
-      source: 'name_match',
-    }
-
-    updateEditableSlots((previous) => ({
-      ...previous,
-      items: (previous.items || []).map((item, itemIndex) => (
-        itemIndex === index
-          ? { ...item, category: categoryPayload }
-          : item
-      )),
-    }))
   }
 
   const resolveVoiceConfirmation = (spokenText: string) => {
@@ -910,6 +850,13 @@ export default function Dashboard() {
     }
 
     const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+    const rawInstallments = Number(formData.installment_total || '1')
+    const installmentTotal = Math.max(1, Math.min(60, rawInstallments))
+
+    if (quickAddType === 'expense' && (!Number.isInteger(rawInstallments) || rawInstallments < 1)) {
+      alert('Informe um número válido de parcelas (mínimo 1).')
+      return
+    }
 
     if (quickAddType === 'expense') {
       if (!formData.category_id) {
@@ -921,6 +868,7 @@ export default function Dashboard() {
         amount,
         report_weight: reportWeight,
         date: formData.date,
+        installment_total: installmentTotal,
         category_id: formData.category_id,
         ...(formData.description && { description: formData.description }),
       })
@@ -1002,27 +950,29 @@ export default function Dashboard() {
         }
       />
       
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      <div className="p-4 lg:p-6">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
 
-        <Card>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
-            {!monthlyInsightsEnabled ? (
-              <p className="text-sm text-secondary">Insights desativados. Ative em Configurações do App para receber análises contextuais do mês.</p>
-            ) : insightsLoading ? (
-              <p className="text-sm text-secondary">Analisando movimentações do mês...</p>
-            ) : insightsError ? (
-              <p className="text-sm text-secondary">Não foi possível atualizar insights agora. Tente novamente após novos lançamentos.</p>
-            ) : monthlyInsights.length === 0 ? (
-              <p className="text-sm text-secondary">Ainda não há contexto suficiente para gerar insights inteligentes neste mês.</p>
-            ) : (
-              <p className="text-sm text-primary leading-relaxed">
-                {monthlyInsightsNarrative}
-              </p>
-            )}
-          </div>
-        </Card>
+        {monthlyInsightsEnabled && (
+          <Card className="mt-4 lg:mt-6">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
+              {insightsLoading ? (
+                <p className="text-sm text-secondary">Analisando movimentações do mês...</p>
+              ) : insightsError ? (
+                <p className="text-sm text-secondary">Não foi possível atualizar insights agora. Tente novamente após novos lançamentos.</p>
+              ) : monthlyInsights.length === 0 ? (
+                <p className="text-sm text-secondary">Ainda não há contexto suficiente para gerar insights inteligentes neste mês.</p>
+              ) : (
+                <p className="text-sm text-primary leading-relaxed">
+                  {monthlyInsightsNarrative}
+                </p>
+              )}
+            </div>
+          </Card>
+        )}
+
+        <div className={monthlyInsightsEnabled ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
 
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
@@ -1208,6 +1158,7 @@ export default function Dashboard() {
             </div>
           </>
         )}
+        </div>
       </div>
 
       <Modal isOpen={isQuickAddOpen} onClose={closeQuickAdd} title={quickAddTitle}>
@@ -1284,6 +1235,18 @@ export default function Dashboard() {
             onChange={(event) => setFormData((prev) => ({ ...prev, date: event.target.value }))}
             required
           />
+
+          {quickAddType === 'expense' && (
+            <Input
+              label="Parcelas"
+              type="number"
+              min="1"
+              max="60"
+              value={formData.installment_total}
+              onChange={(event) => setFormData((prev) => ({ ...prev, installment_total: event.target.value }))}
+              placeholder="1"
+            />
+          )}
 
           {quickAddType === 'expense' && (
             <Select
@@ -1430,226 +1393,15 @@ export default function Dashboard() {
                   disabled={assistantLoading || !isSupabaseConfigured}
                 />
 
-                {(editableSlots?.items?.length || 0) > 0 ? (
-                  <div className="space-y-3">
-                    {(editableSlots?.items || []).map((item, index) => {
-                      const transactionType = item.transactionType || 'expense'
-                      const reportAmount = item.amount > 0 && Number.isFinite(item.report_weight)
-                        ? item.amount * Number(item.report_weight)
-                        : item.amount
-
-                      return (
-                        <div key={`assistant-item-${index}`} className="rounded-md border border-primary bg-tertiary p-3 space-y-2">
-                          <p className="text-xs font-medium text-secondary">Lançamento {index + 1}</p>
-
-                          <Select
-                            label="Tipo"
-                            value={transactionType}
-                            onChange={(event) => {
-                              const nextType = event.target.value as 'expense' | 'income' | 'investment'
-                              updateEditableSlots((previous) => ({
-                                ...previous,
-                                items: (previous.items || []).map((currentItem, itemIndex) => (
-                                  itemIndex === index
-                                    ? { ...currentItem, transactionType: nextType }
-                                    : currentItem
-                                )),
-                              }))
-                            }}
-                            options={[
-                              { value: 'expense', label: 'Despesa' },
-                              { value: 'income', label: 'Renda' },
-                              { value: 'investment', label: 'Investimento' },
-                            ]}
-                            disabled={assistantLoading || !isSupabaseConfigured}
-                          />
-
-                          <Input
-                            label="Descrição"
-                            value={item.description || ''}
-                            onChange={(event) => {
-                              const value = event.target.value
-                              updateEditableSlots((previous) => ({
-                                ...previous,
-                                items: (previous.items || []).map((currentItem, itemIndex) => (
-                                  itemIndex === index
-                                    ? { ...currentItem, description: value }
-                                    : currentItem
-                                )),
-                              }))
-                            }}
-                            disabled={assistantLoading || !isSupabaseConfigured}
-                          />
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <Input
-                              label="Valor"
-                              type="text"
-                              inputMode="decimal"
-                              value={formatMoneyInput(Number(item.amount || 0))}
-                              onChange={(event) => {
-                                const parsed = parseMoneyInput(event.target.value)
-                                if (Number.isNaN(parsed)) return
-                                updateEditableSlots((previous) => ({
-                                  ...previous,
-                                  items: (previous.items || []).map((currentItem, itemIndex) => (
-                                    itemIndex === index
-                                      ? { ...currentItem, amount: parsed }
-                                      : currentItem
-                                  )),
-                                }))
-                              }}
-                              disabled={assistantLoading || !isSupabaseConfigured}
-                            />
-
-                            {transactionType !== 'investment' && (
-                              <Input
-                                label="Valor no relatório"
-                                type="text"
-                                inputMode="decimal"
-                                value={formatMoneyInput(Number(reportAmount || 0))}
-                                onChange={(event) => {
-                                  const parsed = parseMoneyInput(event.target.value)
-                                  if (Number.isNaN(parsed) || !item.amount || item.amount <= 0) return
-                                  const reportWeight = Math.min(1, Math.max(0, Number((parsed / item.amount).toFixed(4))))
-                                  updateEditableSlots((previous) => ({
-                                    ...previous,
-                                    items: (previous.items || []).map((currentItem, itemIndex) => (
-                                      itemIndex === index
-                                        ? { ...currentItem, report_weight: reportWeight }
-                                        : currentItem
-                                    )),
-                                  }))
-                                }}
-                                disabled={assistantLoading || !isSupabaseConfigured}
-                              />
-                            )}
-                          </div>
-
-                          {transactionType === 'expense' && (
-                            <Select
-                              label="Categoria"
-                              value={item.category?.id || ''}
-                              onChange={(event) => setItemCategory(index, event.target.value, 'expense')}
-                              options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
-                              disabled={assistantLoading || !isSupabaseConfigured}
-                            />
-                          )}
-
-                          {transactionType === 'income' && (
-                            <Select
-                              label="Categoria de renda"
-                              value={item.category?.id || ''}
-                              onChange={(event) => setItemCategory(index, event.target.value, 'income')}
-                              options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
-                              disabled={assistantLoading || !isSupabaseConfigured}
-                            />
-                          )}
-
-                          {transactionType === 'investment' ? (
-                            <Input
-                              label="Mês"
-                              type="month"
-                              value={item.month || editableSlots?.month || ''}
-                              onChange={(event) => {
-                                const value = event.target.value
-                                updateEditableSlots((previous) => ({
-                                  ...previous,
-                                  items: (previous.items || []).map((currentItem, itemIndex) => (
-                                    itemIndex === index
-                                      ? { ...currentItem, month: value }
-                                      : currentItem
-                                  )),
-                                }))
-                              }}
-                              disabled={assistantLoading || !isSupabaseConfigured}
-                            />
-                          ) : (
-                            <Input
-                              label="Data"
-                              type="date"
-                              value={item.date || editableSlots?.date || ''}
-                              onChange={(event) => {
-                                const value = event.target.value
-                                updateEditableSlots((previous) => ({
-                                  ...previous,
-                                  items: (previous.items || []).map((currentItem, itemIndex) => (
-                                    itemIndex === index
-                                      ? { ...currentItem, date: value }
-                                      : currentItem
-                                  )),
-                                }))
-                              }}
-                              disabled={assistantLoading || !isSupabaseConfigured}
-                            />
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <>
-                    <Input
-                      label="Descrição"
-                      value={editableSlots?.description || ''}
-                      onChange={(event) => updateEditableSlots((previous) => ({ ...previous, description: event.target.value }))}
-                      disabled={assistantLoading || !isSupabaseConfigured}
-                    />
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <Input
-                        label="Valor"
-                        type="text"
-                        inputMode="decimal"
-                        value={formatMoneyInput(Number(editableSlots?.amount || 0))}
-                        onChange={(event) => {
-                          const parsed = parseMoneyInput(event.target.value)
-                          if (Number.isNaN(parsed)) return
-                          updateEditableSlots((previous) => ({ ...previous, amount: parsed }))
-                        }}
-                        disabled={assistantLoading || !isSupabaseConfigured}
-                      />
-
-                      {lastInterpretation.intent === 'add_investment' ? (
-                        <Input
-                          label="Mês"
-                          type="month"
-                          value={editableSlots?.month || ''}
-                          onChange={(event) => updateEditableSlots((previous) => ({ ...previous, month: event.target.value }))}
-                          disabled={assistantLoading || !isSupabaseConfigured}
-                        />
-                      ) : (
-                        <Input
-                          label="Data"
-                          type="date"
-                          value={editableSlots?.date || ''}
-                          onChange={(event) => updateEditableSlots((previous) => ({ ...previous, date: event.target.value }))}
-                          disabled={assistantLoading || !isSupabaseConfigured}
-                        />
-                      )}
-                    </div>
-
-                    {lastInterpretation.intent === 'add_expense' && (
-                      <Select
-                        label="Categoria"
-                        value={editableSlots?.category?.id || ''}
-                        onChange={(event) => setSlotCategory(event.target.value, 'expense')}
-                        options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
-                        disabled={assistantLoading || !isSupabaseConfigured}
-                      />
-                    )}
-
-                    {lastInterpretation.intent === 'add_income' && (
-                      <Select
-                        label="Categoria de renda"
-                        value={editableSlots?.category?.id || ''}
-                        onChange={(event) => setSlotCategory(event.target.value, 'income')}
-                        options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
-                        disabled={assistantLoading || !isSupabaseConfigured}
-                      />
-                    )}
-                  </>
-                )}
+                <AssistantEditableSlots
+                  editableSlots={editableSlots}
+                  intent={lastInterpretation.intent}
+                  categories={categories.map((category) => ({ id: category.id, name: category.name }))}
+                  incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
+                  disabled={assistantLoading || !isSupabaseConfigured}
+                  fallbackMonth={currentMonth}
+                  onUpdate={updateEditableSlots}
+                />
               </div>
 
               <div className={`grid grid-cols-1 gap-2 ${lastInterpretation.intent === 'add_expense' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
