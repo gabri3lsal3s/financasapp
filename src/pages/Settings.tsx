@@ -11,6 +11,7 @@ import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
 import { useAssistant } from '@/hooks/useAssistant'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
+import { useAppSettings } from '@/hooks/useAppSettings'
 import { formatMoneyInput, parseMoneyInput } from '@/utils/format'
 import type { AssistantResolvedCategory, AssistantSlots } from '@/types'
 import { AlertCircle, Check } from 'lucide-react'
@@ -51,6 +52,7 @@ export default function Settings() {
   const activeRecognitionRef = useRef<any | null>(null)
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
+  const { monthlyInsightsEnabled, setMonthlyInsightsEnabled } = useAppSettings()
 
   const voiceSupport = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -505,6 +507,40 @@ export default function Settings() {
           </div>
           <ThemeSwitcher />
           <ColorPaletteSwitcher />
+        </section>
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-primary mb-1">Preferências do App</h2>
+            <p className="text-secondary text-sm">Controle funcionalidades automáticas do dashboard</p>
+          </div>
+
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-primary">Insights personalizados do mês</h3>
+                <p className="text-sm text-secondary mt-1">
+                  Quando ativado, o assistente analisa o comportamento financeiro do mês e atualiza os insights automaticamente.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={monthlyInsightsEnabled}
+                onClick={() => setMonthlyInsightsEnabled(!monthlyInsightsEnabled)}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                  monthlyInsightsEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
+                }`}
+                title={monthlyInsightsEnabled ? 'Desativar insights do mês' : 'Ativar insights do mês'}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
+                    monthlyInsightsEnabled ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
+                  }`}
+                />
+              </button>
+            </div>
+          </Card>
         </section>
 
         <section className="space-y-4">

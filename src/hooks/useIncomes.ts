@@ -15,6 +15,24 @@ export function useIncomes(month?: string) {
   }, [month])
 
   useEffect(() => {
+    const realtimeChannel = supabase
+      .channel(`incomes-realtime-${month || 'all'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'incomes' },
+        () => {
+          loadIncomes()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(realtimeChannel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month])
+
+  useEffect(() => {
     const onQueueProcessed = () => {
       loadIncomes()
     }

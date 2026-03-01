@@ -15,6 +15,24 @@ export function useExpenses(month?: string) {
   }, [month])
 
   useEffect(() => {
+    const realtimeChannel = supabase
+      .channel(`expenses-realtime-${month || 'all'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        () => {
+          loadExpenses()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(realtimeChannel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month])
+
+  useEffect(() => {
     const onQueueProcessed = () => {
       loadExpenses()
     }

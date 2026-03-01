@@ -13,13 +13,15 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, RefreshCw, Plus, Wallet, WalletCards, Sparkles } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useAssistant } from '@/hooks/useAssistant'
+import { useAppSettings } from '@/hooks/useAppSettings'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import { getAssistantMonthlyInsights } from '@/services/assistantService'
 import type { AssistantResolvedCategory, AssistantSlots } from '@/types'
 import {
   Bar,
@@ -73,6 +75,9 @@ export default function Dashboard() {
     income_category_id: '',
     description: '',
   })
+  const [monthlyInsights, setMonthlyInsights] = useState<string[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [insightsError, setInsightsError] = useState<string | null>(null)
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => {
@@ -92,6 +97,7 @@ export default function Dashboard() {
     })
   }
   const { colorPalette } = usePaletteColors()
+  const { monthlyInsightsEnabled } = useAppSettings()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
   const { expenses, loading: expensesLoading, refreshExpenses, createExpense } = useExpenses(currentMonth)
@@ -106,6 +112,7 @@ export default function Dashboard() {
   const totalIncomes = incomes.reduce((sum, inc) => sum + (inc.amount * (inc.report_weight ?? 1)), 0)
   const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0)
   const balance = totalIncomes - totalExpenses - totalInvestments
+  const hasMonthlyData = expenses.length > 0 || incomes.length > 0 || investments.length > 0
   const loading =
     expensesLoading ||
     incomesLoading ||
@@ -234,6 +241,61 @@ export default function Dashboard() {
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
       .sort((a, b) => b.usagePercentage - a.usagePercentage)
   }, [expenseByCategory, expenseLimitMap])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    if (!monthlyInsightsEnabled) {
+      setMonthlyInsights([])
+      setInsightsError(null)
+      setInsightsLoading(false)
+      return
+    }
+
+    if (!hasMonthlyData) {
+      setMonthlyInsights([])
+      setInsightsError(null)
+      setInsightsLoading(false)
+      return
+    }
+
+    const loadInsights = async () => {
+      setInsightsLoading(true)
+      setInsightsError(null)
+
+      try {
+        const result = await getAssistantMonthlyInsights(currentMonth)
+        if (isCancelled) return
+
+        const mergedInsights = [...result.highlights, ...result.recommendations]
+          .map((item) => item.trim())
+          .filter(Boolean)
+
+        setMonthlyInsights(mergedInsights.slice(0, 4))
+      } catch (error) {
+        if (isCancelled) return
+        setInsightsError(error instanceof Error ? error.message : 'Falha ao atualizar insights do mês.')
+        setMonthlyInsights([])
+      } finally {
+        if (!isCancelled) {
+          setInsightsLoading(false)
+        }
+      }
+    }
+
+    void loadInsights()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [
+    currentMonth,
+    monthlyInsightsEnabled,
+    hasMonthlyData,
+    totalExpenses,
+    totalIncomes,
+    totalInvestments,
+  ])
 
   const prioritizedExpenseCategoryItems = useMemo(() => {
     return expenseByCategory
@@ -400,6 +462,63 @@ export default function Dashboard() {
 
   const interactiveRowButtonClasses =
     'w-full rounded-lg p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+
+  const monthlyInsightsNarrative = useMemo(() => {
+    if (!monthlyInsights.length) return ''
+
+    const normalized = monthlyInsights
+      .map((item) => item.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .map((item) => (/[.!?]$/.test(item) ? item : `${item}.`))
+
+    if (normalized.length === 1) {
+      const single = normalized[0].replace(/[.!?]+$/, '')
+      return `Resumo do seu mês: ${single.toLowerCase()}.`
+    }
+
+    const lowerFirst = (value: string) => {
+      if (!value) return value
+      const firstChar = value.charAt(0)
+      if (firstChar.toUpperCase() !== firstChar) return value
+      if (!/[A-ZÀ-Ú]/.test(firstChar)) return value
+      return `${firstChar.toLowerCase()}${value.slice(1)}`
+    }
+
+    const withoutTrailingDot = normalized.map((item) => item.replace(/[.!?]+$/, ''))
+    const firstSentence = `Resumo do seu mês: ${lowerFirst(withoutTrailingDot[0])}.`
+
+    if (withoutTrailingDot.length === 2) {
+      return `${firstSentence} E, olhando para o restante do cenário, ${lowerFirst(withoutTrailingDot[1])}.`
+    }
+
+    const middleConnectors = [
+      'Além disso,',
+      'Também vale destacar que',
+      'Quando olhamos com calma,',
+      'Outro ponto importante é que',
+    ]
+
+    const closingConnectors = [
+      'Com isso em mente,',
+      'Para os próximos dias,',
+      'Na prática,',
+      'Fechando o panorama,',
+    ]
+
+    const middleSentences = withoutTrailingDot.slice(1, -1).map((sentence, index) => {
+      const connector = middleConnectors[index % middleConnectors.length]
+      return `${connector} ${lowerFirst(sentence)}.`
+    })
+
+    const lastSentence = withoutTrailingDot[withoutTrailingDot.length - 1]
+    const closingConnector = closingConnectors[(withoutTrailingDot.length - 1) % closingConnectors.length]
+
+    return [
+      firstSentence,
+      ...middleSentences,
+      `${closingConnector} ${lowerFirst(lastSentence)}.`,
+    ].join(' ')
+  }, [monthlyInsights])
 
   const openQuickAdd = (type: QuickAddType) => {
     setQuickAddType(type)
@@ -872,15 +991,12 @@ export default function Dashboard() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                refreshExpenses()
-                refreshIncomes()
-                refreshInvestments()
-              }}
+              onClick={() => openQuickAdd('expense')}
               className="flex items-center gap-2"
+              disabled={categories.length === 0 && incomeCategories.length === 0}
             >
-              <RefreshCw size={16} />
-              Atualizar
+              <Plus size={16} />
+              Lançamento
             </Button>
           </div>
         }
@@ -890,47 +1006,32 @@ export default function Dashboard() {
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
 
         <Card>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-primary">Inclusão rápida</h3>
-              <p className="text-sm text-secondary">Acesse o formulário já preparado para lançar no mês selecionado.</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                className="justify-start sm:justify-center"
-                onClick={() => openQuickAdd('expense')}
-                disabled={categories.length === 0}
-              >
-                <Plus size={15} />
-                Despesa
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="justify-start sm:justify-center"
-                onClick={() => openQuickAdd('income')}
-                disabled={incomeCategories.length === 0}
-              >
-                <Wallet size={15} />
-                Renda
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="justify-start sm:justify-center"
-                onClick={() => openQuickAdd('investment')}
-              >
-                <WalletCards size={15} />
-                Investimento
-              </Button>
-            </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
+            {!monthlyInsightsEnabled ? (
+              <p className="text-sm text-secondary">Insights desativados. Ative em Configurações do App para receber análises contextuais do mês.</p>
+            ) : insightsLoading ? (
+              <p className="text-sm text-secondary">Analisando movimentações do mês...</p>
+            ) : insightsError ? (
+              <p className="text-sm text-secondary">Não foi possível atualizar insights agora. Tente novamente após novos lançamentos.</p>
+            ) : monthlyInsights.length === 0 ? (
+              <p className="text-sm text-secondary">Ainda não há contexto suficiente para gerar insights inteligentes neste mês.</p>
+            ) : (
+              <p className="text-sm text-primary leading-relaxed">
+                {monthlyInsightsNarrative}
+              </p>
+            )}
           </div>
         </Card>
 
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
+        ) : !hasMonthlyData ? (
+          <Card>
+            <div className="text-center py-8">
+              <p className="text-base text-primary font-medium">Adicione o primeiro lançamento do mês.</p>
+            </div>
+          </Card>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">

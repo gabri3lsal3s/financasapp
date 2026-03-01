@@ -1534,16 +1534,193 @@ const fetchMonthTotals = async (month: string) => {
   const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
 
   const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
-    supabase.from('expenses').select('amount').gte('date', start).lte('date', end),
-    supabase.from('incomes').select('amount').gte('date', start).lte('date', end),
+    supabase.from('expenses').select('amount, report_weight').gte('date', start).lte('date', end),
+    supabase.from('incomes').select('amount, report_weight').gte('date', start).lte('date', end),
     supabase.from('investments').select('amount').eq('month', month),
   ])
 
   return {
-    expenses: (expensesResult.data || []).reduce((sum, item) => sum + Number(item.amount || 0), 0),
-    incomes: (incomesResult.data || []).reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    expenses: (expensesResult.data || []).reduce((sum, item) => sum + (Number(item.amount || 0) * Number(item.report_weight ?? 1)), 0),
+    incomes: (incomesResult.data || []).reduce((sum, item) => sum + (Number(item.amount || 0) * Number(item.report_weight ?? 1)), 0),
     investments: (investmentsResult.data || []).reduce((sum, item) => sum + Number(item.amount || 0), 0),
   }
+}
+
+type InsightExpenseRow = {
+  amount: number
+  report_weight?: number
+  date: string
+  description?: string | null
+  category?: { name?: string } | null
+}
+
+type InsightIncomeRow = {
+  amount: number
+  report_weight?: number
+  date: string
+  description?: string | null
+}
+
+const getWeightedAmount = (amount: number, reportWeight?: number | null) => amount * Number(reportWeight ?? 1)
+
+const getMonthKeyFromDate = (dateValue: string) => {
+  const parsed = parse(dateValue, 'yyyy-MM-dd', new Date())
+  if (!isValid(parsed)) return dateValue.slice(0, 7)
+  return format(parsed, 'yyyy-MM')
+}
+
+const getPreviousYearMonth = (month: string) => {
+  const parsed = parse(`${month}-01`, 'yyyy-MM-dd', new Date())
+  return format(subMonths(parsed, 12), 'yyyy-MM')
+}
+
+const buildRecentMonths = (targetMonth: string, count: number) => {
+  const parsed = parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date())
+  return Array.from({ length: count }, (_, index) => format(subMonths(parsed, index), 'yyyy-MM')).reverse()
+}
+
+type CategoryImportance = 'essential' | 'strategic' | 'flexible' | 'uncategorized'
+
+const getCategoryImportance = (categoryName: string): CategoryImportance => {
+  const normalized = normalizeText(categoryName)
+
+  if (!normalized || normalized === 'sem categoria') return 'uncategorized'
+
+  if (
+    /moradia|aluguel|energia|agua|água|internet|condominio|condomínio|saude|saúde|farmacia|farmácia|medico|médico|escola|educacao|educação|transporte/.test(normalized)
+  ) {
+    return 'essential'
+  }
+
+  if (/investimento|aporte|poupanca|poupança|previdencia|previdência|seguro|reserva/.test(normalized)) {
+    return 'strategic'
+  }
+
+  if (/lazer|restaurante|ifood|viagem|streaming|assinatura|compras|presentes|bar/.test(normalized)) {
+    return 'flexible'
+  }
+
+  return 'flexible'
+}
+
+const getImportanceLabel = (importance: CategoryImportance) => {
+  if (importance === 'essential') return 'essencial'
+  if (importance === 'strategic') return 'estratégica'
+  if (importance === 'uncategorized') return 'ainda sem classificação'
+  return 'flexível'
+}
+
+const safePercent = (value: number, total: number) => {
+  if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return 0
+  return (value / total) * 100
+}
+
+const median = (values: number[]) => {
+  if (!values.length) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2
+  }
+  return sorted[middle]
+}
+
+const fetchMonthInsightDataset = async (month: string) => {
+  const start = `${month}-01`
+  const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
+  const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
+
+  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
+    supabase
+      .from('expenses')
+      .select('amount, report_weight, date, description, category:categories(name)')
+      .gte('date', start)
+      .lte('date', end),
+    supabase
+      .from('incomes')
+      .select('amount, report_weight, date, description')
+      .gte('date', start)
+      .lte('date', end),
+    supabase
+      .from('investments')
+      .select('amount')
+      .eq('month', month),
+  ])
+
+  const expenses = (expensesResult.data || []) as InsightExpenseRow[]
+  const incomes = (incomesResult.data || []) as InsightIncomeRow[]
+
+  return {
+    expenses,
+    incomes,
+    investments: investmentsResult.data || [],
+    totals: {
+      expenses: expenses.reduce((sum, item) => sum + getWeightedAmount(Number(item.amount || 0), item.report_weight), 0),
+      incomes: incomes.reduce((sum, item) => sum + getWeightedAmount(Number(item.amount || 0), item.report_weight), 0),
+      investments: (investmentsResult.data || []).reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    },
+  }
+}
+
+const fetchHistoricalMonthSeries = async (targetMonth: string, lookbackMonths: number) => {
+  const recentMonths = buildRecentMonths(targetMonth, lookbackMonths)
+  const firstMonth = recentMonths[0]
+  const lastMonth = recentMonths[recentMonths.length - 1]
+
+  const rangeStart = `${firstMonth}-01`
+  const rangeEnd = format(endOfMonth(parse(`${lastMonth}-01`, 'yyyy-MM-dd', new Date())), 'yyyy-MM-dd')
+
+  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
+    supabase
+      .from('expenses')
+      .select('amount, report_weight, date')
+      .gte('date', rangeStart)
+      .lte('date', rangeEnd),
+    supabase
+      .from('incomes')
+      .select('amount, report_weight, date')
+      .gte('date', rangeStart)
+      .lte('date', rangeEnd),
+    supabase
+      .from('investments')
+      .select('amount, month')
+      .gte('month', firstMonth)
+      .lte('month', lastMonth),
+  ])
+
+  const expenseByMonth = new Map<string, number>()
+  const incomeByMonth = new Map<string, number>()
+  const investmentByMonth = new Map<string, number>()
+
+  ;(expensesResult.data || []).forEach((item) => {
+    const monthKey = getMonthKeyFromDate(String(item.date || ''))
+    const weighted = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    expenseByMonth.set(monthKey, (expenseByMonth.get(monthKey) || 0) + weighted)
+  })
+
+  ;(incomesResult.data || []).forEach((item) => {
+    const monthKey = getMonthKeyFromDate(String(item.date || ''))
+    const weighted = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    incomeByMonth.set(monthKey, (incomeByMonth.get(monthKey) || 0) + weighted)
+  })
+
+  ;(investmentsResult.data || []).forEach((item) => {
+    const monthKey = String(item.month || '')
+    investmentByMonth.set(monthKey, (investmentByMonth.get(monthKey) || 0) + Number(item.amount || 0))
+  })
+
+  return recentMonths.map((month) => {
+    const expenses = expenseByMonth.get(month) || 0
+    const incomes = incomeByMonth.get(month) || 0
+    const investments = investmentByMonth.get(month) || 0
+    return {
+      month,
+      expenses,
+      incomes,
+      investments,
+      balance: incomes - expenses - investments,
+    }
+  })
 }
 
 export async function interpretAssistantCommand(params: {
@@ -1819,49 +1996,269 @@ export async function confirmAssistantCommand(params: {
 
 export async function getAssistantMonthlyInsights(month?: string): Promise<AssistantMonthlyInsightsResult> {
   const targetMonth = month || format(new Date(), 'yyyy-MM')
-  const previousMonth = format(subMonths(parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date()), 1), 'yyyy-MM')
+  const currentMonthDate = parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date())
+  const previousMonth = format(subMonths(currentMonthDate, 1), 'yyyy-MM')
 
-  const [currentTotals, previousTotals] = await Promise.all([
-    fetchMonthTotals(targetMonth),
+  const previousYearMonth = getPreviousYearMonth(targetMonth)
+
+  const [currentData, previousTotals, previousYearTotals, monthSeries, limitsResult] = await Promise.all([
+    fetchMonthInsightDataset(targetMonth),
     fetchMonthTotals(previousMonth),
+    fetchMonthTotals(previousYearMonth),
+    fetchHistoricalMonthSeries(targetMonth, 8),
+    supabase
+      .from('expense_category_month_limits')
+      .select('category_id, limit_amount, category:categories(name)')
+      .eq('month', targetMonth),
   ])
 
+  const currentTotals = currentData.totals
   const currentBalance = currentTotals.incomes - currentTotals.expenses - currentTotals.investments
   const previousBalance = previousTotals.incomes - previousTotals.expenses - previousTotals.investments
 
   const highlights: string[] = []
   const recommendations: string[] = []
 
+  if (currentData.expenses.length === 0 && currentData.incomes.length === 0 && currentData.investments.length === 0) {
+    return {
+      month: targetMonth,
+      highlights: ['Ainda não encontrei movimentações suficientes para montar um retrato confiável deste mês.'],
+      recommendations: ['Assim que você fizer os primeiros lançamentos, eu trago uma leitura mais personalizada e útil.'],
+    }
+  }
+
+  const expensesByCategory = currentData.expenses.reduce((map, item) => {
+    const categoryName = item.category?.name || 'Sem categoria'
+    const weightedAmount = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    map.set(categoryName, (map.get(categoryName) || 0) + weightedAmount)
+    return map
+  }, new Map<string, number>())
+
+  const topCategoryEntry = Array.from(expensesByCategory.entries())
+    .sort((a, b) => b[1] - a[1])[0]
+
+  if (topCategoryEntry && currentTotals.expenses > 0) {
+    const topCategoryImportance = getCategoryImportance(topCategoryEntry[0])
+    const topCategoryImportanceLabel = getImportanceLabel(topCategoryImportance)
+    const topCategoryShare = safePercent(topCategoryEntry[1], currentTotals.expenses)
+
+    if (topCategoryShare >= 45) {
+      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) puxou boa parte do mês e concentrou uma fatia muito relevante das despesas.`)
+
+      if (topCategoryImportance === 'essential') {
+        recommendations.push(`Como ${topCategoryEntry[0]} é uma categoria essencial, a melhor estratégia é buscar eficiência (renegociação ou ajuste de frequência) sem perder qualidade.`)
+      } else if (topCategoryImportance === 'strategic') {
+        recommendations.push(`${topCategoryEntry[0]} tem perfil estratégico; mantenha o aporte com cadência, mas ajuste valores para preservar equilíbrio no curto prazo.`)
+      } else {
+        recommendations.push(`${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão até o fechamento.`)
+      }
+    } else if (topCategoryShare >= 30) {
+      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) lidera seus gastos e já ocupa uma parte importante das despesas do período.`)
+    }
+  }
+
+  const limitRows = (limitsResult.data || []) as Array<{ category_id: string; limit_amount: number | null; category?: { name?: string } | null }>
+  if (limitRows.length > 0) {
+    const usageByCategory = currentData.expenses.reduce((map, item) => {
+      const categoryName = item.category?.name || 'Sem categoria'
+      const weightedAmount = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+      map.set(categoryName, (map.get(categoryName) || 0) + weightedAmount)
+      return map
+    }, new Map<string, number>())
+
+    const limitAlerts = limitRows
+      .map((row) => {
+        const categoryName = row.category?.name || 'Sem categoria'
+        const limit = Number(row.limit_amount ?? 0)
+        if (limit <= 0) return null
+        const used = usageByCategory.get(categoryName) || 0
+        const usage = safePercent(used, limit)
+        return { categoryName, limit, used, usage }
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((a, b) => b.usage - a.usage)
+
+    const exceededLimit = limitAlerts.find((item) => item.used > item.limit)
+    if (exceededLimit) {
+      const importance = getCategoryImportance(exceededLimit.categoryName)
+      const importanceLabel = getImportanceLabel(importance)
+
+      highlights.push(`${exceededLimit.categoryName} (${importanceLabel}) passou do limite e está acima da meta planejada para o mês.`)
+
+      if (importance === 'essential') {
+        recommendations.push(`Como é uma categoria essencial, o foco aqui é otimizar custos sem cortar o necessário (troca de plano, fornecedor ou frequência).`)
+      } else if (importance === 'strategic') {
+        recommendations.push(`Por ser estratégica, vale recalibrar o valor temporariamente para manter consistência sem comprometer o caixa do mês.`)
+      } else {
+        recommendations.push(`Essa categoria tem boa flexibilidade e pode ser reduzida agora para recuperar margem com rapidez.`)
+      }
+    } else {
+      const nearLimit = limitAlerts.find((item) => item.usage >= 85)
+      if (nearLimit) {
+        const importance = getCategoryImportance(nearLimit.categoryName)
+        const importanceLabel = getImportanceLabel(importance)
+        highlights.push(`${nearLimit.categoryName} (${importanceLabel}) está perto do limite e merece atenção especial nos próximos dias.`)
+
+        if (importance === 'essential') {
+          recommendations.push(`Para ${nearLimit.categoryName}, prefira ajustes finos de eficiência no dia a dia em vez de cortes abruptos.`)
+        } else {
+          recommendations.push(`Um ajuste de frequência em ${nearLimit.categoryName} já tende a devolver folga ao mês.`)
+        }
+      }
+    }
+  }
+
+  const expenseByDay = currentData.expenses.reduce((map, item) => {
+    const weightedAmount = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    map.set(item.date, (map.get(item.date) || 0) + weightedAmount)
+    return map
+  }, new Map<string, number>())
+
+  const dailyExpenses = Array.from(expenseByDay.entries()).sort((a, b) => b[1] - a[1])
+  if (dailyExpenses.length > 0) {
+    const [peakDay, peakValue] = dailyExpenses[0]
+    const medianDailyExpense = median(dailyExpenses.map(([, value]) => value))
+    if (medianDailyExpense > 0 && peakValue >= medianDailyExpense * 2.2) {
+      const parsedPeakDay = parse(peakDay, 'yyyy-MM-dd', new Date())
+      const weekdayNames = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+      const peakWeekday = isValid(parsedPeakDay) ? weekdayNames[parsedPeakDay.getDay()] : 'um único dia'
+      highlights.push(`Houve um pico de gastos concentrado em ${peakWeekday}, acima do seu padrão diário mais comum.`)
+      recommendations.push('Vale distribuir compras maiores ao longo das semanas para deixar o fluxo mais leve e previsível.')
+    }
+  }
+
+  const weekDayNames = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+  const expensesByWeekDay = currentData.expenses.reduce((map, item) => {
+    const parsed = parse(item.date, 'yyyy-MM-dd', new Date())
+    if (!isValid(parsed)) return map
+    const dayIndex = parsed.getDay()
+    const weightedAmount = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    map.set(dayIndex, (map.get(dayIndex) || 0) + weightedAmount)
+    return map
+  }, new Map<number, number>())
+
+  if (expensesByWeekDay.size >= 2 && currentTotals.expenses > 0) {
+    const orderedWeekdays = Array.from(expensesByWeekDay.entries()).sort((a, b) => b[1] - a[1])
+    const [topWeekDay, topWeekDayAmount] = orderedWeekdays[0]
+    const weekdayShare = safePercent(topWeekDayAmount, currentTotals.expenses)
+    if (weekdayShare >= 30) {
+      highlights.push(`Seu padrão semanal mostra maior pressão na ${weekDayNames[topWeekDay]}, quando seus gastos costumam pesar mais.`)
+      recommendations.push(`Definir um teto prático para ${weekDayNames[topWeekDay]} pode ajudar bastante a manter o controle sem esforço extra.`)
+    }
+  }
+
+  const recurringExpenses = currentData.expenses.reduce((map, item) => {
+    const key = normalizeText(item.description || '')
+    if (!key || key.length < 4) return map
+    map.set(key, (map.get(key) || 0) + 1)
+    return map
+  }, new Map<string, number>())
+
+  const topRecurringExpense = Array.from(recurringExpenses.entries()).sort((a, b) => b[1] - a[1])[0]
+  if (topRecurringExpense && topRecurringExpense[1] >= 2) {
+    const recurringLabel = topRecurringExpense[0]
+      .split(' ')
+      .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+      .join(' ')
+
+    highlights.push(`Percebi recorrência em "${recurringLabel}", que vem aparecendo com frequência ao longo do mês.`)
+    recommendations.push(`Transformar "${recurringLabel}" em item planejado tende a reduzir decisões de última hora.`)
+  }
+
+  const today = new Date()
+  const isCurrentMonth = format(today, 'yyyy-MM') === targetMonth
+  const daysInMonth = endOfMonth(currentMonthDate).getDate()
+  const elapsedDays = isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth
+
+  if (elapsedDays > 0 && currentTotals.expenses > 0 && currentTotals.incomes > 0) {
+    const projectedExpenses = (currentTotals.expenses / elapsedDays) * daysInMonth
+    const projectedBalance = currentTotals.incomes - projectedExpenses - currentTotals.investments
+
+    if (isCurrentMonth && projectedBalance < 0 && currentBalance >= 0) {
+      recommendations.push('No ritmo atual, seu saldo pode virar negativo até o fechamento; um ajuste leve nas despesas variáveis já ajuda a evitar isso.')
+    } else if (isCurrentMonth && projectedBalance < currentBalance) {
+      recommendations.push('Os gastos aceleraram neste mês; acompanhar os próximos dias de perto pode preservar sua margem até o fechamento.')
+    }
+  }
+
+  if (currentTotals.incomes > 0) {
+    const investmentRate = safePercent(currentTotals.investments, currentTotals.incomes)
+    if (currentTotals.investments <= 0) {
+      recommendations.push('Ainda não houve aporte neste mês; separar um valor fixo, mesmo pequeno, ajuda a manter as metas de longo prazo em movimento.')
+    } else if (investmentRate < 10) {
+      recommendations.push('A taxa de aporte está abaixo do ideal para este mês; automatizar um valor mínimo semanal pode facilitar a consistência.')
+    }
+  }
+
   const expensesDelta = currentTotals.expenses - previousTotals.expenses
-  if (expensesDelta > 0) {
-    highlights.push(`Despesas subiram R$${expensesDelta.toFixed(2)} em relação a ${previousMonth}.`)
-    recommendations.push('Revise categorias com maior crescimento e ajuste metas mensais.')
-  } else {
-    highlights.push(`Despesas reduziram R$${Math.abs(expensesDelta).toFixed(2)} versus ${previousMonth}.`)
+  const expensesDeltaPct = safePercent(Math.abs(expensesDelta), Math.max(previousTotals.expenses, 1))
+  if (expensesDelta > 0 && expensesDeltaPct >= 12) {
+    highlights.push('Seu ritmo de despesas ficou acima do mês anterior e mostrou uma aceleração perceptível.')
+    recommendations.push('Revisar os três maiores lançamentos recentes costuma ser um caminho rápido para recuperar equilíbrio.')
+  } else if (expensesDelta < 0 && expensesDeltaPct >= 12) {
+    highlights.push('Você desacelerou bem as despesas em relação ao mês anterior, o que é um ótimo sinal de ajuste.')
   }
 
   const incomesDelta = currentTotals.incomes - previousTotals.incomes
-  if (incomesDelta < 0) {
-    highlights.push(`Rendas caíram R$${Math.abs(incomesDelta).toFixed(2)} em relação a ${previousMonth}.`)
-    recommendations.push('Avalie fontes complementares de renda para recompor o fluxo.')
-  } else {
-    highlights.push(`Rendas cresceram R$${incomesDelta.toFixed(2)} versus ${previousMonth}.`)
+  const incomesDeltaPct = safePercent(Math.abs(incomesDelta), Math.max(previousTotals.incomes, 1))
+  if (incomesDelta < 0 && incomesDeltaPct >= 10) {
+    highlights.push('A entrada de renda veio mais fraca que no mês anterior e isso merece atenção no curto prazo.')
+    recommendations.push('Enquanto o fluxo de entrada normaliza, priorizar compromissos fixos pode trazer mais tranquilidade.')
+  } else if (incomesDelta > 0 && incomesDeltaPct >= 10) {
+    highlights.push('Seu fluxo de renda está acima do mês anterior, o que abre espaço para decisões mais estratégicas.')
   }
 
-  highlights.push(`Saldo estimado de ${targetMonth}: R$${currentBalance.toFixed(2)}.`)
-
   if (currentBalance < previousBalance) {
-    recommendations.push('Priorize despesas fixas e limite compras variáveis nas próximas semanas.')
+    recommendations.push('Sua margem de segurança ficou menor que no mês anterior; manter foco no essencial por enquanto ajuda a recuperar folga.')
+  }
+
+  if (previousYearTotals.expenses > 0 || previousYearTotals.incomes > 0) {
+    const yearlyExpenseDeltaPct = safePercent(
+      Math.abs(currentTotals.expenses - previousYearTotals.expenses),
+      Math.max(previousYearTotals.expenses, 1),
+    )
+    const yearlyIncomeDeltaPct = safePercent(
+      Math.abs(currentTotals.incomes - previousYearTotals.incomes),
+      Math.max(previousYearTotals.incomes, 1),
+    )
+
+    if (currentTotals.expenses > previousYearTotals.expenses && yearlyExpenseDeltaPct >= 15) {
+      highlights.push('Comparando com o mesmo período do ano passado, a pressão de despesas está mais forte neste ciclo.')
+    }
+
+    if (currentTotals.incomes < previousYearTotals.incomes && yearlyIncomeDeltaPct >= 12) {
+      recommendations.push('Em relação ao mesmo mês do ano passado, a renda perdeu força; vale adiar novos compromissos até o fluxo se estabilizar.')
+    }
+  }
+
+  const seriesWindow = monthSeries.slice(-6)
+  if (seriesWindow.length >= 4) {
+    const expenseValues = seriesWindow.map((item) => item.expenses)
+    const balanceValues = seriesWindow.map((item) => item.balance)
+    const averageExpense = expenseValues.reduce((sum, value) => sum + value, 0) / expenseValues.length
+    const averageBalance = balanceValues.reduce((sum, value) => sum + value, 0) / balanceValues.length
+
+    if (averageExpense > 0 && currentTotals.expenses > averageExpense * 1.18) {
+      highlights.push('As despesas deste mês ficaram acima do seu padrão recente, indicando uma aceleração fora da média dos últimos meses.')
+    }
+
+    if (currentBalance < averageBalance && averageBalance > 0) {
+      recommendations.push('Seu saldo está abaixo da média recente; antecipar pequenos ajustes agora tende a proteger os próximos fechamentos.')
+    }
+  }
+
+  if (!highlights.length) {
+    highlights.push('No geral, seu mês está estável e sem sinais críticos fora do comportamento esperado.')
   }
 
   if (!recommendations.length) {
-    recommendations.push('Mantenha o ritmo atual e atualize limites por categoria para preservar o saldo.')
+    recommendations.push('Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.')
   }
 
   return {
     month: targetMonth,
-    highlights,
-    recommendations,
+    highlights: highlights.slice(0, 3),
+    recommendations: recommendations.slice(0, 3),
   }
 }
 

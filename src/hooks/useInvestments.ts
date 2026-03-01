@@ -15,6 +15,24 @@ export function useInvestments(month?: string) {
   }, [month])
 
   useEffect(() => {
+    const realtimeChannel = supabase
+      .channel(`investments-realtime-${month || 'all'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'investments' },
+        () => {
+          loadInvestments()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(realtimeChannel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month])
+
+  useEffect(() => {
     const onQueueProcessed = () => {
       loadInvestments()
     }

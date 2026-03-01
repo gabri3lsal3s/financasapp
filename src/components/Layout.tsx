@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags } from 'lucide-react'
 
 interface LayoutProps {
   children: ReactNode
@@ -17,17 +17,17 @@ export default function Layout({ children }: LayoutProps) {
   const activeItemClasses = 'bg-tertiary accent-primary'
   const inactiveItemClasses = 'text-primary hover:bg-tertiary'
 
-  const navItems = [
+  const mainItems = [
     { path: '/', icon: Home, label: 'Início' },
     { path: '/expenses', icon: TrendingDown, label: 'Despesas' },
     { path: '/incomes', icon: TrendingUp, label: 'Rendas' },
     { path: '/investments', icon: PiggyBank, label: 'Investimentos' },
     { path: '/reports', icon: BarChart3, label: 'Relatórios' },
-    { path: '/settings', icon: Settings, label: 'Configurações' },
   ]
 
-  const categoryItems = [
-    { path: '/categories', icon: TrendingDown, label: 'Categorias' },
+  const settingsItems = [
+    { path: '/categories', icon: Tags, label: 'Categorias' },
+    { path: '/settings', icon: Settings, label: 'Configurações do App' },
   ]
 
   useEffect(() => {
@@ -141,7 +141,8 @@ export default function Layout({ children }: LayoutProps) {
 
               <nav className="p-4">
                 <div className="space-y-2">
-                  {navItems.map((item) => {
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Páginas principais</p>
+                  {mainItems.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
 
@@ -168,21 +169,25 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="my-4 border-t border-primary"></div>
 
                 <div className="space-y-2">
-                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Categorias</p>
-                  {categoryItems.map((item) => {
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Configurações</p>
+                  {settingsItems.map((item) => {
+                    const Icon = item.icon
                     const isActive = location.pathname === item.path
 
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm motion-standard hover-lift-subtle ${
+                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${
                           isActive
                             ? activeItemClasses
                             : inactiveItemClasses
                         }`}
                       >
-                        <span className="font-medium">{item.label}</span>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Icon size={18} className="flex-shrink-0" />
+                          <span className="font-medium text-sm truncate">{item.label}</span>
+                        </div>
                         {isActive && <ChevronRight size={16} />}
                       </Link>
                     )
@@ -225,7 +230,10 @@ export default function Layout({ children }: LayoutProps) {
 
           <nav className="p-3">
             <div className="space-y-2">
-              {navItems.map((item) => {
+              {isDesktopMenuExpanded && (
+                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Páginas principais</p>
+              )}
+              {mainItems.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
 
@@ -258,9 +266,9 @@ export default function Layout({ children }: LayoutProps) {
 
             <div className="space-y-2">
               {isDesktopMenuExpanded && (
-                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Categorias</p>
+                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Configurações</p>
               )}
-              {categoryItems.map((item) => {
+              {settingsItems.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
 
