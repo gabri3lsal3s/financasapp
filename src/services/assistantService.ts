@@ -1,5 +1,6 @@
 import { addMonths, format, isValid, parse, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase'
+import { clampDateToAppStart, clampMonthToAppStart } from '@/utils/format'
 import type {
   AssistantCommand,
   AssistantConfirmResult,
@@ -304,8 +305,8 @@ const extractDate = (text: string): string => {
   const normalized = normalizeText(text)
   const today = new Date()
 
-  if (normalized.includes('hoje')) return format(today, 'yyyy-MM-dd')
-  if (normalized.includes('ontem')) return format(new Date(today.getTime() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+  if (normalized.includes('hoje')) return clampDateToAppStart(format(today, 'yyyy-MM-dd'))
+  if (normalized.includes('ontem')) return clampDateToAppStart(format(new Date(today.getTime() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd'))
 
   const brDateMatch = normalized.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/)
   if (brDateMatch) {
@@ -314,11 +315,11 @@ const extractDate = (text: string): string => {
     const year = brDateMatch[3] ? brDateMatch[3].padStart(4, '20') : String(today.getFullYear())
     const parsed = parse(`${day}/${month}/${year}`, 'dd/MM/yyyy', today)
     if (isValid(parsed)) {
-      return format(parsed, 'yyyy-MM-dd')
+      return clampDateToAppStart(format(parsed, 'yyyy-MM-dd'))
     }
   }
 
-  return format(today, 'yyyy-MM-dd')
+  return clampDateToAppStart(format(today, 'yyyy-MM-dd'))
 }
 
 const normalizeDescriptionCasing = (value: string) => {
@@ -1921,11 +1922,21 @@ const resolveReadOnlyIntent = async (
   intent: AssistantIntent,
   month?: string,
 ): Promise<{ message: string; payload?: Record<string, unknown> }> => {
-  const targetMonth = month || format(new Date(), 'yyyy-MM')
+  const targetMonth = clampMonthToAppStart(month || format(new Date(), 'yyyy-MM'))
   const start = format(startOfMonth(parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date())), 'yyyy-MM-dd')
   const end = format(endOfMonth(parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date())), 'yyyy-MM-dd')
 
   if (intent === 'get_month_balance') {
+    if (!(await monthHasAnyData(targetMonth))) {
+      return {
+        message: `Não encontrei lançamentos em ${targetMonth}. Posso analisar apenas meses com dados.`,
+        payload: {
+          month: targetMonth,
+          hasData: false,
+        },
+      }
+    }
+
     const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
       supabase.from('expenses').select('amount').gte('date', start).lte('date', end),
       supabase.from('incomes').select('amount').gte('date', start).lte('date', end),
@@ -1969,6 +1980,24 @@ const resolveReadOnlyIntent = async (
   }
 }
 
+const monthHasAnyData = async (month: string): Promise<boolean> => {
+  const start = `${month}-01`
+  const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
+  const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
+
+  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
+    supabase.from('expenses').select('id').gte('date', start).lte('date', end).limit(1),
+    supabase.from('incomes').select('id').gte('date', start).lte('date', end).limit(1),
+    supabase.from('investments').select('id').eq('month', month).limit(1),
+  ])
+
+  const hasExpenses = (expensesResult.data || []).length > 0
+  const hasIncomes = (incomesResult.data || []).length > 0
+  const hasInvestments = (investmentsResult.data || []).length > 0
+
+  return hasExpenses || hasIncomes || hasInvestments
+}
+
 const fetchMonthTotals = async (month: string) => {
   const start = `${month}-01`
   const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
@@ -2006,18 +2035,22 @@ const getWeightedAmount = (amount: number, reportWeight?: number | null) => amou
 
 const getMonthKeyFromDate = (dateValue: string) => {
   const parsed = parse(dateValue, 'yyyy-MM-dd', new Date())
-  if (!isValid(parsed)) return dateValue.slice(0, 7)
-  return format(parsed, 'yyyy-MM')
+  if (!isValid(parsed)) return clampMonthToAppStart(dateValue.slice(0, 7))
+  return clampMonthToAppStart(format(parsed, 'yyyy-MM'))
 }
 
 const getPreviousYearMonth = (month: string) => {
   const parsed = parse(`${month}-01`, 'yyyy-MM-dd', new Date())
-  return format(subMonths(parsed, 12), 'yyyy-MM')
+  return clampMonthToAppStart(format(subMonths(parsed, 12), 'yyyy-MM'))
 }
 
 const buildRecentMonths = (targetMonth: string, count: number) => {
   const parsed = parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date())
-  return Array.from({ length: count }, (_, index) => format(subMonths(parsed, index), 'yyyy-MM')).reverse()
+  const months = Array.from({ length: count }, (_, index) => format(subMonths(parsed, index), 'yyyy-MM'))
+    .map((monthValue) => clampMonthToAppStart(monthValue))
+    .reverse()
+
+  return [...new Set(months)]
 }
 
 type CategoryImportance = 'essential' | 'strategic' | 'flexible' | 'uncategorized'
@@ -2504,9 +2537,18 @@ export async function confirmAssistantCommand(params: {
 }
 
 export async function getAssistantMonthlyInsights(month?: string): Promise<AssistantMonthlyInsightsResult> {
-  const targetMonth = month || format(new Date(), 'yyyy-MM')
+  const targetMonth = clampMonthToAppStart(month || format(new Date(), 'yyyy-MM'))
+
+  if (!(await monthHasAnyData(targetMonth))) {
+    return {
+      month: targetMonth,
+      highlights: [`Ainda não há lançamentos em ${targetMonth}. O assistente só interpreta meses com dados.`],
+      recommendations: [],
+    }
+  }
+
   const currentMonthDate = parse(`${targetMonth}-01`, 'yyyy-MM-dd', new Date())
-  const previousMonth = format(subMonths(currentMonthDate, 1), 'yyyy-MM')
+  const previousMonth = clampMonthToAppStart(format(subMonths(currentMonthDate, 1), 'yyyy-MM'))
 
   const previousYearMonth = getPreviousYearMonth(targetMonth)
 
@@ -2658,7 +2700,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   }
 
   const today = new Date()
-  const isCurrentMonth = format(today, 'yyyy-MM') === targetMonth
+  const isCurrentMonth = clampMonthToAppStart(format(today, 'yyyy-MM')) === targetMonth
   const daysInMonth = endOfMonth(currentMonthDate).getDate()
   const elapsedDays = isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth
 

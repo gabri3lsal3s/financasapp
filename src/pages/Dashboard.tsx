@@ -12,7 +12,7 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
@@ -1233,6 +1233,7 @@ export default function Dashboard() {
             type="date"
             value={formData.date}
             onChange={(event) => setFormData((prev) => ({ ...prev, date: event.target.value }))}
+            min={APP_START_DATE}
             required
           />
 

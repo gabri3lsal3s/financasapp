@@ -10,7 +10,7 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Expense } from '@/types'
-import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
@@ -100,8 +100,11 @@ export default function Expenses() {
     const monthParam = searchParams.get('month')
     const isValidMonth = monthParam ? /^\d{4}-\d{2}$/.test(monthParam) : false
 
-    if (isValidMonth && monthParam && monthParam !== currentMonth) {
-      setCurrentMonth(monthParam)
+    if (isValidMonth && monthParam) {
+      const clampedMonth = clampMonthToAppStart(monthParam)
+      if (clampedMonth !== currentMonth) {
+        setCurrentMonth(clampedMonth)
+      }
     }
 
     if (quickAdd === '1') {
@@ -300,6 +303,7 @@ export default function Expenses() {
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            min={APP_START_DATE}
             required
           />
 

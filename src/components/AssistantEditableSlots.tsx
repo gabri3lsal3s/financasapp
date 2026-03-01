@@ -1,5 +1,6 @@
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import { APP_START_DATE, APP_START_MONTH } from '@/utils/format'
 import { formatMoneyInput, parseMoneyInput } from '@/utils/format'
 import type { AssistantIntent, AssistantResolvedCategory, AssistantSlots } from '@/types'
 
@@ -236,6 +237,7 @@ export default function AssistantEditableSlots({
                 <Input
                   label="Mês"
                   type="month"
+                  min={APP_START_MONTH}
                   value={item.month || editableSlots?.month || ''}
                   onChange={(event) => {
                     const value = event.target.value
@@ -254,6 +256,7 @@ export default function AssistantEditableSlots({
                 <Input
                   label="Data"
                   type="date"
+                  min={APP_START_DATE}
                   value={item.date || editableSlots?.date || ''}
                   onChange={(event) => {
                     const value = event.target.value
@@ -348,6 +351,7 @@ export default function AssistantEditableSlots({
           <Input
             label="Mês"
             type="month"
+            min={APP_START_MONTH}
             value={editableSlots?.month || ''}
             onChange={(event) => onUpdate((previous) => ({ ...previous, month: event.target.value }))}
             disabled={disabled}
@@ -356,6 +360,7 @@ export default function AssistantEditableSlots({
           <Input
             label="Data"
             type="date"
+            min={APP_START_DATE}
             value={editableSlots?.date || ''}
             onChange={(event) => onUpdate((previous) => ({ ...previous, date: event.target.value }))}
             disabled={disabled}

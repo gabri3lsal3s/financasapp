@@ -14,7 +14,7 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { supabase } from '@/lib/supabase'
-import { addMonths, formatCurrency, formatDate, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
+import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import {
   BarChart,
@@ -773,8 +773,9 @@ export default function Reports() {
     const viewParam = searchParams.get('view')
 
     if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-      setSelectedMonth(monthParam)
-      const parsedYear = Number(monthParam.slice(0, 4))
+      const clampedMonth = clampMonthToAppStart(monthParam)
+      setSelectedMonth(clampedMonth)
+      const parsedYear = Number(clampedMonth.slice(0, 4))
       if (!Number.isNaN(parsedYear)) {
         setSelectedYear(parsedYear)
       }

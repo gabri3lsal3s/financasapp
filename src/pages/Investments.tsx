@@ -7,7 +7,7 @@ import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
-import { formatCurrency, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
@@ -60,10 +60,12 @@ export default function Investments() {
     const quickAdd = searchParams.get('quickAdd')
     const monthParam = searchParams.get('month')
     const isValidMonth = monthParam ? /^\d{4}-\d{2}$/.test(monthParam) : false
-    const targetMonth = isValidMonth && monthParam ? monthParam : currentMonth
+    const targetMonth = isValidMonth && monthParam
+      ? clampMonthToAppStart(monthParam)
+      : currentMonth
 
-    if (isValidMonth && monthParam && monthParam !== currentMonth) {
-      setCurrentMonth(monthParam)
+    if (isValidMonth && monthParam && targetMonth !== currentMonth) {
+      setCurrentMonth(targetMonth)
     }
 
     if (quickAdd === '1') {
@@ -221,6 +223,7 @@ export default function Investments() {
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            min={APP_START_DATE}
             required
           />
 
