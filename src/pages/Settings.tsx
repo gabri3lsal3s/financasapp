@@ -38,6 +38,8 @@ export default function Settings() {
   const [assistantText, setAssistantText] = useState('')
   const [editableConfirmationText, setEditableConfirmationText] = useState('')
   const [isEditingConfirmationText, setIsEditingConfirmationText] = useState(false)
+  const [editableDescriptionText, setEditableDescriptionText] = useState('')
+  const [isEditingDescriptionText, setIsEditingDescriptionText] = useState(false)
   const [voiceStatus, setVoiceStatus] = useState<string>('')
   const [voiceListening, setVoiceListening] = useState(false)
   const [voicePhase, setVoicePhase] = useState<'idle' | 'listening' | 'stopped'>('idle')
@@ -184,9 +186,11 @@ export default function Settings() {
   const handleConfirmAssistant = async (confirmed: boolean) => {
     if (!lastInterpretation?.command.id || !isSupabaseConfigured) return
     const spokenText = editableConfirmationText.trim() || undefined
-    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText)
+    const editedDescription = editableDescriptionText.trim() || undefined
+    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText, editedDescription)
     await speakText(result.message)
     setIsEditingConfirmationText(false)
+    setIsEditingDescriptionText(false)
   }
 
   const speakText = async (text: string) => {
@@ -217,7 +221,9 @@ export default function Settings() {
   useEffect(() => {
     if (!lastInterpretation) return
     setEditableConfirmationText(lastInterpretation.confirmationText)
+    setEditableDescriptionText(lastInterpretation.slots.description || '')
     setIsEditingConfirmationText(false)
+    setIsEditingDescriptionText(false)
   }, [lastInterpretation])
 
   const getSpeechRecognitionErrorMessage = (errorCode?: string) => {
@@ -647,9 +653,24 @@ export default function Settings() {
                     <div className="space-y-2">
                       <div className="rounded-md border border-primary bg-tertiary px-3 py-2">
                         <p className="text-[11px] font-medium uppercase tracking-wide text-secondary">Descrição que será salva</p>
-                        <p className="text-sm text-primary mt-1">
-                          {lastInterpretation.slots.description || 'Sem descrição'}
-                        </p>
+                        {isEditingDescriptionText ? (
+                          <Input
+                            label="Descrição"
+                            value={editableDescriptionText}
+                            onChange={(event) => setEditableDescriptionText(event.target.value)}
+                            onBlur={() => setIsEditingDescriptionText(false)}
+                            autoFocus
+                            disabled={assistantLoading || !isSupabaseConfigured}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingDescriptionText(true)}
+                            className="w-full text-left text-sm text-primary mt-1 rounded-md px-1 py-1 hover:bg-primary motion-standard"
+                          >
+                            {editableDescriptionText || 'Sem descrição'}
+                          </button>
+                        )}
                       </div>
 
                       {isEditingConfirmationText ? (

@@ -117,7 +117,9 @@ export interface AssistantSlots {
   month?: string
   category?: AssistantResolvedCategory
   items?: Array<{
+    transactionType?: 'expense' | 'income' | 'investment'
     amount: number
+    report_weight?: number
     description?: string
     date?: string
     month?: string

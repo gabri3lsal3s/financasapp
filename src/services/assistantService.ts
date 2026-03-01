@@ -19,7 +19,6 @@ interface CategoryLookupItem {
 
 const CONFIRMATION_WINDOW_MS = 2 * 60 * 1000
 const DEFAULT_LOCALE = 'pt-BR'
-const DEFAULT_CATEGORY_COLOR = '#9ca3af'
 const CATEGORY_CONFIDENCE_AUTO_ASSIGN = 0.8
 const CATEGORY_CONFIDENCE_DISAMBIGUATION = 0.5
 
@@ -42,6 +41,16 @@ const INCOME_KEYWORDS: Record<string, string[]> = {
   Dividendos: ['dividendos', 'dividendo', 'proventos', 'juros'],
   Aluguel: ['aluguel recebido', 'locação', 'locacao'],
 }
+
+const EXPENSE_CONTEXT_HINTS = [
+  'almoco', 'almoçar', 'jantar', 'lanche', 'restaurante', 'mercado', 'compra', 'compras', 'ifood',
+  'padaria', 'uber', 'taxi', 'onibus', 'ônibus', 'gasolina', 'combustivel', 'combustível', 'farmacia',
+  'farmácia', 'medico', 'médico', 'exame', 'conta', 'despesa', 'gasto',
+]
+
+const EXPENSE_ACTION_HINTS = ['gastei', 'paguei', 'comprei', 'deu', 'custou', 'fui', 'pagar', 'gastou']
+const INCOME_CONTEXT_HINTS = ['recebi', 'recebemos', 'recebimento', 'ganhei', 'caiu', 'entrou', 'pix', 'pagamento', 'salario', 'salário', 'renda', 'receita']
+const INVESTMENT_CONTEXT_HINTS = ['investi', 'investimento', 'aporte', 'apliquei', 'aplicacao', 'aplicação', 'corretora']
 
 const WRITE_INTENTS: AssistantIntent[] = [
   'add_expense',
@@ -101,6 +110,145 @@ const normalizeDescriptionCasing = (value: string) => {
       return lower.charAt(0).toUpperCase() + lower.slice(1)
     })
     .join(' ')
+}
+
+const removeLeadingArticle = (value: string) => value.replace(/^(a|o|as|os)\s+/i, '').trim()
+
+const toAlphaNumericTokens = (value: string) =>
+  normalizeText(value)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+
+const extractLocationContext = (text: string): { preposition: string; place: string } | undefined => {
+  const locationPattern = /\b(em|no|na|nos|nas|com)\s+([a-zà-ú0-9][\wÀ-ÿ'’.-]*(?:\s+[a-zà-ú0-9][\wÀ-ÿ'’.-]*){0,4})/gi
+  const ignoredPlaces = new Set(['valor', 'data', 'hoje', 'ontem', 'despesa', 'renda', 'investimento'])
+
+  let lastMatch: { preposition: string; place: string } | undefined
+  let match = locationPattern.exec(text)
+
+  while (match) {
+    const preposition = match[1].toLowerCase()
+    const placeTokens = match[2]
+      .replace(/[,:;.!?]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter((token, index, tokens) => {
+        if (/^\d+(?:[.,]\d+)?$/.test(token) && index >= tokens.length - 1) return false
+        return true
+      })
+
+    const trailingNoise = new Set(['deu', 'ficou', 'custou', 'totalizou', 'e', 'mas'])
+    while (placeTokens.length && trailingNoise.has(normalizeText(placeTokens[placeTokens.length - 1]))) {
+      placeTokens.pop()
+    }
+
+    if (normalizeText(placeTokens[placeTokens.length - 1] || '') === 'conta') {
+      placeTokens.pop()
+      if (normalizeText(placeTokens[placeTokens.length - 1] || '') === 'a') {
+        placeTokens.pop()
+      }
+    }
+
+    const place = placeTokens.join(' ').trim()
+
+    const normalizedPlace = normalizeText(place)
+    if (place.length >= 2 && !ignoredPlaces.has(normalizedPlace)) {
+      lastMatch = { preposition, place }
+    }
+
+    match = locationPattern.exec(text)
+  }
+
+  return lastMatch
+}
+
+const extractPurchaseObjectPhrase = (text: string): string | undefined => {
+  const purchaseMatch = text.match(/\bcomprei\s+(?:um|uma|o|a|os|as)?\s*(.+?)(?=\s+(?:ficou|deu|custou|por)\b|[,.!?;]|$)/i)
+  if (!purchaseMatch?.[1]) return undefined
+
+  const phrase = purchaseMatch[1]
+    .replace(/[,:;.!?]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return phrase ? normalizeDescriptionCasing(removeLeadingArticle(phrase)) : undefined
+}
+
+const inferInvestmentHeadword = (text: string, fallbackDescription?: string): string | undefined => {
+  const normalized = normalizeText(text)
+
+  if (/\bbolsa\b/.test(normalized)) return 'Investimento na Bolsa'
+  if (/\bcorretora\b/.test(normalized)) return 'Investimento na Corretora'
+
+  const fallback = removeLeadingArticle(fallbackDescription || '')
+  if (!fallback) return 'Investimento'
+
+  if (!/^investimento\b/i.test(fallback)) {
+    return `Investimento ${fallback}`
+  }
+
+  return fallback
+}
+
+const inferExpenseHeadword = (text: string, fallbackDescription?: string): string | undefined => {
+  const normalized = normalizeText(text)
+
+  if (/\balmoc(?:ar|o|ei)\b/.test(normalized)) return 'Almoço'
+  if (/\bjant(?:ar|ei|o)\b/.test(normalized)) return 'Jantar'
+  if (/\blanche\b/.test(normalized)) return 'Lanche'
+  if (/\b(?:mercado|supermercado)\b/.test(normalized)) return 'Mercado'
+  if (/\bcompr(?:a|ar|ei|as)\b/.test(normalized)) return 'Compras'
+  if (/\bifood\b/.test(normalized)) return 'Ifood'
+  if (/\buber\b/.test(normalized)) return 'Uber'
+  if (/\b99\b/.test(normalized)) return 'Transporte'
+  if (/\bfarmac(?:ia|ias)\b/.test(normalized)) return 'Farmácia'
+  if (/\brestaurante\b/.test(normalized)) return 'Restaurante'
+
+  if (!fallbackDescription) return undefined
+
+  const stopTokens = new Set([
+    'fui', 'deu', 'hoje', 'ontem', 'para', 'pra', 'com', 'sem', 'valor', 'gasto', 'despesa', 'renda',
+    'investimento', 'no', 'na', 'nos', 'nas', 'em', 'de', 'da', 'do', 'das', 'dos', 'o', 'a', 'os', 'as',
+  ])
+
+  const candidateToken = toAlphaNumericTokens(fallbackDescription)
+    .find((token) => token.length >= 4 && !stopTokens.has(token))
+
+  return candidateToken ? normalizeDescriptionCasing(candidateToken) : undefined
+}
+
+const refineWriteDescription = (
+  text: string,
+  intent: AssistantIntent,
+  fallbackDescription: string,
+): string => {
+  if (intent === 'add_investment') {
+    return inferInvestmentHeadword(text, fallbackDescription) || 'Investimento'
+  }
+
+  if (intent !== 'add_expense') {
+    return removeLeadingArticle(fallbackDescription)
+  }
+
+  const purchaseObject = extractPurchaseObjectPhrase(text)
+  const headword = purchaseObject || inferExpenseHeadword(text, fallbackDescription) || removeLeadingArticle(fallbackDescription)
+  const location = extractLocationContext(text)
+  const normalizedHeadword = removeLeadingArticle(headword)
+
+  if (!location?.place) {
+    return normalizedHeadword
+  }
+
+  const place = normalizeDescriptionCasing(removeLeadingArticle(location.place))
+  if (!place) {
+    return normalizedHeadword
+  }
+
+  if (!normalizedHeadword) return place
+
+  return `${normalizedHeadword} ${location.preposition} ${place}`
 }
 
 const extractDescription = (text: string, intent: AssistantIntent): string | undefined => {
@@ -163,6 +311,7 @@ const extractDescription = (text: string, intent: AssistantIntent): string | und
   description = description
     .replace(/\b(despesa|gasto|conta|renda|receita|ganho|sal[aá]rio|investimento|aporte)\b/gi, ' ')
     .replace(/\b(no\s+valor\s+de|valor\s+de|valor)\b/gi, ' ')
+    .replace(/\b(deu|ficou|custou|totalizou)\b/gi, ' ')
     .replace(/\b(adiciona(?:r)?|adicione|adicionar|registre|registrar|lance|lançar|lancar|inclua|incluir)\b/gi, ' ')
     .replace(/\br\$\s*\d+[\d.,]*/gi, ' ')
     .replace(/\b\d+[\d.,]*\b/g, ' ')
@@ -199,7 +348,14 @@ const extractDescription = (text: string, intent: AssistantIntent): string | und
 
   if (!description) return undefined
 
-  return normalizeDescriptionCasing(description)
+  const normalizedDescription = normalizeDescriptionCasing(description)
+
+  if (intent === 'add_expense' || intent === 'add_income' || intent === 'add_investment') {
+    const refined = refineWriteDescription(text, intent, normalizedDescription)
+    return refined ? normalizeDescriptionCasing(refined) : undefined
+  }
+
+  return normalizeDescriptionCasing(removeLeadingArticle(normalizedDescription))
 }
 
 const cleanSpeechNoise = (text: string) => {
@@ -208,6 +364,230 @@ const cleanSpeechNoise = (text: string) => {
     .replace(/[\-–—]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+const inferWriteItemType = (text: string): 'expense' | 'income' | 'investment' => {
+  const normalized = normalizeText(text)
+  if (INVESTMENT_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))) return 'investment'
+  if (INCOME_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))) return 'income'
+  return 'expense'
+}
+
+const parseSharedParticipants = (
+  text: string,
+  options?: { allowGenericDivisionHints?: boolean },
+): number | undefined => {
+  const normalized = normalizeText(text)
+  const allowGenericDivisionHints = options?.allowGenericDivisionHints ?? true
+
+  const wordToNumber: Record<string, number> = {
+    dois: 2,
+    duas: 2,
+    tres: 3,
+    três: 3,
+    quatro: 4,
+    cinco: 5,
+  }
+
+  const numericMatch = normalized.match(/\b(?:para|entre|em|por)\s+(?:os\s+|as\s+)?(\d{1,2})\b/)
+  if (numericMatch) {
+    const participants = Number(numericMatch[1])
+    if (participants > 1) return participants
+  }
+
+  const withFriendsNumericMatch = normalized.match(/\bcom\s+(\d{1,2})\s+(?:amig(?:o|os|a|as)|pessoa(?:s)?|colega(?:s)?|parceir(?:o|os|a|as)|s[oó]ci(?:o|os|a|as))\b/)
+  if (withFriendsNumericMatch) {
+    const participants = Number(withFriendsNumericMatch[1])
+    if (participants > 1) return participants
+  }
+
+  const textualMatch = normalized.match(/\b(?:para|entre|em|por)\s+(?:os\s+|as\s+)?(dois|duas|tres|três|quatro|cinco)\b/)
+  if (textualMatch) {
+    const participants = wordToNumber[textualMatch[1]]
+    if (participants > 1) return participants
+  }
+
+  const withFriendsTextualMatch = normalized.match(/\bcom\s+(dois|duas|tres|três|quatro|cinco)\s+(?:amig(?:o|os|a|as)|pessoa(?:s)?|colega(?:s)?|parceir(?:o|os|a|as)|s[oó]ci(?:o|os|a|as))\b/)
+  if (withFriendsTextualMatch) {
+    const participants = wordToNumber[withFriendsTextualMatch[1]]
+    if (participants > 1) return participants
+  }
+
+  if (allowGenericDivisionHints && /\b(meia|metade|meio a meio|dividimos|dividi|rachamos|rachou)\b/.test(normalized)) {
+    return 2
+  }
+
+  return undefined
+}
+
+const parseExplicitReportAmount = (text: string): number | undefined => {
+  const patterns = [
+    /\b(?:minha|minha\s+parte|meu|meu\s+lado|para\s+mim|pra\s+mim)\s+(?:parte\s+)?(?:foi|ficou|deu)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bcada\s+um\s+(?:pagou|ficou\s+com)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bpor\s+cabe[cç]a\s*(?:de|foi)?\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bo\s+meu\s+(?:saiu|ficou|deu)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bcada\s+um\s+deu\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bminha\s+cota\s+(?:foi|ficou|deu)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bpra\s+mim\s+(?:foi|ficou|deu)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bmeu\s+(?:foi|ficou|deu)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bcada\s*1\s+(?:pagou|deu|ficou\s+com)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bpramim\s+(?:foi|ficou|deu)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bporcabe[cç]a\s*(?:de|foi)?\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+    /\bcadaum\s+(?:pagou|deu|ficou\s+com)\s*(?:r\$\s*)?(\d+[\d.,]*)/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (!match?.[1]) continue
+    const amount = normalizeAmount(match[1])
+    if (amount) return amount
+  }
+
+  return undefined
+}
+
+const computeReportWeightFromContext = (
+  text: string,
+  amount: number,
+): { reportWeight?: number; explicitParticipants?: boolean; explicitReportAmount?: boolean } => {
+  if (!Number.isFinite(amount) || amount <= 0) return {}
+
+  const explicitReportAmount = parseExplicitReportAmount(text)
+  if (explicitReportAmount && explicitReportAmount > 0 && explicitReportAmount <= amount) {
+    return {
+      reportWeight: Number((explicitReportAmount / amount).toFixed(4)),
+      explicitParticipants: true,
+      explicitReportAmount: true,
+    }
+  }
+
+  const explicitParticipants = parseSharedParticipants(text, { allowGenericDivisionHints: false })
+  const fallbackParticipants = parseSharedParticipants(text)
+  const participants = explicitParticipants || fallbackParticipants
+
+  if (participants && participants > 1) {
+    return {
+      reportWeight: Number((1 / participants).toFixed(4)),
+      explicitParticipants: Boolean(explicitParticipants),
+      explicitReportAmount: false,
+    }
+  }
+
+  return {}
+}
+
+const extractMonetaryAmount = (text: string): number | undefined => {
+  const matches = [...text.matchAll(/(?:r\$\s*)?(\d+[\d.,]*)/gi)]
+  if (!matches.length) return undefined
+
+  for (const match of matches) {
+    const fullMatch = match[0]
+    const amountRaw = match[1]
+    const index = match.index ?? 0
+    const before = text.slice(Math.max(0, index - 16), index)
+    const after = text.slice(index + fullMatch.length, index + fullMatch.length + 28)
+    const normalizedAfter = normalizeText(after)
+
+    const looksLikeParticipantCount =
+      /\bcom\s*$/i.test(before)
+      && /^\s*(amig|pessoa|colega|parceir|soci)/i.test(normalizedAfter)
+
+    if (looksLikeParticipantCount) continue
+
+    const parsed = normalizeAmount(amountRaw)
+    if (parsed) return parsed
+  }
+
+  return undefined
+}
+
+const normalizeItemDescriptionByType = (
+  text: string,
+  type: 'expense' | 'income' | 'investment',
+): string | undefined => {
+  const mappedIntent: AssistantIntent =
+    type === 'investment'
+      ? 'add_investment'
+      : type === 'income'
+        ? 'add_income'
+        : 'add_expense'
+
+  return extractDescription(text, mappedIntent)
+}
+
+const extractMixedItemsFromText = (
+  text: string,
+  fallbackDate: string,
+): AssistantSlots['items'] => {
+  const amountMatches = [...text.matchAll(/(?:r\$\s*)?(\d+[\d.,]*)/gi)]
+  if (amountMatches.length < 1) return undefined
+
+  const cleaned = cleanSpeechNoise(text)
+  const protectedDecimals = cleaned.replace(/(\d+),(\d{1,2})/g, '$1__DECIMAL__$2')
+  const chunks = protectedDecimals
+    .split(/\s*(?:,|;|\.|\bem\s+seguida\b|\bdepois\b|\bent[aã]o\b)\s*/i)
+    .map((chunk) => chunk.replace(/__DECIMAL__/g, ',').trim())
+    .filter(Boolean)
+
+  if (!chunks.length) return undefined
+
+  const items: NonNullable<AssistantSlots['items']> = []
+  let pendingContext = ''
+
+  const applySplitHintToLastItem = (chunkText: string) => {
+    const lastItemIndex = [...items]
+      .reverse()
+      .findIndex((item) => Boolean(item.transactionType))
+
+    if (lastItemIndex < 0) return
+
+    const indexFromStart = items.length - 1 - lastItemIndex
+    const target = items[indexFromStart]
+    const reportContext = computeReportWeightFromContext(chunkText, target.amount)
+    if (!reportContext.reportWeight) return
+
+    if (target.report_weight && !reportContext.explicitParticipants && !reportContext.explicitReportAmount) return
+
+    items[indexFromStart] = {
+      ...target,
+      report_weight: reportContext.reportWeight,
+    }
+  }
+
+  chunks.forEach((chunk) => {
+    const chunkAmount = extractMonetaryAmount(chunk)
+
+    if (!chunkAmount) {
+      applySplitHintToLastItem(chunk)
+      pendingContext = `${pendingContext} ${chunk}`.trim()
+      return
+    }
+
+    const combined = `${pendingContext} ${chunk}`.trim()
+    const itemType = inferWriteItemType(combined)
+    const description = normalizeItemDescriptionByType(combined, itemType)
+
+    applySplitHintToLastItem(combined)
+
+    const reportContext = computeReportWeightFromContext(combined, chunkAmount)
+
+    items.push({
+      transactionType: itemType,
+      amount: chunkAmount,
+      description,
+      date: fallbackDate,
+      month: fallbackDate.substring(0, 7),
+      ...(reportContext.reportWeight
+        ? { report_weight: reportContext.reportWeight }
+        : {}),
+    })
+
+    pendingContext = ''
+  })
+
+  if (items.length > 1) return items
+  if (items.length === 1 && Number.isFinite(items[0].report_weight)) return items
+  return undefined
 }
 
 const extractAddItemsFromText = (
@@ -220,6 +600,11 @@ const extractAddItemsFromText = (
   }
 
   const cleaned = cleanSpeechNoise(text)
+  const mixedItems = extractMixedItemsFromText(cleaned, fallbackDate)
+  if (mixedItems?.length) {
+    return mixedItems
+  }
+
   const commandRemoved = cleaned
     .replace(/^(adicion(?:a|ar|e)?|registre|registrar|lance|lan[çc]ar|inclua|incluir)\s+/i, '')
     .replace(/^(uma|um|as|os)\s+/i, '')
@@ -278,6 +663,11 @@ const extractAddItemsFromText = (
 
 const inferIntent = (text: string): { intent: AssistantIntent; confidence: number } => {
   const normalized = normalizeText(text)
+  const hasAmount = Boolean(extractAmount(text))
+  const hasExpenseContext = EXPENSE_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
+  const hasExpenseAction = EXPENSE_ACTION_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
+  const hasIncomeContext = INCOME_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
+  const hasInvestmentContext = INVESTMENT_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
 
   if (/invest|aporte/.test(normalized) && /adicion|registr|lanc/.test(normalized)) {
     return { intent: 'add_investment', confidence: 0.9 }
@@ -289,6 +679,22 @@ const inferIntent = (text: string): { intent: AssistantIntent; confidence: numbe
 
   if (/despesa|gasto|conta/.test(normalized) && /adicion|registr|lanc/.test(normalized)) {
     return { intent: 'add_expense', confidence: 0.9 }
+  }
+
+  if (hasAmount && hasInvestmentContext) {
+    return { intent: 'add_investment', confidence: 0.86 }
+  }
+
+  if (hasAmount && hasIncomeContext) {
+    return { intent: 'add_income', confidence: 0.84 }
+  }
+
+  if (hasAmount && (hasExpenseContext || hasExpenseAction)) {
+    return { intent: 'add_expense', confidence: 0.85 }
+  }
+
+  if (hasAmount) {
+    return { intent: 'add_expense', confidence: 0.68 }
   }
 
   return { intent: 'unknown', confidence: 0.3 }
@@ -647,8 +1053,28 @@ const buildConfirmationText = (
   if (slots.items && slots.items.length > 1) {
     const preview = slots.items
       .slice(0, 3)
-      .map((item) => `${item.description || 'Sem descrição'} (R$${item.amount.toFixed(2)})`)
+      .map((item) => {
+        const label = item.transactionType === 'investment'
+          ? 'investimento'
+          : item.transactionType === 'income'
+            ? 'renda'
+            : 'despesa'
+        return `${label}: ${item.description || 'Sem descrição'} (R$${item.amount.toFixed(2)})`
+      })
       .join(', ')
+
+    const hasMixedTypes = new Set(
+      slots.items.map((item) => {
+        if (item.transactionType) return item.transactionType
+        if (intent === 'add_investment') return 'investment'
+        if (intent === 'add_income') return 'income'
+        return 'expense'
+      }),
+    ).size > 1
+
+    if (hasMixedTypes) {
+      return `Confirma adicionar ${slots.items.length} lançamentos: ${preview}?`
+    }
 
     if (intent === 'add_expense') {
       return `Confirma adicionar ${slots.items.length} despesas: ${preview}?`
@@ -752,118 +1178,6 @@ const resolveCategoryFromSpokenConfirmation = (
 
 type WritableTransactionType = 'expense' | 'income' | 'investment'
 
-interface WritableTransactionRecord {
-  id: string
-  amount: number
-  description?: string
-  dateOrMonth: string
-  type: WritableTransactionType
-}
-
-const inferUpdateTargetType = (commandText: string): WritableTransactionType | 'auto' => {
-  const normalized = normalizeText(commandText)
-  if (/invest|aporte/.test(normalized)) return 'investment'
-  if (/renda|receita|salario|salário|ganho/.test(normalized)) return 'income'
-  if (/despesa|gasto|conta/.test(normalized)) return 'expense'
-  return 'auto'
-}
-
-const scoreRecordMatch = (recordDescription: string | undefined, tokens: string[]) => {
-  if (!recordDescription || !tokens.length) return 0
-  const normalized = normalizeText(recordDescription)
-  return tokens.reduce((score, token) => (normalized.includes(token) ? score + 1 : score), 0)
-}
-
-const amountIsClose = (valueA: number, valueB: number) => Math.abs(valueA - valueB) <= 0.01
-
-const resolveCreateCategoryType = (commandText: string, description?: string): 'expense' | 'income' => {
-  const normalized = normalizeText(`${commandText} ${description || ''}`)
-  if (/renda|receita|ganho|salario|salário/.test(normalized)) return 'income'
-  return 'expense'
-}
-
-const findBestRecordForMutation = async (
-  command: AssistantCommand,
-  userId?: string,
-): Promise<WritableTransactionRecord | null> => {
-  const targetType = inferUpdateTargetType(command.command_text)
-  const descriptionTokens = normalizeText(command.slots_json?.description || '')
-    .split(/\s+/)
-    .filter((token) => token.length >= 3)
-
-  const queryExpenses = supabase
-    .from('expenses')
-    .select('id, amount, description, date')
-    .order('date', { ascending: false })
-    .limit(25)
-
-  const queryIncomes = supabase
-    .from('incomes')
-    .select('id, amount, description, date')
-    .order('date', { ascending: false })
-    .limit(25)
-
-  const queryInvestments = supabase
-    .from('investments')
-    .select('id, amount, description, month')
-    .order('month', { ascending: false })
-    .limit(25)
-
-  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
-    targetType === 'income' || targetType === 'investment'
-      ? Promise.resolve({ data: [] as Array<{ id: string; amount: number; description?: string; date: string }> })
-      : (userId ? queryExpenses.eq('user_id', userId) : queryExpenses),
-    targetType === 'expense' || targetType === 'investment'
-      ? Promise.resolve({ data: [] as Array<{ id: string; amount: number; description?: string; date: string }> })
-      : (userId ? queryIncomes.eq('user_id', userId) : queryIncomes),
-    targetType === 'expense' || targetType === 'income'
-      ? Promise.resolve({ data: [] as Array<{ id: string; amount: number; description?: string; month: string }> })
-      : (userId ? queryInvestments.eq('user_id', userId) : queryInvestments),
-  ])
-
-  const allRecords: WritableTransactionRecord[] = [
-    ...(expensesResult.data || []).map((item) => ({
-      id: item.id,
-      amount: Number(item.amount),
-      description: item.description,
-      dateOrMonth: item.date,
-      type: 'expense' as const,
-    })),
-    ...(incomesResult.data || []).map((item) => ({
-      id: item.id,
-      amount: Number(item.amount),
-      description: item.description,
-      dateOrMonth: item.date,
-      type: 'income' as const,
-    })),
-    ...(investmentsResult.data || []).map((item) => ({
-      id: item.id,
-      amount: Number(item.amount),
-      description: item.description,
-      dateOrMonth: item.month,
-      type: 'investment' as const,
-    })),
-  ]
-
-  if (!allRecords.length) return null
-
-  const targetAmount = command.slots_json?.amount
-
-  const scored = allRecords
-    .map((record) => ({
-      record,
-      score:
-        scoreRecordMatch(record.description, descriptionTokens)
-        + (Number.isFinite(targetAmount) && amountIsClose(record.amount, Number(targetAmount)) ? 2 : 0),
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      return b.record.dateOrMonth.localeCompare(a.record.dateOrMonth)
-    })
-
-  return scored[0]?.record || null
-}
-
 const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantConfirmResult> => {
   const slots = command.slots_json || {}
   const userId = command.user_id || await getCurrentUserId()
@@ -880,24 +1194,59 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
     }
   }
 
-  const addItems =
+  const addItems: Array<{
+    transactionType: WritableTransactionType
+    amount: number
+    report_weight?: number
+    description?: string
+    date?: string
+    month?: string
+    category?: AssistantResolvedCategory
+  }> =
     (slots.items && slots.items.length
-      ? slots.items
+      ? slots.items.map((item) => ({
+        ...item,
+        transactionType:
+          item.transactionType
+          || (command.interpreted_intent === 'add_investment'
+            ? 'investment'
+            : command.interpreted_intent === 'add_income'
+              ? 'income'
+              : 'expense'),
+      }))
       : (slots.amount
-          ? [{
+          ? (() => {
+            const singleItemParticipants = parseSharedParticipants(command.command_text)
+            return [{
+            transactionType:
+              command.interpreted_intent === 'add_investment'
+                ? 'investment'
+                : command.interpreted_intent === 'add_income'
+                  ? 'income'
+                  : 'expense',
             amount: Number(slots.amount),
+            report_weight: Number.isFinite(singleItemParticipants)
+              ? Number((1 / Number(singleItemParticipants)).toFixed(4))
+              : undefined,
             description: slots.description,
             date: slots.date,
             month: slots.month,
             category: slots.category,
           }]
+          })()
           : []))
 
-  if (command.interpreted_intent === 'add_expense') {
-    if (!addItems.length) {
-      return { status: 'failed', message: 'Comando incompleto para despesa.', commandId: command.id }
-    }
+  if (!addItems.length) {
+    return { status: 'failed', message: 'Comando incompleto para lançamento.', commandId: command.id }
+  }
 
+  const expenseItems = addItems.filter((item) => item.transactionType === 'expense')
+  const incomeItems = addItems.filter((item) => item.transactionType === 'income')
+  const investmentItems = addItems.filter((item) => item.transactionType === 'investment')
+
+  const createdIds: string[] = []
+
+  if (expenseItems.length) {
     const { data: expenseCategories } = await supabase
       .from('categories')
       .select('id, name, color')
@@ -907,7 +1256,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
     )?.id
 
-    const payload = await Promise.all(addItems.map(async (item) => {
+    const expensePayload = await Promise.all(expenseItems.map(async (item) => {
       let resolvedCategoryId = item.category?.id
 
       if (!resolvedCategoryId && item.description) {
@@ -924,6 +1273,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
 
       return {
         amount: item.amount,
+        report_weight: item.report_weight,
         date: item.date || slots.date,
         category_id: resolvedCategoryId,
         description: item.description,
@@ -931,35 +1281,23 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       }
     }))
 
-    if (payload.some((item) => !item.date || !item.category_id)) {
+    if (expensePayload.some((item) => !item.date || !item.category_id)) {
       return { status: 'failed', message: 'Não foi possível resolver data/categoria para todas as despesas.', commandId: command.id }
     }
 
     const { data, error } = await supabase
       .from('expenses')
-      .insert(payload)
+      .insert(expensePayload)
       .select('id')
 
     if (error) {
       return { status: 'failed', message: error.message, commandId: command.id }
     }
 
-    const createdIds = data?.map((item) => item.id) || []
-    return {
-      status: 'executed',
-      message: createdIds.length > 1
-        ? `${createdIds.length} despesas adicionadas com sucesso.`
-        : 'Despesa adicionada com sucesso.',
-      commandId: command.id,
-      transactionId: createdIds[0],
-    }
+    createdIds.push(...(data?.map((item) => item.id) || []))
   }
 
-  if (command.interpreted_intent === 'add_income') {
-    if (!addItems.length) {
-      return { status: 'failed', message: 'Comando incompleto para renda.', commandId: command.id }
-    }
-
+  if (incomeItems.length) {
     const { data: incomeCategories } = await supabase
       .from('income_categories')
       .select('id, name, color')
@@ -969,7 +1307,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
     )?.id
 
-    const payload = await Promise.all(addItems.map(async (item) => {
+    const incomePayload = await Promise.all(incomeItems.map(async (item) => {
       let resolvedCategoryId = item.category?.id
 
       if (!resolvedCategoryId && item.description) {
@@ -986,6 +1324,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
 
       return {
         amount: item.amount,
+        report_weight: item.report_weight,
         date: item.date || slots.date,
         income_category_id: resolvedCategoryId,
         type: 'other',
@@ -994,276 +1333,64 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       }
     }))
 
-    if (payload.some((item) => !item.date || !item.income_category_id)) {
+    if (incomePayload.some((item) => !item.date || !item.income_category_id)) {
       return { status: 'failed', message: 'Não foi possível resolver data/categoria para todas as rendas.', commandId: command.id }
     }
 
     const { data, error } = await supabase
       .from('incomes')
-      .insert(payload)
+      .insert(incomePayload)
       .select('id')
 
     if (error) {
       return { status: 'failed', message: error.message, commandId: command.id }
     }
 
-    const createdIds = data?.map((item) => item.id) || []
-    return {
-      status: 'executed',
-      message: createdIds.length > 1
-        ? `${createdIds.length} rendas adicionadas com sucesso.`
-        : 'Renda adicionada com sucesso.',
-      commandId: command.id,
-      transactionId: createdIds[0],
-    }
+    createdIds.push(...(data?.map((item) => item.id) || []))
   }
 
-  if (command.interpreted_intent === 'add_investment') {
-    if (!addItems.length) {
-      return { status: 'failed', message: 'Comando incompleto para investimento.', commandId: command.id }
-    }
-
-    const payload = addItems.map((item) => ({
+  if (investmentItems.length) {
+    const investmentPayload = investmentItems.map((item) => ({
       amount: item.amount,
       month: item.month || slots.month,
       description: item.description,
       user_id: userId,
     }))
 
-    if (payload.some((item) => !item.month)) {
+    if (investmentPayload.some((item) => !item.month)) {
       return { status: 'failed', message: 'Não foi possível resolver o mês para todos os investimentos.', commandId: command.id }
     }
 
     const { data, error } = await supabase
       .from('investments')
-      .insert(payload)
+      .insert(investmentPayload)
       .select('id')
 
     if (error) {
       return { status: 'failed', message: error.message, commandId: command.id }
     }
 
-    const createdIds = data?.map((item) => item.id) || []
+    createdIds.push(...(data?.map((item) => item.id) || []))
+  }
+
+  if (createdIds.length) {
+    const launchedTypesCount = [
+      expenseItems.length ? `${expenseItems.length} despesa${expenseItems.length > 1 ? 's' : ''}` : undefined,
+      incomeItems.length ? `${incomeItems.length} renda${incomeItems.length > 1 ? 's' : ''}` : undefined,
+      investmentItems.length ? `${investmentItems.length} investimento${investmentItems.length > 1 ? 's' : ''}` : undefined,
+    ].filter(Boolean)
+
     return {
       status: 'executed',
-      message: createdIds.length > 1
-        ? `${createdIds.length} investimentos adicionados com sucesso.`
-        : 'Investimento adicionado com sucesso.',
+      message: launchedTypesCount.length > 1
+        ? `Lançamentos adicionados com sucesso: ${launchedTypesCount.join(', ')}.`
+        : 'Lançamento adicionado com sucesso.',
       commandId: command.id,
       transactionId: createdIds[0],
     }
   }
 
-  if (command.interpreted_intent === 'update_transaction') {
-    const hasAmountUpdate = Number.isFinite(slots.amount)
-    const hasDescriptionUpdate = !!slots.description
-
-    if (!hasAmountUpdate && !hasDescriptionUpdate) {
-      return {
-        status: 'failed',
-        message: 'Comando incompleto para atualização. Informe novo valor e/ou descrição.',
-        commandId: command.id,
-      }
-    }
-
-    const targetRecord = await findBestRecordForMutation(command, userId)
-    if (!targetRecord) {
-      return {
-        status: 'failed',
-        message: 'Não encontrei lançamento para atualizar.',
-        commandId: command.id,
-      }
-    }
-
-    const updates: Record<string, unknown> = {}
-    if (hasAmountUpdate) updates.amount = slots.amount
-    if (hasDescriptionUpdate) updates.description = slots.description
-
-    if (targetRecord.type === 'expense') {
-      const { error } = await supabase.from('expenses').update(updates).eq('id', targetRecord.id)
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-    }
-
-    if (targetRecord.type === 'income') {
-      const { error } = await supabase.from('incomes').update(updates).eq('id', targetRecord.id)
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-    }
-
-    if (targetRecord.type === 'investment') {
-      const { error } = await supabase.from('investments').update(updates).eq('id', targetRecord.id)
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-    }
-
-    return {
-      status: 'executed',
-      message: `Lançamento ${targetRecord.type} atualizado com sucesso.`,
-      commandId: command.id,
-      transactionId: targetRecord.id,
-    }
-  }
-
-  if (command.interpreted_intent === 'delete_transaction') {
-    const targetRecord = await findBestRecordForMutation(command, userId)
-    if (!targetRecord) {
-      return {
-        status: 'failed',
-        message: 'Não encontrei lançamento para excluir.',
-        commandId: command.id,
-      }
-    }
-
-    if (targetRecord.type === 'expense') {
-      const { error } = await supabase.from('expenses').delete().eq('id', targetRecord.id)
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-    }
-
-    if (targetRecord.type === 'income') {
-      const { error } = await supabase.from('incomes').delete().eq('id', targetRecord.id)
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-    }
-
-    if (targetRecord.type === 'investment') {
-      const { error } = await supabase.from('investments').delete().eq('id', targetRecord.id)
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-    }
-
-    return {
-      status: 'executed',
-      message: `Lançamento ${targetRecord.type} excluído com sucesso.`,
-      commandId: command.id,
-      transactionId: targetRecord.id,
-    }
-  }
-
-  if (command.interpreted_intent === 'create_category') {
-    const categoryName = command.slots_json?.description?.trim()
-    if (!categoryName) {
-      return {
-        status: 'failed',
-        message: 'Comando incompleto para criar categoria. Informe o nome da categoria.',
-        commandId: command.id,
-      }
-    }
-
-    const categoryType = resolveCreateCategoryType(command.command_text, categoryName)
-    const normalizedName = categoryName.replace(/\s+/g, ' ').trim()
-
-    if (categoryType === 'expense') {
-      let existsQuery = supabase
-        .from('categories')
-        .select('id')
-        .ilike('name', normalizedName)
-        .limit(1)
-        .maybeSingle()
-
-      if (userId) {
-        existsQuery = supabase
-          .from('categories')
-          .select('id')
-          .eq('user_id', userId)
-          .ilike('name', normalizedName)
-          .limit(1)
-          .maybeSingle()
-      }
-
-      const { data: existingCategory } = await existsQuery
-      if (existingCategory?.id) {
-        return {
-          status: 'failed',
-          message: 'Já existe uma categoria de despesa com esse nome.',
-          commandId: command.id,
-          transactionId: existingCategory.id,
-        }
-      }
-
-      const { data, error } = await supabase
-        .from('categories')
-        .insert([
-          {
-            name: normalizeDescriptionCasing(normalizedName),
-            color: DEFAULT_CATEGORY_COLOR,
-            user_id: userId,
-          },
-        ])
-        .select('id')
-        .single()
-
-      if (error) {
-        return { status: 'failed', message: error.message, commandId: command.id }
-      }
-
-      return {
-        status: 'executed',
-        message: 'Categoria de despesa criada com sucesso.',
-        commandId: command.id,
-        transactionId: data.id,
-      }
-    }
-
-    let existsQuery = supabase
-      .from('income_categories')
-      .select('id')
-      .ilike('name', normalizedName)
-      .limit(1)
-      .maybeSingle()
-
-    if (userId) {
-      existsQuery = supabase
-        .from('income_categories')
-        .select('id')
-        .eq('user_id', userId)
-        .ilike('name', normalizedName)
-        .limit(1)
-        .maybeSingle()
-    }
-
-    const { data: existingIncomeCategory } = await existsQuery
-    if (existingIncomeCategory?.id) {
-      return {
-        status: 'failed',
-        message: 'Já existe uma categoria de renda com esse nome.',
-        commandId: command.id,
-        transactionId: existingIncomeCategory.id,
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('income_categories')
-      .insert([
-        {
-          name: normalizeDescriptionCasing(normalizedName),
-          color: DEFAULT_CATEGORY_COLOR,
-          user_id: userId,
-        },
-      ])
-      .select('id')
-      .single()
-
-    if (error) {
-      return { status: 'failed', message: error.message, commandId: command.id }
-    }
-
-    return {
-      status: 'executed',
-      message: 'Categoria de renda criada com sucesso.',
-      commandId: command.id,
-      transactionId: data.id,
-    }
-  }
-
-  return { status: 'failed', message: 'Intenção de escrita ainda não implementada.', commandId: command.id }
+  return { status: 'failed', message: 'Não foi possível criar lançamentos com os dados informados.', commandId: command.id }
 }
 
 const saveMappingIfPossible = async (command: AssistantCommand, confirmed: boolean) => {
@@ -1501,6 +1628,7 @@ export async function confirmAssistantCommand(params: {
   commandId: string
   confirmed: boolean
   spokenText?: string
+  editedDescription?: string
 }): Promise<AssistantConfirmResult> {
   const { data: command, error } = await supabase
     .from('assistant_commands')
@@ -1560,6 +1688,36 @@ export async function confirmAssistantCommand(params: {
   const needsDisambiguation = Boolean(
     (command.category_resolution_json as { needsDisambiguation?: boolean } | undefined)?.needsDisambiguation,
   )
+
+  const editedDescription = params.editedDescription?.trim()
+  if (editedDescription) {
+    const sanitizedDescription = normalizeDescriptionCasing(removeLeadingArticle(editedDescription))
+    const originalSlots = commandToExecute.slots_json || {}
+    const updatedSlots: AssistantSlots = {
+      ...originalSlots,
+      description: sanitizedDescription,
+      items: originalSlots.items?.map((item, index) => {
+        if (index !== 0 || (originalSlots.items?.length || 0) > 1) return item
+        return {
+          ...item,
+          description: sanitizedDescription,
+        }
+      }),
+    }
+
+    await supabase
+      .from('assistant_commands')
+      .update({
+        slots_json: updatedSlots,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', command.id)
+
+    commandToExecute = {
+      ...commandToExecute,
+      slots_json: updatedSlots,
+    }
+  }
 
   if (needsDisambiguation && (command.interpreted_intent === 'add_expense' || command.interpreted_intent === 'add_income')) {
     const resolvedCategory = resolveCategoryFromSpokenConfirmation(command, params.spokenText)
@@ -1668,4 +1826,10 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
 
 export async function getActiveAssistantSession(deviceId: string) {
   return ensureSession(deviceId, DEFAULT_LOCALE)
+}
+
+export const assistantParserInternals = {
+  inferIntent,
+  extractDescription,
+  buildSlots,
 }

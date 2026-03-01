@@ -82,10 +82,15 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
     [deviceId],
   )
 
-  const confirm = useCallback(async (commandId: string, confirmed: boolean, spokenText?: string) => {
+  const confirm = useCallback(async (
+    commandId: string,
+    confirmed: boolean,
+    spokenText?: string,
+    editedDescription?: string,
+  ) => {
     setLoading(true)
     try {
-      const result = await confirmAssistantCommand({ commandId, confirmed, spokenText })
+      const result = await confirmAssistantCommand({ commandId, confirmed, spokenText, editedDescription })
       setState((prev) => ({
         ...prev,
         lastConfirmation: result,
