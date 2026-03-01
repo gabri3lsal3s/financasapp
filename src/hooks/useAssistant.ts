@@ -10,6 +10,7 @@ import type {
   AssistantInterpretResult,
   AssistantMonthlyInsightsResult,
   AssistantSession,
+  AssistantSlots,
 } from '@/types'
 
 interface UseAssistantState {
@@ -87,10 +88,11 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
     confirmed: boolean,
     spokenText?: string,
     editedDescription?: string,
+    editedSlots?: AssistantSlots,
   ) => {
     setLoading(true)
     try {
-      const result = await confirmAssistantCommand({ commandId, confirmed, spokenText, editedDescription })
+      const result = await confirmAssistantCommand({ commandId, confirmed, spokenText, editedDescription, editedSlots })
       setState((prev) => ({
         ...prev,
         lastConfirmation: result,

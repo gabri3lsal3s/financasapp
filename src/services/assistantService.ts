@@ -1629,6 +1629,7 @@ export async function confirmAssistantCommand(params: {
   confirmed: boolean
   spokenText?: string
   editedDescription?: string
+  editedSlots?: AssistantSlots
 }): Promise<AssistantConfirmResult> {
   const { data: command, error } = await supabase
     .from('assistant_commands')
@@ -1690,6 +1691,46 @@ export async function confirmAssistantCommand(params: {
   )
 
   const editedDescription = params.editedDescription?.trim()
+  const editedSlots = params.editedSlots
+  if (editedSlots) {
+    const baseSlots = commandToExecute.slots_json || {}
+
+    const normalizedItems = editedSlots.items
+      ?.map((item) => ({
+        ...item,
+        amount: Number(item.amount),
+        report_weight: Number.isFinite(item.report_weight) ? Number(item.report_weight) : undefined,
+        description: item.description?.trim() || undefined,
+        date: item.date?.trim() || undefined,
+        month: item.month?.trim() || undefined,
+      }))
+      .filter((item) => Number.isFinite(item.amount) && item.amount > 0)
+
+    const updatedSlots: AssistantSlots = {
+      ...baseSlots,
+      ...editedSlots,
+      amount: Number.isFinite(editedSlots.amount) ? Number(editedSlots.amount) : baseSlots.amount,
+      description: editedSlots.description?.trim() || baseSlots.description,
+      date: editedSlots.date?.trim() || baseSlots.date,
+      month: editedSlots.month?.trim() || baseSlots.month,
+      category: editedSlots.category || baseSlots.category,
+      items: normalizedItems ?? baseSlots.items,
+    }
+
+    await supabase
+      .from('assistant_commands')
+      .update({
+        slots_json: updatedSlots,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', command.id)
+
+    commandToExecute = {
+      ...commandToExecute,
+      slots_json: updatedSlots,
+    }
+  }
+
   if (editedDescription) {
     const sanitizedDescription = normalizeDescriptionCasing(removeLeadingArticle(editedDescription))
     const originalSlots = commandToExecute.slots_json || {}

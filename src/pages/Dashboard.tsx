@@ -20,6 +20,7 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useAssistant } from '@/hooks/useAssistant'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import type { AssistantResolvedCategory, AssistantSlots } from '@/types'
 import {
   Bar,
   BarChart,
@@ -58,9 +59,7 @@ export default function Dashboard() {
   const [voicePhase, setVoicePhase] = useState<'idle' | 'listening' | 'stopped'>('idle')
   const [lastHeardCommand, setLastHeardCommand] = useState('')
   const [editableConfirmationText, setEditableConfirmationText] = useState('')
-  const [isEditingConfirmationText, setIsEditingConfirmationText] = useState(false)
-  const [editableDescriptionText, setEditableDescriptionText] = useState('')
-  const [isEditingDescriptionText, setIsEditingDescriptionText] = useState(false)
+  const [editableSlots, setEditableSlots] = useState<AssistantSlots | null>(null)
   const activeRecognitionRef = useRef<any | null>(null)
   const [quickAddType, setQuickAddType] = useState<QuickAddType>('expense')
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
@@ -499,10 +498,52 @@ export default function Dashboard() {
   useEffect(() => {
     if (!lastInterpretation) return
     setEditableConfirmationText(lastInterpretation.confirmationText)
-    setEditableDescriptionText(lastInterpretation.slots.description || '')
-    setIsEditingConfirmationText(false)
-    setIsEditingDescriptionText(false)
+    setEditableSlots(JSON.parse(JSON.stringify(lastInterpretation.slots || {})) as AssistantSlots)
   }, [lastInterpretation])
+
+  const updateEditableSlots = (updater: (previous: AssistantSlots) => AssistantSlots) => {
+    setEditableSlots((previous) => {
+      const base = previous || {}
+      return updater(base)
+    })
+  }
+
+  const setSlotCategory = (categoryId: string, transactionType: 'expense' | 'income') => {
+    const sourceList = transactionType === 'expense' ? categories : incomeCategories
+    const selected = sourceList.find((item) => item.id === categoryId)
+    if (!selected) return
+
+    const categoryPayload: AssistantResolvedCategory = {
+      id: selected.id,
+      name: selected.name,
+      confidence: 0.99,
+      source: 'name_match',
+    }
+
+    updateEditableSlots((previous) => ({ ...previous, category: categoryPayload }))
+  }
+
+  const setItemCategory = (index: number, categoryId: string, transactionType: 'expense' | 'income') => {
+    const sourceList = transactionType === 'expense' ? categories : incomeCategories
+    const selected = sourceList.find((item) => item.id === categoryId)
+    if (!selected) return
+
+    const categoryPayload: AssistantResolvedCategory = {
+      id: selected.id,
+      name: selected.name,
+      confidence: 0.99,
+      source: 'name_match',
+    }
+
+    updateEditableSlots((previous) => ({
+      ...previous,
+      items: (previous.items || []).map((item, itemIndex) => (
+        itemIndex === index
+          ? { ...item, category: categoryPayload }
+          : item
+      )),
+    }))
+  }
 
   const resolveVoiceConfirmation = (spokenText: string) => {
     const normalized = spokenText.trim().toLowerCase()
@@ -682,8 +723,8 @@ export default function Dashboard() {
   const handleConfirmAssistant = async (confirmed: boolean) => {
     if (!lastInterpretation?.command.id || !isSupabaseConfigured) return
     const spokenText = editableConfirmationText.trim() || undefined
-    const editedDescription = editableDescriptionText.trim() || undefined
-    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText, editedDescription)
+    const editedDescription = editableSlots?.description?.trim() || undefined
+    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText, editedDescription, editableSlots || undefined)
     if (result.status === 'executed') {
       playAssistantBeep('executed')
     }
@@ -1277,47 +1318,239 @@ export default function Dashboard() {
           </Button>
 
           {lastInterpretation?.requiresConfirmation && (
-            <div className="space-y-2 rounded-lg border border-primary bg-secondary p-3">
-              <div className="rounded-md border border-primary bg-tertiary px-3 py-2">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-secondary">Descrição que será salva</p>
-                {isEditingDescriptionText ? (
-                  <Input
-                    label="Descrição"
-                    value={editableDescriptionText}
-                    onChange={(event) => setEditableDescriptionText(event.target.value)}
-                    onBlur={() => setIsEditingDescriptionText(false)}
-                    autoFocus
-                    disabled={assistantLoading || !isSupabaseConfigured}
-                  />
+            <div className="space-y-3 rounded-lg border border-primary bg-secondary p-3">
+              <div className="rounded-lg border border-primary bg-primary p-3 space-y-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-secondary">Campos editáveis antes do lançamento</p>
+
+                <Input
+                  label="Resumo da confirmação"
+                  value={editableConfirmationText}
+                  onChange={(event) => setEditableConfirmationText(event.target.value)}
+                  disabled={assistantLoading || !isSupabaseConfigured}
+                />
+
+                {(editableSlots?.items?.length || 0) > 0 ? (
+                  <div className="space-y-3">
+                    {(editableSlots?.items || []).map((item, index) => {
+                      const transactionType = item.transactionType || 'expense'
+                      const reportAmount = item.amount > 0 && Number.isFinite(item.report_weight)
+                        ? item.amount * Number(item.report_weight)
+                        : item.amount
+
+                      return (
+                        <div key={`assistant-item-${index}`} className="rounded-md border border-primary bg-tertiary p-3 space-y-2">
+                          <p className="text-xs font-medium text-secondary">Lançamento {index + 1}</p>
+
+                          <Select
+                            label="Tipo"
+                            value={transactionType}
+                            onChange={(event) => {
+                              const nextType = event.target.value as 'expense' | 'income' | 'investment'
+                              updateEditableSlots((previous) => ({
+                                ...previous,
+                                items: (previous.items || []).map((currentItem, itemIndex) => (
+                                  itemIndex === index
+                                    ? { ...currentItem, transactionType: nextType }
+                                    : currentItem
+                                )),
+                              }))
+                            }}
+                            options={[
+                              { value: 'expense', label: 'Despesa' },
+                              { value: 'income', label: 'Renda' },
+                              { value: 'investment', label: 'Investimento' },
+                            ]}
+                            disabled={assistantLoading || !isSupabaseConfigured}
+                          />
+
+                          <Input
+                            label="Descrição"
+                            value={item.description || ''}
+                            onChange={(event) => {
+                              const value = event.target.value
+                              updateEditableSlots((previous) => ({
+                                ...previous,
+                                items: (previous.items || []).map((currentItem, itemIndex) => (
+                                  itemIndex === index
+                                    ? { ...currentItem, description: value }
+                                    : currentItem
+                                )),
+                              }))
+                            }}
+                            disabled={assistantLoading || !isSupabaseConfigured}
+                          />
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Input
+                              label="Valor"
+                              type="text"
+                              inputMode="decimal"
+                              value={formatMoneyInput(Number(item.amount || 0))}
+                              onChange={(event) => {
+                                const parsed = parseMoneyInput(event.target.value)
+                                if (Number.isNaN(parsed)) return
+                                updateEditableSlots((previous) => ({
+                                  ...previous,
+                                  items: (previous.items || []).map((currentItem, itemIndex) => (
+                                    itemIndex === index
+                                      ? { ...currentItem, amount: parsed }
+                                      : currentItem
+                                  )),
+                                }))
+                              }}
+                              disabled={assistantLoading || !isSupabaseConfigured}
+                            />
+
+                            {transactionType !== 'investment' && (
+                              <Input
+                                label="Valor no relatório"
+                                type="text"
+                                inputMode="decimal"
+                                value={formatMoneyInput(Number(reportAmount || 0))}
+                                onChange={(event) => {
+                                  const parsed = parseMoneyInput(event.target.value)
+                                  if (Number.isNaN(parsed) || !item.amount || item.amount <= 0) return
+                                  const reportWeight = Math.min(1, Math.max(0, Number((parsed / item.amount).toFixed(4))))
+                                  updateEditableSlots((previous) => ({
+                                    ...previous,
+                                    items: (previous.items || []).map((currentItem, itemIndex) => (
+                                      itemIndex === index
+                                        ? { ...currentItem, report_weight: reportWeight }
+                                        : currentItem
+                                    )),
+                                  }))
+                                }}
+                                disabled={assistantLoading || !isSupabaseConfigured}
+                              />
+                            )}
+                          </div>
+
+                          {transactionType === 'expense' && (
+                            <Select
+                              label="Categoria"
+                              value={item.category?.id || ''}
+                              onChange={(event) => setItemCategory(index, event.target.value, 'expense')}
+                              options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
+                              disabled={assistantLoading || !isSupabaseConfigured}
+                            />
+                          )}
+
+                          {transactionType === 'income' && (
+                            <Select
+                              label="Categoria de renda"
+                              value={item.category?.id || ''}
+                              onChange={(event) => setItemCategory(index, event.target.value, 'income')}
+                              options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
+                              disabled={assistantLoading || !isSupabaseConfigured}
+                            />
+                          )}
+
+                          {transactionType === 'investment' ? (
+                            <Input
+                              label="Mês"
+                              type="month"
+                              value={item.month || editableSlots?.month || ''}
+                              onChange={(event) => {
+                                const value = event.target.value
+                                updateEditableSlots((previous) => ({
+                                  ...previous,
+                                  items: (previous.items || []).map((currentItem, itemIndex) => (
+                                    itemIndex === index
+                                      ? { ...currentItem, month: value }
+                                      : currentItem
+                                  )),
+                                }))
+                              }}
+                              disabled={assistantLoading || !isSupabaseConfigured}
+                            />
+                          ) : (
+                            <Input
+                              label="Data"
+                              type="date"
+                              value={item.date || editableSlots?.date || ''}
+                              onChange={(event) => {
+                                const value = event.target.value
+                                updateEditableSlots((previous) => ({
+                                  ...previous,
+                                  items: (previous.items || []).map((currentItem, itemIndex) => (
+                                    itemIndex === index
+                                      ? { ...currentItem, date: value }
+                                      : currentItem
+                                  )),
+                                }))
+                              }}
+                              disabled={assistantLoading || !isSupabaseConfigured}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingDescriptionText(true)}
-                    className="w-full text-left text-sm text-primary mt-1 rounded-md px-1 py-1 hover:bg-primary motion-standard"
-                  >
-                    {editableDescriptionText || 'Sem descrição'}
-                  </button>
+                  <>
+                    <Input
+                      label="Descrição"
+                      value={editableSlots?.description || ''}
+                      onChange={(event) => updateEditableSlots((previous) => ({ ...previous, description: event.target.value }))}
+                      disabled={assistantLoading || !isSupabaseConfigured}
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Input
+                        label="Valor"
+                        type="text"
+                        inputMode="decimal"
+                        value={formatMoneyInput(Number(editableSlots?.amount || 0))}
+                        onChange={(event) => {
+                          const parsed = parseMoneyInput(event.target.value)
+                          if (Number.isNaN(parsed)) return
+                          updateEditableSlots((previous) => ({ ...previous, amount: parsed }))
+                        }}
+                        disabled={assistantLoading || !isSupabaseConfigured}
+                      />
+
+                      {lastInterpretation.intent === 'add_investment' ? (
+                        <Input
+                          label="Mês"
+                          type="month"
+                          value={editableSlots?.month || ''}
+                          onChange={(event) => updateEditableSlots((previous) => ({ ...previous, month: event.target.value }))}
+                          disabled={assistantLoading || !isSupabaseConfigured}
+                        />
+                      ) : (
+                        <Input
+                          label="Data"
+                          type="date"
+                          value={editableSlots?.date || ''}
+                          onChange={(event) => updateEditableSlots((previous) => ({ ...previous, date: event.target.value }))}
+                          disabled={assistantLoading || !isSupabaseConfigured}
+                        />
+                      )}
+                    </div>
+
+                    {lastInterpretation.intent === 'add_expense' && (
+                      <Select
+                        label="Categoria"
+                        value={editableSlots?.category?.id || ''}
+                        onChange={(event) => setSlotCategory(event.target.value, 'expense')}
+                        options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
+                        disabled={assistantLoading || !isSupabaseConfigured}
+                      />
+                    )}
+
+                    {lastInterpretation.intent === 'add_income' && (
+                      <Select
+                        label="Categoria de renda"
+                        value={editableSlots?.category?.id || ''}
+                        onChange={(event) => setSlotCategory(event.target.value, 'income')}
+                        options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
+                        disabled={assistantLoading || !isSupabaseConfigured}
+                      />
+                    )}
+                  </>
                 )}
               </div>
 
-              {isEditingConfirmationText ? (
-                <Input
-                  label="Texto da confirmação"
-                  value={editableConfirmationText}
-                  onChange={(event) => setEditableConfirmationText(event.target.value)}
-                  onBlur={() => setIsEditingConfirmationText(false)}
-                  autoFocus
-                  disabled={assistantLoading || !isSupabaseConfigured}
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingConfirmationText(true)}
-                  className="w-full text-left text-sm text-primary rounded-md px-1 py-1 hover:bg-tertiary motion-standard"
-                >
-                  {editableConfirmationText || lastInterpretation.confirmationText}
-                </button>
-              )}
               <div className={`grid grid-cols-1 gap-2 ${lastInterpretation.intent === 'add_expense' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
                 <Button
                   onClick={() => handleConfirmAssistant(true)}
@@ -1345,6 +1578,7 @@ export default function Dashboard() {
                   </Button>
                 )}
               </div>
+
               {lastInterpretation.intent === 'add_expense' && (
                 <p className="text-xs text-secondary">Para despesas, a confirmação é feita manualmente pelos botões acima.</p>
               )}
