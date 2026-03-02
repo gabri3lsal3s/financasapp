@@ -2233,6 +2233,64 @@ const prioritizeInsightLines = (
     .map((item) => item.message)
 }
 
+const mergeRelatedConclusiveHighlights = (highlights: string[]) => {
+  const concentrationRegex = /^(.+?) concentrou (\d+(?:[.,]\d+)?)% das despesas do mês\.$/i
+  const overLimitRegex = /^(.+?) passou do limite em (\d+(?:[.,]\d+)?)%\.$/i
+
+  let concentrationIndex = -1
+  let overLimitIndex = -1
+  let concentrationCategory = ''
+  let concentrationPct = ''
+  let overLimitCategory = ''
+  let overLimitPct = ''
+
+  highlights.forEach((line, index) => {
+    const concentrationMatch = line.match(concentrationRegex)
+    if (concentrationMatch && concentrationIndex < 0) {
+      concentrationIndex = index
+      concentrationCategory = concentrationMatch[1].trim()
+      concentrationPct = concentrationMatch[2]
+    }
+
+    const overLimitMatch = line.match(overLimitRegex)
+    if (overLimitMatch && overLimitIndex < 0) {
+      overLimitIndex = index
+      overLimitCategory = overLimitMatch[1].trim()
+      overLimitPct = overLimitMatch[2]
+    }
+  })
+
+  if (concentrationIndex < 0 || overLimitIndex < 0) return highlights
+  if (normalizeText(concentrationCategory) !== normalizeText(overLimitCategory)) return highlights
+
+  const mergedLine = `${overLimitCategory} passou do limite em ${overLimitPct}% concentrando ${concentrationPct}% das despesas.`
+
+  const firstIndex = Math.min(concentrationIndex, overLimitIndex)
+  const secondIndex = Math.max(concentrationIndex, overLimitIndex)
+  const mergedHighlights = [...highlights]
+  mergedHighlights[firstIndex] = mergedLine
+  mergedHighlights.splice(secondIndex, 1)
+
+  return mergedHighlights
+}
+
+const buildInProgressRecommendations = (highlights: string[], recommendations: string[]) => {
+  const contextualRecommendations = [
+    ...recommendations,
+    ...highlights.map((item) => `Com base no andamento atual do mês, vale revisar este ponto: ${item.replace(/[.!?]+$/, '')}.`),
+  ]
+
+  const seen = new Set<string>()
+  const uniqueRecommendations = contextualRecommendations.filter((message) => {
+    const key = normalizeInsightKey(message)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return uniqueRecommendations.slice(0, 3)
+}
+
 const median = (values: number[]) => {
   if (!values.length) return 0
   const sorted = [...values].sort((a, b) => a - b)
@@ -2848,7 +2906,11 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     const topCategoryShare = safePercent(topCategoryEntry[1], currentTotals.expenses)
 
     if (topCategoryShare >= 45) {
-      highlights.push(`${topCategoryEntry[0]} concentrou ${topCategoryShare.toFixed(0)}% das despesas do mês.`)
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `${topCategoryEntry[0]} concentrou ${topCategoryShare.toFixed(0)}% das despesas do mês.`
+          : `${topCategoryEntry[0]} está concentrando ${topCategoryShare.toFixed(0)}% das despesas do mês.`,
+      )
 
       if (topCategoryImportance === 'essential') {
         recommendations.push(`Como ${topCategoryEntry[0]} é uma categoria essencial, a melhor estratégia é buscar eficiência (renegociação ou ajuste de frequência) sem perder qualidade.`)
@@ -2892,7 +2954,11 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       const importance = getCategoryImportance(exceededLimit.categoryName)
       const overLimitPct = safePercent(exceededLimit.used - exceededLimit.limit, Math.max(exceededLimit.limit, 1))
 
-      highlights.push(`${exceededLimit.categoryName} passou do limite em ${overLimitPct.toFixed(0)}%.`)
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `${exceededLimit.categoryName} passou do limite em ${overLimitPct.toFixed(0)}%.`
+          : `${exceededLimit.categoryName} está acima do limite em ${overLimitPct.toFixed(0)}% até o momento.`,
+      )
 
       if (importance === 'essential') {
         recommendations.push(`Como é uma categoria essencial, o foco aqui é otimizar custos sem cortar o necessário (troca de plano, fornecedor ou frequência).`)
@@ -2930,7 +2996,11 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       const parsedPeakDay = parse(peakDay, 'yyyy-MM-dd', new Date())
       const weekdayNames = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
       const peakWeekday = isValid(parsedPeakDay) ? weekdayNames[parsedPeakDay.getDay()] : 'um único dia'
-      highlights.push(`Houve um pico de gastos concentrado em ${peakWeekday}, acima do seu padrão diário mais comum.`)
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `Houve um pico de gastos concentrado em ${peakWeekday}, acima do seu padrão diário mais comum.`
+          : `Há um pico de gastos em ${peakWeekday} acima do seu padrão diário até aqui.`,
+      )
       recommendations.push('Vale distribuir compras maiores ao longo das semanas para deixar o fluxo mais leve e previsível.')
     }
   }
@@ -2969,9 +3039,17 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   if (currentTotals.incomes > 0) {
     const investmentRate = safePercent(currentTotals.investments, currentTotals.incomes)
     if (currentTotals.investments <= 0) {
-      recommendations.push('Ainda não houve aporte neste mês; separar um valor fixo, mesmo pequeno, ajuda a manter as metas de longo prazo em movimento.')
+      recommendations.push(
+        allowsConclusiveComparisons
+          ? 'No mês analisado, não houve aporte; definir um valor fixo para os próximos meses ajuda a manter as metas de longo prazo em movimento.'
+          : 'Ainda não houve aporte neste mês; separar um valor fixo, mesmo pequeno, ajuda a manter as metas de longo prazo em movimento.',
+      )
     } else if (investmentRate < 10) {
-      recommendations.push('A taxa de aporte está abaixo do ideal para este mês; automatizar um valor mínimo semanal pode facilitar a consistência.')
+      recommendations.push(
+        allowsConclusiveComparisons
+          ? 'No mês analisado, a taxa de aporte ficou abaixo do ideal; automatizar um valor mínimo semanal pode facilitar a consistência nos próximos meses.'
+          : 'A taxa de aporte está abaixo do ideal para este mês; automatizar um valor mínimo semanal pode facilitar a consistência.',
+      )
     }
   }
 
@@ -3050,20 +3128,50 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     }
   }
 
+  if (allowsConclusiveComparisons) {
+    const previousMonthBalance = previousTotals.incomes - previousTotals.expenses - previousTotals.investments
+    const balanceDelta = currentBalance - previousMonthBalance
+    const balanceDeltaPct = safePercent(Math.abs(balanceDelta), Math.max(Math.abs(previousMonthBalance), 1))
+
+    if (balanceDelta > 0 && balanceDeltaPct >= 10) {
+      highlights.push(`O saldo final ficou ${balanceDeltaPct.toFixed(0)}% acima do mês anterior.`)
+    } else if (balanceDelta < 0 && balanceDeltaPct >= 10) {
+      highlights.push(`O saldo final ficou ${balanceDeltaPct.toFixed(0)}% abaixo do mês anterior.`)
+    }
+
+    recommendations.length = 0
+  }
+
   if (!highlights.length) {
     highlights.push('Não há sinal crítico relevante nos lançamentos analisados até agora.')
   }
 
-  if (!recommendations.length) {
+  if (!recommendations.length && !allowsConclusiveComparisons) {
     recommendations.push(
-      allowsConclusiveComparisons
-        ? 'Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade nos próximos meses.'
-        : 'Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.',
+      'Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.',
     )
   }
 
-  const prioritizedHighlights = prioritizeInsightLines(highlights, 2, 'highlight')
-  const prioritizedRecommendations = prioritizeInsightLines(recommendations, 2, 'recommendation')
+  if (!allowsConclusiveComparisons) {
+    return {
+      month: targetMonth,
+      highlights: [],
+      recommendations: buildInProgressRecommendations(highlights, recommendations),
+    }
+  }
+
+  const finalHighlights = allowsConclusiveComparisons
+    ? mergeRelatedConclusiveHighlights(highlights)
+    : highlights
+
+  const prioritizedHighlights = prioritizeInsightLines(
+    finalHighlights,
+    allowsConclusiveComparisons ? 3 : 2,
+    'highlight',
+  )
+  const prioritizedRecommendations = allowsConclusiveComparisons
+    ? []
+    : prioritizeInsightLines(recommendations, 2, 'recommendation')
 
   return {
     month: targetMonth,
@@ -3081,4 +3189,6 @@ export const assistantParserInternals = {
   extractDescription,
   buildSlots,
   getInsightTimingProfile,
+  mergeRelatedConclusiveHighlights,
+  buildInProgressRecommendations,
 }

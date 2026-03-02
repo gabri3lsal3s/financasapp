@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [monthlyInsights, setMonthlyInsights] = useState<string[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [insightsError, setInsightsError] = useState<string | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => {
@@ -243,6 +244,20 @@ export default function Dashboard() {
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
       .sort((a, b) => b.usagePercentage - a.usagePercentage)
   }, [expenseByCategory, expenseLimitMap])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(max-width: 640px)')
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches)
+
+    updateViewport()
+    mediaQuery.addEventListener('change', updateViewport)
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateViewport)
+    }
+  }, [])
 
   useEffect(() => {
     let isCancelled = false
@@ -507,6 +522,30 @@ export default function Dashboard() {
     const withoutTrailingDot = normalized.map((item) => item.replace(/[.!?]+$/, ''))
     const firstSentence = `${withoutTrailingDot[0]}.`
 
+    const simplifyForMobile = (value: string) => {
+      const compact = value
+        .replace(/^Com base no andamento atual do mês,\s*/i, '')
+        .replace(/^No mês analisado,\s*/i, '')
+        .replace(/^vale revisar este ponto:\s*/i, '')
+        .replace(/\s+até o momento$/i, '')
+        .replace(/\s+até aqui$/i, '')
+        .trim()
+
+      const firstClause = compact.split(/[;:]/)[0]?.trim() || compact
+      return firstClause || compact
+    }
+
+    if (isMobileViewport) {
+      const firstMobileSentence = simplifyForMobile(withoutTrailingDot[0])
+
+      if (withoutTrailingDot.length === 1) {
+        return `${firstMobileSentence}.`
+      }
+
+      const secondMobileSentence = simplifyForMobile(withoutTrailingDot[1])
+      return `${firstMobileSentence}. ${secondMobileSentence}.`
+    }
+
     if (withoutTrailingDot.length === 2) {
       return insightNarrativeMoment.isFinalized
         ? `${firstSentence} Além disso, ${withoutTrailingDot[1]}.`
@@ -514,9 +553,9 @@ export default function Dashboard() {
     }
 
     return insightNarrativeMoment.isFinalized
-      ? `${firstSentence} ${withoutTrailingDot[1]}. Além disso, ${withoutTrailingDot[2]}.`
+      ? `${firstSentence} ${withoutTrailingDot[1]}. ${withoutTrailingDot[2]}.`
       : `${firstSentence} ${withoutTrailingDot[1]}. Para os próximos dias, ${withoutTrailingDot[2]}.`
-  }, [monthlyInsights, insightNarrativeMoment.isFinalized])
+  }, [monthlyInsights, insightNarrativeMoment.isFinalized, isMobileViewport])
 
   const openQuickAdd = (type: QuickAddType) => {
     setQuickAddType(type)

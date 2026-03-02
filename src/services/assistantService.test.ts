@@ -99,6 +99,49 @@ describe('assistant insights - momento do mês', () => {
   })
 })
 
+describe('assistant insights - regressões de narrativa', () => {
+  it('mescla over-limit e concentração da mesma categoria em frase única', () => {
+    const merged = assistantParserInternals.mergeRelatedConclusiveHighlights([
+      'Compras passou do limite em 1329%.',
+      'Seu padrão semanal mostra maior pressão na quarta-feira, quando seus gastos costumam pesar mais.',
+      'Compras concentrou 55% das despesas do mês.',
+    ])
+
+    expect(merged).toContain('Compras passou do limite em 1329% concentrando 55% das despesas.')
+    expect(merged).toContain('Seu padrão semanal mostra maior pressão na quarta-feira, quando seus gastos costumam pesar mais.')
+    expect(merged.some((line) => line === 'Compras passou do limite em 1329%.')).toBe(false)
+    expect(merged.some((line) => line === 'Compras concentrou 55% das despesas do mês.')).toBe(false)
+  })
+
+  it('não mescla frases quando as categorias são diferentes', () => {
+    const merged = assistantParserInternals.mergeRelatedConclusiveHighlights([
+      'Compras passou do limite em 1329%.',
+      'Alimentação concentrou 55% das despesas do mês.',
+    ])
+
+    expect(merged).toHaveLength(2)
+    expect(merged).toContain('Compras passou do limite em 1329%.')
+    expect(merged).toContain('Alimentação concentrou 55% das despesas do mês.')
+  })
+
+  it('gera somente recomendações contextuais para mês em andamento', () => {
+    const recommendations = assistantParserInternals.buildInProgressRecommendations(
+      [
+        'Alimentação está concentrando 100% das despesas do mês.',
+        'Há um pico de gastos em terça-feira acima do seu padrão diário até aqui.',
+      ],
+      [
+        'Use os padrões já vistos no mês para reduzir pressão nos dias restantes e preservar margem de segurança.',
+      ],
+    )
+
+    expect(recommendations.length).toBeGreaterThan(0)
+    expect(recommendations.length).toBeLessThanOrEqual(3)
+    expect(recommendations.some((line) => /Com base no andamento atual do mês/i.test(line))).toBe(true)
+    expect(recommendations.some((line) => line.includes('Alimentação está concentrando 100% das despesas do mês'))).toBe(true)
+  })
+})
+
 describe('assistant parser - despesas por contexto de categoria', () => {
   it('identifica transporte com uber sem verbo de comando', () => {
     const text = 'Paguei uber 23,90 ontem'

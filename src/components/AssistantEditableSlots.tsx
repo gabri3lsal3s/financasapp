@@ -19,6 +19,30 @@ interface AssistantEditableSlotsProps {
   onUpdate: (updater: (previous: AssistantSlots) => AssistantSlots) => void
 }
 
+const normalizeCategoryName = (value?: string) =>
+  (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+const resolveCategoryIdForSelect = (
+  category: AssistantResolvedCategory | undefined,
+  sourceList: CategoryOption[],
+) => {
+  if (!category) return ''
+
+  if (category.id && sourceList.some((item) => item.id === category.id)) {
+    return category.id
+  }
+
+  const normalizedCategoryName = normalizeCategoryName(category.name)
+  if (!normalizedCategoryName) return ''
+
+  const byName = sourceList.find((item) => normalizeCategoryName(item.name) === normalizedCategoryName)
+  return byName?.id || ''
+}
+
 const resolveSingleTransactionType = (slots: AssistantSlots | null, intent: AssistantIntent): 'expense' | 'income' | 'investment' => {
   if (slots?.transactionType) return slots.transactionType
   if (intent === 'add_investment') return 'investment'
@@ -35,6 +59,14 @@ export default function AssistantEditableSlots({
   fallbackMonth,
   onUpdate,
 }: AssistantEditableSlotsProps) {
+  const resolveSelectedCategoryId = (
+    category: AssistantResolvedCategory | undefined,
+    transactionType: 'expense' | 'income',
+  ) => {
+    const sourceList = transactionType === 'expense' ? categories : incomeCategories
+    return resolveCategoryIdForSelect(category, sourceList)
+  }
+
   const setSlotCategory = (categoryId: string, transactionType: 'expense' | 'income') => {
     if (!categoryId) {
       onUpdate((previous) => ({ ...previous, category: undefined }))
@@ -216,7 +248,7 @@ export default function AssistantEditableSlots({
               {transactionType === 'expense' && (
                 <Select
                   label="Categoria"
-                  value={item.category?.id || ''}
+                  value={resolveSelectedCategoryId(item.category, 'expense')}
                   onChange={(event) => setItemCategory(index, event.target.value, 'expense')}
                   options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
                   disabled={disabled}
@@ -226,7 +258,7 @@ export default function AssistantEditableSlots({
               {transactionType === 'income' && (
                 <Select
                   label="Categoria de renda"
-                  value={item.category?.id || ''}
+                  value={resolveSelectedCategoryId(item.category, 'income')}
                   onChange={(event) => setItemCategory(index, event.target.value, 'income')}
                   options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
                   disabled={disabled}
@@ -371,7 +403,7 @@ export default function AssistantEditableSlots({
       {singleTransactionType === 'expense' && (
         <Select
           label="Categoria"
-          value={editableSlots?.category?.id || ''}
+          value={resolveSelectedCategoryId(editableSlots?.category, 'expense')}
           onChange={(event) => setSlotCategory(event.target.value, 'expense')}
           options={[{ value: '', label: 'Selecionar categoria' }, ...categories.map((category) => ({ value: category.id, label: category.name }))]}
           disabled={disabled}
@@ -381,7 +413,7 @@ export default function AssistantEditableSlots({
       {singleTransactionType === 'income' && (
         <Select
           label="Categoria de renda"
-          value={editableSlots?.category?.id || ''}
+          value={resolveSelectedCategoryId(editableSlots?.category, 'income')}
           onChange={(event) => setSlotCategory(event.target.value, 'income')}
           options={[{ value: '', label: 'Selecionar categoria' }, ...incomeCategories.map((category) => ({ value: category.id, label: category.name }))]}
           disabled={disabled}
@@ -389,4 +421,9 @@ export default function AssistantEditableSlots({
       )}
     </>
   )
+}
+
+export const assistantEditableSlotsInternals = {
+  normalizeCategoryName,
+  resolveCategoryIdForSelect,
 }
