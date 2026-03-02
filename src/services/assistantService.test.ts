@@ -61,6 +61,44 @@ describe('assistant parser - interpretação contextual', () => {
   })
 })
 
+describe('assistant insights - momento do mês', () => {
+  it('classifica início do mês como análise em andamento sem comparações fortes', () => {
+    const profile = assistantParserInternals.getInsightTimingProfile('2026-03', new Date('2026-03-01T12:00:00'))
+
+    expect(profile.analysisPhase).toBe('early')
+    expect(profile.isFinalizedAnalysis).toBe(false)
+    expect(profile.allowsConclusiveComparisons).toBe(false)
+    expect(profile.allowsMixedComparisons).toBe(false)
+  })
+
+  it('classifica meio do mês como análise em andamento com comparações mistas', () => {
+    const profile = assistantParserInternals.getInsightTimingProfile('2026-03', new Date('2026-03-16T12:00:00'))
+
+    expect(profile.analysisPhase).toBe('middle')
+    expect(profile.isFinalizedAnalysis).toBe(false)
+    expect(profile.allowsConclusiveComparisons).toBe(false)
+    expect(profile.allowsMixedComparisons).toBe(true)
+  })
+
+  it('classifica último dia do mês como análise finalizada com comparações conclusivas', () => {
+    const profile = assistantParserInternals.getInsightTimingProfile('2026-03', new Date('2026-03-31T12:00:00'))
+
+    expect(profile.analysisPhase).toBe('closing')
+    expect(profile.isFinalizedAnalysis).toBe(true)
+    expect(profile.allowsConclusiveComparisons).toBe(true)
+    expect(profile.allowsMixedComparisons).toBe(false)
+  })
+
+  it('classifica mês anterior como fechado e finalizado', () => {
+    const profile = assistantParserInternals.getInsightTimingProfile('2026-03', new Date('2026-04-01T12:00:00'))
+
+    expect(profile.analysisPhase).toBe('closed')
+    expect(profile.isFinalizedAnalysis).toBe(true)
+    expect(profile.allowsConclusiveComparisons).toBe(true)
+    expect(profile.allowsMixedComparisons).toBe(false)
+  })
+})
+
 describe('assistant parser - despesas por contexto de categoria', () => {
   it('identifica transporte com uber sem verbo de comando', () => {
     const text = 'Paguei uber 23,90 ontem'

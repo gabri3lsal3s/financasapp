@@ -1143,7 +1143,7 @@ export default function Reports() {
         ) : (
           <>
             {viewMode === 'year' ? (
-              <div className="space-y-4 lg:space-y-6">
+              <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
                   <Card className="h-full">
                     <p className="text-sm text-secondary">Rendas no ano</p>
@@ -1211,7 +1211,7 @@ export default function Reports() {
                   {renderPieCard(`Rendas por categoria (${selectedYear})`, annualPieIncomes)}
                 </div>
 
-                <div className="space-y-4 lg:space-y-6">
+                <div className="space-y-4">
                   <Card className="h-full flex flex-col">
                     <h3 className="text-lg font-semibold text-primary mb-4">Evolução mensal por categoria (despesas)</h3>
                     {annualExpenseTrendSeries.length === 0 || annualExpenseTrendVisibleData.length === 0 ? (
@@ -1283,7 +1283,7 @@ export default function Reports() {
 
               </div>
             ) : monthSummary ? (
-              <div className="space-y-4 lg:space-y-6">
+              <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
                   <Card className="h-full">
                     <p className="text-sm text-secondary">Rendas de {formatMonth(selectedMonth)}</p>

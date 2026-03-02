@@ -1998,27 +1998,94 @@ const monthHasAnyData = async (month: string): Promise<boolean> => {
   return hasExpenses || hasIncomes || hasInvestments
 }
 
-const fetchMonthTotals = async (month: string) => {
+const getMonthRange = (month: string) => {
   const start = `${month}-01`
   const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
-  const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
-
-  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
-    supabase.from('expenses').select('amount, report_weight').gte('date', start).lte('date', end),
-    supabase.from('incomes').select('amount, report_weight').gte('date', start).lte('date', end),
-    supabase.from('investments').select('amount').eq('month', month),
-  ])
+  const monthEndDate = endOfMonth(parsedStart)
 
   return {
-    expenses: (expensesResult.data || []).reduce((sum, item) => sum + (Number(item.amount || 0) * Number(item.report_weight ?? 1)), 0),
-    incomes: (incomesResult.data || []).reduce((sum, item) => sum + (Number(item.amount || 0) * Number(item.report_weight ?? 1)), 0),
+    start,
+    parsedStart,
+    end: format(monthEndDate, 'yyyy-MM-dd'),
+    daysInMonth: monthEndDate.getDate(),
+  }
+}
+
+const getAnalysisEndDate = (month: string, dayOfMonth: number) => {
+  const { parsedStart, daysInMonth } = getMonthRange(month)
+  const boundedDay = Math.max(1, Math.min(dayOfMonth, daysInMonth))
+  return format(new Date(parsedStart.getFullYear(), parsedStart.getMonth(), boundedDay), 'yyyy-MM-dd')
+}
+
+const isValidMonthDate = (month: string, dateValue: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return false
+  if (!dateValue.startsWith(`${month}-`)) return false
+
+  const parsed = parse(dateValue, 'yyyy-MM-dd', new Date())
+  if (!isValid(parsed)) return false
+
+  return format(parsed, 'yyyy-MM-dd') === dateValue
+}
+
+const sanitizeReportWeight = (reportWeight?: number | null) => {
+  const parsedWeight = Number(reportWeight ?? 1)
+
+  if (!Number.isFinite(parsedWeight) || parsedWeight <= 0 || parsedWeight > 1) {
+    return {
+      weight: 1,
+      corrected: true,
+    }
+  }
+
+  return {
+    weight: parsedWeight,
+    corrected: false,
+  }
+}
+
+const fetchMonthTotals = async (
+  month: string,
+  options?: { throughDayOfMonth?: number; includeInvestments?: boolean },
+) => {
+  const { start, end } = getMonthRange(month)
+  const partialEnd = typeof options?.throughDayOfMonth === 'number'
+    ? getAnalysisEndDate(month, options.throughDayOfMonth)
+    : end
+  const includeInvestments = options?.includeInvestments ?? !options?.throughDayOfMonth
+
+  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
+    supabase.from('expenses').select('amount, report_weight, date').gte('date', start).lte('date', partialEnd),
+    supabase.from('incomes').select('amount, report_weight, date').gte('date', start).lte('date', partialEnd),
+    includeInvestments
+      ? supabase.from('investments').select('amount').eq('month', month)
+      : Promise.resolve({ data: [] as Array<{ amount?: number | null }> }),
+  ])
+
+  const expenseRows = (expensesResult.data || []) as Array<{ amount?: number | null; report_weight?: number | null; date?: string | null }>
+  const incomeRows = (incomesResult.data || []) as Array<{ amount?: number | null; report_weight?: number | null; date?: string | null }>
+
+  return {
+    expenses: expenseRows.reduce((sum, item) => {
+      const amount = Number(item.amount || 0)
+      if (!Number.isFinite(amount) || amount <= 0) return sum
+      if (!isValidMonthDate(month, String(item.date || ''))) return sum
+      const { weight } = sanitizeReportWeight(item.report_weight)
+      return sum + (amount * weight)
+    }, 0),
+    incomes: incomeRows.reduce((sum, item) => {
+      const amount = Number(item.amount || 0)
+      if (!Number.isFinite(amount) || amount <= 0) return sum
+      if (!isValidMonthDate(month, String(item.date || ''))) return sum
+      const { weight } = sanitizeReportWeight(item.report_weight)
+      return sum + (amount * weight)
+    }, 0),
     investments: (investmentsResult.data || []).reduce((sum, item) => sum + Number(item.amount || 0), 0),
   }
 }
 
 type InsightExpenseRow = {
   amount: number
-  report_weight?: number
+  report_weight?: number | null
   date: string
   description?: string | null
   category?: { name?: string } | null
@@ -2026,16 +2093,34 @@ type InsightExpenseRow = {
 
 type InsightIncomeRow = {
   amount: number
-  report_weight?: number
+  report_weight?: number | null
   date: string
   description?: string | null
 }
 
-const getWeightedAmount = (amount: number, reportWeight?: number | null) => amount * Number(reportWeight ?? 1)
+type InsightValidationSummary = {
+  invalidExpenseRows: number
+  invalidIncomeRows: number
+  correctedWeights: number
+  ignoredFutureRows: number
+}
+
+const createInsightValidationSummary = (): InsightValidationSummary => ({
+  invalidExpenseRows: 0,
+  invalidIncomeRows: 0,
+  correctedWeights: 0,
+  ignoredFutureRows: 0,
+})
+
+const getWeightedAmount = (amount: number, reportWeight?: number | null) => {
+  if (!Number.isFinite(amount) || amount <= 0) return 0
+  const { weight } = sanitizeReportWeight(reportWeight)
+  return amount * weight
+}
 
 const getMonthKeyFromDate = (dateValue: string) => {
   const parsed = parse(dateValue, 'yyyy-MM-dd', new Date())
-  if (!isValid(parsed)) return clampMonthToAppStart(dateValue.slice(0, 7))
+  if (!isValid(parsed) || format(parsed, 'yyyy-MM-dd') !== dateValue) return ''
   return clampMonthToAppStart(format(parsed, 'yyyy-MM'))
 }
 
@@ -2075,13 +2160,6 @@ const getCategoryImportance = (categoryName: string): CategoryImportance => {
   }
 
   return 'flexible'
-}
-
-const getImportanceLabel = (importance: CategoryImportance) => {
-  if (importance === 'essential') return 'essencial'
-  if (importance === 'strategic') return 'estratégica'
-  if (importance === 'uncategorized') return 'ainda sem classificação'
-  return 'flexível'
 }
 
 const safePercent = (value: number, total: number) => {
@@ -2165,10 +2243,12 @@ const median = (values: number[]) => {
   return sorted[middle]
 }
 
-const fetchMonthInsightDataset = async (month: string) => {
-  const start = `${month}-01`
-  const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
-  const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
+const fetchMonthInsightDataset = async (
+  month: string,
+  options?: { analysisEndDate?: string },
+) => {
+  const { start, end } = getMonthRange(month)
+  const analysisEndDate = options?.analysisEndDate
 
   const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
     supabase
@@ -2187,17 +2267,77 @@ const fetchMonthInsightDataset = async (month: string) => {
       .eq('month', month),
   ])
 
-  const expenses = (expensesResult.data || []) as InsightExpenseRow[]
-  const incomes = (incomesResult.data || []) as InsightIncomeRow[]
+  const rawExpenses = (expensesResult.data || []) as InsightExpenseRow[]
+  const rawIncomes = (incomesResult.data || []) as InsightIncomeRow[]
+  const validation = createInsightValidationSummary()
+
+  const expenses = rawExpenses.reduce<InsightExpenseRow[]>((acc, item) => {
+    const amount = Number(item.amount || 0)
+    const date = String(item.date || '')
+
+    if (!Number.isFinite(amount) || amount <= 0 || !isValidMonthDate(month, date)) {
+      validation.invalidExpenseRows += 1
+      return acc
+    }
+
+    if (analysisEndDate && date > analysisEndDate) {
+      validation.ignoredFutureRows += 1
+      return acc
+    }
+
+    const { weight, corrected } = sanitizeReportWeight(item.report_weight)
+    if (corrected) validation.correctedWeights += 1
+
+    acc.push({
+      ...item,
+      amount,
+      date,
+      report_weight: weight,
+    })
+
+    return acc
+  }, [])
+
+  const incomes = rawIncomes.reduce<InsightIncomeRow[]>((acc, item) => {
+    const amount = Number(item.amount || 0)
+    const date = String(item.date || '')
+
+    if (!Number.isFinite(amount) || amount <= 0 || !isValidMonthDate(month, date)) {
+      validation.invalidIncomeRows += 1
+      return acc
+    }
+
+    if (analysisEndDate && date > analysisEndDate) {
+      validation.ignoredFutureRows += 1
+      return acc
+    }
+
+    const { weight, corrected } = sanitizeReportWeight(item.report_weight)
+    if (corrected) validation.correctedWeights += 1
+
+    acc.push({
+      ...item,
+      amount,
+      date,
+      report_weight: weight,
+    })
+
+    return acc
+  }, [])
+
+  const investments = ((investmentsResult.data || []) as Array<{ amount?: number | null }>)
+    .map((item) => Number(item.amount || 0))
+    .filter((amount) => Number.isFinite(amount) && amount > 0)
 
   return {
     expenses,
     incomes,
-    investments: investmentsResult.data || [],
+    investments,
+    validation,
     totals: {
       expenses: expenses.reduce((sum, item) => sum + getWeightedAmount(Number(item.amount || 0), item.report_weight), 0),
       incomes: incomes.reduce((sum, item) => sum + getWeightedAmount(Number(item.amount || 0), item.report_weight), 0),
-      investments: (investmentsResult.data || []).reduce((sum, item) => sum + Number(item.amount || 0), 0),
+      investments: investments.reduce((sum, amount) => sum + amount, 0),
     },
   }
 }
@@ -2234,19 +2374,26 @@ const fetchHistoricalMonthSeries = async (targetMonth: string, lookbackMonths: n
 
   ;(expensesResult.data || []).forEach((item) => {
     const monthKey = getMonthKeyFromDate(String(item.date || ''))
+    if (!monthKey) return
     const weighted = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    if (weighted <= 0) return
     expenseByMonth.set(monthKey, (expenseByMonth.get(monthKey) || 0) + weighted)
   })
 
   ;(incomesResult.data || []).forEach((item) => {
     const monthKey = getMonthKeyFromDate(String(item.date || ''))
+    if (!monthKey) return
     const weighted = getWeightedAmount(Number(item.amount || 0), item.report_weight)
+    if (weighted <= 0) return
     incomeByMonth.set(monthKey, (incomeByMonth.get(monthKey) || 0) + weighted)
   })
 
   ;(investmentsResult.data || []).forEach((item) => {
     const monthKey = String(item.month || '')
-    investmentByMonth.set(monthKey, (investmentByMonth.get(monthKey) || 0) + Number(item.amount || 0))
+    if (!/^\d{4}-\d{2}$/.test(monthKey)) return
+    const amount = Number(item.amount || 0)
+    if (!Number.isFinite(amount) || amount <= 0) return
+    investmentByMonth.set(monthKey, (investmentByMonth.get(monthKey) || 0) + amount)
   })
 
   return recentMonths.map((month) => {
@@ -2261,6 +2408,40 @@ const fetchHistoricalMonthSeries = async (targetMonth: string, lookbackMonths: n
       balance: incomes - expenses - investments,
     }
   })
+}
+
+type InsightTimingPhase = 'early' | 'middle' | 'closing' | 'closed'
+
+const getInsightTimingProfile = (targetMonth: string, referenceDate = new Date()) => {
+  const currentMonthKey = clampMonthToAppStart(format(referenceDate, 'yyyy-MM'))
+  const isClosedMonth = targetMonth < currentMonthKey
+  const isCurrentMonth = currentMonthKey === targetMonth
+  const { daysInMonth } = getMonthRange(targetMonth)
+  const elapsedDays = isCurrentMonth ? Math.min(referenceDate.getDate(), daysInMonth) : daysInMonth
+  const isLastDayOfCurrentMonth = isCurrentMonth && referenceDate.getDate() >= daysInMonth
+  const isFinalizedAnalysis = isClosedMonth || isLastDayOfCurrentMonth
+  const monthProgressPct = (elapsedDays / Math.max(daysInMonth, 1)) * 100
+  const analysisEndDate = getAnalysisEndDate(targetMonth, elapsedDays)
+  const analysisPhase: InsightTimingPhase = isClosedMonth
+    ? 'closed'
+    : monthProgressPct < 35
+      ? 'early'
+      : monthProgressPct < 85
+        ? 'middle'
+        : 'closing'
+
+  return {
+    isClosedMonth,
+    isCurrentMonth,
+    daysInMonth,
+    elapsedDays,
+    monthProgressPct,
+    analysisEndDate,
+    analysisPhase,
+    isFinalizedAnalysis,
+    allowsConclusiveComparisons: isFinalizedAnalysis,
+    allowsMixedComparisons: !isFinalizedAnalysis && (analysisPhase === 'middle' || analysisPhase === 'closing'),
+  }
 }
 
 export async function interpretAssistantCommand(params: {
@@ -2538,6 +2719,17 @@ export async function confirmAssistantCommand(params: {
 
 export async function getAssistantMonthlyInsights(month?: string): Promise<AssistantMonthlyInsightsResult> {
   const targetMonth = clampMonthToAppStart(month || format(new Date(), 'yyyy-MM'))
+  const timing = getInsightTimingProfile(targetMonth, new Date())
+  const {
+    isClosedMonth,
+    isCurrentMonth,
+    elapsedDays,
+    daysInMonth,
+    analysisEndDate,
+    analysisPhase,
+    allowsConclusiveComparisons,
+    allowsMixedComparisons,
+  } = timing
 
   if (!(await monthHasAnyData(targetMonth))) {
     return {
@@ -2553,9 +2745,21 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   const previousYearMonth = getPreviousYearMonth(targetMonth)
 
   const [currentData, previousTotals, previousYearTotals, monthSeries, limitsResult] = await Promise.all([
-    fetchMonthInsightDataset(targetMonth),
-    fetchMonthTotals(previousMonth),
-    fetchMonthTotals(previousYearMonth),
+    fetchMonthInsightDataset(targetMonth, {
+      analysisEndDate: isCurrentMonth ? analysisEndDate : undefined,
+    }),
+    fetchMonthTotals(
+      previousMonth,
+      isCurrentMonth
+        ? { throughDayOfMonth: elapsedDays, includeInvestments: false }
+        : undefined,
+    ),
+    fetchMonthTotals(
+      previousYearMonth,
+      isCurrentMonth
+        ? { throughDayOfMonth: elapsedDays, includeInvestments: false }
+        : undefined,
+    ),
     fetchHistoricalMonthSeries(targetMonth, 8),
     supabase
       .from('expense_category_month_limits')
@@ -2563,18 +2767,69 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       .eq('month', targetMonth),
   ])
 
+  const adjustedMonthSeries = isCurrentMonth
+    ? monthSeries.map((item) => item.month === targetMonth
+      ? {
+          ...item,
+          expenses: currentData.totals.expenses,
+          incomes: currentData.totals.incomes,
+          investments: currentData.totals.investments,
+          balance: currentData.totals.incomes - currentData.totals.expenses - currentData.totals.investments,
+        }
+      : item)
+    : monthSeries
+
   const currentTotals = currentData.totals
   const currentBalance = currentTotals.incomes - currentTotals.expenses - currentTotals.investments
-  const previousBalance = previousTotals.incomes - previousTotals.expenses - previousTotals.investments
+  const comparableCurrentBalance = isCurrentMonth
+    ? currentTotals.incomes - currentTotals.expenses
+    : currentBalance
+  const comparablePreviousBalance = isCurrentMonth
+    ? previousTotals.incomes - previousTotals.expenses
+    : (previousTotals.incomes - previousTotals.expenses - previousTotals.investments)
 
   const highlights: string[] = []
   const recommendations: string[] = []
 
+  if (analysisPhase === 'early') {
+    recommendations.push('Defina um teto semanal para gastos flexíveis e ajuste cedo para evitar pressão no fim do mês.')
+  } else if (analysisPhase === 'middle') {
+    recommendations.push('Use os padrões já vistos no mês para reduzir pressão nos dias restantes e preservar margem de segurança.')
+  }
+
+  const ignoredRowsCount =
+    currentData.validation.invalidExpenseRows +
+    currentData.validation.invalidIncomeRows +
+    currentData.validation.ignoredFutureRows
+  const validRowsCount = currentData.expenses.length + currentData.incomes.length + currentData.investments.length
+
+  if (ignoredRowsCount > 0 || currentData.validation.correctedWeights > 0) {
+    highlights.push(
+      `A análise considerou apenas dados válidos: ${validRowsCount} lançamentos considerados e ${ignoredRowsCount} desconsiderados por inconsistência ou data futura.`,
+    )
+    recommendations.push('Revise lançamentos com data, valor ou peso inválido para manter os próximos insights totalmente confiáveis.')
+  }
+
   if (currentData.expenses.length === 0 && currentData.incomes.length === 0 && currentData.investments.length === 0) {
     return {
       month: targetMonth,
-      highlights: ['Ainda não há dados suficientes deste mês para gerar insights úteis.'],
+      highlights: [
+        !isClosedMonth
+          ? `Até hoje, ainda não há lançamentos válidos suficientes em ${targetMonth} para gerar insights úteis.`
+          : 'Ainda não há dados suficientes deste mês para gerar insights úteis.',
+      ],
       recommendations: ['Registre os próximos lançamentos para receber uma leitura curta e acionável.'],
+    }
+  }
+
+  if (ignoredRowsCount > validRowsCount && validRowsCount < 5) {
+    return {
+      month: targetMonth,
+      highlights: prioritizeInsightLines(highlights, 2, 'highlight'),
+      recommendations: prioritizeInsightLines([
+        ...recommendations,
+        'Há poucos lançamentos válidos no período. Corrija os registros inconsistentes antes de interpretar tendência de gastos.',
+      ], 2, 'recommendation'),
     }
   }
 
@@ -2590,21 +2845,24 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
 
   if (topCategoryEntry && currentTotals.expenses > 0) {
     const topCategoryImportance = getCategoryImportance(topCategoryEntry[0])
-    const topCategoryImportanceLabel = getImportanceLabel(topCategoryImportance)
     const topCategoryShare = safePercent(topCategoryEntry[1], currentTotals.expenses)
 
     if (topCategoryShare >= 45) {
-      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) concentrou ${topCategoryShare.toFixed(0)}% das despesas do mês.`)
+      highlights.push(`${topCategoryEntry[0]} concentrou ${topCategoryShare.toFixed(0)}% das despesas do mês.`)
 
       if (topCategoryImportance === 'essential') {
         recommendations.push(`Como ${topCategoryEntry[0]} é uma categoria essencial, a melhor estratégia é buscar eficiência (renegociação ou ajuste de frequência) sem perder qualidade.`)
       } else if (topCategoryImportance === 'strategic') {
         recommendations.push(`${topCategoryEntry[0]} tem perfil estratégico; mantenha o aporte com cadência, mas ajuste valores para preservar equilíbrio no curto prazo.`)
       } else {
-        recommendations.push(`${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão até o fechamento.`)
+        recommendations.push(
+          allowsConclusiveComparisons
+            ? `${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão nos próximos ciclos.`
+            : `${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão até o fechamento.`,
+        )
       }
     } else if (topCategoryShare >= 30) {
-      highlights.push(`${topCategoryEntry[0]} (${topCategoryImportanceLabel}) lidera seus gastos com ${topCategoryShare.toFixed(0)}% do total.`)
+      highlights.push(`${topCategoryEntry[0]} lidera seus gastos com ${topCategoryShare.toFixed(0)}% do total.`)
     }
   }
 
@@ -2632,10 +2890,9 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     const exceededLimit = limitAlerts.find((item) => item.used > item.limit)
     if (exceededLimit) {
       const importance = getCategoryImportance(exceededLimit.categoryName)
-      const importanceLabel = getImportanceLabel(importance)
       const overLimitPct = safePercent(exceededLimit.used - exceededLimit.limit, Math.max(exceededLimit.limit, 1))
 
-      highlights.push(`${exceededLimit.categoryName} (${importanceLabel}) passou do limite em ${overLimitPct.toFixed(0)}%.`)
+      highlights.push(`${exceededLimit.categoryName} passou do limite em ${overLimitPct.toFixed(0)}%.`)
 
       if (importance === 'essential') {
         recommendations.push(`Como é uma categoria essencial, o foco aqui é otimizar custos sem cortar o necessário (troca de plano, fornecedor ou frequência).`)
@@ -2648,8 +2905,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       const nearLimit = limitAlerts.find((item) => item.usage >= 85)
       if (nearLimit) {
         const importance = getCategoryImportance(nearLimit.categoryName)
-        const importanceLabel = getImportanceLabel(importance)
-        highlights.push(`${nearLimit.categoryName} (${importanceLabel}) já consumiu ${nearLimit.usage.toFixed(0)}% do limite mensal.`)
+        highlights.push(`${nearLimit.categoryName} já consumiu ${nearLimit.usage.toFixed(0)}% do limite mensal.`)
 
         if (importance === 'essential') {
           recommendations.push(`Para ${nearLimit.categoryName}, prefira ajustes finos de eficiência no dia a dia em vez de cortes abruptos.`)
@@ -2699,11 +2955,6 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     }
   }
 
-  const today = new Date()
-  const isCurrentMonth = clampMonthToAppStart(format(today, 'yyyy-MM')) === targetMonth
-  const daysInMonth = endOfMonth(currentMonthDate).getDate()
-  const elapsedDays = isCurrentMonth ? Math.min(today.getDate(), daysInMonth) : daysInMonth
-
   if (elapsedDays > 0 && currentTotals.expenses > 0 && currentTotals.incomes > 0) {
     const projectedExpenses = (currentTotals.expenses / elapsedDays) * daysInMonth
     const projectedBalance = currentTotals.incomes - projectedExpenses - currentTotals.investments
@@ -2724,69 +2975,91 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     }
   }
 
-  const expensesDelta = currentTotals.expenses - previousTotals.expenses
-  const expensesDeltaPct = safePercent(Math.abs(expensesDelta), Math.max(previousTotals.expenses, 1))
-  if (expensesDelta > 0 && expensesDeltaPct >= 12) {
-    highlights.push(`As despesas subiram ${expensesDeltaPct.toFixed(0)}% em relação ao mês anterior.`)
-    recommendations.push('Revisar os três maiores lançamentos recentes costuma ser um caminho rápido para recuperar equilíbrio.')
-  } else if (expensesDelta < 0 && expensesDeltaPct >= 12) {
-    highlights.push(`As despesas caíram ${expensesDeltaPct.toFixed(0)}% versus o mês anterior.`)
-  }
-
-  const incomesDelta = currentTotals.incomes - previousTotals.incomes
-  const incomesDeltaPct = safePercent(Math.abs(incomesDelta), Math.max(previousTotals.incomes, 1))
-  if (incomesDelta < 0 && incomesDeltaPct >= 10) {
-    highlights.push(`A renda recuou ${incomesDeltaPct.toFixed(0)}% frente ao mês anterior.`)
-    recommendations.push('Revise despesas variáveis deste mês para compensar a queda da renda com menor impacto no essencial.')
-  } else if (incomesDelta > 0 && incomesDeltaPct >= 10) {
-    highlights.push(`A renda subiu ${incomesDeltaPct.toFixed(0)}% em comparação ao mês anterior.`)
-  }
-
-  if (currentBalance < previousBalance) {
-    recommendations.push('Sua margem de segurança ficou menor que no mês anterior; manter foco no essencial por enquanto ajuda a recuperar folga.')
-  }
-
-  if (previousYearTotals.expenses > 0 || previousYearTotals.incomes > 0) {
-    const yearlyExpenseDeltaPct = safePercent(
-      Math.abs(currentTotals.expenses - previousYearTotals.expenses),
-      Math.max(previousYearTotals.expenses, 1),
-    )
-    const yearlyIncomeDeltaPct = safePercent(
-      Math.abs(currentTotals.incomes - previousYearTotals.incomes),
-      Math.max(previousYearTotals.incomes, 1),
-    )
-
-    if (currentTotals.expenses > previousYearTotals.expenses && yearlyExpenseDeltaPct >= 15) {
-      highlights.push('Comparando com o mesmo período do ano passado, a pressão de despesas está mais forte neste ciclo.')
+  if (allowsConclusiveComparisons || allowsMixedComparisons) {
+    const expensesDelta = currentTotals.expenses - previousTotals.expenses
+    const expensesDeltaPct = safePercent(Math.abs(expensesDelta), Math.max(previousTotals.expenses, 1))
+    if (expensesDelta > 0 && expensesDeltaPct >= 12) {
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `As despesas subiram ${expensesDeltaPct.toFixed(0)}% em relação ao mês anterior.`
+          : `Até aqui, as despesas estão ${expensesDeltaPct.toFixed(0)}% acima do mesmo ponto do mês anterior.`,
+      )
+      recommendations.push('Revisar os três maiores lançamentos recentes costuma ser um caminho rápido para recuperar equilíbrio.')
+    } else if (expensesDelta < 0 && expensesDeltaPct >= 12) {
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `As despesas caíram ${expensesDeltaPct.toFixed(0)}% versus o mês anterior.`
+          : `Até aqui, as despesas estão ${expensesDeltaPct.toFixed(0)}% abaixo do mesmo ponto do mês anterior.`,
+      )
     }
 
-    if (currentTotals.incomes < previousYearTotals.incomes && yearlyIncomeDeltaPct >= 12) {
-      recommendations.push('Em relação ao mesmo mês do ano passado, a renda perdeu força; vale adiar novos compromissos até o fluxo se estabilizar.')
+    const incomesDelta = currentTotals.incomes - previousTotals.incomes
+    const incomesDeltaPct = safePercent(Math.abs(incomesDelta), Math.max(previousTotals.incomes, 1))
+    if (incomesDelta < 0 && incomesDeltaPct >= 10) {
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `A renda recuou ${incomesDeltaPct.toFixed(0)}% frente ao mês anterior.`
+          : `Até aqui, a renda está ${incomesDeltaPct.toFixed(0)}% abaixo do mesmo ponto do mês anterior.`,
+      )
+      recommendations.push('Revise despesas variáveis deste mês para compensar a queda da renda com menor impacto no essencial.')
+    } else if (incomesDelta > 0 && incomesDeltaPct >= 10) {
+      highlights.push(
+        allowsConclusiveComparisons
+          ? `A renda subiu ${incomesDeltaPct.toFixed(0)}% em comparação ao mês anterior.`
+          : `Até aqui, a renda está ${incomesDeltaPct.toFixed(0)}% acima do mesmo ponto do mês anterior.`,
+      )
     }
-  }
 
-  const seriesWindow = monthSeries.slice(-6)
-  if (seriesWindow.length >= 4) {
-    const expenseValues = seriesWindow.map((item) => item.expenses)
-    const balanceValues = seriesWindow.map((item) => item.balance)
-    const averageExpense = expenseValues.reduce((sum, value) => sum + value, 0) / expenseValues.length
-    const averageBalance = balanceValues.reduce((sum, value) => sum + value, 0) / balanceValues.length
-
-    if (averageExpense > 0 && currentTotals.expenses > averageExpense * 1.18) {
-      highlights.push('As despesas deste mês ficaram acima do seu padrão recente, indicando uma aceleração fora da média dos últimos meses.')
+    if (comparableCurrentBalance < comparablePreviousBalance) {
+      recommendations.push('Sua margem de segurança ficou menor que no mês anterior; manter foco no essencial por enquanto ajuda a recuperar folga.')
     }
 
-    if (currentBalance < averageBalance && averageBalance > 0) {
-      recommendations.push('Seu saldo está abaixo da média recente; antecipar pequenos ajustes agora tende a proteger os próximos fechamentos.')
+    if (allowsConclusiveComparisons && (previousYearTotals.expenses > 0 || previousYearTotals.incomes > 0)) {
+      const yearlyExpenseDeltaPct = safePercent(
+        Math.abs(currentTotals.expenses - previousYearTotals.expenses),
+        Math.max(previousYearTotals.expenses, 1),
+      )
+      const yearlyIncomeDeltaPct = safePercent(
+        Math.abs(currentTotals.incomes - previousYearTotals.incomes),
+        Math.max(previousYearTotals.incomes, 1),
+      )
+
+      if (currentTotals.expenses > previousYearTotals.expenses && yearlyExpenseDeltaPct >= 15) {
+        highlights.push('Comparando com o mesmo período do ano passado, a pressão de despesas está mais forte neste ciclo.')
+      }
+
+      if (currentTotals.incomes < previousYearTotals.incomes && yearlyIncomeDeltaPct >= 12) {
+        recommendations.push('Em relação ao mesmo mês do ano passado, a renda perdeu força; vale adiar novos compromissos até o fluxo se estabilizar.')
+      }
+    }
+
+    const seriesWindow = adjustedMonthSeries.slice(-6)
+    if (allowsConclusiveComparisons && seriesWindow.length >= 4) {
+      const expenseValues = seriesWindow.map((item) => item.expenses)
+      const balanceValues = seriesWindow.map((item) => item.balance)
+      const averageExpense = expenseValues.reduce((sum, value) => sum + value, 0) / expenseValues.length
+      const averageBalance = balanceValues.reduce((sum, value) => sum + value, 0) / balanceValues.length
+
+      if (averageExpense > 0 && currentTotals.expenses > averageExpense * 1.18) {
+        highlights.push('As despesas deste mês ficaram acima do seu padrão recente, indicando uma aceleração fora da média dos últimos meses.')
+      }
+
+      if (currentBalance < averageBalance && averageBalance > 0) {
+        recommendations.push('Seu saldo está abaixo da média recente; antecipar pequenos ajustes agora tende a proteger os próximos fechamentos.')
+      }
     }
   }
 
   if (!highlights.length) {
-    highlights.push('No geral, seu mês está estável e sem sinais críticos fora do comportamento esperado.')
+    highlights.push('Não há sinal crítico relevante nos lançamentos analisados até agora.')
   }
 
   if (!recommendations.length) {
-    recommendations.push('Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.')
+    recommendations.push(
+      allowsConclusiveComparisons
+        ? 'Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade nos próximos meses.'
+        : 'Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.',
+    )
   }
 
   const prioritizedHighlights = prioritizeInsightLines(highlights, 2, 'highlight')
@@ -2807,4 +3080,5 @@ export const assistantParserInternals = {
   inferIntent,
   extractDescription,
   buildSlots,
+  getInsightTimingProfile,
 }
