@@ -269,6 +269,11 @@
   .press-subtle:active {
     transform: translateY(0) scale(0.99);
   }
+
+  .calculator-target-input {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 2px var(--color-primary-light) !important;
+  }
   
   @keyframes fade-out {
     from { opacity: 1; }

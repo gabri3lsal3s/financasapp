@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags } from 'lucide-react'
+import FloatingCalculator from '@/components/FloatingCalculator'
 
 interface LayoutProps {
   children: ReactNode
@@ -307,6 +308,8 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
       </div>
+
+      <FloatingCalculator />
     </div>
   )
 }
