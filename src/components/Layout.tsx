@@ -2,12 +2,14 @@ import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
+import { useAppSettings } from '@/hooks/useAppSettings'
 
 interface LayoutProps {
   children: ReactNode
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const { floatingCalculatorEnabled } = useAppSettings()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
@@ -309,7 +311,7 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      <FloatingCalculator />
+      {floatingCalculatorEnabled && <FloatingCalculator />}
     </div>
   )
 }

@@ -14,6 +14,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,json,woff2}'],
         cleanupOutdatedCaches: true,
+        navigateFallbackAllowlist: [/^\/.*$/],
         runtimeCaching: [],
       },
       devOptions: {
@@ -24,6 +25,17 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          supabase: ['@supabase/supabase-js'],
+          charts: ['recharts'],
+        },
+      },
     },
   },
   test: {

@@ -5,7 +5,9 @@ import {
   getAssistantMonthlyInsights,
   interpretAssistantCommand,
 } from '@/services/assistantService'
+import type { AssistantConfirmationMode } from '@/services/assistant-core/confirmationPolicy'
 import type {
+  AssistantConfirmation,
   AssistantConfirmResult,
   AssistantInterpretResult,
   AssistantMonthlyInsightsResult,
@@ -56,13 +58,14 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
   }, [deviceId])
 
   const interpret = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { confirmationMode?: AssistantConfirmationMode; locale?: string }) => {
       setLoading(true)
       try {
         const interpretation = await interpretAssistantCommand({
           deviceId,
           text,
-          locale: 'pt-BR',
+          locale: options?.locale || 'pt-BR',
+          confirmationMode: options?.confirmationMode,
         })
 
         setState((prev) => ({
@@ -89,10 +92,18 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
     spokenText?: string,
     editedDescription?: string,
     editedSlots?: AssistantSlots,
+    confirmationMethod?: AssistantConfirmation['confirmation_method'],
   ) => {
     setLoading(true)
     try {
-      const result = await confirmAssistantCommand({ commandId, confirmed, spokenText, editedDescription, editedSlots })
+      const result = await confirmAssistantCommand({
+        commandId,
+        confirmed,
+        spokenText,
+        editedDescription,
+        editedSlots,
+        confirmationMethod,
+      })
       setState((prev) => ({
         ...prev,
         lastConfirmation: result,

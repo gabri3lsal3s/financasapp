@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { useAppSettings } from '@/hooks/useAppSettings'
 import Layout from './components/Layout'
 import SupabaseWarning from './components/SupabaseWarning'
 import Dashboard from './pages/Dashboard'
@@ -11,8 +13,15 @@ import Settings from './pages/Settings'
 import CategoriesHome from './pages/CategoriesHome'
 import Categories from './pages/Categories'
 import IncomeCategories from './pages/IncomeCategories'
+import { runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
 
 function App() {
+  const { assistantDataRetentionDays } = useAppSettings()
+
+  useEffect(() => {
+    runAssistantPrivacyCleanup(assistantDataRetentionDays)
+  }, [assistantDataRetentionDays])
+
   return (
     <ThemeProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Input from '@/components/Input'
-import AssistantEditableSlots from '@/components/AssistantEditableSlots'
+import Select from '@/components/Select'
+import AssistantConfirmationPanel from '@/components/AssistantConfirmationPanel'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
-import { useAssistant } from '@/hooks/useAssistant'
+import { useAssistantTurn } from '@/hooks/useAssistantTurn'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useAppSettings } from '@/hooks/useAppSettings'
-import type { AssistantSlots } from '@/types'
-import { AlertCircle, Check } from 'lucide-react'
+import { useAssistantTelemetry } from '@/hooks/useAssistantTelemetry'
+import { useAssistantOfflineQueueStatus } from '@/hooks/useAssistantOfflineQueueStatus'
+import { useAssistantOfflineSyncHistory } from '@/hooks/useAssistantOfflineSyncHistory'
+import { useAssistantMemory } from '@/hooks/useAssistantMemory'
+import { useAssistantContextDecisionLogs } from '@/hooks/useAssistantContextDecisionLogs'
+import { useVoiceAdapter } from '@/hooks/useVoiceAdapter'
+import { getAssistantPrivacyCleanupLastRun, runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
+import { formatAssistantSpeechText } from '@/utils/assistantSpeech'
+import { AlertCircle, Bot, Check, ChevronDown, SlidersHorizontal, Sparkles, Wrench } from 'lucide-react'
 
 interface TestResult {
   status: 'idle' | 'testing' | 'success' | 'error'
@@ -21,17 +30,18 @@ interface TestResult {
   details?: any
 }
 
-export default function Settings() {
-  const {
-    loading: assistantLoading,
-    error: assistantError,
-    lastInterpretation,
-    lastConfirmation,
-    ensureSession,
-    interpret,
-    confirm,
-  } = useAssistant('web-settings-device')
+type SettingsView = 'appearance' | 'assistant' | 'personalization' | 'diagnostics'
 
+const parseSettingsView = (value: string | null): SettingsView => {
+  if (value === 'appearance' || value === 'assistant' || value === 'personalization' || value === 'diagnostics') {
+    return value
+  }
+  return 'appearance'
+}
+
+export default function Settings() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeSettingsView = parseSettingsView(searchParams.get('view'))
   const [connectionTest, setConnectionTest] = useState<TestResult>({
     status: 'idle',
     message: '',
@@ -40,32 +50,111 @@ export default function Settings() {
     status: 'idle',
     message: '',
   })
-  const [assistantText, setAssistantText] = useState('')
-  const [editableConfirmationText, setEditableConfirmationText] = useState('')
-  const [editableSlots, setEditableSlots] = useState<AssistantSlots | null>(null)
-  const [voiceStatus, setVoiceStatus] = useState<string>('')
-  const [voiceListening, setVoiceListening] = useState(false)
-  const [voicePhase, setVoicePhase] = useState<'idle' | 'listening' | 'stopped'>('idle')
-  const [lastHeardCommand, setLastHeardCommand] = useState('')
   const assistantInputRef = useRef<HTMLInputElement | null>(null)
-  const activeRecognitionRef = useRef<any | null>(null)
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
-  const { monthlyInsightsEnabled, setMonthlyInsightsEnabled } = useAppSettings()
+  const {
+    monthlyInsightsEnabled,
+    setMonthlyInsightsEnabled,
+    assistantConfirmationMode,
+    setAssistantConfirmationMode,
+    assistantConfirmationPolicyMode,
+    setAssistantConfirmationPolicyMode,
+    assistantDataRetentionDays,
+    setAssistantDataRetentionDays,
+    assistantLocale,
+    setAssistantLocale,
+    assistantOfflineBehavior,
+    setAssistantOfflineBehavior,
+    assistantResponseDepth,
+    setAssistantResponseDepth,
+    assistantAutoSpeak,
+    setAssistantAutoSpeak,
+    assistantSpeechRate,
+    setAssistantSpeechRate,
+    assistantSpeechPitch,
+    setAssistantSpeechPitch,
+    floatingCalculatorEnabled,
+    setFloatingCalculatorEnabled,
+  } = useAppSettings()
+  const {
+    assistantLoading,
+    assistantError,
+    lastInterpretation,
+    lastConfirmation,
+    assistantText,
+    setAssistantText,
+    editableConfirmationText,
+    setEditableConfirmationText,
+    editableSlots,
+    updateEditableSlots,
+    interpretCommand,
+    confirmLastInterpretation,
+  } = useAssistantTurn('web-settings-device', {
+    locale: assistantLocale,
+    offlineBehavior: assistantOfflineBehavior,
+    responseDepth: assistantResponseDepth,
+  })
+  const {
+    summary: telemetrySummary,
+    weeklySummary: telemetryWeeklySummary,
+    trend: telemetryTrend,
+    events: telemetryEvents,
+    sourceFilter: telemetrySourceFilter,
+    setSourceFilter: setTelemetrySourceFilter,
+    clearTelemetry,
+  } = useAssistantTelemetry()
+  const { pendingCount: assistantOfflinePendingCount, hasPending: hasAssistantOfflinePending } = useAssistantOfflineQueueStatus()
+  const {
+    history: assistantOfflineSyncHistory,
+    lastSync: assistantOfflineLastSync,
+    clearHistory: clearAssistantOfflineSyncHistory,
+  } = useAssistantOfflineSyncHistory()
+  const {
+    entries: assistantMemoryEntries,
+    createEntry: createAssistantMemoryEntry,
+    updateEntry: updateAssistantMemoryEntry,
+    deleteEntry: deleteAssistantMemoryEntry,
+    clearEntries: clearAssistantMemoryEntries,
+  } = useAssistantMemory()
+  const { logs: assistantContextDecisionLogs, clearLogs: clearAssistantContextDecisionLogs } = useAssistantContextDecisionLogs()
+  const [newMemoryKeyword, setNewMemoryKeyword] = useState('')
+  const [newMemoryType, setNewMemoryType] = useState<'expense' | 'income'>('expense')
+  const [newMemoryCategoryId, setNewMemoryCategoryId] = useState('')
+  const [privacyCleanupSummary, setPrivacyCleanupSummary] = useState(() => getAssistantPrivacyCleanupLastRun())
+  const [isAssistantMemoryExpanded, setIsAssistantMemoryExpanded] = useState(false)
+  const [isAssistantLogsExpanded, setIsAssistantLogsExpanded] = useState(false)
 
-  const voiceSupport = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return { recognition: false, synthesis: false }
-    }
+  const formatTrend = (value: number, suffix: string) => {
+    const signal = value > 0 ? '+' : ''
+    return `${signal}${value}${suffix}`
+  }
+  const {
+    voiceSupport,
+    voiceStatus,
+    setVoiceStatus,
+    voiceListening,
+    voicePhase,
+    lastHeardCommand,
+    captureSpeech,
+    stopActiveListening,
+    resolveVoiceConfirmation,
+    speakText,
+    stopSpeaking,
+  } = useVoiceAdapter({
+    locale: assistantLocale,
+    checkOnline: true,
+    networkErrorMessage: 'Falha de rede no reconhecimento de voz. Verifique internet ativa, HTTPS e, se persistir, use o comando em texto no campo abaixo.',
+    autoSpeakEnabled: assistantAutoSpeak,
+    speechRate: assistantSpeechRate,
+    speechPitch: assistantSpeechPitch,
+  })
 
-    const hasRecognition = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
-    const hasSynthesis = Boolean(window.speechSynthesis)
-
-    return {
-      recognition: hasRecognition,
-      synthesis: hasSynthesis,
-    }
-  }, [])
+  const updateSettingsView = (view: SettingsView) => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('view', view)
+    setSearchParams(nextParams, { replace: true })
+  }
 
   const testConnection = async () => {
     if (!isSupabaseConfigured) {
@@ -184,81 +273,20 @@ export default function Settings() {
 
   const handleInterpretAssistant = async () => {
     if (!assistantText.trim() || !isSupabaseConfigured) return
-    await ensureSession()
-    const result = await interpret(assistantText.trim())
-    await speakText(result.confirmationText)
+    stopSpeaking()
+    const result = await interpretCommand(assistantText.trim(), {
+      confirmationMode: assistantConfirmationPolicyMode,
+    })
+    if (!result) return
+    await speakText(formatAssistantSpeechText(result.confirmationText, assistantResponseDepth))
   }
 
   const handleConfirmAssistant = async (confirmed: boolean) => {
-    if (!lastInterpretation?.command.id || !isSupabaseConfigured) return
-    const spokenText = editableConfirmationText.trim() || undefined
-    const editedDescription = editableSlots?.description?.trim() || undefined
-    const result = await confirm(lastInterpretation.command.id, confirmed, spokenText, editedDescription, editableSlots || undefined)
-    await speakText(result.message)
-  }
-
-  const speakText = async (text: string) => {
-    if (!voiceSupport.synthesis || !text.trim()) return
-
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'pt-BR'
-    window.speechSynthesis.speak(utterance)
-  }
-
-  const resolveVoiceConfirmation = (spokenText: string) => {
-    const normalized = spokenText.trim().toLowerCase()
-    if (!normalized) return true
-
-    if (
-      normalized.includes('não')
-      || normalized.includes('nao')
-      || normalized.includes('cancelar')
-      || normalized.includes('negar')
-    ) {
-      return false
-    }
-
-    return true
-  }
-
-  useEffect(() => {
-    if (!lastInterpretation) return
-    setEditableConfirmationText(lastInterpretation.confirmationText)
-    setEditableSlots(JSON.parse(JSON.stringify(lastInterpretation.slots || {})) as AssistantSlots)
-  }, [lastInterpretation])
-
-  const updateEditableSlots = (updater: (previous: AssistantSlots) => AssistantSlots) => {
-    setEditableSlots((previous) => {
-      const base = previous || {}
-      return updater(base)
-    })
-  }
-
-  const getSpeechRecognitionErrorMessage = (errorCode?: string) => {
-    const code = (errorCode || '').toLowerCase()
-
-    if (code === 'network') {
-      return 'Falha de rede no reconhecimento de voz. Verifique internet ativa, HTTPS e, se persistir, use o comando em texto no campo abaixo.'
-    }
-
-    if (code === 'not-allowed' || code === 'service-not-allowed') {
-      return 'Permissão de microfone negada. Libere o microfone nas permissões do navegador.'
-    }
-
-    if (code === 'no-speech') {
-      return 'Nenhuma fala detectada. Fale novamente após tocar no botão.'
-    }
-
-    if (code === 'audio-capture') {
-      return 'Não foi possível acessar o microfone. Verifique se outro app está usando o áudio.'
-    }
-
-    if (code === 'aborted') {
-      return 'Captura de voz interrompida. Tente novamente.'
-    }
-
-    return 'Erro ao capturar voz. Use o modo de texto como alternativa.'
+    if (!isSupabaseConfigured) return
+    stopSpeaking()
+    const result = await confirmLastInterpretation({ confirmed })
+    if (!result) return
+    await speakText(formatAssistantSpeechText(result.message, assistantResponseDepth))
   }
 
   const moveToTextFallback = () => {
@@ -271,141 +299,36 @@ export default function Settings() {
     })
   }
 
-  const captureSpeech = async (prompt?: string): Promise<string> => {
-    if (!voiceSupport.recognition) {
-      throw new Error('Reconhecimento de voz não suportado neste navegador/dispositivo.')
-    }
+  const isExpenseIntent = lastInterpretation?.intent === 'add_expense'
+  const touchConfirmationEnabled = assistantConfirmationMode !== 'voice' || isExpenseIntent
+  const voiceConfirmationEnabled = assistantConfirmationMode !== 'touch' && !isExpenseIntent
+  const actionColumnsClass = touchConfirmationEnabled && voiceConfirmationEnabled
+    ? 'sm:grid-cols-3'
+    : 'sm:grid-cols-2'
 
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-      throw new Error('Reconhecimento de voz requer contexto seguro (HTTPS ou localhost).')
-    }
+  const availableMemoryCategories = newMemoryType === 'expense'
+    ? categories.map((category) => ({ id: category.id, name: category.name }))
+    : incomeCategories.map((category) => ({ id: category.id, name: category.name }))
 
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new Error('Você está offline. Conecte-se à internet para usar reconhecimento de voz.')
-    }
+  const handleAddMemoryEntry = () => {
+    const selected = availableMemoryCategories.find((item) => item.id === newMemoryCategoryId)
+    if (!selected || !newMemoryKeyword.trim()) return
 
-    return new Promise((resolve, reject) => {
-      const RecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      const recognition = new RecognitionCtor()
-      let isSettled = false
-      let hasHeardSpeech = false
-      let transcriptBuffer = ''
-      let silenceTimer: ReturnType<typeof setTimeout> | null = null
-      let initialSpeechTimer: ReturnType<typeof setTimeout> | null = null
-
-      const scheduleSilenceStop = (delayMs: number) => {
-        if (silenceTimer) clearTimeout(silenceTimer)
-        silenceTimer = setTimeout(() => {
-          if (!isSettled) {
-            recognition.stop()
-          }
-        }, delayMs)
-      }
-
-      recognition.lang = 'pt-BR'
-      recognition.interimResults = true
-      recognition.maxAlternatives = 1
-      recognition.continuous = false
-
-      setVoiceStatus(prompt || 'Ouvindo...')
-      setVoiceListening(true)
-      setVoicePhase('listening')
-      activeRecognitionRef.current = recognition
-      initialSpeechTimer = setTimeout(() => {
-        if (!isSettled) {
-          setVoiceStatus('Não detectei sua voz ainda. Tente falar mais próximo ao microfone.')
-          recognition.stop()
-        }
-      }, 7000)
-
-      recognition.onspeechstart = () => {
-        hasHeardSpeech = true
-        if (initialSpeechTimer) {
-          clearTimeout(initialSpeechTimer)
-          initialSpeechTimer = null
-        }
-      }
-
-      recognition.onresult = (event: any) => {
-        const chunks: string[] = []
-
-        for (let index = 0; index < (event.results?.length || 0); index += 1) {
-          const result = event.results[index]
-          const chunk = result?.[0]?.transcript?.trim()
-          if (chunk) chunks.push(chunk)
-        }
-
-        const mergedTranscript = chunks.join(' ').replace(/\s+/g, ' ').trim()
-
-        if (mergedTranscript) {
-          hasHeardSpeech = true
-          if (initialSpeechTimer) {
-            clearTimeout(initialSpeechTimer)
-            initialSpeechTimer = null
-          }
-          transcriptBuffer = mergedTranscript
-          setVoiceStatus(`Escutando: ${transcriptBuffer}`)
-          scheduleSilenceStop(2500)
-        }
-      }
-
-      recognition.onspeechend = () => {
-        if (!isSettled && hasHeardSpeech) {
-          scheduleSilenceStop(1200)
-        }
-      }
-
-      recognition.onerror = (event: any) => {
-        if (isSettled) return
-        isSettled = true
-        if (silenceTimer) clearTimeout(silenceTimer)
-        if (initialSpeechTimer) clearTimeout(initialSpeechTimer)
-        setVoiceListening(false)
-        setVoicePhase('stopped')
-        activeRecognitionRef.current = null
-
-        if (event?.error === 'no-speech') {
-          const transcript = transcriptBuffer.trim()
-          setLastHeardCommand(transcript)
-          if (transcript) {
-            setVoiceStatus(`Reconhecido: ${transcript}`)
-            resolve(transcript)
-            return
-          }
-
-          setVoiceStatus('Nenhuma fala detectada. Tente novamente falando logo após tocar no botão.')
-          resolve('')
-          return
-        }
-
-        const errorMessage = getSpeechRecognitionErrorMessage(event?.error)
-        setVoiceStatus(errorMessage)
-        reject(new Error(errorMessage))
-      }
-
-      recognition.onend = () => {
-        if (isSettled) return
-        isSettled = true
-        if (silenceTimer) clearTimeout(silenceTimer)
-        if (initialSpeechTimer) clearTimeout(initialSpeechTimer)
-        setVoiceListening(false)
-        setVoicePhase('stopped')
-        activeRecognitionRef.current = null
-
-        const transcript = transcriptBuffer.trim()
-        setLastHeardCommand(transcript)
-        setVoiceStatus(transcript ? `Reconhecido: ${transcript}` : 'Nenhuma fala reconhecida.')
-        resolve(transcript)
-      }
-
-      recognition.start()
+    createAssistantMemoryEntry({
+      keyword: newMemoryKeyword.trim(),
+      transactionType: newMemoryType,
+      categoryId: selected.id,
+      categoryName: selected.name,
     })
+
+    setNewMemoryKeyword('')
+    setNewMemoryCategoryId('')
   }
 
-  const stopActiveListening = () => {
-    if (!activeRecognitionRef.current) return
-    setVoiceStatus('Finalizando escuta...')
-    activeRecognitionRef.current.stop()
+  const handleRunPrivacyCleanup = () => {
+    const summary = runAssistantPrivacyCleanup(assistantDataRetentionDays)
+    if (!summary) return
+    setPrivacyCleanupSummary(getAssistantPrivacyCleanupLastRun())
   }
 
   const handleVoiceInterpret = async () => {
@@ -421,9 +344,11 @@ export default function Settings() {
       if (!transcript) return
 
       setAssistantText(transcript)
-      await ensureSession()
-      const result = await interpret(transcript)
-      await speakText(result.confirmationText)
+      const result = await interpretCommand(transcript, {
+        confirmationMode: assistantConfirmationPolicyMode,
+      })
+      if (!result) return
+      await speakText(formatAssistantSpeechText(result.confirmationText, assistantResponseDepth))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.'
       setVoiceStatus(message)
@@ -436,6 +361,11 @@ export default function Settings() {
   const handleVoiceConfirm = async () => {
     if (!isSupabaseConfigured || assistantLoading || !lastInterpretation?.command.id) return
 
+    if (!voiceConfirmationEnabled) {
+      setVoiceStatus('Confirmação por voz está desativada nas suas configurações.')
+      return
+    }
+
     if (lastInterpretation.intent === 'add_expense') {
       setVoiceStatus('Para despesas, a confirmação é manual pelos botões Confirmar/Negar.')
       return
@@ -446,9 +376,9 @@ export default function Settings() {
       if (!transcript) return
 
       const confirmed = resolveVoiceConfirmation(transcript)
-      const editedDescription = editableSlots?.description?.trim() || undefined
-      const result = await confirm(lastInterpretation.command.id, confirmed, transcript, editedDescription, editableSlots || undefined)
-      await speakText(result.message)
+      const result = await confirmLastInterpretation({ confirmed, spokenText: transcript })
+      if (!result) return
+      await speakText(formatAssistantSpeechText(result.message, assistantResponseDepth))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao confirmar por voz.'
       setVoiceStatus(message)
@@ -462,7 +392,47 @@ export default function Settings() {
     <div>
       <PageHeader title={PAGE_HEADERS.settings.title} subtitle={PAGE_HEADERS.settings.description} />
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        <section className="space-y-4">
+        <Card>
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-wide text-secondary">Navegação de configurações</p>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <Button
+                type="button"
+                variant={activeSettingsView === 'appearance' ? 'primary' : 'outline'}
+                onClick={() => updateSettingsView('appearance')}
+                className="w-full justify-start"
+              >
+                <Sparkles size={16} className="mr-2" /> Aparência
+              </Button>
+              <Button
+                type="button"
+                variant={activeSettingsView === 'assistant' ? 'primary' : 'outline'}
+                onClick={() => updateSettingsView('assistant')}
+                className="w-full justify-start"
+              >
+                <Bot size={16} className="mr-2" /> Assistente
+              </Button>
+              <Button
+                type="button"
+                variant={activeSettingsView === 'personalization' ? 'primary' : 'outline'}
+                onClick={() => updateSettingsView('personalization')}
+                className="w-full justify-start"
+              >
+                <SlidersHorizontal size={16} className="mr-2" /> Personalização
+              </Button>
+              <Button
+                type="button"
+                variant={activeSettingsView === 'diagnostics' ? 'primary' : 'outline'}
+                onClick={() => updateSettingsView('diagnostics')}
+                className="w-full justify-start"
+              >
+                <Wrench size={16} className="mr-2" /> Diagnóstico
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <section className={activeSettingsView === 'appearance' ? 'space-y-4' : 'hidden'}>
           <div>
             <h2 className="text-xl font-semibold text-primary mb-1">Aparência</h2>
             <p className="text-secondary text-sm">Personalize tema e paleta de cores da interface</p>
@@ -471,41 +441,551 @@ export default function Settings() {
           <ColorPaletteSwitcher />
         </section>
 
-        <section className="space-y-4">
+        <section className={activeSettingsView === 'personalization' ? 'space-y-4' : 'hidden'}>
           <div>
-            <h2 className="text-xl font-semibold text-primary mb-1">Preferências do App</h2>
-            <p className="text-secondary text-sm">Controle funcionalidades automáticas do dashboard</p>
+            <h2 className="text-xl font-semibold text-primary mb-1">Personalização</h2>
+            <p className="text-secondary text-sm">Ajuste preferências de experiência, voz e recursos visuais rápidos</p>
           </div>
 
           <Card>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-base font-semibold text-primary">Insights personalizados do mês</h3>
-                <p className="text-sm text-secondary mt-1">
-                  Quando ativado, o assistente analisa o comportamento financeiro do mês e atualiza os insights automaticamente.
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={monthlyInsightsEnabled}
-                onClick={() => setMonthlyInsightsEnabled(!monthlyInsightsEnabled)}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                  monthlyInsightsEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
-                }`}
-                title={monthlyInsightsEnabled ? 'Desativar insights do mês' : 'Ativar insights do mês'}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
-                    monthlyInsightsEnabled ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-primary">Insights personalizados do mês</h3>
+                  <p className="text-sm text-secondary mt-1">
+                    Quando ativado, o assistente analisa o comportamento financeiro do mês e atualiza os insights automaticamente.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={monthlyInsightsEnabled}
+                  onClick={() => setMonthlyInsightsEnabled(!monthlyInsightsEnabled)}
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    monthlyInsightsEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
                   }`}
-                />
-              </button>
+                  title={monthlyInsightsEnabled ? 'Desativar insights do mês' : 'Ativar insights do mês'}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
+                      monthlyInsightsEnabled ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-primary">Calculadora flutuante</h3>
+                  <p className="text-sm text-secondary mt-1">
+                    Exibe o botão/calculadora flutuante nas páginas para cálculos rápidos.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={floatingCalculatorEnabled}
+                  onClick={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    floatingCalculatorEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
+                  }`}
+                  title={floatingCalculatorEnabled ? 'Desativar calculadora flutuante' : 'Ativar calculadora flutuante'}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
+                      floatingCalculatorEnabled ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="rounded-lg border border-primary bg-secondary p-3 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-primary">Voz do assistente</h3>
+                  <p className="text-xs text-secondary mt-1">Personalize como o assistente fala nas respostas.</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                  <div>
+                    <p className="text-sm text-primary">Resposta por voz automática</p>
+                    <p className="text-xs text-secondary mt-1">Desative para manter o assistente apenas em texto.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={assistantAutoSpeak}
+                    onClick={() => setAssistantAutoSpeak(!assistantAutoSpeak)}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                      assistantAutoSpeak ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
+                    }`}
+                    title={assistantAutoSpeak ? 'Desativar resposta por voz' : 'Ativar resposta por voz'}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
+                        assistantAutoSpeak ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select
+                    label="Velocidade da voz"
+                    value={assistantSpeechRate}
+                    onChange={(event) => setAssistantSpeechRate(event.target.value as 'slow' | 'normal' | 'fast')}
+                    options={[
+                      { value: 'slow', label: 'Lenta' },
+                      { value: 'normal', label: 'Normal' },
+                      { value: 'fast', label: 'Rápida' },
+                    ]}
+                  />
+
+                  <Select
+                    label="Tom da voz"
+                    value={assistantSpeechPitch}
+                    onChange={(event) => setAssistantSpeechPitch(event.target.value as 'low' | 'normal' | 'high')}
+                    options={[
+                      { value: 'low', label: 'Grave' },
+                      { value: 'normal', label: 'Neutro' },
+                      { value: 'high', label: 'Agudo' },
+                    ]}
+                  />
+                </div>
+              </div>
             </div>
           </Card>
         </section>
 
-        <section className="space-y-4">
+        <section className={activeSettingsView === 'assistant' ? 'space-y-4' : 'hidden'}>
+          <div>
+            <h2 className="text-xl font-semibold text-primary mb-1">Assistente</h2>
+            <p className="text-secondary text-sm">Ajuste confirmação, comportamento, retenção e contexto inteligente</p>
+          </div>
+
+          <Card>
+            <div className="space-y-4">
+              <div className="rounded-lg border border-primary bg-secondary p-3 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-primary">Comportamento e confirmação</h3>
+                  <p className="text-xs text-secondary mt-1">Defina como o assistente confirma ações e responde no fluxo principal.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select
+                    label="Método de confirmação do assistente"
+                    value={assistantConfirmationMode}
+                    onChange={(event) => setAssistantConfirmationMode(event.target.value as 'both' | 'touch' | 'voice')}
+                    options={[
+                      { value: 'both', label: 'Voz + Botões' },
+                      { value: 'touch', label: 'Somente botões' },
+                      { value: 'voice', label: 'Somente voz (exceto despesas)' },
+                    ]}
+                  />
+
+                  <Select
+                    label="Política de confirmação"
+                    value={assistantConfirmationPolicyMode}
+                    onChange={(event) => setAssistantConfirmationPolicyMode(event.target.value as 'write_only' | 'always' | 'never')}
+                    options={[
+                      { value: 'write_only', label: 'Somente escritas (padrão)' },
+                      { value: 'always', label: 'Sempre confirmar' },
+                      { value: 'never', label: 'Mínima (sensíveis sempre confirmam)' },
+                    ]}
+                  />
+
+                  <Select
+                    label="Comportamento offline do assistente"
+                    value={assistantOfflineBehavior}
+                    onChange={(event) => setAssistantOfflineBehavior(event.target.value as 'write_fallback' | 'strict_online')}
+                    options={[
+                      { value: 'write_fallback', label: 'Priorizar cadastro offline (fila)' },
+                      { value: 'strict_online', label: 'Modo online estrito' },
+                    ]}
+                  />
+
+                  <Select
+                    label="Profundidade de resposta"
+                    value={assistantResponseDepth}
+                    onChange={(event) => setAssistantResponseDepth(event.target.value as 'concise' | 'consultive')}
+                    options={[
+                      { value: 'concise', label: 'Concisa' },
+                      { value: 'consultive', label: 'Consultiva' },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-primary bg-secondary p-3 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-primary">Idioma e retenção</h3>
+                  <p className="text-xs text-secondary mt-1">Controle idioma e janela de retenção local dos dados do assistente.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select
+                    label="Idioma do assistente"
+                    value={assistantLocale}
+                    onChange={(event) => setAssistantLocale(event.target.value as 'pt-BR')}
+                    options={[
+                      { value: 'pt-BR', label: 'Português (Brasil)' },
+                    ]}
+                  />
+
+                  <Select
+                    label="Retenção local de dados do assistente"
+                    value={String(assistantDataRetentionDays)}
+                    onChange={(event) => setAssistantDataRetentionDays(Number(event.target.value) as 7 | 30 | 90 | 180 | 365)}
+                    options={[
+                      { value: '7', label: '7 dias' },
+                      { value: '30', label: '30 dias' },
+                      { value: '90', label: '90 dias (padrão)' },
+                      { value: '180', label: '180 dias' },
+                      { value: '365', label: '365 dias' },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+                <p className="text-xs text-secondary">
+                  Limpeza automática aplicada na inicialização do app e ao alterar a retenção. Metadados de voz pendentes são anonimizados localmente.
+                </p>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <p className="text-xs text-secondary">
+                    Última limpeza: {privacyCleanupSummary?.timestamp
+                      ? new Date(privacyCleanupSummary.timestamp).toLocaleString('pt-BR')
+                      : 'nenhuma execução ainda'}
+                  </p>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRunPrivacyCleanup}
+                  >
+                    Executar limpeza agora
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-semibold text-primary">Memória longa do assistente</h3>
+                  <p className="text-xs text-secondary mt-1">Edite preferências aprendidas para melhorar a desambiguação futura.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAssistantMemoryExpanded(!isAssistantMemoryExpanded)}
+                    aria-expanded={isAssistantMemoryExpanded}
+                  >
+                    {isAssistantMemoryExpanded ? 'Recolher' : 'Expandir'}
+                    <ChevronDown
+                      size={16}
+                      className={`ml-1 motion-standard ${isAssistantMemoryExpanded ? 'rotate-180' : 'rotate-0'}`}
+                    />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={clearAssistantMemoryEntries}
+                    disabled={assistantMemoryEntries.length === 0}
+                  >
+                    Limpar memória
+                  </Button>
+                </div>
+              </div>
+
+              {isAssistantMemoryExpanded && (
+                <>
+                  <div className="rounded-lg border border-primary bg-secondary p-3 space-y-3">
+                    <Input
+                      label="Palavra-chave / descrição"
+                      value={newMemoryKeyword}
+                      onChange={(event) => setNewMemoryKeyword(event.target.value)}
+                      placeholder="Ex.: mercado"
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Select
+                        label="Tipo"
+                        value={newMemoryType}
+                        onChange={(event) => {
+                          setNewMemoryType(event.target.value as 'expense' | 'income')
+                          setNewMemoryCategoryId('')
+                        }}
+                        options={[
+                          { value: 'expense', label: 'Despesa' },
+                          { value: 'income', label: 'Renda' },
+                        ]}
+                      />
+
+                      <Select
+                        label="Categoria"
+                        value={newMemoryCategoryId}
+                        onChange={(event) => setNewMemoryCategoryId(event.target.value)}
+                        options={[
+                          { value: '', label: 'Selecione' },
+                          ...availableMemoryCategories.map((item) => ({ value: item.id, label: item.name })),
+                        ]}
+                      />
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddMemoryEntry}
+                      disabled={!newMemoryKeyword.trim() || !newMemoryCategoryId}
+                    >
+                      Adicionar memória
+                    </Button>
+                  </div>
+
+                  {assistantMemoryEntries.length === 0 ? (
+                    <p className="text-xs text-secondary">Nenhuma memória registrada ainda.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {assistantMemoryEntries.map((entry) => {
+                        const typeOptions = entry.transactionType === 'expense'
+                          ? categories.map((category) => ({ id: category.id, name: category.name }))
+                          : incomeCategories.map((category) => ({ id: category.id, name: category.name }))
+
+                        return (
+                          <div key={entry.id} className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+                            <Input
+                              label="Palavra-chave"
+                              value={entry.keyword}
+                              onChange={(event) => {
+                                updateAssistantMemoryEntry(entry.id, { keyword: event.target.value })
+                              }}
+                            />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <Select
+                                label="Tipo"
+                                value={entry.transactionType}
+                                onChange={(event) => {
+                                  const nextType = event.target.value as 'expense' | 'income'
+                                  const nextTypeOptions = nextType === 'expense'
+                                    ? categories.map((category) => ({ id: category.id, name: category.name }))
+                                    : incomeCategories.map((category) => ({ id: category.id, name: category.name }))
+                                  const fallbackCategory = nextTypeOptions[0]
+                                  if (!fallbackCategory) return
+
+                                  updateAssistantMemoryEntry(entry.id, {
+                                    transactionType: nextType,
+                                    categoryId: fallbackCategory.id,
+                                    categoryName: fallbackCategory.name,
+                                  })
+                                }}
+                                options={[
+                                  { value: 'expense', label: 'Despesa' },
+                                  { value: 'income', label: 'Renda' },
+                                ]}
+                              />
+
+                              <Select
+                                label="Categoria"
+                                value={entry.categoryId}
+                                onChange={(event) => {
+                                  const selected = typeOptions.find((item) => item.id === event.target.value)
+                                  if (!selected) return
+                                  updateAssistantMemoryEntry(entry.id, {
+                                    categoryId: selected.id,
+                                    categoryName: selected.name,
+                                  })
+                                }}
+                                options={[
+                                  { value: '', label: 'Selecione' },
+                                  ...typeOptions.map((item) => ({ value: item.id, label: item.name })),
+                                ]}
+                              />
+                            </div>
+
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => deleteAssistantMemoryEntry(entry.id)}
+                              >
+                                Remover
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-semibold text-primary">Logs técnicos de contexto</h3>
+                  <p className="text-xs text-secondary mt-1">Auditoria da decisão de categoria com prioridade comando &gt; sessão &gt; memória.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAssistantLogsExpanded(!isAssistantLogsExpanded)}
+                    aria-expanded={isAssistantLogsExpanded}
+                  >
+                    {isAssistantLogsExpanded ? 'Recolher' : 'Expandir'}
+                    <ChevronDown
+                      size={16}
+                      className={`ml-1 motion-standard ${isAssistantLogsExpanded ? 'rotate-180' : 'rotate-0'}`}
+                    />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={clearAssistantContextDecisionLogs}
+                    disabled={assistantContextDecisionLogs.length === 0}
+                  >
+                    Limpar logs
+                  </Button>
+                </div>
+              </div>
+
+              {isAssistantLogsExpanded && (
+                <>
+                  {assistantContextDecisionLogs.length === 0 ? (
+                    <p className="text-xs text-secondary">Nenhum log de decisão registrado ainda.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {assistantContextDecisionLogs.slice(0, 20).map((log) => (
+                        <div key={log.id} className="rounded-lg border border-primary bg-secondary p-3">
+                          <p className="text-sm text-primary">
+                            <strong>Fonte:</strong> {log.source} · <strong>Intenção:</strong> {log.intent}
+                          </p>
+                          <p className="text-xs text-secondary mt-1">{log.reason}</p>
+                          <p className="text-xs text-secondary mt-1">
+                            {new Date(log.createdAt).toLocaleString('pt-BR')} · comando: {String(log.hadCommandCategory)} · sessão: {String(log.hadSessionPreference)} · memória: {String(log.hadMemoryMatch)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Card>
+        </section>
+
+        <section className={activeSettingsView === 'diagnostics' ? 'space-y-4' : 'hidden'}>
+          <div>
+            <h2 className="text-xl font-semibold text-primary mb-1">Métricas do Assistente</h2>
+            <p className="text-secondary text-sm">Acompanhe desempenho recente de interpretação e confirmação</p>
+          </div>
+
+          <Card>
+            <div className="space-y-4">
+              <Select
+                label="Origem das métricas"
+                value={telemetrySourceFilter}
+                onChange={(event) => setTelemetrySourceFilter(event.target.value as 'all' | 'dashboard' | 'settings')}
+                options={[
+                  { value: 'all', label: 'Geral (todas as origens)' },
+                  { value: 'dashboard', label: 'Somente Dashboard' },
+                  { value: 'settings', label: 'Somente Configurações' },
+                ]}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-primary bg-secondary p-3">
+                  <p className="text-xs uppercase tracking-wide text-secondary">Acurácia interpretação</p>
+                  <p className="text-lg font-semibold text-primary mt-1">{telemetrySummary.interpretAccuracy}%</p>
+                </div>
+
+                <div className="rounded-lg border border-primary bg-secondary p-3">
+                  <p className="text-xs uppercase tracking-wide text-secondary">Taxa de execução</p>
+                  <p className="text-lg font-semibold text-primary mt-1">{telemetrySummary.executionRate}%</p>
+                </div>
+
+                <div className="rounded-lg border border-primary bg-secondary p-3">
+                  <p className="text-xs uppercase tracking-wide text-secondary">Latência média</p>
+                  <p className="text-lg font-semibold text-primary mt-1">{telemetrySummary.averageDurationMs} ms</p>
+                </div>
+
+                <div className="rounded-lg border border-primary bg-secondary p-3">
+                  <p className="text-xs uppercase tracking-wide text-secondary">Eventos registrados</p>
+                  <p className="text-lg font-semibold text-primary mt-1">{telemetrySummary.totalEvents}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-primary bg-secondary p-3">
+                <p className="text-xs uppercase tracking-wide text-secondary">Últimos 7 dias</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                  <p className="text-sm text-primary">
+                    <strong>Acurácia:</strong> {telemetryWeeklySummary.interpretAccuracy}%
+                  </p>
+                  <p className="text-sm text-primary">
+                    <strong>Execução:</strong> {telemetryWeeklySummary.executionRate}%
+                  </p>
+                  <p className="text-sm text-primary">
+                    <strong>Latência:</strong> {telemetryWeeklySummary.averageDurationMs} ms
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-primary">
+                  <p className="text-sm text-primary">
+                    <strong>Tendência acurácia:</strong>{' '}
+                    <span className={telemetryTrend.interpretAccuracyDelta >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}>
+                      {formatTrend(telemetryTrend.interpretAccuracyDelta, '%')}
+                    </span>
+                  </p>
+                  <p className="text-sm text-primary">
+                    <strong>Tendência execução:</strong>{' '}
+                    <span className={telemetryTrend.executionRateDelta >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}>
+                      {formatTrend(telemetryTrend.executionRateDelta, '%')}
+                    </span>
+                  </p>
+                  <p className="text-sm text-primary">
+                    <strong>Tendência latência:</strong>{' '}
+                    <span className={telemetryTrend.averageDurationDeltaMs <= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}>
+                      {formatTrend(telemetryTrend.averageDurationDeltaMs, ' ms')}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <p className="text-xs text-secondary">
+                  Último evento: {telemetryEvents.length > 0
+                    ? new Date(telemetryEvents[telemetryEvents.length - 1].timestamp).toLocaleString('pt-BR')
+                    : 'nenhum registro ainda'}
+                </p>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearTelemetry}
+                  disabled={telemetrySummary.totalEvents === 0}
+                >
+                  Limpar métricas locais
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </section>
+
+        <section className={activeSettingsView === 'diagnostics' ? 'space-y-4' : 'hidden'}>
           <div>
             <h2 className="text-xl font-semibold text-primary mb-2">Banco de Dados</h2>
             <p className="text-secondary text-sm">Verifique a conexão com o Supabase</p>
@@ -609,7 +1089,7 @@ export default function Settings() {
           </Card>
         </section>
 
-        <section id="assistant-mvp" className="space-y-4 scroll-mt-24">
+        <section id="assistant-mvp" className={activeSettingsView === 'assistant' ? 'space-y-4 scroll-mt-24' : 'hidden'}>
           <div>
             <h2 className="text-xl font-semibold text-primary mb-2">Assistente (MVP)</h2>
             <p className="text-secondary text-sm">Diagnóstico e testes do assistente por voz/texto, com edição completa antes da confirmação</p>
@@ -672,6 +1152,51 @@ export default function Settings() {
                 </div>
               )}
 
+              {hasAssistantOfflinePending && (
+                <div className="p-3 rounded-lg border border-primary bg-tertiary">
+                  <p className="text-sm font-medium text-primary">Sincronização offline do assistente</p>
+                  <p className="text-xs text-secondary mt-1">
+                    {assistantOfflinePendingCount === 1
+                      ? '1 comando do assistente está pendente e será sincronizado automaticamente ao reconectar.'
+                      : `${assistantOfflinePendingCount} comandos do assistente estão pendentes e serão sincronizados automaticamente ao reconectar.`}
+                  </p>
+                </div>
+              )}
+
+              <div className="p-3 rounded-lg border border-primary bg-tertiary space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <p className="text-sm font-medium text-primary">Histórico de sincronização offline</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={clearAssistantOfflineSyncHistory}
+                    disabled={assistantOfflineSyncHistory.length === 0}
+                  >
+                    Limpar histórico
+                  </Button>
+                </div>
+
+                {assistantOfflineLastSync ? (
+                  <p className="text-xs text-secondary">
+                    Última tentativa: {new Date(assistantOfflineLastSync.createdAt).toLocaleString('pt-BR')} ·
+                    status {assistantOfflineLastSync.status} · processados {assistantOfflineLastSync.processed}/{assistantOfflineLastSync.attempted}
+                  </p>
+                ) : (
+                  <p className="text-xs text-secondary">Sem tentativas de sincronização offline do assistente até agora.</p>
+                )}
+
+                {assistantOfflineSyncHistory.length > 0 && (
+                  <div className="space-y-1">
+                    {assistantOfflineSyncHistory.slice(0, 5).map((item) => (
+                      <p key={item.id} className="text-xs text-secondary">
+                        {new Date(item.createdAt).toLocaleString('pt-BR')} · {item.status} · {item.processed}/{item.attempted} processados · {item.remaining} restantes
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {assistantError && (
                 <div className="p-3 rounded-lg border border-[var(--color-danger)] bg-tertiary">
                   <p className="text-sm font-medium text-[var(--color-danger)]">Erro no assistente</p>
@@ -694,67 +1219,31 @@ export default function Settings() {
                   </div>
 
                   {lastInterpretation.requiresConfirmation && (
-                    <div className="space-y-3">
-                      <div className="rounded-lg border border-primary bg-primary p-3 space-y-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-secondary">Campos editáveis antes do lançamento</p>
-
-                        <Input
-                          label="Resumo da confirmação"
-                          value={editableConfirmationText}
-                          onChange={(event) => setEditableConfirmationText(event.target.value)}
-                          disabled={assistantLoading || !isSupabaseConfigured}
-                        />
-
-                        <AssistantEditableSlots
-                          editableSlots={editableSlots}
-                          intent={lastInterpretation.intent}
-                          categories={categories.map((category) => ({ id: category.id, name: category.name }))}
-                          incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
-                          disabled={assistantLoading || !isSupabaseConfigured}
-                          onUpdate={updateEditableSlots}
-                        />
-                      </div>
-
-                      <div className={`grid grid-cols-1 gap-2 ${lastInterpretation.intent === 'add_expense' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
-                        <Button
-                          onClick={() => handleConfirmAssistant(true)}
-                          disabled={assistantLoading || !isSupabaseConfigured}
-                          variant="primary"
-                          fullWidth
-                        >
-                          Confirmar
-                        </Button>
-                        <Button
-                          onClick={() => handleConfirmAssistant(false)}
-                          disabled={assistantLoading || !isSupabaseConfigured}
-                          variant="outline"
-                          fullWidth
-                        >
-                          Negar
-                        </Button>
-
-                        {lastInterpretation.intent !== 'add_expense' && (
-                          <Button
-                            onClick={handleVoiceConfirm}
-                            disabled={
-                              assistantLoading
-                              || !isSupabaseConfigured
-                              || !voiceSupport.recognition
-                              || voiceListening
-                              || !lastInterpretation?.command.id
-                            }
-                            variant="outline"
-                            fullWidth
-                          >
-                            {voiceListening ? 'Ouvindo...' : 'Confirmar por Voz'}
-                          </Button>
-                        )}
-                      </div>
-
-                      {lastInterpretation.intent === 'add_expense' && (
-                        <p className="text-xs text-secondary">Para despesas, a confirmação é manual pelos botões acima.</p>
-                      )}
-                    </div>
+                    <AssistantConfirmationPanel
+                      intent={lastInterpretation.intent}
+                      editableConfirmationText={editableConfirmationText}
+                      onEditableConfirmationTextChange={setEditableConfirmationText}
+                      editableSlots={editableSlots}
+                      categories={categories.map((category) => ({ id: category.id, name: category.name }))}
+                      incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
+                      disabled={assistantLoading || !isSupabaseConfigured}
+                      onUpdateSlots={updateEditableSlots}
+                      touchConfirmationEnabled={touchConfirmationEnabled}
+                      voiceConfirmationEnabled={voiceConfirmationEnabled}
+                      actionColumnsClass={actionColumnsClass}
+                      onConfirm={() => handleConfirmAssistant(true)}
+                      onDeny={() => handleConfirmAssistant(false)}
+                      onVoiceConfirm={handleVoiceConfirm}
+                      voiceConfirmDisabled={
+                        assistantLoading
+                        || !isSupabaseConfigured
+                        || !voiceSupport.recognition
+                        || voiceListening
+                        || !lastInterpretation?.command.id
+                      }
+                      voiceListening={voiceListening}
+                      isExpenseIntent={isExpenseIntent}
+                    />
                   )}
                 </div>
               )}

@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { flushOfflineQueue } from '@/utils/offlineQueue'
+import { flushAssistantOfflineQueue } from '@/utils/assistantOfflineQueue'
 
 export default function OfflineSyncManager() {
   useEffect(() => {
     const runSync = () => {
       flushOfflineQueue()
+      flushAssistantOfflineQueue()
     }
 
     runSync()

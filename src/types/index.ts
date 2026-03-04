@@ -110,7 +110,7 @@ export interface AssistantResolvedCategory {
   id?: string
   name: string
   confidence: number
-  source: 'mapping' | 'keyword' | 'name_match' | 'fallback_uncategorized'
+  source: 'mapping' | 'keyword' | 'name_match' | 'fallback_uncategorized' | 'memory' | 'session'
 }
 
 export interface AssistantSlots {

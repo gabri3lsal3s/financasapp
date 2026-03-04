@@ -1,0 +1,114 @@
+import AssistantEditableSlots from '@/components/AssistantEditableSlots'
+import Button from '@/components/Button'
+import Input from '@/components/Input'
+import type { AssistantIntent, AssistantSlots } from '@/types'
+
+interface CategoryOption {
+  id: string
+  name: string
+}
+
+interface AssistantConfirmationPanelProps {
+  intent: AssistantIntent
+  editableConfirmationText: string
+  onEditableConfirmationTextChange: (value: string) => void
+  editableSlots: AssistantSlots | null
+  categories: CategoryOption[]
+  incomeCategories: CategoryOption[]
+  disabled: boolean
+  fallbackMonth?: string
+  onUpdateSlots: (updater: (previous: AssistantSlots) => AssistantSlots) => void
+  touchConfirmationEnabled: boolean
+  voiceConfirmationEnabled: boolean
+  actionColumnsClass: string
+  onConfirm: () => void
+  onDeny: () => void
+  onVoiceConfirm: () => void
+  voiceConfirmDisabled: boolean
+  voiceListening: boolean
+  isExpenseIntent: boolean
+  containerClassName?: string
+}
+
+export default function AssistantConfirmationPanel({
+  intent,
+  editableConfirmationText,
+  onEditableConfirmationTextChange,
+  editableSlots,
+  categories,
+  incomeCategories,
+  disabled,
+  fallbackMonth,
+  onUpdateSlots,
+  touchConfirmationEnabled,
+  voiceConfirmationEnabled,
+  actionColumnsClass,
+  onConfirm,
+  onDeny,
+  onVoiceConfirm,
+  voiceConfirmDisabled,
+  voiceListening,
+  isExpenseIntent,
+  containerClassName = 'space-y-3',
+}: AssistantConfirmationPanelProps) {
+  return (
+    <div className={containerClassName}>
+      <div className="rounded-lg border border-primary bg-primary p-3 space-y-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-secondary">Campos editáveis antes do lançamento</p>
+
+        <Input
+          label="Resumo da confirmação"
+          value={editableConfirmationText}
+          onChange={(event) => onEditableConfirmationTextChange(event.target.value)}
+          disabled={disabled}
+        />
+
+        <AssistantEditableSlots
+          editableSlots={editableSlots}
+          intent={intent}
+          categories={categories}
+          incomeCategories={incomeCategories}
+          disabled={disabled}
+          fallbackMonth={fallbackMonth}
+          onUpdate={onUpdateSlots}
+        />
+      </div>
+
+      <div className={`grid grid-cols-1 gap-2 ${actionColumnsClass}`}>
+        {touchConfirmationEnabled && (
+          <>
+            <Button
+              onClick={onConfirm}
+              disabled={disabled}
+              fullWidth
+            >
+              Confirmar
+            </Button>
+            <Button
+              onClick={onDeny}
+              disabled={disabled}
+              variant="outline"
+              fullWidth
+            >
+              Negar
+            </Button>
+          </>
+        )}
+        {voiceConfirmationEnabled && (
+          <Button
+            onClick={onVoiceConfirm}
+            disabled={voiceConfirmDisabled}
+            variant="outline"
+            fullWidth
+          >
+            {voiceListening ? 'Ouvindo...' : 'Confirmar por Voz'}
+          </Button>
+        )}
+      </div>
+
+      {isExpenseIntent && (
+        <p className="text-xs text-secondary">Para despesas, a confirmação é feita manualmente pelos botões acima.</p>
+      )}
+    </div>
+  )
+}

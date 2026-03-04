@@ -9,6 +9,7 @@ interface OfflineQueueItem {
   action: QueueAction
   recordId?: string
   payload?: Record<string, unknown>
+  idempotencyKey?: string
   createdAt: string
 }
 
@@ -31,6 +32,19 @@ function writeQueue(queue: OfflineQueueItem[]) {
 
 export function enqueueOfflineOperation(item: Omit<OfflineQueueItem, 'id' | 'createdAt'>) {
   const queue = readQueue()
+
+  if (item.idempotencyKey) {
+    const existing = queue.find((queuedItem) => (
+      queuedItem.idempotencyKey === item.idempotencyKey
+      && queuedItem.entity === item.entity
+      && queuedItem.action === item.action
+    ))
+
+    if (existing) {
+      return existing
+    }
+  }
+
   const nextItem: OfflineQueueItem = {
     ...item,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,

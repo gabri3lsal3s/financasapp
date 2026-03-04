@@ -1,5 +1,16 @@
 import { addMonths, format, isValid, parse, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase'
+import {
+  EXPENSE_ACTION_HINTS,
+  EXPENSE_CONTEXT_HINTS,
+  INCOME_CONTEXT_HINTS,
+  INVESTMENT_CONTEXT_HINTS,
+} from '@/services/assistant-core/constants'
+import { buildSlots as buildSlotsFromCore } from '@/services/assistant-core/buildSlots'
+import type { AssistantConfirmationMode } from '@/services/assistant-core/confirmationPolicy'
+import { resolveConfirmationPolicy } from '@/services/assistant-core/confirmationPolicy'
+import { inferIntent as inferIntentFromCore } from '@/services/assistant-core/inferIntent'
+import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 import { clampDateToAppStart, clampMonthToAppStart } from '@/utils/format'
 import type {
   AssistantCommand,
@@ -42,22 +53,6 @@ const INCOME_KEYWORDS: Record<string, string[]> = {
   Dividendos: ['dividendos', 'dividendo', 'proventos', 'juros'],
   Aluguel: ['aluguel recebido', 'locação', 'locacao'],
 }
-
-const EXPENSE_CONTEXT_HINTS = [
-  'almoco', 'almoçar', 'jantar', 'lanche', 'restaurante', 'mercado', 'compra', 'compras', 'ifood',
-  'padaria', 'uber', 'taxi', 'onibus', 'ônibus', 'gasolina', 'combustivel', 'combustível', 'farmacia',
-  'farmácia', 'medico', 'médico', 'exame', 'conta', 'despesa', 'gasto',
-]
-
-const EXPENSE_ACTION_HINTS = ['gastei', 'paguei', 'comprei', 'deu', 'custou', 'fui', 'pagar', 'gastou']
-const INCOME_CONTEXT_HINTS = ['recebi', 'recebemos', 'recebimento', 'ganhei', 'caiu', 'entrou', 'salario', 'salário', 'renda', 'receita', 'freela', 'dividendo', 'provento', 'comissao', 'comissão']
-const INVESTMENT_CONTEXT_HINTS = ['investi', 'investimento', 'aporte', 'apliquei', 'aplicacao', 'aplicação', 'corretora']
-
-const WRITE_INTENTS: AssistantIntent[] = [
-  'add_expense',
-  'add_income',
-  'add_investment',
-]
 
 const normalizeText = (value: string) =>
   value
@@ -833,6 +828,25 @@ const buildInstallmentDates = (startDate: string, installmentCount: number): str
   )
 }
 
+const generateUuid = (): string => {
+  if (typeof crypto !== 'undefined') {
+    if (typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID()
+    }
+
+    if (typeof crypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16)
+      crypto.getRandomValues(bytes)
+      bytes[6] = (bytes[6] & 0x0f) | 0x40
+      bytes[8] = (bytes[8] & 0x3f) | 0x80
+      const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+    }
+  }
+
+  return '00000000-0000-4000-8000-000000000000'
+}
+
 const normalizeItemDescriptionByType = (
   text: string,
   type: 'expense' | 'income' | 'investment',
@@ -1030,95 +1044,21 @@ const extractAddItemsFromText = (
   return parsedItems.length > 1 ? parsedItems : undefined
 }
 
-const inferIntent = (text: string): { intent: AssistantIntent; confidence: number } => {
-  const normalized = normalizeText(text)
-  const hasAmount = Boolean(extractAmount(text))
-  const hasExpenseContext = EXPENSE_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
-  const hasExpenseAction = EXPENSE_ACTION_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
-  const hasIncomeContext = INCOME_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
-  const hasInvestmentContext = INVESTMENT_CONTEXT_HINTS.some((hint) => normalized.includes(normalizeText(hint)))
+const inferIntent = (text: string): { intent: AssistantIntent; confidence: number } => inferIntentFromCore({
+  text,
+  extractAmount,
+  classifyWriteTransactionType,
+})
 
-  if (/invest|aporte/.test(normalized) && /adicion|registr|lanc/.test(normalized)) {
-    return { intent: 'add_investment', confidence: 0.9 }
-  }
-
-  if (/renda|receita|ganho|salario|salário/.test(normalized) && /adicion|registr|lanc/.test(normalized)) {
-    return { intent: 'add_income', confidence: 0.9 }
-  }
-
-  if (/despesa|gasto|conta/.test(normalized) && /adicion|registr|lanc/.test(normalized)) {
-    return { intent: 'add_expense', confidence: 0.9 }
-  }
-
-  if (hasAmount && hasInvestmentContext) {
-    return { intent: 'add_investment', confidence: 0.86 }
-  }
-
-  if (hasAmount && hasIncomeContext) {
-    return { intent: 'add_income', confidence: 0.84 }
-  }
-
-  if (hasAmount && (hasExpenseContext || hasExpenseAction)) {
-    return { intent: 'add_expense', confidence: 0.85 }
-  }
-
-  if (hasAmount) {
-    const classification = classifyWriteTransactionType(text)
-
-    if (classification.type === 'investment' && classification.scores.investment >= 4) {
-      return { intent: 'add_investment', confidence: 0.83 }
-    }
-
-    if (classification.type === 'income' && classification.scores.income >= 4) {
-      return { intent: 'add_income', confidence: 0.81 }
-    }
-  }
-
-  if (hasAmount) {
-    return { intent: 'add_expense', confidence: 0.68 }
-  }
-
-  return { intent: 'unknown', confidence: 0.3 }
-}
-
-const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => {
-  const amount = extractAmount(text)
-  const date = extractDate(text)
-  const description = extractDescription(text, intent)
-  const items = extractAddItemsFromText(text, intent, date)
-  const installmentCount = intent === 'add_expense'
-    ? extractInstallmentCount(text)
-    : undefined
-  const transactionType: 'expense' | 'income' | 'investment' | undefined =
-    intent === 'add_investment'
-      ? 'investment'
-      : intent === 'add_income'
-        ? 'income'
-        : intent === 'add_expense'
-          ? 'expense'
-          : undefined
-
-  if (intent === 'add_investment') {
-    return {
-      transactionType,
-      amount,
-      description,
-      month: date.substring(0, 7),
-      date,
-      items,
-    }
-  }
-
-  return {
-    transactionType,
-    amount,
-    installment_count: installmentCount,
-    description,
-    date,
-    month: date.substring(0, 7),
-    items,
-  }
-}
+const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => buildSlotsFromCore({
+  text,
+  intent,
+  extractAmount,
+  extractDate,
+  extractDescription,
+  extractAddItemsFromText,
+  extractInstallmentCount,
+})
 
 const getPreferredMapping = async (
   phrase: string,
@@ -1428,7 +1368,10 @@ const resolveCategory = async (
   }
 }
 
-const requiresConfirmation = (intent: AssistantIntent) => WRITE_INTENTS.includes(intent)
+const requiresConfirmation = (intent: AssistantIntent) => resolveConfirmationPolicy({
+  intent,
+  mode: 'write_only',
+}).requiresConfirmation
 
 const buildConfirmationText = (
   intent: AssistantIntent,
@@ -1658,6 +1601,11 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
   const investmentItems = addItems.filter((item) => item.transactionType === 'investment')
 
   const createdIds: string[] = []
+  const queuedOfflineCounts: Record<WritableTransactionType, number> = {
+    expense: 0,
+    income: 0,
+    investment: 0,
+  }
 
   if (expenseItems.length) {
     const { data: expenseCategories } = await supabase
@@ -1668,6 +1616,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
     const uncategorizedExpenseId = (expenseCategories || []).find(
       (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
     )?.id
+    const fallbackExpenseCategoryId = uncategorizedExpenseId || (expenseCategories || [])[0]?.id
 
     const expensePayloadNested = await Promise.all(expenseItems.map(async (item) => {
       let resolvedCategoryId = item.category?.id
@@ -1682,7 +1631,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
         resolvedCategoryId = resolution.selectedCategory?.id
       }
 
-      resolvedCategoryId = resolvedCategoryId || uncategorizedExpenseId
+      resolvedCategoryId = resolvedCategoryId || fallbackExpenseCategoryId
 
       const effectiveDate = item.date || slots.date
       const installmentCount = normalizeInstallmentCount(item.installment_count) || 1
@@ -1698,13 +1647,11 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
           date: effectiveDate,
           category_id: resolvedCategoryId,
           description: item.description,
-          user_id: userId,
+          ...(userId ? { user_id: userId } : {}),
         }]
       }
 
-      const installmentGroupId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      const installmentGroupId = generateUuid()
       const installmentAmounts = splitInstallmentAmounts(item.amount, installmentCount)
       const installmentDates = buildInstallmentDates(effectiveDate, installmentCount)
 
@@ -1717,7 +1664,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
         installment_group_id: installmentGroupId,
         installment_number: index + 1,
         installment_total: installmentCount,
-        user_id: userId,
+        ...(userId ? { user_id: userId } : {}),
       }))
     }))
 
@@ -1733,10 +1680,22 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       .select('id')
 
     if (error) {
-      return { status: 'failed', message: error.message, commandId: command.id }
+      if (shouldQueueOffline(error)) {
+        expensePayload.forEach((payload, index) => {
+          enqueueOfflineOperation({
+            entity: 'expenses',
+            action: 'create',
+            payload,
+            idempotencyKey: `${command.id}:expense:${index}`,
+          })
+        })
+        queuedOfflineCounts.expense += expensePayload.length
+      } else {
+        return { status: 'failed', message: error.message, commandId: command.id }
+      }
+    } else {
+      createdIds.push(...(data?.map((item) => item.id) || []))
     }
-
-    createdIds.push(...(data?.map((item) => item.id) || []))
   }
 
   if (incomeItems.length) {
@@ -1748,6 +1707,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
     const uncategorizedIncomeId = (incomeCategories || []).find(
       (category) => normalizeText(category.name) === normalizeText('Sem categoria'),
     )?.id
+    const fallbackIncomeCategoryId = uncategorizedIncomeId || (incomeCategories || [])[0]?.id
 
     const incomePayload = await Promise.all(incomeItems.map(async (item) => {
       let resolvedCategoryId = item.category?.id
@@ -1762,7 +1722,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
         resolvedCategoryId = resolution.selectedCategory?.id
       }
 
-      resolvedCategoryId = resolvedCategoryId || uncategorizedIncomeId
+      resolvedCategoryId = resolvedCategoryId || fallbackIncomeCategoryId
 
       return {
         amount: item.amount,
@@ -1771,7 +1731,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
         income_category_id: resolvedCategoryId,
         type: 'other',
         description: item.description,
-        user_id: userId,
+        ...(userId ? { user_id: userId } : {}),
       }
     }))
 
@@ -1785,10 +1745,22 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       .select('id')
 
     if (error) {
-      return { status: 'failed', message: error.message, commandId: command.id }
+      if (shouldQueueOffline(error)) {
+        incomePayload.forEach((payload, index) => {
+          enqueueOfflineOperation({
+            entity: 'incomes',
+            action: 'create',
+            payload,
+            idempotencyKey: `${command.id}:income:${index}`,
+          })
+        })
+        queuedOfflineCounts.income += incomePayload.length
+      } else {
+        return { status: 'failed', message: error.message, commandId: command.id }
+      }
+    } else {
+      createdIds.push(...(data?.map((item) => item.id) || []))
     }
-
-    createdIds.push(...(data?.map((item) => item.id) || []))
   }
 
   if (investmentItems.length) {
@@ -1796,7 +1768,7 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       amount: item.amount,
       month: item.month || slots.month,
       description: item.description,
-      user_id: userId,
+      ...(userId ? { user_id: userId } : {}),
     }))
 
     if (investmentPayload.some((item) => !item.month)) {
@@ -1809,24 +1781,58 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       .select('id')
 
     if (error) {
-      return { status: 'failed', message: error.message, commandId: command.id }
+      if (shouldQueueOffline(error)) {
+        investmentPayload.forEach((payload, index) => {
+          enqueueOfflineOperation({
+            entity: 'investments',
+            action: 'create',
+            payload,
+            idempotencyKey: `${command.id}:investment:${index}`,
+          })
+        })
+        queuedOfflineCounts.investment += investmentPayload.length
+      } else {
+        return { status: 'failed', message: error.message, commandId: command.id }
+      }
+    } else {
+      createdIds.push(...(data?.map((item) => item.id) || []))
     }
-
-    createdIds.push(...(data?.map((item) => item.id) || []))
   }
 
-  if (createdIds.length) {
+  const totalQueuedOffline = queuedOfflineCounts.expense + queuedOfflineCounts.income + queuedOfflineCounts.investment
+
+  if (createdIds.length || totalQueuedOffline > 0) {
     const launchedTypesCount = [
-      expenseItems.length ? `${expenseItems.length} despesa${expenseItems.length > 1 ? 's' : ''}` : undefined,
-      incomeItems.length ? `${incomeItems.length} renda${incomeItems.length > 1 ? 's' : ''}` : undefined,
-      investmentItems.length ? `${investmentItems.length} investimento${investmentItems.length > 1 ? 's' : ''}` : undefined,
+      (expenseItems.length - queuedOfflineCounts.expense) > 0
+        ? `${expenseItems.length - queuedOfflineCounts.expense} despesa${(expenseItems.length - queuedOfflineCounts.expense) > 1 ? 's' : ''}`
+        : undefined,
+      (incomeItems.length - queuedOfflineCounts.income) > 0
+        ? `${incomeItems.length - queuedOfflineCounts.income} renda${(incomeItems.length - queuedOfflineCounts.income) > 1 ? 's' : ''}`
+        : undefined,
+      (investmentItems.length - queuedOfflineCounts.investment) > 0
+        ? `${investmentItems.length - queuedOfflineCounts.investment} investimento${(investmentItems.length - queuedOfflineCounts.investment) > 1 ? 's' : ''}`
+        : undefined,
     ].filter(Boolean)
+
+    const queuedTypesCount = [
+      queuedOfflineCounts.expense > 0 ? `${queuedOfflineCounts.expense} despesa${queuedOfflineCounts.expense > 1 ? 's' : ''}` : undefined,
+      queuedOfflineCounts.income > 0 ? `${queuedOfflineCounts.income} renda${queuedOfflineCounts.income > 1 ? 's' : ''}` : undefined,
+      queuedOfflineCounts.investment > 0 ? `${queuedOfflineCounts.investment} investimento${queuedOfflineCounts.investment > 1 ? 's' : ''}` : undefined,
+    ].filter(Boolean)
+
+    const onlineMessage = launchedTypesCount.length > 1
+      ? `Lançamentos adicionados com sucesso: ${launchedTypesCount.join(', ')}.`
+      : launchedTypesCount.length === 1
+        ? 'Lançamento adicionado com sucesso.'
+        : ''
+
+    const offlineMessage = queuedTypesCount.length
+      ? `Sem conexão no momento. ${queuedTypesCount.join(', ')} ${queuedTypesCount.length > 1 ? 'foram enfileirados' : 'foi enfileirado'} para sincronização automática.`
+      : ''
 
     return {
       status: 'executed',
-      message: launchedTypesCount.length > 1
-        ? `Lançamentos adicionados com sucesso: ${launchedTypesCount.join(', ')}.`
-        : 'Lançamento adicionado com sucesso.',
+      message: [onlineMessage, offlineMessage].filter(Boolean).join(' '),
       commandId: command.id,
       transactionId: createdIds[0],
     }
@@ -2513,6 +2519,7 @@ export async function interpretAssistantCommand(params: {
   deviceId: string
   text: string
   locale?: string
+  confirmationMode?: AssistantConfirmationMode
 }): Promise<AssistantInterpretResult> {
   const session = await ensureSession(params.deviceId, params.locale || DEFAULT_LOCALE)
   const { intent, confidence } = inferIntent(params.text)
@@ -2524,7 +2531,14 @@ export async function interpretAssistantCommand(params: {
     slots.category = categoryResolution.selectedCategory
   }
 
-  const pendingConfirmation = requiresConfirmation(intent)
+  const confirmationPolicy = resolveConfirmationPolicy({
+    intent,
+    slots,
+    confidence,
+    needsCategoryDisambiguation: categoryResolution.needsDisambiguation,
+    mode: params.confirmationMode || 'write_only',
+  })
+  const pendingConfirmation = confirmationPolicy.requiresConfirmation
 
   const { data: insertedCommand, error } = await supabase
     .from('assistant_commands')
@@ -2593,6 +2607,7 @@ export async function confirmAssistantCommand(params: {
   spokenText?: string
   editedDescription?: string
   editedSlots?: AssistantSlots
+  confirmationMethod?: 'voice' | 'touch'
 }): Promise<AssistantConfirmResult> {
   const { data: command, error } = await supabase
     .from('assistant_commands')
@@ -2613,7 +2628,7 @@ export async function confirmAssistantCommand(params: {
       user_id: userId,
       confirmed: params.confirmed,
       spoken_text: params.spokenText,
-      confirmation_method: 'voice',
+      confirmation_method: params.confirmationMethod || 'voice',
     },
   ])
 
@@ -2625,7 +2640,7 @@ export async function confirmAssistantCommand(params: {
 
     return {
       status: 'denied',
-      message: 'Comando cancelado por voz.',
+      message: params.confirmationMethod === 'touch' ? 'Comando cancelado.' : 'Comando cancelado por voz.',
       commandId: command.id,
     }
   }
@@ -2638,7 +2653,9 @@ export async function confirmAssistantCommand(params: {
 
     return {
       status: 'expired',
-      message: 'Confirmação expirada. Refaça o comando por voz.',
+      message: params.confirmationMethod === 'touch'
+        ? 'Confirmação expirada. Refaça o comando.'
+        : 'Confirmação expirada. Refaça o comando por voz.',
       commandId: command.id,
     }
   }

@@ -108,6 +108,20 @@ Os scripts [database.sql](database.sql) e [MIGRATION.sql](MIGRATION.sql) já inc
   3. Configurações: usar bloco `Assistente (MVP)` para testes de texto, voz e insights;
   4. Validar persistência no Supabase e feedback visual do comando reconhecido.
 
+### Privacidade e retenção de dados do assistente
+
+- O app mantém dados técnicos do assistente em `localStorage` para operação offline e observabilidade:
+  - telemetria local (`assistant.telemetry.events`);
+  - memória longa editável (`assistant-memory-entries`);
+  - logs técnicos de decisão de contexto (`assistant-context-decision-logs`);
+  - histórico de sincronização offline (`assistant-offline-sync-history`);
+  - preferências de sessão por dispositivo (`assistant-session-preferences:*`).
+- A retenção local é configurável em `Configurações` (7/30/90/180/365 dias; padrão 90 dias).
+- A limpeza de retenção é executada automaticamente na inicialização do app e ao alterar a retenção.
+- Também é possível executar limpeza manual em `Configurações` com o botão `Executar limpeza agora`.
+- Metadados de voz pendentes na fila offline são anonimizados localmente durante a limpeza (remoção de `spokenText`).
+- O assistente exige confirmação explícita para ações sensíveis/escritas conforme política configurada.
+
 ### Fluxo de sincronização offline
 
 1. Usuário cria/edita/deleta um registro sem internet.
