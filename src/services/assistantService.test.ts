@@ -136,9 +136,9 @@ describe('assistant insights - regressões de narrativa', () => {
     )
 
     expect(recommendations.length).toBeGreaterThan(0)
-    expect(recommendations.length).toBeLessThanOrEqual(3)
-    expect(recommendations.some((line) => /Com base no andamento atual do mês/i.test(line))).toBe(true)
-    expect(recommendations.some((line) => line.includes('Alimentação está concentrando 100% das despesas do mês'))).toBe(true)
+    expect(recommendations.length).toBeLessThanOrEqual(2)
+    expect(recommendations.some((line) => /(revis|ajust|reduz|defin|distrib|prioriz)/i.test(line))).toBe(true)
+    expect(recommendations.every((line) => line.length <= 180)).toBe(true)
   })
 })
 

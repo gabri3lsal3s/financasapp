@@ -522,6 +522,15 @@ export default function Dashboard() {
     const withoutTrailingDot = normalized.map((item) => item.replace(/[.!?]+$/, ''))
     const firstSentence = `${withoutTrailingDot[0]}.`
 
+    const toClauseAfterConnector = (value: string) => {
+      const text = value.trim()
+      if (!text) return text
+
+      const [firstChar, ...restChars] = text
+      const rest = restChars.join('')
+      return `${firstChar.toLowerCase()}${rest}`
+    }
+
     const simplifyForMobile = (value: string) => {
       const compact = value
         .replace(/^Com base no andamento atual do mês,\s*/i, '')
@@ -548,14 +557,16 @@ export default function Dashboard() {
 
     if (withoutTrailingDot.length === 2) {
       return insightNarrativeMoment.isFinalized
-        ? `${firstSentence} Além disso, ${withoutTrailingDot[1]}.`
-        : `${firstSentence} Até aqui, ${withoutTrailingDot[1]}.`
+        ? `${firstSentence} Além disso, ${toClauseAfterConnector(withoutTrailingDot[1])}.`
+        : `${firstSentence} Até aqui, ${toClauseAfterConnector(withoutTrailingDot[1])}.`
     }
 
     return insightNarrativeMoment.isFinalized
       ? `${firstSentence} ${withoutTrailingDot[1]}. ${withoutTrailingDot[2]}.`
-      : `${firstSentence} ${withoutTrailingDot[1]}. Para os próximos dias, ${withoutTrailingDot[2]}.`
+      : `${firstSentence} ${withoutTrailingDot[1]}. Para os próximos dias, ${toClauseAfterConnector(withoutTrailingDot[2])}.`
   }, [monthlyInsights, insightNarrativeMoment.isFinalized, isMobileViewport])
+
+  const shouldShowMonthlyInsights = monthlyInsightsEnabled && !insightsLoading && !insightsError && monthlyInsightsNarrative.length > 0
 
   const openQuickAdd = (type: QuickAddType) => {
     setQuickAddType(type)
@@ -1014,26 +1025,18 @@ export default function Dashboard() {
       <div className="p-4 lg:p-6">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
 
-        {monthlyInsightsEnabled && (
+        {shouldShowMonthlyInsights && (
           <Card className="mt-4 lg:mt-6">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
-              {insightsLoading ? (
-                <p className="text-sm text-secondary">Analisando movimentações do mês...</p>
-              ) : insightsError ? (
-                <p className="text-sm text-secondary">Não foi possível atualizar insights agora. Tente novamente após novos lançamentos.</p>
-              ) : monthlyInsights.length === 0 ? (
-                <p className="text-sm text-secondary">Ainda não há contexto suficiente para gerar insights inteligentes neste mês.</p>
-              ) : (
-                <p className="text-sm text-primary leading-relaxed">
-                  {monthlyInsightsNarrative}
-                </p>
-              )}
+              <p className="text-sm text-primary leading-relaxed">
+                {monthlyInsightsNarrative}
+              </p>
             </div>
           </Card>
         )}
 
-        <div className={monthlyInsightsEnabled ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
+        <div className={shouldShowMonthlyInsights ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
 
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>

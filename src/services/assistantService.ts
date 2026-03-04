@@ -2196,6 +2196,16 @@ const isInsightTooGeneric = (message: string) => {
   return /no geral|bom ritmo|sem sinais criticos|sem sinais críticos|comportamento esperado/.test(normalized)
 }
 
+const isInsightUseful = (message: string, kind: 'highlight' | 'recommendation') => {
+  const normalized = normalizeText(message)
+
+  if (kind === 'recommendation') {
+    return hasActionableRecommendation(message)
+  }
+
+  return /\d+%|r\$\s*\d+|saldo|negativ|limite|aceler|subiu|caiu|recuou|concentrou|pico|acima|abaixo|pressao|pressão|renda|despesa/.test(normalized)
+}
+
 const hasActionableRecommendation = (message: string) => {
   const normalized = normalizeText(message)
   return /revisar|ajuste|ajustar|reduzir|definir|adiar|automatizar|renegoci|acompanhar|separar|distribuir|priorizar/.test(normalized)
@@ -2217,13 +2227,10 @@ const prioritizeInsightLines = (
 
   const useful = unique.filter((message) => {
     if (isInsightTooGeneric(message)) return false
-    if (kind === 'recommendation' && !hasActionableRecommendation(message)) return false
-    return true
+    return isInsightUseful(message, kind)
   })
 
-  const source = useful.length ? useful : unique
-
-  return source
+  return useful
     .map((message) => ({ message, score: getInsightScore(message, kind) }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score
@@ -2277,7 +2284,7 @@ const mergeRelatedConclusiveHighlights = (highlights: string[]) => {
 const buildInProgressRecommendations = (highlights: string[], recommendations: string[]) => {
   const contextualRecommendations = [
     ...recommendations,
-    ...highlights.map((item) => `Com base no andamento atual do mês, vale revisar este ponto: ${item.replace(/[.!?]+$/, '')}.`),
+    ...highlights.map((item) => `Revise este ponto: ${item.replace(/[.!?]+$/, '')}.`),
   ]
 
   const seen = new Set<string>()
@@ -2288,7 +2295,7 @@ const buildInProgressRecommendations = (highlights: string[], recommendations: s
     return true
   })
 
-  return uniqueRecommendations.slice(0, 3)
+  return prioritizeInsightLines(uniqueRecommendations, 2, 'recommendation')
 }
 
 const median = (values: number[]) => {
@@ -2779,7 +2786,6 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   const targetMonth = clampMonthToAppStart(month || format(new Date(), 'yyyy-MM'))
   const timing = getInsightTimingProfile(targetMonth, new Date())
   const {
-    isClosedMonth,
     isCurrentMonth,
     elapsedDays,
     daysInMonth,
@@ -2852,7 +2858,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
   if (analysisPhase === 'early') {
     recommendations.push('Defina um teto semanal para gastos flexíveis e ajuste cedo para evitar pressão no fim do mês.')
   } else if (analysisPhase === 'middle') {
-    recommendations.push('Use os padrões já vistos no mês para reduzir pressão nos dias restantes e preservar margem de segurança.')
+    recommendations.push('Use o padrão já observado no mês para aliviar os próximos dias e preservar margem.')
   }
 
   const ignoredRowsCount =
@@ -2861,33 +2867,19 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     currentData.validation.ignoredFutureRows
   const validRowsCount = currentData.expenses.length + currentData.incomes.length + currentData.investments.length
 
-  if (ignoredRowsCount > 0 || currentData.validation.correctedWeights > 0) {
-    highlights.push(
-      `A análise considerou apenas dados válidos: ${validRowsCount} lançamentos considerados e ${ignoredRowsCount} desconsiderados por inconsistência ou data futura.`,
-    )
-    recommendations.push('Revise lançamentos com data, valor ou peso inválido para manter os próximos insights totalmente confiáveis.')
-  }
-
   if (currentData.expenses.length === 0 && currentData.incomes.length === 0 && currentData.investments.length === 0) {
     return {
       month: targetMonth,
-      highlights: [
-        !isClosedMonth
-          ? `Até hoje, ainda não há lançamentos válidos suficientes em ${targetMonth} para gerar insights úteis.`
-          : 'Ainda não há dados suficientes deste mês para gerar insights úteis.',
-      ],
-      recommendations: ['Registre os próximos lançamentos para receber uma leitura curta e acionável.'],
+      highlights: [],
+      recommendations: [],
     }
   }
 
   if (ignoredRowsCount > validRowsCount && validRowsCount < 5) {
     return {
       month: targetMonth,
-      highlights: prioritizeInsightLines(highlights, 2, 'highlight'),
-      recommendations: prioritizeInsightLines([
-        ...recommendations,
-        'Há poucos lançamentos válidos no período. Corrija os registros inconsistentes antes de interpretar tendência de gastos.',
-      ], 2, 'recommendation'),
+      highlights: [],
+      recommendations: [],
     }
   }
 
@@ -2913,14 +2905,14 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       )
 
       if (topCategoryImportance === 'essential') {
-        recommendations.push(`Como ${topCategoryEntry[0]} é uma categoria essencial, a melhor estratégia é buscar eficiência (renegociação ou ajuste de frequência) sem perder qualidade.`)
+        recommendations.push(`Como ${topCategoryEntry[0]} é essencial, foque em eficiência (renegociar plano ou ajustar frequência) sem perder qualidade.`)
       } else if (topCategoryImportance === 'strategic') {
-        recommendations.push(`${topCategoryEntry[0]} tem perfil estratégico; mantenha o aporte com cadência, mas ajuste valores para preservar equilíbrio no curto prazo.`)
+        recommendations.push(`${topCategoryEntry[0]} é estratégica; mantenha constância, mas ajuste valores para preservar o equilíbrio no curto prazo.`)
       } else {
         recommendations.push(
           allowsConclusiveComparisons
-            ? `${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão nos próximos ciclos.`
-            : `${topCategoryEntry[0]} é uma categoria com margem de ajuste e pode ser o primeiro ponto para aliviar pressão até o fechamento.`,
+            ? `${topCategoryEntry[0]} tem margem de ajuste e pode ser o primeiro ponto para aliviar pressão nos próximos ciclos.`
+            : `${topCategoryEntry[0]} tem margem de ajuste e pode ser o primeiro ponto para aliviar pressão até o fechamento.`,
         )
       }
     } else if (topCategoryShare >= 30) {
@@ -2961,11 +2953,11 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       )
 
       if (importance === 'essential') {
-        recommendations.push(`Como é uma categoria essencial, o foco aqui é otimizar custos sem cortar o necessário (troca de plano, fornecedor ou frequência).`)
+        recommendations.push('Como é uma categoria essencial, priorize eficiência sem cortar o necessário (plano, fornecedor ou frequência).')
       } else if (importance === 'strategic') {
-        recommendations.push(`Por ser estratégica, vale recalibrar o valor temporariamente para manter consistência sem comprometer o caixa do mês.`)
+        recommendations.push('Por ser estratégica, recalibre o valor temporariamente para manter consistência sem comprometer o caixa.')
       } else {
-        recommendations.push(`Essa categoria tem boa flexibilidade e pode ser reduzida agora para recuperar margem com rapidez.`)
+        recommendations.push('Essa categoria é flexível e pode ser reduzida agora para recuperar margem com rapidez.')
       }
     } else {
       const nearLimit = limitAlerts.find((item) => item.usage >= 85)
@@ -2974,9 +2966,9 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
         highlights.push(`${nearLimit.categoryName} já consumiu ${nearLimit.usage.toFixed(0)}% do limite mensal.`)
 
         if (importance === 'essential') {
-          recommendations.push(`Para ${nearLimit.categoryName}, prefira ajustes finos de eficiência no dia a dia em vez de cortes abruptos.`)
+          recommendations.push(`Em ${nearLimit.categoryName}, prefira ajustes finos de eficiência no dia a dia, sem cortes abruptos.`)
         } else {
-          recommendations.push(`Um ajuste de frequência em ${nearLimit.categoryName} já tende a devolver folga ao mês.`)
+          recommendations.push(`Um ajuste de frequência em ${nearLimit.categoryName} tende a devolver folga ao mês.`)
         }
       }
     }
@@ -3001,7 +2993,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
           ? `Houve um pico de gastos concentrado em ${peakWeekday}, acima do seu padrão diário mais comum.`
           : `Há um pico de gastos em ${peakWeekday} acima do seu padrão diário até aqui.`,
       )
-      recommendations.push('Vale distribuir compras maiores ao longo das semanas para deixar o fluxo mais leve e previsível.')
+      recommendations.push('Distribua compras maiores ao longo das semanas para deixar o fluxo mais leve e previsível.')
     }
   }
 
@@ -3021,7 +3013,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     const weekdayShare = safePercent(topWeekDayAmount, currentTotals.expenses)
     if (weekdayShare >= 30) {
       highlights.push(`Seu padrão semanal mostra maior pressão na ${weekDayNames[topWeekDay]}, quando seus gastos costumam pesar mais.`)
-      recommendations.push(`Definir um teto prático para ${weekDayNames[topWeekDay]} pode ajudar bastante a manter o controle sem esforço extra.`)
+      recommendations.push(`Definir um teto prático para ${weekDayNames[topWeekDay]} ajuda a manter o controle sem esforço extra.`)
     }
   }
 
@@ -3030,9 +3022,9 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     const projectedBalance = currentTotals.incomes - projectedExpenses - currentTotals.investments
 
     if (isCurrentMonth && projectedBalance < 0 && currentBalance >= 0) {
-      recommendations.push('No ritmo atual, seu saldo pode virar negativo até o fechamento; um ajuste leve nas despesas variáveis já ajuda a evitar isso.')
+      recommendations.push('No ritmo atual, seu saldo pode ficar negativo até o fechamento; um ajuste leve nas despesas variáveis já ajuda a evitar isso.')
     } else if (isCurrentMonth && projectedBalance < currentBalance) {
-      recommendations.push('Os gastos aceleraram neste mês; acompanhar os próximos dias de perto pode preservar sua margem até o fechamento.')
+      recommendations.push('Os gastos aceleraram neste mês; acompanhe os próximos dias de perto para preservar sua margem até o fechamento.')
     }
   }
 
@@ -3042,13 +3034,13 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       recommendations.push(
         allowsConclusiveComparisons
           ? 'No mês analisado, não houve aporte; definir um valor fixo para os próximos meses ajuda a manter as metas de longo prazo em movimento.'
-          : 'Ainda não houve aporte neste mês; separar um valor fixo, mesmo pequeno, ajuda a manter as metas de longo prazo em movimento.',
+          : 'Ainda não houve aporte neste mês; separar um valor fixo, mesmo pequeno, ajuda a manter as metas de longo prazo.',
       )
     } else if (investmentRate < 10) {
       recommendations.push(
         allowsConclusiveComparisons
           ? 'No mês analisado, a taxa de aporte ficou abaixo do ideal; automatizar um valor mínimo semanal pode facilitar a consistência nos próximos meses.'
-          : 'A taxa de aporte está abaixo do ideal para este mês; automatizar um valor mínimo semanal pode facilitar a consistência.',
+          : 'A taxa de aporte está abaixo do ideal neste mês; automatizar um valor mínimo semanal pode facilitar a consistência.',
       )
     }
   }
@@ -3107,7 +3099,7 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
       }
 
       if (currentTotals.incomes < previousYearTotals.incomes && yearlyIncomeDeltaPct >= 12) {
-        recommendations.push('Em relação ao mesmo mês do ano passado, a renda perdeu força; vale adiar novos compromissos até o fluxo se estabilizar.')
+        recommendations.push('Em relação ao mesmo mês do ano passado, a renda perdeu força; adie novos compromissos até o fluxo se estabilizar.')
       }
     }
 
@@ -3140,16 +3132,6 @@ export async function getAssistantMonthlyInsights(month?: string): Promise<Assis
     }
 
     recommendations.length = 0
-  }
-
-  if (!highlights.length) {
-    highlights.push('Não há sinal crítico relevante nos lançamentos analisados até agora.')
-  }
-
-  if (!recommendations.length && !allowsConclusiveComparisons) {
-    recommendations.push(
-      'Você está em um bom ritmo; manter limites por categoria atualizados deve preservar previsibilidade até o fechamento.',
-    )
   }
 
   if (!allowsConclusiveComparisons) {
