@@ -102,7 +102,6 @@ export default function IncomeCategories() {
           </Card>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {incomeCategories.map((category, idx) => (
                   <Card key={category.id} className="py-3" onClick={() => handleOpenModal(category)}>
                     <div className="flex items-center justify-between gap-3">

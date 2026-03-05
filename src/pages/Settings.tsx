@@ -1,27 +1,21 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import AssistantConfirmationPanel from '@/components/AssistantConfirmationPanel'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
-import { useAssistantTurn } from '@/hooks/useAssistantTurn'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useAssistantTelemetry } from '@/hooks/useAssistantTelemetry'
-import { useAssistantOfflineQueueStatus } from '@/hooks/useAssistantOfflineQueueStatus'
-import { useAssistantOfflineSyncHistory } from '@/hooks/useAssistantOfflineSyncHistory'
 import { useAssistantMemory } from '@/hooks/useAssistantMemory'
 import { useAssistantContextDecisionLogs } from '@/hooks/useAssistantContextDecisionLogs'
-import { useVoiceAdapter } from '@/hooks/useVoiceAdapter'
 import { getAssistantPrivacyCleanupLastRun, runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
-import { formatAssistantSpeechText } from '@/utils/assistantSpeech'
 import { AlertCircle, Bot, Check, ChevronDown, SlidersHorizontal, Sparkles, Wrench } from 'lucide-react'
 
 interface TestResult {
@@ -50,7 +44,6 @@ export default function Settings() {
     status: 'idle',
     message: '',
   })
-  const assistantInputRef = useRef<HTMLInputElement | null>(null)
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
   const {
@@ -78,24 +71,6 @@ export default function Settings() {
     setFloatingCalculatorEnabled,
   } = useAppSettings()
   const {
-    assistantLoading,
-    assistantError,
-    lastInterpretation,
-    lastConfirmation,
-    assistantText,
-    setAssistantText,
-    editableConfirmationText,
-    setEditableConfirmationText,
-    editableSlots,
-    updateEditableSlots,
-    interpretCommand,
-    confirmLastInterpretation,
-  } = useAssistantTurn('web-settings-device', {
-    locale: assistantLocale,
-    offlineBehavior: assistantOfflineBehavior,
-    responseDepth: assistantResponseDepth,
-  })
-  const {
     summary: telemetrySummary,
     weeklySummary: telemetryWeeklySummary,
     trend: telemetryTrend,
@@ -104,12 +79,6 @@ export default function Settings() {
     setSourceFilter: setTelemetrySourceFilter,
     clearTelemetry,
   } = useAssistantTelemetry()
-  const { pendingCount: assistantOfflinePendingCount, hasPending: hasAssistantOfflinePending } = useAssistantOfflineQueueStatus()
-  const {
-    history: assistantOfflineSyncHistory,
-    lastSync: assistantOfflineLastSync,
-    clearHistory: clearAssistantOfflineSyncHistory,
-  } = useAssistantOfflineSyncHistory()
   const {
     entries: assistantMemoryEntries,
     createEntry: createAssistantMemoryEntry,
@@ -129,27 +98,6 @@ export default function Settings() {
     const signal = value > 0 ? '+' : ''
     return `${signal}${value}${suffix}`
   }
-  const {
-    voiceSupport,
-    voiceStatus,
-    setVoiceStatus,
-    voiceListening,
-    voicePhase,
-    lastHeardCommand,
-    captureSpeech,
-    stopActiveListening,
-    resolveVoiceConfirmation,
-    speakText,
-    stopSpeaking,
-  } = useVoiceAdapter({
-    locale: assistantLocale,
-    checkOnline: true,
-    networkErrorMessage: 'Falha de rede no reconhecimento de voz. Verifique internet ativa, HTTPS e, se persistir, use o comando em texto no campo abaixo.',
-    autoSpeakEnabled: assistantAutoSpeak,
-    speechRate: assistantSpeechRate,
-    speechPitch: assistantSpeechPitch,
-  })
-
   const updateSettingsView = (view: SettingsView) => {
     const nextParams = new URLSearchParams(searchParams)
     nextParams.set('view', view)
@@ -271,41 +219,6 @@ export default function Settings() {
     }
   }
 
-  const handleInterpretAssistant = async () => {
-    if (!assistantText.trim() || !isSupabaseConfigured) return
-    stopSpeaking()
-    const result = await interpretCommand(assistantText.trim(), {
-      confirmationMode: assistantConfirmationPolicyMode,
-    })
-    if (!result) return
-    await speakText(formatAssistantSpeechText(result.confirmationText, assistantResponseDepth))
-  }
-
-  const handleConfirmAssistant = async (confirmed: boolean) => {
-    if (!isSupabaseConfigured) return
-    stopSpeaking()
-    const result = await confirmLastInterpretation({ confirmed })
-    if (!result) return
-    await speakText(formatAssistantSpeechText(result.message, assistantResponseDepth))
-  }
-
-  const moveToTextFallback = () => {
-    assistantInputRef.current?.focus()
-    setVoiceStatus((previous) => {
-      if (!previous) {
-        return 'Fallback ativado: digite o comando no campo de texto e toque em Interpretar.'
-      }
-      return `${previous} Fallback: use o campo de texto e toque em Interpretar.`
-    })
-  }
-
-  const isExpenseIntent = lastInterpretation?.intent === 'add_expense'
-  const touchConfirmationEnabled = assistantConfirmationMode !== 'voice' || isExpenseIntent
-  const voiceConfirmationEnabled = assistantConfirmationMode !== 'touch' && !isExpenseIntent
-  const actionColumnsClass = touchConfirmationEnabled && voiceConfirmationEnabled
-    ? 'sm:grid-cols-3'
-    : 'sm:grid-cols-2'
-
   const availableMemoryCategories = newMemoryType === 'expense'
     ? categories.map((category) => ({ id: category.id, name: category.name }))
     : incomeCategories.map((category) => ({ id: category.id, name: category.name }))
@@ -329,63 +242,6 @@ export default function Settings() {
     const summary = runAssistantPrivacyCleanup(assistantDataRetentionDays)
     if (!summary) return
     setPrivacyCleanupSummary(getAssistantPrivacyCleanupLastRun())
-  }
-
-  const handleVoiceInterpret = async () => {
-    if (!isSupabaseConfigured || assistantLoading) return
-
-    if (voiceListening) {
-      stopActiveListening()
-      return
-    }
-
-    try {
-      const transcript = await captureSpeech('Fale o comando inicial')
-      if (!transcript) return
-
-      setAssistantText(transcript)
-      const result = await interpretCommand(transcript, {
-        confirmationMode: assistantConfirmationPolicyMode,
-      })
-      if (!result) return
-      await speakText(formatAssistantSpeechText(result.confirmationText, assistantResponseDepth))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.'
-      setVoiceStatus(message)
-      if (message.toLowerCase().includes('rede') || message.toLowerCase().includes('network')) {
-        moveToTextFallback()
-      }
-    }
-  }
-
-  const handleVoiceConfirm = async () => {
-    if (!isSupabaseConfigured || assistantLoading || !lastInterpretation?.command.id) return
-
-    if (!voiceConfirmationEnabled) {
-      setVoiceStatus('Confirmação por voz está desativada nas suas configurações.')
-      return
-    }
-
-    if (lastInterpretation.intent === 'add_expense') {
-      setVoiceStatus('Para despesas, a confirmação é manual pelos botões Confirmar/Negar.')
-      return
-    }
-
-    try {
-      const transcript = await captureSpeech('Confirme por voz')
-      if (!transcript) return
-
-      const confirmed = resolveVoiceConfirmation(transcript)
-      const result = await confirmLastInterpretation({ confirmed, spokenText: transcript })
-      if (!result) return
-      await speakText(formatAssistantSpeechText(result.message, assistantResponseDepth))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao confirmar por voz.'
-      setVoiceStatus(message)
-      if (message.toLowerCase().includes('rede') || message.toLowerCase().includes('network')) {
-        moveToTextFallback()
-      }
-    }
   }
 
   return (
@@ -1089,175 +945,6 @@ export default function Settings() {
           </Card>
         </section>
 
-        <section id="assistant-mvp" className={activeSettingsView === 'assistant' ? 'space-y-4 scroll-mt-24' : 'hidden'}>
-          <div>
-            <h2 className="text-xl font-semibold text-primary mb-2">Assistente (MVP)</h2>
-            <p className="text-secondary text-sm">Diagnóstico e testes do assistente por voz/texto, com edição completa antes da confirmação</p>
-          </div>
-
-          <Card>
-            <div className="space-y-4">
-              <Input
-                ref={assistantInputRef}
-                label="Comando de voz (texto de teste)"
-                value={assistantText}
-                onChange={(event) => setAssistantText(event.target.value)}
-                placeholder="Ex.: adicionar despesa de 42 almoço"
-                disabled={assistantLoading || !isSupabaseConfigured}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button
-                  onClick={handleVoiceInterpret}
-                  disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition}
-                  variant="primary"
-                  fullWidth
-                >
-                  {voiceListening ? 'Parar Escuta' : 'Falar Comando'}
-                </Button>
-                <Button
-                  onClick={handleInterpretAssistant}
-                  disabled={assistantLoading || !assistantText.trim() || !isSupabaseConfigured}
-                  variant="outline"
-                  fullWidth
-                >
-                  Interpretar Texto
-                </Button>
-              </div>
-
-              {!voiceSupport.recognition && (
-                <p className="text-xs text-secondary">
-                  Reconhecimento de voz indisponível neste navegador. Use Chrome/Edge Android com HTTPS.
-                </p>
-              )}
-
-              <div className="p-3 rounded-lg border border-primary bg-secondary space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-secondary">Status de escuta</p>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex h-2.5 w-2.5 rounded-full ${voicePhase === 'listening' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'}`} />
-                  <p className="text-sm text-primary">
-                    {voicePhase === 'listening' ? 'Escutando...' : voicePhase === 'stopped' ? 'Parou de escutar' : 'Pronto para iniciar'}
-                  </p>
-                </div>
-                {lastHeardCommand && (
-                  <p className="text-sm text-primary">
-                    <strong>Comando ouvido:</strong> {lastHeardCommand}
-                  </p>
-                )}
-              </div>
-
-              {voiceStatus && (
-                <div className="p-3 rounded-lg border border-primary bg-tertiary">
-                  <p className="text-xs text-secondary">{voiceStatus}</p>
-                </div>
-              )}
-
-              {hasAssistantOfflinePending && (
-                <div className="p-3 rounded-lg border border-primary bg-tertiary">
-                  <p className="text-sm font-medium text-primary">Sincronização offline do assistente</p>
-                  <p className="text-xs text-secondary mt-1">
-                    {assistantOfflinePendingCount === 1
-                      ? '1 comando do assistente está pendente e será sincronizado automaticamente ao reconectar.'
-                      : `${assistantOfflinePendingCount} comandos do assistente estão pendentes e serão sincronizados automaticamente ao reconectar.`}
-                  </p>
-                </div>
-              )}
-
-              <div className="p-3 rounded-lg border border-primary bg-tertiary space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <p className="text-sm font-medium text-primary">Histórico de sincronização offline</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={clearAssistantOfflineSyncHistory}
-                    disabled={assistantOfflineSyncHistory.length === 0}
-                  >
-                    Limpar histórico
-                  </Button>
-                </div>
-
-                {assistantOfflineLastSync ? (
-                  <p className="text-xs text-secondary">
-                    Última tentativa: {new Date(assistantOfflineLastSync.createdAt).toLocaleString('pt-BR')} ·
-                    status {assistantOfflineLastSync.status} · processados {assistantOfflineLastSync.processed}/{assistantOfflineLastSync.attempted}
-                  </p>
-                ) : (
-                  <p className="text-xs text-secondary">Sem tentativas de sincronização offline do assistente até agora.</p>
-                )}
-
-                {assistantOfflineSyncHistory.length > 0 && (
-                  <div className="space-y-1">
-                    {assistantOfflineSyncHistory.slice(0, 5).map((item) => (
-                      <p key={item.id} className="text-xs text-secondary">
-                        {new Date(item.createdAt).toLocaleString('pt-BR')} · {item.status} · {item.processed}/{item.attempted} processados · {item.remaining} restantes
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {assistantError && (
-                <div className="p-3 rounded-lg border border-[var(--color-danger)] bg-tertiary">
-                  <p className="text-sm font-medium text-[var(--color-danger)]">Erro no assistente</p>
-                  <p className="text-xs text-secondary mt-1">{assistantError}</p>
-                </div>
-              )}
-
-              {lastInterpretation && (
-                <div className="space-y-3 p-3 rounded-lg border border-primary bg-secondary">
-                  <div className="space-y-1">
-                    <p className="text-sm text-primary">
-                      <strong>Intenção:</strong> {lastInterpretation.intent}
-                    </p>
-                    <p className="text-sm text-primary">
-                      <strong>Confiança:</strong> {(lastInterpretation.confidence * 100).toFixed(0)}%
-                    </p>
-                    <p className="text-sm text-primary">
-                      <strong>Resumo:</strong> {lastInterpretation.confirmationText}
-                    </p>
-                  </div>
-
-                  {lastInterpretation.requiresConfirmation && (
-                    <AssistantConfirmationPanel
-                      intent={lastInterpretation.intent}
-                      editableConfirmationText={editableConfirmationText}
-                      onEditableConfirmationTextChange={setEditableConfirmationText}
-                      editableSlots={editableSlots}
-                      categories={categories.map((category) => ({ id: category.id, name: category.name }))}
-                      incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
-                      disabled={assistantLoading || !isSupabaseConfigured}
-                      onUpdateSlots={updateEditableSlots}
-                      touchConfirmationEnabled={touchConfirmationEnabled}
-                      voiceConfirmationEnabled={voiceConfirmationEnabled}
-                      actionColumnsClass={actionColumnsClass}
-                      onConfirm={() => handleConfirmAssistant(true)}
-                      onDeny={() => handleConfirmAssistant(false)}
-                      onVoiceConfirm={handleVoiceConfirm}
-                      voiceConfirmDisabled={
-                        assistantLoading
-                        || !isSupabaseConfigured
-                        || !voiceSupport.recognition
-                        || voiceListening
-                        || !lastInterpretation?.command.id
-                      }
-                      voiceListening={voiceListening}
-                      isExpenseIntent={isExpenseIntent}
-                    />
-                  )}
-                </div>
-              )}
-
-              {lastConfirmation && (
-                <div className="p-3 rounded-lg border border-primary bg-tertiary">
-                  <p className="text-sm font-medium text-primary">Resultado da confirmação</p>
-                  <p className="text-xs text-secondary mt-1">{lastConfirmation.message}</p>
-                </div>
-              )}
-
-            </div>
-          </Card>
-        </section>
       </div>
     </div>
   )

@@ -165,7 +165,6 @@ export default function Investments() {
           </Card>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {investments.map((investment) => (
                   <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
                   <div className="flex items-start justify-between gap-3">

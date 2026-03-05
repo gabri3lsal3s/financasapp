@@ -250,6 +250,63 @@ export default function Expenses() {
     handleCloseModal()
   }
 
+  const sortExpensesByDateDesc = (a: Expense, b: Expense) => {
+    const dateDiff = b.date.localeCompare(a.date)
+    if (dateDiff !== 0) return dateDiff
+    return b.created_at.localeCompare(a.created_at)
+  }
+
+  const installmentExpenses = expenses
+    .filter((expense) => Number(expense.installment_total || 1) > 1)
+    .sort(sortExpensesByDateDesc)
+
+  const monthExpenses = expenses
+    .filter((expense) => Number(expense.installment_total || 1) <= 1)
+    .sort(sortExpensesByDateDesc)
+
+  const renderExpenseCard = (expense: Expense) => (
+    <Card key={expense.id} className="py-3" onClick={() => handleOpenModal(expense)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <div
+              className="w-1 h-6 rounded-sm flex-shrink-0"
+              style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }}
+            />
+            <p className="font-medium text-primary truncate">
+              {expense.description || expense.category?.name || 'Despesa'}
+            </p>
+          </div>
+          <p className="text-sm text-secondary">
+            {expense.category?.name} • {formatDate(expense.date)}
+            {Number(expense.installment_total || 1) > 1 && (
+              <> • Parcela {expense.installment_number || 1}/{expense.installment_total}</>
+            )}
+          </p>
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+            <CategoryBadge
+              label={expense.category?.name || 'Sem categoria'}
+              color={expense.category?.id
+                ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
+                : 'var(--color-primary)'}
+            />
+            <CategoryBadge label={getPaymentMethodLabel(expense)} color={getPaymentMethodColor(expense)} />
+          </div>
+        </div>
+        <div className="ml-2 flex-shrink-0 text-right">
+          <p className="text-base sm:text-lg font-semibold text-primary">
+            {formatCurrency(expense.amount)}
+          </p>
+          {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
+            <p className="text-xs text-secondary">
+              {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
+            </p>
+          )}
+        </div>
+      </div>
+    </Card>
+  )
+
   return (
     <div>
       <PageHeader
@@ -281,49 +338,21 @@ export default function Expenses() {
           </Card>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
-            {expenses.map((expense) => (
-                <Card key={expense.id} className="py-3" onClick={() => handleOpenModal(expense)}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div
-                        className="w-1 h-6 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }}
-                      />
-                      <p className="font-medium text-primary truncate">
-                        {expense.description || expense.category?.name || 'Despesa'}
-                      </p>
-                    </div>
-                    <p className="text-sm text-secondary">
-                      {expense.category?.name} • {formatDate(expense.date)}
-                      {Number(expense.installment_total || 1) > 1 && (
-                        <> • Parcela {expense.installment_number || 1}/{expense.installment_total}</>
-                      )}
-                    </p>
-                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                      <CategoryBadge
-                        label={expense.category?.name || 'Sem categoria'}
-                        color={expense.category?.id
-                          ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
-                          : 'var(--color-primary)'}
-                      />
-                      <CategoryBadge label={getPaymentMethodLabel(expense)} color={getPaymentMethodColor(expense)} />
-                    </div>
-                  </div>
-                  <div className="ml-2 flex-shrink-0 text-right">
-                    <p className="text-base sm:text-lg font-semibold text-primary">
-                      {formatCurrency(expense.amount)}
-                    </p>
-                    {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
-                      <p className="text-xs text-secondary">
-                        {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                </Card>
-            ))}
+            {installmentExpenses.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs uppercase tracking-wide text-secondary">Parceladas</p>
+                {installmentExpenses.map(renderExpenseCard)}
+              </div>
+            )}
+
+            {monthExpenses.length > 0 && (
+              <div className="space-y-3">
+                {installmentExpenses.length > 0 && (
+                  <p className="text-xs uppercase tracking-wide text-secondary">Despesas do mês</p>
+                )}
+                {monthExpenses.map(renderExpenseCard)}
+              </div>
+            )}
           </div>
         )}
       </div>

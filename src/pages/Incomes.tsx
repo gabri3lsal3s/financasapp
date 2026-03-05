@@ -295,7 +295,6 @@ export default function Incomes() {
           </Card>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {incomes.map((income) => (
                 <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
                   <div className="flex items-start justify-between gap-3">

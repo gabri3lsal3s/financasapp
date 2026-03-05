@@ -101,7 +101,6 @@ export default function Categories() {
           </Card>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-secondary">Clique em um item para editar ou excluir.</p>
             {categories.map((category, idx) => (
                   <Card key={category.id} className="py-3" onClick={() => handleOpenModal(category)}>
                     <div className="flex items-center justify-between gap-3">

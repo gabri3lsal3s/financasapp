@@ -3,10 +3,12 @@ import { endOfMonth, format, subMonths } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Modal from '@/components/Modal'
 import Select from '@/components/Select'
 import MonthSelector from '@/components/MonthSelector'
+import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useCategories } from '@/hooks/useCategories'
@@ -18,7 +20,7 @@ import { supabase } from '@/lib/supabase'
 import type { CreditCard } from '@/types'
 import { APP_START_DATE, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
-import { Plus } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 type CardFormState = {
@@ -157,6 +159,7 @@ export default function CreditCards() {
   const [editingRefundPaymentItem, setEditingRefundPaymentItem] = useState<PaymentItem | null>(null)
   const [editingRefundIncomeId, setEditingRefundIncomeId] = useState<string>('')
   const [refundIncomeEditForm, setRefundIncomeEditForm] = useState<RefundIncomeFormState>(DEFAULT_REFUND_INCOME_FORM())
+  const [reconciliationCardId, setReconciliationCardId] = useState<string>('')
 
   const [expensesByCard, setExpensesByCard] = useState<Record<string, number>>({})
   const [paymentsByCard, setPaymentsByCard] = useState<Record<string, number>>({})
@@ -173,7 +176,7 @@ export default function CreditCards() {
   } = useCreditCards()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
-  const { updateExpense, deleteExpense } = useExpenses()
+  const { createExpense, updateExpense, deleteExpense } = useExpenses()
   const { createIncome, updateIncome, deleteIncome } = useIncomes()
   const { creditCardsWeightsEnabled, setCreditCardsWeightsEnabled } = useAppSettings()
 
@@ -220,6 +223,15 @@ export default function CreditCards() {
     setPaymentAmount('')
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
     setPaymentNote('')
+  }
+
+  const toggleReconciliationField = (cardId: string) => {
+    if (reconciliationCardId === cardId) {
+      setReconciliationCardId('')
+      return
+    }
+
+    setReconciliationCardId(cardId)
   }
 
   const togglePaymentField = (cardId: string) => {
@@ -1014,12 +1026,12 @@ export default function CreditCards() {
         title={PAGE_HEADERS.creditCards.title}
         subtitle={PAGE_HEADERS.creditCards.description}
         action={(
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setCreditCardsWeightsEnabled(!creditCardsWeightsEnabled)}
-              className="text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle"
+              className="w-full text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle sm:w-auto"
             >
               {creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
             </Button>
@@ -1027,7 +1039,7 @@ export default function CreditCards() {
               size="sm"
               variant="outline"
               onClick={openCreateCardModal}
-              className="flex items-center gap-2 text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle"
+              className="flex w-full items-center justify-center gap-2 text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle sm:w-auto"
             >
               <Plus size={16} />
               Novo cartão
@@ -1060,7 +1072,7 @@ export default function CreditCards() {
               return (
                 <div key={card.id} id={`credit-card-${card.id}`}>
                   <Card className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex items-center gap-2">
                         <span
@@ -1075,27 +1087,42 @@ export default function CreditCards() {
                       </p>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEditCardModal(card)}>
-                        Editar
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openCycleModal(card)}>
-                        Ajustar mês
-                      </Button>
-                      <Button
+                    <div className="flex flex-wrap items-center justify-start gap-2">
+                      <IconButton
                         size="sm"
-                        variant="outline"
+                        icon={<Pencil size={16} />}
+                        onClick={() => openEditCardModal(card)}
+                        label="Editar cartão"
+                        title="Editar cartão"
+                      />
+                      <IconButton
+                        size="sm"
+                        icon={<Calendar size={16} />}
+                        onClick={() => openCycleModal(card)}
+                        label="Ajustar ciclo do mês"
+                        title="Ajustar ciclo do mês"
+                      />
+                      <IconButton
+                        size="sm"
+                        icon={refundCardId === card.id ? <X size={16} /> : <Undo2 size={16} />}
                         onClick={() => toggleRefundField(card.id)}
-                      >
-                        {refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
-                      </Button>
-                      <Button
+                        label={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
+                        title={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
+                      />
+                      <IconButton
                         size="sm"
-                        variant="outline"
+                        icon={paymentCardId === card.id ? <X size={16} /> : <Wallet size={16} />}
                         onClick={() => togglePaymentField(card.id)}
-                      >
-                        {paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
-                      </Button>
+                        label={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
+                        title={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
+                      />
+                      <IconButton
+                        size="sm"
+                        icon={reconciliationCardId === card.id ? <X size={16} /> : <FileUp size={16} />}
+                        onClick={() => toggleReconciliationField(card.id)}
+                        label={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
+                        title={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
+                      />
                     </div>
                   </div>
 
@@ -1123,9 +1150,14 @@ export default function CreditCards() {
                         <p className="text-xs font-medium uppercase tracking-wide text-secondary">
                           Estorno de compra ({currentMonth})
                         </p>
-                        <Button type="button" size="sm" variant="outline" onClick={closeRefundField}>
-                          Cancelar
-                        </Button>
+                        <IconButton
+                          type="button"
+                          size="sm"
+                          icon={<X size={16} />}
+                          onClick={closeRefundField}
+                          label="Fechar formulário de estorno"
+                          title="Fechar formulário de estorno"
+                        />
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1180,9 +1212,14 @@ export default function CreditCards() {
                         <p className="text-xs font-medium uppercase tracking-wide text-secondary">
                           Registrar pagamento ({currentMonth})
                         </p>
-                        <Button type="button" size="sm" variant="outline" onClick={closePaymentField}>
-                          Cancelar
-                        </Button>
+                        <IconButton
+                          type="button"
+                          size="sm"
+                          icon={<X size={16} />}
+                          onClick={closePaymentField}
+                          label="Fechar formulário de pagamento"
+                          title="Fechar formulário de pagamento"
+                        />
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1219,6 +1256,23 @@ export default function CreditCards() {
                     </form>
                   )}
 
+                  {reconciliationCardId === card.id && (
+                    <CreditCardCsvReconciliationPanel
+                      card={card}
+                      currentMonth={currentMonth}
+                      billItems={billItems}
+                      paymentItems={paymentItemsByCard[card.id] || []}
+                      categories={categories.map((category) => ({
+                        id: category.id,
+                        name: category.name,
+                      }))}
+                      onClose={() => setReconciliationCardId('')}
+                      onReloadBillData={loadBillData}
+                      createExpense={createExpense}
+                      updateExpense={updateExpense}
+                    />
+                  )}
+
                   <div className="space-y-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-secondary">
                       Lançamentos da fatura ({currentMonth})
@@ -1242,7 +1296,7 @@ export default function CreditCards() {
                               onClick={() => openExpenseEditModal(item)}
                               className="w-full rounded-lg border border-primary bg-primary p-2.5 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
                             >
-                              <div className="flex items-start justify-between gap-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium text-primary truncate">
                                     {item.description || (isRefund ? 'Estorno' : item.category_name || 'Despesa')}
@@ -1254,7 +1308,7 @@ export default function CreditCards() {
                                   </p>
                                 </div>
 
-                                <div className="flex flex-col items-end gap-1.5">
+                                <div className="flex flex-col gap-1.5 sm:items-end">
                                   <p className={`text-sm font-semibold ${Number(item.base_amount ?? item.amount ?? 0) < 0 ? 'text-income' : 'text-primary'}`}>
                                     {formatCurrency(item.amount)}
                                   </p>
