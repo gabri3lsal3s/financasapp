@@ -9,6 +9,7 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useInvestments } from '@/hooks/useInvestments'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
+import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
@@ -105,6 +106,8 @@ export default function Dashboard() {
     report_amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     installment_total: '1',
+    payment_method: 'other',
+    credit_card_id: '',
     month: getCurrentMonthString(),
     category_id: '',
     income_category_id: '',
@@ -135,6 +138,7 @@ export default function Dashboard() {
   const { colorPalette } = usePaletteColors()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
+  const { creditCards } = useCreditCards()
   const { expenses, loading: expensesLoading, refreshExpenses, createExpense } = useExpenses(currentMonth)
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
@@ -143,8 +147,14 @@ export default function Dashboard() {
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
 
-  const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount * (exp.report_weight ?? 1)), 0)
-  const totalIncomes = incomes.reduce((sum, inc) => sum + (inc.amount * (inc.report_weight ?? 1)), 0)
+  const expenseAmountForDashboard = (amount: number, reportWeight?: number | null) =>
+    amount * (reportWeight ?? 1)
+
+  const incomeAmountForDashboard = (amount: number, reportWeight?: number | null) =>
+    amount * (reportWeight ?? 1)
+
+  const totalExpenses = expenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0)
+  const totalIncomes = incomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0)
   const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0)
   const balance = totalIncomes - totalExpenses - totalInvestments
   const hasMonthlyData = expenses.length > 0 || incomes.length > 0 || investments.length > 0
@@ -175,9 +185,9 @@ export default function Dashboard() {
       const current = map.get(key)
 
       if (current) {
-        current.value += expense.amount * (expense.report_weight ?? 1)
+        current.value += expenseAmountForDashboard(expense.amount, expense.report_weight)
       } else {
-        map.set(key, { categoryId, name, color, value: expense.amount * (expense.report_weight ?? 1) })
+        map.set(key, { categoryId, name, color, value: expenseAmountForDashboard(expense.amount, expense.report_weight) })
       }
     })
 
@@ -394,12 +404,12 @@ export default function Dashboard() {
 
     incomes.forEach((income) => {
       const day = new Date(`${income.date}T00:00:00`).getDate()
-      if (day >= 1 && day <= daysInMonth) series[day - 1].Rendas += income.amount * (income.report_weight ?? 1)
+      if (day >= 1 && day <= daysInMonth) series[day - 1].Rendas += incomeAmountForDashboard(income.amount, income.report_weight)
     })
 
     expenses.forEach((expense) => {
       const day = new Date(`${expense.date}T00:00:00`).getDate()
-      if (day >= 1 && day <= daysInMonth) series[day - 1].Despesas += expense.amount * (expense.report_weight ?? 1)
+      if (day >= 1 && day <= daysInMonth) series[day - 1].Despesas += expenseAmountForDashboard(expense.amount, expense.report_weight)
     })
 
     investments.forEach((investment) => {
@@ -443,8 +453,8 @@ export default function Dashboard() {
     const currentItems = expenses.filter((expense) => (expense.category?.id || expense.category_id || '') === selectedExpenseCategory.id)
     const previousItems = previousMonthExpenses.filter((expense) => (expense.category?.id || expense.category_id || '') === selectedExpenseCategory.id)
 
-    const currentTotal = currentItems.reduce((sum, item) => sum + item.amount * (item.report_weight ?? 1), 0)
-    const previousTotal = previousItems.reduce((sum, item) => sum + item.amount * (item.report_weight ?? 1), 0)
+    const currentTotal = currentItems.reduce((sum, item) => sum + expenseAmountForDashboard(item.amount, item.report_weight), 0)
+    const previousTotal = previousItems.reduce((sum, item) => sum + expenseAmountForDashboard(item.amount, item.report_weight), 0)
 
     return {
       currentItems,
@@ -495,8 +505,8 @@ export default function Dashboard() {
               key={dataKey}
               type="button"
               onClick={() => toggleDailyFlowSeries(dataKey)}
-              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle ${
-                isHidden ? 'opacity-50 bg-secondary' : 'bg-primary'
+              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
               }`}
               aria-pressed={!isHidden}
             >
@@ -510,7 +520,7 @@ export default function Dashboard() {
   }
 
   const interactiveRowButtonClasses =
-    'w-full rounded-lg p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+    'w-full rounded-lg border border-primary bg-secondary text-primary p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
 
   const insightNarrativeMoment = useMemo(() => {
     const now = new Date()
@@ -607,6 +617,8 @@ export default function Dashboard() {
       report_amount: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       installment_total: '1',
+      payment_method: 'other',
+      credit_card_id: '',
       month: currentMonth,
       category_id: categories[0]?.id || '',
       income_category_id: incomeCategories[0]?.id || '',
@@ -770,6 +782,11 @@ export default function Dashboard() {
       return
     }
 
+    if (quickAddType === 'expense' && formData.payment_method === 'credit_card' && !formData.credit_card_id) {
+      alert('Selecione um cartão de crédito para compras no crédito.')
+      return
+    }
+
     if (quickAddType === 'expense') {
       if (!formData.category_id) {
         alert('Selecione uma categoria de despesa.')
@@ -781,6 +798,8 @@ export default function Dashboard() {
         report_weight: reportWeight,
         date: formData.date,
         installment_total: installmentTotal,
+        payment_method: formData.payment_method as 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other',
+        credit_card_id: formData.payment_method === 'credit_card' ? formData.credit_card_id : null,
         category_id: formData.category_id,
         ...(formData.description && { description: formData.description }),
       })
@@ -1157,6 +1176,41 @@ export default function Dashboard() {
 
           {quickAddType === 'expense' && (
             <Select
+              label="Forma de pagamento"
+              value={formData.payment_method}
+              onChange={(event) => setFormData((prev) => ({
+                ...prev,
+                payment_method: event.target.value,
+                credit_card_id: event.target.value === 'credit_card' ? prev.credit_card_id : '',
+              }))}
+              options={[
+                { value: 'other', label: 'Outros' },
+                { value: 'cash', label: 'Dinheiro' },
+                { value: 'debit', label: 'Débito' },
+                { value: 'credit_card', label: 'Cartão de crédito' },
+                { value: 'pix', label: 'PIX' },
+                { value: 'transfer', label: 'Transferência' },
+              ]}
+            />
+          )}
+
+          {quickAddType === 'expense' && formData.payment_method === 'credit_card' && (
+            <Select
+              label="Cartão"
+              value={formData.credit_card_id}
+              onChange={(event) => setFormData((prev) => ({ ...prev, credit_card_id: event.target.value }))}
+              options={[
+                { value: '', label: 'Selecionar cartão' },
+                ...creditCards
+                  .filter((card) => card.is_active !== false || card.id === formData.credit_card_id)
+                  .map((card) => ({ value: card.id, label: card.name })),
+              ]}
+              required
+            />
+          )}
+
+          {quickAddType === 'expense' && (
+            <Select
               label="Categoria"
               value={formData.category_id}
               onChange={(event) => setFormData((prev) => ({ ...prev, category_id: event.target.value }))}
@@ -1233,14 +1287,14 @@ export default function Dashboard() {
           {selectedExpenseCategoryDetails && selectedExpenseCategoryDetails.currentItems.length > 0 ? (
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
               {selectedExpenseCategoryDetails.currentItems.map((item) => {
-                const reportAmount = item.amount * (item.report_weight ?? 1)
+                const reportAmount = expenseAmountForDashboard(item.amount, item.report_weight)
                 const showOriginal = Math.abs(reportAmount - item.amount) > 0.009
 
                 return (
                   <div key={item.id} className="rounded-lg border border-primary bg-primary p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-primary truncate">{item.description || 'Sem descrição'}</p>
+                        <p className="text-sm font-medium text-primary truncate">{item.description || item.category?.name || 'Despesa'}</p>
                         <p className="text-xs text-secondary mt-0.5">{formatDate(item.date)}</p>
                       </div>
                       <div className="text-right">

@@ -9,6 +9,7 @@ import Expenses from './pages/Expenses'
 import Incomes from './pages/Incomes'
 import Reports from './pages/Reports'
 import Investments from './pages/Investments'
+import CreditCards from './pages/CreditCards'
 import Settings from './pages/Settings'
 import CategoriesHome from './pages/CategoriesHome'
 import Categories from './pages/Categories'
@@ -35,6 +36,7 @@ function App() {
             <Route path="/incomes" element={<Incomes />} />
             <Route path="/income-categories" element={<IncomeCategories />} />
             <Route path="/investments" element={<Investments />} />
+            <Route path="/credit-cards" element={<CreditCards />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>

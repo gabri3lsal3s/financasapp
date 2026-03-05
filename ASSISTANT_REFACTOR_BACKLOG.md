@@ -284,3 +284,137 @@ Construir um assistente em **português (PT-BR)**, fluido, robusto e integrado a
 8. Migrar Settings para hook unificado.
 9. Criar `voiceAdapter` compartilhado.
 10. Validar fluxo offline de cadastro com fila idempotente.
+
+---
+
+# Backlog de Nova Funcionalidade — Cartões de Crédito
+
+## Escopo funcional alinhado (MVP)
+- Cadastro de cartão de crédito com os campos:
+  - `nome`;
+  - `bandeira`;
+  - `limite_total`;
+  - `dia_fechamento`;
+  - `dia_vencimento`;
+  - `cor_icone`.
+- No cadastro de despesa existente, permitir seleção opcional de cartão.
+- Suporte a parcelamento simples (N parcelas) com geração automática das parcelas por competência.
+- Tela dedicada de cartões/faturas para visualização de totais por cartão e mês.
+- Registro manual de pagamento de fatura no MVP.
+- Estorno via lançamento negativo vinculado ao cartão/fatura.
+
+## Regras de negócio alinhadas
+1. Compra realizada no dia de fechamento entra na **próxima fatura**.
+2. Despesa sem cartão continua no fluxo normal atual (sem impacto no cálculo de fatura).
+3. Compra com cartão compõe a fatura por competência calculada a partir de `dia_fechamento`.
+4. Parcelamento simples distribui 1 parcela por fatura sequencial.
+5. Estorno reduz o valor da fatura do cartão na competência do lançamento.
+6. Pagamento registrado reduz saldo em aberto da fatura (total previsto - total pago).
+
+## Critérios de aceite (MVP)
+- Usuário consegue cadastrar/editar/inativar cartão sem quebrar fluxos atuais.
+- Ao selecionar cartão em uma compra, o item aparece na fatura correta.
+- Compras parceladas aparecem em competências mensais corretas até a última parcela.
+- Estorno impacta corretamente o total previsto da fatura.
+- Registro manual de pagamento atualiza saldo da fatura imediatamente.
+- Tela de faturas exibe, por cartão e mês: `total_previsto`, `total_pago`, `saldo_aberto`.
+
+## Plano técnico de implementação
+
+### Fase 1 — Dados e migração (P0)
+1. Criar tabela `credit_cards`.
+2. Criar tabela `credit_card_bill_payments` (pagamentos manuais de fatura).
+3. Evoluir tabela de despesas para suportar cartão e parcelamento:
+  - `credit_card_id` (nullable);
+  - reaproveitar `installment_total` (já existente, default 1 quando nulo);
+  - `installment_number` (default 1);
+  - reaproveitar `installment_group_id` (já existente, UUID para agrupar parcelas);
+  - `bill_competence` (ex.: `2026-03`, para agregação da fatura).
+4. Adicionar índices para consultas por cartão/competência/período.
+5. Definir regras RLS equivalentes às tabelas financeiras existentes.
+
+### Fase 2 — Domínio e serviços (P0)
+1. Criar utilitário determinístico para competência de fatura:
+  - entrada: data da compra, dia de fechamento;
+  - saída: competência `YYYY-MM`.
+2. Criar gerador de parcelas para compra parcelada simples.
+3. Ajustar serviço/hook de despesas para:
+  - aceitar cartão opcional;
+  - materializar parcelas automaticamente na criação.
+4. Criar serviço de consolidação de fatura por cartão/competência:
+  - soma de compras e estornos;
+  - soma de pagamentos;
+  - cálculo de saldo em aberto.
+
+### Fase 3 — UI de cadastro e lançamentos (P1)
+1. Criar CRUD de cartões (nome, bandeira, limite, fechamento, vencimento, cor/ícone).
+2. Adicionar seletor de cartão no formulário de despesa.
+3. Adicionar campos de parcelamento simples no formulário de despesa.
+4. Garantir validações:
+  - parcelas >= 1;
+  - fechamento e vencimento entre 1 e 31;
+  - cartão obrigatório apenas quando tipo de pagamento = cartão.
+
+### Fase 4 — Tela dedicada de faturas (P1)
+1. Criar página de cartões/faturas com filtro por competência.
+2. Exibir resumo por cartão:
+  - total previsto;
+  - total pago;
+  - saldo em aberto.
+3. Exibir lista de lançamentos da fatura (compras, parcelas e estornos).
+4. Incluir ação de “Registrar pagamento” manual por cartão/competência.
+
+### Fase 5 — Qualidade e validação (P0)
+1. Testes unitários da regra de competência (incluindo borda no dia do fechamento).
+2. Testes unitários do gerador de parcelas.
+3. Testes de integração dos hooks/serviços de despesas com cartão.
+4. Testes de consolidação de fatura (previsto/pago/saldo).
+5. Smoke test em fluxo real:
+  - compra à vista no cartão;
+  - compra parcelada;
+  - estorno;
+  - pagamento manual.
+
+## Backlog de execução (ordem sugerida)
+- [x] Criar migração `credit_cards` + RLS.
+- [x] Criar migração `credit_card_bill_payments` + RLS.
+- [x] Evoluir schema de despesas para suporte a cartão/parcelas/competência.
+- [x] Implementar util de competência de fatura com testes.
+- [x] Implementar gerador de parcelamento simples com testes.
+- [x] Integrar formulário de despesas com seleção de cartão + parcelas.
+- [x] Criar página dedicada de cartões/faturas.
+- [x] Implementar registro manual de pagamento da fatura.
+- [ ] Cobrir consolidação de fatura com testes de integração.
+- [x] Validar build e regressão dos fluxos existentes.
+
+## Checklist de integração com Assistente (obrigatório)
+- [x] Estender `AssistantSlots` com campos opcionais de cartão:
+  - `payment_method?: 'cash' | 'debit' | 'credit_card'`;
+  - `credit_card_id?: string`;
+  - `credit_card_name?: string`.
+- [x] Atualizar parser de slots (`assistant-core/buildSlots` + parser principal) para capturar menções de cartão:
+  - exemplos: “no Nubank”, “no cartão Inter”, “no crédito”.
+- [x] Atualizar `AssistantEditableSlots` para permitir edição do cartão na etapa de confirmação.
+- [x] Atualizar `buildConfirmationText` para explicitar cartão e parcelamento quando presente.
+- [x] Atualizar `executeWriteIntent` para persistir `credit_card_id` e `bill_competence` nas despesas inseridas (online e offline).
+- [x] Garantir compatibilidade da fila offline do assistente (`assistantOfflineQueue`) com os novos slots, sem quebrar criptografia de metadados de voz.
+- [x] Validar resolução de contexto e memória para não sobrescrever informação explícita de cartão no comando atual.
+- [ ] Cobrir testes do assistente:
+  - [x] parsing de cartão;
+  - [x] confirmação editável com cartão;
+  - [x] execução de despesa com cartão (à vista e parcelada);
+  - [x] fallback offline + sincronização sem perda de `credit_card_id`.
+
+## Verificação de aderência (05/03/2026)
+Status: **aderente no MVP implementado**.
+
+Pontos já aderentes:
+- Assistente já interpreta e executa despesas com parcelamento simples.
+- Fluxo de confirmação editável e fila offline do assistente já existem.
+- Hook de despesas já materializa parcelas e enfileira operações offline.
+- Fluxo de cartões integrado em despesas, dashboard e tela dedicada de faturas.
+- Assistente já interpreta cartão/forma de pagamento e persiste competência de fatura.
+
+Lacunas encontradas para integração completa:
+- Cobertura de testes de integração end-to-end de cartões/faturas ainda pode ser ampliada.
+- Falta adicionar testes unitários dedicados para utilitário de competência e gerador de parcelas.

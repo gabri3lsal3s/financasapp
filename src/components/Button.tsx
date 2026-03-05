@@ -15,14 +15,14 @@ export default function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed'
+  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed'
   
   const variantStyles = {
-    primary: 'bg-[var(--color-primary)] text-[var(--color-button-text)] hover:shadow-md hover-lift-subtle',
-    secondary: 'bg-tertiary text-primary hover:shadow-md hover-lift-subtle',
-    danger: 'bg-[var(--color-danger)] text-white hover:shadow-md hover-lift-subtle',
-    outline: 'border-2 border-[var(--color-primary)] text-primary hover:bg-tertiary hover-lift-subtle',
-    ghost: 'text-primary hover:bg-tertiary hover-lift-subtle',
+    primary: 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90',
+    secondary: 'border-primary bg-tertiary text-primary hover:bg-primary',
+    danger: 'border-[var(--color-danger)] bg-[var(--color-danger)] text-white hover:opacity-90',
+    outline: 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary',
+    ghost: 'border-transparent bg-transparent text-secondary hover:text-primary hover:bg-tertiary',
   }
   
   const sizeStyles = {

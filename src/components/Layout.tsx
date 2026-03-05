@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import { useAppSettings } from '@/hooks/useAppSettings'
 
@@ -25,6 +25,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/expenses', icon: TrendingDown, label: 'Despesas' },
     { path: '/incomes', icon: TrendingUp, label: 'Rendas' },
     { path: '/investments', icon: PiggyBank, label: 'Investimentos' },
+    { path: '/credit-cards', icon: CreditCard, label: 'Cartões' },
     { path: '/reports', icon: BarChart3, label: 'Relatórios' },
   ]
 
@@ -111,7 +112,7 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => setIsMobileMenuOpen((currentValue) => !currentValue)}
                 aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
                 aria-expanded={isMobileMenuOpen}
-                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                className="p-2 rounded-lg border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
               >
                 {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
@@ -136,7 +137,7 @@ export default function Layout({ children }: LayoutProps) {
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
                   aria-label="Fechar menu de navegação"
-                  className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                  className="p-2 rounded-lg border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
                 >
                   <X size={20} />
                 </button>
@@ -225,7 +226,7 @@ export default function Layout({ children }: LayoutProps) {
               onClick={() => setIsDesktopMenuExpanded((currentValue) => !currentValue)}
               aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
               aria-expanded={isDesktopMenuExpanded}
-              className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              className="p-2 rounded-lg border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
             >
               {isDesktopMenuExpanded ? <X size={20} /> : <Menu size={20} />}
             </button>

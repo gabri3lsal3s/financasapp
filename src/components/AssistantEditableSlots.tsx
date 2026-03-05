@@ -221,6 +221,57 @@ export default function AssistantEditableSlots({
                   />
                 )}
 
+                {transactionType === 'expense' && (
+                  <Select
+                    label="Forma de pagamento"
+                    value={item.payment_method || 'other'}
+                    onChange={(event) => {
+                      const value = event.target.value as 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+                      onUpdate((previous) => ({
+                        ...previous,
+                        items: (previous.items || []).map((currentItem, itemIndex) => (
+                          itemIndex === index
+                            ? {
+                                ...currentItem,
+                                payment_method: value,
+                                credit_card_name: value === 'credit_card' ? currentItem.credit_card_name : undefined,
+                                credit_card_id: value === 'credit_card' ? currentItem.credit_card_id : undefined,
+                              }
+                            : currentItem
+                        )),
+                      }))
+                    }}
+                    options={[
+                      { value: 'other', label: 'Outros' },
+                      { value: 'cash', label: 'Dinheiro' },
+                      { value: 'debit', label: 'Débito' },
+                      { value: 'credit_card', label: 'Cartão de crédito' },
+                      { value: 'pix', label: 'PIX' },
+                      { value: 'transfer', label: 'Transferência' },
+                    ]}
+                    disabled={disabled}
+                  />
+                )}
+
+                {transactionType === 'expense' && (item.payment_method || 'other') === 'credit_card' && (
+                  <Input
+                    label="Cartão (nome)"
+                    value={item.credit_card_name || ''}
+                    onChange={(event) => {
+                      const value = event.target.value
+                      onUpdate((previous) => ({
+                        ...previous,
+                        items: (previous.items || []).map((currentItem, itemIndex) => (
+                          itemIndex === index
+                            ? { ...currentItem, credit_card_name: value, credit_card_id: undefined }
+                            : currentItem
+                        )),
+                      }))
+                    }}
+                    disabled={disabled}
+                  />
+                )}
+
                 {transactionType !== 'investment' && (
                   <Input
                     label="Valor no relatório"
@@ -375,6 +426,44 @@ export default function AssistantEditableSlots({
               if (!Number.isInteger(parsed) || parsed < 1) return
               onUpdate((previous) => ({ ...previous, installment_count: Math.min(60, parsed) }))
             }}
+            disabled={disabled}
+          />
+        )}
+
+        {singleTransactionType === 'expense' && (
+          <Select
+            label="Forma de pagamento"
+            value={editableSlots?.payment_method || 'other'}
+            onChange={(event) => {
+              const value = event.target.value as 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+              onUpdate((previous) => ({
+                ...previous,
+                payment_method: value,
+                credit_card_name: value === 'credit_card' ? previous.credit_card_name : undefined,
+                credit_card_id: value === 'credit_card' ? previous.credit_card_id : undefined,
+              }))
+            }}
+            options={[
+              { value: 'other', label: 'Outros' },
+              { value: 'cash', label: 'Dinheiro' },
+              { value: 'debit', label: 'Débito' },
+              { value: 'credit_card', label: 'Cartão de crédito' },
+              { value: 'pix', label: 'PIX' },
+              { value: 'transfer', label: 'Transferência' },
+            ]}
+            disabled={disabled}
+          />
+        )}
+
+        {singleTransactionType === 'expense' && (editableSlots?.payment_method || 'other') === 'credit_card' && (
+          <Input
+            label="Cartão (nome)"
+            value={editableSlots?.credit_card_name || ''}
+            onChange={(event) => onUpdate((previous) => ({
+              ...previous,
+              credit_card_name: event.target.value,
+              credit_card_id: undefined,
+            }))}
             disabled={disabled}
           />
         )}

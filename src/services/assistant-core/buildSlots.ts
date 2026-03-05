@@ -4,6 +4,9 @@ interface SlotItem {
   transactionType?: 'expense' | 'income' | 'investment'
   amount: number
   installment_count?: number
+  payment_method?: 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+  credit_card_id?: string
+  credit_card_name?: string
   report_weight?: number
   description?: string
   date?: string
@@ -24,6 +27,8 @@ interface BuildSlotsParams {
   extractDescription: (text: string, intent: AssistantIntent) => string | undefined
   extractAddItemsFromText: (text: string, intent: AssistantIntent, fallbackDate: string) => SlotItem[] | undefined
   extractInstallmentCount: (text: string) => number | undefined
+  extractPaymentMethod: (text: string) => 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other' | undefined
+  extractCreditCardName: (text: string) => string | undefined
 }
 
 const resolveTransactionTypeFromIntent = (
@@ -43,6 +48,8 @@ export const buildSlots = ({
   extractDescription,
   extractAddItemsFromText,
   extractInstallmentCount,
+  extractPaymentMethod,
+  extractCreditCardName,
 }: BuildSlotsParams): AssistantSlots => {
   const amount = extractAmount(text)
   const date = extractDate(text)
@@ -50,6 +57,12 @@ export const buildSlots = ({
   const items = extractAddItemsFromText(text, intent, date)
   const installmentCount = intent === 'add_expense'
     ? extractInstallmentCount(text)
+    : undefined
+  const paymentMethod = intent === 'add_expense'
+    ? extractPaymentMethod(text)
+    : undefined
+  const creditCardName = intent === 'add_expense'
+    ? extractCreditCardName(text)
     : undefined
   const transactionType = resolveTransactionTypeFromIntent(intent)
 
@@ -68,6 +81,8 @@ export const buildSlots = ({
     transactionType,
     amount,
     installment_count: installmentCount,
+    payment_method: paymentMethod,
+    credit_card_name: creditCardName,
     description,
     date,
     month: date.substring(0, 7),

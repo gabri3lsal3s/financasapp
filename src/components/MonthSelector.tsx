@@ -12,8 +12,8 @@ export default function MonthSelector({ value, onChange, className = '' }: Month
   const currentMonth = getCurrentMonthString()
   const isCurrentMonth = normalizedValue === currentMonth
   const isAtMinimumMonth = normalizedValue <= APP_START_MONTH
-  const navButtonClasses = 'p-2 rounded-full motion-standard hover-lift-subtle press-subtle hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
-  const textButtonClasses = 'text-xs text-accent-primary mt-1 motion-standard hover-lift-subtle press-subtle hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] rounded-md px-1'
+  const navButtonClasses = 'p-2 rounded-full border border-primary text-secondary motion-standard hover-lift-subtle press-subtle hover:text-primary hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+  const textButtonClasses = 'text-xs text-secondary mt-1 motion-standard hover-lift-subtle press-subtle hover:text-primary hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] rounded-md px-2 py-0.5'
 
   return (
     <div className={`flex items-center justify-between mb-4 ${className}`.trim()}>

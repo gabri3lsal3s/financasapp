@@ -12,6 +12,9 @@ const ASSISTANT_SPEECH_PITCH_KEY = 'app.assistant.speechPitch'
 const FLOATING_CALCULATOR_ENABLED_KEY = 'app.floatingCalculator.enabled'
 const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
+let dashboardReportsWeightsEnabledMemory = true
+let creditCardsWeightsEnabledMemory = false
+
 export type AssistantConfirmationMode = 'both' | 'touch' | 'voice'
 export type AssistantConfirmationPolicyMode = 'write_only' | 'always' | 'never'
 export type AssistantDataRetentionDays = 7 | 30 | 90 | 180 | 365
@@ -134,6 +137,14 @@ const readFloatingCalculatorEnabled = (): boolean => {
   return parseFloatingCalculatorEnabled(window.localStorage.getItem(FLOATING_CALCULATOR_ENABLED_KEY))
 }
 
+const readDashboardReportsWeightsEnabled = (): boolean => {
+  return dashboardReportsWeightsEnabledMemory
+}
+
+const readCreditCardsWeightsEnabled = (): boolean => {
+  return creditCardsWeightsEnabledMemory
+}
+
 export function useAppSettings() {
   const [monthlyInsightsEnabled, setMonthlyInsightsEnabledState] = useState<boolean>(readMonthlyInsightsEnabled)
   const [assistantConfirmationMode, setAssistantConfirmationModeState] = useState<AssistantConfirmationMode>(readAssistantConfirmationMode)
@@ -146,6 +157,8 @@ export function useAppSettings() {
   const [assistantSpeechRate, setAssistantSpeechRateState] = useState<AssistantSpeechRate>(readAssistantSpeechRate)
   const [assistantSpeechPitch, setAssistantSpeechPitchState] = useState<AssistantSpeechPitch>(readAssistantSpeechPitch)
   const [floatingCalculatorEnabled, setFloatingCalculatorEnabledState] = useState<boolean>(readFloatingCalculatorEnabled)
+  const [dashboardReportsWeightsEnabled, setDashboardReportsWeightsEnabledState] = useState<boolean>(readDashboardReportsWeightsEnabled)
+  const [creditCardsWeightsEnabled, setCreditCardsWeightsEnabledState] = useState<boolean>(readCreditCardsWeightsEnabled)
 
   useEffect(() => {
     const syncFromStorage = () => {
@@ -160,6 +173,8 @@ export function useAppSettings() {
       setAssistantSpeechRateState(readAssistantSpeechRate())
       setAssistantSpeechPitchState(readAssistantSpeechPitch())
       setFloatingCalculatorEnabledState(readFloatingCalculatorEnabled())
+      setDashboardReportsWeightsEnabledState(readDashboardReportsWeightsEnabled())
+      setCreditCardsWeightsEnabledState(readCreditCardsWeightsEnabled())
     }
 
     const onStorage = (event: StorageEvent) => {
@@ -277,6 +292,22 @@ export function useAppSettings() {
     window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
   }, [])
 
+  const setDashboardReportsWeightsEnabled = useCallback((enabled: boolean) => {
+    dashboardReportsWeightsEnabledMemory = enabled
+    setDashboardReportsWeightsEnabledState(enabled)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
+    }
+  }, [])
+
+  const setCreditCardsWeightsEnabled = useCallback((enabled: boolean) => {
+    creditCardsWeightsEnabledMemory = enabled
+    setCreditCardsWeightsEnabledState(enabled)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
+    }
+  }, [])
+
   return {
     monthlyInsightsEnabled,
     setMonthlyInsightsEnabled,
@@ -300,6 +331,10 @@ export function useAppSettings() {
     setAssistantSpeechPitch,
     floatingCalculatorEnabled,
     setFloatingCalculatorEnabled,
+    dashboardReportsWeightsEnabled,
+    setDashboardReportsWeightsEnabled,
+    creditCardsWeightsEnabled,
+    setCreditCardsWeightsEnabled,
   }
 }
 

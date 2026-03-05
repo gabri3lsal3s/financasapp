@@ -10,6 +10,9 @@ export interface Expense {
   id: string
   amount: number
   report_weight?: number
+  payment_method?: 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+  credit_card_id?: string | null
+  bill_competence?: string | null
   date: string
   installment_group_id?: string | null
   installment_number?: number | null
@@ -19,6 +22,41 @@ export interface Expense {
   created_at: string
   user_id?: string
   category?: Category
+  credit_card?: CreditCard
+}
+
+export interface CreditCard {
+  id: string
+  name: string
+  brand?: string | null
+  limit_total?: number | null
+  closing_day: number
+  due_day: number
+  color?: string | null
+  is_active?: boolean
+  created_at: string
+  user_id?: string
+}
+
+export interface CreditCardBillPayment {
+  id: string
+  credit_card_id: string
+  bill_competence: string
+  amount: number
+  payment_date: string
+  note?: string | null
+  created_at: string
+  user_id?: string
+}
+
+export interface CreditCardMonthlyCycle {
+  id: string
+  credit_card_id: string
+  competence: string
+  closing_day: number
+  due_day: number
+  created_at: string
+  user_id?: string
 }
 
 export interface Income {
@@ -117,6 +155,9 @@ export interface AssistantSlots {
   transactionType?: 'expense' | 'income' | 'investment'
   amount?: number
   installment_count?: number
+  payment_method?: 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+  credit_card_id?: string
+  credit_card_name?: string
   description?: string
   date?: string
   month?: string
@@ -125,6 +166,9 @@ export interface AssistantSlots {
     transactionType?: 'expense' | 'income' | 'investment'
     amount: number
     installment_count?: number
+    payment_method?: 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+    credit_card_id?: string
+    credit_card_name?: string
     report_weight?: number
     description?: string
     date?: string

@@ -121,6 +121,44 @@ describe('assistantOfflineQueue', () => {
     }))
   })
 
+  it('preserva editedSlots com cartão ao sincronizar confirmação', async () => {
+    enqueueAssistantOfflineCommand({
+      deviceId: 'device-1',
+      text: 'comprei 240 no cartão Nubank em 2 parcelas',
+      confirmationMethod: 'touch',
+      editedSlots: {
+        transactionType: 'expense',
+        amount: 240,
+        installment_count: 2,
+        payment_method: 'credit_card',
+        credit_card_id: 'card-123',
+        credit_card_name: 'Nubank',
+        description: 'Compra parcelada',
+        date: '2026-03-10',
+      },
+    })
+
+    interpretMock.mockResolvedValue({
+      command: { id: 'cmd-card' },
+      requiresConfirmation: true,
+    })
+    confirmMock.mockResolvedValue({ status: 'executed', commandId: 'cmd-card' })
+
+    await flushAssistantOfflineQueue()
+
+    expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({
+      commandId: 'cmd-card',
+      confirmed: true,
+      confirmationMethod: 'touch',
+      editedSlots: expect.objectContaining({
+        payment_method: 'credit_card',
+        credit_card_id: 'card-123',
+        credit_card_name: 'Nubank',
+        installment_count: 2,
+      }),
+    }))
+  })
+
   it('registra tentativa adiada quando offline', async () => {
     enqueueAssistantOfflineCommand({
       deviceId: 'device-1',

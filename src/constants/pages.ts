@@ -19,6 +19,10 @@ export const PAGE_HEADERS = {
     title: 'Investimentos',
     description: 'Valor reservado para investimentos ou poupança',
   },
+  creditCards: {
+    title: 'Cartões e Faturas',
+    description: 'Gerencie cartões de crédito e acompanhe faturas por competência',
+  },
   categories: {
     title: 'Categorias',
     description: 'Acesse e gerencie categorias de despesas e rendas',

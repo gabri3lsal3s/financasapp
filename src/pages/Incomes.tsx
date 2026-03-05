@@ -9,15 +9,22 @@ import Select from '@/components/Select'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { supabase } from '@/lib/supabase'
 import { Income } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
+import CategoryBadge from '@/components/CategoryBadge'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+
+const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
+const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
+const REFUND_NOTE_PREFIX = '[REFUND]'
 
 export default function Incomes() {
+  const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
   const { incomeCategories } = useIncomeCategories()
@@ -37,6 +44,52 @@ export default function Incomes() {
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
+  const [refundOriginLoading, setRefundOriginLoading] = useState(false)
+  const [refundOrigin, setRefundOrigin] = useState<{ cardId: string; cardName: string; competence: string } | null>(null)
+
+  const isRefundIncome = (income: Income | null) =>
+    [REFUND_INCOME_CATEGORY_NAME, LEGACY_REFUND_INCOME_CATEGORY_NAME].includes(
+      String(income?.income_category?.name || '').trim(),
+    )
+
+  const loadRefundOrigin = async (incomeId: string) => {
+    try {
+      setRefundOriginLoading(true)
+      setRefundOrigin(null)
+
+      const likePattern = `${REFUND_NOTE_PREFIX}%\"incomeId\":\"${String(incomeId)}\"%`
+
+      const { data: paymentRow, error: paymentError } = await supabase
+        .from('credit_card_bill_payments')
+        .select('credit_card_id, bill_competence, payment_date')
+        .like('note', likePattern)
+        .order('payment_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (paymentError || !paymentRow?.credit_card_id) {
+        return
+      }
+
+      const { data: cardRow } = await supabase
+        .from('credit_cards')
+        .select('name')
+        .eq('id', String(paymentRow.credit_card_id))
+        .maybeSingle()
+
+      setRefundOrigin({
+        cardId: String(paymentRow.credit_card_id),
+        cardName: String(cardRow?.name || 'Cartão'),
+        competence: String(paymentRow.bill_competence || ''),
+      })
+    } finally {
+      setRefundOriginLoading(false)
+    }
+  }
+
+  const incomeCategoriesForManualCreation = incomeCategories.filter(
+    (category) => String(category.name || '').trim().toLowerCase() !== REFUND_INCOME_CATEGORY_NAME.toLowerCase(),
+  )
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => {
@@ -66,6 +119,13 @@ export default function Incomes() {
         income_category_id: income.income_category_id,
         description: income.description || '',
       })
+
+      if (isRefundIncome(income)) {
+        void loadRefundOrigin(income.id)
+      } else {
+        setRefundOrigin(null)
+        setRefundOriginLoading(false)
+      }
     } else {
       setEditingIncome(null)
       setFormData({
@@ -75,6 +135,8 @@ export default function Incomes() {
         income_category_id: incomeCategories[0]?.id || '',
         description: '',
       })
+      setRefundOrigin(null)
+      setRefundOriginLoading(false)
     }
     setIsModalOpen(true)
   }
@@ -89,6 +151,8 @@ export default function Incomes() {
       income_category_id: incomeCategories[0]?.id || '',
       description: '',
     })
+    setRefundOrigin(null)
+    setRefundOriginLoading(false)
   }
 
   useEffect(() => {
@@ -124,10 +188,24 @@ export default function Incomes() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (editingIncome && isRefundIncome(editingIncome)) {
+      alert('Estornos devem ser editados pela tela de Cartões.')
+      return
+    }
     
     if (!formData.amount || !formData.income_category_id) {
       alert('Por favor, preencha todos os campos obrigatórios')
       return
+    }
+
+    if (!editingIncome) {
+      const selectedCategory = incomeCategories.find((category) => category.id === formData.income_category_id)
+      const selectedCategoryName = String(selectedCategory?.name || '').trim()
+      if ([REFUND_INCOME_CATEGORY_NAME, LEGACY_REFUND_INCOME_CATEGORY_NAME].includes(selectedCategoryName)) {
+        alert('A categoria Estorno é reservada para lançamentos automáticos de estorno no cartão.')
+        return
+      }
     }
 
     const amount = parseMoneyInput(formData.amount)
@@ -171,6 +249,12 @@ export default function Incomes() {
 
   const handleDeleteFromModal = async () => {
     if (!editingIncome) return
+
+    if (isRefundIncome(editingIncome)) {
+      alert('Estornos devem ser excluídos pela tela de Cartões.')
+      return
+    }
+
     if (!confirm('Tem certeza que deseja excluir esta renda?')) return
 
     const { error } = await deleteIncome(editingIncome.id)
@@ -228,9 +312,17 @@ export default function Incomes() {
                       <p className="text-sm text-secondary">
                         {income.income_category?.name} • {formatDate(income.date)}
                       </p>
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        <CategoryBadge
+                          label={income.income_category?.name || 'Sem categoria'}
+                          color={income.income_category?.id
+                            ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette))
+                            : 'var(--color-income)'}
+                        />
+                      </div>
                     </div>
-                    <div className="ml-2 text-right">
-                      <p className="text-lg font-semibold text-primary">
+                    <div className="ml-2 flex-shrink-0 text-right">
+                      <p className="text-base sm:text-lg font-semibold text-primary">
                         {formatCurrency(income.amount)}
                       </p>
                       {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
@@ -249,8 +341,45 @@ export default function Incomes() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingIncome ? 'Editar renda' : 'Adicionar renda'}
+        title={editingIncome
+          ? (isRefundIncome(editingIncome) ? 'Estorno (somente visualização)' : 'Editar renda')
+          : 'Adicionar renda'}
       >
+        {editingIncome && isRefundIncome(editingIncome) ? (
+          <div className="w-full max-w-md mx-auto space-y-4">
+            <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+              <p className="text-xs text-secondary">Valor</p>
+              <p className="text-base font-semibold text-primary">{formatCurrency(editingIncome.amount)}</p>
+              <p className="text-xs text-secondary">Data: {formatDate(editingIncome.date)}</p>
+              <p className="text-xs text-secondary">Categoria: {editingIncome.income_category?.name || REFUND_INCOME_CATEGORY_NAME}</p>
+              <p className="text-xs text-secondary">Descrição: {editingIncome.description || 'Estorno de compra'}</p>
+            </div>
+
+            <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+              {refundOriginLoading ? (
+                <p className="text-sm text-secondary">Carregando origem do estorno...</p>
+              ) : refundOrigin ? (
+                <>
+                  <p className="text-sm text-primary">
+                    Este estorno foi criado no cartão <strong>{refundOrigin.cardName}</strong> na fatura <strong>{refundOrigin.competence}</strong>.
+                  </p>
+                  <Button
+                    type="button"
+                    fullWidth
+                    onClick={() => {
+                      navigate(`/credit-cards?month=${encodeURIComponent(refundOrigin.competence)}&card=${encodeURIComponent(refundOrigin.cardId)}`)
+                      handleCloseModal()
+                    }}
+                  >
+                    Ir para fatura no cartão
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-secondary">Não foi possível identificar a fatura/cartão de origem deste estorno.</p>
+              )}
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
           <Input
             label="Valor"
@@ -297,12 +426,16 @@ export default function Incomes() {
             label="Categoria de Renda"
             value={formData.income_category_id}
             onChange={(e) => setFormData({ ...formData, income_category_id: e.target.value })}
-            options={incomeCategories.map((cat) => ({
+            options={(editingIncome ? incomeCategories : incomeCategoriesForManualCreation).map((cat) => ({
               value: cat.id,
               label: cat.name,
             }))}
             required
           />
+
+          {!editingIncome && (
+            <p className="text-xs text-secondary">A categoria Estorno é criada/gerenciada automaticamente pela tela de cartões.</p>
+          )}
 
           <Input
             label="Descrição (opcional)"
@@ -326,6 +459,7 @@ export default function Incomes() {
             </Button>
           )}
         </form>
+        )}
       </Modal>
     </div>
   )

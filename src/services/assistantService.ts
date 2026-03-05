@@ -11,6 +11,7 @@ import type { AssistantConfirmationMode } from '@/services/assistant-core/confir
 import { resolveConfirmationPolicy } from '@/services/assistant-core/confirmationPolicy'
 import { inferIntent as inferIntentFromCore } from '@/services/assistant-core/inferIntent'
 import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
+import { resolveBillCompetence } from '@/utils/creditCardBilling'
 import { clampDateToAppStart, clampMonthToAppStart } from '@/utils/format'
 import type {
   AssistantCommand,
@@ -805,6 +806,39 @@ const extractInstallmentCount = (text: string): number | undefined => {
   return undefined
 }
 
+const extractPaymentMethod = (text: string): 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other' | undefined => {
+  const normalized = normalizeText(text)
+
+  if (/\bcredito|cartao\b/.test(normalized)) return 'credit_card'
+  if (/\bdebito\b/.test(normalized)) return 'debit'
+  if (/\bpix\b/.test(normalized)) return 'pix'
+  if (/\btransferencia|ted|doc\b/.test(normalized)) return 'transfer'
+  if (/\bdinheiro|especie\b/.test(normalized)) return 'cash'
+
+  return undefined
+}
+
+const extractCreditCardName = (text: string): string | undefined => {
+  const patterns = [
+    /\b(?:no|na)\s+cart[aã]o\s+([\p{L}\d][\p{L}\d\s-]{1,30})/iu,
+    /\bcart[aã]o\s+(?:de\s+cr[eé]dito\s+)?(?:do|da|de)\s+([\p{L}\d][\p{L}\d\s-]{1,30})/iu,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (!match?.[1]) continue
+    const normalizedName = normalizeDescriptionCasing(match[1].trim())
+      .replace(/^(da|do|de)\s+/i, '')
+      .replace(/\s+(para|pra|em|no|na)\s+.*$/i, '')
+      .replace(/\b(debito|d[eé]bito|credito|cr[eé]dito)\b/gi, '')
+      .trim()
+
+    if (normalizedName.length >= 2) return normalizedName
+  }
+
+  return undefined
+}
+
 const splitInstallmentAmounts = (totalAmount: number, installmentCount: number): number[] => {
   const totalCents = Math.round(totalAmount * 100)
   const baseCents = Math.floor(totalCents / installmentCount)
@@ -935,7 +969,11 @@ const extractMixedItemsFromText = (
       transactionType: itemType,
       amount: chunkAmount,
       ...(itemType === 'expense'
-        ? { installment_count: extractInstallmentCount(combined) }
+        ? {
+            installment_count: extractInstallmentCount(combined),
+            payment_method: extractPaymentMethod(combined),
+            credit_card_name: extractCreditCardName(combined),
+          }
         : {}),
       description,
       date: fallbackDate,
@@ -1032,7 +1070,11 @@ const extractAddItemsFromText = (
       return {
         amount,
         ...(intent === 'add_expense'
-          ? { installment_count: extractInstallmentCount(chunk) }
+          ? {
+              installment_count: extractInstallmentCount(chunk),
+              payment_method: extractPaymentMethod(chunk),
+              credit_card_name: extractCreditCardName(chunk),
+            }
           : {}),
         description: polishedDescription,
         date: fallbackDate,
@@ -1058,6 +1100,8 @@ const buildSlots = (text: string, intent: AssistantIntent): AssistantSlots => bu
   extractDescription,
   extractAddItemsFromText,
   extractInstallmentCount,
+  extractPaymentMethod,
+  extractCreditCardName,
 })
 
 const getPreferredMapping = async (
@@ -1401,7 +1445,11 @@ const buildConfirmationText = (
           item.transactionType === 'expense' && item.installment_count && item.installment_count > 1
             ? `, ${item.installment_count}x`
             : ''
-        return `${label}: ${item.description || 'Sem descrição'} (R$${item.amount.toFixed(2)}${installmentLabel})`
+        const cardLabel =
+          item.transactionType === 'expense' && item.payment_method === 'credit_card'
+            ? `, cartão ${item.credit_card_name || 'crédito'}`
+            : ''
+        return `${label}: ${item.description || item.category?.name || label} (R$${item.amount.toFixed(2)}${installmentLabel}${cardLabel})`
       })
       .join(', ')
 
@@ -1435,7 +1483,10 @@ const buildConfirmationText = (
     const installmentLabel = slots.installment_count && slots.installment_count > 1
       ? ` em ${slots.installment_count} parcelas`
       : ''
-    return `Confirma despesa de R$${(slots.amount ?? 0).toFixed(2)}${installmentLabel} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
+    const cardLabel = slots.payment_method === 'credit_card'
+      ? ` no cartão ${slots.credit_card_name || 'de crédito'}`
+      : ''
+    return `Confirma despesa de R$${(slots.amount ?? 0).toFixed(2)}${installmentLabel}${cardLabel} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
   }
 
   if (intent === 'add_income') {
@@ -1543,6 +1594,9 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
     transactionType: WritableTransactionType
     amount: number
     installment_count?: number
+    payment_method?: 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
+    credit_card_id?: string
+    credit_card_name?: string
     report_weight?: number
     description?: string
     date?: string
@@ -1581,6 +1635,9 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
                   : 'expense'),
             amount: Number(slots.amount),
             installment_count: normalizeInstallmentCount(slots.installment_count),
+            payment_method: slots.payment_method,
+            credit_card_id: slots.credit_card_id,
+            credit_card_name: slots.credit_card_name,
             report_weight: Number.isFinite(singleItemParticipants)
               ? Number((1 / Number(singleItemParticipants)).toFixed(4))
               : undefined,
@@ -1608,6 +1665,56 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
   }
 
   if (expenseItems.length) {
+    const needsCreditCardLookup = expenseItems.some((item) =>
+      item.payment_method === 'credit_card' || item.credit_card_id || item.credit_card_name,
+    )
+
+    let creditCards: Array<{ id: string; name: string; closing_day: number; is_active: boolean | null }> = []
+
+    if (needsCreditCardLookup) {
+      const { data: cardsData } = await supabase
+        .from('credit_cards')
+        .select('id, name, closing_day, is_active')
+        .order('name', { ascending: true })
+
+      creditCards = cardsData || []
+    }
+
+    const monthlyCycleClosingByCardAndMonth: Record<string, number> = {}
+
+    if (needsCreditCardLookup && creditCards.length) {
+      const neededCompetences = new Set<string>()
+
+      expenseItems.forEach((item) => {
+        const baseDate = item.date || slots.date
+        if (!baseDate) return
+
+        const installmentCount = normalizeInstallmentCount(item.installment_count) || 1
+        const installmentDates = buildInstallmentDates(baseDate, installmentCount)
+        installmentDates.forEach((dateValue) => neededCompetences.add(dateValue.substring(0, 7)))
+      })
+
+      if (neededCompetences.size) {
+        const { data: cycleRows } = await supabase
+          .from('credit_card_monthly_cycles')
+          .select('credit_card_id, competence, closing_day')
+          .in('credit_card_id', creditCards.map((card) => card.id))
+          .in('competence', Array.from(neededCompetences))
+
+        ;(cycleRows || []).forEach((row) => {
+          const key = `${String(row.credit_card_id || '')}:${String(row.competence || '')}`
+          if (key.startsWith(':')) return
+
+          const closingDay = Number(row.closing_day)
+          if (Number.isFinite(closingDay)) {
+            monthlyCycleClosingByCardAndMonth[key] = closingDay
+          }
+        })
+      }
+    }
+
+    let hasMissingCreditCardReference = false
+
     const { data: expenseCategories } = await supabase
       .from('categories')
       .select('id, name, color')
@@ -1635,17 +1742,61 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
 
       const effectiveDate = item.date || slots.date
       const installmentCount = normalizeInstallmentCount(item.installment_count) || 1
+      const normalizedCardName = normalizeText(item.credit_card_name || '')
+
+      let resolvedCreditCardId = item.credit_card_id
+
+      if (!resolvedCreditCardId && normalizedCardName) {
+        const matchedByName = creditCards.find((card) => {
+          const normalizedRegistered = normalizeText(card.name)
+          return normalizedRegistered.includes(normalizedCardName) || normalizedCardName.includes(normalizedRegistered)
+        })
+        resolvedCreditCardId = matchedByName?.id
+      }
+
+      const resolveClosingDayForDate = (targetDate: string) => {
+        if (!resolvedCreditCardId) return undefined
+
+        const competence = targetDate.substring(0, 7)
+        const monthlyClosingDay = monthlyCycleClosingByCardAndMonth[`${resolvedCreditCardId}:${competence}`]
+        if (Number.isFinite(monthlyClosingDay)) {
+          return Number(monthlyClosingDay)
+        }
+
+        const card = creditCards.find((candidate) => candidate.id === resolvedCreditCardId)
+        if (card && Number.isFinite(card.closing_day)) {
+          return Number(card.closing_day)
+        }
+
+        return undefined
+      }
+
+      const resolvedPaymentMethod = item.payment_method || (resolvedCreditCardId ? 'credit_card' : 'other')
+
+      if (resolvedPaymentMethod === 'credit_card' && !resolvedCreditCardId) {
+        hasMissingCreditCardReference = true
+        return []
+      }
 
       if (!effectiveDate || !resolvedCategoryId) {
         return []
       }
 
       if (installmentCount <= 1) {
+        const closingDay = resolveClosingDayForDate(effectiveDate)
+        const billCompetence =
+          resolvedPaymentMethod === 'credit_card' && Number.isFinite(closingDay)
+            ? resolveBillCompetence(effectiveDate, Number(closingDay))
+            : undefined
+
         return [{
           amount: item.amount,
           report_weight: item.report_weight,
           date: effectiveDate,
           category_id: resolvedCategoryId,
+          payment_method: resolvedPaymentMethod,
+          ...(resolvedCreditCardId ? { credit_card_id: resolvedCreditCardId } : {}),
+          ...(billCompetence ? { bill_competence: billCompetence } : {}),
           description: item.description,
           ...(userId ? { user_id: userId } : {}),
         }]
@@ -1655,20 +1806,36 @@ const executeWriteIntent = async (command: AssistantCommand): Promise<AssistantC
       const installmentAmounts = splitInstallmentAmounts(item.amount, installmentCount)
       const installmentDates = buildInstallmentDates(effectiveDate, installmentCount)
 
-      return installmentAmounts.map((installmentAmount, index) => ({
-        amount: installmentAmount,
-        report_weight: item.report_weight,
-        date: installmentDates[index],
-        category_id: resolvedCategoryId,
-        description: item.description,
-        installment_group_id: installmentGroupId,
-        installment_number: index + 1,
-        installment_total: installmentCount,
-        ...(userId ? { user_id: userId } : {}),
-      }))
+      return installmentAmounts.map((installmentAmount, index) => {
+        const installmentDate = installmentDates[index]
+        const closingDay = resolveClosingDayForDate(installmentDate)
+        const billCompetence =
+          resolvedPaymentMethod === 'credit_card' && Number.isFinite(closingDay)
+            ? resolveBillCompetence(installmentDate, Number(closingDay))
+            : undefined
+
+        return {
+          amount: installmentAmount,
+          report_weight: item.report_weight,
+          date: installmentDate,
+          category_id: resolvedCategoryId,
+          payment_method: resolvedPaymentMethod,
+          ...(resolvedCreditCardId ? { credit_card_id: resolvedCreditCardId } : {}),
+          ...(billCompetence ? { bill_competence: billCompetence } : {}),
+          description: item.description,
+          installment_group_id: installmentGroupId,
+          installment_number: index + 1,
+          installment_total: installmentCount,
+          ...(userId ? { user_id: userId } : {}),
+        }
+      })
     }))
 
     const expensePayload = expensePayloadNested.flat()
+
+    if (hasMissingCreditCardReference) {
+      return { status: 'failed', message: 'Não encontrei o cartão informado. Verifique o nome do cartão e tente novamente.', commandId: command.id }
+    }
 
     if (expensePayload.some((item) => !item.date || !item.category_id)) {
       return { status: 'failed', message: 'Não foi possível resolver data/categoria para todas as despesas.', commandId: command.id }

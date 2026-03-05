@@ -46,8 +46,9 @@ export default class ErrorBoundary extends Component<Props, State> {
               </details>
             )}
             <button
+              type="button"
               onClick={() => window.location.reload()}
-              className="w-full bg-accent-primary text-primary py-2 px-4 rounded-lg motion-standard hover-lift-subtle press-subtle hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              className="w-full py-2 px-4 rounded-lg border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
             >
               Recarregar página
             </button>

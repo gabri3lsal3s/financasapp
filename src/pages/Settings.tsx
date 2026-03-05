@@ -461,7 +461,7 @@ export default function Settings() {
                   role="switch"
                   aria-checked={monthlyInsightsEnabled}
                   onClick={() => setMonthlyInsightsEnabled(!monthlyInsightsEnabled)}
-                  className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
                     monthlyInsightsEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
                   }`}
                   title={monthlyInsightsEnabled ? 'Desativar insights do mês' : 'Ativar insights do mês'}
@@ -486,7 +486,7 @@ export default function Settings() {
                   role="switch"
                   aria-checked={floatingCalculatorEnabled}
                   onClick={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
-                  className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
                     floatingCalculatorEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
                   }`}
                   title={floatingCalculatorEnabled ? 'Desativar calculadora flutuante' : 'Ativar calculadora flutuante'}
@@ -515,7 +515,7 @@ export default function Settings() {
                     role="switch"
                     aria-checked={assistantAutoSpeak}
                     onClick={() => setAssistantAutoSpeak(!assistantAutoSpeak)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
                       assistantAutoSpeak ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
                     }`}
                     title={assistantAutoSpeak ? 'Desativar resposta por voz' : 'Ativar resposta por voz'}

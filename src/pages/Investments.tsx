@@ -5,6 +5,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
+import CategoryBadge from '@/components/CategoryBadge'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
@@ -177,15 +178,18 @@ export default function Investments() {
                           }}
                         />
                         <p className="font-medium text-primary truncate">
-                          {investment.description || 'Investimento'}
+                          {investment.description || 'Investimentos'}
                         </p>
                       </div>
                       <p className="text-sm text-secondary">
                         {formatMonth(investment.month)}
                       </p>
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        <CategoryBadge label="Investimentos" color="var(--color-balance)" />
+                      </div>
                     </div>
-                    <div className="ml-2 text-right">
-                      <p className="text-lg font-semibold text-primary">
+                    <div className="ml-2 flex-shrink-0 text-right">
+                      <p className="text-base sm:text-lg font-semibold text-primary">
                         {formatCurrency(investment.amount)}
                       </p>
                     </div>

@@ -25,11 +25,12 @@ export default function ThemeSwitcher() {
           {themes.map((t) => (
             <button
               key={t.id}
+              type="button"
               onClick={() => setTheme(t.id)}
-              className={`p-3 rounded-lg border-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
+              className={`p-3 rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
                 theme === t.id
-                  ? 'border-[var(--color-primary)] bg-tertiary'
-                  : 'border-primary bg-secondary hover:border-[var(--color-focus)]'
+                  ? 'border-primary bg-tertiary accent-primary'
+                  : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
               }`}
             >
               <div className="mb-3 h-14 rounded-md flex gap-1 overflow-hidden">

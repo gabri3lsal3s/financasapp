@@ -75,8 +75,9 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
         <div className="flex items-center justify-between p-4 border-b border-primary">
           <h2 id={titleId} className="text-xl font-bold text-primary">{title}</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-tertiary rounded-full motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+            className="p-2 rounded-full border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
           >
             <X size={20} className="text-primary" />
           </button>

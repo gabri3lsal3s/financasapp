@@ -18,11 +18,12 @@ export default function ColorPaletteSwitcher() {
           {(Object.entries(colorPalettes) as Array<[string, any]>).map(([key, palette]) => (
             <button
               key={key}
+              type="button"
               onClick={() => setColorPalette(key as any)}
-              className={`p-3 rounded-lg border-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
+              className={`p-3 rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
                 colorPalette === key
-                  ? 'border-[var(--color-primary)] bg-tertiary'
-                  : 'border-primary bg-secondary hover:border-[var(--color-focus)]'
+                  ? 'border-primary bg-tertiary accent-primary'
+                  : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
               }`}
             >
               <div className="flex gap-2 mb-2">

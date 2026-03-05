@@ -8,19 +8,61 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
+import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Expense } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
+import CategoryBadge from '@/components/CategoryBadge'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+
+const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
+  other: 'Outros',
+  cash: 'Dinheiro',
+  debit: 'Débito',
+  credit_card: 'Cartão',
+  pix: 'PIX',
+  transfer: 'Transferência',
+}
+
+const PAYMENT_METHOD_COLORS: Record<NonNullable<Expense['payment_method']>, string> = {
+  other: 'var(--color-text-secondary)',
+  cash: 'var(--color-text-secondary)',
+  debit: 'var(--color-primary)',
+  credit_card: 'var(--color-balance)',
+  pix: 'var(--color-income)',
+  transfer: 'var(--color-expense)',
+}
+
+const getPaymentMethodLabel = (expense: Expense) => {
+  const method = expense.payment_method || 'other'
+  const baseLabel = PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other
+
+  if (method === 'credit_card' && expense.credit_card?.name) {
+    return `${baseLabel}: ${expense.credit_card.name}`
+  }
+
+  return baseLabel
+}
+
+const getPaymentMethodColor = (expense: Expense) => {
+  const method = expense.payment_method || 'other'
+
+  if (method === 'credit_card' && expense.credit_card?.color) {
+    return expense.credit_card.color
+  }
+
+  return PAYMENT_METHOD_COLORS[method] || PAYMENT_METHOD_COLORS.other
+}
 
 export default function Expenses() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
   const { categories } = useCategories()
+  const { creditCards } = useCreditCards()
   const { colorPalette } = usePaletteColors()
   const assignedCategories = assignUniquePaletteColors(categories, colorPalette)
   const categoryColorMap: Record<string, string> = {}
@@ -34,6 +76,8 @@ export default function Expenses() {
     report_amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     installment_total: '1',
+    payment_method: 'other',
+    credit_card_id: '',
     category_id: '',
     description: '',
   })
@@ -65,6 +109,8 @@ export default function Expenses() {
         report_amount: formatMoneyInput(expense.amount * (expense.report_weight ?? 1)),
         date: expense.date,
         installment_total: String(expense.installment_total || 1),
+        payment_method: expense.payment_method || 'other',
+        credit_card_id: expense.credit_card_id || '',
         category_id: expense.category_id,
         description: expense.description || '',
       })
@@ -75,6 +121,8 @@ export default function Expenses() {
         report_amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
         installment_total: '1',
+        payment_method: 'other',
+        credit_card_id: '',
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -90,6 +138,8 @@ export default function Expenses() {
       report_amount: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       installment_total: '1',
+      payment_method: 'other',
+      credit_card_id: '',
       category_id: categories[0]?.id || '',
       description: '',
     })
@@ -114,6 +164,8 @@ export default function Expenses() {
         report_amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
         installment_total: '1',
+        payment_method: 'other',
+        credit_card_id: '',
         category_id: categories[0]?.id || '',
         description: '',
       })
@@ -152,11 +204,18 @@ export default function Expenses() {
       return
     }
 
+    if (formData.payment_method === 'credit_card' && !formData.credit_card_id) {
+      alert('Selecione um cartão de crédito para compras no crédito.')
+      return
+    }
+
     const expenseData: Omit<Expense, 'id' | 'created_at' | 'category'> = {
       amount,
       report_weight: reportWeight,
       date: formData.date,
       installment_total: installmentTotal,
+      payment_method: formData.payment_method as Expense['payment_method'],
+      credit_card_id: formData.payment_method === 'credit_card' ? formData.credit_card_id : null,
       category_id: formData.category_id,
       ...(formData.description && { description: formData.description }),
     }
@@ -233,7 +292,7 @@ export default function Expenses() {
                         style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }}
                       />
                       <p className="font-medium text-primary truncate">
-                        {expense.description || expense.category?.name || 'Sem descrição'}
+                        {expense.description || expense.category?.name || 'Despesa'}
                       </p>
                     </div>
                     <p className="text-sm text-secondary">
@@ -242,9 +301,18 @@ export default function Expenses() {
                         <> • Parcela {expense.installment_number || 1}/{expense.installment_total}</>
                       )}
                     </p>
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                      <CategoryBadge
+                        label={expense.category?.name || 'Sem categoria'}
+                        color={expense.category?.id
+                          ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
+                          : 'var(--color-primary)'}
+                      />
+                      <CategoryBadge label={getPaymentMethodLabel(expense)} color={getPaymentMethodColor(expense)} />
+                    </div>
                   </div>
-                  <div className="ml-2 text-right">
-                    <p className="text-lg font-semibold text-primary">
+                  <div className="ml-2 flex-shrink-0 text-right">
+                    <p className="text-base sm:text-lg font-semibold text-primary">
                       {formatCurrency(expense.amount)}
                     </p>
                     {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
@@ -306,6 +374,39 @@ export default function Expenses() {
             min={APP_START_DATE}
             required
           />
+
+          <Select
+            label="Forma de pagamento"
+            value={formData.payment_method}
+            onChange={(e) => setFormData({
+              ...formData,
+              payment_method: e.target.value,
+              credit_card_id: e.target.value === 'credit_card' ? formData.credit_card_id : '',
+            })}
+            options={[
+              { value: 'other', label: 'Outros' },
+              { value: 'cash', label: 'Dinheiro' },
+              { value: 'debit', label: 'Débito' },
+              { value: 'credit_card', label: 'Cartão de crédito' },
+              { value: 'pix', label: 'PIX' },
+              { value: 'transfer', label: 'Transferência' },
+            ]}
+          />
+
+          {formData.payment_method === 'credit_card' && (
+            <Select
+              label="Cartão"
+              value={formData.credit_card_id}
+              onChange={(e) => setFormData({ ...formData, credit_card_id: e.target.value })}
+              options={[
+                { value: '', label: 'Selecionar cartão' },
+                ...creditCards
+                  .filter((card) => card.is_active !== false || card.id === formData.credit_card_id)
+                  .map((card) => ({ value: card.id, label: card.name })),
+              ]}
+              required
+            />
+          )}
 
           {!editingExpense && (
             <Input

@@ -13,6 +13,7 @@ import { useInvestments } from '@/hooks/useInvestments'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
@@ -39,7 +40,6 @@ import {
 } from 'recharts'
 import { useSearchParams } from 'react-router-dom'
 type ViewMode = 'year' | 'month'
-type ReportDataMode = 'weighted' | 'raw'
 type DetailType = 'expense' | 'income'
 
 type MonthlySummary = {
@@ -148,7 +148,6 @@ export default function Reports() {
   const [availableMonths, setAvailableMonths] = useState<string[]>([])
   const [loadingAvailablePeriods, setLoadingAvailablePeriods] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('year')
-  const [reportDataMode, setReportDataMode] = useState<ReportDataMode>('weighted')
   const [detailModal, setDetailModal] = useState<DetailModalState>({
     isOpen: false,
     type: 'expense',
@@ -168,6 +167,10 @@ export default function Reports() {
   const [hiddenAnnualFlowSeries, setHiddenAnnualFlowSeries] = useState<string[]>([])
   const [hiddenDailyConsolidatedSeries, setHiddenDailyConsolidatedSeries] = useState<string[]>([])
   const [hiddenMonthCompositionSeries, setHiddenMonthCompositionSeries] = useState<string[]>([])
+  const {
+    dashboardReportsWeightsEnabled,
+    setDashboardReportsWeightsEnabled,
+  } = useAppSettings()
 
   useEffect(() => {
     let canceled = false
@@ -264,7 +267,7 @@ export default function Reports() {
   const { colorPalette } = usePaletteColors()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
-  const includeReportWeights = reportDataMode === 'weighted'
+  const includeReportWeights = dashboardReportsWeightsEnabled
   const previousMonth = useMemo(() => addMonths(selectedMonth, -1), [selectedMonth])
   const { monthlySummaries, categoryExpenses, monthlyCategoryExpenses, loading } = useReports(selectedYear, includeReportWeights)
   const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear, includeReportWeights)
@@ -502,7 +505,7 @@ export default function Reports() {
         .filter((item) => item.category_id === detailModal.categoryId)
         .map((item) => ({
           id: item.id,
-          description: item.description || item.category?.name || 'Sem descrição',
+          description: item.description || item.category?.name || 'Despesa',
           date: item.date,
           amount: getAmountByMode(item),
         }))
@@ -514,7 +517,7 @@ export default function Reports() {
         .filter((item) => item.income_category_id === detailModal.categoryId)
         .map((item) => ({
           id: item.id,
-          description: item.description || item.income_category?.name || 'Sem descrição',
+          description: item.description || item.income_category?.name || 'Renda',
           date: item.date,
           amount: getAmountByMode(item),
         }))
@@ -526,7 +529,7 @@ export default function Reports() {
         .filter((item) => item.category_id === detailModal.categoryId)
         .map((item) => ({
           id: item.id,
-          description: item.description || item.category?.name || 'Sem descrição',
+          description: item.description || item.category?.name || 'Despesa',
           date: item.date,
           amount: getAmountByMode(item),
         }))
@@ -537,7 +540,7 @@ export default function Reports() {
       .filter((item) => item.income_category_id === detailModal.categoryId)
       .map((item) => ({
         id: item.id,
-        description: item.description || item.income_category?.name || 'Sem descrição',
+        description: item.description || item.income_category?.name || 'Renda',
         date: item.date,
         amount: getAmountByMode(item),
       }))
@@ -845,8 +848,8 @@ export default function Reports() {
               key={dataKey}
               type="button"
               onClick={() => onToggle(dataKey)}
-              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle ${
-                isHidden ? 'opacity-50 bg-secondary' : 'bg-primary'
+              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
               }`}
               aria-pressed={!isHidden}
             >
@@ -981,15 +984,15 @@ export default function Reports() {
     : 0
 
   const controlButtonClasses = (mode: ViewMode) =>
-    `px-3 py-2 rounded-lg text-sm font-medium motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+    `px-3 py-2 rounded-lg border text-sm font-medium motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
       viewMode === mode
-        ? 'bg-tertiary accent-primary border border-primary'
-        : 'text-primary hover:bg-tertiary border border-primary'
+        ? 'border-primary bg-tertiary accent-primary'
+        : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
     }`
 
   const selectClasses = 'w-full px-4 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
   const interactiveRowButtonClasses =
-    'w-full rounded-lg p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+    'w-full rounded-lg border border-primary bg-secondary text-primary p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
 
   const renderPieCard = (title: string, data: PieDatum[]) => (
     <Card className="h-full flex flex-col">
@@ -1102,18 +1105,6 @@ export default function Reports() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">Modo dos dados</label>
-              <select
-                value={reportDataMode}
-                onChange={(event) => setReportDataMode(event.target.value as ReportDataMode)}
-                className={selectClasses}
-              >
-                <option value="weighted">Considerando pesos</option>
-                <option value="raw">Sem considerar pesos</option>
-              </select>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-primary mb-2">Mês</label>
               <select
                 value={selectedMonth}
@@ -1131,6 +1122,17 @@ export default function Reports() {
                   <option value={selectedMonth}>Sem meses com dados</option>
                 )}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary mb-2">Pesos</label>
+              <button
+                type="button"
+                onClick={() => setDashboardReportsWeightsEnabled(!dashboardReportsWeightsEnabled)}
+                className="w-full h-10 px-3 rounded-lg border border-primary bg-secondary text-sm font-medium text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              >
+                {dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              </button>
             </div>
           </div>
           <p className="text-xs text-secondary mt-3">
@@ -1577,7 +1579,7 @@ export default function Reports() {
                   <button
                     type="button"
                     onClick={() => setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)}
-                    className="text-xs text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] rounded-md px-2 py-1"
+                    className="text-xs rounded-md border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] px-2 py-1"
                   >
                     Ver mais
                   </button>

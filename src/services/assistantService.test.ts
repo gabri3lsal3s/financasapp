@@ -334,6 +334,36 @@ describe('assistant parser - investimentos e casos de controle', () => {
     expect(slots.installment_count).toBe(3)
   })
 
+  it('extrai forma de pagamento e cartão de crédito no comando', () => {
+    const text = 'Comprei 900 em 3 parcelas no cartão Nubank para notebook'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.payment_method).toBe('credit_card')
+    expect(slots.credit_card_name).toBe('Nubank')
+    expect(slots.installment_count).toBe(3)
+  })
+
+  it('extrai nome de cartão no formato "cartão da ..."', () => {
+    const text = 'Registre despesa de 300 no cartão da Inter para mercado'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.payment_method).toBe('credit_card')
+    expect(slots.credit_card_name).toBe('Inter')
+  })
+
+  it('extrai pagamento por pix em despesas', () => {
+    const text = 'Paguei 42 no almoço via pix'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.payment_method).toBe('pix')
+  })
+
   it('não confunde divisão de conta com parcelamento', () => {
     const text = 'Jantar 90 e dividimos em 3'
     const { intent } = assistantParserInternals.inferIntent(text)
@@ -373,6 +403,26 @@ describe('assistant parser - investimentos e casos de controle', () => {
     expect(third.transactionType).toBe('investment')
     expect(third.amount).toBe(100)
     expect(third.description).toBe('Investimento na Bolsa')
+  })
+
+  it('mantém forma de pagamento por item em comando composto', () => {
+    const text = 'Hoje comprei mercado, deu 120 no cartão Nubank, em seguida paguei café, deu 30 via pix'
+    const { intent } = assistantParserInternals.inferIntent(text)
+    const slots = assistantParserInternals.buildSlots(text, intent)
+
+    expect(intent).toBe('add_expense')
+    expect(slots.items).toBeDefined()
+    expect(slots.items).toHaveLength(2)
+
+    const [first, second] = slots.items || []
+
+    expect(first.transactionType).toBe('expense')
+    expect(first.payment_method).toBe('credit_card')
+    expect(first.credit_card_name).toBe('Nubank')
+
+    expect(second.transactionType).toBe('expense')
+    expect(second.payment_method).toBe('pix')
+    expect(second.credit_card_name).toBeUndefined()
   })
 
   it('calcula valor no relatório para despesa compartilhada com amigos', () => {

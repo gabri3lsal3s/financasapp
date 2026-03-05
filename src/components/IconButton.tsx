@@ -15,12 +15,12 @@ export default function IconButton({
   className = '',
   ...props
 }: IconButtonProps) {
-  const baseStyles = 'rounded-full motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed'
+  const baseStyles = 'rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed'
   
   const variantStyles = {
-    neutral: 'text-primary hover:bg-tertiary',
-    danger: 'text-[var(--color-danger)] hover:bg-tertiary',
-    success: 'text-income hover:bg-tertiary',
+    neutral: 'border-primary text-secondary hover:text-primary hover:bg-tertiary',
+    danger: 'border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-tertiary',
+    success: 'border-[var(--color-income)] text-income hover:bg-tertiary',
   }
   
   const sizeStyles = {
