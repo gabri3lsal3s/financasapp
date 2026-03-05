@@ -1,22 +1,15 @@
 # Minhas Finanças
 
-Aplicação React + TypeScript para controle financeiro pessoal, com foco em usabilidade, responsividade e análise mensal/anual de desempenho.
+Aplicação web para controle financeiro pessoal, com foco em simplicidade de uso, visão mensal/anual e operação offline.
 
-## Principais recursos
+## O que o app oferece
 
-- Dashboard com KPIs mensais (rendas, despesas, investimentos e saldo) e atalhos de detalhamento.
-- Inclusão rápida na Home (despesa, renda e investimento) sem redirecionamento.
-- CRUD completo para despesas, rendas, investimentos e categorias.
-- Página unificada de categorias (`/categories`) com atalhos para categorias de despesa e renda.
-- Limites mensais por categoria de despesa e expectativas mensais por categoria de renda.
-- Herança automática do mês anterior para limites/expectativas quando o mês atual ainda não possui valor definido.
-- Exclusão segura de categorias com reatribuição automática para `Sem categoria` quando houver lançamentos vinculados.
-- Relatórios com visualização Ano/Mês, detalhamento por categoria no próprio fluxo, comparação anual com ano anterior e botão discreto `Ver mais` para listas extensas.
-- Seletores por item em despesas e rendas para inclusão total/parcial/zero nos relatórios (útil para reembolsos).
-- Navegação responsiva: menu móvel (drawer) e sidebar desktop colapsável.
-- Sistema de tema (light/dark) e paletas de cores com persistência.
-- PWA instalável com atualização de versão no cliente.
-- Operação offline com fila local para create/update/delete e sincronização automática ao reconectar.
+- Dashboard com KPIs de rendas, despesas, investimentos e saldo.
+- CRUD completo de despesas, rendas, investimentos e categorias.
+- Página de categorias unificada (`/categories`) com limites de despesa e expectativas de renda por mês.
+- Relatórios mensais/anuais com detalhamento por categoria e inclusão parcial por item (`report_weight`).
+- Fluxo de cartão de crédito com competência de fatura e suporte a estorno como renda.
+- PWA instalável com atualização de versão e fila offline para mutações.
 
 ## Stack
 
@@ -26,158 +19,87 @@ Aplicação React + TypeScript para controle financeiro pessoal, com foco em usa
 - Supabase
 - Recharts
 - React Router
-- Lucide React
 
-## Setup local
+## Setup rápido
 
-1) Instalar dependências:
+1. Instale dependências:
 
 ```bash
 npm install
 ```
 
-2) Criar arquivo `.env` com as credenciais do Supabase:
+2. Configure variáveis de ambiente no `.env`:
 
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anon
 ```
 
-3) Configurar banco no Supabase SQL Editor:
+3. No Supabase SQL Editor, execute:
 
-- Para instalação inicial completa: execute [database.sql](database.sql).
-- Para atualizar uma base antiga: execute [MIGRATION.sql](MIGRATION.sql).
+- [database.sql](database.sql) para estrutura base completa.
+- [MIGRATION_RENAME_EXTORNO_TO_ESTORNO.sql](MIGRATION_RENAME_EXTORNO_TO_ESTORNO.sql) para padronizar categorias antigas (`Extorno` -> `Estorno`).
 
-4) Rodar em desenvolvimento:
+4. Rode o app em desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-## Scripts
+## Scripts principais
 
-- `npm run dev`: ambiente local.
+- `npm run dev`: ambiente local com recarga automática.
 - `npm run build`: valida TypeScript e gera build de produção.
-- `npm run preview`: serve build localmente.
+- `npm run preview`: sobe build local para validação final.
 
-## Estrutura de dados (resumo)
-
-Além das tabelas principais (`categories`, `income_categories`, `expenses`, `incomes`, `investments`), o projeto usa:
-
-- `expense_category_month_limits`: limite mensal por categoria de despesa.
-- `income_category_month_expectations`: expectativa mensal por categoria de renda.
-
-Os scripts [database.sql](database.sql) e [MIGRATION.sql](MIGRATION.sql) já incluem criação de tabelas, constraints e índices dessas estruturas.
-
-## PWA e Offline
-
-- Service Worker ativo com precache de assets da aplicação.
-- Prompt de atualização quando existe nova versão publicada.
-- Política de cache evita conflito com dados do Supabase (API não é cacheada no SW).
-- Em modo offline, mutações de despesas/rendas/investimentos entram em fila local.
-- Ao voltar conexão, a fila é enviada automaticamente para o banco.
-
-### Assistente por voz no PWA
-
-- O `Dashboard` possui atalho de uso final do assistente (fluxo por voz, sem redirecionamento de página).
-- A tela de `Configurações` concentra as funções de teste/diagnóstico do assistente (texto, voz, insights e validação).
-- Requisitos de navegador:
-  - HTTPS ativo (ou localhost em desenvolvimento);
-  - navegador com Web Speech API (Chrome/Edge Android);
-  - permissão de microfone concedida.
-- Padrões de UX do assistente:
-  - botão de voz com toggle (`Falar Comando` / `Parar Escuta`);
-  - finalização por silêncio após a fala;
-  - estado visual de escuta (`Escutando`, `Parou`, `Comando ouvido`);
-  - confirmação manual editável por clique no texto antes de confirmar;
-  - para `add_expense`, confirmação é somente manual no app.
-- Escopo atual do assistente:
-  - adição de `despesa`, `renda` e `investimento`.
-  - demais funções ficam fora do fluxo principal de voz.
-- Regra de descrição:
-  - o assistente salva descrições curtas e polidas (`Almoço`, `Almoço com Glenda`, `Hambúrguer com Gabi`) em vez de gravar o comando completo.
-- Comandos com múltiplos itens:
-  - o assistente aceita lote na mesma frase para adição, por exemplo:
-    - `adicionar despesa 25 almoço e 18 uber`
-    - `registrar renda 3000 salário e 450 freelancer`
-    - `adicionar investimento 200 tesouro e 150 reserva`
-  - cada item é interpretado e salvo separadamente, com retorno de quantidade adicionada.
-- Fluxo recomendado de validação:
-  1. Dashboard: tocar no atalho do assistente e falar um comando completo;
-  2. Confirmar manualmente quando o comando exigir confirmação;
-  3. Configurações: usar bloco `Assistente (MVP)` para testes de texto, voz e insights;
-  4. Validar persistência no Supabase e feedback visual do comando reconhecido.
-
-### Privacidade e retenção de dados do assistente
-
-- O app mantém dados técnicos do assistente em `localStorage` para operação offline e observabilidade:
-  - telemetria local (`assistant.telemetry.events`);
-  - memória longa editável (`assistant-memory-entries`);
-  - logs técnicos de decisão de contexto (`assistant-context-decision-logs`);
-  - histórico de sincronização offline (`assistant-offline-sync-history`);
-  - preferências de sessão por dispositivo (`assistant-session-preferences:*`).
-- A retenção local é configurável em `Configurações` (7/30/90/180/365 dias; padrão 90 dias).
-- A limpeza de retenção é executada automaticamente na inicialização do app e ao alterar a retenção.
-- Também é possível executar limpeza manual em `Configurações` com o botão `Executar limpeza agora`.
-- Metadados de voz pendentes na fila offline são anonimizados localmente durante a limpeza (remoção de `spokenText`).
-- O assistente exige confirmação explícita para ações sensíveis/escritas conforme política configurada.
-
-### Fluxo de sincronização offline
-
-1. Usuário cria/edita/deleta um registro sem internet.
-2. A operação é armazenada localmente na fila (`localStorage`).
-3. A UI reflete a alteração local imediatamente.
-4. Quando `online` retorna, o app processa a fila e sincroniza com o Supabase.
-5. Os hooks recarregam os dados para garantir consistência final.
-
-## Estrutura (resumo)
+## Estrutura do projeto
 
 ```text
 src/
-  components/   # componentes reutilizáveis (layout, modal, inputs, cards)
-  contexts/     # contexto de tema/paleta
-  hooks/        # hooks de dados (Supabase)
-  pages/        # páginas principais
-  types/        # contratos TypeScript
-  utils/        # formatadores e helpers
+  components/   componentes reutilizáveis de UI
+  contexts/     contexto de tema/paleta
+  hooks/        regras de dados e integração com Supabase
+  lib/          clientes/configurações de infraestrutura
+  pages/        telas principais
+  services/     regras de domínio e serviços auxiliares
+  types/        contratos TypeScript
+  utils/        helpers utilitários
 ```
 
-## UX e padrões de interface
+## Banco de dados (resumo)
 
-- Modais centralizados e padronizados em todas as telas.
-- Fechamento de modal por `Esc`, clique no fundo e botão de fechar.
-- Foco automático no primeiro campo ao abrir formulários.
-- Itens de lista clicáveis para edição rápida; ações destrutivas concentradas no modal de edição.
-- Tokens semânticos de cor para manter consistência visual em light/dark.
+Tabelas principais:
 
-## Segurança e autenticação
+- `categories`, `income_categories`
+- `expenses`, `incomes`, `investments`
+- `expense_category_month_limits`, `income_category_month_expectations`
+- estruturas auxiliares de cartões e assistente já contempladas no script base.
 
-- O script padrão está preparado para ambiente sem autenticação (RLS desabilitado).
-- Para produção multiusuário, habilite RLS e políticas por `user_id` antes de publicar.
+Observações:
 
-## Observações de build
+- `report_weight` permite considerar parcial/totalmente itens nos relatórios.
+- Estornos são tratados como renda na categoria `Estorno`.
 
-O Vite pode exibir aviso de chunk grande (`>500kB`) na build de produção. Isso não bloqueia o deploy; otimizações de code-splitting podem ser aplicadas em etapa futura.
+## PWA e modo offline
 
-## Checklist rápido de validação (PWA)
+- Service Worker ativo para assets do app.
+- Operações de escrita offline entram em fila local e sincronizam ao reconectar.
+- Prompt de atualização aparece quando existe nova versão publicada.
 
-1. Rode `npm run build` e confirme geração de `dist/sw.js`.
-2. Sirva com `npm run preview`.
-3. Instale o app no dispositivo/navegador (Add to Home Screen / Instalar app).
-4. Teste offline:
-  - desligue a internet;
-  - faça um lançamento (despesa/renda/investimento);
-  - religue a internet e confirme sincronização automática.
+## Assistente (resumo)
 
-## Checklist funcional rápido
+- Suporta adição de despesa, renda e investimento por voz/texto.
+- Mantém confirmação explícita para ações sensíveis.
+- Armazena telemetria e memória local com retenção configurável em Configurações.
 
-1. Crie categorias em despesas e rendas.
-2. Em `Categorias`, defina limite/expectativa no mês atual e confirme salvamento.
-3. Troque para o mês seguinte e valide herança automática do valor anterior.
-4. Abra `Relatórios` e teste detalhamento por categoria (mês e ano).
-5. Delete uma categoria com lançamentos e confirme reatribuição para `Sem categoria`.
+## Segurança
 
+- O setup atual é voltado para ambiente sem autenticação estrita.
+- Para produção multiusuário, habilite RLS e políticas por `user_id` no Supabase.
 
+## Checklist de validação
 
-
-
+1. Execute `npm run build` sem erros.
+2. Rode `npm run preview` e valide fluxo principal.
+3. Teste modo offline (criar lançamento sem internet e sincronizar ao reconectar).
+4. Valide estornos em cartões e visualização correta em rendas.
