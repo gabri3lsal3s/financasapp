@@ -18,8 +18,9 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { supabase } from '@/lib/supabase'
 import type { CreditCard } from '@/types'
-import { APP_START_DATE, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
+import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
 import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -48,6 +49,14 @@ type PaymentItem = {
   payment_date: string
   bill_competence?: string
   note?: string | null
+}
+
+type BillDataSnapshot = {
+  expensesByCard: Record<string, number>
+  paymentsByCard: Record<string, number>
+  billItemsByCard: Record<string, BillExpenseItem[]>
+  paymentItemsByCard: Record<string, PaymentItem[]>
+  monthlyCyclesByCard: Record<string, MonthlyCycleRow>
 }
 
 type RefundIncomeFormState = {
@@ -132,6 +141,7 @@ const DEFAULT_FORM: CardFormState = {
 export default function CreditCards() {
   const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [hasResolvedInitialMonth, setHasResolvedInitialMonth] = useState(false)
   const [loadingBills, setLoadingBills] = useState(true)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -346,16 +356,13 @@ export default function CreditCards() {
     setRefundDescription('')
   }
 
-  const loadBillData = async () => {
-    try {
-      setLoadingBills(true)
-
-      const competenceReferenceDate = new Date(`${currentMonth}-01T12:00:00`)
+  const getBillDataSnapshot = async (targetMonth: string): Promise<BillDataSnapshot> => {
+      const competenceReferenceDate = new Date(`${targetMonth}-01T12:00:00`)
       const nullCompetenceStartDate = format(subMonths(competenceReferenceDate, 1), 'yyyy-MM-01')
       const nullCompetenceEndDate = format(endOfMonth(competenceReferenceDate), 'yyyy-MM-dd')
 
-      const previousMonth = format(subMonths(competenceReferenceDate, 1), 'yyyy-MM')
-      const cycleMonths = [previousMonth, currentMonth]
+      const previousMonth = shiftMonth(targetMonth, -1)
+      const cycleMonths = [previousMonth, targetMonth]
 
       const { data: monthlyCycleRows } = await supabase
         .from('credit_card_monthly_cycles')
@@ -371,7 +378,7 @@ export default function CreditCards() {
       }, {})
 
       const currentMonthCycles = (monthlyCycleRows || []).reduce<Record<string, MonthlyCycleRow>>((accumulator, row) => {
-        if (String(row.competence || '') !== currentMonth) return accumulator
+        if (String(row.competence || '') !== targetMonth) return accumulator
 
         const cardId = String(row.credit_card_id || '')
         if (!cardId) return accumulator
@@ -398,7 +405,7 @@ export default function CreditCards() {
       const { data: expenseRowsWithCompetence } = await supabase
         .from('expenses')
         .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
-        .eq('bill_competence', currentMonth)
+        .eq('bill_competence', targetMonth)
         .not('credit_card_id', 'is', null)
 
       const { data: expenseRowsWithoutCompetence } = await supabase
@@ -441,7 +448,7 @@ export default function CreditCards() {
 
       const expenseRows = Array.from(mergedExpenseRowsMap.values()).filter((row) => {
         const resolvedCompetence = resolveExpenseBillCompetence(row, resolveClosingDay)
-        return resolvedCompetence === currentMonth
+        return resolvedCompetence === targetMonth
       }).map((row) => {
         const baseAmount = Number(row.amount || 0)
 
@@ -466,7 +473,7 @@ export default function CreditCards() {
       const { data: paymentRows } = await supabase
         .from('credit_card_bill_payments')
         .select('id, credit_card_id, amount, payment_date, bill_competence, note')
-        .eq('bill_competence', currentMonth)
+        .eq('bill_competence', targetMonth)
 
       const paymentsByCardItems = (paymentRows || []).reduce<Record<string, PaymentItem[]>>((accumulator, row) => {
         const cardId = String(row.credit_card_id || '')
@@ -481,7 +488,7 @@ export default function CreditCards() {
           credit_card_id: cardId,
           amount: Number(row.amount || 0),
           payment_date: String(row.payment_date || ''),
-          bill_competence: String(row.bill_competence || currentMonth),
+          bill_competence: String(row.bill_competence || targetMonth),
           note: row.note ? String(row.note) : null,
         })
 
@@ -501,28 +508,94 @@ export default function CreditCards() {
         })),
       )
 
-      setExpensesByCard(summarizedBill.expensesByCard)
-      setPaymentsByCard(summarizedBill.paymentsByCard)
-      setBillItemsByCard(summarizedBill.billItemsByCard)
-      setPaymentItemsByCard(paymentsByCardItems)
-      setMonthlyCyclesByCard(currentMonthCycles)
+      return {
+        expensesByCard: summarizedBill.expensesByCard,
+        paymentsByCard: summarizedBill.paymentsByCard,
+        billItemsByCard: summarizedBill.billItemsByCard,
+        paymentItemsByCard: paymentsByCardItems,
+        monthlyCyclesByCard: currentMonthCycles,
+      }
+  }
+
+  const hasPendingBalanceForActiveCards = (snapshot: Pick<BillDataSnapshot, 'expensesByCard' | 'paymentsByCard'>) => {
+    if (!activeCards.length) return false
+
+    return activeCards.some((card) => {
+      const totalPrevisto = Number(snapshot.expensesByCard[card.id] || 0)
+      const totalPago = Number(snapshot.paymentsByCard[card.id] || 0)
+      return Number((totalPrevisto - totalPago).toFixed(2)) > 0.009
+    })
+  }
+
+  const loadBillData = async () => {
+    try {
+      setLoadingBills(true)
+
+      const snapshot = await getBillDataSnapshot(currentMonth)
+      setExpensesByCard(snapshot.expensesByCard)
+      setPaymentsByCard(snapshot.paymentsByCard)
+      setBillItemsByCard(snapshot.billItemsByCard)
+      setPaymentItemsByCard(snapshot.paymentItemsByCard)
+      setMonthlyCyclesByCard(snapshot.monthlyCyclesByCard)
     } finally {
       setLoadingBills(false)
     }
   }
 
   useEffect(() => {
-    const targetMonth = searchParams.get('month')
-    if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth) && targetMonth !== currentMonth) {
-      setCurrentMonth(targetMonth)
+    if (hasResolvedInitialMonth) return
+    if (loading) return
+
+    if (hasExplicitCreditCardsDeepLink(searchParams, getCurrentMonthString())) {
+      const targetMonth = searchParams.get('month')
+      if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth)) {
+        setCurrentMonth(targetMonth)
+      }
+      setHasResolvedInitialMonth(true)
+      return
+    }
+
+    let isCancelled = false
+
+    const resolveInitialMonth = async () => {
+      const resolvedMonth = await resolveInitialCreditCardsMonth({
+        currentMonth,
+        appStartMonth: APP_START_MONTH,
+        hasPendingForMonth: async (month) => {
+          const monthSnapshot = await getBillDataSnapshot(month)
+          if (isCancelled) return false
+          return hasPendingBalanceForActiveCards(monthSnapshot)
+        },
+      })
+
+      if (isCancelled) return
+
+      if (resolvedMonth !== currentMonth) {
+        setCurrentMonth(resolvedMonth)
+      }
+
+      setHasResolvedInitialMonth(true)
+    }
+
+    void resolveInitialMonth()
+
+    return () => {
+      isCancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [
+    hasResolvedInitialMonth,
+    loading,
+    searchParams,
+    currentMonth,
+    activeCards,
+  ])
 
   useEffect(() => {
+    if (!hasResolvedInitialMonth) return
     void loadBillData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMonth, creditCards, creditCardsWeightsEnabled])
+  }, [hasResolvedInitialMonth, currentMonth, creditCards, creditCardsWeightsEnabled])
 
   useEffect(() => {
     const targetCardId = searchParams.get('card')
@@ -1049,9 +1122,13 @@ export default function CreditCards() {
       />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+        {hasResolvedInitialMonth ? (
+          <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+        ) : (
+          <div className="mb-4 h-10" aria-hidden="true" />
+        )}
 
-        {loading || loadingBills ? (
+        {loading || !hasResolvedInitialMonth || loadingBills ? (
           <Card className="text-center py-8">Carregando cartões e faturas...</Card>
         ) : activeCards.length === 0 ? (
           <Card className="text-center py-8 space-y-3">
