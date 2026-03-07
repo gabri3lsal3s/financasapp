@@ -12,9 +12,8 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
-import { ThemeContext } from '@/contexts/themeSharedContext'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { APP_START_DATE, addMonths, formatCurrency, formatCurrencyCompactBR, formatDate, formatMoneyInput, formatMonth, formatNumberBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, formatNumberBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
@@ -48,7 +47,6 @@ const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
   // Governança: tokens/contexto
-  const theme = React.useContext(ThemeContext);
   const {
     monthlyInsightsEnabled,
     assistantConfirmationMode,
@@ -102,6 +100,7 @@ export default function Dashboard() {
     speechPitch: assistantSpeechPitch,
   })
   const [quickAddType, setQuickAddType] = useState<QuickAddType>('expense')
+  type QuickAddType = 'expense' | 'income' | 'investment';
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
   const [formData, setFormData] = useState({

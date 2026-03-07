@@ -8,7 +8,7 @@ import Input from '@/components/Input'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
-import { getCategoryColor, getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
+import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 
@@ -51,7 +51,7 @@ export default function Categories() {
       }
     } else {
       // Usa cor do design system (palette)
-      const paletteColor = getCategoryColorForPalette(undefined, colorPalette)
+      const paletteColor = getCategoryColorForPalette('var(--color-primary)', colorPalette)
       const categoryData = { ...formData, color: paletteColor }
       const { error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
       if (!error) {
