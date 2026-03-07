@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface IncomeByCategory {
@@ -17,11 +17,7 @@ export function useIncomeReports(year: number, includeReportWeights = true) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadIncomeByCategory()
-  }, [year, includeReportWeights])
-
-  const loadIncomeByCategory = async () => {
+  const loadIncomeByCategory = useCallback(async () => {
     try {
       setLoading(true)
       const hasMissingReportWeightError = (error: unknown) => {
@@ -110,7 +106,11 @@ export function useIncomeReports(year: number, includeReportWeights = true) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [year, includeReportWeights])
+
+  useEffect(() => {
+    loadIncomeByCategory()
+  }, [loadIncomeByCategory])
 
   return {
     incomeByCategory,

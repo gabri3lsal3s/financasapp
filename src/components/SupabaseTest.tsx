@@ -89,7 +89,7 @@ export default function SupabaseTest() {
 
       const allExist = Object.values(results).every((exists) => exists)
       const missingTables = Object.entries(results)
-        .filter(([_, exists]) => !exists)
+        .filter(([, exists]) => !exists)
         .map(([table]) => table)
 
       if (allExist) {

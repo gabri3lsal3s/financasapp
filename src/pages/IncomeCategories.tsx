@@ -3,6 +3,7 @@ import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
@@ -137,20 +138,12 @@ export default function IncomeCategories() {
             autoFocus
           />
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              {editingCategory ? 'Salvar alterações' : 'Salvar'}
-            </Button>
-          </div>
-
-          {editingCategory && (
-            <Button type="button" variant="danger" fullWidth onClick={() => handleDelete(editingCategory.id)}>
-              Excluir categoria de renda
-            </Button>
-          )}
+          <ModalActionFooter
+            onCancel={handleCloseModal}
+            submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
+            deleteLabel={editingCategory ? 'Excluir categoria de renda' : undefined}
+            onDelete={editingCategory ? () => handleDelete(editingCategory.id) : undefined}
+          />
         </form>
       </Modal>
     </div>

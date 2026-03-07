@@ -1,0 +1,1161 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-07T17:49:33.447Z",
+  "rules": [
+    {
+      "id": "ui-no-direct-number-formatting",
+      "description": "Evitar formatação direta com toFixed/toLocaleString em UI e mensagens; usar utilitários centrais."
+    },
+    {
+      "id": "ui-no-raw-hex-color",
+      "description": "Evitar cores HEX hardcoded; usar tokens do design system."
+    },
+    {
+      "id": "ui-no-native-control-in-pages",
+      "description": "Evitar controles nativos em páginas; preferir primitives compartilhadas."
+    }
+  ],
+  "violations": [
+    {
+      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|670|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/FloatingCalculator.tsx",
+      "line": 670,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|722|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/FloatingCalculator.tsx",
+      "line": 722,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CategoriesHome.tsx|179|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CategoriesHome.tsx",
+      "line": 179,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CategoriesHome.tsx|205|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CategoriesHome.tsx",
+      "line": 205,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1060|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1060,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1146|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1146,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1398|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1398,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|469|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 469,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|527|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 527,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|826|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 826,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|787|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 787,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Expenses.tsx|200|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Expenses.tsx",
+      "line": 200,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Incomes.tsx|224|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Incomes.tsx",
+      "line": 224,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1248|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1248,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1282|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1282,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1323|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1323,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1347|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1347,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1380|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1380,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1458|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1458,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1498|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1498,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1535|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Reports.tsx",
+      "line": 1535,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Settings.tsx|513|.toLocaleString(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Settings.tsx",
+      "line": 513,
+      "match": ".toLocaleString("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Settings.tsx|735|.toLocaleString(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Settings.tsx",
+      "line": 735,
+      "match": ".toLocaleString("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Settings.tsx|827|.toLocaleString(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Settings.tsx",
+      "line": 827,
+      "match": ".toLocaleString("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|1255|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 1255,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|1642|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 1642,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3087|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3087,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3088|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3088,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3103|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3103,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3135|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3135,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3136|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3136,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3150|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3150,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3238|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3238,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3239|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3239,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3245|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3245,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3246|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3246,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3255|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3255,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3256|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3256,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3262|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3262,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3263|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3263,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3313|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3313,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3315|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 3315,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|733|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 733,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|745|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/services/assistantService.ts",
+      "line": 745,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/CategoriesHome.tsx|307|<input",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/CategoriesHome.tsx",
+      "line": 307,
+      "match": "<input"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/CategoriesHome.tsx|382|<input",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/CategoriesHome.tsx",
+      "line": 382,
+      "match": "<input"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1373|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1373,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1428|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1428,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1060|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1060,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|515|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 515,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1052|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1052,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1438|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1438,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1478|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1478,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1564|<input",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1564,
+      "match": "<input"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1597|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1597,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|862|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 862,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|315|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Settings.tsx",
+      "line": 315,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|340|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Settings.tsx",
+      "line": 340,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|369|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Settings.tsx",
+      "line": 369,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|39|#d0d0d0",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 39,
+      "match": "#d0d0d0"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|39|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 39,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|40|#f8f8f8",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 40,
+      "match": "#f8f8f8"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|41|#808080",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 41,
+      "match": "#808080"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|46|#101010",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 46,
+      "match": "#101010"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|46|#3b3b3b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 46,
+      "match": "#3b3b3b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|47|#181818",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 47,
+      "match": "#181818"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|48|#b3b3b3",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 48,
+      "match": "#b3b3b3"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|100|#555555",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 100,
+      "match": "#555555"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|101|#d0d0d0",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 101,
+      "match": "#d0d0d0"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|102|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 102,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|103|#1a1a1a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 103,
+      "match": "#1a1a1a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|104|#808080",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 104,
+      "match": "#808080"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|105|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 105,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|106|#2d5016",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 106,
+      "match": "#2d5016"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|107|#5a4a00",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 107,
+      "match": "#5a4a00"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|108|#8b0000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 108,
+      "match": "#8b0000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|109|#f0f0f0",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 109,
+      "match": "#f0f0f0"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|110|#b0b0b0",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 110,
+      "match": "#b0b0b0"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|111|#d8d8d8",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 111,
+      "match": "#d8d8d8"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|112|#e0e0e0",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 112,
+      "match": "#e0e0e0"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|117|#101010",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 117,
+      "match": "#101010"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|118|#181818",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 118,
+      "match": "#181818"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|119|#262626",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 119,
+      "match": "#262626"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|120|#eef2f7",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 120,
+      "match": "#eef2f7"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|121|#b3b3b3",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 121,
+      "match": "#b3b3b3"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|122|#3b3b3b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 122,
+      "match": "#3b3b3b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|123|#e5e7eb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 123,
+      "match": "#e5e7eb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|124|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 124,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|125|#f9fafb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 125,
+      "match": "#f9fafb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|126|#101010",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 126,
+      "match": "#101010"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|127|#86efac",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 127,
+      "match": "#86efac"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|128|#facc15",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 128,
+      "match": "#facc15"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|129|#f87171",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 129,
+      "match": "#f87171"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|130|#2d2d2d",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 130,
+      "match": "#2d2d2d"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|131|#5f5f5f",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 131,
+      "match": "#5f5f5f"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|132|#4e4e4e",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 132,
+      "match": "#4e4e4e"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|133|#353535",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 133,
+      "match": "#353535"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|82|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 82,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|83|#ef4444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 83,
+      "match": "#ef4444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|84|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 84,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|87|#e5e7eb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 87,
+      "match": "#e5e7eb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|88|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 88,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|89|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 89,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|96|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 96,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|97|#f8f8f8",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 97,
+      "match": "#f8f8f8"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|98|#e8e8e8",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 98,
+      "match": "#e8e8e8"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|99|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 99,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useCategories.ts|6|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useCategories.ts",
+      "line": 6,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useIncomeCategories.ts|6|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useIncomeCategories.ts",
+      "line": 6,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useIncomeReports.ts|70|#808080",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useIncomeReports.ts",
+      "line": 70,
+      "match": "#808080"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|13|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/usePaletteColors.ts",
+      "line": 13,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|13|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/usePaletteColors.ts",
+      "line": 13,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|13|#ef4444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/usePaletteColors.ts",
+      "line": 13,
+      "match": "#ef4444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/usePaletteColors.ts",
+      "line": 17,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/usePaletteColors.ts",
+      "line": 17,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#e5e7eb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/usePaletteColors.ts",
+      "line": 17,
+      "match": "#e5e7eb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useReports.ts|144|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useReports.ts",
+      "line": 144,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useReports.ts|164|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useReports.ts",
+      "line": 164,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|138|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 138,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|213|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 213,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|312|#16a34a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 312,
+      "match": "#16a34a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/services/assistantService.confirmation.test.ts|52|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/services/assistantService.confirmation.test.ts",
+      "line": 52,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|10|#f59e0b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 10,
+      "match": "#f59e0b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|10|#fbbf24",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 10,
+      "match": "#fbbf24"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|10|#fce7f3",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 10,
+      "match": "#fce7f3"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|12|#22c55e",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 12,
+      "match": "#22c55e"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|12|#86efac",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 12,
+      "match": "#86efac"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|12|#dcfce7",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 12,
+      "match": "#dcfce7"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|14|#06b6d4",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 14,
+      "match": "#06b6d4"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|14|#67e8f9",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 14,
+      "match": "#67e8f9"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|14|#cffafe",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 14,
+      "match": "#cffafe"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|16|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 16,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|16|#93c5fd",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 16,
+      "match": "#93c5fd"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|16|#dbeafe",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 16,
+      "match": "#dbeafe"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|18|#8b5cf6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 18,
+      "match": "#8b5cf6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|18|#d8b4fe",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 18,
+      "match": "#d8b4fe"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|22|#d4d4d4",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 22,
+      "match": "#d4d4d4"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|22|#e5e5e5",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 22,
+      "match": "#e5e5e5"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|22|#f5f5f5",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 22,
+      "match": "#f5f5f5"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|24|#a3a3a3",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 24,
+      "match": "#a3a3a3"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|24|#bdbdbd",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 24,
+      "match": "#bdbdbd"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|24|#cfcfcf",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 24,
+      "match": "#cfcfcf"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|26|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 26,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|26|#737373",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 26,
+      "match": "#737373"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|26|#8a8a8a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 26,
+      "match": "#8a8a8a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|28|#444444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 28,
+      "match": "#444444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|28|#4b5563",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 28,
+      "match": "#4b5563"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|28|#5a5a5a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 28,
+      "match": "#5a5a5a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|30|#2a2a2a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 30,
+      "match": "#2a2a2a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|30|#333333",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 30,
+      "match": "#333333"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|30|#3a3a3a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 30,
+      "match": "#3a3a3a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|32|#181818",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 32,
+      "match": "#181818"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|32|#1f1f1f",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 32,
+      "match": "#1f1f1f"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|32|#242424",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 32,
+      "match": "#242424"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|34|#525252",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 34,
+      "match": "#525252"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|34|#7c7c7c",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 34,
+      "match": "#7c7c7c"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|34|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 34,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|6|#ef4444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 6,
+      "match": "#ef4444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|6|#f87171",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 6,
+      "match": "#f87171"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|6|#fca5a5",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 6,
+      "match": "#fca5a5"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|8|#f97316",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 8,
+      "match": "#f97316"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|8|#fb923c",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 8,
+      "match": "#fb923c"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|8|#fed7aa",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/categoryColors.ts",
+      "line": 8,
+      "match": "#fed7aa"
+    }
+  ]
+}

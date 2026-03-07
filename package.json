@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "guardrails:ui": "node scripts/ui-guardrails.mjs",
+    "guardrails:ui:baseline": "node scripts/ui-guardrails.mjs --update-baseline",
+    "lint": "npm run guardrails:ui && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.4",

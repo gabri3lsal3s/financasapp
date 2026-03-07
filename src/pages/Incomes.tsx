@@ -4,6 +4,7 @@ import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -57,7 +58,7 @@ export default function Incomes() {
       setRefundOriginLoading(true)
       setRefundOrigin(null)
 
-      const likePattern = `${REFUND_NOTE_PREFIX}%\"incomeId\":\"${String(incomeId)}\"%`
+      const likePattern = `${REFUND_NOTE_PREFIX}%"incomeId":"${String(incomeId)}"%`
 
       const { data: paymentRow, error: paymentError } = await supabase
         .from('credit_card_bill_payments')
@@ -276,7 +277,7 @@ export default function Incomes() {
             size="sm"
             variant="outline"
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2"
+            className="w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <Plus size={16} />
             Adicionar
@@ -291,10 +292,12 @@ export default function Incomes() {
         ) : incomes.length === 0 ? (
           <Card className="text-center py-10 space-y-3">
             <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
-            <Button onClick={() => handleOpenModal()}>Adicionar renda</Button>
+            <div className="flex justify-center">
+              <Button onClick={() => handleOpenModal()}>Adicionar renda</Button>
+            </div>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {incomes.map((income) => (
                 <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
                   <div className="flex items-start justify-between gap-3">
@@ -443,20 +446,12 @@ export default function Incomes() {
             placeholder="Ex: Salário mensal, Projeto X..."
           />
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              {editingIncome ? 'Salvar alterações' : 'Salvar'}
-            </Button>
-          </div>
-
-          {editingIncome && (
-            <Button type="button" variant="danger" fullWidth onClick={handleDeleteFromModal}>
-              Excluir renda
-            </Button>
-          )}
+          <ModalActionFooter
+            onCancel={handleCloseModal}
+            submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
+            deleteLabel={editingIncome ? 'Excluir renda' : undefined}
+            onDelete={editingIncome ? handleDeleteFromModal : undefined}
+          />
         </form>
         )}
       </Modal>

@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, ReactNode } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
+import { ThemeContext } from '@/contexts/themeSharedContext'
 
 export type Theme = 'mono-light' | 'mono-dark'
 export type ColorPalette = 'vivid' | 'monochrome'
@@ -31,15 +32,6 @@ const normalizePalette = (value: string | null): ColorPalette | null => {
 
   return LEGACY_PALETTE_MAP[value] ?? null
 }
-
-interface ThemeContextType {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-  colorPalette: ColorPalette
-  setColorPalette: (palette: ColorPalette) => void
-}
-
-export const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 interface ThemeProviderProps {
   children: ReactNode
@@ -101,46 +93,46 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     // Aplicar variáveis CSS
     const themes: Record<Theme, Record<string, string>> = {
       'mono-light': {
-        '--color-bg-primary': '#ffffff',
-        '--color-bg-secondary': '#f8f8f8',
-        '--color-bg-tertiary': '#e8e8e8',
-        '--color-text-primary': '#000000',
-        '--color-text-secondary': '#555555',
-        '--color-border': '#d0d0d0',
-        '--color-primary': '#6b7280',
-        '--color-primary-dark': '#1a1a1a',
-        '--color-primary-light': '#808080',
-        '--color-button-text': '#ffffff',
-        '--color-success': '#2d5016',
-        '--color-warning': '#5a4a00',
-        '--color-danger': '#8b0000',
-        '--color-hover': '#f0f0f0',
-        '--color-focus': '#b0b0b0',
-        '--color-disabled': '#d8d8d8',
-        '--color-active': '#e0e0e0',
-        '--transition-fast': '200ms',
-        '--transition-normal': '300ms',
+        '--ds-color-surface-primary': '#ffffff',
+        '--ds-color-surface-secondary': '#f8f8f8',
+        '--ds-color-surface-tertiary': '#e8e8e8',
+        '--ds-color-text-primary': '#000000',
+        '--ds-color-text-secondary': '#555555',
+        '--ds-color-border-default': '#d0d0d0',
+        '--ds-color-accent-primary': '#6b7280',
+        '--ds-color-accent-primary-strong': '#1a1a1a',
+        '--ds-color-accent-primary-soft': '#808080',
+        '--ds-color-button-text': '#ffffff',
+        '--ds-color-intent-success': '#2d5016',
+        '--ds-color-intent-warning': '#5a4a00',
+        '--ds-color-intent-danger': '#8b0000',
+        '--ds-color-interaction-hover': '#f0f0f0',
+        '--ds-color-interaction-focus': '#b0b0b0',
+        '--ds-color-interaction-disabled': '#d8d8d8',
+        '--ds-color-interaction-active': '#e0e0e0',
+        '--ds-motion-duration-fast': '200ms',
+        '--ds-motion-duration-normal': '300ms',
       },
       'mono-dark': {
-        '--color-bg-primary': '#101010',
-        '--color-bg-secondary': '#181818',
-        '--color-bg-tertiary': '#262626',
-        '--color-text-primary': '#eef2f7',
-        '--color-text-secondary': '#b3b3b3',
-        '--color-border': '#3b3b3b',
-        '--color-primary': '#e5e7eb',
-        '--color-primary-dark': '#9ca3af',
-        '--color-primary-light': '#f9fafb',
-        '--color-button-text': '#101010',
-        '--color-success': '#86efac',
-        '--color-warning': '#facc15',
-        '--color-danger': '#f87171',
-        '--color-hover': '#2d2d2d',
-        '--color-focus': '#5f5f5f',
-        '--color-disabled': '#4e4e4e',
-        '--color-active': '#353535',
-        '--transition-fast': '200ms',
-        '--transition-normal': '300ms',
+        '--ds-color-surface-primary': '#101010',
+        '--ds-color-surface-secondary': '#181818',
+        '--ds-color-surface-tertiary': '#262626',
+        '--ds-color-text-primary': '#eef2f7',
+        '--ds-color-text-secondary': '#b3b3b3',
+        '--ds-color-border-default': '#3b3b3b',
+        '--ds-color-accent-primary': '#e5e7eb',
+        '--ds-color-accent-primary-strong': '#9ca3af',
+        '--ds-color-accent-primary-soft': '#f9fafb',
+        '--ds-color-button-text': '#101010',
+        '--ds-color-intent-success': '#86efac',
+        '--ds-color-intent-warning': '#facc15',
+        '--ds-color-intent-danger': '#f87171',
+        '--ds-color-interaction-hover': '#2d2d2d',
+        '--ds-color-interaction-focus': '#5f5f5f',
+        '--ds-color-interaction-disabled': '#4e4e4e',
+        '--ds-color-interaction-active': '#353535',
+        '--ds-motion-duration-fast': '200ms',
+        '--ds-motion-duration-normal': '300ms',
       },
     }
 
@@ -157,9 +149,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     })
 
     // Aplicar variáveis de paleta
-    root.style.setProperty('--color-income', paletteVars.income)
-    root.style.setProperty('--color-expense', paletteVars.expense)
-    root.style.setProperty('--color-balance', paletteVars.balance)
+    root.style.setProperty('--ds-color-data-income', paletteVars.income)
+    root.style.setProperty('--ds-color-data-expense', paletteVars.expense)
+    root.style.setProperty('--ds-color-data-balance', paletteVars.balance)
   }
 
   const setTheme = (newTheme: Theme) => {

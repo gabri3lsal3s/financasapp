@@ -181,7 +181,7 @@ export default function Settings() {
 
       const allExist = Object.values(results).every((exists) => exists)
       const missingTables = Object.entries(results)
-        .filter(([_, exists]) => !exists)
+        .filter(([, exists]) => !exists)
         .map(([table]) => table)
 
       if (allExist) {
@@ -249,7 +249,7 @@ export default function Settings() {
       <PageHeader title={PAGE_HEADERS.settings.title} subtitle={PAGE_HEADERS.settings.description} />
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         <Card>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-xs uppercase tracking-wide text-secondary">Navegação de configurações</p>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               <Button
@@ -534,7 +534,7 @@ export default function Settings() {
                   <h3 className="text-base font-semibold text-primary">Memória longa do assistente</h3>
                   <p className="text-xs text-secondary mt-1">Edite preferências aprendidas para melhorar a desambiguação futura.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
                   <Button
                     type="button"
                     size="sm"
@@ -693,7 +693,7 @@ export default function Settings() {
                   <h3 className="text-base font-semibold text-primary">Logs técnicos de contexto</h3>
                   <p className="text-xs text-secondary mt-1">Auditoria da decisão de categoria com prioridade comando &gt; sessão &gt; memória.</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
                   <Button
                     type="button"
                     size="sm"
@@ -842,18 +842,18 @@ export default function Settings() {
         </section>
 
         <section className={activeSettingsView === 'diagnostics' ? 'space-y-4' : 'hidden'}>
-          <div>
-            <h2 className="text-xl font-semibold text-primary mb-2">Banco de Dados</h2>
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-primary">Banco de Dados</h2>
             <p className="text-secondary text-sm">Verifique a conexão com o Supabase</p>
           </div>
 
           <Card>
             <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-primary mb-2">
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-primary">
                   Status da Configuração
                 </h3>
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2">
                   {isSupabaseConfigured ? (
                     <>
                       <Check className="text-[var(--color-success)]" size={20} />

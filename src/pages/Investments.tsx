@@ -4,6 +4,7 @@ import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import CategoryBadge from '@/components/CategoryBadge'
 import { useInvestments } from '@/hooks/useInvestments'
@@ -237,20 +238,12 @@ export default function Investments() {
             placeholder="Ex: Reserva de emergência, Ações..."
           />
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              {editingInvestment ? 'Salvar alterações' : 'Salvar'}
-            </Button>
-          </div>
-
-          {editingInvestment && (
-            <Button type="button" variant="danger" fullWidth onClick={handleDeleteFromModal}>
-              Excluir investimento
-            </Button>
-          )}
+          <ModalActionFooter
+            onCancel={handleCloseModal}
+            submitLabel={editingInvestment ? 'Salvar alterações' : 'Salvar'}
+            deleteLabel={editingInvestment ? 'Excluir investimento' : undefined}
+            onDelete={editingInvestment ? handleDeleteFromModal : undefined}
+          />
         </form>
       </Modal>
     </div>

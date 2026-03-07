@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -12,11 +12,13 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { ThemeContext } from '@/contexts/themeSharedContext'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, addMonths, formatCurrency, formatCurrencyCompactBR, formatDate, formatMoneyInput, formatMonth, formatNumberBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import AssistantConfirmationPanel from '@/components/AssistantConfirmationPanel'
@@ -42,10 +44,11 @@ import {
   YAxis,
 } from 'recharts'
 
-type QuickAddType = 'expense' | 'income' | 'investment'
-const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
+const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
+  // Governança: tokens/contexto
+  const theme = React.useContext(ThemeContext);
   const {
     monthlyInsightsEnabled,
     assistantConfirmationMode,
@@ -56,7 +59,7 @@ export default function Dashboard() {
     assistantAutoSpeak,
     assistantSpeechRate,
     assistantSpeechPitch,
-  } = useAppSettings()
+  } = useAppSettings();
 
   const {
     assistantLoading,
@@ -117,6 +120,14 @@ export default function Dashboard() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [insightsError, setInsightsError] = useState<string | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
+
+  const formatAxisCurrencyTick = (value: number) => {
+    if (value >= 1000) {
+      return `R$ ${formatNumberBR(value / 1000, { maximumFractionDigits: 0 })}k`
+    }
+
+    return `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`
+  }
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => {
@@ -520,7 +531,7 @@ export default function Dashboard() {
   }
 
   const interactiveRowButtonClasses =
-    'w-full rounded-lg border border-primary bg-secondary text-primary p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+    'w-full rounded-lg border border-primary bg-secondary text-primary px-3 py-3 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
 
   const insightNarrativeMoment = useMemo(() => {
     const now = new Date()
@@ -973,7 +984,7 @@ export default function Dashboard() {
                         stroke="var(--color-text-secondary)"
                         fontSize={12}
                         tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                        tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
                       />
                       <Tooltip content={chartTooltip} />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
@@ -995,7 +1006,7 @@ export default function Dashboard() {
                         stroke="var(--color-text-secondary)"
                         fontSize={12}
                         tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                        tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
                       />
                       <Tooltip content={chartTooltip} />
                       <Legend content={renderInteractiveLegend} />
@@ -1009,38 +1020,40 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-1 gap-4 items-stretch">
                 <Card className="h-full flex flex-col">
-                  <div className="mb-3">
+                  <div className="mb-4 space-y-1.5">
                     <h3 className="text-lg font-semibold text-primary">Despesas por categoria</h3>
                     <p className="text-xs text-secondary">Gráfico por porcentagem e lista priorizada por alertas de limite.</p>
                   </div>
                   {expenseCategoriesPieData.length === 0 ? (
-                    <p className="text-sm text-secondary">Sem despesas no mês selecionado.</p>
+                    <p className="text-sm text-secondary text-center">Sem despesas no mês selecionado.</p>
                   ) : (
                     <>
-                      <ResponsiveContainer width="100%" height={260}>
-                        <PieChart>
-                          <Pie
-                            data={expenseCategoriesPieData}
-                            dataKey="value"
-                            nameKey="name"
-                            outerRadius={86}
-                            labelLine={false}
-                            label={false}
-                            onClick={(entry: { categoryId?: string; name?: string }) => {
-                              if (entry?.categoryId && entry?.name) {
-                                openExpenseCategoryDetails(entry.categoryId, entry.name)
-                              }
-                            }}
-                          >
-                            {expenseCategoriesPieData.map((entry) => (
-                              <Cell key={entry.name} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={chartTooltip} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      <div className="mx-auto w-full max-w-2xl">
+                        <ResponsiveContainer width="100%" height={260}>
+                          <PieChart>
+                            <Pie
+                              data={expenseCategoriesPieData}
+                              dataKey="value"
+                              nameKey="name"
+                              outerRadius={86}
+                              labelLine={false}
+                              label={false}
+                              onClick={(entry: { categoryId?: string; name?: string }) => {
+                                if (entry?.categoryId && entry?.name) {
+                                  openExpenseCategoryDetails(entry.categoryId, entry.name)
+                                }
+                              }}
+                            >
+                              {expenseCategoriesPieData.map((entry) => (
+                                <Cell key={entry.name} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={chartTooltip} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
 
-                      <div className="space-y-2 mt-3">
+                      <div className="mt-4 space-y-3">
                         {prioritizedExpenseCategoryItems.map((item) => {
                           const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
                           return (
@@ -1048,30 +1061,30 @@ export default function Dashboard() {
                               key={item.name}
                               type="button"
                               onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
-                              className={`${interactiveRowButtonClasses} p-2.5`}
+                              className={interactiveRowButtonClasses}
                             >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
                                   <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
                                   <span className="text-primary truncate">{item.name}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-end gap-2.5 flex-shrink-0">
                                   {item.alertPriority > 0 && (
                                     <span className={`text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary ${item.alertStatusClass}`}>
                                       {item.alertStatusLabel}
                                     </span>
                                   )}
                                   <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">
-                                    {percentage.toFixed(1)}%
+                                    {formatNumberBR(percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="w-full h-1.5 rounded-full bg-secondary mt-2">
-                                <div className="h-2 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }} />
+                              <div className="w-full h-1.5 rounded-full bg-secondary mt-3">
+                                <div className="h-1.5 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }} />
                               </div>
 
-                              <p className="text-[11px] text-secondary mt-1.5 truncate">Total: {formatCurrency(item.value)}</p>
+                              <p className="text-xs text-secondary mt-2 text-center sm:text-left truncate">Total: {formatCurrency(item.value)}</p>
                             </button>
                           )
                         })}
@@ -1236,14 +1249,7 @@ export default function Dashboard() {
             placeholder="Ex: mercado, salário, reserva..."
           />
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={closeQuickAdd}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              Salvar
-            </Button>
-          </div>
+          <ModalActionFooter onCancel={closeQuickAdd} submitLabel="Salvar" />
         </form>
       </Modal>
 

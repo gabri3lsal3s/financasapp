@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assistantEditableSlotsInternals } from '@/components/AssistantEditableSlots'
+import { assistantEditableSlotsInternals } from '@/components/assistantEditableSlotsInternals'
 
 describe('AssistantEditableSlots - resolução de categoria no select', () => {
   const sourceList = [

@@ -12,7 +12,7 @@ import { resolveConfirmationPolicy } from '@/services/assistant-core/confirmatio
 import { inferIntent as inferIntentFromCore } from '@/services/assistant-core/inferIntent'
 import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 import { resolveBillCompetence } from '@/utils/creditCardBilling'
-import { clampDateToAppStart, clampMonthToAppStart } from '@/utils/format'
+import { clampDateToAppStart, clampMonthToAppStart, formatCurrencyCompactBR } from '@/utils/format'
 import type {
   AssistantCommand,
   AssistantConfirmResult,
@@ -581,7 +581,7 @@ const extractDescription = (text: string, intent: AssistantIntent): string | und
 const cleanSpeechNoise = (text: string) => {
   return text
     .replace(/\b(ah+|eh+|uh+|hum+|hã+|tipo|assim|né|né\?)\b/gi, ' ')
-    .replace(/[\-–—]+/g, ' ')
+    .replace(/[-–—]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -1449,7 +1449,7 @@ const buildConfirmationText = (
           item.transactionType === 'expense' && item.payment_method === 'credit_card'
             ? `, cartão ${item.credit_card_name || 'crédito'}`
             : ''
-        return `${label}: ${item.description || item.category?.name || label} (R$${item.amount.toFixed(2)}${installmentLabel}${cardLabel})`
+        return `${label}: ${item.description || item.category?.name || label} (${formatCurrencyCompactBR(item.amount)}${installmentLabel}${cardLabel})`
       })
       .join(', ')
 
@@ -1486,21 +1486,21 @@ const buildConfirmationText = (
     const cardLabel = slots.payment_method === 'credit_card'
       ? ` no cartão ${slots.credit_card_name || 'de crédito'}`
       : ''
-    return `Confirma despesa de R$${(slots.amount ?? 0).toFixed(2)}${installmentLabel}${cardLabel} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
+    return `Confirma despesa de ${formatCurrencyCompactBR(slots.amount ?? 0)}${installmentLabel}${cardLabel} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
   }
 
   if (intent === 'add_income') {
-    return `Confirma renda de R$${(slots.amount ?? 0).toFixed(2)} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
+    return `Confirma renda de ${formatCurrencyCompactBR(slots.amount ?? 0)} em ${slots.category?.name || 'Sem categoria'} na data ${slots.date}?`
   }
 
   if (intent === 'add_investment') {
-    return `Confirma investimento de R$${(slots.amount ?? 0).toFixed(2)} para ${slots.month}?`
+    return `Confirma investimento de ${formatCurrencyCompactBR(slots.amount ?? 0)} para ${slots.month}?`
   }
 
   if (intent === 'update_transaction') {
     const parts: string[] = []
     if (slots.amount) {
-      parts.push(`valor para R$${slots.amount.toFixed(2)}`)
+      parts.push(`valor para ${formatCurrencyCompactBR(slots.amount)}`)
     }
     if (slots.description) {
       parts.push(`descrição para ${slots.description}`)
@@ -1518,7 +1518,7 @@ const buildConfirmationText = (
       return `Confirma excluir lançamento relacionado a ${slots.description}?`
     }
     if (slots.amount) {
-      return `Confirma excluir lançamento de R$${slots.amount.toFixed(2)}?`
+      return `Confirma excluir lançamento de ${formatCurrencyCompactBR(slots.amount)}?`
     }
     return 'Confirma excluir o lançamento selecionado?'
   }
@@ -2122,7 +2122,7 @@ const resolveReadOnlyIntent = async (
     const balance = totalIncomes - totalExpenses - totalInvestments
 
     return {
-      message: `Seu saldo de ${targetMonth} é R$${balance.toFixed(2)}.`,
+      message: `Seu saldo de ${targetMonth} é ${formatCurrencyCompactBR(balance)}.`,
       payload: {
         month: targetMonth,
         totalExpenses,

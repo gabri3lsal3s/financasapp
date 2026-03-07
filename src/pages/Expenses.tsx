@@ -4,6 +4,7 @@ import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -317,7 +318,7 @@ export default function Expenses() {
             size="sm"
             variant="outline"
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2"
+            className="w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <Plus size={16} />
             Adicionar
@@ -332,12 +333,14 @@ export default function Expenses() {
         ) : expenses.length === 0 ? (
           <Card className="text-center py-10 space-y-3">
             <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
-            <Button onClick={() => handleOpenModal()}>
-              Adicionar despesa
-            </Button>
+            <div className="flex justify-center">
+              <Button onClick={() => handleOpenModal()}>
+                Adicionar despesa
+              </Button>
+            </div>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {installmentExpenses.length > 0 && (
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-wide text-secondary">Parceladas</p>
@@ -455,20 +458,16 @@ export default function Expenses() {
             </p>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-primary mb-2">
-              Categoria
-            </label>
-            <Select
-              value={formData.category_id}
-              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-              options={categories.map((cat) => ({
-                value: cat.id,
-                label: cat.name,
-              }))}
-              required
-            />
-          </div>
+          <Select
+            label="Categoria"
+            value={formData.category_id}
+            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+            options={categories.map((cat) => ({
+              value: cat.id,
+              label: cat.name,
+            }))}
+            required
+          />
 
           <Input
             label="Descrição (opcional)"
@@ -477,20 +476,13 @@ export default function Expenses() {
             placeholder="Ex: Almoço, Uber..."
           />
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth disabled={!formData.category_id}>
-              {editingExpense ? 'Salvar alterações' : 'Salvar'}
-            </Button>
-          </div>
-
-          {editingExpense && (
-            <Button type="button" variant="danger" fullWidth onClick={handleDeleteFromModal}>
-              Excluir despesa
-            </Button>
-          )}
+          <ModalActionFooter
+            onCancel={handleCloseModal}
+            submitLabel={editingExpense ? 'Salvar alterações' : 'Salvar'}
+            submitDisabled={!formData.category_id}
+            deleteLabel={editingExpense ? 'Excluir despesa' : undefined}
+            onDelete={editingExpense ? handleDeleteFromModal : undefined}
+          />
         </form>
       </Modal>
     </div>

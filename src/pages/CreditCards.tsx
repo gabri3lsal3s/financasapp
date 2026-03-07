@@ -6,6 +6,7 @@ import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Select from '@/components/Select'
 import MonthSelector from '@/components/MonthSelector'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
@@ -1133,10 +1134,12 @@ export default function CreditCards() {
         ) : activeCards.length === 0 ? (
           <Card className="text-center py-8 space-y-3">
             <p className="text-secondary">Nenhum cartão ativo cadastrado.</p>
-            <Button onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
+            <div className="flex justify-center">
+              <Button onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
+            </div>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {activeCards.map((card) => {
               const totalPrevisto = Number(expensesByCard[card.id] || 0)
               const totalPago = Number(paymentsByCard[card.id] || 0)
@@ -1148,7 +1151,7 @@ export default function CreditCards() {
 
               return (
                 <div key={card.id} id={`credit-card-${card.id}`}>
-                  <Card className="space-y-3">
+                  <Card className="space-y-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex items-center gap-2">
@@ -1533,14 +1536,10 @@ export default function CreditCards() {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={closeCardModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              {editingCard ? 'Salvar alterações' : 'Salvar cartão'}
-            </Button>
-          </div>
+          <ModalActionFooter
+            onCancel={closeCardModal}
+            submitLabel={editingCard ? 'Salvar alterações' : 'Salvar cartão'}
+          />
         </form>
       </Modal>
 
@@ -1575,14 +1574,7 @@ export default function CreditCards() {
             Este ajuste vale apenas para a competência {currentMonth}.
           </p>
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={closeCycleModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              Salvar ajuste
-            </Button>
-          </div>
+          <ModalActionFooter onCancel={closeCycleModal} submitLabel="Salvar ajuste" />
 
           <Button type="button" variant="outline" fullWidth onClick={handleResetCycleToCardDefault}>
             Usar padrão do cartão neste mês
@@ -1693,23 +1685,13 @@ export default function CreditCards() {
             placeholder="Ex: Almoço, Uber..."
           />
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={closeExpenseEditModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth disabled={!expenseEditForm.category_id}>
-              Salvar alterações
-            </Button>
-          </div>
-
-          <Button
-            type="button"
-            variant="danger"
-            fullWidth
-            onClick={handleDeleteExpense}
-          >
-            Excluir despesa
-          </Button>
+          <ModalActionFooter
+            onCancel={closeExpenseEditModal}
+            submitLabel="Salvar alterações"
+            submitDisabled={!expenseEditForm.category_id}
+            deleteLabel="Excluir despesa"
+            onDelete={handleDeleteExpense}
+          />
         </form>
       </Modal>
 
@@ -1743,23 +1725,12 @@ export default function CreditCards() {
             onChange={(event) => setPaymentEditNote(event.target.value)}
           />
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={closePaymentEditModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              Salvar pagamento
-            </Button>
-          </div>
-
-          <Button
-            type="button"
-            variant="danger"
-            fullWidth
-            onClick={handleDeletePayment}
-          >
-            Excluir pagamento
-          </Button>
+          <ModalActionFooter
+            onCancel={closePaymentEditModal}
+            submitLabel="Salvar pagamento"
+            deleteLabel="Excluir pagamento"
+            onDelete={handleDeletePayment}
+          />
         </form>
       </Modal>
 
@@ -1828,23 +1799,12 @@ export default function CreditCards() {
             placeholder="Ex: Estorno compra loja X"
           />
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" fullWidth onClick={closeRefundIncomeEditModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              Salvar alterações
-            </Button>
-          </div>
-
-          <Button
-            type="button"
-            variant="danger"
-            fullWidth
-            onClick={handleDeleteRefundIncome}
-          >
-            Excluir estorno
-          </Button>
+          <ModalActionFooter
+            onCancel={closeRefundIncomeEditModal}
+            submitLabel="Salvar alterações"
+            deleteLabel="Excluir estorno"
+            onDelete={handleDeleteRefundIncome}
+          />
         </form>
       </Modal>
     </div>

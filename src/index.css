@@ -3,21 +3,71 @@
 @tailwind utilities;
 
 :root {
-  /* Light theme (padrão) */
-  --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f3f4f6;
-  --color-bg-tertiary: #e5e7eb;
-  --color-text-primary: #1f2937;
-  --color-text-secondary: #6b7280;
-  --color-border: #e5e7eb;
-  --color-primary: #0ea5e9;
-  --color-primary-dark: #0284c7;
-  --color-primary-light: #bae6fd;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --easing-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-color-surface-primary: #ffffff;
+  --ds-color-surface-secondary: #f3f4f6;
+  --ds-color-surface-tertiary: #e5e7eb;
+  --ds-color-text-primary: #1f2937;
+  --ds-color-text-secondary: #6b7280;
+  --ds-color-border-default: #e5e7eb;
+  --ds-color-accent-primary: #0ea5e9;
+  --ds-color-accent-primary-strong: #0284c7;
+  --ds-color-accent-primary-soft: #bae6fd;
+  --ds-color-intent-success: #10b981;
+  --ds-color-intent-warning: #f59e0b;
+  --ds-color-intent-danger: #ef4444;
+  --ds-color-interaction-hover: #f0f0f0;
+  --ds-color-interaction-focus: #b0b0b0;
+  --ds-color-interaction-disabled: #d8d8d8;
+  --ds-color-interaction-active: #e0e0e0;
+  --ds-color-button-text: #ffffff;
+  --ds-color-data-income: #10b981;
+  --ds-color-data-expense: #ef4444;
+  --ds-color-data-balance: #3b82f6;
+
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.25rem;
+  --ds-space-6: 1.5rem;
+
+  --ds-radius-sm: 0.375rem;
+  --ds-radius-md: 0.5rem;
+  --ds-radius-lg: 0.75rem;
+  --ds-radius-xl: 1rem;
+
+  --ds-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+  --ds-motion-easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ds-motion-easing-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --color-bg-primary: var(--ds-color-surface-primary);
+  --color-bg-secondary: var(--ds-color-surface-secondary);
+  --color-bg-tertiary: var(--ds-color-surface-tertiary);
+  --color-text-primary: var(--ds-color-text-primary);
+  --color-text-secondary: var(--ds-color-text-secondary);
+  --color-border: var(--ds-color-border-default);
+  --color-primary: var(--ds-color-accent-primary);
+  --color-primary-dark: var(--ds-color-accent-primary-strong);
+  --color-primary-light: var(--ds-color-accent-primary-soft);
+  --color-success: var(--ds-color-intent-success);
+  --color-warning: var(--ds-color-intent-warning);
+  --color-danger: var(--ds-color-intent-danger);
+  --color-hover: var(--ds-color-interaction-hover);
+  --color-focus: var(--ds-color-interaction-focus);
+  --color-disabled: var(--ds-color-interaction-disabled);
+  --color-active: var(--ds-color-interaction-active);
+  --color-button-text: var(--ds-color-button-text);
+  --color-income: var(--ds-color-data-income);
+  --color-expense: var(--ds-color-data-expense);
+  --color-balance: var(--ds-color-data-balance);
+  --transition-fast: var(--ds-motion-duration-fast);
+  --transition-normal: var(--ds-motion-duration-normal);
+  --easing-standard: var(--ds-motion-easing-standard);
+  --easing-emphasis: var(--ds-motion-easing-emphasis);
 }
 
 @layer base {
@@ -25,9 +75,7 @@
     @apply text-gray-900 transition-colors duration-300;
     background-color: var(--color-bg-primary);
     color: var(--color-text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
+    font-family: var(--ds-font-family-base);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

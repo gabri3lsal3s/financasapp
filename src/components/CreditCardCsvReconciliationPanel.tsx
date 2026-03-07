@@ -15,7 +15,7 @@ import {
   learnFromCreditCardCsvInsertion,
   suggestFromCreditCardCsvLearning,
 } from '@/utils/creditCardCsvLearning'
-import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput } from '@/utils/format'
+import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput, formatNumberBR } from '@/utils/format'
 
 interface CategoryOption {
   id: string
@@ -249,9 +249,9 @@ export default function CreditCardCsvReconciliationPanel({
     }, 0)
 
     return {
-      officialTotal: Number(officialTotal.toFixed(2)),
-      registeredTotal: Number(registeredTotal.toFixed(2)),
-      difference: Number((officialTotal - registeredTotal).toFixed(2)),
+      officialTotal: Number(formatNumberBR(officialTotal, { maximumFractionDigits: 2 })),
+      registeredTotal: Number(formatNumberBR(registeredTotal, { maximumFractionDigits: 2 })),
+      difference: Number(formatNumberBR(officialTotal - registeredTotal, { maximumFractionDigits: 2 })),
     }
   }, [comparisonRows])
 

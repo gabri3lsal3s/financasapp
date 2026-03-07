@@ -3,6 +3,22 @@ import ptBR from 'date-fns/locale/pt-BR'
 
 export const APP_START_MONTH = '2026-01'
 export const APP_START_DATE = '2026-01-01'
+const BR_LOCALE = 'pt-BR'
+
+const numberFormatterCache = new Map<string, Intl.NumberFormat>()
+
+const getNumberFormatter = (options: Intl.NumberFormatOptions): Intl.NumberFormat => {
+  const cacheKey = JSON.stringify(options)
+  const cachedFormatter = numberFormatterCache.get(cacheKey)
+
+  if (cachedFormatter) {
+    return cachedFormatter
+  }
+
+  const formatter = new Intl.NumberFormat(BR_LOCALE, options)
+  numberFormatterCache.set(cacheKey, formatter)
+  return formatter
+}
 
 const normalizeMonthString = (value: string): string | null => {
   if (!/^\d{4}-\d{2}$/.test(value)) return null
@@ -41,10 +57,27 @@ export function addMonths(monthStr: string, delta: number): string {
 }
 
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
+  return formatNumberBR(value, {
     style: 'currency',
     currency: 'BRL',
-  }).format(value)
+  })
+}
+
+export function formatNumberBR(value: number, options: Intl.NumberFormatOptions = {}): string {
+  const numericValue = Number(value)
+  const safeValue = Number.isFinite(numericValue) ? numericValue : 0
+  return getNumberFormatter(options).format(safeValue)
+}
+
+export function formatNumberWithTwoDecimalsBR(value: number): string {
+  return formatNumberBR(value, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+export function formatCurrencyCompactBR(value: number): string {
+  return `R$${formatNumberWithTwoDecimalsBR(value)}`
 }
 
 export function parseMoneyInput(value: string): number {

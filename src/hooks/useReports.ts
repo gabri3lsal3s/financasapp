@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MonthlySummary, CategoryExpense } from '@/types'
 import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 'date-fns'
@@ -24,11 +24,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
 
   const targetYear = year ?? new Date().getFullYear()
 
-  useEffect(() => {
-    loadReports()
-  }, [targetYear, includeReportWeights])
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
       setLoading(true)
       const hasMissingReportWeightError = (error: unknown) => {
@@ -177,7 +173,11 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
     } finally {
       setLoading(false)
     }
-  }
+  }, [targetYear, includeReportWeights])
+
+  useEffect(() => {
+    loadReports()
+  }, [loadReports])
 
   return {
     monthlySummaries,

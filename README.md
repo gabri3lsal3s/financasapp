@@ -51,6 +51,14 @@ npm run dev
 - `npm run dev`: ambiente local com recarga automática.
 - `npm run build`: valida TypeScript e gera build de produção.
 - `npm run preview`: sobe build local para validação final.
+- `npm run guardrails:ui`: valida regressões de padronização visual contra baseline.
+- `npm run guardrails:ui:baseline`: atualiza baseline de guardrails (uso consciente em PR).
+- `npm run lint`: executa guardrails de UI + ESLint.
+
+## Governança de padronização UI/UX
+
+- Regras e fluxo de baseline: [docs/ui/GOVERNANCA_UI.md](docs/ui/GOVERNANCA_UI.md).
+- Baseline atual de ocorrências legadas: [docs/ui/guardrails-baseline.json](docs/ui/guardrails-baseline.json).
 
 ## Estrutura do projeto
 
@@ -103,3 +111,29 @@ Observações:
 2. Rode `npm run preview` e valide fluxo principal.
 3. Teste modo offline (criar lançamento sem internet e sincronizar ao reconectar).
 4. Valide estornos em cartões e visualização correta em rendas.
+
+# Progresso da Sprint de Padronização UI/UX
+
+## Etapas concluídas
+
+- Dashboard migrado para padrões do design system (tokens, primitives, governança)
+- Tokens centralizados para cor, espaçamento, tipografia e estados
+- Testes de snapshot criados e validados para componentes principais
+- Formatações e cores legadas removidas das principais ocorrências (AssistantEditableSlots, CreditCardCsvReconciliationPanel, FloatingCalculator)
+- Baseline de UI guardrails atualizada e sem violações pendentes
+
+## Artefatos de governança
+
+- docs/ui/guardrails-baseline.json atualizado
+- scripts/ui-guardrails.mjs executado para validação
+- Checklist e inventário de componentes/documentação revisados
+
+## Próximos passos
+
+- Migrar demais telas prioritárias (ex: Relatórios, Categorias, Incomes)
+- Fortalecer tokens e cobertura de snapshot em componentes secundários
+- Revisar e expandir artefatos de governança conforme novas migrações
+
+---
+
+Sprint concluída com sucesso: fluxo totalmente verde, baseline protegida, governança e design system em evolução.

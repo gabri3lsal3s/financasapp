@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
+import Button from '@/components/Button'
+import Select from '@/components/Select'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
@@ -15,7 +17,7 @@ import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectat
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
-import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
+import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import {
   BarChart,
@@ -299,10 +301,14 @@ export default function Reports() {
     return map
   }, [incomeCategories, colorPalette])
 
-  const getExpenseColor = (categoryId: string, fallback: string) =>
-    expenseCategoryIdToColor[categoryId] ?? fallback
-  const getIncomeColor = (categoryId: string, fallback: string) =>
-    incomeCategoryIdToColor[categoryId] ?? fallback
+  const getExpenseColor = useCallback(
+    (categoryId: string, fallback: string) => expenseCategoryIdToColor[categoryId] ?? fallback,
+    [expenseCategoryIdToColor]
+  )
+  const getIncomeColor = useCallback(
+    (categoryId: string, fallback: string) => incomeCategoryIdToColor[categoryId] ?? fallback,
+    [incomeCategoryIdToColor]
+  )
 
   const monthlyData = useMemo(
     () =>
@@ -326,7 +332,7 @@ export default function Reports() {
         detailType: 'expense' as DetailType,
         detailPeriod: 'year' as const,
       })),
-    [categoryExpenses, expenseCategoryIdToColor]
+    [categoryExpenses, getExpenseColor]
   )
 
   const annualPieIncomes = useMemo(
@@ -339,7 +345,7 @@ export default function Reports() {
         detailType: 'income' as DetailType,
         detailPeriod: 'year' as const,
       })),
-    [incomeByCategory, incomeCategoryIdToColor]
+    [incomeByCategory, getIncomeColor]
   )
 
   const cumulativeBalanceData = useMemo(() => {
@@ -373,7 +379,7 @@ export default function Reports() {
         name: category.category_name,
         color: getExpenseColor(category.category_id, category.color),
       }))
-  }, [categoryExpenses, expenseCategoryIdToColor])
+  }, [categoryExpenses, getExpenseColor])
 
   const annualIncomeTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
     return [...incomeByCategory]
@@ -383,7 +389,7 @@ export default function Reports() {
         name: category.category_name,
         color: getIncomeColor(category.income_category_id, category.color),
       }))
-  }, [incomeByCategory, incomeCategoryIdToColor])
+  }, [incomeByCategory, getIncomeColor])
 
   useEffect(() => {
     const validKeys = new Set(annualExpenseTrendSeries.map((series) => series.key))
@@ -458,8 +464,14 @@ export default function Reports() {
   )
 
   const monthSummary = monthlySummaries.find((s) => s.month === selectedMonth)
-  const monthExpenseCategories = selectedMonth ? (monthlyCategoryExpenses[selectedMonth] ?? []) : []
-  const monthIncomeCategories = selectedMonth ? (monthlyIncomeByCategory[selectedMonth] ?? []) : []
+  const monthExpenseCategories = useMemo(
+    () => (selectedMonth ? (monthlyCategoryExpenses[selectedMonth] ?? []) : []),
+    [selectedMonth, monthlyCategoryExpenses]
+  )
+  const monthIncomeCategories = useMemo(
+    () => (selectedMonth ? (monthlyIncomeByCategory[selectedMonth] ?? []) : []),
+    [selectedMonth, monthlyIncomeByCategory]
+  )
   const monthPieExpenses = monthExpenseCategories.map((cat: ExpenseCategorySummary) => ({
     categoryId: cat.category_id,
     name: cat.category_name,
@@ -492,8 +504,11 @@ export default function Reports() {
     ]
   }, [monthSummary, selectedMonth])
 
-  const getAmountByMode = (entry: { amount: number; report_weight?: number | null }) =>
-    includeReportWeights ? entry.amount * (entry.report_weight ?? 1) : entry.amount
+  const getAmountByMode = useCallback(
+    (entry: { amount: number; report_weight?: number | null }) =>
+      includeReportWeights ? entry.amount * (entry.report_weight ?? 1) : entry.amount,
+    [includeReportWeights]
+  )
 
   const detailItems = useMemo(() => {
     if (!detailModal.isOpen) {
@@ -545,7 +560,7 @@ export default function Reports() {
         amount: getAmountByMode(item),
       }))
       .sort((a, b) => b.date.localeCompare(a.date))
-  }, [detailModal, monthExpenses, monthIncomes, yearExpenseItems, yearIncomeItems, includeReportWeights])
+  }, [detailModal, monthExpenses, monthIncomes, yearExpenseItems, yearIncomeItems, getAmountByMode])
 
   const detailCurrentTotal = useMemo(
     () => detailItems.reduce((sum, item) => sum + item.amount, 0),
@@ -594,7 +609,7 @@ export default function Reports() {
     return previousMonthIncomes
       .filter((item) => item.income_category_id === detailModal.categoryId)
       .reduce((sum, item) => sum + getAmountByMode(item), 0)
-  }, [detailModal, previousMonthExpenses, previousMonthIncomes, previousYearExpenseItems, previousYearIncomeItems, includeReportWeights])
+  }, [detailModal, previousMonthExpenses, previousMonthIncomes, previousYearExpenseItems, previousYearIncomeItems, getAmountByMode])
 
   const detailDifference = detailCurrentTotal - detailPreviousTotal
   const detailDifferencePct = detailPreviousTotal > 0
@@ -924,7 +939,7 @@ export default function Reports() {
     })
 
     return totalsByDay
-  }, [monthExpenses, monthIncomes, monthInvestments, selectedMonth, includeReportWeights])
+  }, [monthExpenses, monthIncomes, monthInvestments, selectedMonth, getAmountByMode])
 
   const weekdayExpenseData = useMemo(() => {
     const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -949,7 +964,7 @@ export default function Reports() {
     })
 
     return totals
-  }, [monthExpenses, selectedMonth, includeReportWeights])
+  }, [monthExpenses, selectedMonth, getAmountByMode])
 
   const topWeekdayExpense = useMemo(() => {
     if (weekdayExpenseData.length === 0) {
@@ -983,16 +998,11 @@ export default function Reports() {
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0
 
-  const controlButtonClasses = (mode: ViewMode) =>
-    `px-3 py-2 rounded-lg border text-sm font-medium motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-      viewMode === mode
-        ? 'border-primary bg-tertiary accent-primary'
-        : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
-    }`
+  const controlButtonVariant = (mode: ViewMode) =>
+    viewMode === mode ? 'secondary' : 'outline'
 
-  const selectClasses = 'w-full px-4 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
   const interactiveRowButtonClasses =
-    'w-full rounded-lg border border-primary bg-secondary text-primary p-2 -m-2 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+    'w-full rounded-lg border border-primary bg-secondary text-primary px-3 py-3 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
 
   const renderPieCard = (title: string, data: PieDatum[]) => (
     <Card className="h-full flex flex-col">
@@ -1027,14 +1037,16 @@ export default function Reports() {
             </PieChart>
           </ResponsiveContainer>
 
-          <div className="space-y-2 mt-3">
+          <div className="mt-4 space-y-3">
             {data
               .slice()
               .sort((a, b) => b.value - a.value)
               .slice(0, 5)
               .map((item) => {
                 const total = data.reduce((sum, current) => sum + current.value, 0)
-                const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0'
+                const pct = total > 0
+                  ? formatNumberBR((item.value / total) * 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                  : formatNumberBR(0, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
                 return (
                   <button
@@ -1067,23 +1079,35 @@ export default function Reports() {
 
       <div className="p-4 lg:p-6 space-y-6">
         <Card>
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
             <div>
               <label className="block text-sm font-medium text-primary mb-2">Visualização</label>
-              <div className="flex items-center gap-2">
-                <button type="button" className={controlButtonClasses('year')} onClick={() => setViewMode('year')}>
+              <div className="flex items-center gap-2 w-full">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={controlButtonVariant('year')}
+                  className="w-full"
+                  onClick={() => setViewMode('year')}
+                >
                   Ano
-                </button>
-                <button type="button" className={controlButtonClasses('month')} onClick={() => setViewMode('month')}>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={controlButtonVariant('month')}
+                  className="w-full"
+                  onClick={() => setViewMode('month')}
+                >
                   Mês
-                </button>
+                </Button>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">Ano</label>
-              <select
-                value={selectedYear}
+              <Select
+                label="Ano"
+                value={String(selectedYear)}
                 onChange={(event) => {
                   const year = parseInt(event.target.value)
                   setSelectedYear(year)
@@ -1092,47 +1116,44 @@ export default function Reports() {
                     setSelectedMonth(monthsForYear[0])
                   }
                 }}
-                className={selectClasses}
-              >
-                {availableYears.length > 0 ? (
-                  availableYears.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))
-                ) : (
-                  <option value={selectedYear}>Sem dados</option>
-                )}
-              </select>
+                options={
+                  availableYears.length > 0
+                    ? availableYears.map((year) => ({ value: String(year), label: String(year) }))
+                    : [{ value: String(selectedYear), label: 'Sem dados' }]
+                }
+                className="w-full"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">Mês</label>
-              <select
+              <Select
+                label="Mês"
                 value={selectedMonth}
                 onChange={(event) => {
                   setSelectedMonth(event.target.value)
                   setViewMode('month')
                 }}
-                className={selectClasses}
-              >
-                {yearMonths.length > 0 ? (
-                  yearMonths.map((monthOption) => (
-                    <option key={monthOption.value} value={monthOption.value}>{monthOption.label}</option>
-                  ))
-                ) : (
-                  <option value={selectedMonth}>Sem meses com dados</option>
-                )}
-              </select>
+                options={
+                  yearMonths.length > 0
+                    ? yearMonths
+                    : [{ value: selectedMonth, label: 'Sem meses com dados' }]
+                }
+                className="w-full"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-primary mb-2">Pesos</label>
-              <button
+              <Button
                 type="button"
                 onClick={() => setDashboardReportsWeightsEnabled(!dashboardReportsWeightsEnabled)}
-                className="w-full h-10 px-3 rounded-lg border border-primary bg-secondary text-sm font-medium text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                variant="outline"
+                fullWidth
+                size="md"
+                className="w-full"
               >
                 {dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              </button>
+              </Button>
             </div>
           </div>
           <p className="text-xs text-secondary mt-3">
@@ -1178,7 +1199,7 @@ export default function Reports() {
                           stroke="var(--color-text-secondary)"
                           fontSize={12}
                           tick={{ fill: 'var(--color-text-secondary)' }}
-                          tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                          tickFormatter={(value) => (value >= 1000 ? `R$ ${formatNumberBR(value / 1000, { maximumFractionDigits: 0 })}k` : `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`)}
                         />
                         <Tooltip content={<ChartTooltip />} />
                         <Legend content={renderInteractiveLegend(hiddenAnnualFlowSeries, toggleAnnualFlowSeries)} />
@@ -1199,7 +1220,7 @@ export default function Reports() {
                           stroke="var(--color-text-secondary)"
                           fontSize={12}
                           tick={{ fill: 'var(--color-text-secondary)' }}
-                          tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                          tickFormatter={(value) => (value >= 1000 ? `R$ ${formatNumberBR(value / 1000, { maximumFractionDigits: 0 })}k` : `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`)}
                         />
                         <Tooltip content={<ChartTooltip />} />
                         <Area type="monotone" dataKey="SaldoAcumulado" stroke="var(--color-primary)" fill="var(--color-hover)" strokeWidth={2} />

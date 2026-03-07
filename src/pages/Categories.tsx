@@ -3,6 +3,7 @@ import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
@@ -49,9 +50,9 @@ export default function Categories() {
         alert('Erro ao atualizar categoria: ' + error)
       }
     } else {
-      const randomIndex = Math.floor(Math.random() * 20)
-      const randomColor = getCategoryColor(randomIndex, 'vivid')
-      const categoryData = { ...formData, color: randomColor }
+      // Usa cor do design system (palette)
+      const paletteColor = getCategoryColorForPalette(undefined, colorPalette)
+      const categoryData = { ...formData, color: paletteColor }
       const { error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
       if (!error) {
         handleCloseModal()
@@ -132,20 +133,12 @@ export default function Categories() {
             required
           />
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" fullWidth onClick={handleCloseModal}>
-              Cancelar
-            </Button>
-            <Button type="submit" fullWidth>
-              {editingCategory ? 'Salvar alterações' : 'Salvar'}
-            </Button>
-          </div>
-
-          {editingCategory && (
-            <Button type="button" variant="danger" fullWidth onClick={() => handleDelete(editingCategory.id)}>
-              Excluir categoria
-            </Button>
-          )}
+          <ModalActionFooter
+            onCancel={handleCloseModal}
+            submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
+            deleteLabel={editingCategory ? 'Excluir categoria' : undefined}
+            onDelete={editingCategory ? () => handleDelete(editingCategory.id) : undefined}
+          />
         </form>
       </Modal>
     </div>

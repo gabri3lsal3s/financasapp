@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
+import { formatNumberBR } from '@/utils/format'
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
 const CALCULATOR_UI_KEY = 'floating-calculator-ui'
@@ -81,10 +82,10 @@ function formatCanonicalNumberToPtBr(value: string): string {
     return value
   }
 
-  return new Intl.NumberFormat('pt-BR', {
+  return formatNumberBR(parsed, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 8,
-  }).format(parsed)
+  })
 }
 
 function formatExpressionForDisplay(expression: string): string {
@@ -99,7 +100,10 @@ function formatExpressionForDisplay(expression: string): string {
     const hasTrailingDot = numericToken.endsWith('.')
     const [rawIntegerPart = '', rawDecimalPart = ''] = numericToken.split('.')
     const integerPart = rawIntegerPart.replace(/\D/g, '') || '0'
-    const formattedIntegerPart = Number(integerPart).toLocaleString('pt-BR')
+    const formattedIntegerPart = formatNumberBR(Number(integerPart), {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
 
     if (hasTrailingDot) {
       formatted += `${formattedIntegerPart},`
@@ -151,7 +155,7 @@ function evaluateExpression(expression: string): string | null {
       return null
     }
 
-    const roundedValue = Number(rawValue.toFixed(8))
+    const roundedValue = Number(formatNumberBR(rawValue, { maximumFractionDigits: 8 }))
     return String(roundedValue)
   } catch {
     return null
@@ -456,7 +460,7 @@ export default function FloatingCalculator() {
     highlightedInputRef.current = null
   }
 
-  const setTargetInput = (input: HTMLInputElement | null) => {
+  const setTargetInput = useCallback((input: HTMLInputElement | null) => {
     clearHighlightedField()
 
     activeNumericInputRef.current = input
@@ -472,9 +476,9 @@ export default function FloatingCalculator() {
       input.classList.add(CALCULATOR_TARGET_CLASS)
       highlightedInputRef.current = input
     }
-  }
+  }, [isExpanded])
 
-  const findDefaultNumericInput = (): HTMLInputElement | null => {
+  const findDefaultNumericInput = useCallback((): HTMLInputElement | null => {
     const activeElement = document.activeElement as Element | null
     const activeForm = activeElement?.closest('form')
     const topDialog = getTopDialog()
@@ -503,9 +507,9 @@ export default function FloatingCalculator() {
     }
 
     return null
-  }
+  }, [])
 
-  const resolveTargetInput = (): HTMLInputElement | null => {
+  const resolveTargetInput = useCallback((): HTMLInputElement | null => {
     const currentTarget = activeNumericInputRef.current
     if (currentTarget && isNumericField(currentTarget) && currentTarget.isConnected && isVisibleElement(currentTarget)) {
       return currentTarget
@@ -515,7 +519,7 @@ export default function FloatingCalculator() {
     setTargetInput(fallbackTarget)
 
     return fallbackTarget
-  }
+  }, [findDefaultNumericInput, setTargetInput])
 
   useEffect(() => {
     if (isExpanded) {
@@ -528,13 +532,27 @@ export default function FloatingCalculator() {
     }
 
     clearHighlightedField()
-  }, [isExpanded])
+  }, [isExpanded, resolveTargetInput])
 
   useEffect(() => {
     return () => {
       clearHighlightedField()
     }
   }, [])
+
+  const applyEvaluation = useCallback(() => {
+    const result = evaluateExpression(expression)
+    if (!result) {
+      setHasError(true)
+      return null
+    }
+
+    setHasError(false)
+    setLastResult(result)
+    setExpression(result)
+
+    return result
+  }, [expression])
 
   useEffect(() => {
     if (!isExpanded) {
@@ -595,7 +613,7 @@ export default function FloatingCalculator() {
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [isExpanded, expression])
+  }, [isExpanded, expression, applyEvaluation])
 
   const keypadRows = useMemo(
     () => [
@@ -680,20 +698,6 @@ export default function FloatingCalculator() {
 
       return previousValue.slice(0, -1)
     })
-  }
-
-  const applyEvaluation = () => {
-    const result = evaluateExpression(expression)
-    if (!result) {
-      setHasError(true)
-      return null
-    }
-
-    setHasError(false)
-    setLastResult(result)
-    setExpression(result)
-
-    return result
   }
 
   const applyUnaryOperation = (operation: (value: number) => number | null) => {

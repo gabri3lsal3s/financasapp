@@ -3,6 +3,7 @@ import Select from '@/components/Select'
 import { APP_START_DATE, APP_START_MONTH } from '@/utils/format'
 import { formatMoneyInput, parseMoneyInput } from '@/utils/format'
 import type { AssistantIntent, AssistantResolvedCategory, AssistantSlots } from '@/types'
+import { assistantEditableSlotsInternals } from '@/components/assistantEditableSlotsInternals'
 
 interface CategoryOption {
   id: string
@@ -19,29 +20,7 @@ interface AssistantEditableSlotsProps {
   onUpdate: (updater: (previous: AssistantSlots) => AssistantSlots) => void
 }
 
-const normalizeCategoryName = (value?: string) =>
-  (value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase()
-
-const resolveCategoryIdForSelect = (
-  category: AssistantResolvedCategory | undefined,
-  sourceList: CategoryOption[],
-) => {
-  if (!category) return ''
-
-  if (category.id && sourceList.some((item) => item.id === category.id)) {
-    return category.id
-  }
-
-  const normalizedCategoryName = normalizeCategoryName(category.name)
-  if (!normalizedCategoryName) return ''
-
-  const byName = sourceList.find((item) => normalizeCategoryName(item.name) === normalizedCategoryName)
-  return byName?.id || ''
-}
+const { resolveCategoryIdForSelect } = assistantEditableSlotsInternals
 
 const resolveSingleTransactionType = (slots: AssistantSlots | null, intent: AssistantIntent): 'expense' | 'income' | 'investment' => {
   if (slots?.transactionType) return slots.transactionType
@@ -281,7 +260,7 @@ export default function AssistantEditableSlots({
                     onChange={(event) => {
                       const parsed = parseMoneyInput(event.target.value)
                       if (Number.isNaN(parsed) || !item.amount || item.amount <= 0) return
-                      const reportWeight = Math.min(1, Math.max(0, Number((parsed / item.amount).toFixed(4))))
+                      const reportWeight = Math.min(1, Math.max(0, Number(formatNumberBR(parsed / item.amount, { maximumFractionDigits: 4 }))))
                       onUpdate((previous) => ({
                         ...previous,
                         items: (previous.items || []).map((currentItem, itemIndex) => (
@@ -510,9 +489,4 @@ export default function AssistantEditableSlots({
       )}
     </>
   )
-}
-
-export const assistantEditableSlotsInternals = {
-  normalizeCategoryName,
-  resolveCategoryIdForSelect,
 }
