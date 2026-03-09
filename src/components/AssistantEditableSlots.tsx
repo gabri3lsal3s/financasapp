@@ -46,6 +46,7 @@ export default function AssistantEditableSlots({
   fallbackMonth,
   onUpdate,
 }: AssistantEditableSlotsProps) {
+  console.log('[AssistantEditableSlots] creditCards prop:', creditCards)
   const resolveSelectedCategoryId = (
     category: AssistantResolvedCategory | undefined,
     transactionType: 'expense' | 'income',

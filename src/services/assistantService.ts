@@ -393,11 +393,21 @@ export async function interpretAssistantCommand(params: {
   ])
 
   // Extract using the new AI Service
-  const extracted = await extractIntentAndSlots(params.text, {
-    categories: categoriesResult.data || [],
-    incomeCategories: incomeCategoriesResult.data || [],
-    creditCards: creditCardsResult.data || [],
-  })
+  let extracted;
+  try {
+    extracted = await extractIntentAndSlots(params.text, {
+      categories: categoriesResult.data || [],
+      incomeCategories: incomeCategoriesResult.data || [],
+      creditCards: creditCardsResult.data || [],
+    })
+  } catch (error) {
+    console.error('[interpretAssistantCommand] AI Error:', error)
+    const errorMessage = error instanceof Error ? error.message : ''
+    if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('limit')) {
+      throw new Error('Limite de uso do assistente atingido. Tente novamente mais tarde.')
+    }
+    throw error
+  }
   const intent = extracted.intent
   const confidence = 0.95 // High confidence when coming from LLM
   
@@ -434,6 +444,11 @@ export async function interpretAssistantCommand(params: {
   }
   if (!slots.credit_card_name && extracted.slots.credit_card_name) {
     slots.credit_card_name = extracted.slots.credit_card_name
+  }
+
+  // Se houver indicação de cartão, garantir que o modo de pagamento seja cartão
+  if ((slots.credit_card_id || slots.credit_card_name) && intent === 'add_expense' && slots.payment_method !== 'credit_card') {
+    slots.payment_method = 'credit_card'
   }
 
   const confirmationPolicy = resolveConfirmationPolicy({
@@ -687,7 +702,9 @@ export async function confirmAssistantCommand(params: {
     }
   }
 
+  console.log('[confirmAssistantCommand] Executing intent with payload:', commandToExecute)
   const execution = await executeWriteIntent(commandToExecute)
+  console.log('[confirmAssistantCommand] Execution result:', execution)
 
   const updatePayload: Record<string, unknown> = {
     status: execution.status,

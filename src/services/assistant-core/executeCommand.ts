@@ -373,7 +373,9 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       }
     }
 
+    console.log('[executeWriteIntent] Inserting expenses:', expensePayload)
     const { data, error } = await supabase.from('expenses').insert(expensePayload).select('id')
+    console.log('[executeWriteIntent] Expenses response:', { data, error })
 
     if (error) {
       if (shouldQueueOffline(error)) {
@@ -441,7 +443,9 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       }
     }
 
+    console.log('[executeWriteIntent] Inserting incomes:', incomePayload)
     const { data, error } = await supabase.from('incomes').insert(incomePayload).select('id')
+    console.log('[executeWriteIntent] Incomes response:', { data, error })
 
     if (error) {
       if (shouldQueueOffline(error)) {
@@ -478,7 +482,9 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       }
     }
 
+    console.log('[executeWriteIntent] Inserting investments:', investmentPayload)
     const { data, error } = await supabase.from('investments').insert(investmentPayload).select('id')
+    console.log('[executeWriteIntent] Investments response:', { data, error })
 
     if (error) {
       if (shouldQueueOffline(error)) {

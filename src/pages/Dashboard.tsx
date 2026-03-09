@@ -740,12 +740,23 @@ export default function Dashboard() {
 
   const handleConfirmAssistant = async (confirmed: boolean) => {
     if (!isSupabaseConfigured) return
-    const result = await confirmLastInterpretation({ confirmed })
-    if (!result) return
-    if (result.status === 'executed') {
-      playAssistantBeep('executed')
+    try {
+      const result = await confirmLastInterpretation({ confirmed })
+      if (!result) return
+      
+      // Só fecha se foi executado com sucesso ou se o usuário negou explicitamente
+      if (result.status === 'executed' || result.status === 'denied') {
+        if (result.status === 'executed') {
+          playAssistantBeep('executed')
+        }
+        closeAssistant()
+      }
+      // Se status for 'failed' por exemplo, mantemos aberto para o erro ser visível
+    } catch (error) {
+      console.error('[Dashboard] Error confirming assistant:', error)
+      // O erro já deve ser capturado pelo useAssistant e exibido no assistente
+      // mas garantimos que a UI não trave
     }
-    closeAssistant()
   }
 
   const handleVoiceInterpret = async () => {
@@ -1418,15 +1429,15 @@ export default function Dashboard() {
       >
         <div className="space-y-4">
           {/* Subtle Status Bar */}
-          <div className="flex items-center justify-between px-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full transition-colors duration-300 ${voicePhase === 'listening' ? 'bg-[var(--color-success)] animate-pulse shadow-[0_0_8px_var(--color-success)]' : 'bg-secondary'}`} />
-              <span className="text-[10px] uppercase tracking-widest text-secondary font-semibold">
+              <span className="text-[10px] uppercase tracking-widest text-secondary font-semibold whitespace-nowrap">
                 {voicePhase === 'listening' ? 'Assistente Ouvindo' : 'Aguardando Comando'}
               </span>
             </div>
             {lastHeardCommand && (
-              <span className="text-[11px] italic text-secondary truncate max-w-[200px] border-l border-primary/20 pl-3">
+              <span className="text-[11px] italic text-secondary break-words sm:truncate sm:max-w-[250px] sm:border-l sm:border-primary/20 sm:pl-3">
                 "{lastHeardCommand}"
               </span>
             )}
@@ -1450,7 +1461,7 @@ export default function Dashboard() {
               editableSlots={editableSlots}
               categories={categories.map((category) => ({ id: category.id, name: category.name }))}
               incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
-              creditCards={creditCards.map((card) => ({ id: card.id, name: card.name }))}
+              creditCards={(() => { console.log('[Dashboard] cards passed:', creditCards); return creditCards.map(c => ({ id: c.id, name: c.name })); })()}
               disabled={assistantLoading || !isSupabaseConfigured}
               fallbackMonth={currentMonth}
               onUpdateSlots={updateEditableSlots}

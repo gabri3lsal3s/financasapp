@@ -20,7 +20,11 @@ export const applyOrientationSettings = async (allowed: boolean) => {
       console.log('Screen orientation unlocked')
     }
   } catch (error) {
-    // Ignora erros (comum em navegadores que não suportam ou exigem modo tela cheia)
-    console.warn('Screen orientation management not supported or failed:', error)
+    // Ignora erros comuns (navegadores que não suportam ou exigem modo tela cheia)
+    if (error instanceof Error && error.name === 'NotSupportedError') {
+      console.log('Screen orientation lock not supported on this device/browser (requires PWA or Fullscreen)')
+    } else {
+      console.warn('Screen orientation management failed:', error)
+    }
   }
 }
