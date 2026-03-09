@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import Layout from './components/Layout'
+import PortraitLockOverlay from './components/PortraitLockOverlay'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
 import Dashboard from './pages/Dashboard'
@@ -51,6 +52,7 @@ function App() {
       <AuthProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <SupabaseWarning />
+          <PortraitLockOverlay />
           <Routes>
             {/* Rotas Públicas */}
             <Route path="/login" element={<Login />} />
