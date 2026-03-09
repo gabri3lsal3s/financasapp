@@ -22,7 +22,7 @@ import type { CreditCard } from '@/types'
 import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 type CardFormState = {
@@ -1265,9 +1265,15 @@ export default function CreditCards() {
                           required
                         />
 
-                        <div className="flex items-end">
-                          <Button type="submit" size="sm" fullWidth>
-                            Confirmar estorno
+                        <div className="flex items-end justify-center">
+                          <Button 
+                            type="submit" 
+                            size="sm" 
+                            variant="ghost" 
+                            className="btn-discrete-save px-4"
+                            title="Confirmar estorno"
+                          >
+                            <Check size={24} />
                           </Button>
                         </div>
                       </div>
@@ -1321,9 +1327,15 @@ export default function CreditCards() {
                           required
                         />
 
-                        <div className="flex items-end">
-                          <Button type="submit" size="sm" fullWidth>
-                            Confirmar pagamento
+                        <div className="flex items-end justify-center">
+                          <Button 
+                            type="submit" 
+                            size="sm" 
+                            variant="ghost"
+                            className="btn-discrete-save px-4"
+                            title="Confirmar pagamento"
+                          >
+                            <Check size={24} />
                           </Button>
                         </div>
                       </div>

@@ -112,28 +112,3 @@ Observações:
 3. Teste modo offline (criar lançamento sem internet e sincronizar ao reconectar).
 4. Valide estornos em cartões e visualização correta em rendas.
 
-# Progresso da Sprint de Padronização UI/UX
-
-## Etapas concluídas
-
-- Dashboard migrado para padrões do design system (tokens, primitives, governança)
-- Tokens centralizados para cor, espaçamento, tipografia e estados
-- Testes de snapshot criados e validados para componentes principais
-- Formatações e cores legadas removidas das principais ocorrências (AssistantEditableSlots, CreditCardCsvReconciliationPanel, FloatingCalculator)
-- Baseline de UI guardrails atualizada e sem violações pendentes
-
-## Artefatos de governança
-
-- docs/ui/guardrails-baseline.json atualizado
-- scripts/ui-guardrails.mjs executado para validação
-- Checklist e inventário de componentes/documentação revisados
-
-## Próximos passos
-
-- Migrar demais telas prioritárias (ex: Relatórios, Categorias, Incomes)
-- Fortalecer tokens e cobertura de snapshot em componentes secundários
-- Revisar e expandir artefatos de governança conforme novas migrações
-
----
-
-Sprint concluída com sucesso: fluxo totalmente verde, baseline protegida, governança e design system em evolução.

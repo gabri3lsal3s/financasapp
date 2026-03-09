@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingDown, TrendingUp, ArrowRight } from 'lucide-react'
+import { TrendingDown, TrendingUp, ArrowRight, Check } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -320,11 +320,13 @@ export default function CategoriesHome() {
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => saveExpenseLimit(category.id)}
                               disabled={isSaving}
+                              className="btn-discrete-save"
+                              title={isSaving ? 'Salvando...' : 'Salvar'}
                             >
-                              {isSaving ? 'Salvando...' : 'Salvar'}
+                              <Check size={20} />
                             </Button>
                           </div>
                         </div>
@@ -395,11 +397,13 @@ export default function CategoriesHome() {
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => saveIncomeExpectation(category.id)}
                               disabled={isSaving}
+                              className="btn-discrete-save"
+                              title={isSaving ? 'Salvando...' : 'Salvar'}
                             >
-                              {isSaving ? 'Salvando...' : 'Salvar'}
+                              <Check size={20} />
                             </Button>
                           </div>
                         </div>

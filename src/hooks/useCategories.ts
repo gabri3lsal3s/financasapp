@@ -14,6 +14,21 @@ export function useCategories() {
     loadCategories()
   }, [])
 
+  const getCategoryUsageCount = async (id: string): Promise<number> => {
+    try {
+      const { count, error } = await supabase
+        .from('expenses')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', id)
+      
+      if (error) throw error
+      return count || 0
+    } catch (err) {
+      console.error('Error counting category usage:', err)
+      return 0
+    }
+  }
+
   const loadCategories = async () => {
     try {
       setLoading(true)
@@ -76,7 +91,7 @@ export function useCategories() {
     }
   }
 
-  const deleteCategory = async (id: string) => {
+  const deleteCategory = async (id: string, targetCategoryId?: string) => {
     try {
       const { data: currentCategory } = await supabase
         .from('categories')
@@ -96,39 +111,42 @@ export function useCategories() {
       if (countError) throw countError
 
       if ((linkedExpensesCount ?? 0) > 0) {
-        let defaultCategoryId: string | null = null
+        let finalTargetId = targetCategoryId
 
-        const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
-          .from('categories')
-          .select('id, name')
-          .eq('name', DEFAULT_CATEGORY_NAME)
-          .limit(1)
-          .maybeSingle()
-
-        if (defaultFetchError) throw defaultFetchError
-
-        if (existingDefaultCategory?.id) {
-          defaultCategoryId = existingDefaultCategory.id
-        } else {
-          const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
+        // Se não houver alvo ou o alvo for ele mesmo (não deve acontecer na UI, mas por segurança)
+        if (!finalTargetId || finalTargetId === id) {
+          const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
             .from('categories')
-            .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
-            .select()
-            .single()
+            .select('id, name')
+            .eq('name', DEFAULT_CATEGORY_NAME)
+            .limit(1)
+            .maybeSingle()
 
-          if (defaultCreateError) throw defaultCreateError
-          defaultCategoryId = createdDefaultCategory.id
+          if (defaultFetchError) throw defaultFetchError
 
-          setCategories((prev) => [...prev, createdDefaultCategory])
+          if (existingDefaultCategory?.id) {
+            finalTargetId = existingDefaultCategory.id
+          } else {
+            const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
+              .from('categories')
+              .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
+              .select()
+              .single()
+
+            if (defaultCreateError) throw defaultCreateError
+            finalTargetId = createdDefaultCategory.id
+
+            setCategories((prev) => [...prev, createdDefaultCategory])
+          }
         }
 
-        if (!defaultCategoryId || defaultCategoryId === id) {
+        if (!finalTargetId || finalTargetId === id) {
           return { error: 'Não foi possível reatribuir os itens para a categoria padrão.' }
         }
 
         const { error: reassignError } = await supabase
           .from('expenses')
-          .update({ category_id: defaultCategoryId })
+          .update({ category_id: finalTargetId })
           .eq('category_id', id)
 
         if (reassignError) throw reassignError
@@ -153,6 +171,7 @@ export function useCategories() {
     categories,
     loading,
     error,
+    getCategoryUsageCount,
     createCategory,
     updateCategory,
     deleteCategory,

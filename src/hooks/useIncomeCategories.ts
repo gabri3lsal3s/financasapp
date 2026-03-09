@@ -14,6 +14,21 @@ export function useIncomeCategories() {
     loadIncomeCategories()
   }, [])
 
+  const getIncomeCategoryUsageCount = async (id: string): Promise<number> => {
+    try {
+      const { count, error } = await supabase
+        .from('incomes')
+        .select('id', { count: 'exact', head: true })
+        .eq('income_category_id', id)
+      
+      if (error) throw error
+      return count || 0
+    } catch (err) {
+      console.error('Error counting income category usage:', err)
+      return 0
+    }
+  }
+
   const loadIncomeCategories = async () => {
     try {
       setLoading(true)
@@ -72,7 +87,7 @@ export function useIncomeCategories() {
     }
   }
 
-  const deleteIncomeCategory = async (id: string) => {
+  const deleteIncomeCategory = async (id: string, targetCategoryId?: string) => {
     try {
       const { data: currentCategory } = await supabase
         .from('income_categories')
@@ -92,39 +107,41 @@ export function useIncomeCategories() {
       if (countError) throw countError
 
       if ((linkedIncomesCount ?? 0) > 0) {
-        let defaultCategoryId: string | null = null
+        let finalTargetId = targetCategoryId
 
-        const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
-          .from('income_categories')
-          .select('id, name')
-          .eq('name', DEFAULT_CATEGORY_NAME)
-          .limit(1)
-          .maybeSingle()
-
-        if (defaultFetchError) throw defaultFetchError
-
-        if (existingDefaultCategory?.id) {
-          defaultCategoryId = existingDefaultCategory.id
-        } else {
-          const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
+        if (!finalTargetId || finalTargetId === id) {
+          const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
             .from('income_categories')
-            .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
-            .select()
-            .single()
+            .select('id, name')
+            .eq('name', DEFAULT_CATEGORY_NAME)
+            .limit(1)
+            .maybeSingle()
 
-          if (defaultCreateError) throw defaultCreateError
-          defaultCategoryId = createdDefaultCategory.id
+          if (defaultFetchError) throw defaultFetchError
 
-          setIncomeCategories((prev) => [...prev, createdDefaultCategory])
+          if (existingDefaultCategory?.id) {
+            finalTargetId = existingDefaultCategory.id
+          } else {
+            const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
+              .from('income_categories')
+              .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
+              .select()
+              .single()
+
+            if (defaultCreateError) throw defaultCreateError
+            finalTargetId = createdDefaultCategory.id
+
+            setIncomeCategories((prev) => [...prev, createdDefaultCategory])
+          }
         }
 
-        if (!defaultCategoryId || defaultCategoryId === id) {
+        if (!finalTargetId || finalTargetId === id) {
           return { error: 'Não foi possível reatribuir os itens para a categoria padrão.' }
         }
 
         const { error: reassignError } = await supabase
           .from('incomes')
-          .update({ income_category_id: defaultCategoryId })
+          .update({ income_category_id: finalTargetId })
           .eq('income_category_id', id)
 
         if (reassignError) throw reassignError
@@ -149,6 +166,7 @@ export function useIncomeCategories() {
     incomeCategories,
     loading,
     error,
+    getIncomeCategoryUsageCount,
     createIncomeCategory,
     updateIncomeCategory,
     deleteIncomeCategory,

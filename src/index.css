@@ -430,6 +430,22 @@
       left 90ms var(--easing-standard), top 90ms var(--easing-standard), opacity 120ms var(--easing-standard);
     opacity: 0.82;
   }
+
+  .btn-discrete-save {
+    @apply text-secondary transition-all duration-200;
+  }
+  .btn-discrete-save:hover:not(:disabled) {
+    color: var(--color-income) !important;
+    background-color: color-mix(in srgb, var(--color-income) 10%, transparent) !important;
+  }
+
+  .btn-discrete-delete {
+    @apply text-secondary transition-all duration-200;
+  }
+  .btn-discrete-delete:hover:not(:disabled) {
+    color: var(--color-expense) !important;
+    background-color: color-mix(in srgb, var(--color-expense) 10%, transparent) !important;
+  }
 }
 
 

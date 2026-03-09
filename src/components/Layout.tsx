@@ -118,17 +118,17 @@ export default function Layout({ children }: LayoutProps) {
       <div className="lg:hidden">
         <header className="fixed top-0 inset-x-0 z-40 bg-secondary border-b border-primary safe-area-top">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="h-14 flex items-center gap-3">
+            <div className="h-14 flex items-center justify-center relative">
               <button
                 ref={mobileMenuButtonRef}
                 type="button"
                 onClick={() => setIsMobileMenuOpen((currentValue) => !currentValue)}
                 aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
-                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] absolute left-0"
               >
                 {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
-              <h1 className="text-lg font-bold text-primary">Finanças</h1>
+              <h1 className="text-lg font-bold text-primary text-center">Finanças</h1>
             </div>
           </div>
         </header>
@@ -156,7 +156,7 @@ export default function Layout({ children }: LayoutProps) {
 
               <nav className="p-4">
                 <div className="space-y-2">
-                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Páginas principais</p>
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide text-center">Páginas principais</p>
                   {mainItems.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
@@ -184,7 +184,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="my-4 border-t border-primary"></div>
 
                 <div className="space-y-2">
-                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Configurações</p>
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide text-center">Configurações</p>
                   {settingsItems.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path

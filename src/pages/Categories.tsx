@@ -5,19 +5,30 @@ import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
+import Select from '@/components/Select'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 
 export default function Categories() {
-  const { categories, loading, createCategory, updateCategory, deleteCategory } = useCategories()
+  const { categories, loading, createCategory, updateCategory, deleteCategory, getCategoryUsageCount } = useCategories()
   const { colorPalette } = usePaletteColors()
+  
+  // Edit/Add Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: '' })
+
+  // Delete Modal states
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [deleteUsageCount, setDeleteUsageCount] = useState(0)
+  const [targetCategoryId, setTargetCategoryId] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const assignedCategoryColors = assignUniquePaletteColors(categories, colorPalette)
 
   const handleOpenModal = (category?: Category) => {
@@ -62,16 +73,34 @@ export default function Categories() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return
-    if (!confirm('Os itens vinculados serão movidos para "Sem categoria". Deseja continuar?')) return
+  const handleDeleteClick = async (category: Category) => {
+    // Busca uso real da categoria
+    const usageCount = await getCategoryUsageCount(category.id)
+    setCategoryToDelete(category)
+    setDeleteUsageCount(usageCount)
+    setTargetCategoryId('')
+    setIsDeleteModalOpen(true)
+  }
 
-    const { error } = await deleteCategory(id)
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return
+
+    setIsDeleting(true)
+    const { error } = await deleteCategory(categoryToDelete.id, targetCategoryId || undefined)
+    setIsDeleting(false)
+    
     if (error) {
       alert('Erro ao excluir categoria: ' + error)
       return
     }
-    handleCloseModal()
+    
+    setIsDeleteModalOpen(false)
+    setCategoryToDelete(null)
+    
+    // Se está editando a categoria que acabou de apagar, fecha o modal de edição
+    if (editingCategory?.id === categoryToDelete.id) {
+      handleCloseModal()
+    }
   }
 
   return (
@@ -144,9 +173,55 @@ export default function Categories() {
             onCancel={handleCloseModal}
             submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
             deleteLabel={editingCategory ? 'Excluir categoria' : undefined}
-            onDelete={editingCategory ? () => handleDelete(editingCategory.id) : undefined}
+            onDelete={editingCategory ? () => handleDeleteClick(editingCategory) : undefined}
           />
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+        title="Excluir Categoria"
+      >
+        <div className="space-y-4 text-primary">
+          {deleteUsageCount > 0 ? (
+            <>
+              <p>
+                A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
+                <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
+              </p>
+              <p>
+                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>"Sem categoria"</em>.
+              </p>
+              <Select
+                value={targetCategoryId}
+                onChange={(e) => setTargetCategoryId(e.target.value)}
+                options={[
+                  { value: '', label: 'Sem categoria (Padrão)' },
+                  ...categories
+                    .filter((c) => c.id !== categoryToDelete?.id && c.name !== 'Sem categoria')
+                    .map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
+            </>
+          ) : (
+            <p>
+              Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
+            </p>
+          )}
+
+          <div className="pt-4 flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="btn-discrete-delete px-4"
+              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
+            >
+              <Trash2 size={24} />
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )
