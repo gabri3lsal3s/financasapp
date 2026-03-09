@@ -35,6 +35,10 @@ export function useCategories() {
 
   const createCategory = async (category: Omit<Category, 'id' | 'created_at'>) => {
     try {
+      if (categories.length >= 15) {
+        return { data: null, error: 'Limite máximo de 15 categorias atingido. Exclua uma categoria existente para criar uma nova.' }
+      }
+
       const { data, error: insertError } = await supabase
         .from('categories')
         .insert([category])

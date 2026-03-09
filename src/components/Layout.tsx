@@ -1,8 +1,10 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import { useAppSettings } from '@/hooks/useAppSettings'
+import { useAuth } from '@/contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 interface LayoutProps {
   children: ReactNode
@@ -10,6 +12,8 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { floatingCalculatorEnabled } = useAppSettings()
+  const { signOut } = useAuth()
+  const navigate = useNavigate()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
@@ -19,6 +23,15 @@ export default function Layout({ children }: LayoutProps) {
   const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const activeItemClasses = 'bg-tertiary accent-primary'
   const inactiveItemClasses = 'text-primary hover:bg-tertiary'
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Error logging out:', error)
+    }
+  }
 
   const mainItems = [
     { path: '/', icon: Home, label: 'Início' },
@@ -197,6 +210,18 @@ export default function Layout({ children }: LayoutProps) {
                     )
                   })}
                 </div>
+
+                <div className="my-4 border-t border-primary"></div>
+                
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <LogOut size={18} />
+                    <span className="font-medium">Sair</span>
+                  </div>
+                </button>
               </nav>
             </aside>
           </>
@@ -300,6 +325,23 @@ export default function Layout({ children }: LayoutProps) {
                 )
               })}
             </div>
+
+            <div className="my-4 border-t border-primary"></div>
+            
+            <button
+              onClick={handleLogout}
+              title="Sair"
+              className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 ${
+                isDesktopMenuExpanded
+                  ? 'justify-start px-4 py-3'
+                  : 'justify-center p-3'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <LogOut size={20} className="flex-shrink-0" />
+                {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">Sair</span>}
+              </div>
+            </button>
           </nav>
         </aside>
 

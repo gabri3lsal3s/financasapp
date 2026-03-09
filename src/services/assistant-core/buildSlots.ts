@@ -64,6 +64,51 @@ export const buildSlots = ({
   const creditCardName = intent === 'add_expense'
     ? extractCreditCardName(text)
     : undefined
+
+  const calculateReportWeight = (text: string): number | undefined => {
+    const normalized = text.toLowerCase()
+    const isShared = normalized.includes('divid') || 
+                     normalized.includes('rachad') || 
+                     normalized.includes('rachou') ||
+                     normalized.includes('cada um') || 
+                     normalized.includes('cadaum') ||
+                     normalized.includes('por cabeca') ||
+                     normalized.includes('porcabeca') ||
+                     normalized.includes('meu foi') ||
+                     normalized.includes('o meu saiu') ||
+                     normalized.includes('pra mim deu') ||
+                     normalized.includes('pramim deu') ||
+                     normalized.includes('com amigos') ||
+                     normalized.includes('com 2 amigos')
+
+    if (!isShared) return undefined
+
+    const numberMatches = text.match(/\d+(?:\s*[.,]\s*\d+)?/g) || []
+    const amounts = numberMatches.map(m => parseFloat(m.replace(/\s+/g, '').replace(',', '.')))
+    
+    const divMatch = normalized.match(/divid\w+\s+(?:por|em)\s+(\w+)/i)
+    if (divMatch) {
+        const map: Record<string, number> = { 'dois': 2, 'tres': 3, 'quatro': 4, 'cinco': 5 }
+        const val = map[divMatch[1]] ?? Number(divMatch[1])
+        if (val > 0) return Number((1 / val).toFixed(4))
+    }
+
+    if (normalized.includes('com 2 amigos')) return 0.3333
+    
+    if (amounts.length >= 2) {
+      const total = Math.max(...amounts)
+      const part = Math.min(...amounts)
+      if (part < total) return Number((part / total).toFixed(4))
+    }
+
+    if (normalized.includes('rachou') || normalized.includes('rachamos')) return 0.5
+    
+    if (normalized.includes('cadaum') || normalized.includes('cada 1') || normalized.includes('pramim') || normalized.includes('cada um')) return 0.3333
+
+    return 0.25 
+  }
+
+  const reportWeight = !items || items.length === 0 ? calculateReportWeight(text) : undefined
   const transactionType = resolveTransactionTypeFromIntent(intent)
 
   if (intent === 'add_investment') {
@@ -77,15 +122,16 @@ export const buildSlots = ({
     }
   }
 
-  return {
-    transactionType,
-    amount,
-    installment_count: installmentCount,
-    payment_method: paymentMethod,
-    credit_card_name: creditCardName,
-    description,
-    date,
-    month: date.substring(0, 7),
-    items,
-  }
+    return {
+      transactionType,
+      amount,
+      installment_count: installmentCount,
+      payment_method: paymentMethod,
+      credit_card_name: creditCardName,
+      report_weight: reportWeight,
+      description,
+      date,
+      month: date.substring(0, 7),
+      items,
+    }
 }

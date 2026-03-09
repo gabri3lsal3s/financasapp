@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS categories (
   name TEXT NOT NULL,
   color TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Tabela de categorias de rendas
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS income_categories (
   name TEXT NOT NULL,
   color TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Tabela de despesas
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Tabela de rendas
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS incomes (
   income_category_id UUID REFERENCES income_categories(id) ON DELETE CASCADE,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Tabela de investimentos
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS investments (
   month TEXT NOT NULL, -- formato YYYY-MM
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Tabela de limites mensais por categoria de despesa
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS expense_category_month_limits (
   month TEXT NOT NULL CHECK (month ~ '^\d{4}-\d{2}$'),
   limit_amount DECIMAL(10, 2) CHECK (limit_amount IS NULL OR limit_amount >= 0),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Tabela de expectativas mensais por categoria de renda
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS income_category_month_expectations (
   month TEXT NOT NULL CHECK (month ~ '^\d{4}-\d{2}$'),
   expectation_amount DECIMAL(10, 2) CHECK (expectation_amount IS NULL OR expectation_amount >= 0),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  user_id UUID
+  user_id UUID DEFAULT auth.uid()
 );
 
 -- Índices para melhor performance
@@ -94,30 +94,59 @@ CREATE INDEX IF NOT EXISTS idx_expense_limits_month ON expense_category_month_li
 CREATE UNIQUE INDEX IF NOT EXISTS idx_income_expectations_category_month_unique ON income_category_month_expectations(income_category_id, month);
 CREATE INDEX IF NOT EXISTS idx_income_expectations_month ON income_category_month_expectations(month);
 
--- Habilitar Row Level Security (RLS) se necessário
--- ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
+-- ============================================
+-- ENABLE ROW LEVEL SECURITY
+-- ============================================
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE income_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expense_category_month_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE income_category_month_expectations ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- DESABILITAR RLS (se estiver habilitado e causando problemas)
+-- RLS POLICIES
 -- ============================================
-ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
-ALTER TABLE incomes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE income_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE investments DISABLE ROW LEVEL SECURITY;
-ALTER TABLE expense_category_month_limits DISABLE ROW LEVEL SECURITY;
-ALTER TABLE income_category_month_expectations DISABLE ROW LEVEL SECURITY;
 
--- Políticas RLS (ajuste conforme sua necessidade de autenticação)
--- CREATE POLICY "Users can view own categories" ON categories FOR SELECT USING (auth.uid() = user_id);
--- CREATE POLICY "Users can insert own categories" ON categories FOR INSERT WITH CHECK (auth.uid() = user_id);
--- CREATE POLICY "Users can update own categories" ON categories FOR UPDATE USING (auth.uid() = user_id);
--- CREATE POLICY "Users can delete own categories" ON categories FOR DELETE USING (auth.uid() = user_id);
+-- Categories
+CREATE POLICY "Users can view own categories" ON categories FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own categories" ON categories FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own categories" ON categories FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own categories" ON categories FOR DELETE USING (auth.uid() = user_id);
 
+-- Income Categories
+CREATE POLICY "Users can view own income categories" ON income_categories FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own income categories" ON income_categories FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own income categories" ON income_categories FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own income categories" ON income_categories FOR DELETE USING (auth.uid() = user_id);
 
+-- Expenses
+CREATE POLICY "Users can view own expenses" ON expenses FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own expenses" ON expenses FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own expenses" ON expenses FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own expenses" ON expenses FOR DELETE USING (auth.uid() = user_id);
 
+-- Incomes
+CREATE POLICY "Users can view own incomes" ON incomes FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own incomes" ON incomes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own incomes" ON incomes FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own incomes" ON incomes FOR DELETE USING (auth.uid() = user_id);
 
+-- Investments
+CREATE POLICY "Users can view own investments" ON investments FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own investments" ON investments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own investments" ON investments FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own investments" ON investments FOR DELETE USING (auth.uid() = user_id);
 
+-- Expense Category Month Limits
+CREATE POLICY "Users can view own expense limits" ON expense_category_month_limits FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own expense limits" ON expense_category_month_limits FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own expense limits" ON expense_category_month_limits FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own expense limits" ON expense_category_month_limits FOR DELETE USING (auth.uid() = user_id);
+
+-- Income Category Month Expectations
+CREATE POLICY "Users can view own income expectations" ON income_category_month_expectations FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own income expectations" ON income_category_month_expectations FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own income expectations" ON income_category_month_expectations FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own income expectations" ON income_category_month_expectations FOR DELETE USING (auth.uid() = user_id);

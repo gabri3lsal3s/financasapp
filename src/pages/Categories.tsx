@@ -85,6 +85,8 @@ export default function Categories() {
             variant="outline"
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2"
+            disabled={categories.length >= 15}
+            title={categories.length >= 15 ? 'Limite de 15 categorias atingido' : ''}
           >
             <Plus size={16} />
             Adicionar
@@ -102,6 +104,11 @@ export default function Categories() {
           </Card>
         ) : (
           <div className="space-y-3">
+            {categories.length >= 15 && (
+              <div className="p-3 bg-tertiary border border-warning text-warning rounded-lg text-sm text-center">
+                Você atingiu o limite máximo de 15 categorias. Para criar uma nova, exclua alguma existente.
+              </div>
+            )}
             {categories.map((category, idx) => (
                   <Card key={category.id} className="py-3" onClick={() => handleOpenModal(category)}>
                     <div className="flex items-center justify-between gap-3">
