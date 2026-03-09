@@ -118,11 +118,17 @@ export const extractPaymentMethod = (text: string): any => {
 
 export const extractCreditCardName = (text: string): string | undefined => {
   const normalized = normalizeText(text)
-  const match = normalized.match(/cartao\s+(?:da|do|de)?\s*(\w+)/i) || normalized.match(/no\s+(\w+)\s+(?:em|para|de)\b/i) || normalized.match(/no\s+(nubank|inter|itau|bradesco|santander)\b/i) || normalized.match(/pelo\s+(\w+)\b/i)
+  const match = 
+    normalized.match(/cartao\s+(?:da|do|de)?\s*(\w+)/i) || 
+    normalized.match(/no\s+(\w+)\s+(?:em|para|de)\b/i) || 
+    normalized.match(/no\s+(nubank|inter|itau|bradesco|santander|neon|C6|digio)\b/i) || 
+    normalized.match(/pelo\s+(\w+)\b/i)
+  
   if (match) {
     const name = match[1]
-    const validNames = ['nubank', 'inter', 'itau', 'bradesco', 'santander']
-    if (validNames.includes(name.toLowerCase())) return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
+    if (name.length > 2) {
+      return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
+    }
   }
   return undefined
 }

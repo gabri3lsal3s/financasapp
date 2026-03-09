@@ -389,7 +389,7 @@ export async function interpretAssistantCommand(params: {
   const [categoriesResult, incomeCategoriesResult, creditCardsResult] = await Promise.all([
     supabase.from('categories').select('*'),
     supabase.from('income_categories').select('*'),
-    supabase.from('credit_cards').select('id, name').eq('is_active', true),
+    supabase.from('credit_cards').select('id, name, is_active').or('is_active.is.null,is_active.eq.true'),
   ])
 
   // Extract using the new AI Service
@@ -426,6 +426,14 @@ export async function interpretAssistantCommand(params: {
   const categoryResolution = await resolveCategory(intent, slots)
   if (categoryResolution.selectedCategory) {
     slots.category = categoryResolution.selectedCategory
+  }
+
+  // Ensure credit_card_id and credit_card_name are set in slots if not already
+  if (!slots.credit_card_id && extracted.slots.credit_card_id) {
+    slots.credit_card_id = extracted.slots.credit_card_id
+  }
+  if (!slots.credit_card_name && extracted.slots.credit_card_name) {
+    slots.credit_card_name = extracted.slots.credit_card_name
   }
 
   const confirmationPolicy = resolveConfirmationPolicy({

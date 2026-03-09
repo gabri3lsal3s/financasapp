@@ -61,6 +61,10 @@ const extractionSchema: Schema = {
       type: Type.STRING,
       description: 'The name of the category that best matches.',
     },
+    categoryId: {
+      type: Type.STRING,
+      description: 'The ID of the category that best matches, chosen EXPLICITLY from the provided list.',
+    },
     creditCardId: {
       type: Type.STRING,
       description: 'The ID of the credit card if payment_method is credit_card, chosen EXPLICITLY from the provided list.',
@@ -165,6 +169,8 @@ export const extractVoiceCommand = async (
             description: slots.description,
             date: slots.date,
             category: slots.category,
+            credit_card_id: slots.credit_card_id,
+            credit_card_name: slots.credit_card_name,
         }]
     }
 

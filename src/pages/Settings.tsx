@@ -15,6 +15,7 @@ import {
   removeBiometricCredential,
 } from '@/utils/biometric'
 import { Fingerprint, SlidersHorizontal, Sparkles, ShieldCheck } from 'lucide-react'
+import { applyOrientationSettings } from '@/utils/orientation'
 
 type SettingsView = 'appearance' | 'personalization' | 'security'
 
@@ -220,7 +221,12 @@ export default function Settings() {
               >
                 <ToggleSwitch
                   checked={screenRotationAllowed}
-                  onChange={() => setScreenRotationAllowed(!screenRotationAllowed)}
+                  onChange={() => {
+                    const newValue = !screenRotationAllowed
+                    setScreenRotationAllowed(newValue)
+                    // Chamada direta para satisfazer requisito de "user gesture"
+                    applyOrientationSettings(newValue)
+                  }}
                   title={screenRotationAllowed ? 'Desativar rotação' : 'Permitir rotação'}
                 />
               </SettingRow>

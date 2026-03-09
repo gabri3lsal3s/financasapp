@@ -22,6 +22,8 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
 
+import { applyOrientationSettings } from '@/utils/orientation'
+
 function App() {
   const { assistantDataRetentionDays, screenRotationAllowed } = useAppSettings()
 
@@ -30,24 +32,18 @@ function App() {
   }, [assistantDataRetentionDays])
 
   useEffect(() => {
-    // Gerenciamento de orientação de tela
-    const lockOrientation = async () => {
-      try {
-        const orientation = (window.screen as any).orientation
-        if (!screenRotationAllowed && orientation?.lock) {
-          // Tenta travar em retrato se a rotação não for permitida
-          // Alguns navegadores exigem modo tela cheia para travar, então tratamos o erro silenciosamente
-          await orientation.lock('portrait')
-        } else if (screenRotationAllowed && orientation?.unlock) {
-          orientation.unlock()
-        }
-      } catch (error) {
-        // Ignora erros de bloqueio de orientação (comum em navegadores que não suportam ou exigem fullscreen)
-        console.warn('Screen orientation lock failed:', error)
+    // Aplica configuração inicial e em mudanças de estado
+    applyOrientationSettings(screenRotationAllowed)
+
+    // Adiciona listener para re-aplicar se houver redimensionamento (fallback)
+    const handleResize = () => {
+      if (!screenRotationAllowed) {
+        applyOrientationSettings(false)
       }
     }
 
-    lockOrientation()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [screenRotationAllowed])
 
   return (
