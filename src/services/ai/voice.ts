@@ -1,6 +1,6 @@
 import { createGenAIClient, GEMINI_MODEL } from './client'
 import { Type, Schema } from '@google/genai'
-import { AssistantResolvedCategory, AssistantSlots, AssistantIntent, Category, IncomeCategory } from '@/types'
+import { AssistantSlots, AssistantIntent, Category, IncomeCategory } from '@/types'
 import { format } from 'date-fns'
 
 interface VoiceExtractionContext {
@@ -104,6 +104,9 @@ export const extractVoiceCommand = async (
   context: VoiceExtractionContext
 ): Promise<VoiceExtractionResult> => {
   const ai = createGenAIClient()
+  if (!ai) {
+    throw new Error('Chave da API do Google Gemini não configurada.')
+  }
   const prompt = buildVoicePrompt(text, context)
 
   try {
@@ -117,7 +120,7 @@ export const extractVoiceCommand = async (
       }
     })
 
-    const rawJson = response.text()
+    const rawJson = response.text
     if (!rawJson) {
       throw new Error('Retorno vazio do LLM')
     }

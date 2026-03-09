@@ -47,10 +47,10 @@ function base64UrlToArrayBuffer(base64url: string): ArrayBuffer {
   return bytes.buffer
 }
 
-function generateChallenge(): Uint8Array {
+function generateChallenge(): ArrayBuffer {
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
-  return challenge
+  return challenge.buffer as ArrayBuffer
 }
 
 export interface BiometricResult {

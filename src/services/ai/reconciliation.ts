@@ -92,6 +92,7 @@ export const classifyCSVTransactions = async (
 
   try {
     const ai = createGenAIClient()
+    if (!ai) return []
     const allClassifications: CSVClassifiedTransaction[] = []
 
     // Dividimos os batches

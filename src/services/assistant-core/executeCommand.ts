@@ -2,12 +2,10 @@ import { addMonths, format, parse } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 import { resolveBillCompetence } from '@/utils/creditCardBilling'
-import { formatCurrencyCompactBR } from '@/utils/format'
 import type {
   AssistantCommand,
   AssistantConfirmResult,
   AssistantResolvedCategory,
-  AssistantSlots,
 } from '@/types'
 import { resolveCategory } from './resolveCategory'
 
