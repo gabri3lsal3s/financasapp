@@ -16,7 +16,7 @@ import { useAssistantTelemetry } from '@/hooks/useAssistantTelemetry'
 import { useAssistantMemory } from '@/hooks/useAssistantMemory'
 import { useAssistantContextDecisionLogs } from '@/hooks/useAssistantContextDecisionLogs'
 import { getAssistantPrivacyCleanupLastRun, runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
-import { AlertCircle, Bot, Check, ChevronDown, SlidersHorizontal, Sparkles, Wrench } from 'lucide-react'
+import { AlertCircle, Bot, Check, ChevronDown, SlidersHorizontal, Sparkles, Wrench, Fingerprint } from 'lucide-react'
 
 interface TestResult {
   status: 'idle' | 'testing' | 'success' | 'error'
@@ -24,10 +24,10 @@ interface TestResult {
   details?: any
 }
 
-type SettingsView = 'appearance' | 'assistant' | 'personalization' | 'diagnostics'
+type SettingsView = 'appearance' | 'assistant' | 'personalization' | 'diagnostics' | 'security'
 
 const parseSettingsView = (value: string | null): SettingsView => {
-  if (value === 'appearance' || value === 'assistant' || value === 'personalization' || value === 'diagnostics') {
+  if (value === 'appearance' || value === 'assistant' || value === 'personalization' || value === 'diagnostics' || value === 'security') {
     return value
   }
   return 'appearance'
@@ -41,6 +41,10 @@ export default function Settings() {
     message: '',
   })
   const [tableTest, setTableTest] = useState<TestResult>({
+    status: 'idle',
+    message: '',
+  })
+  const [biometricTest, setBiometricTest] = useState<TestResult>({
     status: 'idle',
     message: '',
   })
@@ -69,6 +73,8 @@ export default function Settings() {
     setAssistantSpeechPitch,
     floatingCalculatorEnabled,
     setFloatingCalculatorEnabled,
+    assistantDoubleConfirmationEnabled,
+    setAssistantDoubleConfirmationEnabled,
   } = useAppSettings()
   const {
     summary: telemetrySummary,
@@ -219,6 +225,45 @@ export default function Settings() {
     }
   }
 
+  const registerBiometrics = async () => {
+    if (!isSupabaseConfigured) {
+      setBiometricTest({
+        status: 'error',
+        message: 'Supabase não está configurado.',
+      })
+      return
+    }
+
+    setBiometricTest({ status: 'testing', message: 'Iniciando registro biométrico...' })
+
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'webauthn',
+      })
+
+      if (error) throw error
+      
+      const { error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: data.id,
+      })
+
+      if (challengeError) throw challengeError
+
+      setBiometricTest({
+        status: 'success',
+        message: 'Biometria/Passkey registrada com sucesso!',
+        details: 'Você pode usar este dispositivo para login sem senha no futuro se o Supabase suportar WebAuthn completo.',
+      })
+
+    } catch (err: any) {
+      setBiometricTest({
+        status: 'error',
+        message: 'Erro ao registrar biometria',
+        details: err.message || 'Dispositivo pode não suportar passkeys ou ocorreu um erro.',
+      })
+    }
+  }
+
   const availableMemoryCategories = newMemoryType === 'expense'
     ? categories.map((category) => ({ id: category.id, name: category.name }))
     : incomeCategories.map((category) => ({ id: category.id, name: category.name }))
@@ -278,9 +323,17 @@ export default function Settings() {
               </Button>
               <Button
                 type="button"
+                variant={activeSettingsView === 'security' ? 'primary' : 'outline'}
+                onClick={() => updateSettingsView('security')}
+                className="w-full justify-start"
+              >
+                <Fingerprint size={16} className="mr-2" /> Segurança
+              </Button>
+              <Button
+                type="button"
                 variant={activeSettingsView === 'diagnostics' ? 'primary' : 'outline'}
                 onClick={() => updateSettingsView('diagnostics')}
-                className="w-full justify-start"
+                className="w-full justify-start md:col-span-full xl:col-span-1"
               >
                 <Wrench size={16} className="mr-2" /> Diagnóstico
               </Button>
@@ -424,6 +477,31 @@ export default function Settings() {
                 <div>
                   <h3 className="text-sm font-semibold text-primary">Comportamento e confirmação</h3>
                   <p className="text-xs text-secondary mt-1">Defina como o assistente confirma ações e responde no fluxo principal.</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+                  <div>
+                    <h3 className="text-sm text-primary">Revisão dupla de dados com IA</h3>
+                    <p className="text-xs text-secondary mt-1">
+                      Exibe um painel rápido para confirmar os dados extraídos pela inteligência artificial antes de salvar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={assistantDoubleConfirmationEnabled}
+                    onClick={() => setAssistantDoubleConfirmationEnabled(!assistantDoubleConfirmationEnabled)}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                      assistantDoubleConfirmationEnabled ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
+                    }`}
+                    title={assistantDoubleConfirmationEnabled ? 'Desativar revisão dupla' : 'Ativar revisão dupla'}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
+                        assistantDoubleConfirmationEnabled ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -740,6 +818,45 @@ export default function Settings() {
                   )}
                 </>
               )}
+            </div>
+          </Card>
+        </section>
+
+        <section className={activeSettingsView === 'security' ? 'space-y-4' : 'hidden'}>
+          <div>
+            <h2 className="text-xl font-semibold text-primary mb-1">Segurança</h2>
+            <p className="text-secondary text-sm">Gerencie biometria e outras opções de acesso</p>
+          </div>
+
+          <Card>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <h3 className="text-base font-semibold text-primary flex items-center gap-2">
+                  <Fingerprint size={20} />
+                  Login sem senha (Passkeys)
+                </h3>
+                <p className="text-sm text-secondary">
+                  O registro de biometria cria uma chave de acesso segura (Passkey) no seu dispositivo como Face ID, Touch ID, PIN ou Windows Hello.
+                </p>
+                
+                {biometricTest.message && (
+                  <div className={`p-3 rounded-lg border ${getStatusColor(biometricTest.status)}`}>
+                    <p className="text-sm font-medium text-primary mb-1">{biometricTest.message}</p>
+                    {biometricTest.details && (
+                      <p className="text-xs text-secondary mt-1">{biometricTest.details}</p>
+                    )}
+                  </div>
+                )}
+
+                <Button
+                  onClick={registerBiometrics}
+                  disabled={biometricTest.status === 'testing' || !isSupabaseConfigured}
+                  variant="primary"
+                  className="w-full sm:w-auto"
+                >
+                  Registrar Biometria neste Dispositivo
+                </Button>
+              </div>
             </div>
           </Card>
         </section>
