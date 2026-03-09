@@ -109,8 +109,8 @@ export async function registerBiometric(userId: string, userEmail: string): Prom
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Erro desconhecido'
 
-    if (msg.includes('NotAllowedError') || msg.includes('not allowed')) {
-      return { success: false, error: 'Registro cancelado pelo usuário.' }
+    if (msg.includes('NotAllowedError') || msg.toLowerCase().includes('not allowed') || msg.toLowerCase().includes('pending')) {
+      return { success: false, error: 'CANCELLED' }
     }
     if (msg.includes('InvalidStateError')) {
       return { success: false, error: 'Uma credencial biométrica já está registrada neste dispositivo.' }
@@ -165,8 +165,8 @@ export async function verifyBiometric(): Promise<BiometricResult> {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Erro desconhecido'
 
-    if (msg.includes('NotAllowedError') || msg.includes('not allowed')) {
-      return { success: false, error: 'Verificação cancelada.' }
+    if (msg.includes('NotAllowedError') || msg.toLowerCase().includes('not allowed') || msg.toLowerCase().includes('pending')) {
+      return { success: false, error: 'CANCELLED' }
     }
     if (msg.includes('InvalidStateError') || msg.includes('NotFoundError')) {
       // Credential no longer exists on this device — clean up

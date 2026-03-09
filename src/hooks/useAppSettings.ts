@@ -10,6 +10,7 @@ const ASSISTANT_AUTO_SPEAK_KEY = 'app.assistant.autoSpeak'
 const ASSISTANT_SPEECH_RATE_KEY = 'app.assistant.speechRate'
 const ASSISTANT_SPEECH_PITCH_KEY = 'app.assistant.speechPitch'
 const FLOATING_CALCULATOR_ENABLED_KEY = 'app.floatingCalculator.enabled'
+const BIOMETRIC_LOCK_TIMEOUT_KEY = 'app.biometric.lockTimeoutMinutes'
 const ASSISTANT_DOUBLE_CONFIRMATION_ENABLED_KEY = 'app.assistant.doubleConfirmationEnabled'
 const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
@@ -146,6 +147,19 @@ const readCreditCardsWeightsEnabled = (): boolean => {
   return creditCardsWeightsEnabledMemory
 }
 
+export type BiometricLockTimeout = 0 | 1 | 5 | 15
+
+const parseBiometricLockTimeout = (value: string | null): BiometricLockTimeout => {
+  const parsed = Number(value)
+  if (parsed === 0 || parsed === 1 || parsed === 5 || parsed === 15) return parsed
+  return 0 // default to Immediately
+}
+
+const readBiometricLockTimeout = (): BiometricLockTimeout => {
+  if (typeof window === 'undefined') return 0
+  return parseBiometricLockTimeout(window.localStorage.getItem(BIOMETRIC_LOCK_TIMEOUT_KEY))
+}
+
 const parseAssistantDoubleConfirmationEnabled = (value: string | null): boolean => {
   if (value === null) return true
   return value !== 'false'
@@ -170,6 +184,7 @@ export function useAppSettings() {
   const [floatingCalculatorEnabled, setFloatingCalculatorEnabledState] = useState<boolean>(readFloatingCalculatorEnabled)
   const [dashboardReportsWeightsEnabled, setDashboardReportsWeightsEnabledState] = useState<boolean>(readDashboardReportsWeightsEnabled)
   const [creditCardsWeightsEnabled, setCreditCardsWeightsEnabledState] = useState<boolean>(readCreditCardsWeightsEnabled)
+  const [biometricLockTimeout, setBiometricLockTimeoutState] = useState<BiometricLockTimeout>(readBiometricLockTimeout)
   const [assistantDoubleConfirmationEnabled, setAssistantDoubleConfirmationEnabledState] = useState<boolean>(readAssistantDoubleConfirmationEnabled)
 
   useEffect(() => {
@@ -187,6 +202,7 @@ export function useAppSettings() {
       setFloatingCalculatorEnabledState(readFloatingCalculatorEnabled())
       setDashboardReportsWeightsEnabledState(readDashboardReportsWeightsEnabled())
       setCreditCardsWeightsEnabledState(readCreditCardsWeightsEnabled())
+      setBiometricLockTimeoutState(readBiometricLockTimeout())
       setAssistantDoubleConfirmationEnabledState(readAssistantDoubleConfirmationEnabled())
     }
 
@@ -203,6 +219,7 @@ export function useAppSettings() {
         || event.key === ASSISTANT_SPEECH_RATE_KEY
         || event.key === ASSISTANT_SPEECH_PITCH_KEY
         || event.key === FLOATING_CALCULATOR_ENABLED_KEY
+        || event.key === BIOMETRIC_LOCK_TIMEOUT_KEY
         || event.key === ASSISTANT_DOUBLE_CONFIRMATION_ENABLED_KEY
       ) {
         syncFromStorage()
@@ -322,6 +339,14 @@ export function useAppSettings() {
     }
   }, [])
 
+  const setBiometricLockTimeout = useCallback((timeout: BiometricLockTimeout) => {
+    if (typeof window === 'undefined') return
+
+    window.localStorage.setItem(BIOMETRIC_LOCK_TIMEOUT_KEY, String(timeout))
+    setBiometricLockTimeoutState(timeout)
+    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
+  }, [])
+
   const setAssistantDoubleConfirmationEnabled = useCallback((enabled: boolean) => {
     if (typeof window === 'undefined') return
 
@@ -357,6 +382,8 @@ export function useAppSettings() {
     setDashboardReportsWeightsEnabled,
     creditCardsWeightsEnabled,
     setCreditCardsWeightsEnabled,
+    biometricLockTimeout,
+    setBiometricLockTimeout,
     assistantDoubleConfirmationEnabled,
     setAssistantDoubleConfirmationEnabled,
   }

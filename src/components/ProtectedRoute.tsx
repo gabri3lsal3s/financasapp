@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { isBiometricRegistered, verifyBiometric } from '@/utils/biometric';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { Fingerprint, LogOut, AlertCircle } from 'lucide-react';
 import Button from '@/components/Button';
 
@@ -14,14 +15,68 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // App Lock pattern: if biometrics are registered, require unlock ONCE per app load
-  const [isLocked, setIsLocked] = useState(() => isBiometricRegistered());
+  const { biometricLockTimeout } = useAppSettings();
+
+  // App Lock pattern: if biometrics are registered, require unlock based on settings and session
+  const [isLocked, setIsLocked] = useState(() => {
+    if (!isBiometricRegistered()) return false;
+    
+    // Check bypass ticket from Login
+    const justLoggedIn = sessionStorage.getItem('minhas_financas:login_bypass');
+    if (justLoggedIn === 'true') {
+      sessionStorage.removeItem('minhas_financas:login_bypass');
+      localStorage.setItem('minhas-financas:last-hidden-at', Date.now().toString());
+      return false;
+    }
+
+    const lastHiddenStr = localStorage.getItem('minhas-financas:last-hidden-at');
+    const timeoutStr = localStorage.getItem('app.biometric.lockTimeoutMinutes');
+    const timeout = timeoutStr !== null ? Number(timeoutStr) : 0;
+
+    if (lastHiddenStr) {
+      const lastHidden = Number(lastHiddenStr);
+      const diffMinutes = (Date.now() - lastHidden) / 60000;
+      if (diffMinutes >= timeout) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  });
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState('');
+  const autoUnlockAttempted = useRef(false);
+
+  // Monitor screen off / app background
+  useEffect(() => {
+    if (!isBiometricRegistered() || !user) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        localStorage.setItem('minhas-financas:last-hidden-at', Date.now().toString());
+      } else if (document.visibilityState === 'visible') {
+        const lastHiddenStr = localStorage.getItem('minhas-financas:last-hidden-at');
+        if (lastHiddenStr) {
+          const lastHidden = Number(lastHiddenStr);
+          const diffMinutes = (Date.now() - lastHidden) / 60000;
+          
+          if (diffMinutes >= biometricLockTimeout) {
+            setIsLocked(true);
+            autoUnlockAttempted.current = false; // Reset auto-trigger attempt
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [biometricLockTimeout, user]);
 
   // Auto-trigger biometric prompt if locked
   useEffect(() => {
-    if (isLocked && user && !isLoading) {
+    if (isLocked && user && !isLoading && !autoUnlockAttempted.current) {
+      autoUnlockAttempted.current = true;
       handleUnlock();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -34,8 +89,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       const result = await verifyBiometric();
       if (result.success) {
         setIsLocked(false);
+        localStorage.setItem('minhas-financas:last-hidden-at', Date.now().toString());
       } else {
-        setError(result.error || 'Autenticação cancelada ou falhou.');
+        if (result.error === 'CANCELLED') {
+          setError('');
+        } else {
+          setError(result.error || 'Autenticação cancelada ou falhou.');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao desbloquear');
@@ -107,10 +167,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
             <button
               onClick={handleLogout}
-              className="text-sm text-secondary hover:text-[var(--color-danger)] motion-standard flex items-center justify-center gap-1.5 mx-auto"
+              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
             >
               <LogOut size={16} />
-              Sair da conta
+              Acessar com E-mail e Senha
             </button>
           </div>
         </div>

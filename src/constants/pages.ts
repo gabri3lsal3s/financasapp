@@ -37,6 +37,6 @@ export const PAGE_HEADERS = {
   },
   settings: {
     title: 'Configurações',
-    description: 'Tema, cores e conexão com o banco de dados',
+    description: 'Aparência, Personalização e Segurança',
   },
 } as const

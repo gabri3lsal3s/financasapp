@@ -46,6 +46,8 @@ export default function Settings() {
     setMonthlyInsightsEnabled,
     floatingCalculatorEnabled,
     setFloatingCalculatorEnabled,
+    biometricLockTimeout,
+    setBiometricLockTimeout,
     assistantDoubleConfirmationEnabled,
     setAssistantDoubleConfirmationEnabled,
   } = useAppSettings()
@@ -66,7 +68,9 @@ export default function Settings() {
       setBiometricRegistered(true)
       setBiometricStatus({ type: 'success', message: 'Biometria registrada com sucesso! Você pode usar na próxima entrada.' })
     } else {
-      setBiometricStatus({ type: 'error', message: result.error ?? 'Falha no registro.' })
+      if (result.error !== 'CANCELLED') {
+        setBiometricStatus({ type: 'error', message: result.error ?? 'Falha no registro.' })
+      }
     }
   }
 
@@ -298,6 +302,27 @@ export default function Settings() {
                     )}
                   </div>
                 </div>
+              )}
+
+              {biometricRegistered && (
+                <>
+                  <div className="border-t border-primary" />
+                  <SettingRow
+                    title="Bloqueio automático"
+                    description="Exige biometria após tempo de inatividade ou ao sair do app/desligar a tela."
+                  >
+                    <select
+                      value={String(biometricLockTimeout)}
+                      onChange={(e) => setBiometricLockTimeout(Number(e.target.value) as any)}
+                      className="block w-full min-w-[200px] rounded-lg border border-primary bg-secondary p-2.5 text-sm text-primary shadow-sm focus:border-[var(--color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                    >
+                      <option value="0">Imediatamente / Desligar Tela</option>
+                      <option value="1">Após 1 minuto</option>
+                      <option value="5">Após 5 minutos</option>
+                      <option value="15">Após 15 minutos</option>
+                    </select>
+                  </SettingRow>
+                </>
               )}
             </div>
           </Card>

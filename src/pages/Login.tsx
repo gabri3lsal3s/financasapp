@@ -25,6 +25,7 @@ export default function Login() {
       setLoading(true);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      sessionStorage.setItem('minhas_financas:login_bypass', 'true');
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Falha ao fazer login');
