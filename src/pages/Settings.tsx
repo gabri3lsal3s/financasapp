@@ -135,7 +135,7 @@ export default function Settings() {
               onClick={() => updateSettingsView('appearance')}
               className="flex items-center justify-center gap-2 w-full"
             >
-              <Sparkles size={16} /> Aparência
+              <Sparkles size={16} /> <span className="hidden sm:inline">Aparência</span>
             </Button>
             <Button
               type="button"
@@ -143,7 +143,7 @@ export default function Settings() {
               onClick={() => updateSettingsView('personalization')}
               className="flex items-center justify-center gap-2 w-full"
             >
-              <SlidersHorizontal size={16} /> Personalização
+              <SlidersHorizontal size={16} /> <span className="hidden sm:inline">Personalização</span>
             </Button>
             <Button
               type="button"
@@ -151,7 +151,7 @@ export default function Settings() {
               onClick={() => updateSettingsView('security')}
               className="flex items-center justify-center gap-2 w-full"
             >
-              <ShieldCheck size={16} /> Segurança
+              <ShieldCheck size={16} /> <span className="hidden sm:inline">Segurança</span>
             </Button>
           </div>
         </Card>

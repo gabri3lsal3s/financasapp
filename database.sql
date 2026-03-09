@@ -57,6 +57,19 @@ CREATE TABLE IF NOT EXISTS investments (
   user_id UUID DEFAULT auth.uid()
 );
 
+-- Tabela de insights mensais gerados por IA
+CREATE TABLE IF NOT EXISTS monthly_insights (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  month TEXT NOT NULL CHECK (month ~ '^\d{4}-\d{2}$'),
+  highlights JSONB NOT NULL DEFAULT '[]'::jsonb,
+  recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  data_hash TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  user_id UUID DEFAULT auth.uid()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_monthly_insights_user_month_unique ON monthly_insights(user_id, month);
+
 -- Tabela de limites mensais por categoria de despesa
 CREATE TABLE IF NOT EXISTS expense_category_month_limits (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -104,6 +117,7 @@ ALTER TABLE income_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_category_month_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE income_category_month_expectations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE monthly_insights ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- RLS POLICIES
@@ -150,3 +164,9 @@ CREATE POLICY "Users can view own income expectations" ON income_category_month_
 CREATE POLICY "Users can insert own income expectations" ON income_category_month_expectations FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own income expectations" ON income_category_month_expectations FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own income expectations" ON income_category_month_expectations FOR DELETE USING (auth.uid() = user_id);
+
+-- Monthly Insights
+CREATE POLICY "Users can view own monthly insights" ON monthly_insights FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own monthly insights" ON monthly_insights FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own monthly insights" ON monthly_insights FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own monthly insights" ON monthly_insights FOR DELETE USING (auth.uid() = user_id);

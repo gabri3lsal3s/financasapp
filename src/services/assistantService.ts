@@ -728,10 +728,13 @@ const computeDataHash = (data: { expenses: { amount: number }[], incomes: { amou
 }
 
 async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: boolean): Promise<AssistantMonthlyInsightsResult | null> {
-  const storageKey = `minhas-financas:insights:${targetMonth}`
   const failureKey = `minhas-financas:insights-failure:${targetMonth}`
 
-  // 1. Load current data upfront (needed for hash comparison)
+  // 1. Get current userId
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // 2. Load current data upfront (needed for hash comparison)
   if (!(await monthHasAnyData(targetMonth))) {
     return null
   }
@@ -739,11 +742,23 @@ async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: b
   const currentData = await fetchMonthInsightDataset(targetMonth)
   const currentHash = computeDataHash(currentData)
 
-  // 2. Check for cached insights
-  const cachedRaw = localStorage.getItem(storageKey)
-  const cachedData = cachedRaw ? JSON.parse(cachedRaw) : null
+  // 3. Fetch from Supabase
+  const { data: cachedDbData } = await supabase
+    .from('monthly_insights')
+    .select('month, highlights, recommendations, data_hash, updated_at')
+    .eq('month', targetMonth)
+    .limit(1)
+    .maybeSingle()
 
-  // 3. Apply locking/caching rules
+  const cachedData = cachedDbData ? {
+    month: cachedDbData.month,
+    highlights: cachedDbData.highlights as string[],
+    recommendations: cachedDbData.recommendations as string[],
+    dataHash: cachedDbData.data_hash as string | undefined,
+    generatedAt: cachedDbData.updated_at as string | undefined
+  } : null
+
+  // 4. Apply locking/caching rules
   if (cachedData && !force) {
     const monthComplete = isMonthComplete(targetMonth)
 
@@ -765,7 +780,7 @@ async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: b
     }
   }
 
-  // 4. Check failure cooldown (skip if forced)
+  // 5. Check failure cooldown (skip if forced)
   if (!force) {
     const lastFailure = localStorage.getItem(failureKey)
     if (lastFailure) {
@@ -777,7 +792,7 @@ async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: b
     }
   }
 
-  // 5. Call the API
+  // 6. Call the API
   const expensesForContext = currentData.expenses.map(e => ({
     ...e,
     id: e.id || e.date,
@@ -821,23 +836,36 @@ async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: b
     investments: investmentsForContext
   })
 
-  // 6. Handle API failure
+  // 7. Handle API failure
   if (!insights) {
     localStorage.setItem(failureKey, new Date().toISOString())
     if (cachedData) return { month: cachedData.month, highlights: cachedData.highlights, recommendations: cachedData.recommendations }
     return null // Silently fail – caller will show a toast
   }
 
-  // 7. Success
+  // 8. Success: Save to Supabase using upsert
   localStorage.removeItem(failureKey)
-  const result = {
+  const result: AssistantMonthlyInsightsResult = {
     month: insights.month,
     highlights: insights.highlights,
     recommendations: insights.recommendations,
-    generatedAt: new Date().toISOString(),
-    dataHash: currentHash,
   }
-  localStorage.setItem(storageKey, JSON.stringify(result))
+
+  // Fire and forget upsert OR await it. It's better to await to ensure consistency
+  await supabase
+    .from('monthly_insights')
+    .upsert(
+      {
+        user_id: user.id,
+        month: targetMonth,
+        highlights: insights.highlights,
+        recommendations: insights.recommendations,
+        data_hash: currentHash,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id, month' }
+    )
+
   return result
 }
 
