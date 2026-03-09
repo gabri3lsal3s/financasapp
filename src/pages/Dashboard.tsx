@@ -14,7 +14,7 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, formatNumberBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles, RefreshCw } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
@@ -117,7 +117,7 @@ export default function Dashboard() {
   })
   const [monthlyInsights, setMonthlyInsights] = useState<string[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
-  const [insightsError, setInsightsError] = useState<string | null>(null)
+  const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   const formatAxisCurrencyTick = (value: number) => {
@@ -311,51 +311,84 @@ export default function Dashboard() {
     }
   }, [])
 
+  const [insightToastError, setInsightToastError] = useState<string | null>(null)
+
+  const handleRefreshInsights = async () => {
+    if (insightsLoading) return
+    setInsightsLoading(true)
+    try {
+      const result = await getAssistantMonthlyInsights(currentMonth, true)
+      if (result) {
+        const mergedInsights = [...result.highlights, ...result.recommendations]
+          .map((item) => item.trim())
+          .filter(Boolean)
+        setMonthlyInsights(mergedInsights.slice(0, 3))
+        setInsightToastError(null)
+      } else {
+        setInsightToastError('Não foi possível gerar os insights no momento. Tente novamente mais tarde.')
+      }
+    } catch (error) {
+      setInsightToastError(error instanceof Error ? error.message : 'Falha ao atualizar insights.')
+    } finally {
+      setInsightsLoading(false)
+    }
+  }
+
   useEffect(() => {
     let isCancelled = false
 
+    // Immediately clear stale insights and trigger page-level fade transition
+    setMonthlyInsights([])
+    setIsMonthTransitioning(true)
+
     if (!monthlyInsightsEnabled) {
-      setMonthlyInsights([])
-      setInsightsError(null)
       setInsightsLoading(false)
+      setIsMonthTransitioning(false)
       return
     }
 
     if (!hasMonthlyData) {
-      setMonthlyInsights([])
-      setInsightsError(null)
       setInsightsLoading(false)
-      return
+      // Give other elements a moment to fade in cleanly before resolving transition
+      const fadeTimer = setTimeout(() => setIsMonthTransitioning(false), 150)
+      return () => clearTimeout(fadeTimer)
     }
 
     const loadInsights = async () => {
       setInsightsLoading(true)
-      setInsightsError(null)
 
       try {
         const result = await getAssistantMonthlyInsights(currentMonth)
         if (isCancelled) return
 
-        const mergedInsights = [...result.highlights, ...result.recommendations]
-          .map((item) => item.trim())
-          .filter(Boolean)
-
-        setMonthlyInsights(mergedInsights.slice(0, 3))
+        if (result) {
+          const mergedInsights = [...result.highlights, ...result.recommendations]
+            .map((item) => item.trim())
+            .filter(Boolean)
+          setMonthlyInsights(mergedInsights.slice(0, 3))
+        } else {
+          setMonthlyInsights([])
+        }
       } catch (error) {
         if (isCancelled) return
-        setInsightsError(error instanceof Error ? error.message : 'Falha ao atualizar insights do mês.')
+        setInsightToastError(error instanceof Error ? error.message : 'Falha ao carregar insights do mês.')
         setMonthlyInsights([])
       } finally {
         if (!isCancelled) {
           setInsightsLoading(false)
+          setIsMonthTransitioning(false)
         }
       }
     }
 
-    void loadInsights()
+    // Short delay for the fade-out to complete before fetching new content
+    const timeoutId = setTimeout(() => {
+      void loadInsights()
+    }, 150)
 
     return () => {
       isCancelled = true
+      clearTimeout(timeoutId)
     }
   }, [
     currentMonth,
@@ -618,7 +651,7 @@ export default function Dashboard() {
       : `${firstSentence} ${withoutTrailingDot[1]}. Para os próximos dias, ${toClauseAfterConnector(withoutTrailingDot[2])}.`
   }, [monthlyInsights, insightNarrativeMoment.isFinalized, isMobileViewport])
 
-  const shouldShowMonthlyInsights = monthlyInsightsEnabled && !insightsLoading && !insightsError && monthlyInsightsNarrative.length > 0
+  const shouldShowMonthlyInsightsCard = monthlyInsightsEnabled && hasMonthlyData
 
   const openQuickAdd = (type: QuickAddType) => {
     setQuickAddType(type)
@@ -862,6 +895,27 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* API error toast – subtle, bottom-right, auto-dismissable */}
+      {insightToastError && (
+        <div
+          role="alert"
+          className="fixed bottom-4 right-4 z-50 max-w-xs w-full bg-secondary border border-primary rounded-xl shadow-lg px-4 py-3 flex items-start gap-3 animate-fade-in"
+          onClick={() => setInsightToastError(null)}
+        >
+          <span className="text-xs text-secondary leading-relaxed flex-1 cursor-pointer">
+            ⚠️ {insightToastError}
+          </span>
+          <button
+            type="button"
+            className="text-secondary hover:text-primary flex-shrink-0 mt-0.5"
+            onClick={() => setInsightToastError(null)}
+            aria-label="Fechar notificação"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <PageHeader
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
@@ -894,18 +948,57 @@ export default function Dashboard() {
       <div className="p-4 lg:p-6">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
 
-        {shouldShowMonthlyInsights && (
-          <Card className="mt-4 lg:mt-6">
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
-              <p className="text-sm text-primary leading-relaxed">
-                {monthlyInsightsNarrative}
-              </p>
+        {/* Content area: fades in/out atomically when month changes */}
+        <div
+          style={{
+            opacity: isMonthTransitioning ? 0 : 1,
+            transition: 'opacity 150ms ease-in-out',
+            willChange: 'opacity',
+          }}
+        >
+
+        {shouldShowMonthlyInsightsCard && (
+          <Card className="mt-4 lg:mt-6 animate-insight-enter">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
+                <button
+                  type="button"
+                  onClick={handleRefreshInsights}
+                  disabled={insightsLoading}
+                  className={`p-2 rounded-lg border border-primary bg-secondary text-primary motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] disabled:opacity-50 ${
+                    insightsLoading ? 'animate-spin' : ''
+                  }`}
+                  title="Forçar atualização dos insights"
+                >
+                  <RefreshCw size={16} />
+                </button>
+              </div>
+
+              <div className="transition-opacity duration-300" style={{ opacity: insightsLoading ? 0.4 : 1 }}>
+                {(insightsLoading || isMonthTransitioning) ? (
+                  <div className="flex items-center gap-3 py-2 animate-pulse">
+                    <div className="w-1.5 h-10 rounded-full bg-tertiary" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-tertiary rounded w-3/4" />
+                      <div className="h-3 bg-tertiary rounded w-1/2" />
+                    </div>
+                  </div>
+                ) : monthlyInsightsNarrative.length > 0 ? (
+                  <p className="text-sm text-primary leading-relaxed">
+                    {monthlyInsightsNarrative}
+                  </p>
+                ) : (
+                  <p className="text-sm text-secondary leading-relaxed italic">
+                    Nenhum insight gerado para este mês. Clique em ↻ para gerar agora.
+                  </p>
+                )}
+              </div>
             </div>
           </Card>
         )}
 
-        <div className={shouldShowMonthlyInsights ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
+        <div className={shouldShowMonthlyInsightsCard ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
 
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
@@ -1095,8 +1188,9 @@ export default function Dashboard() {
             </div>
           </>
         )}
-        </div>
-      </div>
+        </div>{/* end inner content area */}
+        </div>{/* end month-transition opacity wrapper */}
+      </div>{/* end p-4 lg:p-6 container */}
 
       <Modal isOpen={isQuickAddOpen} onClose={closeQuickAdd} title={quickAddTitle}>
         <form onSubmit={handleQuickAddSubmit} className="w-full max-w-md mx-auto space-y-4">

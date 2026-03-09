@@ -79,6 +79,8 @@ export const generateMonthlyInsights = async (
 ): Promise<AssistantMonthlyInsightsResult | null> => {
   try {
     const ai = createGenAIClient()
+    if (!ai) return null
+    
     const prompt = buildInsightsPrompt(context)
 
     const response = await ai.models.generateContent({

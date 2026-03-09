@@ -1,0 +1,242 @@
+
+> minhas-financas@1.0.0 test:run
+> vitest run src/services/assistantService.test.ts
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/gabri/OneDrive/Documentos/Finan├ºas/minhas_financas[39m
+
+ [31mÔØ»[39m src/services/assistantService.test.ts [2m([22m[2m55 tests[22m[2m | [22m[31m13 failed[39m[2m)[22m[90m 74[2mms[22m[39m
+[31m   [31m├ù[31m assistant parser - interpreta├º├úo contextual[2m > [22minterpreta despesa sem verbo de comando e extrai dados do contexto[90m 20[2mms[22m[31m[39m
+[31m     ÔåÆ expected 'Almo├ºo' to be 'Almo├ºo na Unit' // Object.is equality[39m
+[31m   [31m├ù[31m assistant parser - interpreta├º├úo contextual[2m > [22mmant├®m localiza├º├úo quando dispon├¡vel e usa palavra ├║nica[90m 2[2mms[22m[31m[39m
+[31m     ÔåÆ expected 'Compras' to be 'Compras em Aracaju' // Object.is equality[39m
+[31m   [31m├ù[31m assistant parser - interpreta├º├úo contextual[2m > [22mmant├®m padr├úo palavra-chave + local com contra├º├úo no/na[90m 2[2mms[22m[31m[39m
+[31m     ÔåÆ expected 'Jantar' to be 'Jantar no Giraffas' // Object.is equality[39m
+[31m   [31m├ù[31m assistant parser - interpreta├º├úo contextual[2m > [22mnormaliza ifood com localiza├º├úo quando dispon├¡vel[90m 2[2mms[22m[31m[39m
+[31m     ÔåÆ expected 'Ifood' to be 'Ifood em Casa' // Object.is equality[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22minterpreta comando composto com despesas e investimento no mesmo contexto[90m 5[2mms[22m[31m[39m
+[31m     ÔåÆ expected [ { amount: 80, ÔÇª(6) }, ÔÇª(1) ] to have a length of 3 but got 2[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mcalcula valor no relat├│rio para despesa compartilhada com amigos[90m 2[2mms[22m[31m[39m
+[31m     ÔåÆ expected [ { amount: 5, ÔÇª(6) }, ÔÇª(1) ] to have a length of 1 but got 2[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22maplica l├│gica de divis├úo tamb├®m para renda compartilhada[90m 2[2mms[22m[31m[39m
+[31m     ÔåÆ expected 0.0008 to be close to 0.3333333333333333, received difference is 0.3325333333333333, but expected 0.000049999999999999996[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mentende divis├úo com "dividimos por X"[90m 1[2mms[22m[31m[39m
+[31m     ÔåÆ expected 0.0333 to be close to 0.3333333333333333, received difference is 0.3000333333333333, but expected 0.000049999999999999996[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mentende divis├úo com "dividimos em X"[90m 1[2mms[22m[31m[39m
+[31m     ÔåÆ expected 0.0333 to be 0.25 // Object.is equality[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mentende express├úo "cada um pagou" para renda compartilhada[90m 1[2mms[22m[31m[39m
+[31m     ÔåÆ expected undefined to be close to 0.3333333333333333, received difference is NaN, but expected 0.000049999999999999996[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mentende express├úo coloquial "cada um deu"[90m 1[2mms[22m[31m[39m
+[31m     ÔåÆ expected 0.0083 to be 0.25 // Object.is equality[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mentende varia├º├úo num├®rica "cada 1 pagou"[90m 2[2mms[22m[31m[39m
+[31m     ÔåÆ expected 0.0067 to be close to 0.3333333333333333, received difference is 0.32663333333333333, but expected 0.000049999999999999996[39m
+[31m   [31m├ù[31m assistant parser - investimentos e casos de controle[2m > [22mentende transcri├º├úo sem espa├ºo "cadaum"[90m 1[2mms[22m[31m[39m
+[31m     ÔåÆ expected 0.0167 to be close to 0.3333333333333333, received difference is 0.3166333333333333, but expected 0.000049999999999999996[39m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Tests 13 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - interpreta├º├úo contextual > interpreta despesa sem verbo de comando e extrai dados do contexto
+AssertionError: expected 'Almo├ºo' to be 'Almo├ºo na Unit' // Object.is equality
+
+Expected: "Almo├ºo na Unit"
+Received: "Almo├ºo"
+
+ ÔØ» src/services/assistantService.test.ts:13:31
+     11|     expect(confidence).toBeGreaterThanOrEqual(0.8)
+     12|     expect(slots.amount).toBe(140.96)
+     13|     expect(slots.description).toBe('Almo├ºo na Unit')
+       |                               ^
+     14|   })
+     15| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - interpreta├º├úo contextual > mant├®m localiza├º├úo quando dispon├¡vel e usa palavra ├║nica
+AssertionError: expected 'Compras' to be 'Compras em Aracaju' // Object.is equality
+
+Expected: "Compras em Aracaju"
+Received: "Compras"
+
+ ÔØ» src/services/assistantService.test.ts:22:31
+     20| 
+     21|     expect(intent).toBe('add_expense')
+     22|     expect(slots.description).toBe('Compras em Aracaju')
+       |                               ^
+     23|   })
+     24| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[2/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - interpreta├º├úo contextual > mant├®m padr├úo palavra-chave + local com contra├º├úo no/na
+AssertionError: expected 'Jantar' to be 'Jantar no Giraffas' // Object.is equality
+
+Expected: "Jantar no Giraffas"
+Received: "Jantar"
+
+ ÔØ» src/services/assistantService.test.ts:50:31
+     48|     expect(intent).toBe('add_expense')
+     49|     expect(slots.amount).toBe(42)
+     50|     expect(slots.description).toBe('Jantar no Giraffas')
+       |                               ^
+     51|   })
+     52| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[3/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - interpreta├º├úo contextual > normaliza ifood com localiza├º├úo quando dispon├¡vel
+AssertionError: expected 'Ifood' to be 'Ifood em Casa' // Object.is equality
+
+Expected: "Ifood em Casa"
+Received: "Ifood"
+
+ ÔØ» src/services/assistantService.test.ts:60:31
+     58|     expect(intent).toBe('add_expense')
+     59|     expect(slots.amount).toBe(63.5)
+     60|     expect(slots.description).toBe('Ifood em Casa')
+       |                               ^
+     61|   })
+     62| })
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[4/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > interpreta comando composto com despesas e investimento no mesmo contexto
+AssertionError: expected [ { amount: 80, ÔÇª(6) }, ÔÇª(1) ] to have a length of 3 but got 2
+
+- Expected
++ Received
+
+- 3
++ 2
+
+ ÔØ» src/services/assistantService.test.ts:390:25
+    388| 
+    389|     expect(slots.items).toBeDefined()
+    390|     expect(slots.items).toHaveLength(3)
+       |                         ^
+    391| 
+    392|     const [first, second, third] = slots.items || []
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[5/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > calcula valor no relat├│rio para despesa compartilhada com amigos
+AssertionError: expected [ { amount: 5, ÔÇª(6) }, ÔÇª(1) ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ÔØ» src/services/assistantService.test.ts:435:25
+    433|     expect(intent).toBe('add_expense')
+    434|     expect(slots.items).toBeDefined()
+    435|     expect(slots.items).toHaveLength(1)
+       |                         ^
+    436| 
+    437|     const [item] = slots.items || []
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[6/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > aplica l├│gica de divis├úo tamb├®m para renda compartilhada
+AssertionError: expected 0.0008 to be close to 0.3333333333333333, received difference is 0.3325333333333333, but expected 0.000049999999999999996
+ ÔØ» src/services/assistantService.test.ts:457:32
+    455|     expect(item.transactionType).toBe('income')
+    456|     expect(item.amount).toBe(1200)
+    457|     expect(item.report_weight).toBeCloseTo(1 / 3, 4)
+       |                                ^
+    458|   })
+    459| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[7/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > entende divis├úo com "dividimos por X"
+AssertionError: expected 0.0333 to be close to 0.3333333333333333, received difference is 0.3000333333333333, but expected 0.000049999999999999996
+ ÔØ» src/services/assistantService.test.ts:468:32
+    466|     const [item] = slots.items || []
+    467|     expect(item.amount).toBe(90)
+    468|     expect(item.report_weight).toBeCloseTo(1 / 3, 4)
+       |                                ^
+    469|   })
+    470| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[8/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > entende divis├úo com "dividimos em X"
+AssertionError: expected 0.0333 to be 0.25 // Object.is equality
+
+- Expected
++ Received
+
+- 0.25
++ 0.0333
+
+ ÔØ» src/services/assistantService.test.ts:479:32
+    477|     const [item] = slots.items || []
+    478|     expect(item.amount).toBe(120)
+    479|     expect(item.report_weight).toBe(0.25)
+       |                                ^
+    480|   })
+    481| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[9/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > entende express├úo "cada um pagou" para renda compartilhada
+AssertionError: expected undefined to be close to 0.3333333333333333, received difference is NaN, but expected 0.000049999999999999996
+ ÔØ» src/services/assistantService.test.ts:501:32
+    499|     const [item] = slots.items || []
+    500|     expect(item.amount).toBe(1500)
+    501|     expect(item.report_weight).toBeCloseTo(1 / 3, 4)
+       |                                ^
+    502|   })
+    503| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[10/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > entende express├úo coloquial "cada um deu"
+AssertionError: expected 0.0083 to be 0.25 // Object.is equality
+
+- Expected
++ Received
+
+- 0.25
++ 0.0083
+
+ ÔØ» src/services/assistantService.test.ts:534:32
+    532|     const [item] = slots.items || []
+    533|     expect(item.amount).toBe(120)
+    534|     expect(item.report_weight).toBe(0.25)
+       |                                ^
+    535|   })
+    536| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[11/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > entende varia├º├úo num├®rica "cada 1 pagou"
+AssertionError: expected 0.0067 to be close to 0.3333333333333333, received difference is 0.32663333333333333, but expected 0.000049999999999999996
+ ÔØ» src/services/assistantService.test.ts:578:32
+    576|     const [item] = slots.items || []
+    577|     expect(item.amount).toBe(150)
+    578|     expect(item.report_weight).toBeCloseTo(1 / 3, 4)
+       |                                ^
+    579|   })
+    580| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[12/13]ÔÄ»
+
+ FAIL  src/services/assistantService.test.ts > assistant parser - investimentos e casos de controle > entende transcri├º├úo sem espa├ºo "cadaum"
+AssertionError: expected 0.0167 to be close to 0.3333333333333333, received difference is 0.3166333333333333, but expected 0.000049999999999999996
+ ÔØ» src/services/assistantService.test.ts:611:32
+    609|     const [item] = slots.items || []
+    610|     expect(item.amount).toBe(60)
+    611|     expect(item.report_weight).toBeCloseTo(1 / 3, 4)
+       |                                ^
+    612|   })
+    613| })
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[13/13]ÔÄ»
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m42 passed[39m[22m[90m (55)[39m
+[2m   Start at [22m 13:52:04
+[2m   Duration [22m 2.25s[2m (transform 336ms, setup 0ms, collect 1.12s, tests 74ms, environment 0ms, prepare 155ms)[22m
+

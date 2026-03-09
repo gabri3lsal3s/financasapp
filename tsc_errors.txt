@@ -1,0 +1,13 @@
+src/services/assistantService.ts(2,26): error TS2307: Cannot find module '@/lib/supabase' or its corresponding type declarations.
+src/services/assistantService.ts(3,63): error TS2307: Cannot find module '@/utils/format' or its corresponding type declarations.
+src/services/assistantService.ts(15,8): error TS2307: Cannot find module '@/types' or its corresponding type declarations.
+src/services/assistantService.ts(17,62): error TS2307: Cannot find module '@/services/ai/voice' or its corresponding type declarations.
+src/services/assistantService.ts(18,41): error TS2307: Cannot find module '@/services/ai/insights' or its corresponding type declarations.
+src/services/assistantService.ts(20,43): error TS2307: Cannot find module '@/services/assistant-core/confirmationPolicy' or its corresponding type declarations.
+src/services/assistantService.ts(21,48): error TS2307: Cannot find module '@/services/assistant-core/confirmationPolicy' or its corresponding type declarations.
+src/services/assistantService.ts(22,33): error TS2307: Cannot find module '@/services/assistant-core/resolveCategory' or its corresponding type declarations.
+src/services/assistantService.ts(27,8): error TS2307: Cannot find module '@/services/assistant-core/buildConfirmation' or its corresponding type declarations.
+src/services/assistantService.ts(33,8): error TS2307: Cannot find module '@/services/assistant-core/executeCommand' or its corresponding type declarations.
+src/services/assistantService.ts(34,29): error TS2307: Cannot find module '@/services/assistant-core/inferIntent' or its corresponding type declarations.
+src/services/assistantService.ts(35,28): error TS2307: Cannot find module '@/services/assistant-core/buildSlots' or its corresponding type declarations.
+src/services/assistantService.ts(36,35): error TS2307: Cannot find module '@/services/assistant-core/extractors' or its corresponding type declarations.

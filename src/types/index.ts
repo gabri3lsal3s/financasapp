@@ -158,6 +158,7 @@ export interface AssistantSlots {
   payment_method?: 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other'
   credit_card_id?: string
   credit_card_name?: string
+  report_weight?: number
   description?: string
   date?: string
   month?: string

@@ -1,0 +1,34 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/gabri/OneDrive/Documentos/Finan├ºas/minhas_financas[39m
+
+ [31mÔØ»[39m src/services/temp.test.ts [2m([22m[2m0 test[22m[2m)[22m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Suites 1 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  src/services/temp.test.ts [ src/services/temp.test.ts ]
+Error: Transform failed with 1 error:
+C:/Users/gabri/OneDrive/Documentos/Finan├ºas/minhas_financas/src/services/assistant-core/extractors.ts:200:22: ERROR: Expected "(" but found "/"
+  Plugin: vite:esbuild
+  File: C:/Users/gabri/OneDrive/Documentos/Finan├ºas/minhas_financas/src/services/assistant-core/extractors.ts:200:22
+  
+  Expected "(" but found "/"
+  198|            } else if (!report_weight) {
+  199|                if (/rach(ou|amos)/i.test(normalized)) report_weight = 0.5
+  200|                else if /(cadaum|cada 1|pramim|cada um)/i.test(normalized)) report_weight = 0.3333
+     |                        ^
+  201|                else if /(meu foi|o meu|por cabeca|pra mim)/i.test(normalized)) report_weight = 0.25
+  202|            }
+  
+ ÔØ» failureErrorWithLog node_modules/esbuild/lib/main.js:1472:15
+ ÔØ» node_modules/esbuild/lib/main.js:755:50
+ ÔØ» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:622:9
+ ÔØ» handleIncomingPacket node_modules/esbuild/lib/main.js:677:12
+ ÔØ» Socket.readFromStdout node_modules/esbuild/lib/main.js:600:7
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/1]ÔÄ»
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [2mno tests[22m
+[2m   Start at [22m 13:58:08
+[2m   Duration [22m 1.00s[2m (transform 54ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 196ms)[22m
+
