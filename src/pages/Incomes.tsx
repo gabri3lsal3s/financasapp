@@ -273,15 +273,15 @@ export default function Incomes() {
         title={PAGE_HEADERS.incomes.title}
         subtitle={PAGE_HEADERS.incomes.description}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2"
-          >
-            <Plus size={16} />
-            Adicionar
-          </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenModal()}
+              className="w-full sm:w-auto flex items-center justify-center gap-2"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">Adicionar</span>
+            </Button>
         }
       />
 

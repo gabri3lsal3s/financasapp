@@ -113,12 +113,12 @@ export default function Categories() {
             size="sm"
             variant="outline"
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2"
+            className="w-full sm:w-auto flex items-center justify-center gap-2"
             disabled={categories.length >= 15}
             title={categories.length >= 15 ? 'Limite de 15 categorias atingido' : ''}
           >
             <Plus size={16} />
-            Adicionar
+            <span className="hidden sm:inline">Adicionar</span>
           </Button>
         }
       />

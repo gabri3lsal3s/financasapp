@@ -381,19 +381,22 @@ export async function interpretAssistantCommand(params: {
   text: string
   locale?: string
   confirmationMode?: AssistantConfirmationMode
+  forceConfirmation?: boolean
 }): Promise<AssistantInterpretResult> {
   const session = await ensureSession(params.deviceId, params.locale || DEFAULT_LOCALE)
   const userId = session.user_id || await getCurrentUserId()
 
-  const [categoriesResult, incomeCategoriesResult] = await Promise.all([
+  const [categoriesResult, incomeCategoriesResult, creditCardsResult] = await Promise.all([
     supabase.from('categories').select('*'),
     supabase.from('income_categories').select('*'),
+    supabase.from('credit_cards').select('id, name').eq('is_active', true),
   ])
 
   // Extract using the new AI Service
   const extracted = await extractIntentAndSlots(params.text, {
     categories: categoriesResult.data || [],
     incomeCategories: incomeCategoriesResult.data || [],
+    creditCards: creditCardsResult.data || [],
   })
   const intent = extracted.intent
   const confidence = 0.95 // High confidence when coming from LLM
@@ -404,15 +407,19 @@ export async function interpretAssistantCommand(params: {
     month: extracted.slots.month,
     description: extracted.slots.description,
     payment_method: extracted.slots.payment_method,
-    credit_card_name: extracted.slots.credit_card_name,
-    installment_count: extracted.slots.installment_count,
+    credit_card_id: (extracted.slots as any).creditCardId || extracted.slots.credit_card_id,
+    credit_card_name: (extracted.slots as any).creditCardName || extracted.slots.credit_card_name,
+    installment_count: (extracted.slots as any).installmentCount || extracted.slots.installment_count,
+    report_weight: (extracted.slots as any).reportWeight || extracted.slots.report_weight,
     items: extracted.slots.items?.map(i => ({
       transactionType: i.transactionType === 'expense' ? 'expense' : i.transactionType === 'income' ? 'income' : 'investment',
       amount: i.amount,
       description: i.description,
-      installment_count: i.installment_count,
+      installment_count: (i as any).installmentCount || i.installment_count,
       payment_method: i.payment_method,
-      credit_card_name: i.credit_card_name
+      credit_card_id: (i as any).creditCardId || i.credit_card_id,
+      credit_card_name: (i as any).creditCardName || i.credit_card_name,
+      report_weight: (i as any).reportWeight || i.report_weight
     }))
   }
 
@@ -427,6 +434,7 @@ export async function interpretAssistantCommand(params: {
     confidence,
     needsCategoryDisambiguation: categoryResolution.needsDisambiguation,
     mode: params.confirmationMode || 'write_only',
+    forceConfirmation: params.forceConfirmation,
   })
   const pendingConfirmation = confirmationPolicy.requiresConfirmation
 

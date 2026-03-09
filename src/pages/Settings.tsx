@@ -50,6 +50,8 @@ export default function Settings() {
     setBiometricLockTimeout,
     assistantDoubleConfirmationEnabled,
     setAssistantDoubleConfirmationEnabled,
+    screenRotationAllowed,
+    setScreenRotationAllowed,
   } = useAppSettings()
 
   const updateSettingsView = (view: SettingsView) => {
@@ -209,6 +211,17 @@ export default function Settings() {
                   checked={assistantDoubleConfirmationEnabled}
                   onChange={() => setAssistantDoubleConfirmationEnabled(!assistantDoubleConfirmationEnabled)}
                   title={assistantDoubleConfirmationEnabled ? 'Desativar revisão dupla' : 'Ativar revisão dupla'}
+                />
+              </SettingRow>
+
+              <SettingRow
+                title="Permitir rotação de tela"
+                description="Habilita o modo paisagem em tablets e celulares (o padrão é fixo em retrato)."
+              >
+                <ToggleSwitch
+                  checked={screenRotationAllowed}
+                  onChange={() => setScreenRotationAllowed(!screenRotationAllowed)}
+                  title={screenRotationAllowed ? 'Desativar rotação' : 'Permitir rotação'}
                 />
               </SettingRow>
             </div>

@@ -22,7 +22,7 @@ import type { CreditCard } from '@/types'
 import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check, Scale } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 type CardFormState = {
@@ -1100,23 +1100,27 @@ export default function CreditCards() {
         title={PAGE_HEADERS.creditCards.title}
         subtitle={PAGE_HEADERS.creditCards.description}
         action={(
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() => setCreditCardsWeightsEnabled(!creditCardsWeightsEnabled)}
-              className="w-full text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle sm:w-auto"
+              title={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              className="flex items-center gap-2"
             >
-              {creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              <Scale size={16} />
+              <span className="hidden sm:inline">
+                {creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              </span>
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={openCreateCardModal}
-              className="flex w-full items-center justify-center gap-2 text-secondary hover:text-primary motion-standard hover-lift-subtle press-subtle sm:w-auto"
+              className="flex items-center gap-2"
             >
               <Plus size={16} />
-              Novo cartão
+              <span className="hidden sm:inline">Novo cartão</span>
             </Button>
           </div>
         )}

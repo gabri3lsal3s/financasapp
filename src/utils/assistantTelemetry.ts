@@ -10,6 +10,7 @@ export interface AssistantTelemetryEvent {
   intent?: AssistantIntent
   commandId?: string
   confirmationMode?: 'write_only' | 'always' | 'never'
+  forceConfirmation?: boolean
   confirmationMethod?: 'voice' | 'touch'
   requiresConfirmation?: boolean
   confidence?: number

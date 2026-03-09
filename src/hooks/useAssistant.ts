@@ -58,7 +58,7 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
   }, [deviceId])
 
   const interpret = useCallback(
-    async (text: string, options?: { confirmationMode?: AssistantConfirmationMode; locale?: string }) => {
+    async (text: string, options?: { confirmationMode?: AssistantConfirmationMode; locale?: string; forceConfirmation?: boolean }) => {
       setLoading(true)
       try {
         const interpretation = await interpretAssistantCommand({
@@ -66,6 +66,7 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
           text,
           locale: options?.locale || 'pt-BR',
           confirmationMode: options?.confirmationMode,
+          forceConfirmation: options?.forceConfirmation,
         })
 
         setState((prev) => ({
@@ -138,11 +139,21 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
     }
   }, [])
 
+  const reset = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      lastInterpretation: null,
+      lastConfirmation: null,
+      error: null,
+    }))
+  }, [])
+
   return {
     ...state,
     ensureSession,
     interpret,
     confirm,
     getInsights,
+    reset,
   }
 }

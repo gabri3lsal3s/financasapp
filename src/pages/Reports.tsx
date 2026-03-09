@@ -19,6 +19,7 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
+import { Scale } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -1150,9 +1151,13 @@ export default function Reports() {
                 variant="outline"
                 fullWidth
                 size="md"
-                className="w-full"
+                className="w-full flex items-center justify-center gap-2"
+                title={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
               >
-                {dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+                <Scale size={18} />
+                <span className="hidden sm:inline">
+                  {dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+                </span>
               </Button>
             </div>
           </div>

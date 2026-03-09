@@ -150,7 +150,7 @@ export default function Investments() {
             className="flex items-center gap-2"
           >
             <Plus size={16} />
-            Adicionar
+            <span className="hidden sm:inline">Adicionar</span>
           </Button>
         }
       />

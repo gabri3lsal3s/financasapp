@@ -15,6 +15,7 @@ interface AssistantConfirmationPanelProps {
   editableSlots: AssistantSlots | null
   categories: CategoryOption[]
   incomeCategories: CategoryOption[]
+  creditCards: Array<{ id: string; name: string }>
   disabled: boolean
   fallbackMonth?: string
   onUpdateSlots: (updater: (previous: AssistantSlots) => AssistantSlots) => void
@@ -26,7 +27,6 @@ interface AssistantConfirmationPanelProps {
   onVoiceConfirm: () => void
   voiceConfirmDisabled: boolean
   voiceListening: boolean
-  isExpenseIntent: boolean
   containerClassName?: string
 }
 
@@ -37,6 +37,7 @@ export default function AssistantConfirmationPanel({
   editableSlots,
   categories,
   incomeCategories,
+  creditCards,
   disabled,
   fallbackMonth,
   onUpdateSlots,
@@ -48,7 +49,6 @@ export default function AssistantConfirmationPanel({
   onVoiceConfirm,
   voiceConfirmDisabled,
   voiceListening,
-  isExpenseIntent,
   containerClassName = 'space-y-3',
 }: AssistantConfirmationPanelProps) {
   return (
@@ -68,6 +68,7 @@ export default function AssistantConfirmationPanel({
           intent={intent}
           categories={categories}
           incomeCategories={incomeCategories}
+          creditCards={creditCards}
           disabled={disabled}
           fallbackMonth={fallbackMonth}
           onUpdate={onUpdateSlots}
@@ -106,9 +107,6 @@ export default function AssistantConfirmationPanel({
         )}
       </div>
 
-      {isExpenseIntent && (
-        <p className="text-xs text-secondary">Para despesas, a confirmação é feita manualmente pelos botões acima.</p>
-      )}
     </div>
   )
 }

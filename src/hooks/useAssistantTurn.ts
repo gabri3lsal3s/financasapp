@@ -22,6 +22,7 @@ import {
 interface OfflinePendingCommand {
   text: string
   confirmationMode?: AssistantConfirmationMode
+  forceConfirmation?: boolean
 }
 
 interface UseAssistantTurnPreferences {
@@ -46,6 +47,7 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
     ensureSession,
     interpret,
     confirm,
+    reset,
   } = useAssistant(deviceId)
 
   const [assistantText, setAssistantText] = useState('')
@@ -126,7 +128,7 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
     })
   }, [])
 
-  const interpretCommand = useCallback(async (text: string, options?: { confirmationMode?: AssistantConfirmationMode }) => {
+  const interpretCommand = useCallback(async (text: string, options?: { confirmationMode?: AssistantConfirmationMode; forceConfirmation?: boolean }) => {
     const trimmed = text.trim()
     if (!trimmed) return null
     const startedAt = Date.now()
@@ -168,6 +170,7 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
         confidence: interpretedResult.confidence,
         requiresConfirmation: interpretedResult.requiresConfirmation,
         confirmationMode: options?.confirmationMode,
+        forceConfirmation: options?.forceConfirmation,
         status: 'success',
         durationMs: Date.now() - startedAt,
       })
@@ -204,6 +207,7 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
             [offlineCommandId]: {
               text: trimmed,
               confirmationMode: options?.confirmationMode,
+              forceConfirmation: options?.forceConfirmation,
             },
           }))
 
@@ -246,6 +250,7 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
             offlinePending: {
               text: trimmed,
               confirmationMode: options?.confirmationMode,
+              forceConfirmation: options?.forceConfirmation,
             },
           })
           setPendingContextExpiresAt(pendingContext?.expiresAt || null)
@@ -258,6 +263,7 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
             confidence,
             requiresConfirmation: true,
             confirmationMode: options?.confirmationMode,
+            forceConfirmation: options?.forceConfirmation,
             status: 'success',
             durationMs: Date.now() - startedAt,
           })
@@ -453,6 +459,17 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
     locale,
   ])
 
+  const resetAssistantTurn = useCallback(() => {
+    reset()
+    setLocalInterpretation(null)
+    setLocalConfirmation(null)
+    setAssistantText('')
+    setEditableConfirmationText('')
+    setEditableSlots(null)
+    setPendingContextExpiresAt(null)
+    clearAssistantPendingContext(deviceId)
+  }, [deviceId, reset])
+
   return {
     assistantLoading,
     assistantError,
@@ -466,5 +483,6 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
     updateEditableSlots,
     interpretCommand,
     confirmLastInterpretation,
+    resetAssistantTurn,
   }
 }

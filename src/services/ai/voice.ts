@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 interface VoiceExtractionContext {
   categories: Category[]
   incomeCategories: IncomeCategory[]
+  creditCards?: Array<{ id: string; name: string }>
   recentHistory?: string // Ex: "Geralmente no restaurante ele paga com VR, no Mercado com crédito"
 }
 
@@ -56,13 +57,17 @@ const extractionSchema: Schema = {
       type: Type.STRING,
       description: 'The ISO date (YYYY-MM-DD) extracted or deduced from the input text.',
     },
-    categoryId: {
-      type: Type.STRING,
-      description: 'The ID of the category that best matches the transaction, chosen EXPLICITLY from the provided list.',
-    },
     categoryName: {
       type: Type.STRING,
       description: 'The name of the category that best matches.',
+    },
+    creditCardId: {
+      type: Type.STRING,
+      description: 'The ID of the credit card if payment_method is credit_card, chosen EXPLICITLY from the provided list.',
+    },
+    creditCardName: {
+      type: Type.STRING,
+      description: 'The name of the credit card that best matches.',
     }
   },
   required: ['intent', 'confidence'],
@@ -86,12 +91,16 @@ ${expenseCategoriesStr || 'Nenhuma'}
 Lista de categorias de Renda do usuário:
 ${incomeCategoriesStr || 'Nenhuma'}
 
+Lista de Cartões de Crédito do usuário:
+${context.creditCards?.map(c => `[ID: ${c.id}] ${c.name}`).join(', ') || 'Nenhum'}
+
 Regras de Extração:
 1. "intent": Determine a ação. Se o usuário diz que gastou, comprou ou pagou algo, é "add_expense". Se recebeu salarial, "add_income". Se investiu, "add_investment".
 2. "amount": O valor total da transação.
 3. "report_weight": Muito importante. Se o usuário disser "Paguei a conta do restaurante de 200 reais, mas a minha parte deu 50", o amount é 200, e o report_weight é 0.25 (50 / 200).
 4. "categoryId" e "categoryName": Baseado na descrição ("comida", "ifood", "mercado"), escolha a ID exata da lista de categorias fornecida que melhor combina.
-5. "date": Se ele disser "ontem", calcule a data de ontem. Se "hoje", use a data atual. Sempre no formato YYYY-MM-DD.
+5. "creditCardId" e "creditCardName": Se a forma de pagamento for cartão de crédito, escolha a ID exata da lista de cartões fornecida.
+6. "date": Se ele disser "ontem", calcule a data de ontem. Se "hoje", use a data atual. Sempre no formato YYYY-MM-DD.
 
 Fala do usuário: "${text}"
 
@@ -143,6 +152,8 @@ export const extractVoiceCommand = async (
         source: 'mapping'
       }
     }
+    if (data.creditCardId) slots.credit_card_id = data.creditCardId
+    if (data.creditCardName) slots.credit_card_name = data.creditCardName
 
     // Add nested items for division if report_weight is present
     if (data.report_weight !== undefined && data.report_weight !== 1.0) {

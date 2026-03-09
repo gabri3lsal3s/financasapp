@@ -5,38 +5,38 @@
 export const PAGE_HEADERS = {
   dashboard: {
     title: 'Dashboard',
-    description: 'Resumo financeiro do mês',
+    description: 'Resumo financeiro',
   },
   expenses: {
     title: 'Despesas',
-    description: 'Registre e gerencie suas despesas',
+    description: 'Gestão de despesas',
   },
   incomes: {
     title: 'Rendas',
-    description: 'Registre suas fontes de renda',
+    description: 'Gestão de rendas',
   },
   investments: {
     title: 'Investimentos',
-    description: 'Valor reservado para investimentos ou poupança',
+    description: 'Gestão de investimentos',
   },
   creditCards: {
     title: 'Cartões e Faturas',
-    description: 'Gerencie cartões de crédito e acompanhe faturas por competência',
+    description: 'Controle de faturas',
   },
   categories: {
     title: 'Categorias',
-    description: 'Acesse e gerencie categorias de despesas e rendas',
+    description: 'Categorias de despesas',
   },
   incomeCategories: {
     title: 'Categorias de Rendas',
-    description: 'Organize as categorias das suas fontes de renda',
+    description: 'Categorias de rendas',
   },
   reports: {
     title: 'Relatórios',
-    description: 'Visão mensal e por categoria do ano',
+    description: 'Análise de dados',
   },
   settings: {
     title: 'Configurações',
-    description: 'Aparência, Personalização e Segurança',
+    description: 'Ajustes e preferências',
   },
 } as const

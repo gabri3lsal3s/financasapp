@@ -8,6 +8,7 @@ type AssistantSessionContextPayload = {
   offlinePending?: {
     text: string
     confirmationMode?: AssistantConfirmationMode
+    forceConfirmation?: boolean
   }
 }
 
@@ -46,6 +47,7 @@ export const saveAssistantPendingContext = (
     offlinePending?: {
       text: string
       confirmationMode?: AssistantConfirmationMode
+      forceConfirmation?: boolean
     }
   },
 ) => {

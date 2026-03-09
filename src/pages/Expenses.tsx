@@ -321,7 +321,7 @@ export default function Expenses() {
             className="w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <Plus size={16} />
-            Adicionar
+            <span className="hidden sm:inline">Adicionar</span>
           </Button>
         }
       />

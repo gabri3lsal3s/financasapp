@@ -12,6 +12,7 @@ const ASSISTANT_SPEECH_PITCH_KEY = 'app.assistant.speechPitch'
 const FLOATING_CALCULATOR_ENABLED_KEY = 'app.floatingCalculator.enabled'
 const BIOMETRIC_LOCK_TIMEOUT_KEY = 'app.biometric.lockTimeoutMinutes'
 const ASSISTANT_DOUBLE_CONFIRMATION_ENABLED_KEY = 'app.assistant.doubleConfirmationEnabled'
+const SCREEN_ROTATION_ALLOWED_KEY = 'app.screenRotation.allowed'
 const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
 let dashboardReportsWeightsEnabledMemory = true
@@ -170,6 +171,16 @@ const readAssistantDoubleConfirmationEnabled = (): boolean => {
   return parseAssistantDoubleConfirmationEnabled(window.localStorage.getItem(ASSISTANT_DOUBLE_CONFIRMATION_ENABLED_KEY))
 }
 
+const parseScreenRotationAllowed = (value: string | null): boolean => {
+  if (value === null) return false // Default to locked as per previous requirement
+  return value === 'true'
+}
+
+const readScreenRotationAllowed = (): boolean => {
+  if (typeof window === 'undefined') return false
+  return parseScreenRotationAllowed(window.localStorage.getItem(SCREEN_ROTATION_ALLOWED_KEY))
+}
+
 export function useAppSettings() {
   const [monthlyInsightsEnabled, setMonthlyInsightsEnabledState] = useState<boolean>(readMonthlyInsightsEnabled)
   const [assistantConfirmationMode, setAssistantConfirmationModeState] = useState<AssistantConfirmationMode>(readAssistantConfirmationMode)
@@ -186,6 +197,7 @@ export function useAppSettings() {
   const [creditCardsWeightsEnabled, setCreditCardsWeightsEnabledState] = useState<boolean>(readCreditCardsWeightsEnabled)
   const [biometricLockTimeout, setBiometricLockTimeoutState] = useState<BiometricLockTimeout>(readBiometricLockTimeout)
   const [assistantDoubleConfirmationEnabled, setAssistantDoubleConfirmationEnabledState] = useState<boolean>(readAssistantDoubleConfirmationEnabled)
+  const [screenRotationAllowed, setScreenRotationAllowedState] = useState<boolean>(readScreenRotationAllowed)
 
   useEffect(() => {
     const syncFromStorage = () => {
@@ -204,6 +216,7 @@ export function useAppSettings() {
       setCreditCardsWeightsEnabledState(readCreditCardsWeightsEnabled())
       setBiometricLockTimeoutState(readBiometricLockTimeout())
       setAssistantDoubleConfirmationEnabledState(readAssistantDoubleConfirmationEnabled())
+      setScreenRotationAllowedState(readScreenRotationAllowed())
     }
 
     const onStorage = (event: StorageEvent) => {
@@ -221,6 +234,7 @@ export function useAppSettings() {
         || event.key === FLOATING_CALCULATOR_ENABLED_KEY
         || event.key === BIOMETRIC_LOCK_TIMEOUT_KEY
         || event.key === ASSISTANT_DOUBLE_CONFIRMATION_ENABLED_KEY
+        || event.key === SCREEN_ROTATION_ALLOWED_KEY
       ) {
         syncFromStorage()
       }
@@ -355,6 +369,14 @@ export function useAppSettings() {
     window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
   }, [])
 
+  const setScreenRotationAllowed = useCallback((allowed: boolean) => {
+    if (typeof window === 'undefined') return
+
+    window.localStorage.setItem(SCREEN_ROTATION_ALLOWED_KEY, String(allowed))
+    setScreenRotationAllowedState(allowed)
+    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
+  }, [])
+
   return {
     monthlyInsightsEnabled,
     setMonthlyInsightsEnabled,
@@ -386,6 +408,8 @@ export function useAppSettings() {
     setBiometricLockTimeout,
     assistantDoubleConfirmationEnabled,
     setAssistantDoubleConfirmationEnabled,
+    screenRotationAllowed,
+    setScreenRotationAllowed,
   }
 }
 

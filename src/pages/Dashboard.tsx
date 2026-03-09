@@ -57,19 +57,20 @@ export default function Dashboard() {
     assistantAutoSpeak,
     assistantSpeechRate,
     assistantSpeechPitch,
+    assistantDoubleConfirmationEnabled,
   } = useAppSettings();
 
   const {
     assistantLoading,
     assistantError,
     lastInterpretation,
-    lastConfirmation,
     editableConfirmationText,
     setEditableConfirmationText,
     editableSlots,
     updateEditableSlots,
     interpretCommand,
     confirmLastInterpretation,
+    resetAssistantTurn,
   } = useAssistantTurn('web-dashboard-device', {
     locale: assistantLocale,
     offlineBehavior: assistantOfflineBehavior,
@@ -82,7 +83,6 @@ export default function Dashboard() {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
   const {
     voiceSupport,
-    voiceStatus,
     setVoiceStatus,
     voiceListening,
     voicePhase,
@@ -717,6 +717,7 @@ export default function Dashboard() {
   }
 
   const openAssistant = () => {
+    resetAssistantTurn()
     setIsAssistantOpen(true)
     clearVoiceFeedback()
     void handleVoiceInterpret()
@@ -727,6 +728,7 @@ export default function Dashboard() {
     stopSpeaking()
     setIsAssistantOpen(false)
     clearVoiceFeedback()
+    resetAssistantTurn()
   }
 
   const isExpenseIntent = lastInterpretation?.intent === 'add_expense'
@@ -761,6 +763,7 @@ export default function Dashboard() {
 
       const result = await interpretCommand(transcript, {
         confirmationMode: assistantConfirmationPolicyMode,
+        forceConfirmation: assistantDoubleConfirmationEnabled,
       })
       if (!result) return
       if (!result.requiresConfirmation) {
@@ -777,10 +780,7 @@ export default function Dashboard() {
       setVoiceStatus('Confirmação por voz está desativada nas suas configurações.')
       return
     }
-    if (lastInterpretation.intent === 'add_expense') {
-      setVoiceStatus('Para despesas, a confirmação é manual pelos botões Confirmar/Negar.')
-      return
-    }
+    // Permite confirmação por voz para todos os tipos agora, para maior flexibilidade
 
     try {
       const transcript = await captureSpeech('Confirme por voz')
@@ -939,7 +939,7 @@ export default function Dashboard() {
               disabled={categories.length === 0 && incomeCategories.length === 0}
             >
               <Plus size={16} />
-              Lançamento
+              <span className="hidden sm:inline">Lançamento</span>
             </Button>
           </div>
         }
@@ -1417,20 +1417,21 @@ export default function Dashboard() {
         title="Assistente"
       >
         <div className="space-y-4">
-          <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Status de escuta</p>
+          {/* Subtle Status Bar */}
+          <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${voicePhase === 'listening' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'}`} />
-              <p className="text-sm text-primary">
-                {voicePhase === 'listening' ? 'Escutando...' : voicePhase === 'stopped' ? 'Parou de escutar' : 'Pronto para iniciar'}
-              </p>
+              <div className={`h-2 w-2 rounded-full transition-colors duration-300 ${voicePhase === 'listening' ? 'bg-[var(--color-success)] animate-pulse shadow-[0_0_8px_var(--color-success)]' : 'bg-secondary'}`} />
+              <span className="text-[10px] uppercase tracking-widest text-secondary font-semibold">
+                {voicePhase === 'listening' ? 'Assistente Ouvindo' : 'Aguardando Comando'}
+              </span>
             </div>
             {lastHeardCommand && (
-              <p className="text-sm text-primary">
-                <strong>Comando ouvido:</strong> {lastHeardCommand}
-              </p>
+              <span className="text-[11px] italic text-secondary truncate max-w-[200px] border-l border-primary/20 pl-3">
+                "{lastHeardCommand}"
+              </span>
             )}
           </div>
+
 
           <Button
             onClick={handleVoiceInterpret}
@@ -1449,6 +1450,7 @@ export default function Dashboard() {
               editableSlots={editableSlots}
               categories={categories.map((category) => ({ id: category.id, name: category.name }))}
               incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
+              creditCards={creditCards.map((card) => ({ id: card.id, name: card.name }))}
               disabled={assistantLoading || !isSupabaseConfigured}
               fallbackMonth={currentMonth}
               onUpdateSlots={updateEditableSlots}
@@ -1460,12 +1462,11 @@ export default function Dashboard() {
               onVoiceConfirm={handleVoiceConfirm}
               voiceConfirmDisabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition || voiceListening}
               voiceListening={voiceListening}
-              isExpenseIntent={isExpenseIntent}
-              containerClassName="space-y-3 rounded-lg border border-primary bg-secondary p-3"
+              containerClassName="space-y-3"
             />
           )}
 
-          {voiceStatus && <p className="text-xs text-secondary">{voiceStatus}</p>}
+          {assistantError && <p className="text-xs text-[var(--color-danger)]">{assistantError}</p>}
           {hasAssistantOfflinePending && (
             <p className="text-xs text-secondary">
               {assistantOfflinePendingCount === 1
@@ -1473,8 +1474,6 @@ export default function Dashboard() {
                 : `${assistantOfflinePendingCount} comandos do assistente pendentes de sincronização.`}
             </p>
           )}
-          {assistantError && <p className="text-xs text-[var(--color-danger)]">{assistantError}</p>}
-          {lastConfirmation && <p className="text-sm text-primary">{lastConfirmation.message}</p>}
         </div>
       </Modal>
     </div>

@@ -11,11 +11,17 @@ interface CategoryOption {
   name: string
 }
 
+interface CreditCardOption {
+  id: string
+  name: string
+}
+
 interface AssistantEditableSlotsProps {
   editableSlots: AssistantSlots | null
   intent: AssistantIntent
   categories: CategoryOption[]
   incomeCategories: CategoryOption[]
+  creditCards: CreditCardOption[]
   disabled: boolean
   fallbackMonth?: string
   onUpdate: (updater: (previous: AssistantSlots) => AssistantSlots) => void
@@ -35,6 +41,7 @@ export default function AssistantEditableSlots({
   intent,
   categories,
   incomeCategories,
+  creditCards,
   disabled,
   fallbackMonth,
   onUpdate,
@@ -168,11 +175,16 @@ export default function AssistantEditableSlots({
                     if (Number.isNaN(parsed)) return
                     onUpdate((previous) => ({
                       ...previous,
-                      items: (previous.items || []).map((currentItem, itemIndex) => (
-                        itemIndex === index
-                          ? { ...currentItem, amount: parsed }
-                          : currentItem
-                      )),
+                      items: (previous.items || []).map((currentItem, itemIndex) => {
+                        if (itemIndex !== index) return currentItem
+                        
+                        // Sincronizar valor do relatório por padrão se não houver peso específico
+                        // ou se o amount era 0
+                        return { 
+                          ...currentItem, 
+                          amount: parsed,
+                        }
+                      }),
                     }))
                   }}
                   disabled={disabled}
@@ -234,20 +246,25 @@ export default function AssistantEditableSlots({
                 )}
 
                 {transactionType === 'expense' && (item.payment_method || 'other') === 'credit_card' && (
-                  <Input
-                    label="Cartão (nome)"
-                    value={item.credit_card_name || ''}
+                  <Select
+                    label="Cartão de crédito"
+                    value={item.credit_card_id || ''}
                     onChange={(event) => {
                       const value = event.target.value
+                      const card = creditCards.find((c) => c.id === value)
                       onUpdate((previous) => ({
                         ...previous,
                         items: (previous.items || []).map((currentItem, itemIndex) => (
                           itemIndex === index
-                            ? { ...currentItem, credit_card_name: value, credit_card_id: undefined }
+                            ? { ...currentItem, credit_card_id: value, credit_card_name: card?.name }
                             : currentItem
                         )),
                       }))
                     }}
+                    options={[
+                      { value: '', label: 'Selecionar cartão' },
+                      ...creditCards.map((card) => ({ value: card.id, label: card.name })),
+                    ]}
                     disabled={disabled}
                   />
                 )}
@@ -389,7 +406,10 @@ export default function AssistantEditableSlots({
           onChange={(event) => {
             const parsed = parseMoneyInput(event.target.value)
             if (Number.isNaN(parsed)) return
-            onUpdate((previous) => ({ ...previous, amount: parsed }))
+            onUpdate((previous) => ({ 
+              ...previous, 
+              amount: parsed 
+            }))
           }}
           disabled={disabled}
         />
@@ -436,14 +456,22 @@ export default function AssistantEditableSlots({
         )}
 
         {singleTransactionType === 'expense' && (editableSlots?.payment_method || 'other') === 'credit_card' && (
-          <Input
-            label="Cartão (nome)"
-            value={editableSlots?.credit_card_name || ''}
-            onChange={(event) => onUpdate((previous) => ({
-              ...previous,
-              credit_card_name: event.target.value,
-              credit_card_id: undefined,
-            }))}
+          <Select
+            label="Cartão de crédito"
+            value={editableSlots?.credit_card_id || ''}
+            onChange={(event) => {
+              const value = event.target.value
+              const card = creditCards.find((c) => c.id === value)
+              onUpdate((previous) => ({
+                ...previous,
+                credit_card_id: value,
+                credit_card_name: card?.name,
+              }))
+            }}
+            options={[
+              { value: '', label: 'Selecionar cartão' },
+              ...creditCards.map((card) => ({ value: card.id, label: card.name })),
+            ]}
             disabled={disabled}
           />
         )}
