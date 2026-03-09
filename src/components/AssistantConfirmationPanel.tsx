@@ -51,7 +51,6 @@ export default function AssistantConfirmationPanel({
   voiceListening,
   containerClassName = 'space-y-3',
 }: AssistantConfirmationPanelProps) {
-  console.log('[AssistantConfirmationPanel] creditCards prop:', creditCards)
   return (
     <div className={containerClassName}>
       <div className="rounded-lg border border-primary bg-primary p-3 space-y-3">

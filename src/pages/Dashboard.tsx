@@ -1461,7 +1461,7 @@ export default function Dashboard() {
               editableSlots={editableSlots}
               categories={categories.map((category) => ({ id: category.id, name: category.name }))}
               incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
-              creditCards={(() => { console.log('[Dashboard] cards passed:', creditCards); return creditCards.map(c => ({ id: c.id, name: c.name })); })()}
+              creditCards={creditCards.map(c => ({ id: c.id, name: c.name }))}
               disabled={assistantLoading || !isSupabaseConfigured}
               fallbackMonth={currentMonth}
               onUpdateSlots={updateEditableSlots}

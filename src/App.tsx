@@ -4,7 +4,6 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import Layout from './components/Layout'
-import PortraitLockOverlay from './components/PortraitLockOverlay'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
 import Dashboard from './pages/Dashboard'
@@ -23,36 +22,18 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
 
-import { applyOrientationSettings } from '@/utils/orientation'
-
 function App() {
-  const { assistantDataRetentionDays, screenRotationAllowed } = useAppSettings()
+  const { assistantDataRetentionDays } = useAppSettings()
 
   useEffect(() => {
     runAssistantPrivacyCleanup(assistantDataRetentionDays)
   }, [assistantDataRetentionDays])
-
-  useEffect(() => {
-    // Aplica configuração inicial e em mudanças de estado
-    applyOrientationSettings(screenRotationAllowed)
-
-    // Adiciona listener para re-aplicar se houver redimensionamento (fallback)
-    const handleResize = () => {
-      if (!screenRotationAllowed) {
-        applyOrientationSettings(false)
-      }
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [screenRotationAllowed])
 
   return (
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <SupabaseWarning />
-          <PortraitLockOverlay />
           <Routes>
             {/* Rotas Públicas */}
             <Route path="/login" element={<Login />} />

@@ -15,7 +15,6 @@ import {
   removeBiometricCredential,
 } from '@/utils/biometric'
 import { Fingerprint, SlidersHorizontal, Sparkles, ShieldCheck } from 'lucide-react'
-import { applyOrientationSettings } from '@/utils/orientation'
 
 type SettingsView = 'appearance' | 'personalization' | 'security'
 
@@ -51,8 +50,6 @@ export default function Settings() {
     setBiometricLockTimeout,
     assistantDoubleConfirmationEnabled,
     setAssistantDoubleConfirmationEnabled,
-    screenRotationAllowed,
-    setScreenRotationAllowed,
   } = useAppSettings()
 
   const updateSettingsView = (view: SettingsView) => {
@@ -203,7 +200,6 @@ export default function Settings() {
                   title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
                 />
               </SettingRow>
-
               <SettingRow
                 title="Revisão dupla com IA"
                 description="Exibe um painel de confirmação dos dados extraídos pela IA antes de salvar."
@@ -212,22 +208,6 @@ export default function Settings() {
                   checked={assistantDoubleConfirmationEnabled}
                   onChange={() => setAssistantDoubleConfirmationEnabled(!assistantDoubleConfirmationEnabled)}
                   title={assistantDoubleConfirmationEnabled ? 'Desativar revisão dupla' : 'Ativar revisão dupla'}
-                />
-              </SettingRow>
-
-              <SettingRow
-                title="Permitir rotação de tela"
-                description="Habilita o modo paisagem em tablets e celulares (o padrão é fixo em retrato)."
-              >
-                <ToggleSwitch
-                  checked={screenRotationAllowed}
-                  onChange={() => {
-                    const newValue = !screenRotationAllowed
-                    setScreenRotationAllowed(newValue)
-                    // Chamada direta para satisfazer requisito de "user gesture"
-                    applyOrientationSettings(newValue)
-                  }}
-                  title={screenRotationAllowed ? 'Desativar rotação' : 'Permitir rotação'}
                 />
               </SettingRow>
             </div>
