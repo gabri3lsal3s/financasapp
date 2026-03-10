@@ -66,7 +66,7 @@ describe('creditCardCsvReconciliation', () => {
         date: '2026-03-10',
         description: 'Mercado bairro',
       },
-    ])
+    ], '2026-03')
 
     expect(reconciliation.conflicts).toHaveLength(1)
     expect(reconciliation.conflicts[0]?.suggestedUpdate.needsUpdate).toBe(true)
@@ -91,7 +91,7 @@ describe('creditCardCsvReconciliation', () => {
         date: '2026-03-05',
         description: 'LANÇAMENTO CARTÃO 001',
       },
-    ])
+    ], '2026-03')
 
     expect(reconciliation.matched).toHaveLength(1)
     expect(reconciliation.conflicts).toHaveLength(0)

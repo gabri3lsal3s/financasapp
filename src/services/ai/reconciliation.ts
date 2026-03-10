@@ -16,6 +16,10 @@ export interface CSVClassifiedTransaction {
   cleanDescription?: string
 }
 
+const classificationCache = new Map<string, CSVClassifiedTransaction>()
+
+const getCacheKey = (description: string, amount: number) => `${description}|${amount.toFixed(2)}`
+
 interface CSVReconciliationContext {
   transactions: CSVTransactionToClassify[]
   categories: Category[]
@@ -85,19 +89,32 @@ Responda APENAS com JSON estruturado validamente, seguindo schema.
 export const classifyCSVTransactions = async (
   context: CSVReconciliationContext
 ): Promise<CSVClassifiedTransaction[]> => {
-  // Limitação de lote para não estourar o contexto do LLM
-  // O ideal é não enviar mais que 50 transações por vez (por safety e timeout api)
-  const MAX_BATCH_SIZE = 40
   if (context.transactions.length === 0) return []
+
+  const results: CSVClassifiedTransaction[] = []
+  const transactionsToFetch: CSVTransactionToClassify[] = []
+
+  // 1. Verificar Cache
+  context.transactions.forEach(t => {
+    const key = getCacheKey(t.description, t.amount)
+    const cached = classificationCache.get(key)
+    if (cached) {
+      results.push({ ...cached, id: t.id })
+    } else {
+      transactionsToFetch.push(t)
+    }
+  })
+
+  if (transactionsToFetch.length === 0) return results
+
+  const MAX_BATCH_SIZE = 40
 
   try {
     const ai = createGenAIClient()
-    if (!ai) return []
-    const allClassifications: CSVClassifiedTransaction[] = []
+    if (!ai) return results
 
-    // Dividimos os batches
-    for (let i = 0; i < context.transactions.length; i += MAX_BATCH_SIZE) {
-      const batchTransactions = context.transactions.slice(i, i + MAX_BATCH_SIZE)
+    for (let i = 0; i < transactionsToFetch.length; i += MAX_BATCH_SIZE) {
+      const batchTransactions = transactionsToFetch.slice(i, i + MAX_BATCH_SIZE)
       const prompt = buildReconciliationPrompt({
         categories: context.categories,
         transactions: batchTransactions
@@ -109,7 +126,7 @@ export const classifyCSVTransactions = async (
         config: {
           responseMimeType: 'application/json',
           responseSchema: csvReconciliationSchema,
-          temperature: 0.1 // Precisão acima de tudo
+          temperature: 0.1
         }
       })
 
@@ -119,13 +136,21 @@ export const classifyCSVTransactions = async (
       const data = JSON.parse(rawJson)
 
       if (data && Array.isArray(data.classifications)) {
-        allClassifications.push(...data.classifications)
+        const classifications = data.classifications as CSVClassifiedTransaction[]
+        classifications.forEach(c => {
+          // Salvar no cache (usando a descrição original do batch para encontrar o item correto)
+          const original = batchTransactions.find(t => t.id === c.id)
+          if (original) {
+            classificationCache.set(getCacheKey(original.description, original.amount), c)
+          }
+        })
+        results.push(...classifications)
       }
     }
 
-    return allClassifications
+    return results
   } catch (error) {
     console.error('Gemini API Error in classifyCSVTransactions:', error)
-    return []
+    return results
   }
 }

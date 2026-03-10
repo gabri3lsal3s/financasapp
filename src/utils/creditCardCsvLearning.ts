@@ -28,7 +28,7 @@ const tokenSet = (value: string) =>
       .filter((token) => token.length >= 3),
   )
 
-const similarity = (left: string, right: string) => {
+export const similarity = (left: string, right: string) => {
   const leftTokens = tokenSet(left)
   const rightTokens = tokenSet(right)
   if (!leftTokens.size || !rightTokens.size) return 0

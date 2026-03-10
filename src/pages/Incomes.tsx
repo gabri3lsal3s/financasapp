@@ -88,6 +88,56 @@ export default function Incomes() {
     }
   }
 
+  // Limpeza automática de rendas de estorno sem par no cartão
+  // Executa silenciosamente uma vez por sessão do navegador
+  useEffect(() => {
+    const SESSION_KEY = 'refund-orphan-cleanup-done'
+    if (sessionStorage.getItem(SESSION_KEY)) return
+
+    const runCleanup = async () => {
+      try {
+        // Buscar todas as rendas nas categorias de estorno
+        const refundCategoryIds = incomeCategories
+          .filter((c) =>
+            [REFUND_INCOME_CATEGORY_NAME.toLowerCase(), LEGACY_REFUND_INCOME_CATEGORY_NAME.toLowerCase()].includes(
+              String(c.name || '').trim().toLowerCase()
+            )
+          )
+          .map((c) => c.id)
+
+        if (!refundCategoryIds.length) return
+
+        const { data: refundIncomes } = await supabase
+          .from('incomes')
+          .select('id')
+          .in('income_category_id', refundCategoryIds)
+
+        if (!refundIncomes?.length) return
+
+        for (const income of refundIncomes) {
+          const likePattern = `${REFUND_NOTE_PREFIX}%"incomeId":"${String(income.id)}"%`
+          const { data: linkedPayment } = await supabase
+            .from('credit_card_bill_payments')
+            .select('id')
+            .like('note', likePattern)
+            .maybeSingle()
+
+          if (!linkedPayment) {
+            // Renda de estorno sem pagamento vinculado — excluir silenciosamente
+            await supabase.from('incomes').delete().eq('id', income.id)
+          }
+        }
+
+        sessionStorage.setItem(SESSION_KEY, '1')
+      } catch {
+        // Ignora erros silenciosamente — limpeza será tentada na próxima sessão
+      }
+    }
+
+    void runCleanup()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomeCategories.length])
+
   const incomeCategoriesForManualCreation = incomeCategories.filter(
     (category) => String(category.name || '').trim().toLowerCase() !== REFUND_INCOME_CATEGORY_NAME.toLowerCase(),
   )

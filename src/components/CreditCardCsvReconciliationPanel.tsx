@@ -8,14 +8,19 @@ import type { BillExpenseItem } from '@/utils/creditCardBilling'
 import {
   parseCreditCardInvoiceCsv,
   reconcileCreditCardBill,
+  analyzeInstallments,
+  calculateInvoiceTotals,
   type OfficialInvoiceItem,
   type ReconciliationResult,
+  type InstallmentAnalysis,
+  type InvoiceTotals,
 } from '@/utils/creditCardCsvReconciliation'
+import { classifyCSVTransactions } from '@/services/ai/reconciliation'
 import {
   learnFromCreditCardCsvInsertion,
   suggestFromCreditCardCsvLearning,
 } from '@/utils/creditCardCsvLearning'
-import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput, formatNumberBR } from '@/utils/format'
+import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput } from '@/utils/format'
 
 interface CategoryOption {
   id: string
@@ -59,12 +64,7 @@ interface ConflictDraft {
   officialDescription: string
   installmentLabel?: string
   isRefund: boolean
-  installmentAnalysis?: {
-    status: 'consistent' | 'missing' | 'inconclusive'
-    foundNumbers: number[]
-    missingNumbers: number[]
-    officialDateInconsistencyMessage?: string | null
-  } | null
+  installmentAnalysis?: InstallmentAnalysis | null
 }
 
 type ComparisonRow = {
@@ -77,7 +77,6 @@ type ComparisonRow = {
 interface CreditCardCsvReconciliationPanelProps {
   card: CreditCard
   currentMonth: string
-  billItems: BillExpenseItem[]
   paymentItems: Array<{
     id: string
     amount: number
@@ -89,39 +88,13 @@ interface CreditCardCsvReconciliationPanelProps {
   onReloadBillData: () => Promise<void>
   createExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'category' | 'credit_card'>) => Promise<{ data: Expense | null; error: string | null }>
   updateExpense: (id: string, updates: Partial<Expense>) => Promise<{ data: Expense | null; error: string | null }>
-}
-
-const REFUND_NOTE_PREFIX = '[REFUND]'
-
-const parseRefundPaymentNote = (rawNote?: string | null) => {
-  const note = String(rawNote || '')
-  if (!note.startsWith(REFUND_NOTE_PREFIX)) return null
-
-  const payload = note.slice(REFUND_NOTE_PREFIX.length)
-
-  try {
-    const parsed = JSON.parse(payload) as { description?: string }
-    return {
-      description: String(parsed?.description || 'Estorno registrado'),
-    }
-  } catch {
-    return {
-      description: 'Estorno registrado',
-    }
-  }
+  fetchReconciliationCandidates: (cardId: string, baseMonth: string) => Promise<BillExpenseItem[]>
 }
 
 const monthIndex = (date: string) => {
   const [year, month] = String(date || '').slice(0, 7).split('-').map(Number)
   if (!Number.isFinite(year) || !Number.isFinite(month)) return 0
   return (year * 12) + month
-}
-
-const monthIndexLabel = (index: number) => {
-  if (!Number.isFinite(index) || index <= 0) return ''
-  const year = Math.floor((index - 1) / 12)
-  const month = index - (year * 12)
-  return `${String(month).padStart(2, '0')}/${year}`
 }
 
 const addDays = (date: string, days: number) => {
@@ -168,13 +141,13 @@ const buildConflictKey = (existingId: string, officialId: string) => `${existing
 export default function CreditCardCsvReconciliationPanel({
   card,
   currentMonth,
-  billItems,
-  paymentItems,
+  paymentItems: _paymentItems,
   categories,
   onClose,
   onReloadBillData,
   createExpense,
   updateExpense,
+  fetchReconciliationCandidates,
 }: CreditCardCsvReconciliationPanelProps) {
   const [fileName, setFileName] = useState('')
   const [parseStatus, setParseStatus] = useState<string>('')
@@ -182,6 +155,7 @@ export default function CreditCardCsvReconciliationPanel({
   const [missingDrafts, setMissingDrafts] = useState<MissingDraft[]>([])
   const [conflictDrafts, setConflictDrafts] = useState<ConflictDraft[]>([])
   const [loading, setLoading] = useState(false)
+  const [fixedSuspiciousIds, setFixedSuspiciousIds] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const selectedMissingCount = useMemo(
@@ -241,28 +215,21 @@ export default function CreditCardCsvReconciliationPanel({
     })
   }, [reconciliation])
 
-  const identifiedTotals = useMemo(() => {
-    const officialTotal = comparisonRows.reduce((sum, row) => sum + Number(row.official.amount || 0), 0)
-    const registeredTotal = comparisonRows.reduce((sum, row) => {
-      if (!row.current) return sum
-      return sum + Number(row.current.base_amount ?? row.current.amount ?? 0)
-    }, 0)
-
-    return {
-      officialTotal: Number(formatNumberBR(officialTotal, { maximumFractionDigits: 2 })),
-      registeredTotal: Number(formatNumberBR(registeredTotal, { maximumFractionDigits: 2 })),
-      difference: Number(formatNumberBR(officialTotal - registeredTotal, { maximumFractionDigits: 2 })),
-    }
-  }, [comparisonRows])
+  const identifiedTotals = useMemo<InvoiceTotals | null>(() => {
+    if (!reconciliation || !reconciliation.matched) return null
+    return calculateInvoiceTotals(reconciliation, comparisonRows.map(r => r.official))
+  }, [reconciliation, comparisonRows])
 
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
     const text = await file.text()
-    const parsed = parseCreditCardInvoiceCsv(text, 'auto')
+    try {
+      const parsed = parseCreditCardInvoiceCsv(text, 'auto')
 
     setFileName(file.name)
+    setParseStatus('Lendo arquivo...')
 
     if (!parsed.supported) {
       setReconciliation(null)
@@ -272,33 +239,11 @@ export default function CreditCardCsvReconciliationPanel({
       return
     }
 
-    const billItemsFromCurrentMonth = billItems
-    const refundPaymentItems = (paymentItems || [])
-      .map((payment) => {
-        const refundMeta = parseRefundPaymentNote(payment.note)
-        if (!refundMeta) return null
+    // Buscamos itens na janela de 3 meses para garantir pareamento de estornos e erros de data
+    const candidateItems = await fetchReconciliationCandidates(card.id, currentMonth)
 
-        return {
-          id: `refund-payment-${payment.id}`,
-          credit_card_id: card.id,
-          amount: -Math.abs(Number(payment.amount || 0)),
-          base_amount: -Math.abs(Number(payment.amount || 0)),
-          date: String(payment.payment_date || ''),
-          description: refundMeta.description,
-          category_name: 'Estorno',
-          category_id: '__refund_registered__',
-          installment_number: null,
-          installment_total: null,
-          bill_competence: currentMonth,
-        } as BillExpenseItem
-      })
-      .filter((item): item is BillExpenseItem => Boolean(item))
-
-    const result = reconcileCreditCardBill(parsed.items, [...billItemsFromCurrentMonth, ...refundPaymentItems])
-    const officialIndexById = parsed.items.reduce<Record<string, number>>((acc, item, index) => {
-      acc[item.id] = index
-      return acc
-    }, {})
+    const result = reconcileCreditCardBill(parsed.items, candidateItems, currentMonth)
+    setParseStatus('Buscando possíveis lançamentos duplicados...')
 
     let existingMatches: Record<string, MissingDraft['possibleExistingMatch']> = {}
     let conflictInstallmentAnalysis: Record<string, NonNullable<ConflictDraft['installmentAnalysis']>> = {}
@@ -307,8 +252,8 @@ export default function CreditCardCsvReconciliationPanel({
       const missingDates = result.missing.map((item) => item.date).sort()
       const minDate = missingDates[0]
       const maxDate = missingDates[missingDates.length - 1]
-      const rangeStart = addDays(minDate, -90)
-      const rangeEnd = addDays(maxDate, 90)
+      const rangeStart = addDays(minDate, -180)
+      const rangeEnd = addDays(maxDate, 180)
 
       const excludedCurrentIds = new Set<string>([
         ...result.matched.map((item) => String(item.existing.id || '')),
@@ -390,6 +335,7 @@ export default function CreditCardCsvReconciliationPanel({
     )
 
     if (conflictsWithInstallments.length > 0) {
+      setParseStatus('Analisando parcelamentos anteriores...')
       const conflictDates = conflictsWithInstallments
         .flatMap((item) => [item.official.date, item.existing.date])
         .filter((value) => Boolean(value))
@@ -420,168 +366,104 @@ export default function CreditCardCsvReconciliationPanel({
             : Number(row.installment_total),
       }))
 
-      conflictInstallmentAnalysis = conflictsWithInstallments.reduce<Record<string, NonNullable<ConflictDraft['installmentAnalysis']>>>((acc, conflict) => {
+      conflictInstallmentAnalysis = conflictsWithInstallments.reduce<Record<string, InstallmentAnalysis>>((acc, conflict) => {
         const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
-        const total = Number(conflict.official.installmentTotal || 0)
-        const number = Number(conflict.official.installmentNumber || 0)
-
-        if (!total || !number || total < number) {
-          acc[key] = {
-            status: 'inconclusive',
-            foundNumbers: [],
-            missingNumbers: [],
-          }
-          return acc
-        }
-
-        const expectedNumbers = Array.from({ length: total }, (_, index) => index + 1)
-        const officialAmount = Math.abs(Number(conflict.official.amount || 0))
-        const referenceDescription = String(conflict.official.description || '')
-        const existingReferenceDescription = String(conflict.existing.description || '')
-        const existingInstallmentNumber = conflict.existing.installment_number ? Number(conflict.existing.installment_number) : null
-        const existingMonth = monthIndex(conflict.existing.date)
-        const anchorInstallmentNumber =
-          existingInstallmentNumber && existingInstallmentNumber >= 1 && existingInstallmentNumber <= total
-            ? existingInstallmentNumber
-            : number
-        const anchorMonth = existingMonth || monthIndex(conflict.official.date)
-        const officialMonth = monthIndex(conflict.official.date)
-
-        const related = installmentCandidates.filter((candidate) => {
-          if (!candidate.id) return false
-          const amountDelta = Math.abs(candidate.amount - officialAmount)
-          if (amountDelta > 0.01) return false
-
-          const officialDescriptionScore = similarity(referenceDescription, candidate.description)
-          const existingDescriptionScore = similarity(existingReferenceDescription, candidate.description)
-          const sameOfficialDescription = normalizeText(candidate.description) === normalizeText(referenceDescription)
-          const sameExistingDescription = normalizeText(candidate.description) === normalizeText(existingReferenceDescription)
-
-          if (
-            officialDescriptionScore >= 0.28
-            || existingDescriptionScore >= 0.28
-            || sameOfficialDescription
-            || sameExistingDescription
-          ) {
-            return true
-          }
-
-          if (
-            candidate.installmentNumber
-            && candidate.installmentTotal
-            && candidate.installmentTotal === total
-            && anchorInstallmentNumber
-            && anchorMonth
-          ) {
-            const candidateMonth = monthIndex(candidate.date)
-            if (!candidateMonth) return false
-
-            const inferredFromMonth = anchorInstallmentNumber + (candidateMonth - anchorMonth)
-            return inferredFromMonth === candidate.installmentNumber
-          }
-
-          return false
+        
+        const analysis = analyzeInstallments({
+          officialItem: conflict.official,
+          existingItem: conflict.existing,
+          nearbyExpenses: installmentCandidates
         })
 
-        const found = new Set<number>()
-
-        if (anchorInstallmentNumber >= 1 && anchorInstallmentNumber <= total) {
-          found.add(anchorInstallmentNumber)
-        } else if (number >= 1 && number <= total) {
-          found.add(number)
-        }
-
-        related.forEach((candidate) => {
-          if (candidate.installmentNumber && candidate.installmentNumber >= 1 && candidate.installmentNumber <= total) {
-            found.add(candidate.installmentNumber)
-            return
-          }
-
-          if (!anchorInstallmentNumber) return
-          const candidateMonth = monthIndex(candidate.date)
-          if (!candidateMonth || !anchorMonth) return
-
-          const inferred = anchorInstallmentNumber + (candidateMonth - anchorMonth)
-          if (inferred >= 1 && inferred <= total) {
-            found.add(inferred)
-          }
-        })
-
-        const foundNumbers = Array.from(found).sort((a, b) => a - b)
-        const missingNumbers = expectedNumbers.filter((value) => !found.has(value))
-
-        const expectedOfficialMonth =
-          anchorInstallmentNumber && anchorMonth
-            ? anchorMonth + (number - anchorInstallmentNumber)
-            : null
-
-        let officialDateInconsistencyMessage: string | null = null
-
-        if (
-          expectedOfficialMonth
-          && officialMonth
-          && expectedOfficialMonth !== officialMonth
-        ) {
-          officialDateInconsistencyMessage =
-            `Possível inconsistência de data no CSV oficial: parcela ${number}/${total} em ${formatDate(conflict.official.date)}, mas pela sequência do parcelamento o mês esperado é ${monthIndexLabel(expectedOfficialMonth)}.`
-        }
-
-        const officialIndex = officialIndexById[conflict.official.id]
-        const previousOfficial = Number.isFinite(officialIndex) ? parsed.items[officialIndex - 1] : null
-        const nextOfficial = Number.isFinite(officialIndex) ? parsed.items[officialIndex + 1] : null
-        const previousMonth = previousOfficial ? monthIndex(previousOfficial.date) : 0
-        const nextMonth = nextOfficial ? monthIndex(nextOfficial.date) : 0
-
-        if (!officialDateInconsistencyMessage && previousMonth && nextMonth && officialMonth) {
-          const isClearNeighborMonthAnomaly =
-            previousMonth === nextMonth
-            && officialMonth !== previousMonth
-
-          if (isClearNeighborMonthAnomaly) {
-            officialDateInconsistencyMessage =
-              `Possível inconsistência de data no CSV oficial: o lançamento está em ${formatDate(conflict.official.date)}, mas os lançamentos vizinhos estão no mês ${monthIndexLabel(previousMonth)}.`
-          }
-        }
-
-        const status: NonNullable<ConflictDraft['installmentAnalysis']>['status'] =
-          foundNumbers.length === 0
-            ? 'inconclusive'
-            : missingNumbers.length === 0
-              ? 'consistent'
-              : 'missing'
-
-        acc[key] = {
-          status,
-          foundNumbers,
-          missingNumbers,
-          officialDateInconsistencyMessage,
-        }
-
+        acc[key] = analysis
         return acc
       }, {})
     }
 
     setReconciliation(result)
     setMissingDrafts(result.missing.map((item) => {
-      const suggestion = suggestFromCreditCardCsvLearning(item.description)
+        const suggestion = suggestFromCreditCardCsvLearning(item.description)
 
-      return {
-        id: item.id,
-        selected: true,
-        date: item.date,
-        amount: formatMoneyInput(Math.abs(Number(item.amount || 0))),
-        description: suggestion?.description || item.description,
-        category_id: suggestion?.categoryId || categories[0]?.id || '',
-        learnedSuggestion: {
-          enabled: Boolean(suggestion),
-          confidence: suggestion?.confidence,
-        },
-        possibleExistingMatch: existingMatches[item.id] || null,
-        official: item,
+        return {
+          id: item.id,
+          selected: true,
+          date: item.date,
+          amount: formatMoneyInput(Math.abs(Number(item.amount || 0))),
+          description: suggestion?.description || item.description,
+          category_id: suggestion?.categoryId || categories[0]?.id || '',
+          learnedSuggestion: {
+            enabled: Boolean(suggestion),
+            confidence: suggestion?.confidence,
+          },
+          possibleExistingMatch: existingMatches[item.id] || null,
+          official: item,
+        }
+      }))
+
+      setParseStatus('Consultando IA para categorização...')
+
+      // IA Econômica: Agrupar descrições únicas e ignorar o que já foi aprendido com alta confiança
+      const uniqueItemsToClassify = Array.from(
+        result.missing
+          .filter(item => {
+            const suggestion = suggestFromCreditCardCsvLearning(item.description)
+            // Somente enviar para IA se não houver sugestão local FORTE (>80%)
+            return !suggestion || (suggestion.confidence || 0) < 0.8
+          })
+          .reduce((map, item) => {
+            const key = `${item.description}|${Math.abs(item.amount).toFixed(2)}`
+            if (!map.has(key)) {
+              map.set(key, {
+                id: item.id,
+                description: item.description,
+                amount: Math.abs(item.amount)
+              })
+            }
+            return map
+          }, new Map<string, any>())
+          .values()
+      )
+
+      if (uniqueItemsToClassify.length > 0) {
+        classifyCSVTransactions({
+          transactions: uniqueItemsToClassify,
+          categories: categories.map(c => ({ id: c.id, name: c.name } as any))
+        }).then(classifications => {
+          if (classifications.length > 0) {
+            setMissingDrafts(prev => prev.map(draft => {
+              // Encontrar classificação que bate com a descrição e valor do rascunho
+              const aiMatch = classifications.find(c => {
+                const draftKey = `${draft.official.description}|${Math.abs(draft.official.amount).toFixed(2)}`
+                // O cache do serviço já lida com o retorno baseado no ID original se enviamos múltiplos, 
+                // mas aqui garantimos que aplicamos a todos os rascunhos idênticos.
+                const originalIdentified = uniqueItemsToClassify.find(u => u.id === c.id)
+                if (!originalIdentified) return false
+                const aiKey = `${originalIdentified.description}|${originalIdentified.amount.toFixed(2)}`
+                return draftKey === aiKey
+              })
+
+              if (aiMatch && aiMatch.suggestedCategoryId) {
+                if (draft.learnedSuggestion.enabled && (draft.learnedSuggestion.confidence || 0) >= 0.8) {
+                  return draft
+                }
+                
+                return {
+                  ...draft,
+                  description: aiMatch.cleanDescription || draft.description,
+                  category_id: aiMatch.suggestedCategoryId,
+                  learnedSuggestion: {
+                    enabled: true,
+                    confidence: aiMatch.confidence
+                  }
+                }
+              }
+              return draft
+            }))
+          }
+        }).catch(err => console.error('AI Classification error:', err))
       }
-    }))
 
-    setConflictDrafts(result.conflicts.map((conflict) => ({
+      setConflictDrafts(result.conflicts.map((conflict) => ({
       key: buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || '')),
       existingId: String(conflict.existing.id || ''),
       officialId: String(conflict.official.id || ''),
@@ -618,7 +500,11 @@ export default function CreditCardCsvReconciliationPanel({
       ] || null,
     })))
 
-    setParseStatus('')
+      setParseStatus('')
+    } catch (error) {
+      console.error('Error in handleCsvUpload:', error)
+      setParseStatus('Ocorreu um erro ao processar o arquivo. Tente novamente.')
+    }
   }
 
   const handleApplySelectedSuggestions = async () => {
@@ -749,6 +635,51 @@ export default function CreditCardCsvReconciliationPanel({
     }
   }
 
+  // Filtra os itens suspeitos (cadastrados no sistema mas não aparecem no CSV oficial)
+  // Excluindo:
+  // 1. Estornos registrados (aparecem como pagamento, não como despesa normal no CSV)
+  // 2. Itens de competência de meses adjacentes (carregados para análise de parcelas, não são desta fatura)
+  // 3. Itens já conciliados (matched ou conflict) — garantia contra duplicação por data/valor idênticos
+  const reconciledIds = new Set<string>([
+    ...(reconciliation?.matched ?? []).map((item) => String(item.existing.id || '')),
+    ...(reconciliation?.conflicts ?? []).map((item) => String(item.existing.id || '')),
+  ])
+
+  const suspiciousItems = (reconciliation?.existingOnly ?? []).filter((item) => {
+    if (item.category_id === '__refund_registered__') return false
+    // Exclui itens de meses adjacentes (bill_competence fora do mês atual)
+    const competence = String(item.bill_competence || '')
+    if (competence && competence !== currentMonth) return false
+    // Exclui itens que já foram conciliados (segurança extra contra duplicação interna)
+    if (reconciledIds.has(String(item.id || ''))) return false
+
+    return true
+  })
+
+  const handleFixSuspicious = async (item: BillExpenseItem, action: 'remove_card' | 'dismiss') => {
+    const id = String(item.id || '')
+    if (!id) return
+
+    if (action === 'dismiss') {
+      setFixedSuspiciousIds((previous) => new Set([...previous, id]))
+      return
+    }
+
+    // action === 'remove_card': retira o cartão e transforma em despesa comum
+    const updated = await updateExpense(id, {
+      payment_method: 'other',
+      credit_card_id: null,
+    })
+
+    if (updated.error) {
+      alert(`Erro ao corrigir lançamento: ${updated.error}`)
+      return
+    }
+
+    setFixedSuspiciousIds((previous) => new Set([...previous, id]))
+    await onReloadBillData()
+  }
+
   return (
     <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2 overflow-x-hidden">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -796,18 +727,24 @@ export default function CreditCardCsvReconciliationPanel({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-            <div className="rounded-lg border border-primary bg-primary p-1.5">
-              <p className="text-xs text-secondary">Total final fatura oficial</p>
-              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals.officialTotal)}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5">
+            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
+              <p className="text-[10px] text-secondary uppercase">Oficial (CSV)</p>
+              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals?.officialTotal || 0)}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5">
-              <p className="text-xs text-secondary">Total final fatura cadastrada</p>
-              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals.registeredTotal)}</p>
+            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
+              <p className="text-[10px] text-secondary uppercase">Identificado</p>
+              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals?.identifiedTotal || 0)}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5">
-              <p className="text-xs text-secondary">Diferença</p>
-              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals.difference)}</p>
+            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
+              <p className="text-[10px] text-secondary uppercase">Sugestões</p>
+              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals?.missingTotal || 0)}</p>
+            </div>
+            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
+              <p className="text-[10px] text-secondary uppercase">Diferença Final</p>
+              <p className={`text-sm font-bold ${Math.abs(identifiedTotals?.difference || 0) < 0.05 ? 'text-green-500' : 'text-red-500'}`}>
+                {formatCurrency(identifiedTotals?.difference || 0)}
+              </p>
             </div>
           </div>
 
@@ -1124,6 +1061,69 @@ export default function CreditCardCsvReconciliationPanel({
                 >
                   {loading ? 'Aplicando...' : `Aplicar selecionados (${totalSelectedCount})`}
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Seção de lançamentos possivelmente incorretos */}
+          {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length > 0 && (
+            <div className="space-y-2 mt-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-primary">
+                  Possíveis erros de cadastro ({suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length})
+                </p>
+                <p className="text-xs text-secondary">
+                  Lançamentos cadastrados nesta fatura que não aparecem no CSV oficial
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {suspiciousItems
+                  .filter((item) => !fixedSuspiciousIds.has(String(item.id || '')))
+                  .map((item) => (
+                    <div key={item.id} className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-2.5 space-y-2">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-primary break-words">
+                            {item.description || 'Sem descrição'}
+                          </p>
+                          <p className="text-xs text-secondary mt-0.5">
+                            {formatDate(item.date)} • {formatCurrency(Math.abs(Number(item.base_amount ?? item.amount ?? 0)))}
+                            {item.category_name ? ` • ${item.category_name}` : ''}
+                            {item.installment_number && item.installment_total
+                              ? ` • Parcela ${item.installment_number}/${item.installment_total}`
+                              : ''}
+                          </p>
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                            ⚠ Este lançamento está vinculado ao cartão mas não foi encontrado na fatura oficial.
+                            Pode estar cadastrado com cartão incorreto ou com outra forma de pagamento.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 sm:flex-row">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleFixSuspicious(item, 'remove_card')}
+                          disabled={loading}
+                        >
+                          Remover do cartão
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleFixSuspicious(item, 'dismiss')}
+                        >
+                          Ignorar
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           )}

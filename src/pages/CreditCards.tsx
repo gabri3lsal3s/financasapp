@@ -20,7 +20,7 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { supabase } from '@/lib/supabase'
 import type { CreditCard } from '@/types'
 import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
-import { resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
+import { resolveBillCompetence, resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
 import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check, Scale } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -188,7 +188,7 @@ export default function CreditCards() {
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
   const { createExpense, updateExpense, deleteExpense } = useExpenses()
-  const { createIncome, updateIncome, deleteIncome } = useIncomes()
+  useIncomes()
   const { creditCardsWeightsEnabled, setCreditCardsWeightsEnabled } = useAppSettings()
 
   const activeCards = useMemo(
@@ -359,11 +359,17 @@ export default function CreditCards() {
 
   const getBillDataSnapshot = async (targetMonth: string): Promise<BillDataSnapshot> => {
       const competenceReferenceDate = new Date(`${targetMonth}-01T12:00:00`)
-      const nullCompetenceStartDate = format(subMonths(competenceReferenceDate, 1), 'yyyy-MM-01')
-      const nullCompetenceEndDate = format(endOfMonth(competenceReferenceDate), 'yyyy-MM-dd')
+      const searchStartDate = format(subMonths(competenceReferenceDate, 2), 'yyyy-MM-01')
+      const nextMonthReference = new Date(`${shiftMonth(targetMonth, 1)}-01T12:00:00`)
+      const searchEndDate = format(endOfMonth(nextMonthReference), 'yyyy-MM-dd')
 
       const previousMonth = shiftMonth(targetMonth, -1)
-      const cycleMonths = [previousMonth, targetMonth]
+      const cycleMonths = [
+        shiftMonth(targetMonth, -2),
+        previousMonth,
+        targetMonth,
+        shiftMonth(targetMonth, 1),
+      ]
 
       const { data: monthlyCycleRows } = await supabase
         .from('credit_card_monthly_cycles')
@@ -403,41 +409,12 @@ export default function CreditCards() {
         return accumulator
       }, {})
 
-      const { data: expenseRowsWithCompetence } = await supabase
+      const { data: rawExpenseRows } = await supabase
         .from('expenses')
         .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
-        .eq('bill_competence', targetMonth)
         .not('credit_card_id', 'is', null)
-
-      const { data: expenseRowsWithoutCompetence } = await supabase
-        .from('expenses')
-        .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
-        .is('bill_competence', null)
-        .not('credit_card_id', 'is', null)
-        .gte('date', nullCompetenceStartDate)
-        .lte('date', nullCompetenceEndDate)
-
-      const mergedExpenseRowsMap = new Map<string, BillExpenseItem>()
-
-      ;(expenseRowsWithCompetence || []).forEach((row) => {
-        const rowId = String(row.id || '')
-        if (rowId) {
-          mergedExpenseRowsMap.set(rowId, {
-            ...(row as BillExpenseItem),
-            category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
-          })
-        }
-      })
-
-      ;(expenseRowsWithoutCompetence || []).forEach((row) => {
-        const rowId = String(row.id || '')
-        if (rowId) {
-          mergedExpenseRowsMap.set(rowId, {
-            ...(row as BillExpenseItem),
-            category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
-          })
-        }
-      })
+        .gte('date', searchStartDate)
+        .lte('date', searchEndDate)
 
       const resolveClosingDay = (cardId: string, competence: string) => {
         const monthlyClosing = cycleClosingByCardAndMonth[`${cardId}:${competence}`]
@@ -447,8 +424,28 @@ export default function CreditCards() {
         return Number.isFinite(defaultClosing) ? defaultClosing : undefined
       }
 
-      const expenseRows = Array.from(mergedExpenseRowsMap.values()).filter((row) => {
-        const resolvedCompetence = resolveExpenseBillCompetence(row, resolveClosingDay)
+      const expenseRows = (rawExpenseRows || []).map((row) => {
+        return {
+          ...(row as BillExpenseItem),
+          category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
+        }
+      }).filter((row) => {
+        const rowDate = String(row.date)
+        const rowCardId = String(row.credit_card_id)
+        
+        const competenceByDate = rowDate.slice(0, 7)
+        const closingDay = resolveClosingDay(rowCardId, competenceByDate)
+        
+        let resolvedCompetence = row.bill_competence
+        // Recálculo dinâmico da fatura baseado no dia de fechamento vigente, 
+        // ignorando o "bill_competence" predefinido no BD (que seria obsoleto se o ciclo mudou)
+        if (Number.isFinite(closingDay)) {
+          resolvedCompetence = resolveBillCompetence(rowDate, Number(closingDay))
+        } else if (!resolvedCompetence) {
+          resolvedCompetence = resolveExpenseBillCompetence(row as any, resolveClosingDay)
+        }
+
+        row.bill_competence = resolvedCompetence
         return resolvedCompetence === targetMonth
       }).map((row) => {
         const baseAmount = Number(row.amount || 0)
@@ -474,10 +471,25 @@ export default function CreditCards() {
       const { data: paymentRows } = await supabase
         .from('credit_card_bill_payments')
         .select('id, credit_card_id, amount, payment_date, bill_competence, note')
-        .eq('bill_competence', targetMonth)
+        .not('credit_card_id', 'is', null)
+        .or(`bill_competence.eq.${targetMonth},and(amount.lt.0,payment_date.gte.${searchStartDate},payment_date.lte.${searchEndDate})`)
 
       const paymentsByCardItems = (paymentRows || []).reduce<Record<string, PaymentItem[]>>((accumulator, row) => {
         const cardId = String(row.credit_card_id || '')
+        const rawNote = String(row.note || '')
+        const isRefund = Number(row.amount || 0) < 0 && rawNote.startsWith('[REFUND]')
+        const paymentDate = String(row.payment_date || '')
+        let finalCompetence = String(row.bill_competence || targetMonth)
+
+        if (isRefund) {
+          const closingDay = resolveClosingDay(cardId, paymentDate.slice(0, 7))
+          if (Number.isFinite(closingDay)) {
+            finalCompetence = resolveBillCompetence(paymentDate, Number(closingDay))
+          }
+        }
+
+        if (finalCompetence !== targetMonth) return accumulator
+
         if (!cardId) return accumulator
 
         if (!accumulator[cardId]) {
@@ -516,6 +528,59 @@ export default function CreditCards() {
         paymentItemsByCard: paymentsByCardItems,
         monthlyCyclesByCard: currentMonthCycles,
       }
+  }
+
+  const fetchReconciliationCandidates = async (cardId: string, baseMonth: string): Promise<BillExpenseItem[]> => {
+    const prevMonth = shiftMonth(baseMonth, -1)
+    const nextMonth = shiftMonth(baseMonth, 1)
+
+    const [prevSnapshot, currSnapshot, nextSnapshot] = await Promise.all([
+      getBillDataSnapshot(prevMonth),
+      getBillDataSnapshot(baseMonth),
+      getBillDataSnapshot(nextMonth),
+    ])
+
+    const allBillItems = [
+      ...(prevSnapshot.billItemsByCard[cardId] || []),
+      ...(currSnapshot.billItemsByCard[cardId] || []),
+      ...(nextSnapshot.billItemsByCard[cardId] || []),
+    ]
+
+    const refundItems = [
+      ...(prevSnapshot.paymentItemsByCard[cardId] || []),
+      ...(currSnapshot.paymentItemsByCard[cardId] || []),
+      ...(nextSnapshot.paymentItemsByCard[cardId] || []),
+    ]
+      .map((payment) => {
+        const note = String(payment.note || '')
+        if (!note.startsWith('[REFUND]')) return null
+
+        let refundDesc = 'Estorno registrado'
+        try {
+          const parsed = JSON.parse(note.slice('[REFUND]'.length))
+          if (parsed.description) refundDesc = parsed.description
+        } catch {
+          // ignore
+        }
+
+        const amt = -Math.abs(Number(payment.amount || 0))
+        return {
+          id: `refund-payment-${payment.id}`,
+          credit_card_id: cardId,
+          amount: amt,
+          base_amount: amt,
+          date: String(payment.payment_date || ''),
+          description: refundDesc,
+          category_name: 'Estorno',
+          category_id: '__refund_registered__',
+          installment_number: null,
+          installment_total: null,
+          bill_competence: String(payment.bill_competence || ''),
+        } as BillExpenseItem
+      })
+      .filter((item): item is BillExpenseItem => Boolean(item))
+
+    return [...allBillItems, ...refundItems]
   }
 
   const hasPendingBalanceForActiveCards = (snapshot: Pick<BillDataSnapshot, 'expensesByCard' | 'paymentsByCard'>) => {
@@ -705,6 +770,14 @@ export default function CreditCards() {
       return
     }
 
+    // Estornos não podem ser editados como pagamentos comuns — devem usar o modal de estorno
+    const refundMeta = parseRefundNote(editingPaymentItem.note)
+    if (refundMeta.isRefund) {
+      closePaymentEditModal()
+      await openRefundIncomeEditModal(editingPaymentItem, refundMeta.incomeId, refundMeta.description || 'Estorno de compra')
+      return
+    }
+
     const parsedAmount = Number(paymentEditAmount)
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       alert('Informe um valor de pagamento maior que zero.')
@@ -734,6 +807,15 @@ export default function CreditCards() {
 
     const confirmed = window.confirm('Deseja excluir este pagamento?')
     if (!confirmed) return
+
+    // Verifica se é um estorno — se sim, deve excluir a renda vinculada junto
+    const refundMeta = parseRefundNote(editingPaymentItem.note)
+    if (refundMeta.isRefund) {
+      // Redireciona para o fluxo correto que exclui ambos
+      closePaymentEditModal()
+      await openRefundIncomeEditModal(editingPaymentItem, refundMeta.incomeId, refundMeta.description || 'Estorno de compra')
+      return
+    }
 
     const { error } = await supabase
       .from('credit_card_bill_payments')
@@ -826,16 +908,19 @@ export default function CreditCards() {
     const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
     const description = refundIncomeEditForm.description.trim() || `Estorno de compra (${currentMonth})`
 
-    const updatedIncome = await updateIncome(editingRefundIncomeId, {
-      amount,
-      report_weight: reportWeight,
-      date: refundIncomeEditForm.date,
-      income_category_id: refundIncomeEditForm.income_category_id,
-      description,
-    })
+    const { error: incomeUpdateError } = await supabase
+      .from('incomes')
+      .update({
+        amount,
+        report_weight: reportWeight,
+        date: refundIncomeEditForm.date,
+        income_category_id: refundIncomeEditForm.income_category_id,
+        description,
+      })
+      .eq('id', editingRefundIncomeId)
 
-    if (updatedIncome.error) {
-      alert(`Erro ao editar renda de estorno: ${updatedIncome.error}`)
+    if (incomeUpdateError) {
+      alert(`Erro ao editar renda de estorno: ${incomeUpdateError.message}`)
       return
     }
 
@@ -873,9 +958,13 @@ export default function CreditCards() {
       return
     }
 
-    const incomeDelete = await deleteIncome(editingRefundIncomeId)
-    if (incomeDelete.error) {
-      alert(`Ajuste da fatura removido, mas houve erro ao excluir a renda: ${incomeDelete.error}`)
+    const { error: incomeDeleteError } = await supabase
+      .from('incomes')
+      .delete()
+      .eq('id', editingRefundIncomeId)
+
+    if (incomeDeleteError) {
+      alert(`Ajuste da fatura removido, mas houve erro ao excluir a renda: ${incomeDeleteError.message}`)
     }
 
     closeRefundIncomeEditModal()
@@ -976,18 +1065,31 @@ export default function CreditCards() {
 
     const description = refundDescription.trim() || `Estorno de compra (${currentMonth})`
 
-    const createdIncome = await createIncome({
-      amount: parsedAmount,
-      report_weight: 1,
-      date: refundDate,
-      income_category_id: refundIncomeCategoryId,
-      description,
-    })
+    // Busca o user_id atual para garantir conformidade com as políticas RLS
+    const { data: userData } = await supabase.auth.getUser()
+    const userId = userData?.user?.id
 
-    if (createdIncome.error || !createdIncome.data?.id) {
-      alert(`Erro ao registrar renda de estorno: ${createdIncome.error || 'Falha ao criar renda.'}`)
+    // Insere diretamente no Supabase com user_id para evitar falha silenciosa de RLS
+    const { data: incomeData, error: incomeError } = await supabase
+      .from('incomes')
+      .insert([{
+        amount: parsedAmount,
+        report_weight: 1,
+        date: refundDate,
+        income_category_id: refundIncomeCategoryId,
+        description,
+        type: 'other',
+        ...(userId ? { user_id: userId } : {}),
+      }])
+      .select('id')
+      .single()
+
+    if (incomeError || !incomeData?.id) {
+      alert(`Erro ao registrar renda de estorno: ${incomeError?.message || 'Falha ao criar renda.'}`)
       return
     }
+
+    const createdIncomeId = String(incomeData.id)
 
     const { error } = await supabase
       .from('credit_card_bill_payments')
@@ -996,11 +1098,13 @@ export default function CreditCards() {
         bill_competence: currentMonth,
         amount: parsedAmount,
         payment_date: refundDate,
-        note: buildRefundNote(String(createdIncome.data.id), description),
+        note: buildRefundNote(createdIncomeId, description),
+        ...(userId ? { user_id: userId } : {}),
       }])
 
     if (error) {
-      await deleteIncome(String(createdIncome.data.id))
+      // Reverter a renda criada para evitar órfão
+      await supabase.from('incomes').delete().eq('id', createdIncomeId)
       alert(`Erro ao registrar estorno: ${error.message}`)
       return
     }
@@ -1356,7 +1460,6 @@ export default function CreditCards() {
                     <CreditCardCsvReconciliationPanel
                       card={card}
                       currentMonth={currentMonth}
-                      billItems={billItems}
                       paymentItems={paymentItemsByCard[card.id] || []}
                       categories={categories.map((category) => ({
                         id: category.id,
@@ -1366,6 +1469,7 @@ export default function CreditCards() {
                       onReloadBillData={loadBillData}
                       createExpense={createExpense}
                       updateExpense={updateExpense}
+                      fetchReconciliationCandidates={fetchReconciliationCandidates}
                     />
                   )}
 

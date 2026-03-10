@@ -1,8 +1,16 @@
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
+import { similarity } from '@/utils/creditCardCsvLearning'
 
 export type CreditCardCsvProvider = 'auto' | 'nubank' | 'itau' | 'inter' | 'generic'
 
 type FieldKey = 'date' | 'description' | 'amount' | 'installment' | 'transactionType'
+
+export interface InstallmentAnalysis {
+  status: 'consistent' | 'missing' | 'inconclusive'
+  foundNumbers: number[]
+  missingNumbers: number[]
+  officialDateInconsistencyMessage?: string | null
+}
 
 type LearnedProvider = {
   seen: number
@@ -553,11 +561,46 @@ export type ReconciliationResult = {
   missing: OfficialInvoiceItem[]
   conflicts: ReconciliationConflict[]
   existingOnly: BillExpenseItem[]
+  potentialCrossCardMatches: Array<{ official: OfficialInvoiceItem; existing: BillExpenseItem; score: number }>
+}
+
+export interface InvoiceTotals {
+  officialTotal: number
+  matchedTotal: number
+  conflictTotalBase: number
+  conflictTotalSuggested: number
+  missingTotal: number
+  identifiedTotal: number
+  difference: number
+}
+
+export const calculateInvoiceTotals = (
+  reconciliation: ReconciliationResult,
+  officialItems: OfficialInvoiceItem[]
+): InvoiceTotals => {
+  const officialTotal = officialItems.reduce((sum, item) => sum + item.amount, 0)
+  const matchedTotal = reconciliation.matched.reduce((sum, item) => sum + (Number(item.existing.base_amount ?? item.existing.amount ?? 0)), 0)
+  const conflictTotalBase = reconciliation.conflicts.reduce((sum, item) => sum + (Number(item.existing.base_amount ?? item.existing.amount ?? 0)), 0)
+  const conflictTotalSuggested = reconciliation.conflicts.reduce((sum, item) => sum + item.suggestedUpdate.amount, 0)
+  const missingTotal = reconciliation.missing.reduce((sum, item) => sum + item.amount, 0)
+
+  const identifiedTotal = matchedTotal + conflictTotalBase // O que já temos no sistema que "bate"
+  
+  return {
+    officialTotal: Number(officialTotal.toFixed(2)),
+    matchedTotal: Number(matchedTotal.toFixed(2)),
+    conflictTotalBase: Number(conflictTotalBase.toFixed(2)),
+    conflictTotalSuggested: Number(conflictTotalSuggested.toFixed(2)),
+    missingTotal: Number(missingTotal.toFixed(2)),
+    identifiedTotal: Number(identifiedTotal.toFixed(2)),
+    difference: Number((officialTotal - identifiedTotal).toFixed(2))
+  }
 }
 
 export const reconcileCreditCardBill = (
   officialItems: OfficialInvoiceItem[],
   existingBillItems: BillExpenseItem[],
+  targetMonth: string
 ): ReconciliationResult => {
   const candidates = existingBillItems.filter((item) => Number.isFinite(Number(item.amount || 0)))
   const usedExistingIds = new Set<string>()
@@ -567,40 +610,56 @@ export const reconcileCreditCardBill = (
   const conflicts: ReconciliationConflict[] = []
 
   officialItems.forEach((official) => {
-    const absoluteOfficialAmount = Math.abs(Number(official.amount || 0))
-
     const scored = candidates
       .filter((existing) => !usedExistingIds.has(String(existing.id || '')))
       .map((existing) => {
-        const absoluteExistingAmount = Math.abs(Number(existing.base_amount ?? existing.amount ?? 0))
+        const existingAmount = Number(existing.base_amount ?? existing.amount ?? 0)
+        const absoluteOfficialAmount = Math.abs(official.amount)
+        const absoluteExistingAmount = Math.abs(existingAmount)
+        
+        // Verifica se os sinais são compatíveis (ambos positivos ou ambos negativos)
+        // official.amount no CSV já vem negativo para estornos, e os items do billItems também.
+        const sameSignal = (official.amount < 0 && existingAmount < 0) || (official.amount >= 0 && existingAmount >= 0)
+        
         const amountDelta = Math.abs(absoluteOfficialAmount - absoluteExistingAmount)
         const dayDiff = dateDiffInDays(official.date, existing.date)
 
         const isExactAmount = amountDelta <= 0.01
         const isExactDate = dayDiff === 0
-        const isExactDateAndAmount = isExactAmount && isExactDate
+        const isExactDateAndAmount = isExactAmount && isExactDate && sameSignal
 
-        const amountScore = isExactAmount ? 1 : amountDelta <= 0.2 ? 0.62 : 0
-        const dateScore = isExactDate ? 1 : dayDiff <= 3 ? 0.55 : 0
+        // Prioridade pesada para valor e data: 90% do score (60% valor, 30% data)
+        const amountScore = isExactAmount ? 1 : amountDelta <= 0.2 ? 0.6 : 0
+        const dateScore = isExactDate ? 1 : dayDiff <= 3 ? 0.5 : 0
+        
+        // Descrição fica com 10% do peso
+        const descriptionSimilarity = similarity(official.description, existing.description ?? existing.category_name ?? '')
+        const descriptionScore = descriptionSimilarity >= 0.8 ? 1 : descriptionSimilarity >= 0.4 ? 0.5 : 0
+
+        // Se o sinal for diferente, penalizamos fortemente o score (quase impossível parear se um é compra e outro estorno)
+        const signalMultiplier = sameSignal ? 1 : 0.1
 
         const score = isExactDateAndAmount
           ? 1
-          : Number((amountScore * 0.65 + dateScore * 0.35).toFixed(4))
+          : Number(((amountScore * 0.60 + dateScore * 0.30 + descriptionScore * 0.10) * signalMultiplier).toFixed(4))
 
         return {
           existing,
           score,
           isExactDateAndAmount,
           amountScore,
+          dateScore,
+          descriptionScore,
           dayDiff,
           amountDelta,
+          sameSignal
         }
       })
       .sort((a, b) => b.score - a.score)
 
     const best = scored[0]
 
-    if (!best || best.amountScore <= 0) {
+    if (!best || (best.score < 0.4) || (!best.sameSignal && best.score < 0.8)) {
       missing.push(official)
       return
     }
@@ -647,12 +706,145 @@ export const reconcileCreditCardBill = (
     })
   })
 
-  const existingOnly = candidates.filter((item) => !usedExistingIds.has(String(item.id || '')))
+  // Identificar possíveis lançamentos que estão em OUTRO cartão ou DEBITO/PIX
+  const potentialCrossCardMatches: ReconciliationResult['potentialCrossCardMatches'] = []
+  // Esta lógica será alimentada pela UI passando nearbyExpenses estendido
+
+  const existingOnly = candidates.filter((item) => {
+    const isUnused = !usedExistingIds.has(String(item.id || ''))
+    const isTargetMonth = String(item.bill_competence) === targetMonth
+    return isUnused && isTargetMonth
+  })
 
   return {
     matched,
     missing,
     conflicts,
     existingOnly,
+    potentialCrossCardMatches,
+  }
+}
+
+const monthIndex = (date: string) => {
+  const [year, month] = String(date || '').slice(0, 7).split('-').map(Number)
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return 0
+  return year * 12 + month
+}
+
+const monthIndexLabel = (index: number) => {
+  if (!Number.isFinite(index) || index <= 0) return ''
+  const year = Math.floor((index - 1) / 12)
+  const month = index - year * 12
+  return `${String(month).padStart(2, '0')}/${year}`
+}
+
+export const analyzeInstallments = (args: {
+  officialItem: OfficialInvoiceItem
+  existingItem: BillExpenseItem
+  nearbyExpenses: Array<{
+    id: string
+    amount: number
+    date: string
+    description: string
+    installmentNumber: number | null
+    installmentTotal: number | null
+  }>
+}): InstallmentAnalysis => {
+  const { officialItem, existingItem, nearbyExpenses } = args
+  const total = officialItem.installmentTotal
+  const number = officialItem.installmentNumber
+
+  if (!total || !number || total < number) {
+    return {
+      status: 'inconclusive',
+      foundNumbers: [],
+      missingNumbers: [],
+    }
+  }
+
+  const expectedNumbers = Array.from({ length: total }, (_, index) => index + 1)
+  const officialAmount = Math.abs(officialItem.amount)
+  const referenceDescription = officialItem.description
+  const existingReferenceDescription = existingItem.description ?? ''
+  const existingInstallmentNumber = existingItem.installment_number ? Number(existingItem.installment_number) : null
+  const existingMonth = monthIndex(existingItem.date)
+  const anchorInstallmentNumber =
+    existingInstallmentNumber && existingInstallmentNumber >= 1 && existingInstallmentNumber <= total
+      ? existingInstallmentNumber
+      : number
+  const anchorMonth = existingMonth || monthIndex(officialItem.date)
+  const officialMonth = monthIndex(officialItem.date)
+
+  const related = nearbyExpenses.filter((candidate) => {
+    const amountDelta = Math.abs(Math.abs(candidate.amount) - officialAmount)
+    if (amountDelta > 0.01) return false
+
+    const officialDescriptionScore = similarity(referenceDescription, candidate.description)
+    const existingDescriptionScore = similarity(existingReferenceDescription, candidate.description)
+
+    if (officialDescriptionScore >= 0.28 || existingDescriptionScore >= 0.28) {
+      return true
+    }
+
+    if (
+      candidate.installmentNumber &&
+      candidate.installmentTotal &&
+      candidate.installmentTotal === total &&
+      anchorInstallmentNumber &&
+      anchorMonth
+    ) {
+      const candidateMonth = monthIndex(candidate.date)
+      if (!candidateMonth) return false
+
+      const inferredFromMonth = anchorInstallmentNumber + (candidateMonth - anchorMonth)
+      return inferredFromMonth === candidate.installmentNumber
+    }
+
+    return false
+  })
+
+  const found = new Set<number>()
+
+  if (anchorInstallmentNumber >= 1 && anchorInstallmentNumber <= total) {
+    found.add(anchorInstallmentNumber)
+  } else if (number >= 1 && number <= total) {
+    found.add(number)
+  }
+
+  related.forEach((candidate) => {
+    if (candidate.installmentNumber && candidate.installmentNumber >= 1 && candidate.installmentNumber <= total) {
+      found.add(candidate.installmentNumber)
+      return
+    }
+
+    if (!anchorInstallmentNumber) return
+    const candidateMonth = monthIndex(candidate.date)
+    if (!candidateMonth || !anchorMonth) return
+
+    const inferred = anchorInstallmentNumber + (candidateMonth - anchorMonth)
+    if (inferred >= 1 && inferred <= total) {
+      found.add(inferred)
+    }
+  })
+
+  const foundNumbers = Array.from(found).sort((a, b) => a - b)
+  const missingNumbers = expectedNumbers.filter((value) => !found.has(value))
+
+  const expectedOfficialMonth =
+    anchorInstallmentNumber && anchorMonth ? anchorMonth + (number - anchorInstallmentNumber) : null
+
+  let officialDateInconsistencyMessage: string | null = null
+
+  if (expectedOfficialMonth && officialMonth && expectedOfficialMonth !== officialMonth) {
+    officialDateInconsistencyMessage = `Possível inconsistência de data no CSV oficial: parcela ${number}/${total} em ${officialItem.date}, mas pela sequência do parcelamento o mês esperado é ${monthIndexLabel(
+      expectedOfficialMonth,
+    )}.`
+  }
+
+  return {
+    status: foundNumbers.length === 0 ? 'inconclusive' : missingNumbers.length === 0 ? 'consistent' : 'missing',
+    foundNumbers,
+    missingNumbers,
+    officialDateInconsistencyMessage,
   }
 }
