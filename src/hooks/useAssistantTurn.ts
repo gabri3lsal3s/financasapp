@@ -139,16 +139,21 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
         ...options,
         locale,
       })
+
+      if (!result) {
+        throw new Error('Falha ao interpretar comando: nenhum resultado retornado.')
+      }
+
       const contextResolved = resolveAssistantContextWithPriority(deviceId, result.intent, result.slots)
-      const interpretedResult = contextResolved.source !== 'command' && contextResolved.source !== 'none'
+      const interpretedResult: AssistantInterpretResult = contextResolved.source !== 'command' && contextResolved.source !== 'none'
         ? {
-            ...result,
-            slots: contextResolved.slots,
-            command: {
-              ...result.command,
-              slots_json: contextResolved.slots,
-            },
-          }
+          ...result,
+          slots: contextResolved.slots,
+          command: {
+            ...result.command,
+            slots_json: contextResolved.slots,
+          },
+        }
         : result
 
       setLocalInterpretation(contextResolved.source !== 'command' && contextResolved.source !== 'none' ? interpretedResult : null)
@@ -234,13 +239,13 @@ export function useAssistantTurn(deviceId: string, preferences?: UseAssistantTur
           const contextResolved = resolveAssistantContextWithPriority(deviceId, offlineInterpretation.intent, offlineInterpretation.slots)
           const offlineResult = contextResolved.source !== 'command' && contextResolved.source !== 'none'
             ? {
-                ...offlineInterpretation,
-                slots: contextResolved.slots,
-                command: {
-                  ...offlineInterpretation.command,
-                  slots_json: contextResolved.slots,
-                },
-              }
+              ...offlineInterpretation,
+              slots: contextResolved.slots,
+              command: {
+                ...offlineInterpretation.command,
+                slots_json: contextResolved.slots,
+              },
+            }
             : offlineInterpretation
 
           setLocalInterpretation(offlineResult)
