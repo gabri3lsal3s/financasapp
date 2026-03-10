@@ -74,8 +74,8 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false },
   ]
 
-  const mainItems = navItems.slice(0, 6).filter(item => !item.onlineOnly || isOnline)
-  const settingsItems = navItems.slice(6).filter(item => !item.onlineOnly || isOnline)
+  const mainItemsList = navItems.slice(0, 6)
+  const settingsItemsList = navItems.slice(6)
 
   const isCurrentPathOnlineOnly = navItems.find(item => item.path === location.pathname)?.onlineOnly || false
   const shouldShowOfflinePlaceholder = !isOnline && isCurrentPathOnlineOnly
@@ -190,25 +190,29 @@ export default function Layout({ children }: LayoutProps) {
               <nav className="p-4">
                 <div className="space-y-2">
                   <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide text-center">Páginas principais</p>
-                  {mainItems.map((item) => {
+                  {mainItemsList.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
+                    const isConcealed = item.onlineOnly && !isOnline
 
                     return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
-                          ? activeItemClasses
-                          : inactiveItemClasses
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon size={18} />
-                          <span className="font-medium">{item.label}</span>
+                      <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
+                        <div className="transition-conceal-content">
+                          <Link
+                            to={item.path}
+                            className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
+                              ? activeItemClasses
+                              : inactiveItemClasses
+                              }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon size={18} />
+                              <span className="font-medium">{item.label}</span>
+                            </div>
+                            {isActive && <ChevronRight size={16} />}
+                          </Link>
                         </div>
-                        {isActive && <ChevronRight size={16} />}
-                      </Link>
+                      </div>
                     )
                   })}
                 </div>
@@ -217,25 +221,29 @@ export default function Layout({ children }: LayoutProps) {
 
                 <div className="space-y-2">
                   <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide text-center">Configurações</p>
-                  {settingsItems.map((item) => {
+                  {settingsItemsList.map((item) => {
                     const Icon = item.icon
                     const isActive = location.pathname === item.path
+                    const isConcealed = item.onlineOnly && !isOnline
 
                     return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
-                          ? activeItemClasses
-                          : inactiveItemClasses
-                          }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Icon size={18} className="flex-shrink-0" />
-                          <span className="font-medium text-sm truncate">{item.label}</span>
+                      <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
+                        <div className="transition-conceal-content">
+                          <Link
+                            to={item.path}
+                            className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
+                              ? activeItemClasses
+                              : inactiveItemClasses
+                              }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Icon size={18} className="flex-shrink-0" />
+                              <span className="font-medium text-sm truncate">{item.label}</span>
+                            </div>
+                            {isActive && <ChevronRight size={16} />}
+                          </Link>
                         </div>
-                        {isActive && <ChevronRight size={16} />}
-                      </Link>
+                      </div>
                     )
                   })}
                 </div>
@@ -289,29 +297,33 @@ export default function Layout({ children }: LayoutProps) {
               {isDesktopMenuExpanded && (
                 <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Páginas principais</p>
               )}
-              {mainItems.map((item) => {
+              {mainItemsList.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
+                const isConcealed = item.onlineOnly && !isOnline
 
                 return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    title={item.label}
-                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
-                      ? 'justify-between px-4 py-3'
-                      : 'justify-center p-3'
-                      } ${isActive
-                        ? activeItemClasses
-                        : inactiveItemClasses
-                      }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Icon size={20} className="flex-shrink-0" />
-                      {isDesktopMenuExpanded && <span className="font-medium truncate">{item.label}</span>}
+                  <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
+                    <div className="transition-conceal-content">
+                      <Link
+                        to={item.path}
+                        title={item.label}
+                        className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                          ? 'justify-between px-4 py-3'
+                          : 'justify-center p-3'
+                          } ${isActive
+                            ? activeItemClasses
+                            : inactiveItemClasses
+                          }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Icon size={20} className="flex-shrink-0" />
+                          {isDesktopMenuExpanded && <span className="font-medium truncate">{item.label}</span>}
+                        </div>
+                        {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
+                      </Link>
                     </div>
-                    {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
-                  </Link>
+                  </div>
                 )
               })}
             </div>
@@ -322,29 +334,33 @@ export default function Layout({ children }: LayoutProps) {
               {isDesktopMenuExpanded && (
                 <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Configurações</p>
               )}
-              {settingsItems.map((item) => {
+              {settingsItemsList.map((item) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
+                const isConcealed = item.onlineOnly && !isOnline
 
                 return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    title={item.label}
-                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
-                      ? 'justify-between px-4 py-3'
-                      : 'justify-center p-3'
-                      } ${isActive
-                        ? activeItemClasses
-                        : inactiveItemClasses
-                      }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Icon size={20} className="flex-shrink-0" />
-                      {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">{item.label}</span>}
+                  <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
+                    <div className="transition-conceal-content">
+                      <Link
+                        to={item.path}
+                        title={item.label}
+                        className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                          ? 'justify-between px-4 py-3'
+                          : 'justify-center p-3'
+                          } ${isActive
+                            ? activeItemClasses
+                            : inactiveItemClasses
+                          }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Icon size={20} className="flex-shrink-0" />
+                          {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">{item.label}</span>}
+                        </div>
+                        {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
+                      </Link>
                     </div>
-                    {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
-                  </Link>
+                  </div>
                 )
               })}
             </div>

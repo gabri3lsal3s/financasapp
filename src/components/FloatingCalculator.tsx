@@ -62,18 +62,15 @@ function isNumericField(element: Element | null): element is HTMLInputElement {
 }
 
 function normalizeInputValue(value: string): string {
-  return value.trim().replace(',', '.')
+  return value.trim().replace(/,/g, '.')
 }
 
 function toCanonicalNumericString(value: string): string {
   const compact = value.trim().replace(/\s/g, '')
   if (!compact) return ''
 
-  if (compact.includes(',')) {
-    return compact.replace(/\./g, '').replace(',', '.')
-  }
-
-  return compact
+  // Replace all commas with dots for canonical representation
+  return compact.replace(/,/g, '.')
 }
 
 function formatCanonicalNumberToPtBr(value: string): string {
@@ -155,7 +152,8 @@ function evaluateExpression(expression: string): string | null {
       return null
     }
 
-    const roundedValue = Number(formatNumberBR(rawValue, { maximumFractionDigits: 8 }))
+    // Use standard JS rounding instead of localized formatNumberBR to avoid commas in intermediate result
+    const roundedValue = Math.round(rawValue * 100000000) / 100000000
     return String(roundedValue)
   } catch {
     return null
@@ -1069,24 +1067,23 @@ export default function FloatingCalculator() {
         >
           <div className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-3 select-none">
-            <div>
-              <h3 className="text-sm font-semibold text-primary">Calculadora</h3>
-              <p className="text-[11px] text-secondary mt-0.5">Campo: {selectedFieldName}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsExpanded(false)}
-              aria-label="Minimizar calculadora"
-              onPointerDown={(event) => event.stopPropagation()}
-              className="p-2 rounded-lg text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-            >
-              <ChevronDown size={18} />
-            </button>
+              <div>
+                <h3 className="text-sm font-semibold text-primary">Calculadora</h3>
+                <p className="text-[11px] text-secondary mt-0.5">Campo: {selectedFieldName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExpanded(false)}
+                aria-label="Minimizar calculadora"
+                onPointerDown={(event) => event.stopPropagation()}
+                className="p-2 rounded-lg text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              >
+                <ChevronDown size={18} />
+              </button>
             </div>
 
-            <div className={`w-full rounded-lg border px-3 py-2 text-right ${isCompactPanel ? 'text-base' : 'text-lg'} font-semibold animate-calculator-display ${
-            hasError ? 'border-[var(--color-danger)] text-[var(--color-danger)]' : 'border-primary text-primary'
-          }`}>
+            <div className={`w-full rounded-lg border px-3 py-2 text-right ${isCompactPanel ? 'text-base' : 'text-lg'} font-semibold animate-calculator-display ${hasError ? 'border-[var(--color-danger)] text-[var(--color-danger)]' : 'border-primary text-primary'
+              }`}>
               {displayExpression}
             </div>
 

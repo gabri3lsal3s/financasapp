@@ -997,10 +997,10 @@ export default function Dashboard() {
                           onClick={handleRefreshInsights}
                           disabled={insightsLoading}
                           className={`p-2 rounded-lg border border-primary bg-secondary text-primary motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] disabled:opacity-50 ${insightsLoading ? 'animate-spin' : ''
-                            }`}
-                          title="Forçar atualização dos insights"
+                            } ${!isOnline ? 'animate-pulse scale-95 opacity-50' : ''}`}
+                          title={isOnline ? "Forçar atualização dos insights" : "Indisponível offline"}
                         >
-                          <RefreshCw size={16} />
+                          {isOnline ? <RefreshCw size={16} /> : <WifiOff size={16} />}
                         </button>
                       )}
                     </div>
