@@ -3,11 +3,39 @@ import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import { useAppSettings } from '@/hooks/useAppSettings'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+
 import { useAuth } from '@/contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
+import { WifiOff, ArrowLeft } from 'lucide-react'
+
 interface LayoutProps {
   children: ReactNode
+}
+
+function OfflinePlaceholder() {
+  const navigate = useNavigate()
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center animate-in fade-in zoom-in duration-300">
+      <div className="bg-tertiary p-6 rounded-full mb-6">
+        <WifiOff size={48} className="text-secondary" />
+      </div>
+      <h2 className="text-2xl font-bold text-primary mb-3">Página Indisponível Offline</h2>
+      <p className="text-secondary max-w-md mb-8">
+        Esta funcionalidade requer uma conexão com a internet para carregar os dados mais recentes.
+        Por favor, conecte-se para acessar esta página.
+      </p>
+      <button
+        onClick={() => navigate('/')}
+        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition-all active:scale-95"
+      >
+        <ArrowLeft size={20} />
+        Voltar para o Início
+      </button>
+    </div>
+  )
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -33,19 +61,24 @@ export default function Layout({ children }: LayoutProps) {
     }
   }
 
-  const mainItems = [
-    { path: '/', icon: Home, label: 'Início' },
-    { path: '/expenses', icon: TrendingDown, label: 'Despesas' },
-    { path: '/incomes', icon: TrendingUp, label: 'Rendas' },
-    { path: '/investments', icon: PiggyBank, label: 'Investimentos' },
-    { path: '/credit-cards', icon: CreditCard, label: 'Cartões' },
-    { path: '/reports', icon: BarChart3, label: 'Relatórios' },
+  const { isOnline } = useNetworkStatus()
+
+  const navItems = [
+    { path: '/', icon: Home, label: 'Início', onlineOnly: false },
+    { path: '/expenses', icon: TrendingDown, label: 'Despesas', onlineOnly: false },
+    { path: '/incomes', icon: TrendingUp, label: 'Rendas', onlineOnly: false },
+    { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
+    { path: '/credit-cards', icon: CreditCard, label: 'Cartões', onlineOnly: true },
+    { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
+    { path: '/categories', icon: Tags, label: 'Categorias', onlineOnly: true },
+    { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false },
   ]
 
-  const settingsItems = [
-    { path: '/categories', icon: Tags, label: 'Categorias' },
-    { path: '/settings', icon: Settings, label: 'Configurações do App' },
-  ]
+  const mainItems = navItems.slice(0, 6).filter(item => !item.onlineOnly || isOnline)
+  const settingsItems = navItems.slice(6).filter(item => !item.onlineOnly || isOnline)
+
+  const isCurrentPathOnlineOnly = navItems.find(item => item.path === location.pathname)?.onlineOnly || false
+  const shouldShowOfflinePlaceholder = !isOnline && isCurrentPathOnlineOnly
 
   useEffect(() => {
     setIsMobileMenuOpen(false)
@@ -165,11 +198,10 @@ export default function Layout({ children }: LayoutProps) {
                       <Link
                         key={item.path}
                         to={item.path}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${
-                          isActive
-                            ? activeItemClasses
-                            : inactiveItemClasses
-                        }`}
+                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
+                          ? activeItemClasses
+                          : inactiveItemClasses
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <Icon size={18} />
@@ -193,11 +225,10 @@ export default function Layout({ children }: LayoutProps) {
                       <Link
                         key={item.path}
                         to={item.path}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${
-                          isActive
-                            ? activeItemClasses
-                            : inactiveItemClasses
-                        }`}
+                        className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
+                          ? activeItemClasses
+                          : inactiveItemClasses
+                          }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <Icon size={18} className="flex-shrink-0" />
@@ -210,7 +241,7 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
 
                 <div className="my-4 border-t border-primary"></div>
-                
+
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
@@ -237,9 +268,8 @@ export default function Layout({ children }: LayoutProps) {
       <div className="hidden lg:grid min-h-screen grid-cols-[auto_1fr]">
         <aside
           ref={desktopMenuRef}
-          className={`sticky top-0 h-screen bg-secondary border-r border-primary overflow-y-auto motion-emphasis ${
-            isDesktopMenuExpanded ? 'w-72' : 'w-20'
-          }`}
+          className={`sticky top-0 h-screen bg-secondary border-r border-primary overflow-y-auto motion-emphasis ${isDesktopMenuExpanded ? 'w-72' : 'w-20'
+            }`}
         >
           <div className={`h-16 px-3 border-b border-primary flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
             {isDesktopMenuExpanded && <h2 className="text-lg font-bold text-primary">Finanças</h2>}
@@ -268,15 +298,13 @@ export default function Layout({ children }: LayoutProps) {
                     key={item.path}
                     to={item.path}
                     title={item.label}
-                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${
-                      isDesktopMenuExpanded
-                        ? 'justify-between px-4 py-3'
-                        : 'justify-center p-3'
-                    } ${
-                      isActive
+                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                      ? 'justify-between px-4 py-3'
+                      : 'justify-center p-3'
+                      } ${isActive
                         ? activeItemClasses
                         : inactiveItemClasses
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon size={20} className="flex-shrink-0" />
@@ -303,15 +331,13 @@ export default function Layout({ children }: LayoutProps) {
                     key={item.path}
                     to={item.path}
                     title={item.label}
-                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${
-                      isDesktopMenuExpanded
-                        ? 'justify-between px-4 py-3'
-                        : 'justify-center p-3'
-                    } ${
-                      isActive
+                    className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                      ? 'justify-between px-4 py-3'
+                      : 'justify-center p-3'
+                      } ${isActive
                         ? activeItemClasses
                         : inactiveItemClasses
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon size={20} className="flex-shrink-0" />
@@ -324,15 +350,14 @@ export default function Layout({ children }: LayoutProps) {
             </div>
 
             <div className="my-4 border-t border-primary"></div>
-            
+
             <button
               onClick={handleLogout}
               title="Sair"
-              className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 ${
-                isDesktopMenuExpanded
-                  ? 'justify-start px-4 py-3'
-                  : 'justify-center p-3'
-              }`}
+              className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 ${isDesktopMenuExpanded
+                ? 'justify-start px-4 py-3'
+                : 'justify-center p-3'
+                }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <LogOut size={20} className="flex-shrink-0" />
@@ -345,7 +370,7 @@ export default function Layout({ children }: LayoutProps) {
         <main className="safe-area-bottom">
           <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-8">
             <section key={location.pathname} className="animate-page-enter">
-              {children}
+              {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
           </div>
         </main>

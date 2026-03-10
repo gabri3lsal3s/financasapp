@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { IncomeCategory } from '@/types'
+import { getCache, setCache } from '@/services/offlineCache'
+import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
 const DEFAULT_CATEGORY_COLOR = '#9ca3af'
 
 export function useIncomeCategories() {
+  const { isOnline } = useNetworkStatus()
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadIncomeCategories()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline])
+
+  useEffect(() => {
+    const onQueueProcessed = () => {
+      loadIncomeCategories()
+    }
+    window.addEventListener('offline-queue-processed', onQueueProcessed)
+    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
   }, [])
 
   const getIncomeCategoryUsageCount = async (id: string): Promise<number> => {
@@ -20,7 +33,7 @@ export function useIncomeCategories() {
         .from('incomes')
         .select('id', { count: 'exact', head: true })
         .eq('income_category_id', id)
-      
+
       if (error) throw error
       return count || 0
     } catch (err) {
@@ -32,13 +45,27 @@ export function useIncomeCategories() {
   const loadIncomeCategories = async () => {
     try {
       setLoading(true)
+      const cacheKey = 'income_categories-all'
+      const cached = await getCache<IncomeCategory[]>(cacheKey)
+      if (cached) {
+        setIncomeCategories(cached)
+        setLoading(false)
+      }
+
+      if (!isOnline) {
+        setLoading(false)
+        return
+      }
+
       const { data, error: fetchError } = await supabase
         .from('income_categories')
         .select('*')
         .order('name', { ascending: true })
 
       if (fetchError) throw fetchError
-      setIncomeCategories(data || [])
+      const newData = data || []
+      setIncomeCategories(newData)
+      await setCache(cacheKey, newData)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar categorias de renda')
@@ -57,10 +84,28 @@ export function useIncomeCategories() {
         .single()
 
       if (insertError) throw insertError
-      
-      setIncomeCategories((prev) => [...prev, data])
+
+      setIncomeCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'income_categories',
+          action: 'create',
+          payload: incomeCategory as Record<string, unknown>,
+        })
+        const offlineCategory: IncomeCategory = {
+          id: `offline-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          ...incomeCategory,
+        }
+        setIncomeCategories((prev) => {
+          const next = [...prev, offlineCategory].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+          setCache('income_categories-all', next).catch(console.error)
+          return next
+        })
+        return { data: offlineCategory, error: null }
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar categoria de renda'
       return { data: null, error: errorMessage }
     }
@@ -76,12 +121,28 @@ export function useIncomeCategories() {
         .single()
 
       if (updateError) throw updateError
-      
+
       setIncomeCategories((prev) =>
-        prev.map((cat) => (cat.id === id ? data : cat))
+        prev.map((cat) => (cat.id === id ? data : cat)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
       )
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'income_categories',
+          action: 'update',
+          recordId: id,
+          payload: updates as Record<string, unknown>,
+        })
+        setIncomeCategories((prev) => {
+          const next = prev
+            .map((cat) => (cat.id === id ? { ...cat, ...updates } : cat))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+          setCache('income_categories-all', next).catch(console.error)
+          return next
+        })
+        return { data: { id, ...updates } as IncomeCategory, error: null }
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar categoria de renda'
       return { data: null, error: errorMessage }
     }
@@ -153,10 +214,23 @@ export function useIncomeCategories() {
         .eq('id', id)
 
       if (deleteError) throw deleteError
-      
+
       setIncomeCategories((prev) => prev.filter((cat) => cat.id !== id))
       return { error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'income_categories',
+          action: 'delete',
+          recordId: id,
+        })
+        setIncomeCategories((prev) => {
+          const next = prev.filter((cat) => cat.id !== id)
+          setCache('income_categories-all', next).catch(console.error)
+          return next
+        })
+        return { error: null }
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar categoria de renda'
       return { error: errorMessage }
     }

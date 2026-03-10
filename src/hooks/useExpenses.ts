@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Expense } from '@/types'
 import { addMonths, format } from 'date-fns'
-import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
 import { resolveBillCompetence, splitAmountIntoInstallments } from '@/utils/creditCardBilling'
+import { getCache, setCache } from '@/services/offlineCache'
+import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 const buildInstallmentDates = (startDate: string, installmentTotal: number) => {
   const normalizedTotal = Math.max(1, Math.min(60, Math.trunc(installmentTotal || 1)))
@@ -110,16 +112,21 @@ const generateInstallmentPayloads = (
 }
 
 export function useExpenses(month?: string) {
+  const { isOnline } = useNetworkStatus()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const getCacheKey = () => `expenses-${month || 'all'}`
+
   useEffect(() => {
     loadExpenses()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month])
+  }, [month, isOnline])
 
   useEffect(() => {
+    if (!isOnline) return
+
     const realtimeChannel = supabase
       .channel(`expenses-realtime-${month || 'all'}`)
       .on(
@@ -135,15 +142,26 @@ export function useExpenses(month?: string) {
       supabase.removeChannel(realtimeChannel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month])
+  }, [month, isOnline])
 
   useEffect(() => {
     const onQueueProcessed = () => {
       loadExpenses()
     }
 
+    const onLocalDataChanged = (e: Event) => {
+      const customEvent = e as CustomEvent
+      if (customEvent.detail?.entity === 'expenses') {
+        loadExpenses()
+      }
+    }
+
     window.addEventListener('offline-queue-processed', onQueueProcessed)
-    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+    window.addEventListener('local-data-changed', onLocalDataChanged)
+    return () => {
+      window.removeEventListener('offline-queue-processed', onQueueProcessed)
+      window.removeEventListener('local-data-changed', onLocalDataChanged)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -157,6 +175,19 @@ export function useExpenses(month?: string) {
   const loadExpenses = async () => {
     try {
       setLoading(true)
+
+      const cacheKey = getCacheKey()
+      const cached = await getCache<Expense[]>(cacheKey)
+      if (cached) {
+        setExpenses(sortExpensesByDate(cached))
+        setLoading(false)
+      }
+
+      if (!isOnline) {
+        setLoading(false)
+        return
+      }
+
       let query = supabase
         .from('expenses')
         .select(`
@@ -170,11 +201,11 @@ export function useExpenses(month?: string) {
         // month pode ser 'yyyy-MM' ou 'yyyy-MM-dd', normalizar para 'yyyy-MM'
         const monthStr = month.length === 7 ? month : month.substring(0, 7)
         const [year, monthNum] = monthStr.split('-').map(Number)
-        
+
         // Criar datas no timezone local para evitar problemas de UTC
         const startDate = new Date(year, monthNum - 1, 1) // monthNum - 1 porque Date usa 0-11
         const endDate = new Date(year, monthNum, 0) // dia 0 do próximo mês = último dia do mês atual
-        
+
         query = query
           .gte('date', format(startDate, 'yyyy-MM-dd'))
           .lte('date', format(endDate, 'yyyy-MM-dd'))
@@ -183,7 +214,9 @@ export function useExpenses(month?: string) {
       const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
-      setExpenses(sortExpensesByDate(data || []))
+      const newData = data || []
+      setExpenses(sortExpensesByDate(newData))
+      await setCache(cacheKey, newData)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar despesas')
@@ -198,6 +231,10 @@ export function useExpenses(month?: string) {
       // Validar campos obrigatórios
       if (!expense.category_id || !expense.amount) {
         throw new Error('Categoria e valor são obrigatórios')
+      }
+
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
       }
 
       const installments = Number(expense.installment_total || 1)
@@ -236,13 +273,28 @@ export function useExpenses(month?: string) {
         const installments = Number(expense.installment_total || 1)
         const expenseData = generateInstallmentPayloads(expense, installments)
 
-        expenseData.forEach((payload) => {
+        const offlineIds = expenseData.map((_, index) => `offline-${Date.now()}-${index}`)
+
+        expenseData.forEach((payload, index) => {
           enqueueOfflineOperation({
             entity: 'expenses',
             action: 'create',
-            payload,
+            payload: { ...payload, _uiId: offlineIds[index] },
           })
         })
+
+        let currentCategories: any[] = []
+        let currentCards: any[] = []
+        try {
+          const [catCached, cardCached] = await Promise.all([
+            getCache<any[]>('categories-all'),
+            getCache<any[]>('credit_cards-all')
+          ])
+          currentCategories = catCached || []
+          currentCards = cardCached || []
+        } catch (e) {
+          console.error('Error loading metadata from cache during offline create:', e)
+        }
 
         const nowIso = new Date().toISOString()
         const offlineExpenses: Expense[] = expenseData.map((payload, index) => {
@@ -250,8 +302,11 @@ export function useExpenses(month?: string) {
           const installmentNumber = 'installment_number' in payload ? payload.installment_number : undefined
           const installmentTotal = 'installment_total' in payload ? payload.installment_total : undefined
 
+          const matchedCategory = currentCategories.find(c => c.id === payload.category_id)
+          const matchedCard = payload.credit_card_id ? currentCards.find(c => c.id === payload.credit_card_id) : undefined
+
           return {
-            id: `offline-${Date.now()}-${index}`,
+            id: offlineIds[index],
             amount: Number(payload.amount),
             report_weight: payload.report_weight !== undefined ? Number(payload.report_weight) : undefined,
             date: String(payload.date),
@@ -264,10 +319,22 @@ export function useExpenses(month?: string) {
             bill_competence: payload.bill_competence ? String(payload.bill_competence) : null,
             description: payload.description ? String(payload.description) : undefined,
             created_at: nowIso,
-          }
+            category: matchedCategory ? {
+              id: matchedCategory.id,
+              name: matchedCategory.name,
+              color: matchedCategory.color || '#9ca3af',
+            } : undefined,
+            credit_card: matchedCard ? {
+              id: matchedCard.id,
+              name: matchedCard.name,
+            } : undefined,
+          } as Expense
         })
 
-        setExpenses((prev) => sortExpensesByDate([...offlineExpenses, ...prev]))
+        const nextState = sortExpensesByDate([...offlineExpenses, ...expenses])
+        setExpenses(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'expenses' } }))
         return { data: offlineExpenses[0] || null, error: null }
       }
 
@@ -280,6 +347,14 @@ export function useExpenses(month?: string) {
     let updatePayload: Partial<Expense> = { ...updates }
 
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      if (id.startsWith('offline-')) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const existingExpense = expenses.find((item) => item.id === id)
       const effectiveDate = String(updatePayload.date || existingExpense?.date || '')
       const effectivePaymentMethod =
@@ -320,19 +395,26 @@ export function useExpenses(month?: string) {
         .single()
 
       if (updateError) throw updateError
-      
+
       setExpenses((prev) => sortExpensesByDate(prev.map((exp) => (exp.id === id ? data : exp))))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'expenses',
-          action: 'update',
-          recordId: id,
-          payload: updatePayload as Record<string, unknown>,
-        })
+        if (id.startsWith('offline-')) {
+          updateOfflineCreatePayload(id, updatePayload as Record<string, unknown>)
+        } else {
+          enqueueOfflineOperation({
+            entity: 'expenses',
+            action: 'update',
+            recordId: id,
+            payload: updatePayload as Record<string, unknown>,
+          })
+        }
 
-        setExpenses((prev) => sortExpensesByDate(prev.map((exp) => (exp.id === id ? { ...exp, ...updatePayload } : exp))))
+        const nextState = sortExpensesByDate(expenses.map((exp) => (exp.id === id ? { ...exp, ...updatePayload } : exp)))
+        setExpenses(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'expenses' } }))
         return { data: { id, ...updatePayload }, error: null }
       }
 
@@ -343,24 +425,39 @@ export function useExpenses(month?: string) {
 
   const deleteExpense = async (id: string) => {
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      if (id.startsWith('offline-')) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const { error: deleteError } = await supabase
         .from('expenses')
         .delete()
         .eq('id', id)
 
       if (deleteError) throw deleteError
-      
+
       setExpenses((prev) => prev.filter((exp) => exp.id !== id))
       return { error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'expenses',
-          action: 'delete',
-          recordId: id,
-        })
+        if (id.startsWith('offline-')) {
+          removeOfflineCreateOperation(id)
+        } else {
+          enqueueOfflineOperation({
+            entity: 'expenses',
+            action: 'delete',
+            recordId: id,
+          })
+        }
 
-        setExpenses((prev) => prev.filter((exp) => exp.id !== id))
+        const nextState = expenses.filter((exp) => exp.id !== id)
+        setExpenses(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'expenses' } }))
         return { error: null }
       }
 

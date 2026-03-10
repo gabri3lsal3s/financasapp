@@ -5,6 +5,7 @@ import {
   getAssistantMonthlyInsights,
   interpretAssistantCommand,
 } from '@/services/assistantService'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import type { AssistantConfirmationMode } from '@/services/assistant-core/confirmationPolicy'
 import type {
   AssistantConfirmation,
@@ -25,6 +26,7 @@ interface UseAssistantState {
 }
 
 export function useAssistant(deviceId: string = 'web-preview-device') {
+  const { isOnline } = useNetworkStatus()
   const [state, setState] = useState<UseAssistantState>({
     loading: false,
     error: null,
@@ -43,6 +45,10 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
   }
 
   const ensureSession = useCallback(async () => {
+    if (!isOnline) {
+      setError('O assistente não está disponível offline.')
+      return null
+    }
     setLoading(true)
     try {
       const session = await getActiveAssistantSession(deviceId)
@@ -59,6 +65,10 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
 
   const interpret = useCallback(
     async (text: string, options?: { confirmationMode?: AssistantConfirmationMode; locale?: string; forceConfirmation?: boolean }) => {
+      if (!isOnline) {
+        setError('O assistente não está disponível offline.')
+        return null
+      }
       setLoading(true)
       try {
         const interpretation = await interpretAssistantCommand({
@@ -95,6 +105,10 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
     editedSlots?: AssistantSlots,
     confirmationMethod?: AssistantConfirmation['confirmation_method'],
   ) => {
+    if (!isOnline) {
+      setError('O assistente não está disponível offline.')
+      return null
+    }
     setLoading(true)
     try {
       const result = await confirmAssistantCommand({
@@ -121,6 +135,10 @@ export function useAssistant(deviceId: string = 'web-preview-device') {
   }, [])
 
   const getInsights = useCallback(async (month?: string) => {
+    if (!isOnline) {
+      setLoading(false)
+      return null
+    }
     setLoading(true)
     try {
       const insights = await getAssistantMonthlyInsights(month)

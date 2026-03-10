@@ -141,7 +141,7 @@ const buildConflictKey = (existingId: string, officialId: string) => `${existing
 export default function CreditCardCsvReconciliationPanel({
   card,
   currentMonth,
-  paymentItems: _paymentItems,
+  // paymentItems: _paymentItems,
   categories,
   onClose,
   onReloadBillData,
@@ -228,160 +228,160 @@ export default function CreditCardCsvReconciliationPanel({
     try {
       const parsed = parseCreditCardInvoiceCsv(text, 'auto')
 
-    setFileName(file.name)
-    setParseStatus('Lendo arquivo...')
+      setFileName(file.name)
+      setParseStatus('Lendo arquivo...')
 
-    if (!parsed.supported) {
-      setReconciliation(null)
-      setMissingDrafts([])
-      setConflictDrafts([])
-      setParseStatus(parsed.reason || 'Arquivo não suportado para fatura de cartão de crédito.')
-      return
-    }
+      if (!parsed.supported) {
+        setReconciliation(null)
+        setMissingDrafts([])
+        setConflictDrafts([])
+        setParseStatus(parsed.reason || 'Arquivo não suportado para fatura de cartão de crédito.')
+        return
+      }
 
-    // Buscamos itens na janela de 3 meses para garantir pareamento de estornos e erros de data
-    const candidateItems = await fetchReconciliationCandidates(card.id, currentMonth)
+      // Buscamos itens na janela de 3 meses para garantir pareamento de estornos e erros de data
+      const candidateItems = await fetchReconciliationCandidates(card.id, currentMonth)
 
-    const result = reconcileCreditCardBill(parsed.items, candidateItems, currentMonth)
-    setParseStatus('Buscando possíveis lançamentos duplicados...')
+      const result = reconcileCreditCardBill(parsed.items, candidateItems, currentMonth)
+      setParseStatus('Buscando possíveis lançamentos duplicados...')
 
-    let existingMatches: Record<string, MissingDraft['possibleExistingMatch']> = {}
-    let conflictInstallmentAnalysis: Record<string, NonNullable<ConflictDraft['installmentAnalysis']>> = {}
+      let existingMatches: Record<string, MissingDraft['possibleExistingMatch']> = {}
+      let conflictInstallmentAnalysis: Record<string, NonNullable<ConflictDraft['installmentAnalysis']>> = {}
 
-    if (result.missing.length > 0) {
-      const missingDates = result.missing.map((item) => item.date).sort()
-      const minDate = missingDates[0]
-      const maxDate = missingDates[missingDates.length - 1]
-      const rangeStart = addDays(minDate, -180)
-      const rangeEnd = addDays(maxDate, 180)
+      if (result.missing.length > 0) {
+        const missingDates = result.missing.map((item) => item.date).sort()
+        const minDate = missingDates[0]
+        const maxDate = missingDates[missingDates.length - 1]
+        const rangeStart = addDays(minDate, -180)
+        const rangeEnd = addDays(maxDate, 180)
 
-      const excludedCurrentIds = new Set<string>([
-        ...result.matched.map((item) => String(item.existing.id || '')),
-        ...result.conflicts.map((item) => String(item.existing.id || '')),
-      ])
+        const excludedCurrentIds = new Set<string>([
+          ...result.matched.map((item) => String(item.existing.id || '')),
+          ...result.conflicts.map((item) => String(item.existing.id || '')),
+        ])
 
-      const { data: nearbyRows } = await supabase
-        .from('expenses')
-        .select('id, amount, date, description, bill_competence, payment_method, credit_card_id')
-        .gte('date', rangeStart)
-        .lte('date', rangeEnd)
+        const { data: nearbyRows } = await supabase
+          .from('expenses')
+          .select('id, amount, date, description, bill_competence, payment_method, credit_card_id')
+          .gte('date', rangeStart)
+          .lte('date', rangeEnd)
 
-      const nearbyCandidates = (nearbyRows || [])
-        .map((row) => ({
+        const nearbyCandidates = (nearbyRows || [])
+          .map((row) => ({
+            id: String(row.id || ''),
+            amount: Number(row.amount || 0),
+            date: String(row.date || ''),
+            description: String(row.description || ''),
+            paymentMethod: String(row.payment_method || ''),
+            creditCardId: String(row.credit_card_id || ''),
+            billCompetence: String(row.bill_competence || ''),
+          }))
+          .filter((row) => row.id && !excludedCurrentIds.has(row.id))
+
+        existingMatches = result.missing.reduce<Record<string, MissingDraft['possibleExistingMatch']>>((acc, missingItem) => {
+          const officialAmount = Number(missingItem.amount || 0)
+
+          const best = nearbyCandidates
+            .filter((candidate) => {
+              const amountDelta = Math.abs(Math.abs(candidate.amount) - Math.abs(officialAmount))
+              if (amountDelta > 0.01) return false
+
+              const descriptionScore = similarity(missingItem.description, candidate.description)
+              return descriptionScore >= 0.2 || normalizeText(missingItem.description) === normalizeText(candidate.description)
+            })
+            .map((candidate) => {
+              const monthOffset = monthIndex(candidate.date) - monthIndex(missingItem.date)
+              const descriptionScore = similarity(missingItem.description, candidate.description)
+              const wrongDate = candidate.date !== missingItem.date
+              const wrongPaymentMethod = candidate.paymentMethod !== 'credit_card' || candidate.creditCardId !== card.id
+              const score =
+                (descriptionScore * 0.6) +
+                (1 / (1 + Math.abs(monthOffset)) * 0.2) +
+                (wrongPaymentMethod ? 0.15 : 0) +
+                (wrongDate ? 0.05 : 0)
+
+              return {
+                ...candidate,
+                wrongDate,
+                wrongPaymentMethod,
+                score,
+              }
+            })
+            .filter((candidate) => candidate.wrongDate || candidate.wrongPaymentMethod)
+            .sort((a, b) => b.score - a.score)[0]
+
+          if (!best) {
+            acc[missingItem.id] = null
+            return acc
+          }
+
+          acc[missingItem.id] = {
+            id: best.id,
+            date: best.date,
+            amount: best.amount,
+            description: best.description,
+            paymentMethod: best.paymentMethod,
+            creditCardId: best.creditCardId,
+            wrongDate: best.wrongDate,
+            wrongPaymentMethod: best.wrongPaymentMethod,
+          }
+
+          return acc
+        }, {})
+      }
+
+      const conflictsWithInstallments = result.conflicts.filter((conflict) =>
+        Boolean(conflict.official.installmentNumber && conflict.official.installmentTotal),
+      )
+
+      if (conflictsWithInstallments.length > 0) {
+        setParseStatus('Analisando parcelamentos anteriores...')
+        const conflictDates = conflictsWithInstallments
+          .flatMap((item) => [item.official.date, item.existing.date])
+          .filter((value) => Boolean(value))
+          .sort()
+        const dateStart = addDays(conflictDates[0], -180)
+        const dateEnd = addDays(conflictDates[conflictDates.length - 1], 180)
+
+        const { data: installmentRows } = await supabase
+          .from('expenses')
+          .select('id, amount, date, description, installment_number, installment_total, payment_method, credit_card_id')
+          .eq('payment_method', 'credit_card')
+          .eq('credit_card_id', card.id)
+          .gte('date', dateStart)
+          .lte('date', dateEnd)
+
+        const installmentCandidates = (installmentRows || []).map((row) => ({
           id: String(row.id || ''),
-          amount: Number(row.amount || 0),
+          amount: Math.abs(Number(row.amount || 0)),
           date: String(row.date || ''),
           description: String(row.description || ''),
-          paymentMethod: String(row.payment_method || ''),
-          creditCardId: String(row.credit_card_id || ''),
-          billCompetence: String(row.bill_competence || ''),
+          installmentNumber:
+            row.installment_number === null || row.installment_number === undefined
+              ? null
+              : Number(row.installment_number),
+          installmentTotal:
+            row.installment_total === null || row.installment_total === undefined
+              ? null
+              : Number(row.installment_total),
         }))
-        .filter((row) => row.id && !excludedCurrentIds.has(row.id))
 
-      existingMatches = result.missing.reduce<Record<string, MissingDraft['possibleExistingMatch']>>((acc, missingItem) => {
-        const officialAmount = Number(missingItem.amount || 0)
+        conflictInstallmentAnalysis = conflictsWithInstallments.reduce<Record<string, InstallmentAnalysis>>((acc, conflict) => {
+          const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
 
-        const best = nearbyCandidates
-          .filter((candidate) => {
-            const amountDelta = Math.abs(Math.abs(candidate.amount) - Math.abs(officialAmount))
-            if (amountDelta > 0.01) return false
-
-            const descriptionScore = similarity(missingItem.description, candidate.description)
-            return descriptionScore >= 0.2 || normalizeText(missingItem.description) === normalizeText(candidate.description)
+          const analysis = analyzeInstallments({
+            officialItem: conflict.official,
+            existingItem: conflict.existing,
+            nearbyExpenses: installmentCandidates
           })
-          .map((candidate) => {
-            const monthOffset = monthIndex(candidate.date) - monthIndex(missingItem.date)
-            const descriptionScore = similarity(missingItem.description, candidate.description)
-            const wrongDate = candidate.date !== missingItem.date
-            const wrongPaymentMethod = candidate.paymentMethod !== 'credit_card' || candidate.creditCardId !== card.id
-            const score =
-              (descriptionScore * 0.6) +
-              (1 / (1 + Math.abs(monthOffset)) * 0.2) +
-              (wrongPaymentMethod ? 0.15 : 0) +
-              (wrongDate ? 0.05 : 0)
 
-            return {
-              ...candidate,
-              wrongDate,
-              wrongPaymentMethod,
-              score,
-            }
-          })
-          .filter((candidate) => candidate.wrongDate || candidate.wrongPaymentMethod)
-          .sort((a, b) => b.score - a.score)[0]
-
-        if (!best) {
-          acc[missingItem.id] = null
+          acc[key] = analysis
           return acc
-        }
+        }, {})
+      }
 
-        acc[missingItem.id] = {
-          id: best.id,
-          date: best.date,
-          amount: best.amount,
-          description: best.description,
-          paymentMethod: best.paymentMethod,
-          creditCardId: best.creditCardId,
-          wrongDate: best.wrongDate,
-          wrongPaymentMethod: best.wrongPaymentMethod,
-        }
-
-        return acc
-      }, {})
-    }
-
-    const conflictsWithInstallments = result.conflicts.filter((conflict) =>
-      Boolean(conflict.official.installmentNumber && conflict.official.installmentTotal),
-    )
-
-    if (conflictsWithInstallments.length > 0) {
-      setParseStatus('Analisando parcelamentos anteriores...')
-      const conflictDates = conflictsWithInstallments
-        .flatMap((item) => [item.official.date, item.existing.date])
-        .filter((value) => Boolean(value))
-        .sort()
-      const dateStart = addDays(conflictDates[0], -180)
-      const dateEnd = addDays(conflictDates[conflictDates.length - 1], 180)
-
-      const { data: installmentRows } = await supabase
-        .from('expenses')
-        .select('id, amount, date, description, installment_number, installment_total, payment_method, credit_card_id')
-        .eq('payment_method', 'credit_card')
-        .eq('credit_card_id', card.id)
-        .gte('date', dateStart)
-        .lte('date', dateEnd)
-
-      const installmentCandidates = (installmentRows || []).map((row) => ({
-        id: String(row.id || ''),
-        amount: Math.abs(Number(row.amount || 0)),
-        date: String(row.date || ''),
-        description: String(row.description || ''),
-        installmentNumber:
-          row.installment_number === null || row.installment_number === undefined
-            ? null
-            : Number(row.installment_number),
-        installmentTotal:
-          row.installment_total === null || row.installment_total === undefined
-            ? null
-            : Number(row.installment_total),
-      }))
-
-      conflictInstallmentAnalysis = conflictsWithInstallments.reduce<Record<string, InstallmentAnalysis>>((acc, conflict) => {
-        const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
-        
-        const analysis = analyzeInstallments({
-          officialItem: conflict.official,
-          existingItem: conflict.existing,
-          nearbyExpenses: installmentCandidates
-        })
-
-        acc[key] = analysis
-        return acc
-      }, {})
-    }
-
-    setReconciliation(result)
-    setMissingDrafts(result.missing.map((item) => {
+      setReconciliation(result)
+      setMissingDrafts(result.missing.map((item) => {
         const suggestion = suggestFromCreditCardCsvLearning(item.description)
 
         return {
@@ -446,7 +446,7 @@ export default function CreditCardCsvReconciliationPanel({
                 if (draft.learnedSuggestion.enabled && (draft.learnedSuggestion.confidence || 0) >= 0.8) {
                   return draft
                 }
-                
+
                 return {
                   ...draft,
                   description: aiMatch.cleanDescription || draft.description,
@@ -464,41 +464,41 @@ export default function CreditCardCsvReconciliationPanel({
       }
 
       setConflictDrafts(result.conflicts.map((conflict) => ({
-      key: buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || '')),
-      existingId: String(conflict.existing.id || ''),
-      officialId: String(conflict.official.id || ''),
-      selected: false,
-      applied: (() => {
-        const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
-        const analysis = conflictInstallmentAnalysis[key]
-        const amountDelta = Math.abs(
-          Math.abs(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))
-          - Math.abs(Number(conflict.suggestedUpdate.amount || 0)),
-        )
-        const isDateOnlyConflict = amountDelta <= 0.009 && conflict.existing.date !== conflict.suggestedUpdate.date
-        const autoResolved = analysis?.status === 'consistent' && isDateOnlyConflict
-        return autoResolved || !conflict.suggestedUpdate.needsUpdate
-      })(),
-      autoResolvedByInstallment: (() => {
-        const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
-        const analysis = conflictInstallmentAnalysis[key]
-        const amountDelta = Math.abs(
-          Math.abs(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))
-          - Math.abs(Number(conflict.suggestedUpdate.amount || 0)),
-        )
-        const isDateOnlyConflict = amountDelta <= 0.009 && conflict.existing.date !== conflict.suggestedUpdate.date
-        return Boolean(analysis?.status === 'consistent' && isDateOnlyConflict)
-      })(),
-      date: conflict.suggestedUpdate.date,
-      amount: formatMoneyInput(Math.abs(Number(conflict.suggestedUpdate.amount || 0))),
-      existingDescription: String(conflict.existing.description || conflict.existing.category_name || 'Sem descrição'),
-      officialDescription: String(conflict.official.description || ''),
-      installmentLabel: conflict.suggestedUpdate.installmentLabel,
-      isRefund: conflict.official.isRefund,
-      installmentAnalysis: conflictInstallmentAnalysis[
-        buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
-      ] || null,
-    })))
+        key: buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || '')),
+        existingId: String(conflict.existing.id || ''),
+        officialId: String(conflict.official.id || ''),
+        selected: false,
+        applied: (() => {
+          const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
+          const analysis = conflictInstallmentAnalysis[key]
+          const amountDelta = Math.abs(
+            Math.abs(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))
+            - Math.abs(Number(conflict.suggestedUpdate.amount || 0)),
+          )
+          const isDateOnlyConflict = amountDelta <= 0.009 && conflict.existing.date !== conflict.suggestedUpdate.date
+          const autoResolved = analysis?.status === 'consistent' && isDateOnlyConflict
+          return autoResolved || !conflict.suggestedUpdate.needsUpdate
+        })(),
+        autoResolvedByInstallment: (() => {
+          const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
+          const analysis = conflictInstallmentAnalysis[key]
+          const amountDelta = Math.abs(
+            Math.abs(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))
+            - Math.abs(Number(conflict.suggestedUpdate.amount || 0)),
+          )
+          const isDateOnlyConflict = amountDelta <= 0.009 && conflict.existing.date !== conflict.suggestedUpdate.date
+          return Boolean(analysis?.status === 'consistent' && isDateOnlyConflict)
+        })(),
+        date: conflict.suggestedUpdate.date,
+        amount: formatMoneyInput(Math.abs(Number(conflict.suggestedUpdate.amount || 0))),
+        existingDescription: String(conflict.existing.description || conflict.existing.category_name || 'Sem descrição'),
+        officialDescription: String(conflict.official.description || ''),
+        installmentLabel: conflict.suggestedUpdate.installmentLabel,
+        isRefund: conflict.official.isRefund,
+        installmentAnalysis: conflictInstallmentAnalysis[
+          buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
+        ] || null,
+      })))
 
       setParseStatus('')
     } catch (error) {
@@ -931,123 +931,124 @@ export default function CreditCardCsvReconciliationPanel({
                   if (!draft) return null
 
                   return (
-                  <div
-                    key={`${conflict.existing.id}-${conflict.official.id}`}
-                    className={`rounded-lg border bg-primary p-2 space-y-1.5 cursor-pointer ${draft.selected ? 'border-[var(--color-focus)] ring-1 ring-[var(--color-focus)]' : 'border-primary'}`}
-                    onClick={() => {
-                      if (draft.applied) return
-                      setConflictDrafts((previous) => previous.map((item) =>
-                        item.key === draft.key
-                          ? { ...item, selected: !item.selected }
-                          : item,
-                      ))
-                    }}
-                  >
-                    <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Conflito identificado</p>
-                    <p className="text-xs text-secondary">{draft.applied ? 'Sugestão já aplicada' : (draft.selected ? 'Selecionado para aplicar' : 'Clique no card para selecionar')}</p>
+                    <div
+                      key={`${conflict.existing.id}-${conflict.official.id}`}
+                      className={`rounded-lg border bg-primary p-2 space-y-1.5 cursor-pointer ${draft.selected ? 'border-[var(--color-focus)] ring-1 ring-[var(--color-focus)]' : 'border-primary'}`}
+                      onClick={() => {
+                        if (draft.applied) return
+                        setConflictDrafts((previous) => previous.map((item) =>
+                          item.key === draft.key
+                            ? { ...item, selected: !item.selected }
+                            : item,
+                        ))
+                      }}
+                    >
+                      <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Conflito identificado</p>
+                      <p className="text-xs text-secondary">{draft.applied ? 'Sugestão já aplicada' : (draft.selected ? 'Selecionado para aplicar' : 'Clique no card para selecionar')}</p>
 
-                    {draft.autoResolvedByInstallment && (
-                      <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                        <p className="text-xs text-secondary">
-                          Sequência de parcelas consistente entre os meses. Diferença de data no CSV oficial foi tratada automaticamente.
-                        </p>
-                      </div>
-                    )}
-
-                    {draft.installmentAnalysis && !draft.autoResolvedByInstallment && (
-                      <div className="rounded-lg border border-primary bg-secondary p-1.5 space-y-1">
-                        {draft.installmentAnalysis.status === 'consistent' && (
+                      {draft.autoResolvedByInstallment && (
+                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
                           <p className="text-xs text-secondary">
-                            Parcelamento consistente entre meses ({draft.installmentAnalysis.foundNumbers.join(', ')}/{draft.installmentLabel || 'n'}).
+                            Sequência de parcelas consistente entre os meses. Diferença de data no CSV oficial foi tratada automaticamente.
                           </p>
-                        )}
+                        </div>
+                      )}
 
-                        {draft.installmentAnalysis.status === 'missing' && (
-                          <>
-                            <p className="text-xs text-secondary">Parcelamento parcialmente consistente.</p>
+                      {draft.installmentAnalysis && !draft.autoResolvedByInstallment && (
+                        <div className="rounded-lg border border-primary bg-secondary p-1.5 space-y-1">
+                          {draft.installmentAnalysis.status === 'consistent' && (
                             <p className="text-xs text-secondary">
-                              Parcelas encontradas: {draft.installmentAnalysis.foundNumbers.join(', ') || 'nenhuma'}
+                              Parcelamento consistente entre meses ({draft.installmentAnalysis.foundNumbers.join(', ')}/{draft.installmentLabel || 'n'}).
                             </p>
+                          )}
+
+                          {draft.installmentAnalysis.status === 'missing' && (
+                            <>
+                              <p className="text-xs text-secondary">Parcelamento parcialmente consistente.</p>
+                              <p className="text-xs text-secondary">
+                                Parcelas encontradas: {draft.installmentAnalysis.foundNumbers.join(', ') || 'nenhuma'}
+                              </p>
+                              <p className="text-xs text-secondary">
+                                Parcelas faltando: {draft.installmentAnalysis.missingNumbers.join(', ') || 'nenhuma'}
+                              </p>
+                            </>
+                          )}
+
+                          {draft.installmentAnalysis.status === 'inconclusive' && (
                             <p className="text-xs text-secondary">
-                              Parcelas faltando: {draft.installmentAnalysis.missingNumbers.join(', ') || 'nenhuma'}
+                              Não foi possível confirmar a sequência completa das parcelas entre faturas anteriores e posteriores.
                             </p>
-                          </>
-                        )}
+                          )}
 
-                        {draft.installmentAnalysis.status === 'inconclusive' && (
-                          <p className="text-xs text-secondary">
-                            Não foi possível confirmar a sequência completa das parcelas entre faturas anteriores e posteriores.
-                          </p>
-                        )}
+                          {draft.installmentAnalysis.officialDateInconsistencyMessage && (
+                            <p className="text-xs text-secondary">
+                              {draft.installmentAnalysis.officialDateInconsistencyMessage}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
-                        {draft.installmentAnalysis.officialDateInconsistencyMessage && (
+                      {draft.autoResolvedByInstallment && draft.installmentAnalysis?.officialDateInconsistencyMessage && (
+                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
                           <p className="text-xs text-secondary">
                             {draft.installmentAnalysis.officialDateInconsistencyMessage}
                           </p>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                    {draft.autoResolvedByInstallment && draft.installmentAnalysis?.officialDateInconsistencyMessage && (
-                      <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                        <p className="text-xs text-secondary">
-                          {draft.installmentAnalysis.officialDateInconsistencyMessage}
-                        </p>
-                      </div>
-                    )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
+                          <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Sistema</p>
+                          <p className="text-xs text-secondary mt-1">
+                            {formatDate(conflict.existing.date)} • {formatCurrency(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))}
+                          </p>
+                          <p className="text-sm text-primary mt-1 break-words">{conflict.existing.description || 'Sem descrição'}</p>
+                        </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                        <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Sistema</p>
-                        <p className="text-xs text-secondary mt-1">
-                          {formatDate(conflict.existing.date)} • {formatCurrency(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))}
-                        </p>
-                        <p className="text-sm text-primary mt-1 break-words">{conflict.existing.description || 'Sem descrição'}</p>
+                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
+                          <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Oficial</p>
+                          <p className="text-xs text-secondary mt-1">
+                            {formatDate(conflict.suggestedUpdate.date)} • {formatCurrency(Number(conflict.official.amount || conflict.suggestedUpdate.amount || 0))}
+                          </p>
+                          <p className="text-sm text-primary mt-1 break-words">{conflict.official.description || 'Sem descrição'}</p>
+                          {draft.installmentLabel && (
+                            <p className="text-xs text-secondary mt-1">Compra parcelada • parcela {draft.installmentLabel}</p>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                        <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Oficial</p>
-                        <p className="text-xs text-secondary mt-1">
-                          {formatDate(conflict.suggestedUpdate.date)} • {formatCurrency(Number(conflict.official.amount || conflict.suggestedUpdate.amount || 0))}
-                        </p>
-                        <p className="text-sm text-primary mt-1 break-words">{conflict.official.description || 'Sem descrição'}</p>
-                        {draft.installmentLabel && (
-                          <p className="text-xs text-secondary mt-1">Compra parcelada • parcela {draft.installmentLabel}</p>
-                        )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <Input
+                          label="Data sugerida"
+                          type="date"
+                          value={draft.date}
+                          disabled={draft.applied}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => {
+                            setConflictDrafts((previous) => previous.map((item) =>
+                              item.key === draft.key ? { ...item, date: event.target.value } : item,
+                            ))
+                          }}
+                        />
+
+                        <Input
+                          label="Valor sugerido"
+                          type="text"
+                          inputMode="decimal"
+                          value={draft.amount}
+                          disabled={draft.applied}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => {
+                            setConflictDrafts((previous) => previous.map((item) =>
+                              item.key === draft.key ? { ...item, amount: event.target.value } : item,
+                            ))
+                          }}
+                        />
                       </div>
+
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      <Input
-                        label="Data sugerida"
-                        type="date"
-                        value={draft.date}
-                        disabled={draft.applied}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          setConflictDrafts((previous) => previous.map((item) =>
-                            item.key === draft.key ? { ...item, date: event.target.value } : item,
-                          ))
-                        }}
-                      />
-
-                      <Input
-                        label="Valor sugerido"
-                        type="text"
-                        inputMode="decimal"
-                        value={draft.amount}
-                        disabled={draft.applied}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => {
-                          setConflictDrafts((previous) => previous.map((item) =>
-                            item.key === draft.key ? { ...item, amount: event.target.value } : item,
-                          ))
-                        }}
-                      />
-                    </div>
-
-                  </div>
-                )})}
+                  )
+                })}
               </div>
 
               <div className="flex justify-end">

@@ -2,8 +2,14 @@ import { useEffect } from 'react'
 import { flushOfflineQueue } from '@/utils/offlineQueue'
 import { flushAssistantOfflineQueue } from '@/utils/assistantOfflineQueue'
 
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+
 export default function OfflineSyncManager() {
+  const { isOnline } = useNetworkStatus()
+
   useEffect(() => {
+    if (!isOnline) return
+
     const runSync = () => {
       flushOfflineQueue()
       flushAssistantOfflineQueue()
@@ -15,7 +21,7 @@ export default function OfflineSyncManager() {
     return () => {
       window.removeEventListener('online', runSync)
     }
-  }, [])
+  }, [isOnline])
 
   return null
 }

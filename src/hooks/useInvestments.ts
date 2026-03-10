@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Investment } from '@/types'
 import { format } from 'date-fns'
-import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
+import { enqueueOfflineOperation, shouldQueueOffline, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
+import { getCache, setCache } from '@/services/offlineCache'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 export function useInvestments(month?: string) {
+  const { isOnline } = useNetworkStatus()
   const [investments, setInvestments] = useState<Investment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -12,9 +15,11 @@ export function useInvestments(month?: string) {
   useEffect(() => {
     loadInvestments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month])
+  }, [month, isOnline])
 
   useEffect(() => {
+    if (!isOnline) return
+
     const realtimeChannel = supabase
       .channel(`investments-realtime-${month || 'all'}`)
       .on(
@@ -30,15 +35,26 @@ export function useInvestments(month?: string) {
       supabase.removeChannel(realtimeChannel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month])
+  }, [month, isOnline])
 
   useEffect(() => {
     const onQueueProcessed = () => {
       loadInvestments()
     }
 
+    const onLocalDataChanged = (e: Event) => {
+      const customEvent = e as CustomEvent
+      if (customEvent.detail?.entity === 'investments') {
+        loadInvestments()
+      }
+    }
+
     window.addEventListener('offline-queue-processed', onQueueProcessed)
-    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+    window.addEventListener('local-data-changed', onLocalDataChanged)
+    return () => {
+      window.removeEventListener('offline-queue-processed', onQueueProcessed)
+      window.removeEventListener('local-data-changed', onLocalDataChanged)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -49,9 +65,23 @@ export function useInvestments(month?: string) {
       return b.created_at.localeCompare(a.created_at)
     })
 
+  const getCacheKey = () => `investments-${month || 'all'}`
+
   const loadInvestments = async () => {
     try {
       setLoading(true)
+      const cacheKey = getCacheKey()
+      const cached = await getCache<Investment[]>(cacheKey)
+      if (cached) {
+        setInvestments(sortInvestmentsByMonth(cached))
+        setLoading(false)
+      }
+
+      if (!isOnline) {
+        setLoading(false)
+        return
+      }
+
       let query = supabase
         .from('investments')
         .select('*')
@@ -66,7 +96,9 @@ export function useInvestments(month?: string) {
       const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
-      setInvestments(sortInvestmentsByMonth(data || []))
+      const newData = data || []
+      setInvestments(sortInvestmentsByMonth(newData))
+      await setCache(cacheKey, newData)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar investimentos')
@@ -78,6 +110,10 @@ export function useInvestments(month?: string) {
 
   const createInvestment = async (investment: Omit<Investment, 'id' | 'created_at'>) => {
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
       const investmentData = {
         ...investment,
         month: investment.month || format(new Date(), 'yyyy-MM'),
@@ -90,11 +126,12 @@ export function useInvestments(month?: string) {
         .single()
 
       if (insertError) throw insertError
-      
+
       setInvestments((prev) => sortInvestmentsByMonth([data, ...prev]))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
+        const uiId = `offline-${Date.now()}`
         enqueueOfflineOperation({
           entity: 'investments',
           action: 'create',
@@ -102,18 +139,22 @@ export function useInvestments(month?: string) {
             amount: investment.amount,
             month: investment.month || format(new Date(), 'yyyy-MM'),
             ...(investment.description && { description: investment.description }),
+            _uiId: uiId,
           },
         })
 
         const offlineInvestment: Investment = {
-          id: `offline-${Date.now()}`,
+          id: uiId,
           amount: investment.amount,
           month: investment.month || format(new Date(), 'yyyy-MM'),
           ...(investment.description && { description: investment.description }),
           created_at: new Date().toISOString(),
         }
 
-        setInvestments((prev) => sortInvestmentsByMonth([offlineInvestment, ...prev]))
+        const nextState = sortInvestmentsByMonth([offlineInvestment, ...investments])
+        setInvestments(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'investments' } }))
         return { data: offlineInvestment, error: null }
       }
 
@@ -124,6 +165,14 @@ export function useInvestments(month?: string) {
 
   const updateInvestment = async (id: string, updates: Partial<Investment>) => {
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      if (id.startsWith('offline-')) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const { data, error: updateError } = await supabase
         .from('investments')
         .update(updates)
@@ -132,19 +181,26 @@ export function useInvestments(month?: string) {
         .single()
 
       if (updateError) throw updateError
-      
+
       setInvestments((prev) => sortInvestmentsByMonth(prev.map((inv) => (inv.id === id ? data : inv))))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'investments',
-          action: 'update',
-          recordId: id,
-          payload: updates as Record<string, unknown>,
-        })
+        if (id.startsWith('offline-')) {
+          updateOfflineCreatePayload(id, updates as Record<string, unknown>)
+        } else {
+          enqueueOfflineOperation({
+            entity: 'investments',
+            action: 'update',
+            recordId: id,
+            payload: updates as Record<string, unknown>,
+          })
+        }
 
-        setInvestments((prev) => sortInvestmentsByMonth(prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv))))
+        const nextState = sortInvestmentsByMonth(investments.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)))
+        setInvestments(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'investments' } }))
         return { data: { id, ...updates }, error: null }
       }
 
@@ -155,24 +211,39 @@ export function useInvestments(month?: string) {
 
   const deleteInvestment = async (id: string) => {
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      if (id.startsWith('offline-')) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const { error: deleteError } = await supabase
         .from('investments')
         .delete()
         .eq('id', id)
 
       if (deleteError) throw deleteError
-      
+
       setInvestments((prev) => prev.filter((inv) => inv.id !== id))
       return { error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'investments',
-          action: 'delete',
-          recordId: id,
-        })
+        if (id.startsWith('offline-')) {
+          removeOfflineCreateOperation(id)
+        } else {
+          enqueueOfflineOperation({
+            entity: 'investments',
+            action: 'delete',
+            recordId: id,
+          })
+        }
 
-        setInvestments((prev) => prev.filter((inv) => inv.id !== id))
+        const nextState = investments.filter((inv) => inv.id !== id)
+        setInvestments(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'investments' } }))
         return { error: null }
       }
 

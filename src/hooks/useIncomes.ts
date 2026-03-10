@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Income } from '@/types'
 import { format } from 'date-fns'
-import { enqueueOfflineOperation, shouldQueueOffline } from '@/utils/offlineQueue'
+import { enqueueOfflineOperation, shouldQueueOffline, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
+import { getCache, setCache } from '@/services/offlineCache'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 export function useIncomes(month?: string) {
+  const { isOnline } = useNetworkStatus()
   const [incomes, setIncomes] = useState<Income[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -12,9 +15,11 @@ export function useIncomes(month?: string) {
   useEffect(() => {
     loadIncomes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month])
+  }, [month, isOnline])
 
   useEffect(() => {
+    if (!isOnline) return
+
     const realtimeChannel = supabase
       .channel(`incomes-realtime-${month || 'all'}`)
       .on(
@@ -30,15 +35,26 @@ export function useIncomes(month?: string) {
       supabase.removeChannel(realtimeChannel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month])
+  }, [month, isOnline])
 
   useEffect(() => {
     const onQueueProcessed = () => {
       loadIncomes()
     }
 
+    const onLocalDataChanged = (e: Event) => {
+      const customEvent = e as CustomEvent
+      if (customEvent.detail?.entity === 'incomes') {
+        loadIncomes()
+      }
+    }
+
     window.addEventListener('offline-queue-processed', onQueueProcessed)
-    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+    window.addEventListener('local-data-changed', onLocalDataChanged)
+    return () => {
+      window.removeEventListener('offline-queue-processed', onQueueProcessed)
+      window.removeEventListener('local-data-changed', onLocalDataChanged)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -49,9 +65,24 @@ export function useIncomes(month?: string) {
       return b.created_at.localeCompare(a.created_at)
     })
 
+  const getCacheKey = () => `incomes-${month || 'all'}`
+
   const loadIncomes = async () => {
     try {
       setLoading(true)
+
+      const cacheKey = getCacheKey()
+      const cached = await getCache<Income[]>(cacheKey)
+      if (cached) {
+        setIncomes(sortIncomesByDate(cached))
+        setLoading(false)
+      }
+
+      if (!isOnline) {
+        setLoading(false)
+        return
+      }
+
       let query = supabase
         .from('incomes')
         .select('*, income_category:income_categories(*)')
@@ -61,11 +92,11 @@ export function useIncomes(month?: string) {
         // month pode ser 'yyyy-MM' ou 'yyyy-MM-dd', normalizar para 'yyyy-MM'
         const monthStr = month.length === 7 ? month : month.substring(0, 7)
         const [year, monthNum] = monthStr.split('-').map(Number)
-        
+
         // Criar datas no timezone local para evitar problemas de UTC
         const startDate = new Date(year, monthNum - 1, 1) // monthNum - 1 porque Date usa 0-11
         const endDate = new Date(year, monthNum, 0) // dia 0 do próximo mês = último dia do mês atual
-        
+
         query = query
           .gte('date', format(startDate, 'yyyy-MM-dd'))
           .lte('date', format(endDate, 'yyyy-MM-dd'))
@@ -74,7 +105,9 @@ export function useIncomes(month?: string) {
       const { data, error: fetchError } = await query
 
       if (fetchError) throw fetchError
-      setIncomes(sortIncomesByDate(data || []))
+      const newData = data || []
+      setIncomes(sortIncomesByDate(newData))
+      await setCache(cacheKey, newData)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar rendas')
@@ -89,6 +122,10 @@ export function useIncomes(month?: string) {
       // Validar campos obrigatórios
       if (!income.income_category_id || !income.amount) {
         throw new Error('Categoria e valor são obrigatórios')
+      }
+
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
       }
 
       const incomeData = {
@@ -107,11 +144,12 @@ export function useIncomes(month?: string) {
         .single()
 
       if (insertError) throw insertError
-      
+
       setIncomes((prev) => sortIncomesByDate([data, ...prev]))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
+        const uiId = `offline-${Date.now()}`
         enqueueOfflineOperation({
           entity: 'incomes',
           action: 'create',
@@ -122,11 +160,20 @@ export function useIncomes(month?: string) {
             income_category_id: income.income_category_id,
             ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
             ...(income.description && { description: income.description }),
+            _uiId: uiId,
           },
         })
 
+        let currentIncomeCategories: any[] = []
+        try {
+          currentIncomeCategories = await getCache<any[]>('income_categories-all') || []
+        } catch (e) {
+          console.error('Error loading categories from cache during offline create:', e)
+        }
+        const matchedCategory = currentIncomeCategories.find(c => c.id === income.income_category_id)
+
         const offlineIncome: Income = {
-          id: `offline-${Date.now()}`,
+          id: uiId,
           amount: income.amount,
           date: income.date || format(new Date(), 'yyyy-MM-dd'),
           type: 'other',
@@ -134,9 +181,17 @@ export function useIncomes(month?: string) {
           ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
           ...(income.description && { description: income.description }),
           created_at: new Date().toISOString(),
-        }
+          income_category: matchedCategory ? {
+            id: matchedCategory.id,
+            name: matchedCategory.name,
+            color: matchedCategory.color || '#9ca3af',
+          } : undefined,
+        } as Income
 
-        setIncomes((prev) => sortIncomesByDate([offlineIncome, ...prev]))
+        const nextState = sortIncomesByDate([offlineIncome, ...incomes])
+        setIncomes(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'incomes' } }))
         return { data: offlineIncome, error: null }
       }
 
@@ -147,6 +202,14 @@ export function useIncomes(month?: string) {
 
   const updateIncome = async (id: string, updates: Partial<Income>) => {
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      if (id.startsWith('offline-')) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const { data, error: updateError } = await supabase
         .from('incomes')
         .update(updates)
@@ -155,19 +218,26 @@ export function useIncomes(month?: string) {
         .single()
 
       if (updateError) throw updateError
-      
+
       setIncomes((prev) => sortIncomesByDate(prev.map((inc) => (inc.id === id ? data : inc))))
       return { data, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'incomes',
-          action: 'update',
-          recordId: id,
-          payload: updates as Record<string, unknown>,
-        })
+        if (id.startsWith('offline-')) {
+          updateOfflineCreatePayload(id, updates as Record<string, unknown>)
+        } else {
+          enqueueOfflineOperation({
+            entity: 'incomes',
+            action: 'update',
+            recordId: id,
+            payload: updates as Record<string, unknown>,
+          })
+        }
 
-        setIncomes((prev) => sortIncomesByDate(prev.map((inc) => (inc.id === id ? { ...inc, ...updates } : inc))))
+        const nextState = sortIncomesByDate(incomes.map((inc) => (inc.id === id ? { ...inc, ...updates } : inc)))
+        setIncomes(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'incomes' } }))
         return { data: { id, ...updates }, error: null }
       }
 
@@ -178,24 +248,39 @@ export function useIncomes(month?: string) {
 
   const deleteIncome = async (id: string) => {
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      if (id.startsWith('offline-')) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const { error: deleteError } = await supabase
         .from('incomes')
         .delete()
         .eq('id', id)
 
       if (deleteError) throw deleteError
-      
+
       setIncomes((prev) => prev.filter((inc) => inc.id !== id))
       return { error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'incomes',
-          action: 'delete',
-          recordId: id,
-        })
+        if (id.startsWith('offline-')) {
+          removeOfflineCreateOperation(id)
+        } else {
+          enqueueOfflineOperation({
+            entity: 'incomes',
+            action: 'delete',
+            recordId: id,
+          })
+        }
 
-        setIncomes((prev) => prev.filter((inc) => inc.id !== id))
+        const nextState = incomes.filter((inc) => inc.id !== id)
+        setIncomes(nextState)
+        await setCache(getCacheKey(), nextState)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'incomes' } }))
         return { error: null }
       }
 

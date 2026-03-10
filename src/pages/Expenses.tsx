@@ -11,13 +11,14 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Expense } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryBadge from '@/components/CategoryBadge'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
@@ -83,6 +84,19 @@ export default function Expenses() {
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
+  const { isOnline } = useNetworkStatus()
+
+  useEffect(() => {
+    const month = searchParams.get('month')
+    if (month && month.length === 7) {
+      setCurrentMonth(month)
+    }
+  }, [searchParams])
+
+  const handleMonthChange = (month: string) => {
+    setCurrentMonth(month)
+    setSearchParams({ month })
+  }
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => {
@@ -182,7 +196,7 @@ export default function Expenses() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.amount || !formData.category_id) return
 
     const amount = parseMoneyInput(formData.amount)
@@ -274,8 +288,13 @@ export default function Expenses() {
               className="w-1 h-6 rounded-sm flex-shrink-0"
               style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }}
             />
-            <p className="font-medium text-primary truncate">
+            <p className="font-medium text-primary truncate flex items-center gap-2">
               {expense.description || expense.category?.name || 'Despesa'}
+              {expense.id.startsWith('offline-') && (
+                <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                  <RefreshCw size={12} className="text-accent animate-spin" />
+                </span>
+              )}
             </p>
           </div>
           <p className="text-sm text-secondary">
@@ -327,7 +346,7 @@ export default function Expenses() {
       />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+        <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : expenses.length === 0 ? (

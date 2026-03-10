@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MonthlySummary, CategoryExpense } from '@/types'
 import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 'date-fns'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 /** Gastos por categoria em um mês (yyyy-MM -> lista) */
 export type MonthlyCategoryExpenses = Record<string, CategoryExpense[]>
@@ -16,6 +17,7 @@ export interface UseReportsReturn {
 }
 
 export function useReports(year?: number, includeReportWeights = true): UseReportsReturn {
+  const { isOnline } = useNetworkStatus()
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([])
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
   const [monthlyCategoryExpenses, setMonthlyCategoryExpenses] = useState<MonthlyCategoryExpenses>({})
@@ -25,6 +27,10 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
   const targetYear = year ?? new Date().getFullYear()
 
   const loadReports = useCallback(async () => {
+    if (!isOnline) {
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
       const hasMissingReportWeightError = (error: unknown) => {
@@ -153,19 +159,19 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
       setMonthlyCategoryExpenses(byMonth)
 
       const annualCategoryMap = new Map<string, CategoryExpense>()
-      ;(expenses || []).forEach((exp) => {
-        const catId = exp.category_id
-        const cat = exp.category as { id?: string; name?: string; color?: string } | null
-        if (!annualCategoryMap.has(catId)) {
-          annualCategoryMap.set(catId, {
-            category_id: catId,
-            category_name: cat?.name ?? 'Sem categoria',
-            total: 0,
-            color: cat?.color ?? '#6b7280',
-          })
-        }
-        annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
-      })
+        ; (expenses || []).forEach((exp) => {
+          const catId = exp.category_id
+          const cat = exp.category as { id?: string; name?: string; color?: string } | null
+          if (!annualCategoryMap.has(catId)) {
+            annualCategoryMap.set(catId, {
+              category_id: catId,
+              category_name: cat?.name ?? 'Sem categoria',
+              total: 0,
+              color: cat?.color ?? '#6b7280',
+            })
+          }
+          annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
+        })
       setCategoryExpenses(Array.from(annualCategoryMap.values()))
       setError(null)
     } catch (err) {

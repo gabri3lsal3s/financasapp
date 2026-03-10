@@ -10,6 +10,7 @@ import Select from '@/components/Select'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { supabase } from '@/lib/supabase'
 import { Income } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
@@ -17,7 +18,7 @@ import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/c
 import MonthSelector from '@/components/MonthSelector'
 import CategoryBadge from '@/components/CategoryBadge'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
@@ -45,6 +46,7 @@ export default function Incomes() {
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
+  const { isOnline } = useNetworkStatus()
   const [refundOriginLoading, setRefundOriginLoading] = useState(false)
   const [refundOrigin, setRefundOrigin] = useState<{ cardId: string; cardName: string; competence: string } | null>(null)
 
@@ -137,6 +139,11 @@ export default function Incomes() {
     void runCleanup()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomeCategories.length])
+
+  const handleMonthChange = (month: string) => {
+    setCurrentMonth(month)
+    setSearchParams({ month })
+  }
 
   const incomeCategoriesForManualCreation = incomeCategories.filter(
     (category) => String(category.name || '').trim().toLowerCase() !== REFUND_INCOME_CATEGORY_NAME.toLowerCase(),
@@ -244,7 +251,7 @@ export default function Incomes() {
       alert('Estornos devem ser editados pela tela de Cartões.')
       return
     }
-    
+
     if (!formData.amount || !formData.income_category_id) {
       alert('Por favor, preencha todos os campos obrigatórios')
       return
@@ -323,20 +330,20 @@ export default function Incomes() {
         title={PAGE_HEADERS.incomes.title}
         subtitle={PAGE_HEADERS.incomes.description}
         action={
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleOpenModal()}
-              className="w-full sm:w-auto flex items-center justify-center gap-2"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Adicionar</span>
-            </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleOpenModal()}
+            className="w-full sm:w-auto flex items-center justify-center gap-2"
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">Adicionar</span>
+          </Button>
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+      <div className="p-4 lg:p-6">
+        <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : incomes.length === 0 ? (
@@ -349,42 +356,47 @@ export default function Incomes() {
         ) : (
           <div className="space-y-4">
             {incomes.map((income) => (
-                <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-1 h-6 rounded-sm flex-shrink-0"
-                          style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
-                        />
-                        <p className="font-medium text-primary truncate">
-                          {income.description || income.income_category?.name}
-                        </p>
-                      </div>
-                      <p className="text-sm text-secondary">
-                        {income.income_category?.name} • {formatDate(income.date)}
+              <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div
+                        className="w-1 h-6 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
+                      />
+                      <p className="font-medium text-primary truncate flex items-center gap-2">
+                        {income.description || income.income_category?.name}
+                        {income.id.startsWith('offline-') && (
+                          <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                            <RefreshCw size={12} className="text-accent animate-spin" />
+                          </span>
+                        )}
                       </p>
-                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                        <CategoryBadge
-                          label={income.income_category?.name || 'Sem categoria'}
-                          color={income.income_category?.id
-                            ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette))
-                            : 'var(--color-income)'}
-                        />
-                      </div>
                     </div>
-                    <div className="ml-2 flex-shrink-0 text-right">
-                      <p className="text-base sm:text-lg font-semibold text-primary">
-                        {formatCurrency(income.amount)}
-                      </p>
-                      {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
-                        <p className="text-xs text-secondary">
-                          {formatCurrency(income.amount * (income.report_weight ?? 1))}
-                        </p>
-                      )}
+                    <p className="text-sm text-secondary">
+                      {income.income_category?.name} • {formatDate(income.date)}
+                    </p>
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                      <CategoryBadge
+                        label={income.income_category?.name || 'Sem categoria'}
+                        color={income.income_category?.id
+                          ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette))
+                          : 'var(--color-income)'}
+                      />
                     </div>
                   </div>
-                </Card>
+                  <div className="ml-2 flex-shrink-0 text-right">
+                    <p className="text-base sm:text-lg font-semibold text-primary">
+                      {formatCurrency(income.amount)}
+                    </p>
+                    {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
+                      <p className="text-xs text-secondary">
+                        {formatCurrency(income.amount * (income.report_weight ?? 1))}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Card>
             ))}
           </div>
         )}
@@ -432,77 +444,77 @@ export default function Incomes() {
             </div>
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
-          <Input
-            label="Valor"
-            type="text"
-            inputMode="decimal"
-            value={formData.amount}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(formData.amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                handleAmountChange(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
-            required
-          />
+          <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
+            <Input
+              label="Valor"
+              type="text"
+              inputMode="decimal"
+              value={formData.amount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              onBlur={() => {
+                const parsed = parseMoneyInput(formData.amount)
+                if (!Number.isNaN(parsed) && parsed >= 0) {
+                  handleAmountChange(formatMoneyInput(parsed))
+                }
+              }}
+              placeholder="0,00"
+              required
+            />
 
-          <Input
-            label="Valor no relatório (opcional)"
-            type="text"
-            inputMode="decimal"
-            value={formData.report_amount}
-            onChange={(e) => setFormData({ ...formData, report_amount: e.target.value })}
-            onBlur={() => {
-              if (!formData.report_amount) return
-              const parsed = parseMoneyInput(formData.report_amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setFormData({ ...formData, report_amount: formatMoneyInput(parsed) })
-              }
-            }}
-            placeholder="Se vazio, usa o valor total"
-          />
+            <Input
+              label="Valor no relatório (opcional)"
+              type="text"
+              inputMode="decimal"
+              value={formData.report_amount}
+              onChange={(e) => setFormData({ ...formData, report_amount: e.target.value })}
+              onBlur={() => {
+                if (!formData.report_amount) return
+                const parsed = parseMoneyInput(formData.report_amount)
+                if (!Number.isNaN(parsed) && parsed >= 0) {
+                  setFormData({ ...formData, report_amount: formatMoneyInput(parsed) })
+                }
+              }}
+              placeholder="Se vazio, usa o valor total"
+            />
 
-          <Input
-            label="Data"
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            min={APP_START_DATE}
-            required
-          />
+            <Input
+              label="Data"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              min={APP_START_DATE}
+              required
+            />
 
-          <Select
-            label="Categoria de Renda"
-            value={formData.income_category_id}
-            onChange={(e) => setFormData({ ...formData, income_category_id: e.target.value })}
-            options={(editingIncome ? incomeCategories : incomeCategoriesForManualCreation).map((cat) => ({
-              value: cat.id,
-              label: cat.name,
-            }))}
-            required
-          />
+            <Select
+              label="Categoria de Renda"
+              value={formData.income_category_id}
+              onChange={(e) => setFormData({ ...formData, income_category_id: e.target.value })}
+              options={(editingIncome ? incomeCategories : incomeCategoriesForManualCreation).map((cat) => ({
+                value: cat.id,
+                label: cat.name,
+              }))}
+              required
+            />
 
-          {!editingIncome && (
-            <p className="text-xs text-secondary">A categoria Estorno é criada/gerenciada automaticamente pela tela de cartões.</p>
-          )}
+            {!editingIncome && (
+              <p className="text-xs text-secondary">A categoria Estorno é criada/gerenciada automaticamente pela tela de cartões.</p>
+            )}
 
-          <Input
-            label="Descrição (opcional)"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Ex: Salário mensal, Projeto X..."
-          />
+            <Input
+              label="Descrição (opcional)"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Ex: Salário mensal, Projeto X..."
+            />
 
-          <ModalActionFooter
-            onCancel={handleCloseModal}
-            submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
-            deleteLabel={editingIncome ? 'Excluir renda' : undefined}
-            onDelete={editingIncome ? handleDeleteFromModal : undefined}
-          />
-        </form>
+            <ModalActionFooter
+              onCancel={handleCloseModal}
+              submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
+              deleteLabel={editingIncome ? 'Excluir renda' : undefined}
+              onDelete={editingIncome ? handleDeleteFromModal : undefined}
+            />
+          </form>
         )}
       </Modal>
     </div>

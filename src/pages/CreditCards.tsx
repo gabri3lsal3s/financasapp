@@ -358,176 +358,176 @@ export default function CreditCards() {
   }
 
   const getBillDataSnapshot = async (targetMonth: string): Promise<BillDataSnapshot> => {
-      const competenceReferenceDate = new Date(`${targetMonth}-01T12:00:00`)
-      const searchStartDate = format(subMonths(competenceReferenceDate, 2), 'yyyy-MM-01')
-      const nextMonthReference = new Date(`${shiftMonth(targetMonth, 1)}-01T12:00:00`)
-      const searchEndDate = format(endOfMonth(nextMonthReference), 'yyyy-MM-dd')
+    const competenceReferenceDate = new Date(`${targetMonth}-01T12:00:00`)
+    const searchStartDate = format(subMonths(competenceReferenceDate, 2), 'yyyy-MM-01')
+    const nextMonthReference = new Date(`${shiftMonth(targetMonth, 1)}-01T12:00:00`)
+    const searchEndDate = format(endOfMonth(nextMonthReference), 'yyyy-MM-dd')
 
-      const previousMonth = shiftMonth(targetMonth, -1)
-      const cycleMonths = [
-        shiftMonth(targetMonth, -2),
-        previousMonth,
-        targetMonth,
-        shiftMonth(targetMonth, 1),
-      ]
+    const previousMonth = shiftMonth(targetMonth, -1)
+    const cycleMonths = [
+      shiftMonth(targetMonth, -2),
+      previousMonth,
+      targetMonth,
+      shiftMonth(targetMonth, 1),
+    ]
 
-      const { data: monthlyCycleRows } = await supabase
-        .from('credit_card_monthly_cycles')
-        .select('id, credit_card_id, competence, closing_day, due_day')
-        .in('competence', cycleMonths)
+    const { data: monthlyCycleRows } = await supabase
+      .from('credit_card_monthly_cycles')
+      .select('id, credit_card_id, competence, closing_day, due_day')
+      .in('competence', cycleMonths)
 
-      const cycleClosingByCardAndMonth = (monthlyCycleRows || []).reduce<Record<string, number>>((accumulator, row) => {
-        const cardId = String(row.credit_card_id || '')
-        const competence = String(row.competence || '')
-        if (!cardId || !competence) return accumulator
-        accumulator[`${cardId}:${competence}`] = Number(row.closing_day)
-        return accumulator
-      }, {})
+    const cycleClosingByCardAndMonth = (monthlyCycleRows || []).reduce<Record<string, number>>((accumulator, row) => {
+      const cardId = String(row.credit_card_id || '')
+      const competence = String(row.competence || '')
+      if (!cardId || !competence) return accumulator
+      accumulator[`${cardId}:${competence}`] = Number(row.closing_day)
+      return accumulator
+    }, {})
 
-      const currentMonthCycles = (monthlyCycleRows || []).reduce<Record<string, MonthlyCycleRow>>((accumulator, row) => {
-        if (String(row.competence || '') !== targetMonth) return accumulator
+    const currentMonthCycles = (monthlyCycleRows || []).reduce<Record<string, MonthlyCycleRow>>((accumulator, row) => {
+      if (String(row.competence || '') !== targetMonth) return accumulator
 
-        const cardId = String(row.credit_card_id || '')
-        if (!cardId) return accumulator
+      const cardId = String(row.credit_card_id || '')
+      if (!cardId) return accumulator
 
-        accumulator[cardId] = {
-          id: String(row.id),
-          credit_card_id: cardId,
-          competence: String(row.competence),
-          closing_day: Number(row.closing_day),
-          due_day: Number(row.due_day),
-        }
-
-        return accumulator
-      }, {})
-
-      const cardClosingDays = creditCards.reduce<Record<string, number>>((accumulator, card) => {
-        if (card.id && Number.isFinite(card.closing_day)) {
-          accumulator[card.id] = Number(card.closing_day)
-        }
-
-        return accumulator
-      }, {})
-
-      const { data: rawExpenseRows } = await supabase
-        .from('expenses')
-        .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
-        .not('credit_card_id', 'is', null)
-        .gte('date', searchStartDate)
-        .lte('date', searchEndDate)
-
-      const resolveClosingDay = (cardId: string, competence: string) => {
-        const monthlyClosing = cycleClosingByCardAndMonth[`${cardId}:${competence}`]
-        if (Number.isFinite(monthlyClosing)) return monthlyClosing
-
-        const defaultClosing = cardClosingDays[cardId]
-        return Number.isFinite(defaultClosing) ? defaultClosing : undefined
+      accumulator[cardId] = {
+        id: String(row.id),
+        credit_card_id: cardId,
+        competence: String(row.competence),
+        closing_day: Number(row.closing_day),
+        due_day: Number(row.due_day),
       }
 
-      const expenseRows = (rawExpenseRows || []).map((row) => {
-        return {
-          ...(row as BillExpenseItem),
-          category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
-        }
-      }).filter((row) => {
-        const rowDate = String(row.date)
-        const rowCardId = String(row.credit_card_id)
-        
-        const competenceByDate = rowDate.slice(0, 7)
-        const closingDay = resolveClosingDay(rowCardId, competenceByDate)
-        
-        let resolvedCompetence = row.bill_competence
-        // Recálculo dinâmico da fatura baseado no dia de fechamento vigente, 
-        // ignorando o "bill_competence" predefinido no BD (que seria obsoleto se o ciclo mudou)
-        if (Number.isFinite(closingDay)) {
-          resolvedCompetence = resolveBillCompetence(rowDate, Number(closingDay))
-        } else if (!resolvedCompetence) {
-          resolvedCompetence = resolveExpenseBillCompetence(row as any, resolveClosingDay)
-        }
+      return accumulator
+    }, {})
 
-        row.bill_competence = resolvedCompetence
-        return resolvedCompetence === targetMonth
-      }).map((row) => {
-        const baseAmount = Number(row.amount || 0)
+    const cardClosingDays = creditCards.reduce<Record<string, number>>((accumulator, card) => {
+      if (card.id && Number.isFinite(card.closing_day)) {
+        accumulator[card.id] = Number(card.closing_day)
+      }
 
-        if (!creditCardsWeightsEnabled) {
-          return {
-            ...row,
-            amount: baseAmount,
-            base_amount: baseAmount,
-          }
-        }
+      return accumulator
+    }, {})
 
-        const weight = Number(row.report_weight ?? 1)
-        const safeWeight = Number.isFinite(weight) ? weight : 1
+    const { data: rawExpenseRows } = await supabase
+      .from('expenses')
+      .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
+      .not('credit_card_id', 'is', null)
+      .gte('date', searchStartDate)
+      .lte('date', searchEndDate)
 
+    const resolveClosingDay = (cardId: string, competence: string) => {
+      const monthlyClosing = cycleClosingByCardAndMonth[`${cardId}:${competence}`]
+      if (Number.isFinite(monthlyClosing)) return monthlyClosing
+
+      const defaultClosing = cardClosingDays[cardId]
+      return Number.isFinite(defaultClosing) ? defaultClosing : undefined
+    }
+
+    const expenseRows = (rawExpenseRows || []).map((row) => {
+      return {
+        ...(row as BillExpenseItem),
+        category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
+      }
+    }).filter((row) => {
+      const rowDate = String(row.date)
+      const rowCardId = String(row.credit_card_id)
+
+      const competenceByDate = rowDate.slice(0, 7)
+      const closingDay = resolveClosingDay(rowCardId, competenceByDate)
+
+      let resolvedCompetence = row.bill_competence
+      // Recálculo dinâmico da fatura baseado no dia de fechamento vigente, 
+      // ignorando o "bill_competence" predefinido no BD (que seria obsoleto se o ciclo mudou)
+      if (Number.isFinite(closingDay)) {
+        resolvedCompetence = resolveBillCompetence(rowDate, Number(closingDay))
+      } else if (!resolvedCompetence) {
+        resolvedCompetence = resolveExpenseBillCompetence(row as any, resolveClosingDay)
+      }
+
+      row.bill_competence = resolvedCompetence
+      return resolvedCompetence === targetMonth
+    }).map((row) => {
+      const baseAmount = Number(row.amount || 0)
+
+      if (!creditCardsWeightsEnabled) {
         return {
           ...row,
-          amount: Number((baseAmount * safeWeight).toFixed(2)),
+          amount: baseAmount,
           base_amount: baseAmount,
         }
-      })
+      }
 
-      const { data: paymentRows } = await supabase
-        .from('credit_card_bill_payments')
-        .select('id, credit_card_id, amount, payment_date, bill_competence, note')
-        .not('credit_card_id', 'is', null)
-        .or(`bill_competence.eq.${targetMonth},and(amount.lt.0,payment_date.gte.${searchStartDate},payment_date.lte.${searchEndDate})`)
-
-      const paymentsByCardItems = (paymentRows || []).reduce<Record<string, PaymentItem[]>>((accumulator, row) => {
-        const cardId = String(row.credit_card_id || '')
-        const rawNote = String(row.note || '')
-        const isRefund = Number(row.amount || 0) < 0 && rawNote.startsWith('[REFUND]')
-        const paymentDate = String(row.payment_date || '')
-        let finalCompetence = String(row.bill_competence || targetMonth)
-
-        if (isRefund) {
-          const closingDay = resolveClosingDay(cardId, paymentDate.slice(0, 7))
-          if (Number.isFinite(closingDay)) {
-            finalCompetence = resolveBillCompetence(paymentDate, Number(closingDay))
-          }
-        }
-
-        if (finalCompetence !== targetMonth) return accumulator
-
-        if (!cardId) return accumulator
-
-        if (!accumulator[cardId]) {
-          accumulator[cardId] = []
-        }
-
-        accumulator[cardId].push({
-          id: String(row.id || ''),
-          credit_card_id: cardId,
-          amount: Number(row.amount || 0),
-          payment_date: String(row.payment_date || ''),
-          bill_competence: String(row.bill_competence || targetMonth),
-          note: row.note ? String(row.note) : null,
-        })
-
-        return accumulator
-      }, {})
-
-      Object.keys(paymentsByCardItems).forEach((cardId) => {
-        paymentsByCardItems[cardId] = paymentsByCardItems[cardId]
-          .sort((a, b) => b.payment_date.localeCompare(a.payment_date))
-      })
-
-      const summarizedBill = summarizeCreditCardBill(
-        expenseRows,
-        (paymentRows || []).map((row) => ({
-          credit_card_id: String(row.credit_card_id || ''),
-          amount: Number(row.amount || 0),
-        })),
-      )
+      const weight = Number(row.report_weight ?? 1)
+      const safeWeight = Number.isFinite(weight) ? weight : 1
 
       return {
-        expensesByCard: summarizedBill.expensesByCard,
-        paymentsByCard: summarizedBill.paymentsByCard,
-        billItemsByCard: summarizedBill.billItemsByCard,
-        paymentItemsByCard: paymentsByCardItems,
-        monthlyCyclesByCard: currentMonthCycles,
+        ...row,
+        amount: Number((baseAmount * safeWeight).toFixed(2)),
+        base_amount: baseAmount,
       }
+    })
+
+    const { data: paymentRows } = await supabase
+      .from('credit_card_bill_payments')
+      .select('id, credit_card_id, amount, payment_date, bill_competence, note')
+      .not('credit_card_id', 'is', null)
+      .or(`bill_competence.eq.${targetMonth},and(amount.lt.0,payment_date.gte.${searchStartDate},payment_date.lte.${searchEndDate})`)
+
+    const paymentsByCardItems = (paymentRows || []).reduce<Record<string, PaymentItem[]>>((accumulator, row) => {
+      const cardId = String(row.credit_card_id || '')
+      const rawNote = String(row.note || '')
+      const isRefund = Number(row.amount || 0) < 0 && rawNote.startsWith('[REFUND]')
+      const paymentDate = String(row.payment_date || '')
+      let finalCompetence = String(row.bill_competence || targetMonth)
+
+      if (isRefund) {
+        const closingDay = resolveClosingDay(cardId, paymentDate.slice(0, 7))
+        if (Number.isFinite(closingDay)) {
+          finalCompetence = resolveBillCompetence(paymentDate, Number(closingDay))
+        }
+      }
+
+      if (finalCompetence !== targetMonth) return accumulator
+
+      if (!cardId) return accumulator
+
+      if (!accumulator[cardId]) {
+        accumulator[cardId] = []
+      }
+
+      accumulator[cardId].push({
+        id: String(row.id || ''),
+        credit_card_id: cardId,
+        amount: Number(row.amount || 0),
+        payment_date: String(row.payment_date || ''),
+        bill_competence: String(row.bill_competence || targetMonth),
+        note: row.note ? String(row.note) : null,
+      })
+
+      return accumulator
+    }, {})
+
+    Object.keys(paymentsByCardItems).forEach((cardId) => {
+      paymentsByCardItems[cardId] = paymentsByCardItems[cardId]
+        .sort((a, b) => b.payment_date.localeCompare(a.payment_date))
+    })
+
+    const summarizedBill = summarizeCreditCardBill(
+      expenseRows,
+      (paymentRows || []).map((row) => ({
+        credit_card_id: String(row.credit_card_id || ''),
+        amount: Number(row.amount || 0),
+      })),
+    )
+
+    return {
+      expensesByCard: summarizedBill.expensesByCard,
+      paymentsByCard: summarizedBill.paymentsByCard,
+      billItemsByCard: summarizedBill.billItemsByCard,
+      paymentItemsByCard: paymentsByCardItems,
+      monthlyCyclesByCard: currentMonthCycles,
+    }
   }
 
   const fetchReconciliationCandidates = async (cardId: string, baseMonth: string): Promise<BillExpenseItem[]> => {
@@ -1260,326 +1260,326 @@ export default function CreditCards() {
               return (
                 <div key={card.id} id={`credit-card-${card.id}`}>
                   <Card className="space-y-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: card.color || 'var(--color-primary)' }}
-                        />
-                        <p className="text-base font-semibold text-primary">{card.name}</p>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: card.color || 'var(--color-primary)' }}
+                          />
+                          <p className="text-base font-semibold text-primary">{card.name}</p>
+                        </div>
+                        <p className="text-xs text-secondary mt-1">
+                          {card.brand || 'Sem bandeira'} • {currentMonth}: fecha dia {effectiveClosingDay} • vence dia {effectiveDueDay}
+                          {monthlyCycle ? ' (ajuste mensal)' : ''}
+                        </p>
                       </div>
-                      <p className="text-xs text-secondary mt-1">
-                        {card.brand || 'Sem bandeira'} • {currentMonth}: fecha dia {effectiveClosingDay} • vence dia {effectiveDueDay}
-                        {monthlyCycle ? ' (ajuste mensal)' : ''}
+
+                      <div className="flex flex-wrap items-center justify-start gap-2">
+                        <IconButton
+                          size="sm"
+                          icon={<Pencil size={16} />}
+                          onClick={() => openEditCardModal(card)}
+                          label="Editar cartão"
+                          title="Editar cartão"
+                        />
+                        <IconButton
+                          size="sm"
+                          icon={<Calendar size={16} />}
+                          onClick={() => openCycleModal(card)}
+                          label="Ajustar ciclo do mês"
+                          title="Ajustar ciclo do mês"
+                        />
+                        <IconButton
+                          size="sm"
+                          icon={refundCardId === card.id ? <X size={16} /> : <Undo2 size={16} />}
+                          onClick={() => toggleRefundField(card.id)}
+                          label={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
+                          title={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
+                        />
+                        <IconButton
+                          size="sm"
+                          icon={paymentCardId === card.id ? <X size={16} /> : <Wallet size={16} />}
+                          onClick={() => togglePaymentField(card.id)}
+                          label={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
+                          title={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
+                        />
+                        <IconButton
+                          size="sm"
+                          icon={reconciliationCardId === card.id ? <X size={16} /> : <FileUp size={16} />}
+                          onClick={() => toggleReconciliationField(card.id)}
+                          label={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
+                          title={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="rounded-lg border border-primary bg-secondary p-3">
+                        <p className="text-xs text-secondary">Total previsto</p>
+                        <p className="text-base font-semibold text-primary">{formatCurrency(totalPrevisto)}</p>
+                      </div>
+                      <div className="rounded-lg border border-primary bg-secondary p-3">
+                        <p className="text-xs text-secondary">Total pago</p>
+                        <p className="text-base font-semibold text-primary">{formatCurrency(totalPago)}</p>
+                      </div>
+                      <div className="rounded-lg border border-primary bg-secondary p-3">
+                        <p className="text-xs text-secondary">Saldo em aberto</p>
+                        <p className="text-base font-semibold text-primary">{formatCurrency(saldoAberto)}</p>
+                      </div>
+                    </div>
+
+                    {refundCardId === card.id && (
+                      <form
+                        onSubmit={(event) => handleSubmitRefund(event, card.id)}
+                        className="rounded-lg border border-primary bg-secondary p-3 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-secondary">
+                            Estorno de compra ({currentMonth})
+                          </p>
+                          <IconButton
+                            type="button"
+                            size="sm"
+                            icon={<X size={16} />}
+                            onClick={closeRefundField}
+                            label="Fechar formulário de estorno"
+                            title="Fechar formulário de estorno"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <Input
+                            label="Valor do estorno"
+                            type="text"
+                            inputMode="decimal"
+                            value={refundAmount}
+                            onChange={(event) => setRefundAmount(event.target.value)}
+                            onBlur={() => {
+                              const parsed = parseMoneyInput(refundAmount)
+                              if (!Number.isNaN(parsed) && parsed >= 0) {
+                                setRefundAmount(formatMoneyInput(parsed))
+                              }
+                            }}
+                            placeholder="0,00"
+                            required
+                          />
+
+                          <Input
+                            label="Data"
+                            type="date"
+                            value={refundDate}
+                            onChange={(event) => setRefundDate(event.target.value)}
+                            required
+                          />
+
+                          <div className="flex items-end justify-center">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant="ghost"
+                              className="btn-discrete-save px-4"
+                              title="Confirmar estorno"
+                            >
+                              <Check size={24} />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <Input
+                          label="Descrição (opcional)"
+                          value={refundDescription}
+                          onChange={(event) => setRefundDescription(event.target.value)}
+                          placeholder="Ex: Estorno compra loja X"
+                        />
+
+                        <p className="text-xs text-secondary">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
+                      </form>
+                    )}
+
+                    {paymentCardId === card.id && (
+                      <form
+                        onSubmit={handleSubmitPayment}
+                        className="rounded-lg border border-primary bg-secondary p-3 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-secondary">
+                            Registrar pagamento ({currentMonth})
+                          </p>
+                          <IconButton
+                            type="button"
+                            size="sm"
+                            icon={<X size={16} />}
+                            onClick={closePaymentField}
+                            label="Fechar formulário de pagamento"
+                            title="Fechar formulário de pagamento"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <Input
+                            label="Valor pago"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={paymentAmount}
+                            onChange={(event) => setPaymentAmount(event.target.value)}
+                            required
+                          />
+
+                          <Input
+                            label="Data do pagamento"
+                            type="date"
+                            value={paymentDate}
+                            onChange={(event) => setPaymentDate(event.target.value)}
+                            required
+                          />
+
+                          <div className="flex items-end justify-center">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant="ghost"
+                              className="btn-discrete-save px-4"
+                              title="Confirmar pagamento"
+                            >
+                              <Check size={24} />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <Input
+                          label="Observação (opcional)"
+                          value={paymentNote}
+                          onChange={(event) => setPaymentNote(event.target.value)}
+                        />
+                      </form>
+                    )}
+
+                    {reconciliationCardId === card.id && (
+                      <CreditCardCsvReconciliationPanel
+                        card={card}
+                        currentMonth={currentMonth}
+                        paymentItems={paymentItemsByCard[card.id] || []}
+                        categories={categories.map((category) => ({
+                          id: category.id,
+                          name: category.name,
+                        }))}
+                        onClose={() => setReconciliationCardId('')}
+                        onReloadBillData={loadBillData}
+                        createExpense={createExpense}
+                        updateExpense={updateExpense}
+                        fetchReconciliationCandidates={fetchReconciliationCandidates}
+                      />
+                    )}
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-secondary">
+                        Lançamentos da fatura ({currentMonth})
                       </p>
-                    </div>
 
-                    <div className="flex flex-wrap items-center justify-start gap-2">
-                      <IconButton
-                        size="sm"
-                        icon={<Pencil size={16} />}
-                        onClick={() => openEditCardModal(card)}
-                        label="Editar cartão"
-                        title="Editar cartão"
-                      />
-                      <IconButton
-                        size="sm"
-                        icon={<Calendar size={16} />}
-                        onClick={() => openCycleModal(card)}
-                        label="Ajustar ciclo do mês"
-                        title="Ajustar ciclo do mês"
-                      />
-                      <IconButton
-                        size="sm"
-                        icon={refundCardId === card.id ? <X size={16} /> : <Undo2 size={16} />}
-                        onClick={() => toggleRefundField(card.id)}
-                        label={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
-                        title={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
-                      />
-                      <IconButton
-                        size="sm"
-                        icon={paymentCardId === card.id ? <X size={16} /> : <Wallet size={16} />}
-                        onClick={() => togglePaymentField(card.id)}
-                        label={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
-                        title={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
-                      />
-                      <IconButton
-                        size="sm"
-                        icon={reconciliationCardId === card.id ? <X size={16} /> : <FileUp size={16} />}
-                        onClick={() => toggleReconciliationField(card.id)}
-                        label={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
-                        title={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
-                      />
-                    </div>
-                  </div>
+                      {billItems.length === 0 ? (
+                        <p className="text-sm text-secondary">Sem lançamentos neste cartão para a competência selecionada.</p>
+                      ) : (
+                        <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                          {billItems.map((item) => {
+                            const isRefund = item.amount < 0
+                            const installmentLabel =
+                              Number(item.installment_total || 1) > 1
+                                ? `Parcela ${item.installment_number || 1}/${item.installment_total}`
+                                : ''
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="rounded-lg border border-primary bg-secondary p-3">
-                      <p className="text-xs text-secondary">Total previsto</p>
-                      <p className="text-base font-semibold text-primary">{formatCurrency(totalPrevisto)}</p>
-                    </div>
-                    <div className="rounded-lg border border-primary bg-secondary p-3">
-                      <p className="text-xs text-secondary">Total pago</p>
-                      <p className="text-base font-semibold text-primary">{formatCurrency(totalPago)}</p>
-                    </div>
-                    <div className="rounded-lg border border-primary bg-secondary p-3">
-                      <p className="text-xs text-secondary">Saldo em aberto</p>
-                      <p className="text-base font-semibold text-primary">{formatCurrency(saldoAberto)}</p>
-                    </div>
-                  </div>
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => openExpenseEditModal(item)}
+                                className="w-full rounded-lg border border-primary bg-primary p-2.5 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                              >
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-primary truncate">
+                                      {item.description || (isRefund ? 'Estorno' : item.category_name || 'Despesa')}
+                                    </p>
+                                    <p className="text-xs text-secondary mt-0.5">
+                                      {formatDate(item.date)}
+                                      {installmentLabel ? ` • ${installmentLabel}` : ''}
+                                      {isRefund ? ' • Estorno' : ''}
+                                    </p>
+                                  </div>
 
-                  {refundCardId === card.id && (
-                    <form
-                      onSubmit={(event) => handleSubmitRefund(event, card.id)}
-                      className="rounded-lg border border-primary bg-secondary p-3 space-y-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                          Estorno de compra ({currentMonth})
-                        </p>
-                        <IconButton
-                          type="button"
-                          size="sm"
-                          icon={<X size={16} />}
-                          onClick={closeRefundField}
-                          label="Fechar formulário de estorno"
-                          title="Fechar formulário de estorno"
-                        />
-                      </div>
+                                  <div className="flex flex-col gap-1.5 sm:items-end">
+                                    <p className={`text-sm font-semibold ${Number(item.base_amount ?? item.amount ?? 0) < 0 ? 'text-income' : 'text-primary'}`}>
+                                      {formatCurrency(item.amount)}
+                                    </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Input
-                          label="Valor do estorno"
-                          type="text"
-                          inputMode="decimal"
-                          value={refundAmount}
-                          onChange={(event) => setRefundAmount(event.target.value)}
-                          onBlur={() => {
-                            const parsed = parseMoneyInput(refundAmount)
-                            if (!Number.isNaN(parsed) && parsed >= 0) {
-                              setRefundAmount(formatMoneyInput(parsed))
-                            }
-                          }}
-                          placeholder="0,00"
-                          required
-                        />
+                                    {(() => {
+                                      const baseAmount = Number(item.base_amount ?? item.amount ?? 0)
+                                      const weightedAmount = Number((baseAmount * Number(item.report_weight ?? 1)).toFixed(2))
+                                      const hasDifference = Math.abs(weightedAmount - baseAmount) > 0.009
 
-                        <Input
-                          label="Data"
-                          type="date"
-                          value={refundDate}
-                          onChange={(event) => setRefundDate(event.target.value)}
-                          required
-                        />
+                                      if (!hasDifference) return null
 
-                        <div className="flex items-end justify-center">
-                          <Button 
-                            type="submit" 
-                            size="sm" 
-                            variant="ghost" 
-                            className="btn-discrete-save px-4"
-                            title="Confirmar estorno"
-                          >
-                            <Check size={24} />
-                          </Button>
+                                      return (
+                                        <p className="text-xs text-secondary">
+                                          {creditCardsWeightsEnabled
+                                            ? `Sem pesos: ${formatCurrency(baseAmount)}`
+                                            : `Com pesos: ${formatCurrency(weightedAmount)}`}
+                                        </p>
+                                      )
+                                    })()}
+                                  </div>
+                                </div>
+                              </button>
+                            )
+                          })}
                         </div>
-                      </div>
+                      )}
+                    </div>
 
-                      <Input
-                        label="Descrição (opcional)"
-                        value={refundDescription}
-                        onChange={(event) => setRefundDescription(event.target.value)}
-                        placeholder="Ex: Estorno compra loja X"
-                      />
-
-                      <p className="text-xs text-secondary">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
-                    </form>
-                  )}
-
-                  {paymentCardId === card.id && (
-                    <form
-                      onSubmit={handleSubmitPayment}
-                      className="rounded-lg border border-primary bg-secondary p-3 space-y-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
+                    {(paymentItemsByCard[card.id] || []).length > 0 && (
+                      <div className="space-y-2">
                         <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                          Registrar pagamento ({currentMonth})
+                          Pagamentos registrados ({currentMonth})
                         </p>
-                        <IconButton
-                          type="button"
-                          size="sm"
-                          icon={<X size={16} />}
-                          onClick={closePaymentField}
-                          label="Fechar formulário de pagamento"
-                          title="Fechar formulário de pagamento"
-                        />
-                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Input
-                          label="Valor pago"
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={paymentAmount}
-                          onChange={(event) => setPaymentAmount(event.target.value)}
-                          required
-                        />
-
-                        <Input
-                          label="Data do pagamento"
-                          type="date"
-                          value={paymentDate}
-                          onChange={(event) => setPaymentDate(event.target.value)}
-                          required
-                        />
-
-                        <div className="flex items-end justify-center">
-                          <Button 
-                            type="submit" 
-                            size="sm" 
-                            variant="ghost"
-                            className="btn-discrete-save px-4"
-                            title="Confirmar pagamento"
-                          >
-                            <Check size={24} />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <Input
-                        label="Observação (opcional)"
-                        value={paymentNote}
-                        onChange={(event) => setPaymentNote(event.target.value)}
-                      />
-                    </form>
-                  )}
-
-                  {reconciliationCardId === card.id && (
-                    <CreditCardCsvReconciliationPanel
-                      card={card}
-                      currentMonth={currentMonth}
-                      paymentItems={paymentItemsByCard[card.id] || []}
-                      categories={categories.map((category) => ({
-                        id: category.id,
-                        name: category.name,
-                      }))}
-                      onClose={() => setReconciliationCardId('')}
-                      onReloadBillData={loadBillData}
-                      createExpense={createExpense}
-                      updateExpense={updateExpense}
-                      fetchReconciliationCandidates={fetchReconciliationCandidates}
-                    />
-                  )}
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                      Lançamentos da fatura ({currentMonth})
-                    </p>
-
-                    {billItems.length === 0 ? (
-                      <p className="text-sm text-secondary">Sem lançamentos neste cartão para a competência selecionada.</p>
-                    ) : (
-                      <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                        {billItems.map((item) => {
-                          const isRefund = item.amount < 0
-                          const installmentLabel =
-                            Number(item.installment_total || 1) > 1
-                              ? `Parcela ${item.installment_number || 1}/${item.installment_total}`
-                              : ''
-
-                          return (
+                        <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
+                          {(paymentItemsByCard[card.id] || []).map((payment) => (
                             <button
-                              key={item.id}
+                              key={payment.id}
                               type="button"
-                              onClick={() => openExpenseEditModal(item)}
+                              onClick={() => {
+                                void handleOpenPaymentItem(payment)
+                              }}
                               className="w-full rounded-lg border border-primary bg-primary p-2.5 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
                             >
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-primary truncate">
-                                    {item.description || (isRefund ? 'Estorno' : item.category_name || 'Despesa')}
-                                  </p>
-                                  <p className="text-xs text-secondary mt-0.5">
-                                    {formatDate(item.date)}
-                                    {installmentLabel ? ` • ${installmentLabel}` : ''}
-                                    {isRefund ? ' • Estorno' : ''}
-                                  </p>
-                                </div>
-
-                                <div className="flex flex-col gap-1.5 sm:items-end">
-                                  <p className={`text-sm font-semibold ${Number(item.base_amount ?? item.amount ?? 0) < 0 ? 'text-income' : 'text-primary'}`}>
-                                    {formatCurrency(item.amount)}
-                                  </p>
-
                                   {(() => {
-                                    const baseAmount = Number(item.base_amount ?? item.amount ?? 0)
-                                    const weightedAmount = Number((baseAmount * Number(item.report_weight ?? 1)).toFixed(2))
-                                    const hasDifference = Math.abs(weightedAmount - baseAmount) > 0.009
-
-                                    if (!hasDifference) return null
+                                    const refundMeta = parseRefundNote(payment.note)
 
                                     return (
-                                      <p className="text-xs text-secondary">
-                                        {creditCardsWeightsEnabled
-                                          ? `Sem pesos: ${formatCurrency(baseAmount)}`
-                                          : `Com pesos: ${formatCurrency(weightedAmount)}`}
-                                      </p>
+                                      <>
+                                        <p className="text-sm font-medium text-primary truncate">
+                                          {refundMeta.isRefund
+                                            ? (refundMeta.description || 'Estorno de compra')
+                                            : (payment.note || 'Pagamento de fatura')}
+                                        </p>
+                                        <p className="text-xs text-secondary mt-0.5">
+                                          {formatDate(payment.payment_date)}
+                                          {refundMeta.isRefund ? ' • Estorno' : ''}
+                                        </p>
+                                      </>
                                     )
                                   })()}
                                 </div>
+                                <p className="text-sm font-semibold text-income">{formatCurrency(payment.amount)}</p>
                               </div>
                             </button>
-                          )
-                        })}
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
-
-                  {(paymentItemsByCard[card.id] || []).length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                        Pagamentos registrados ({currentMonth})
-                      </p>
-
-                      <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
-                        {(paymentItemsByCard[card.id] || []).map((payment) => (
-                          <button
-                            key={payment.id}
-                            type="button"
-                            onClick={() => {
-                              void handleOpenPaymentItem(payment)
-                            }}
-                            className="w-full rounded-lg border border-primary bg-primary p-2.5 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                {(() => {
-                                  const refundMeta = parseRefundNote(payment.note)
-
-                                  return (
-                                    <>
-                                      <p className="text-sm font-medium text-primary truncate">
-                                        {refundMeta.isRefund
-                                          ? (refundMeta.description || 'Estorno de compra')
-                                          : (payment.note || 'Pagamento de fatura')}
-                                      </p>
-                                      <p className="text-xs text-secondary mt-0.5">
-                                        {formatDate(payment.payment_date)}
-                                        {refundMeta.isRefund ? ' • Estorno' : ''}
-                                      </p>
-                                    </>
-                                  )
-                                })()}
-                              </div>
-                              <p className="text-sm font-semibold text-income">{formatCurrency(payment.amount)}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   </Card>
                 </div>
               )

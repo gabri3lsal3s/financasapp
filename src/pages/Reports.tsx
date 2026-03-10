@@ -191,26 +191,26 @@ export default function Reports() {
 
       const monthSet = new Set<string>()
 
-      ;(expenseDatesRes.data ?? []).forEach((row: { date?: string | null }) => {
-        const month = row.date?.slice(0, 7)
-        if (month && /^\d{4}-\d{2}$/.test(month)) {
-          monthSet.add(month)
-        }
-      })
+        ; (expenseDatesRes.data ?? []).forEach((row: { date?: string | null }) => {
+          const month = row.date?.slice(0, 7)
+          if (month && /^\d{4}-\d{2}$/.test(month)) {
+            monthSet.add(month)
+          }
+        })
 
-      ;(incomeDatesRes.data ?? []).forEach((row: { date?: string | null }) => {
-        const month = row.date?.slice(0, 7)
-        if (month && /^\d{4}-\d{2}$/.test(month)) {
-          monthSet.add(month)
-        }
-      })
+        ; (incomeDatesRes.data ?? []).forEach((row: { date?: string | null }) => {
+          const month = row.date?.slice(0, 7)
+          if (month && /^\d{4}-\d{2}$/.test(month)) {
+            monthSet.add(month)
+          }
+        })
 
-      ;(investmentMonthsRes.data ?? []).forEach((row: { month?: string | null }) => {
-        const month = row.month
-        if (month && /^\d{4}-\d{2}$/.test(month)) {
-          monthSet.add(month)
-        }
-      })
+        ; (investmentMonthsRes.data ?? []).forEach((row: { month?: string | null }) => {
+          const month = row.month
+          if (month && /^\d{4}-\d{2}$/.test(month)) {
+            monthSet.add(month)
+          }
+        })
 
       const sortedMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a))
       setAvailableMonths(sortedMonths)
@@ -864,9 +864,8 @@ export default function Reports() {
               key={dataKey}
               type="button"
               onClick={() => onToggle(dataKey)}
-              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
-              }`}
+              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
+                }`}
               aria-pressed={!isHidden}
             >
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />

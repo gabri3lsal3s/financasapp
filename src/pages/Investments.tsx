@@ -9,10 +9,11 @@ import Input from '@/components/Input'
 import CategoryBadge from '@/components/CategoryBadge'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatMoneyInput, formatMonth, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 
 export default function Investments() {
@@ -27,6 +28,7 @@ export default function Investments() {
     description: '',
   })
   const [searchParams, setSearchParams] = useSearchParams()
+  const { isOnline } = useNetworkStatus()
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => ({ ...prev, amount: nextAmount }))
@@ -87,9 +89,14 @@ export default function Investments() {
     }
   }, [searchParams, setSearchParams, currentMonth])
 
+  const handleMonthChange = (month: string) => {
+    setCurrentMonth(month)
+    setSearchParams({ month })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.amount) return
 
     const amount = parseMoneyInput(formData.amount)
@@ -156,7 +163,7 @@ export default function Investments() {
       />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+        <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         {loading ? (
           <div className="text-center py-8 text-secondary">Carregando...</div>
         ) : investments.length === 0 ? (
@@ -167,35 +174,40 @@ export default function Investments() {
         ) : (
           <div className="space-y-3">
             {investments.map((investment) => (
-                  <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-1 h-6 rounded-sm flex-shrink-0"
-                          style={{
-                            backgroundColor: 'var(--color-balance)',
-                          }}
-                        />
-                        <p className="font-medium text-primary truncate">
-                          {investment.description || 'Investimentos'}
-                        </p>
-                      </div>
-                      <p className="text-sm text-secondary">
-                        {formatMonth(investment.month)}
+              <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div
+                        className="w-1 h-6 rounded-sm flex-shrink-0"
+                        style={{
+                          backgroundColor: 'var(--color-balance)',
+                        }}
+                      />
+                      <p className="font-medium text-primary truncate flex items-center gap-2">
+                        {investment.description || 'Investimentos'}
+                        {investment.id.startsWith('offline-') && (
+                          <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                            <RefreshCw size={12} className="text-accent animate-spin" />
+                          </span>
+                        )}
                       </p>
-                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                        <CategoryBadge label="Investimentos" color="var(--color-balance)" />
-                      </div>
                     </div>
-                    <div className="ml-2 flex-shrink-0 text-right">
-                      <p className="text-base sm:text-lg font-semibold text-primary">
-                        {formatCurrency(investment.amount)}
-                      </p>
+                    <p className="text-sm text-secondary">
+                      {formatMonth(investment.month)}
+                    </p>
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                      <CategoryBadge label="Investimentos" color="var(--color-balance)" />
                     </div>
                   </div>
-                  </Card>
-              ))}
+                  <div className="ml-2 flex-shrink-0 text-right">
+                    <p className="text-base sm:text-lg font-semibold text-primary">
+                      {formatCurrency(investment.amount)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -24,6 +24,7 @@ import AssistantConfirmationPanel from '@/components/AssistantConfirmationPanel'
 import { useAssistantTurn } from '@/hooks/useAssistantTurn'
 import { useAssistantOfflineQueueStatus } from '@/hooks/useAssistantOfflineQueueStatus'
 import { useAppSettings } from '@/hooks/useAppSettings'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useVoiceAdapter } from '@/hooks/useVoiceAdapter'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { getAssistantMonthlyInsights } from '@/services/assistantService'
@@ -81,6 +82,7 @@ export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [isAssistantOpen, setIsAssistantOpen] = useState(false)
+  const { isOnline } = useNetworkStatus()
   const {
     voiceSupport,
     setVoiceStatus,
@@ -117,6 +119,7 @@ export default function Dashboard() {
   })
   const [monthlyInsights, setMonthlyInsights] = useState<string[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
+  const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
 
@@ -337,9 +340,13 @@ export default function Dashboard() {
   useEffect(() => {
     let isCancelled = false
 
-    // Immediately clear stale insights and trigger page-level fade transition
-    setMonthlyInsights([])
-    setIsMonthTransitioning(true)
+    // Only map the transition and wipe insights if the user actually navigated to a different month.
+    // If it's the same month and just a dependency like `totalExpenses` updated locally, preserve the visual blocks.
+    if (lastFetchedMonthRef.current !== currentMonth) {
+      setMonthlyInsights([])
+      setIsMonthTransitioning(true)
+      lastFetchedMonthRef.current = currentMonth
+    }
 
     if (!monthlyInsightsEnabled) {
       setInsightsLoading(false)
@@ -367,12 +374,19 @@ export default function Dashboard() {
             .filter(Boolean)
           setMonthlyInsights(mergedInsights.slice(0, 3))
         } else {
-          setMonthlyInsights([])
+          // If we get null, it's a failure (fetch error, offline, rate limit).
+          // DO NOT wipe the screen. Best to keep whatever is already rendered.
         }
       } catch (error) {
         if (isCancelled) return
+
+        // If it's explicitly an offline scenario, we suppress the annoying toast error.
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          return
+        }
+
         setInsightToastError(error instanceof Error ? error.message : 'Falha ao carregar insights do mês.')
-        setMonthlyInsights([])
+        // IMPORTANT: We do NOT clear the existing insights here.
       } finally {
         if (!isCancelled) {
           setInsightsLoading(false)
@@ -397,6 +411,7 @@ export default function Dashboard() {
     totalExpenses,
     totalIncomes,
     totalInvestments,
+    isOnline, // Re-run when connection comes back to refresh from server
   ])
 
   const prioritizedExpenseCategoryItems = useMemo(() => {
@@ -548,9 +563,8 @@ export default function Dashboard() {
               key={dataKey}
               type="button"
               onClick={() => toggleDailyFlowSeries(dataKey)}
-              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
-              }`}
+              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
+                }`}
               aria-pressed={!isHidden}
             >
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
@@ -743,7 +757,7 @@ export default function Dashboard() {
     try {
       const result = await confirmLastInterpretation({ confirmed })
       if (!result) return
-      
+
       // Só fecha se foi executado com sucesso ou se o usuário negou explicitamente
       if (result.status === 'executed' || result.status === 'denied') {
         if (result.status === 'executed') {
@@ -932,16 +946,18 @@ export default function Dashboard() {
         subtitle={PAGE_HEADERS.dashboard.description}
         action={
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={openAssistant}
-              className="flex items-center gap-2"
-              aria-label="Assistente"
-              title="Assistente"
-            >
-              <Sparkles size={16} />
-            </Button>
+            {isOnline && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={openAssistant}
+                className="flex items-center gap-2"
+                aria-label="Assistente"
+                title="Assistente"
+              >
+                <Sparkles size={16} />
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -955,9 +971,9 @@ export default function Dashboard() {
           </div>
         }
       />
-      
+
       <div className="p-4 lg:p-6">
-        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+        <MonthSelector value={currentMonth} onChange={setCurrentMonth} isOnline={isOnline} />
 
         {/* Content area: fades in/out atomically when month changes */}
         <div
@@ -968,238 +984,243 @@ export default function Dashboard() {
           }}
         >
 
-        {shouldShowMonthlyInsightsCard && (
-          <Card className="mt-4 lg:mt-6 animate-insight-enter">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
-                <button
-                  type="button"
-                  onClick={handleRefreshInsights}
-                  disabled={insightsLoading}
-                  className={`p-2 rounded-lg border border-primary bg-secondary text-primary motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] disabled:opacity-50 ${
-                    insightsLoading ? 'animate-spin' : ''
-                  }`}
-                  title="Forçar atualização dos insights"
-                >
-                  <RefreshCw size={16} />
-                </button>
-              </div>
+          <div className={`transition-conceal-container ${(!isOnline || !shouldShowMonthlyInsightsCard) ? 'is-concealed' : ''}`}>
+            <div className="transition-conceal-content">
+              {shouldShowMonthlyInsightsCard && (
+                <Card className="mt-4 lg:mt-6 animate-insight-enter">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
+                      {isOnline && (
+                        <button
+                          type="button"
+                          onClick={handleRefreshInsights}
+                          disabled={insightsLoading}
+                          className={`p-2 rounded-lg border border-primary bg-secondary text-primary motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] disabled:opacity-50 ${insightsLoading ? 'animate-spin' : ''
+                            }`}
+                          title="Forçar atualização dos insights"
+                        >
+                          <RefreshCw size={16} />
+                        </button>
+                      )}
+                    </div>
 
-              <div className="transition-opacity duration-300" style={{ opacity: insightsLoading ? 0.4 : 1 }}>
-                {(insightsLoading || isMonthTransitioning) ? (
-                  <div className="flex items-center gap-3 py-2 animate-pulse">
-                    <div className="w-1.5 h-10 rounded-full bg-tertiary" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-tertiary rounded w-3/4" />
-                      <div className="h-3 bg-tertiary rounded w-1/2" />
+                    <div className="transition-opacity duration-300" style={{ opacity: insightsLoading ? 0.4 : 1 }}>
+                      {(insightsLoading || isMonthTransitioning) ? (
+                        <div className="flex items-center gap-3 py-2 animate-pulse">
+                          <div className="w-1.5 h-10 rounded-full bg-tertiary" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-tertiary rounded w-3/4" />
+                            <div className="h-3 bg-tertiary rounded w-1/2" />
+                          </div>
+                        </div>
+                      ) : monthlyInsightsNarrative.length > 0 ? (
+                        <p className="text-sm text-primary leading-relaxed">
+                          {monthlyInsightsNarrative}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-secondary leading-relaxed italic">
+                          Nenhum insight gerado para este mês. Clique em ↻ para gerar agora.
+                        </p>
+                      )}
                     </div>
                   </div>
-                ) : monthlyInsightsNarrative.length > 0 ? (
-                  <p className="text-sm text-primary leading-relaxed">
-                    {monthlyInsightsNarrative}
-                  </p>
-                ) : (
-                  <p className="text-sm text-secondary leading-relaxed italic">
-                    Nenhum insight gerado para este mês. Clique em ↻ para gerar agora.
-                  </p>
-                )}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        <div className={shouldShowMonthlyInsightsCard ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
-
-        {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
-        ) : !hasMonthlyData ? (
-          <Card>
-            <div className="text-center py-8">
-              <p className="text-base text-primary font-medium">Adicione o primeiro lançamento do mês.</p>
-            </div>
-          </Card>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-              <Card className="h-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-secondary">Rendas</p>
-                    <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-income)' }}>
-                      {formatCurrency(totalIncomes)}
-                    </p>
-                  </div>
-                  <TrendingUp className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-income)' }} />
-                </div>
-              </Card>
-
-              <Card className="h-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-secondary">Despesas</p>
-                    <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-expense)' }}>
-                      {formatCurrency(totalExpenses)}
-                    </p>
-                  </div>
-                  <TrendingDown className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-expense)' }} />
-                </div>
-              </Card>
-
-              <Card className="h-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-secondary">Investimentos</p>
-                    <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-balance)' }}>
-                      {formatCurrency(totalInvestments)}
-                    </p>
-                  </div>
-                  <PiggyBank className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-balance)' }} />
-                </div>
-              </Card>
-
-              <Card className="h-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-secondary">Saldo</p>
-                    <p
-                      className="text-2xl font-bold mt-1"
-                      style={{
-                        color: balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                      }}
-                    >
-                      {formatCurrency(balance)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
-                <Card className="h-full flex flex-col">
-                  <h3 className="text-lg font-semibold text-primary mb-4">Panorama do mês</h3>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={monthlyOverviewData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="name" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                      <YAxis
-                        stroke="var(--color-text-secondary)"
-                        fontSize={12}
-                        tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
-                      />
-                      <Tooltip content={chartTooltip} />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                        {monthlyOverviewData.map((item) => (
-                          <Cell key={item.name} fill={item.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
                 </Card>
+              )}
+            </div>
+          </div>
 
-                <Card className="h-full flex flex-col">
-                  <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário (mês)</h3>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={dailyFlowData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="day" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} minTickGap={14} />
-                      <YAxis
-                        stroke="var(--color-text-secondary)"
-                        fontSize={12}
-                        tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
-                      />
-                      <Tooltip content={chartTooltip} />
-                      <Legend content={renderInteractiveLegend} />
-                      <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} />
-                      <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} />
-                      <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Card>
-              </div>
+          <div className={shouldShowMonthlyInsightsCard ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
 
-              <div className="grid grid-cols-1 gap-4 items-stretch">
-                <Card className="h-full flex flex-col">
-                  <div className="mb-4 space-y-1.5">
-                    <h3 className="text-lg font-semibold text-primary">Despesas por categoria</h3>
-                    <p className="text-xs text-secondary">Gráfico por porcentagem e lista priorizada por alertas de limite.</p>
-                  </div>
-                  {expenseCategoriesPieData.length === 0 ? (
-                    <p className="text-sm text-secondary text-center">Sem despesas no mês selecionado.</p>
-                  ) : (
-                    <>
-                      <div className="mx-auto w-full max-w-2xl">
-                        <ResponsiveContainer width="100%" height={260}>
-                          <PieChart>
-                            <Pie
-                              data={expenseCategoriesPieData}
-                              dataKey="value"
-                              nameKey="name"
-                              outerRadius={86}
-                              labelLine={false}
-                              label={false}
-                              onClick={(entry: { categoryId?: string; name?: string }) => {
-                                if (entry?.categoryId && entry?.name) {
-                                  openExpenseCategoryDetails(entry.categoryId, entry.name)
-                                }
-                              }}
-                            >
-                              {expenseCategoriesPieData.map((entry) => (
-                                <Cell key={entry.name} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip content={chartTooltip} />
-                          </PieChart>
-                        </ResponsiveContainer>
+            {loading ? (
+              <div className="text-center py-8 text-secondary">Carregando...</div>
+            ) : !hasMonthlyData ? (
+              <Card>
+                <div className="text-center py-8">
+                  <p className="text-base text-primary font-medium">Adicione o primeiro lançamento do mês.</p>
+                </div>
+              </Card>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+                  <Card className="h-full">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-secondary">Rendas</p>
+                        <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-income)' }}>
+                          {formatCurrency(totalIncomes)}
+                        </p>
                       </div>
+                      <TrendingUp className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-income)' }} />
+                    </div>
+                  </Card>
 
-                      <div className="mt-4 space-y-3">
-                        {prioritizedExpenseCategoryItems.map((item) => {
-                          const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
-                          return (
-                            <button
-                              key={item.name}
-                              type="button"
-                              onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
-                              className={interactiveRowButtonClasses}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                                  <span className="text-primary truncate">{item.name}</span>
-                                </div>
-                                <div className="flex items-center justify-end gap-2.5 flex-shrink-0">
-                                  {item.alertPriority > 0 && (
-                                    <span className={`text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary ${item.alertStatusClass}`}>
-                                      {item.alertStatusLabel}
-                                    </span>
-                                  )}
-                                  <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">
-                                    {formatNumberBR(percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="w-full h-1.5 rounded-full bg-secondary mt-3">
-                                <div className="h-1.5 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }} />
-                              </div>
-
-                              <p className="text-xs text-secondary mt-2 text-center sm:text-left truncate">Total: {formatCurrency(item.value)}</p>
-                            </button>
-                          )
-                        })}
+                  <Card className="h-full">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-secondary">Despesas</p>
+                        <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-expense)' }}>
+                          {formatCurrency(totalExpenses)}
+                        </p>
                       </div>
-                    </>
-                  )}
-                </Card>
-              </div>
-            </div>
-          </>
-        )}
-        </div>{/* end inner content area */}
+                      <TrendingDown className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-expense)' }} />
+                    </div>
+                  </Card>
+
+                  <Card className="h-full">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-secondary">Investimentos</p>
+                        <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-balance)' }}>
+                          {formatCurrency(totalInvestments)}
+                        </p>
+                      </div>
+                      <PiggyBank className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-balance)' }} />
+                    </div>
+                  </Card>
+
+                  <Card className="h-full">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-secondary">Saldo</p>
+                        <p
+                          className="text-2xl font-bold mt-1"
+                          style={{
+                            color: balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
+                          }}
+                        >
+                          {formatCurrency(balance)}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+                    <Card className="h-full flex flex-col">
+                      <h3 className="text-lg font-semibold text-primary mb-4">Panorama do mês</h3>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={monthlyOverviewData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                          <XAxis dataKey="name" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
+                          <YAxis
+                            stroke="var(--color-text-secondary)"
+                            fontSize={12}
+                            tick={{ fill: 'var(--color-text-secondary)' }}
+                            tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
+                          />
+                          <Tooltip content={chartTooltip} />
+                          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                            {monthlyOverviewData.map((item) => (
+                              <Cell key={item.name} fill={item.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+
+                    <Card className="h-full flex flex-col">
+                      <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário (mês)</h3>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <LineChart data={dailyFlowData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                          <XAxis dataKey="day" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} minTickGap={14} />
+                          <YAxis
+                            stroke="var(--color-text-secondary)"
+                            fontSize={12}
+                            tick={{ fill: 'var(--color-text-secondary)' }}
+                            tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
+                          />
+                          <Tooltip content={chartTooltip} />
+                          <Legend content={renderInteractiveLegend} />
+                          <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} />
+                          <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} />
+                          <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 items-stretch">
+                    <Card className="h-full flex flex-col">
+                      <div className="mb-4 space-y-1.5">
+                        <h3 className="text-lg font-semibold text-primary">Despesas por categoria</h3>
+                        <p className="text-xs text-secondary">Gráfico por porcentagem e lista priorizada por alertas de limite.</p>
+                      </div>
+                      {expenseCategoriesPieData.length === 0 ? (
+                        <p className="text-sm text-secondary text-center">Sem despesas no mês selecionado.</p>
+                      ) : (
+                        <>
+                          <div className="mx-auto w-full max-w-2xl">
+                            <ResponsiveContainer width="100%" height={260}>
+                              <PieChart>
+                                <Pie
+                                  data={expenseCategoriesPieData}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  outerRadius={86}
+                                  labelLine={false}
+                                  label={false}
+                                  onClick={(entry: { categoryId?: string; name?: string }) => {
+                                    if (entry?.categoryId && entry?.name) {
+                                      openExpenseCategoryDetails(entry.categoryId, entry.name)
+                                    }
+                                  }}
+                                >
+                                  {expenseCategoriesPieData.map((entry) => (
+                                    <Cell key={entry.name} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <Tooltip content={chartTooltip} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          <div className="mt-4 space-y-3">
+                            {prioritizedExpenseCategoryItems.map((item) => {
+                              const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
+                              return (
+                                <button
+                                  key={item.name}
+                                  type="button"
+                                  onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
+                                  className={interactiveRowButtonClasses}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                                      <span className="text-primary truncate">{item.name}</span>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2.5 flex-shrink-0">
+                                      {item.alertPriority > 0 && (
+                                        <span className={`text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary ${item.alertStatusClass}`}>
+                                          {item.alertStatusLabel}
+                                        </span>
+                                      )}
+                                      <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">
+                                        {formatNumberBR(percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="w-full h-1.5 rounded-full bg-secondary mt-3">
+                                    <div className="h-1.5 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }} />
+                                  </div>
+
+                                  <p className="text-xs text-secondary mt-2 text-center sm:text-left truncate">Total: {formatCurrency(item.value)}</p>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </Card>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>{/* end inner content area */}
         </div>{/* end month-transition opacity wrapper */}
       </div>{/* end p-4 lg:p-6 container */}
 
@@ -1446,11 +1467,11 @@ export default function Dashboard() {
 
           <Button
             onClick={handleVoiceInterpret}
-              disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition}
+            disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition}
             variant="outline"
             fullWidth
           >
-              {voiceListening ? 'Parar Escuta' : 'Falar Comando'}
+            {voiceListening ? 'Parar Escuta' : 'Falar Comando'}
           </Button>
 
           {lastInterpretation?.requiresConfirmation && (

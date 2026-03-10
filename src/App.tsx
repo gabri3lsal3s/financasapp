@@ -6,6 +6,8 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
+import NetworkStatusToast from './components/NetworkStatusToast'
+import { ConflictResolutionModal } from './components/ConflictResolutionModal'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Incomes from './pages/Incomes'
@@ -34,6 +36,8 @@ function App() {
       <AuthProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <SupabaseWarning />
+          <NetworkStatusToast />
+          <ConflictResolutionModal />
           <Routes>
             {/* Rotas Públicas */}
             <Route path="/login" element={<Login />} />

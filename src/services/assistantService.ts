@@ -166,21 +166,28 @@ const resolveReadOnlyIntent = async (
 }
 
 const monthHasAnyData = async (month: string): Promise<boolean> => {
-  const start = `${month}-01`
-  const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
-  const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
+  try {
+    const start = `${month}-01`
+    const parsedStart = parse(start, 'yyyy-MM-dd', new Date())
+    const end = format(endOfMonth(parsedStart), 'yyyy-MM-dd')
 
-  const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
-    supabase.from('expenses').select('id').gte('date', start).lte('date', end).limit(1),
-    supabase.from('incomes').select('id').gte('date', start).lte('date', end).limit(1),
-    supabase.from('investments').select('id').eq('month', month).limit(1),
-  ])
+    const [expensesResult, incomesResult, investmentsResult] = await Promise.all([
+      supabase.from('expenses').select('id').gte('date', start).lte('date', end).limit(1),
+      supabase.from('incomes').select('id').gte('date', start).lte('date', end).limit(1),
+      supabase.from('investments').select('id').eq('month', month).limit(1),
+    ])
 
-  const hasExpenses = (expensesResult.data || []).length > 0
-  const hasIncomes = (incomesResult.data || []).length > 0
-  const hasInvestments = (investmentsResult.data || []).length > 0
+    const hasExpenses = (expensesResult.data || []).length > 0
+    const hasIncomes = (incomesResult.data || []).length > 0
+    const hasInvestments = (investmentsResult.data || []).length > 0
 
-  return hasExpenses || hasIncomes || hasInvestments
+    return hasExpenses || hasIncomes || hasInvestments
+  } catch (err) {
+    console.error('[monthHasAnyData] Error checking data:', err)
+    // Return true on error to allow executeGetAssistantMonthlyInsights to proceed
+    // where its own cache fallback will attempt to find data in localStorage.
+    return true
+  }
 }
 
 const getMonthRange = (month: string) => {
@@ -410,7 +417,7 @@ export async function interpretAssistantCommand(params: {
   }
   const intent = extracted.intent
   const confidence = 0.95 // High confidence when coming from LLM
-  
+
   const slots: AssistantSlots = {
     amount: extracted.slots.amount,
     date: extracted.slots.date,
@@ -726,7 +733,7 @@ const activeInsightPromises = new Map<string, Promise<AssistantMonthlyInsightsRe
 
 export async function getAssistantMonthlyInsights(month?: string, force?: boolean): Promise<AssistantMonthlyInsightsResult | null> {
   const targetMonth = clampMonthToAppStart(month || format(new Date(), 'yyyy-MM'))
-  
+
   // Use a singleton pattern to prevent concurrent requests for the same month
   // We keep force separate in the key to allow a forced request to join an existing forced one
   const cacheKey = `singleton:${targetMonth}${force ? ':force' : ''}`
@@ -760,28 +767,53 @@ const computeDataHash = (data: { expenses: { amount: number }[], incomes: { amou
   return `${data.expenses.length}:${data.incomes.length}:${data.investments.length}:${expTotal}:${incTotal}:${invTotal}`
 }
 
+const getLocalStorageInsights = (month: string): AssistantMonthlyInsightsResult | null => {
+  const cachedDbDataRaw = localStorage.getItem(`minhas-financas:insights-cache:${month}`)
+  if (cachedDbDataRaw) {
+    try {
+      const cachedParsed = JSON.parse(cachedDbDataRaw)
+      return { month, highlights: cachedParsed.highlights, recommendations: cachedParsed.recommendations }
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: boolean): Promise<AssistantMonthlyInsightsResult | null> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return getLocalStorageInsights(targetMonth)
+  }
+
   const failureKey = `minhas-financas:insights-failure:${targetMonth}`
 
   // 1. Get current userId
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return getLocalStorageInsights(targetMonth)
 
   // 2. Load current data upfront (needed for hash comparison)
   if (!(await monthHasAnyData(targetMonth))) {
-    return null
+    return getLocalStorageInsights(targetMonth)
   }
 
   const currentData = await fetchMonthInsightDataset(targetMonth)
   const currentHash = computeDataHash(currentData)
 
   // 3. Fetch from Supabase
-  const { data: cachedDbData } = await supabase
-    .from('monthly_insights')
-    .select('month, highlights, recommendations, data_hash, updated_at')
-    .eq('month', targetMonth)
-    .limit(1)
-    .maybeSingle()
+  let cachedDbData = null
+  try {
+    const { data } = await supabase
+      .from('monthly_insights')
+      .select('month, highlights, recommendations, data_hash, updated_at')
+      .eq('month', targetMonth)
+      .limit(1)
+      .maybeSingle()
+    cachedDbData = data
+  } catch (err) {
+    console.error('[executeGetAssistantMonthlyInsights] Error fetching from Supabase:', err)
+    // Fallback to localStorage if Supabase query fails
+    return getLocalStorageInsights(targetMonth)
+  }
 
   const cachedData = cachedDbData ? {
     month: cachedDbData.month,
@@ -871,6 +903,10 @@ async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: b
 
   // 7. Handle API failure
   if (!insights) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine && cachedData) {
+      // Offline fallback: do not write failure, just return cached seamlessly
+      return { month: cachedData.month, highlights: cachedData.highlights, recommendations: cachedData.recommendations }
+    }
     localStorage.setItem(failureKey, new Date().toISOString())
     if (cachedData) return { month: cachedData.month, highlights: cachedData.highlights, recommendations: cachedData.recommendations }
     return null // Silently fail – caller will show a toast
@@ -883,6 +919,8 @@ async function executeGetAssistantMonthlyInsights(targetMonth: string, force?: b
     highlights: insights.highlights,
     recommendations: insights.recommendations,
   }
+
+  localStorage.setItem(`minhas-financas:insights-cache:${targetMonth}`, JSON.stringify(result))
 
   // Fire and forget upsert OR await it. It's better to await to ensure consistency
   await supabase
@@ -934,7 +972,7 @@ export const assistantParserInternals = {
     for (const h of highlights) {
       const olMatch = h.match(/^(.+?)\s+passou do limite em\s+([\d%]+)\.?/)
       const cnMatch = h.match(/^(.+?)\s+concentrou\s+([\d%]+)\s+das despesas/)
-      
+
       if (olMatch) {
         const cat = olMatch[1].trim()
         catData[cat] = { ...catData[cat], overLimit: olMatch[2] }

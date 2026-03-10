@@ -15,26 +15,26 @@ export default function ModalActionFooter({
   submitDisabled = false,
   deleteLabel,
   onDelete,
-  onCancel: _onCancel, // Intentionally unused to satisfy props
-  cancelLabel: _cancelLabel, // Intentionally unused to satisfy props
+  // onCancel: _onCancel, // Intentionally unused to satisfy props
+  // cancelLabel: _cancelLabel, // Intentionally unused to satisfy props
 }: ModalActionFooterProps) {
   return (
     <div className="flex pt-4 justify-center items-center gap-4">
       {onDelete && deleteLabel && (
-        <Button 
-          type="button" 
-          variant="ghost" 
-          className="btn-discrete-delete px-3 flex-shrink-0" 
+        <Button
+          type="button"
+          variant="ghost"
+          className="btn-discrete-delete px-3 flex-shrink-0"
           onClick={onDelete}
           title={deleteLabel}
         >
           <Trash2 size={24} />
         </Button>
       )}
-      <Button 
-        type="submit" 
+      <Button
+        type="submit"
         variant="ghost"
-        className="btn-discrete-save px-3 flex-shrink-0" 
+        className="btn-discrete-save px-3 flex-shrink-0"
         disabled={submitDisabled}
         title={submitLabel}
       >

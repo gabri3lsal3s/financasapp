@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Category } from '@/types'
+import { getCache, setCache } from '@/services/offlineCache'
+import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
 const DEFAULT_CATEGORY_COLOR = '#9ca3af'
 
 export function useCategories() {
+  const { isOnline } = useNetworkStatus()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadCategories()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline])
+
+  useEffect(() => {
+    const onQueueProcessed = () => {
+      loadCategories()
+    }
+    window.addEventListener('offline-queue-processed', onQueueProcessed)
+    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
   }, [])
 
   const getCategoryUsageCount = async (id: string): Promise<number> => {
@@ -20,7 +33,7 @@ export function useCategories() {
         .from('expenses')
         .select('id', { count: 'exact', head: true })
         .eq('category_id', id)
-      
+
       if (error) throw error
       return count || 0
     } catch (err) {
@@ -32,13 +45,27 @@ export function useCategories() {
   const loadCategories = async () => {
     try {
       setLoading(true)
+      const cacheKey = 'categories-all'
+      const cached = await getCache<Category[]>(cacheKey)
+      if (cached) {
+        setCategories(cached)
+        setLoading(false)
+      }
+
+      if (!isOnline) {
+        setLoading(false)
+        return
+      }
+
       const { data, error: fetchError } = await supabase
         .from('categories')
         .select('*')
         .order('name', { ascending: true })
 
       if (fetchError) throw fetchError
-      setCategories(data || [])
+      const newData = data || []
+      setCategories(newData)
+      await setCache(cacheKey, newData)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar categorias')
@@ -61,10 +88,28 @@ export function useCategories() {
         .single()
 
       if (insertError) throw insertError
-      
-      setCategories((prev) => [...prev, data])
+
+      setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'categories',
+          action: 'create',
+          payload: category as Record<string, unknown>,
+        })
+        const offlineCategory: Category = {
+          id: `offline-${Date.now()}`,
+          created_at: new Date().toISOString(),
+          ...category,
+        }
+        setCategories((prev) => {
+          const next = [...prev, offlineCategory].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+          setCache('categories-all', next).catch(console.error)
+          return next
+        })
+        return { data: offlineCategory, error: null }
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar categoria'
       return { data: null, error: errorMessage }
     }
@@ -80,12 +125,28 @@ export function useCategories() {
         .single()
 
       if (updateError) throw updateError
-      
+
       setCategories((prev) =>
-        prev.map((cat) => (cat.id === id ? data : cat))
+        prev.map((cat) => (cat.id === id ? data : cat)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
       )
       return { data, error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'categories',
+          action: 'update',
+          recordId: id,
+          payload: updates as Record<string, unknown>,
+        })
+        setCategories((prev) => {
+          const next = prev
+            .map((cat) => (cat.id === id ? { ...cat, ...updates } : cat))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+          setCache('categories-all', next).catch(console.error)
+          return next
+        })
+        return { data: { id, ...updates } as Category, error: null }
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar categoria'
       return { data: null, error: errorMessage }
     }
@@ -158,10 +219,23 @@ export function useCategories() {
         .eq('id', id)
 
       if (deleteError) throw deleteError
-      
+
       setCategories((prev) => prev.filter((cat) => cat.id !== id))
       return { error: null }
     } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'categories',
+          action: 'delete',
+          recordId: id,
+        })
+        setCategories((prev) => {
+          const next = prev.filter((cat) => cat.id !== id)
+          setCache('categories-all', next).catch(console.error)
+          return next
+        })
+        return { error: null }
+      }
       const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar categoria'
       return { error: errorMessage }
     }
