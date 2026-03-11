@@ -1,5 +1,5 @@
 import { APP_START_MONTH, formatMonth, getCurrentMonthString, addMonths, clampMonthToAppStart } from '@/utils/format'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface MonthSelectorProps {
   value: string
@@ -40,7 +40,7 @@ export default function MonthSelector({ value, onChange, isOnline = true, classN
             className={`${navButtonClasses} animate-scale-fade-in`}
             aria-label="Mês anterior"
           >
-            <ArrowLeft size={20} className="text-accent-primary" />
+            <ChevronLeft size={20} className="text-accent-primary" />
           </button>
         )}
       </div>
@@ -68,7 +68,7 @@ export default function MonthSelector({ value, onChange, isOnline = true, classN
             className={`${navButtonClasses} animate-scale-fade-in`}
             aria-label="Próximo mês"
           >
-            <ArrowRight size={20} className="text-accent-primary" />
+            <ChevronRight size={20} className="text-accent-primary" />
           </button>
         )}
       </div>

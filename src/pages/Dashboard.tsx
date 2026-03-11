@@ -21,6 +21,7 @@ import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import IconButton from '@/components/IconButton'
 import AssistantConfirmationPanel from '@/components/AssistantConfirmationPanel'
 import { useAssistantTurn } from '@/hooks/useAssistantTurn'
 import { useAssistantOfflineQueueStatus } from '@/hooks/useAssistantOfflineQueueStatus'
@@ -1005,16 +1006,13 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between gap-4">
                       <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
                       {isOnline && (
-                        <button
-                          type="button"
+                        <IconButton
+                          icon={isOnline ? <RefreshCw size={16} className={insightsLoading ? 'animate-spin' : ''} /> : <WifiOff size={16} />}
                           onClick={handleRefreshInsights}
                           disabled={insightsLoading}
-                          className={`p-2 rounded-lg border border-primary bg-secondary text-primary motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] disabled:opacity-50 ${insightsLoading ? 'animate-spin' : ''
-                            } ${!isOnline ? 'animate-pulse scale-95 opacity-50' : ''}`}
                           title={isOnline ? "Forçar atualização dos insights" : "Indisponível offline"}
-                        >
-                          {isOnline ? <RefreshCw size={16} /> : <WifiOff size={16} />}
-                        </button>
+                          variant="neutral"
+                        />
                       )}
                     </div>
 
