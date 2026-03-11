@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+
 import { isBiometricRegistered, verifyBiometric } from '@/utils/biometric';
 import { useAppSettings } from '@/hooks/useAppSettings';
-import { Fingerprint, LogOut, AlertCircle } from 'lucide-react';
+import { Fingerprint, LogOut, AlertCircle, ShieldCheck } from 'lucide-react';
+
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 
@@ -13,8 +15,9 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading, signOut } = useAuth();
+  const { user, profile, isLoading, signOut, refreshProfile } = useAuth();
   const navigate = useNavigate();
+
 
   const { biometricLockTimeout } = useAppSettings();
 
@@ -127,8 +130,135 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  // Se usuário está logado, mas o App está trancado
+  // 1. Verificar se o usuário está BLOQUEADO (prioridade máxima)
+  // Bloqueio ocorre se is_blocked for true OU se já foi rejeitado 2 vezes ou mais
+  if (profile && (profile.is_blocked || (profile.rejection_count >= 2))) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
+        <div className="w-full max-w-md space-y-8 text-center p-8 bg-[var(--color-bg-primary)] rounded-2xl shadow-xl border border-[var(--color-border)] animate-page-enter">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-danger)]/10 border-2 border-[var(--color-danger)]">
+            <ShieldCheck className="h-12 w-12 text-[var(--color-danger)] animate-pulse" />
+          </div>
+
+          <h2 className="mt-6 text-2xl font-bold tracking-tight text-[var(--color-danger)]">
+            Acesso Bloqueado
+          </h2>
+          <p className="text-secondary text-sm">
+            Seu acesso foi permanentemente suspenso pelo administrador.
+          </p>
+
+          <div className="space-y-4 pt-4">
+            <button
+              onClick={handleLogout}
+              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+            >
+              <LogOut size={16} />
+              Sair da Conta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Verificar se o usuário foi REJEITADO (pela primeira vez)
+  if (profile && profile.is_rejected && profile.rejection_count < 2) {
+    const handleRetryRegistration = async () => {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ is_rejected: false })
+          .eq('id', profile.id);
+
+        if (error) throw error;
+        await refreshProfile();
+      } catch (err) {
+        console.error('Error retrying registration:', err);
+        alert('Erro ao tentar novamente. Tente atualizar a página.');
+      }
+    };
+
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
+        <div className="w-full max-w-md space-y-8 text-center p-8 bg-[var(--color-bg-primary)] rounded-2xl shadow-xl border border-[var(--color-border)] animate-page-enter">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-warning)]/10 border-2 border-[var(--color-warning)]">
+            <AlertCircle className="h-12 w-12 text-[var(--color-warning)]" />
+          </div>
+
+          <h2 className="mt-6 text-2xl font-bold tracking-tight text-primary">
+            Solicitação Recusada
+          </h2>
+          <p className="text-secondary text-sm px-4">
+            Sua solicitação de cadastro não foi aceita no momento. Você pode tentar mais uma vez.
+          </p>
+
+          <div className="p-4 bg-[var(--color-tertiary)]/30 rounded-lg text-sm text-secondary">
+            Certifique-se de que seus dados estão corretos antes de tentar novamente.
+          </div>
+
+          <div className="space-y-4 pt-4">
+            <Button
+              type="button"
+              variant="primary"
+              fullWidth
+              onClick={handleRetryRegistration}
+            >
+              Tentar Novamente
+            </Button>
+
+            <button
+              onClick={handleLogout}
+              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+            >
+              <LogOut size={16} />
+              Sair da Conta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Verificar se o usuário está aprovado pelo ADM
+  if (profile && !profile.is_approved) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
+        <div className="w-full max-w-md space-y-8 text-center p-8 bg-[var(--color-bg-primary)] rounded-2xl shadow-xl border border-[var(--color-border)] animate-page-enter">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tertiary border-2 border-primary">
+            <AlertCircle className="h-12 w-12 text-primary animate-pulse" />
+          </div>
+
+          <h2 className="mt-6 text-2xl font-bold tracking-tight text-primary">
+            Aguardando Aprovação
+          </h2>
+          <p className="text-secondary text-sm">
+            Sua conta foi criada com sucesso, mas o administrador (gabrielisaacsales@gmail.com) precisa autorizar seu primeiro acesso.
+          </p>
+
+          <div className="p-4 bg-[var(--color-tertiary)]/30 rounded-lg text-sm text-secondary">
+            Enquanto aguarda, você pode entrar em contato com o ADM para agilizar o processo.
+          </div>
+
+          <div className="space-y-4 pt-4">
+
+
+            <button
+              onClick={handleLogout}
+              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+            >
+              <LogOut size={16} />
+              Sair da Conta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  // Se usuário está logado e aprovado, mas o App está trancado por biometria
   if (isLocked) {
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
         <div className="w-full max-w-md space-y-8 text-center p-8 bg-[var(--color-bg-primary)] rounded-2xl shadow-xl border border-[var(--color-border)]">

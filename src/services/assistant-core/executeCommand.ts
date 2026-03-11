@@ -119,27 +119,27 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
   }> =
     slots.items && slots.items.length
       ? slots.items.map((item) => ({
-          ...item,
-          installment_count: normalizeInstallmentCount(item.installment_count),
-          transactionType:
-            item.transactionType ||
-            (command.interpreted_intent === 'add_investment'
-              ? 'investment'
-              : command.interpreted_intent === 'add_income'
+        ...item,
+        installment_count: normalizeInstallmentCount(item.installment_count),
+        transactionType:
+          item.transactionType ||
+          (command.interpreted_intent === 'add_investment'
+            ? 'investment'
+            : command.interpreted_intent === 'add_income'
               ? 'income'
               : 'expense'),
-        }))
+      }))
       : slots.amount
-      ? (() => {
+        ? (() => {
           const singleItemParticipants = parseSharedParticipants(command.command_text)
           const slotTransactionType =
             slots.transactionType === 'investment'
               ? 'investment'
               : slots.transactionType === 'income'
-              ? 'income'
-              : slots.transactionType === 'expense'
-              ? 'expense'
-              : undefined
+                ? 'income'
+                : slots.transactionType === 'expense'
+                  ? 'expense'
+                  : undefined
           return [
             {
               transactionType:
@@ -147,8 +147,8 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
                 (command.interpreted_intent === 'add_investment'
                   ? 'investment'
                   : command.interpreted_intent === 'add_income'
-                  ? 'income'
-                  : 'expense'),
+                    ? 'income'
+                    : 'expense'),
               amount: Number(slots.amount),
               installment_count: normalizeInstallmentCount(slots.installment_count),
               payment_method: slots.payment_method,
@@ -164,7 +164,7 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
             },
           ]
         })()
-      : []
+        : []
 
   if (!addItems.length) {
     return { status: 'failed', message: 'Comando incompleto para lançamento.', commandId: command.id }
@@ -221,15 +221,15 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
           )
           .in('competence', Array.from(neededCompetences))
 
-        ;(cycleRows || []).forEach((row) => {
-          const key = `${String(row.credit_card_id || '')}:${String(row.competence || '')}`
-          if (key.startsWith(':')) return
+          ; (cycleRows || []).forEach((row) => {
+            const key = `${String(row.credit_card_id || '')}:${String(row.competence || '')}`
+            if (key.startsWith(':')) return
 
-          const closingDay = Number(row.closing_day)
-          if (Number.isFinite(closingDay)) {
-            monthlyCycleClosingByCardAndMonth[key] = closingDay
-          }
-        })
+            const closingDay = Number(row.closing_day)
+            if (Number.isFinite(closingDay)) {
+              monthlyCycleClosingByCardAndMonth[key] = closingDay
+            }
+          })
       }
     }
 
@@ -373,9 +373,8 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       }
     }
 
-    console.log('[executeWriteIntent] Inserting expenses:', expensePayload)
     const { data, error } = await supabase.from('expenses').insert(expensePayload).select('id')
-    console.log('[executeWriteIntent] Expenses response:', { data, error })
+
 
     if (error) {
       if (shouldQueueOffline(error)) {
@@ -443,9 +442,8 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       }
     }
 
-    console.log('[executeWriteIntent] Inserting incomes:', incomePayload)
     const { data, error } = await supabase.from('incomes').insert(incomePayload).select('id')
-    console.log('[executeWriteIntent] Incomes response:', { data, error })
+
 
     if (error) {
       if (shouldQueueOffline(error)) {
@@ -482,9 +480,8 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       }
     }
 
-    console.log('[executeWriteIntent] Inserting investments:', investmentPayload)
     const { data, error } = await supabase.from('investments').insert(investmentPayload).select('id')
-    console.log('[executeWriteIntent] Investments response:', { data, error })
+
 
     if (error) {
       if (shouldQueueOffline(error)) {
@@ -510,19 +507,16 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
   if (createdIds.length || totalQueuedOffline > 0) {
     const launchedTypesCount = [
       expenseItems.length - queuedOfflineCounts.expense > 0
-        ? `${expenseItems.length - queuedOfflineCounts.expense} despesa${
-            expenseItems.length - queuedOfflineCounts.expense > 1 ? 's' : ''
-          }`
+        ? `${expenseItems.length - queuedOfflineCounts.expense} despesa${expenseItems.length - queuedOfflineCounts.expense > 1 ? 's' : ''
+        }`
         : undefined,
       incomeItems.length - queuedOfflineCounts.income > 0
-        ? `${incomeItems.length - queuedOfflineCounts.income} renda${
-            incomeItems.length - queuedOfflineCounts.income > 1 ? 's' : ''
-          }`
+        ? `${incomeItems.length - queuedOfflineCounts.income} renda${incomeItems.length - queuedOfflineCounts.income > 1 ? 's' : ''
+        }`
         : undefined,
       investmentItems.length - queuedOfflineCounts.investment > 0
-        ? `${investmentItems.length - queuedOfflineCounts.investment} investimento${
-            investmentItems.length - queuedOfflineCounts.investment > 1 ? 's' : ''
-          }`
+        ? `${investmentItems.length - queuedOfflineCounts.investment} investimento${investmentItems.length - queuedOfflineCounts.investment > 1 ? 's' : ''
+        }`
         : undefined,
     ].filter(Boolean)
 
@@ -542,13 +536,12 @@ export const executeWriteIntent = async (command: AssistantCommand): Promise<Ass
       launchedTypesCount.length > 1
         ? `Lançamentos adicionados com sucesso: ${launchedTypesCount.join(', ')}.`
         : launchedTypesCount.length === 1
-        ? 'Lançamento adicionado com sucesso.'
-        : ''
+          ? 'Lançamento adicionado com sucesso.'
+          : ''
 
     const offlineMessage = queuedTypesCount.length
-      ? `Sem conexão no momento. ${queuedTypesCount.join(', ')} ${
-          queuedTypesCount.length > 1 ? 'foram enfileirados' : 'foi enfileirado'
-        } para sincronização automática.`
+      ? `Sem conexão no momento. ${queuedTypesCount.join(', ')} ${queuedTypesCount.length > 1 ? 'foram enfileirados' : 'foi enfileirado'
+      } para sincronização automática.`
       : ''
 
     return {

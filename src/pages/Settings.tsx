@@ -8,17 +8,22 @@ import ThemeSwitcher from '@/components/ThemeSwitcher'
 import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import {
   isBiometricAvailable,
   isBiometricRegistered,
   registerBiometric,
   removeBiometricCredential,
 } from '@/utils/biometric'
-import { Fingerprint, SlidersHorizontal, Sparkles, ShieldCheck, Loader2 } from 'lucide-react'
+import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, SlidersHorizontal, Sparkles } from 'lucide-react'
 
-type SettingsView = 'appearance' | 'personalization' | 'security'
 
-const parseSettingsView = (value: string | null): SettingsView => {
+
+
+type SettingsView = 'appearance' | 'personalization' | 'security' | 'admin'
+
+const parseSettingsView = (value: string | null, isAdmin: boolean): SettingsView => {
+  if (value === 'admin' && isAdmin) return 'admin'
   if (value === 'appearance' || value === 'personalization' || value === 'security') {
     return value
   }
@@ -27,8 +32,115 @@ const parseSettingsView = (value: string | null): SettingsView => {
 
 export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeSettingsView = parseSettingsView(searchParams.get('view'))
-  const { user } = useAuth()
+  const { user, profile, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  const isAdmin = profile?.is_admin ?? false
+
+  const activeSettingsView = parseSettingsView(searchParams.get('view'), isAdmin)
+
+  // Admin state
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [adminLoading, setAdminLoading] = useState(false)
+
+  const fetchUsers = async () => {
+    if (!isAdmin) return
+    setAdminLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('is_admin', false) // Não listar outros admins para segurança
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setAllUsers(data || [])
+    } catch (err) {
+      console.error('Error fetching users:', err)
+    } finally {
+      setAdminLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeSettingsView === 'admin') {
+      fetchUsers()
+    }
+  }, [activeSettingsView])
+
+
+  const handleUpdateUserStatus = async (userId: string, isApproved: boolean, isBlocked: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_approved: isApproved,
+          is_blocked: isBlocked,
+          is_rejected: false,
+          rejection_count: 0 // Reseta o contador ao aprovar ou desbloquear manualmente
+        })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      setAllUsers((prev) =>
+        prev.map((u) => u.id === userId ? { ...u, is_approved: isApproved, is_blocked: isBlocked, is_rejected: false, rejection_count: 0 } : u)
+      )
+
+    } catch (err) {
+      console.error('Error updating user status:', err)
+      alert('Erro ao atualizar status do usuário.')
+    }
+  }
+
+  const handleRejectUser = async (userId: string, isAlreadyApproved: boolean, currentRejectionCount: number = 0) => {
+    if (isAlreadyApproved) {
+      alert('Usuários já aprovados não podem ser recusados, apenas bloqueados.');
+      return;
+    }
+
+    if (!confirm('Deseja recusar esta solicitação? O usuário poderá tentar mais uma vez. Na segunda recusa, ele será bloqueado permanentemente.')) return
+
+    try {
+      const newCount = (currentRejectionCount || 0) + 1;
+      const shouldBlock = newCount >= 2;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_rejected: true,
+          rejection_count: newCount,
+          is_blocked: shouldBlock,
+          is_approved: false
+        })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      setAllUsers((prev) =>
+        prev.map((u) => u.id === userId ? {
+          ...u,
+          is_rejected: true,
+          rejection_count: newCount,
+          is_blocked: shouldBlock,
+          is_approved: false
+        } : u)
+      )
+    } catch (err) {
+      console.error('Error rejecting user:', err)
+      alert('Erro ao recusar usuário.')
+    }
+  }
+
+
+
 
   // Biometric state
   const [biometricAvailable, setBiometricAvailable] = useState(false)
@@ -130,7 +242,7 @@ export default function Settings() {
 
         {/* Navigation */}
         <Card className="animate-stagger-item delay-50">
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid ${isAdmin ? 'grid-cols-4' : 'grid-cols-3'} gap - 2`}>
             <Button
               type="button"
               variant={activeSettingsView === 'appearance' ? 'primary' : 'outline'}
@@ -155,8 +267,121 @@ export default function Settings() {
             >
               <ShieldCheck size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Segurança</span>
             </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant={activeSettingsView === 'admin' ? 'primary' : 'outline'}
+                onClick={() => updateSettingsView('admin')}
+                className="flex items-center justify-center gap-2 w-full truncate"
+              >
+                <Users size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Admin</span>
+              </Button>
+            )}
+
           </div>
         </Card>
+
+        {/* Admin Panel */}
+        {isAdmin && (
+          <section className={activeSettingsView === 'admin' ? 'space-y-4' : 'hidden'}>
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <h2 className="text-xl font-semibold text-primary">Painel Administrativo</h2>
+                <p className="text-secondary text-sm">Gerencie solicitações de acesso ao sistema</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={fetchUsers}
+                disabled={adminLoading}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw size={14} className={adminLoading ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">Atualizar</span>
+              </Button>
+            </div>
+
+
+            <Card className="animate-stagger-item delay-100">
+              {adminLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-primary" size={32} />
+                </div>
+              ) : allUsers.length === 0 ? (
+                <div className="text-center py-8 text-secondary">
+                  Nenhum usuário cadastrado além de você.
+                </div>
+              ) : (
+                <div className="divide-y divide-primary">
+                  {allUsers.map((pUser) => (
+                    <div key={pUser.id} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-primary">{pUser.email}</p>
+                          {pUser.is_blocked || pUser.rejection_count >= 2 ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-danger)]/10 text-[var(--color-danger)]">
+                              Bloqueado
+                            </span>
+                          ) : pUser.is_rejected ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
+                              Recusado ({pUser.rejection_count})
+                            </span>
+                          ) : pUser.is_approved ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-success)]/10 text-[var(--color-success)]">
+                              Ativo
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
+                              Pendente
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-secondary mt-0.5">Entrou em: {new Date(pUser.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        {pUser.is_approved ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={pUser.is_blocked || pUser.rejection_count >= 2 ? 'text-[var(--color-success)] border-[var(--color-success)]' : 'text-[var(--color-warning)] border-[var(--color-warning)]'}
+                            onClick={() => handleUpdateUserStatus(pUser.id, true, !(pUser.is_blocked || pUser.rejection_count >= 2))}
+                          >
+                            {pUser.is_blocked || pUser.rejection_count >= 2 ? 'Desbloquear' : 'Bloquear'}
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleUpdateUserStatus(pUser.id, true, false)}
+                          >
+                            Aprovar
+                          </Button>
+                        )}
+                        {!pUser.is_approved && !pUser.is_blocked && pUser.rejection_count < 2 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-[var(--color-danger)] border-[var(--color-danger)]"
+                            onClick={() => handleRejectUser(pUser.id, false, pUser.rejection_count)}
+                          >
+                            Recusar
+                          </Button>
+                        )}
+                      </div>
+
+
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+          </section>
+        )}
 
         {/* Aparência */}
         <section className={activeSettingsView === 'appearance' ? 'space-y-4' : 'hidden'}>
@@ -243,10 +468,10 @@ export default function Settings() {
               )}
 
               {biometricStatus && (
-                <div className={`rounded-lg border p-3 ${biometricStatus.type === 'success'
+                <div className={`rounded - lg border p - 3 ${biometricStatus.type === 'success'
                   ? 'border-[var(--color-success)] bg-[var(--color-success)]/10'
                   : 'border-[var(--color-danger)] bg-[var(--color-danger)]/10'
-                  }`}>
+                  } `}>
                   <p className="text-sm text-primary">{biometricStatus.message}</p>
                 </div>
               )}
@@ -254,7 +479,7 @@ export default function Settings() {
               {biometricAvailable && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${biometricRegistered ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'}`} />
+                    <div className={`h - 2 w - 2 rounded - full ${biometricRegistered ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'} `} />
                     <p className="text-sm text-secondary">
                       {biometricRegistered
                         ? 'Biometria registrada neste dispositivo'
@@ -341,6 +566,7 @@ export default function Settings() {
             </div>
           </Card>
         </section>
+
 
       </div>
     </div>

@@ -6,6 +6,8 @@ import { resolveBillCompetence, splitAmountIntoInstallments } from '@/utils/cred
 import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { APP_START_DATE } from '@/utils/format'
+
 
 const buildInstallmentDates = (startDate: string, installmentTotal: number) => {
   const normalizedTotal = Math.max(1, Math.min(60, Math.trunc(installmentTotal || 1)))
@@ -247,6 +249,11 @@ export function useExpenses(month?: string) {
         throw new Error('Categoria e valor são obrigatórios')
       }
 
+      if (expense.date && expense.date < APP_START_DATE) {
+        throw new Error(`O app inicia em 01/01/2026. Lançamentos anteriores não são permitidos.`)
+      }
+
+
       if (!isOnline) {
         throw new Error('Offline (bypass)')
       }
@@ -371,6 +378,11 @@ export function useExpenses(month?: string) {
 
       const existingExpense = expenses.find((item) => item.id === id)
       const effectiveDate = String(updatePayload.date || existingExpense?.date || '')
+
+      if (effectiveDate && effectiveDate < APP_START_DATE) {
+        throw new Error(`O app inicia em 01/01/2026. Alterações para datas anteriores não são permitidas.`)
+      }
+
       const effectivePaymentMethod =
         (updatePayload.payment_method || existingExpense?.payment_method || 'other') as Expense['payment_method']
       const effectiveCreditCardId =

@@ -58,7 +58,6 @@ export function useBackgroundCache() {
                 await setCache(`investments-${monthStr}`, investments)
             }
 
-            console.log(`[BackgroundCache] Month ${monthStr} cached successfully.`)
         } catch (error) {
             console.error(`[BackgroundCache] Error caching month ${month}:`, error)
         }

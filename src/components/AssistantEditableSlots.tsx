@@ -46,7 +46,6 @@ export default function AssistantEditableSlots({
   fallbackMonth,
   onUpdate,
 }: AssistantEditableSlotsProps) {
-  console.log('[AssistantEditableSlots] creditCards prop:', creditCards)
   const resolveSelectedCategoryId = (
     category: AssistantResolvedCategory | undefined,
     transactionType: 'expense' | 'income',
@@ -178,11 +177,11 @@ export default function AssistantEditableSlots({
                       ...previous,
                       items: (previous.items || []).map((currentItem, itemIndex) => {
                         if (itemIndex !== index) return currentItem
-                        
+
                         // Sincronizar valor do relatório por padrão se não houver peso específico
                         // ou se o amount era 0
-                        return { 
-                          ...currentItem, 
+                        return {
+                          ...currentItem,
                           amount: parsed,
                         }
                       }),
@@ -225,11 +224,11 @@ export default function AssistantEditableSlots({
                         items: (previous.items || []).map((currentItem, itemIndex) => (
                           itemIndex === index
                             ? {
-                                ...currentItem,
-                                payment_method: value,
-                                credit_card_name: value === 'credit_card' ? currentItem.credit_card_name : undefined,
-                                credit_card_id: value === 'credit_card' ? currentItem.credit_card_id : undefined,
-                              }
+                              ...currentItem,
+                              payment_method: value,
+                              credit_card_name: value === 'credit_card' ? currentItem.credit_card_name : undefined,
+                              credit_card_id: value === 'credit_card' ? currentItem.credit_card_id : undefined,
+                            }
                             : currentItem
                         )),
                       }))
@@ -407,9 +406,9 @@ export default function AssistantEditableSlots({
           onChange={(event) => {
             const parsed = parseMoneyInput(event.target.value)
             if (Number.isNaN(parsed)) return
-            onUpdate((previous) => ({ 
-              ...previous, 
-              amount: parsed 
+            onUpdate((previous) => ({
+              ...previous,
+              amount: parsed
             }))
           }}
           disabled={disabled}

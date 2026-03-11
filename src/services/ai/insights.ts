@@ -36,15 +36,17 @@ const insightsSchema: Schema = {
 
 const buildInsightsPrompt = (context: InsightsContext) => {
   const formatMoney = (val: number) => `R$ ${val.toFixed(2)}`
-  
-  const totalExpense = context.expenses.reduce((acc, curr) => acc + curr.amount, 0)
-  const totalIncome = context.incomes.reduce((acc, curr) => acc + curr.amount, 0)
+
+  // Aplicar pesos (report_weight) se existirem, caso contrário usar o valor cheio (1)
+  const totalExpense = context.expenses.reduce((acc, curr) => acc + (curr.amount * (curr.report_weight ?? 1)), 0)
+  const totalIncome = context.incomes.reduce((acc, curr) => acc + (curr.amount * (curr.report_weight ?? 1)), 0)
   const totalInvestment = context.investments.reduce((acc, curr) => acc + curr.amount, 0)
 
-  // Top 5 expenses by category
+  // Top 5 expenses by category (usando valores ponderados)
   const expensesByCategory = context.expenses.reduce((acc, exp) => {
     const catName = exp.category?.name || 'Outros'
-    acc[catName] = (acc[catName] || 0) + exp.amount
+    const weightedAmount = exp.amount * (exp.report_weight ?? 1)
+    acc[catName] = (acc[catName] || 0) + weightedAmount
     return acc
   }, {} as Record<string, number>)
 
@@ -58,21 +60,25 @@ const buildInsightsPrompt = (context: InsightsContext) => {
 Você é um consultor financeiro pessoal especialista.
 Analise os dados financeiros do usuário referentes ao mês de ${context.monthName} e devolva um JSON com "highlights" (destaques) e "recommendations" (recomendações práticas e acionáveis).
 
-*Resumo do Mês:*
+*IMPORTANTE:* Os valores abaixo já estão PONDERADOS pelo peso de importância definido pelo usuário (report_weight). Se um gasto de R$ 1000 tem peso 0.5, ele aparece aqui como R$ 500. Analise estes valores como sendo a realidade financeira final do usuário para o relatório.
+
+*Resumo do Mês (Valores Ponderados):*
 - Renda Total: ${formatMoney(totalIncome)}
 - Gasto Total: ${formatMoney(totalExpense)}
 - Investimento Total: ${formatMoney(totalInvestment)}
 
-*Principais Gastos por Categoria (Top 5):*
+*Principais Gastos por Categoria (Top 5 - Valores Ponderados):*
 ${sortedCategories || 'Nenhum gasto registrado.'}
 
 *Objetivo:*
-Crie 3 a 4 "highlights" muito concisos e diretos em português, destacando os fatos principais. Exemplo: "Você gastou quase 40% da renda com Alimentação".
-Crie 2 a 3 "recommendations" também em português, propondo cortes ou atitudes benéficas, focando nas categorias que gastaram mais. Seja positivo e motivador.
+Crie 3 a 4 "highlights" muito concisos e diretos em português, destacando os fatos principais.
+Crie 2 a 3 "recommendations" também em português, propondo cortes ou atitudes benéficas.
+Seja positivo e motivador. Mencione que a análise considera os pesos de relevância definidos pelo usuário.
 
 Responda APENAS com o JSON válido de acordo com o schema fornecido. Não adicione textos extras.
   `.trim()
 }
+
 
 export const generateMonthlyInsights = async (
   context: InsightsContext
@@ -80,7 +86,7 @@ export const generateMonthlyInsights = async (
   try {
     const ai = createGenAIClient()
     if (!ai) return null
-    
+
     const prompt = buildInsightsPrompt(context)
 
     const response = await ai.models.generateContent({

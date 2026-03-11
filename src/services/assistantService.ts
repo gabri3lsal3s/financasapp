@@ -709,9 +709,8 @@ export async function confirmAssistantCommand(params: {
     }
   }
 
-  console.log('[confirmAssistantCommand] Executing intent with payload:', commandToExecute)
   const execution = await executeWriteIntent(commandToExecute)
-  console.log('[confirmAssistantCommand] Execution result:', execution)
+
 
   const updatePayload: Record<string, unknown> = {
     status: execution.status,

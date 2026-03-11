@@ -5,6 +5,8 @@ import { format } from 'date-fns'
 import { enqueueOfflineOperation, shouldQueueOffline, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { getCache, setCache } from '@/services/offlineCache'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { APP_START_DATE } from '@/utils/format'
+
 
 export function useIncomes(month?: string) {
   const { isOnline } = useNetworkStatus()
@@ -138,6 +140,11 @@ export function useIncomes(month?: string) {
         throw new Error('Categoria e valor são obrigatórios')
       }
 
+      if (income.date && income.date < APP_START_DATE) {
+        throw new Error(`O app inicia em 01/01/2026. Lançamentos anteriores não são permitidos.`)
+      }
+
+
       if (!isOnline) {
         throw new Error('Offline (bypass)')
       }
@@ -216,11 +223,12 @@ export function useIncomes(month?: string) {
 
   const updateIncome = async (id: string, updates: Partial<Income>) => {
     try {
-      if (!isOnline) {
-        throw new Error('Offline (bypass)')
+      if (updates.date && updates.date < APP_START_DATE) {
+        throw new Error(`O app inicia em 01/01/2026. Alterações para datas anteriores não são permitidas.`)
       }
 
-      if (id.startsWith('offline-')) {
+      if (!isOnline) {
+
         throw new Error('Offline ID (bypass supabase)')
       }
 
