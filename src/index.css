@@ -86,6 +86,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
@@ -120,7 +121,7 @@
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
-  
+
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -227,6 +228,7 @@
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
@@ -237,6 +239,7 @@
       transform: translateY(100%);
       opacity: 0;
     }
+
     to {
       transform: translateY(0);
       opacity: 1;
@@ -248,6 +251,7 @@
       transform: translateX(-100%);
       opacity: 0.96;
     }
+
     to {
       transform: translateX(0);
       opacity: 1;
@@ -259,6 +263,7 @@
       opacity: 0;
       transform: translateY(10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -270,6 +275,7 @@
       opacity: 0;
       transform: translateY(6px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -301,6 +307,7 @@
       opacity: 0;
       transform: translateY(10px) scale(0.99);
     }
+
     to {
       opacity: 1;
       transform: translateY(0) scale(1);
@@ -337,15 +344,27 @@
     border-color: var(--color-primary) !important;
     box-shadow: 0 0 0 2px var(--color-primary-light) !important;
   }
-  
+
   @keyframes fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; }
+    from {
+      opacity: 1;
+    }
+
+    to {
+      opacity: 0;
+    }
   }
 
   @keyframes slide-down {
-    from { transform: translateY(0); opacity: 1; }
-    to { transform: translateY(8px); opacity: 0; }
+    from {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    to {
+      transform: translateY(8px);
+      opacity: 0;
+    }
   }
 
   .animate-fade-out {
@@ -361,6 +380,7 @@
       opacity: 0;
       transform: translateY(6px) scale(0.985);
     }
+
     to {
       opacity: 1;
       transform: translateY(0) scale(1);
@@ -372,6 +392,7 @@
       transform: scale(0.996);
       opacity: 0.96;
     }
+
     100% {
       transform: scale(1);
       opacity: 1;
@@ -379,11 +400,13 @@
   }
 
   @keyframes calculator-handle-idle {
+
     0%,
     100% {
       opacity: 0.78;
       transform: translateY(0);
     }
+
     50% {
       opacity: 0.92;
       transform: translateY(-0.4px);
@@ -391,10 +414,12 @@
   }
 
   @keyframes calculator-fab-idle {
+
     0%,
     100% {
       transform: scale(1);
     }
+
     50% {
       transform: scale(1.015);
     }
@@ -434,6 +459,7 @@
   .btn-discrete-save {
     @apply text-secondary transition-all duration-200;
   }
+
   .btn-discrete-save:hover:not(:disabled) {
     color: var(--color-income) !important;
     background-color: color-mix(in srgb, var(--color-income) 10%, transparent) !important;
@@ -442,6 +468,7 @@
   .btn-discrete-delete {
     @apply text-secondary transition-all duration-200;
   }
+
   .btn-discrete-delete:hover:not(:disabled) {
     color: var(--color-expense) !important;
     background-color: color-mix(in srgb, var(--color-expense) 10%, transparent) !important;
@@ -452,9 +479,9 @@
     display: grid;
     grid-template-rows: 1fr;
     transition: grid-template-rows 0.4s var(--ds-motion-easing-emphasis),
-                opacity 0.35s var(--ds-motion-easing-standard),
-                margin 0.4s var(--ds-motion-easing-emphasis),
-                padding 0.4s var(--ds-motion-easing-emphasis);
+      opacity 0.35s var(--ds-motion-easing-standard),
+      margin 0.4s var(--ds-motion-easing-emphasis),
+      padding 0.4s var(--ds-motion-easing-emphasis);
     overflow: hidden;
     opacity: 1;
   }
@@ -482,6 +509,7 @@
       opacity: 1;
       transform: scale(1);
     }
+
     to {
       opacity: 0;
       transform: scale(0.96);
@@ -497,6 +525,7 @@
       opacity: 0;
       transform: scale(0.96);
     }
+
     to {
       opacity: 1;
       transform: scale(1);
@@ -507,9 +536,3 @@
     animation: scale-fade-in 0.38s var(--ds-motion-easing-emphasis) forwards;
   }
 }
-
-
-
-
-
-

@@ -28,6 +28,7 @@ const REFUND_NOTE_PREFIX = '[REFUND]'
 export default function Incomes() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
   const { incomeCategories } = useIncomeCategories()
   const { colorPalette } = usePaletteColors()
@@ -141,8 +142,17 @@ export default function Incomes() {
   }, [incomeCategories.length])
 
   const handleMonthChange = (month: string) => {
-    setCurrentMonth(month)
-    setSearchParams({ month })
+    if (month === currentMonth) return
+    setIsMonthTransitioning(true)
+    setTimeout(() => {
+      setCurrentMonth(month)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('month', month)
+        return next
+      })
+      setTimeout(() => setIsMonthTransitioning(false), 50)
+    }, 150)
   }
 
   const incomeCategoriesForManualCreation = incomeCategories.filter(
@@ -344,62 +354,70 @@ export default function Incomes() {
 
       <div className="p-4 lg:p-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
-        {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
-        ) : incomes.length === 0 ? (
-          <Card className="text-center py-10 space-y-3">
-            <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
-            <div className="flex justify-center">
-              <Button onClick={() => handleOpenModal()}>Adicionar renda</Button>
+        <div
+          className="transition-all duration-150 ease-in-out"
+          style={{
+            opacity: isMonthTransitioning ? 0 : 1,
+            transform: isMonthTransitioning ? 'translateY(4px)' : 'translateY(0)'
+          }}
+        >
+          {loading && incomes.length === 0 ? (
+            <div className="text-center py-8 text-secondary">Carregando...</div>
+          ) : incomes.length === 0 ? (
+            <Card className="text-center py-10 space-y-3">
+              <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
+              <div className="flex justify-center">
+                <Button onClick={() => handleOpenModal()}>Adicionar renda</Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {incomes.map((income) => (
+                <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div
+                          className="w-1 h-6 rounded-sm flex-shrink-0"
+                          style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
+                        />
+                        <p className="font-medium text-primary truncate flex items-center gap-2">
+                          {income.description || income.income_category?.name}
+                          {income.id.startsWith('offline-') && (
+                            <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                              <RefreshCw size={12} className="text-accent animate-spin" />
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <p className="text-sm text-secondary">
+                        {income.income_category?.name} • {formatDate(income.date)}
+                      </p>
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        <CategoryBadge
+                          label={income.income_category?.name || 'Sem categoria'}
+                          color={income.income_category?.id
+                            ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette))
+                            : 'var(--color-income)'}
+                        />
+                      </div>
+                    </div>
+                    <div className="ml-2 flex-shrink-0 text-right">
+                      <p className="text-base sm:text-lg font-semibold text-primary">
+                        {formatCurrency(income.amount)}
+                      </p>
+                      {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
+                        <p className="text-xs text-secondary">
+                          {formatCurrency(income.amount * (income.report_weight ?? 1))}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {incomes.map((income) => (
-              <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div
-                        className="w-1 h-6 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
-                      />
-                      <p className="font-medium text-primary truncate flex items-center gap-2">
-                        {income.description || income.income_category?.name}
-                        {income.id.startsWith('offline-') && (
-                          <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                            <RefreshCw size={12} className="text-accent animate-spin" />
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <p className="text-sm text-secondary">
-                      {income.income_category?.name} • {formatDate(income.date)}
-                    </p>
-                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                      <CategoryBadge
-                        label={income.income_category?.name || 'Sem categoria'}
-                        color={income.income_category?.id
-                          ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette))
-                          : 'var(--color-income)'}
-                      />
-                    </div>
-                  </div>
-                  <div className="ml-2 flex-shrink-0 text-right">
-                    <p className="text-base sm:text-lg font-semibold text-primary">
-                      {formatCurrency(income.amount)}
-                    </p>
-                    {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
-                      <p className="text-xs text-secondary">
-                        {formatCurrency(income.amount * (income.report_weight ?? 1))}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <Modal

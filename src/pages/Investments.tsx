@@ -18,6 +18,7 @@ import { useSearchParams } from 'react-router-dom'
 
 export default function Investments() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { investments, loading, createInvestment, updateInvestment, deleteInvestment } = useInvestments(currentMonth)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null)
@@ -90,8 +91,17 @@ export default function Investments() {
   }, [searchParams, setSearchParams, currentMonth])
 
   const handleMonthChange = (month: string) => {
-    setCurrentMonth(month)
-    setSearchParams({ month })
+    if (month === currentMonth) return
+    setIsMonthTransitioning(true)
+    setTimeout(() => {
+      setCurrentMonth(month)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('month', month)
+        return next
+      })
+      setTimeout(() => setIsMonthTransitioning(false), 50)
+    }, 150)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,52 +174,60 @@ export default function Investments() {
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
-        {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
-        ) : investments.length === 0 ? (
-          <Card className="text-center py-10 space-y-3">
-            <p className="text-secondary">Nenhum investimento no mês selecionado.</p>
-            <Button onClick={() => handleOpenModal()}>Adicionar investimento</Button>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {investments.map((investment) => (
-              <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div
-                        className="w-1 h-6 rounded-sm flex-shrink-0"
-                        style={{
-                          backgroundColor: 'var(--color-balance)',
-                        }}
-                      />
-                      <p className="font-medium text-primary truncate flex items-center gap-2">
-                        {investment.description || 'Investimentos'}
-                        {investment.id.startsWith('offline-') && (
-                          <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                            <RefreshCw size={12} className="text-accent animate-spin" />
-                          </span>
-                        )}
+        <div
+          className="transition-all duration-150 ease-in-out"
+          style={{
+            opacity: isMonthTransitioning ? 0 : 1,
+            transform: isMonthTransitioning ? 'translateY(4px)' : 'translateY(0)'
+          }}
+        >
+          {loading && investments.length === 0 ? (
+            <div className="text-center py-8 text-secondary">Carregando...</div>
+          ) : investments.length === 0 ? (
+            <Card className="text-center py-10 space-y-3">
+              <p className="text-secondary">Nenhum investimento no mês selecionado.</p>
+              <Button onClick={() => handleOpenModal()}>Adicionar investimento</Button>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {investments.map((investment) => (
+                <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div
+                          className="w-1 h-6 rounded-sm flex-shrink-0"
+                          style={{
+                            backgroundColor: 'var(--color-balance)',
+                          }}
+                        />
+                        <p className="font-medium text-primary truncate flex items-center gap-2">
+                          {investment.description || 'Investimentos'}
+                          {investment.id.startsWith('offline-') && (
+                            <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                              <RefreshCw size={12} className="text-accent animate-spin" />
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <p className="text-sm text-secondary">
+                        {formatMonth(investment.month)}
+                      </p>
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                        <CategoryBadge label="Investimentos" color="var(--color-balance)" />
+                      </div>
+                    </div>
+                    <div className="ml-2 flex-shrink-0 text-right">
+                      <p className="text-base sm:text-lg font-semibold text-primary">
+                        {formatCurrency(investment.amount)}
                       </p>
                     </div>
-                    <p className="text-sm text-secondary">
-                      {formatMonth(investment.month)}
-                    </p>
-                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                      <CategoryBadge label="Investimentos" color="var(--color-balance)" />
-                    </div>
                   </div>
-                  <div className="ml-2 flex-shrink-0 text-right">
-                    <p className="text-base sm:text-lg font-semibold text-primary">
-                      {formatCurrency(investment.amount)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <Modal

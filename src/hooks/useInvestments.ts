@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Investment } from '@/types'
 import { format } from 'date-fns'
@@ -11,6 +11,15 @@ export function useInvestments(month?: string) {
   const [investments, setInvestments] = useState<Investment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [prevMonth, setPrevMonth] = useState(month)
+  const currentMonthRef = useRef(month)
+  currentMonthRef.current = month
+
+  if (month !== prevMonth) {
+    setPrevMonth(month)
+    setInvestments([])
+    setLoading(true)
+  }
 
   useEffect(() => {
     loadInvestments()
@@ -72,6 +81,9 @@ export function useInvestments(month?: string) {
       setLoading(true)
       const cacheKey = getCacheKey()
       const cached = await getCache<Investment[]>(cacheKey)
+
+      if (currentMonthRef.current !== month) return
+
       if (cached) {
         setInvestments(sortInvestmentsByMonth(cached))
         setLoading(false)
@@ -94,6 +106,8 @@ export function useInvestments(month?: string) {
       }
 
       const { data, error: fetchError } = await query
+
+      if (currentMonthRef.current !== month) return
 
       if (fetchError) throw fetchError
       const newData = data || []

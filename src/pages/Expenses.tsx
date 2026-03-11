@@ -62,6 +62,7 @@ const getPaymentMethodColor = (expense: Expense) => {
 
 export default function Expenses() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
   const { categories } = useCategories()
   const { creditCards } = useCreditCards()
@@ -94,8 +95,17 @@ export default function Expenses() {
   }, [searchParams])
 
   const handleMonthChange = (month: string) => {
-    setCurrentMonth(month)
-    setSearchParams({ month })
+    if (month === currentMonth) return
+    setIsMonthTransitioning(true)
+    setTimeout(() => {
+      setCurrentMonth(month)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('month', month)
+        return next
+      })
+      setTimeout(() => setIsMonthTransitioning(false), 50)
+    }, 150)
   }
 
   const handleAmountChange = (nextAmount: string) => {
@@ -347,36 +357,44 @@ export default function Expenses() {
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
-        {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
-        ) : expenses.length === 0 ? (
-          <Card className="text-center py-10 space-y-3">
-            <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
-            <div className="flex justify-center">
-              <Button onClick={() => handleOpenModal()}>
-                Adicionar despesa
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {installmentExpenses.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wide text-secondary">Parceladas</p>
-                {installmentExpenses.map(renderExpenseCard)}
+        <div
+          className="transition-all duration-150 ease-in-out"
+          style={{
+            opacity: isMonthTransitioning ? 0 : 1,
+            transform: isMonthTransitioning ? 'translateY(4px)' : 'translateY(0)'
+          }}
+        >
+          {loading && expenses.length === 0 ? (
+            <div className="text-center py-8 text-secondary">Carregando...</div>
+          ) : expenses.length === 0 ? (
+            <Card className="text-center py-10 space-y-3">
+              <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
+              <div className="flex justify-center">
+                <Button onClick={() => handleOpenModal()}>
+                  Adicionar despesa
+                </Button>
               </div>
-            )}
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {installmentExpenses.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-wide text-secondary">Parceladas</p>
+                  {installmentExpenses.map(renderExpenseCard)}
+                </div>
+              )}
 
-            {monthExpenses.length > 0 && (
-              <div className="space-y-3">
-                {installmentExpenses.length > 0 && (
-                  <p className="text-xs uppercase tracking-wide text-secondary">Despesas do mês</p>
-                )}
-                {monthExpenses.map(renderExpenseCard)}
-              </div>
-            )}
-          </div>
-        )}
+              {monthExpenses.length > 0 && (
+                <div className="space-y-3">
+                  {installmentExpenses.length > 0 && (
+                    <p className="text-xs uppercase tracking-wide text-secondary">Despesas do mês</p>
+                  )}
+                  {monthExpenses.map(renderExpenseCard)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <Modal

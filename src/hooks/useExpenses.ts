@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Expense } from '@/types'
 import { addMonths, format } from 'date-fns'
@@ -116,6 +116,15 @@ export function useExpenses(month?: string) {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [prevMonth, setPrevMonth] = useState(month)
+  const currentMonthRef = useRef(month)
+  currentMonthRef.current = month
+
+  if (month !== prevMonth) {
+    setPrevMonth(month)
+    setExpenses([])
+    setLoading(true)
+  }
 
   const getCacheKey = () => `expenses-${month || 'all'}`
 
@@ -178,6 +187,9 @@ export function useExpenses(month?: string) {
 
       const cacheKey = getCacheKey()
       const cached = await getCache<Expense[]>(cacheKey)
+
+      if (currentMonthRef.current !== month) return
+
       if (cached) {
         setExpenses(sortExpensesByDate(cached))
         setLoading(false)
@@ -212,6 +224,8 @@ export function useExpenses(month?: string) {
       }
 
       const { data, error: fetchError } = await query
+
+      if (currentMonthRef.current !== month) return
 
       if (fetchError) throw fetchError
       const newData = data || []

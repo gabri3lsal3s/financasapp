@@ -6,6 +6,7 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useBackgroundCache } from '@/hooks/useBackgroundCache'
 import { useNavigate } from 'react-router-dom'
 
 import { WifiOff, ArrowLeft } from 'lucide-react'
@@ -41,6 +42,7 @@ function OfflinePlaceholder() {
 export default function Layout({ children }: LayoutProps) {
   const { floatingCalculatorEnabled } = useAppSettings()
   const { signOut } = useAuth()
+  useBackgroundCache()
   const navigate = useNavigate()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
