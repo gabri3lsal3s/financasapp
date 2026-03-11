@@ -27,25 +27,24 @@ export default function ThemeSwitcher() {
               key={t.id}
               type="button"
               onClick={() => setTheme(t.id)}
-              className={`p-3 rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
-                theme === t.id
+              className={`p-3 rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${theme === t.id
                   ? 'border-primary bg-tertiary accent-primary'
                   : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
-              }`}
+                }`}
             >
               <div className="mb-3 h-14 rounded-md flex gap-1 overflow-hidden">
                 {t.id === 'mono-light' && (
                   <>
                     <div className="flex-1" style={{ backgroundColor: '#ffffff', border: '1px solid #d0d0d0' }}></div>
                     <div className="flex-1" style={{ backgroundColor: '#f8f8f8' }}></div>
-                    <div className="flex-1" style={{ backgroundColor: '#808080' }}></div>
+                    <div className="flex-1" style={{ backgroundColor: '#101010' }}></div>
                   </>
                 )}
                 {t.id === 'mono-dark' && (
                   <>
                     <div className="flex-1" style={{ backgroundColor: '#101010', border: '1px solid #3b3b3b' }}></div>
                     <div className="flex-1" style={{ backgroundColor: '#181818' }}></div>
-                    <div className="flex-1" style={{ backgroundColor: '#b3b3b3' }}></div>
+                    <div className="flex-1" style={{ backgroundColor: '#eef2f7' }}></div>
                   </>
                 )}
               </div>

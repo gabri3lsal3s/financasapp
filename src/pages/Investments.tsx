@@ -3,10 +3,10 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import Loader from '@/components/Loader'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
-import CategoryBadge from '@/components/CategoryBadge'
 import { useInvestments } from '@/hooks/useInvestments'
 import { Investment } from '@/types'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
@@ -172,7 +172,7 @@ export default function Investments() {
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <div
           className="transition-all duration-150 ease-in-out"
@@ -182,49 +182,55 @@ export default function Investments() {
           }}
         >
           {loading && investments.length === 0 ? (
-            <div className="text-center py-8 text-secondary">Carregando...</div>
+            <Loader text="Carregando investimentos..." className="py-12" />
           ) : investments.length === 0 ? (
             <Card className="text-center py-10 space-y-3">
               <p className="text-secondary">Nenhum investimento no mês selecionado.</p>
               <Button onClick={() => handleOpenModal()}>Adicionar investimento</Button>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {investments.map((investment) => (
-                <Card key={investment.id} className="py-3" onClick={() => handleOpenModal(investment)}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-1 h-6 rounded-sm flex-shrink-0"
-                          style={{
-                            backgroundColor: 'var(--color-balance)',
-                          }}
-                        />
-                        <p className="font-medium text-primary truncate flex items-center gap-2">
-                          {investment.description || 'Investimentos'}
-                          {investment.id.startsWith('offline-') && (
-                            <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                              <RefreshCw size={12} className="text-accent animate-spin" />
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <p className="text-sm text-secondary">
-                        {formatMonth(investment.month)}
-                      </p>
-                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                        <CategoryBadge label="Investimentos" color="var(--color-balance)" />
+            <div className="flex flex-wrap gap-3 lg:gap-4">
+              {investments.map((inv, index) => {
+                const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
+                const staggerClass = index < 5 ? staggerClasses[index] : ''
+
+                return (
+                  <Card
+                    key={inv.id}
+                    onClick={() => handleOpenModal(inv)}
+                    className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item ${staggerClass}`}
+                  >
+                    <div className="flex bg-primary">
+                      <div className="w-1 flex-shrink-0 bg-primary" />
+                      <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-primary truncate flex items-center gap-2">
+                              {inv.description || 'Investimento'}
+                              {inv.id.startsWith('offline-') && (
+                                <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                                  <RefreshCw size={12} className="text-accent animate-spin" />
+                                </span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-secondary truncate">
+                              <span className="truncate">Investimento</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end flex-shrink-0">
+                            <p className="text-base font-bold text-primary leading-tight">
+                              {formatCurrency(inv.amount)}
+                            </p>
+                            <p className="text-xs text-secondary mt-1 uppercase tracking-tight font-medium">
+                              {formatMonth(inv.month)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="ml-2 flex-shrink-0 text-right">
-                      <p className="text-base sm:text-lg font-semibold text-primary">
-                        {formatCurrency(investment.amount)}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>

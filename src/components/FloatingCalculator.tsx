@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { formatNumberBR } from '@/utils/format'
+import IconButton from '@/components/IconButton'
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
 const CALCULATOR_UI_KEY = 'floating-calculator-ui'
@@ -645,8 +646,8 @@ export default function FloatingCalculator() {
 
   const keypadRowClass = `grid grid-cols-4 ${keypadGridGapClass} flex-1 min-h-0`
   const keypadSingleRowClass = `grid grid-cols-1 ${keypadGridGapClass} flex-1 min-h-0`
-  const keypadButtonClass = `h-full min-h-0 rounded-lg flex items-center justify-center bg-tertiary text-primary ${keypadButtonTextClass} leading-none font-medium hover:shadow-md motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]`
-  const keypadPrimaryButtonClass = `h-full min-h-0 rounded-lg flex items-center justify-center bg-[var(--color-primary)] text-[var(--color-button-text)] ${keypadButtonTextClass} leading-none font-medium hover:shadow-md motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]`
+  const keypadButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-tertiary/50 text-primary ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] border border-primary/20`
+  const keypadPrimaryButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-[var(--color-primary)] text-[var(--color-button-text)] ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]`
 
   const openCalculator = () => {
     const activeNumericInput = resolveTargetInput()
@@ -1055,7 +1056,7 @@ export default function FloatingCalculator() {
 
       {isExpanded && (
         <div
-          className="fixed z-[1001] rounded-2xl border border-primary bg-primary p-3 animate-surface-enter animate-calculator-open motion-emphasis overflow-hidden"
+          className="fixed z-[1001] rounded-2xl border border-primary bg-secondary/95 backdrop-blur-xl p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
           onPointerDown={startDrag}
           style={{
             left: panelRect.left,
@@ -1066,20 +1067,25 @@ export default function FloatingCalculator() {
           }}
         >
           <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between mb-3 select-none">
-              <div>
-                <h3 className="text-sm font-semibold text-primary">Calculadora</h3>
-                <p className="text-[11px] text-secondary mt-0.5">Campo: {selectedFieldName}</p>
+            <div className="flex items-center justify-between mb-4 select-none">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                  <Calculator size={18} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-primary">Calculadora</h3>
+                  <p className="text-[10px] text-secondary">Campo: {selectedFieldName}</p>
+                </div>
               </div>
-              <button
+              <IconButton
                 type="button"
+                size="sm"
+                icon={<ChevronDown size={20} />}
                 onClick={() => setIsExpanded(false)}
-                aria-label="Minimizar calculadora"
+                label="Minimizar calculadora"
                 onPointerDown={(event) => event.stopPropagation()}
-                className="p-2 rounded-lg text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-              >
-                <ChevronDown size={18} />
-              </button>
+                title="Minimizar"
+              />
             </div>
 
             <div className={`w-full rounded-lg border px-3 py-2 text-right ${isCompactPanel ? 'text-base' : 'text-lg'} font-semibold animate-calculator-display ${hasError ? 'border-[var(--color-danger)] text-[var(--color-danger)]' : 'border-primary text-primary'

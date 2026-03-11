@@ -10,6 +10,7 @@ import ModalActionFooter from '@/components/ModalActionFooter'
 import Select from '@/components/Select'
 import MonthSelector from '@/components/MonthSelector'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
+import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useCategories } from '@/hooks/useCategories'
@@ -1199,7 +1200,7 @@ export default function CreditCards() {
   }
 
   return (
-    <div>
+    <div className="animate-page-enter">
       <PageHeader
         title={PAGE_HEADERS.creditCards.title}
         subtitle={PAGE_HEADERS.creditCards.description}
@@ -1238,7 +1239,7 @@ export default function CreditCards() {
         )}
 
         {loading || !hasResolvedInitialMonth || loadingBills ? (
-          <Card className="text-center py-8">Carregando cartões e faturas...</Card>
+          <Loader text="Carregando cartões e faturas..." className="py-8" />
         ) : activeCards.length === 0 ? (
           <Card className="text-center py-8 space-y-3">
             <p className="text-secondary">Nenhum cartão ativo cadastrado.</p>
@@ -1248,7 +1249,7 @@ export default function CreditCards() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {activeCards.map((card) => {
+            {activeCards.map((card, index) => {
               const totalPrevisto = Number(expensesByCard[card.id] || 0)
               const totalPago = Number(paymentsByCard[card.id] || 0)
               const saldoAberto = Number((totalPrevisto - totalPago).toFixed(2))
@@ -1256,9 +1257,11 @@ export default function CreditCards() {
               const monthlyCycle = monthlyCyclesByCard[card.id]
               const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
               const effectiveDueDay = monthlyCycle?.due_day || card.due_day
+              const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
+              const staggerClass = index < 5 ? staggerClasses[index] : ''
 
               return (
-                <div key={card.id} id={`credit-card-${card.id}`}>
+                <div key={card.id} id={`credit-card-${card.id}`} className={`animate-stagger-item ${staggerClass}`}>
                   <Card className="space-y-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
@@ -1332,9 +1335,9 @@ export default function CreditCards() {
                     {refundCardId === card.id && (
                       <form
                         onSubmit={(event) => handleSubmitRefund(event, card.id)}
-                        className="rounded-lg border border-primary bg-secondary p-3 space-y-3"
+                        className="rounded-xl border border-primary bg-primary/40 p-4 space-y-4 animate-page-enter"
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-3">
                           <p className="text-xs font-medium uppercase tracking-wide text-secondary">
                             Estorno de compra ({currentMonth})
                           </p>
@@ -1377,8 +1380,8 @@ export default function CreditCards() {
                             <Button
                               type="submit"
                               size="sm"
-                              variant="ghost"
-                              className="btn-discrete-save px-4"
+                              variant="ghost-success"
+                              className="px-4"
                               title="Confirmar estorno"
                             >
                               <Check size={24} />
@@ -1400,9 +1403,9 @@ export default function CreditCards() {
                     {paymentCardId === card.id && (
                       <form
                         onSubmit={handleSubmitPayment}
-                        className="rounded-lg border border-primary bg-secondary p-3 space-y-3"
+                        className="rounded-xl border border-primary bg-primary/40 p-4 space-y-4 animate-page-enter"
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-3">
                           <p className="text-xs font-medium uppercase tracking-wide text-secondary">
                             Registrar pagamento ({currentMonth})
                           </p>
@@ -1439,8 +1442,8 @@ export default function CreditCards() {
                             <Button
                               type="submit"
                               size="sm"
-                              variant="ghost"
-                              className="btn-discrete-save px-4"
+                              variant="ghost-success"
+                              className="px-4"
                               title="Confirmar pagamento"
                             >
                               <Check size={24} />

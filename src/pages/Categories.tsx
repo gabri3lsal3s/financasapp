@@ -6,17 +6,18 @@ import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import Loader from '@/components/Loader'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
-import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
+import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, RefreshCw } from 'lucide-react'
 
 export default function Categories() {
   const { categories, loading, createCategory, updateCategory, deleteCategory, getCategoryUsageCount } = useCategories()
   const { colorPalette } = usePaletteColors()
-  
+
   // Edit/Add Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -29,7 +30,6 @@ export default function Categories() {
   const [targetCategoryId, setTargetCategoryId] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const assignedCategoryColors = assignUniquePaletteColors(categories, colorPalette)
 
   const handleOpenModal = (category?: Category) => {
     if (category) {
@@ -50,7 +50,7 @@ export default function Categories() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name.trim()) return
 
     if (editingCategory) {
@@ -88,15 +88,15 @@ export default function Categories() {
     setIsDeleting(true)
     const { error } = await deleteCategory(categoryToDelete.id, targetCategoryId || undefined)
     setIsDeleting(false)
-    
+
     if (error) {
       alert('Erro ao excluir categoria: ' + error)
       return
     }
-    
+
     setIsDeleteModalOpen(false)
     setCategoryToDelete(null)
-    
+
     // Se está editando a categoria que acabou de apagar, fecha o modal de edição
     if (editingCategory?.id === categoryToDelete.id) {
       handleCloseModal()
@@ -104,7 +104,7 @@ export default function Categories() {
   }
 
   return (
-    <div>
+    <div className="animate-page-enter">
       <PageHeader
         title={PAGE_HEADERS.categories.title}
         subtitle={PAGE_HEADERS.categories.description}
@@ -123,9 +123,9 @@ export default function Categories() {
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-        {loading ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
+      <div className="p-4 lg:p-6">
+        {loading && categories.length === 0 ? (
+          <Loader text="Carregando categorias..." className="py-12" />
         ) : categories.length === 0 ? (
           <Card className="text-center py-10 space-y-3">
             <p className="text-secondary">Nenhuma categoria cadastrada.</p>
@@ -138,19 +138,32 @@ export default function Categories() {
                 Você atingiu o limite máximo de 15 categorias. Para criar uma nova, exclua alguma existente.
               </div>
             )}
-            {categories.map((category, idx) => (
-                  <Card key={category.id} className="py-3" onClick={() => handleOpenModal(category)}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div
-                          className="w-1 h-6 rounded-sm flex-shrink-0"
-                          style={{ backgroundColor: assignedCategoryColors[idx] || getCategoryColorForPalette(category.color, colorPalette) }}
-                        />
-                        <p className="font-medium text-primary truncate">{category.name}</p>
-                      </div>
+            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+              {categories.map((category, index) => {
+                const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
+                const staggerClass = index < 5 ? staggerClasses[index] : ''
+                return (
+                  <Card
+                    key={category.id}
+                    className={`py-3 hover:border-primary transition-colors cursor-pointer animate-stagger-item ${staggerClass}`}
+                    onClick={() => handleOpenModal(category)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0 border shadow-sm"
+                        style={{ backgroundColor: getCategoryColorForPalette(category.color, colorPalette) }}
+                      />
+                      <span className="font-medium text-primary flex-1 truncate">{category.name}</span>
+                      {category.id.startsWith('offline-') && (
+                        <span title="Pendente de sincronização">
+                          <RefreshCw size={14} className="text-accent animate-spin" />
+                        </span>
+                      )}
                     </div>
                   </Card>
-            ))}
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

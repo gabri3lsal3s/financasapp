@@ -7,6 +7,7 @@ import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import Loader from '@/components/Loader'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
@@ -16,7 +17,6 @@ import { Expense } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
-import CategoryBadge from '@/components/CategoryBadge'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -44,7 +44,7 @@ const getPaymentMethodLabel = (expense: Expense) => {
   const baseLabel = PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other
 
   if (method === 'credit_card' && expense.credit_card?.name) {
-    return `${baseLabel}: ${expense.credit_card.name}`
+    return `${baseLabel}: ${expense.credit_card.name} `
   }
 
   return baseLabel
@@ -289,53 +289,73 @@ export default function Expenses() {
     .filter((expense) => Number(expense.installment_total || 1) <= 1)
     .sort(sortExpensesByDateDesc)
 
-  const renderExpenseCard = (expense: Expense) => (
-    <Card key={expense.id} className="py-3" onClick={() => handleOpenModal(expense)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div
-              className="w-1 h-6 rounded-sm flex-shrink-0"
-              style={{ backgroundColor: expense.category?.id ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette)) : 'var(--color-primary)' }}
-            />
-            <p className="font-medium text-primary truncate flex items-center gap-2">
-              {expense.description || expense.category?.name || 'Despesa'}
-              {expense.id.startsWith('offline-') && (
-                <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                  <RefreshCw size={12} className="text-accent animate-spin" />
-                </span>
-              )}
-            </p>
-          </div>
-          <p className="text-sm text-secondary">
-            {expense.category?.name} • {formatDate(expense.date)}
-            {Number(expense.installment_total || 1) > 1 && (
-              <> • Parcela {expense.installment_number || 1}/{expense.installment_total}</>
-            )}
-          </p>
-          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-            <CategoryBadge
-              label={expense.category?.name || 'Sem categoria'}
-              color={expense.category?.id
-                ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
-                : 'var(--color-primary)'}
-            />
-            <CategoryBadge label={getPaymentMethodLabel(expense)} color={getPaymentMethodColor(expense)} />
+  const renderExpenseCard = (expense: Expense, staggerClass: string = '') => {
+    const category = categories.find((c) => c.id === expense.category_id)
+    const categoryColor = category?.color
+      ? getCategoryColorForPalette(category.color, colorPalette)
+      : (expense.category?.id
+        ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
+        : 'var(--color-expense)')
+    const isInstallment = Number(expense.installment_total || 1) > 1
+    const paymentLabel = getPaymentMethodLabel(expense)
+
+    return (
+      <Card
+        key={expense.id}
+        onClick={() => handleOpenModal(expense)}
+        className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item ${staggerClass}`}
+      >
+        <div className="flex bg-primary">
+          <div
+            className="w-1 flex-shrink-0"
+            style={{ backgroundColor: categoryColor }}
+          />
+          <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-primary truncate flex items-center gap-2">
+                  {expense.description || expense.category?.name || 'Despesa'}
+                  {expense.id.startsWith('offline-') && (
+                    <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                      <RefreshCw size={12} className="text-accent animate-spin" />
+                    </span>
+                  )}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-secondary truncate">
+                  <span className="truncate">{expense.category?.name || 'Sem categoria'}</span>
+                  {paymentLabel && paymentLabel !== 'Outros' && (
+                    <>
+                      <span className="opacity-30">•</span>
+                      <span className="truncate" style={{ color: getPaymentMethodColor(expense) }}>{paymentLabel}</span>
+                    </>
+                  )}
+                  {isInstallment && (
+                    <>
+                      <span className="opacity-30">•</span>
+                      <span className="whitespace-nowrap">{expense.installment_number || 1}/{expense.installment_total}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col items-end flex-shrink-0">
+                {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
+                  <p className="text-xs text-secondary line-through opacity-70">
+                    {formatCurrency(expense.amount)}
+                  </p>
+                )}
+                <p className="font-bold text-primary leading-tight">
+                  {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
+                </p>
+                <p className="text-xs text-secondary mt-1 uppercase tracking-tight font-medium">
+                  {formatDate(expense.date)}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="ml-2 flex-shrink-0 text-right">
-          <p className="text-base sm:text-lg font-semibold text-primary">
-            {formatCurrency(expense.amount)}
-          </p>
-          {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
-            <p className="text-xs text-secondary">
-              {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
-            </p>
-          )}
-        </div>
-      </div>
-    </Card>
-  )
+      </Card>
+    )
+  }
 
   return (
     <div>
@@ -355,7 +375,7 @@ export default function Expenses() {
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      <div className="p-4 lg:p-6 animate-page-enter space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <div
           className="transition-all duration-150 ease-in-out"
@@ -365,7 +385,7 @@ export default function Expenses() {
           }}
         >
           {loading && expenses.length === 0 ? (
-            <div className="text-center py-8 text-secondary">Carregando...</div>
+            <Loader text="Carregando despesas..." className="py-12" />
           ) : expenses.length === 0 ? (
             <Card className="text-center py-10 space-y-3">
               <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
@@ -376,20 +396,28 @@ export default function Expenses() {
               </div>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {installmentExpenses.length > 0 && (
                 <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-wide text-secondary">Parceladas</p>
-                  {installmentExpenses.map(renderExpenseCard)}
+                  <p className="text-xs font-medium uppercase tracking-wide text-secondary">Parceladas</p>
+                  <div className="flex flex-wrap gap-3 lg:gap-4">
+                    {installmentExpenses.map((expense, index) =>
+                      renderExpenseCard(expense, index < 5 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250'][index] : '')
+                    )}
+                  </div>
                 </div>
               )}
 
               {monthExpenses.length > 0 && (
                 <div className="space-y-3">
                   {installmentExpenses.length > 0 && (
-                    <p className="text-xs uppercase tracking-wide text-secondary">Despesas do mês</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-secondary">Despesas do mês</p>
                   )}
-                  {monthExpenses.map(renderExpenseCard)}
+                  <div className="flex flex-wrap gap-3 lg:gap-4">
+                    {monthExpenses.map((expense, index) =>
+                      renderExpenseCard(expense, index < 5 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250'][index] : '')
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import Loader from '@/components/Loader'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
@@ -16,9 +17,8 @@ import { Income } from '@/types'
 import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
-import CategoryBadge from '@/components/CategoryBadge'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw, Loader2 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
@@ -352,7 +352,7 @@ export default function Incomes() {
         }
       />
 
-      <div className="p-4 lg:p-6">
+      <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <div
           className="transition-all duration-150 ease-in-out"
@@ -362,7 +362,7 @@ export default function Incomes() {
           }}
         >
           {loading && incomes.length === 0 ? (
-            <div className="text-center py-8 text-secondary">Carregando...</div>
+            <Loader text="Carregando rendas..." className="py-12" />
           ) : incomes.length === 0 ? (
             <Card className="text-center py-10 space-y-3">
               <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
@@ -371,50 +371,58 @@ export default function Incomes() {
               </div>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {incomes.map((income) => (
-                <Card key={income.id} className="py-3" onClick={() => handleOpenModal(income)}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-1 h-6 rounded-sm flex-shrink-0"
-                          style={{ backgroundColor: income.income_category?.id ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette)) : 'var(--color-income)' }}
-                        />
-                        <p className="font-medium text-primary truncate flex items-center gap-2">
-                          {income.description || income.income_category?.name}
-                          {income.id.startsWith('offline-') && (
-                            <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                              <RefreshCw size={12} className="text-accent animate-spin" />
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <p className="text-sm text-secondary">
-                        {income.income_category?.name} • {formatDate(income.date)}
-                      </p>
-                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                        <CategoryBadge
-                          label={income.income_category?.name || 'Sem categoria'}
-                          color={income.income_category?.id
-                            ? (incomeCategoryColorMap[income.income_category.id] || getCategoryColorForPalette(income.income_category.color, colorPalette))
-                            : 'var(--color-income)'}
-                        />
+            <div className="flex flex-wrap gap-3 lg:gap-4">
+              {incomes.map((income, index) => {
+                const category = incomeCategories.find((c) => c.id === income.income_category_id)
+                const categoryColor = category?.color ? getCategoryColorForPalette(category.color, colorPalette) : 'var(--color-income)'
+                const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
+                const staggerClass = index < 5 ? staggerClasses[index] : ''
+
+                return (
+                  <Card
+                    key={income.id}
+                    onClick={() => handleOpenModal(income)}
+                    className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item ${staggerClass}`}
+                  >
+                    <div className="flex bg-primary">
+                      <div
+                        className="w-1 flex-shrink-0"
+                        style={{ backgroundColor: categoryColor }}
+                      />
+                      <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-primary truncate flex items-center gap-2">
+                              {income.description || category?.name || 'Renda'}
+                              {income.id.startsWith('offline-') && (
+                                <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                                  <RefreshCw size={12} className="text-accent animate-spin" />
+                                </span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-secondary truncate">
+                              <span className="truncate">{category?.name || 'Sem categoria'}</span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end flex-shrink-0">
+                            {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
+                              <p className="text-xs text-secondary line-through opacity-70">
+                                {formatCurrency(income.amount)}
+                              </p>
+                            )}
+                            <p className="text-base font-bold text-primary leading-tight">
+                              {formatCurrency(income.amount * (income.report_weight ?? 1))}
+                            </p>
+                            <p className="text-xs text-secondary mt-1 uppercase tracking-tight font-medium">
+                              {formatDate(income.date)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="ml-2 flex-shrink-0 text-right">
-                      <p className="text-base sm:text-lg font-semibold text-primary">
-                        {formatCurrency(income.amount)}
-                      </p>
-                      {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
-                        <p className="text-xs text-secondary">
-                          {formatCurrency(income.amount * (income.report_weight ?? 1))}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>
@@ -439,7 +447,10 @@ export default function Incomes() {
 
             <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
               {refundOriginLoading ? (
-                <p className="text-sm text-secondary">Carregando origem do estorno...</p>
+                <div className="flex items-center gap-2 text-sm text-secondary">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Carregando origem do estorno...</span>
+                </div>
               ) : refundOrigin ? (
                 <>
                   <p className="text-sm text-primary">

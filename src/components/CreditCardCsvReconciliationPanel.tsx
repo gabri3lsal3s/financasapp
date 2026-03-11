@@ -21,6 +21,7 @@ import {
   suggestFromCreditCardCsvLearning,
 } from '@/utils/creditCardCsvLearning'
 import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput } from '@/utils/format'
+import { FileUp } from 'lucide-react'
 
 interface CategoryOption {
   id: string
@@ -681,19 +682,24 @@ export default function CreditCardCsvReconciliationPanel({
   }
 
   return (
-    <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2 overflow-x-hidden">
+    <div className="rounded-2xl border border-primary bg-secondary p-4 space-y-4 overflow-x-hidden animate-page-enter">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-semibold text-primary">
-          Conciliação da fatura por CSV ({currentMonth})
+        <p className="text-sm font-bold text-primary flex items-center gap-2">
+          <FileUp size={18} className="text-secondary" />
+          Conciliação de Fatura ({currentMonth})
         </p>
-        <Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={onClose}>
+        <Button type="button" size="sm" variant="ghost" className="w-full sm:w-auto" onClick={onClose}>
           Fechar
         </Button>
       </div>
 
-      <div className="rounded-lg border border-primary bg-primary p-2.5 space-y-2">
-        <p className="text-sm font-semibold text-primary">Importação automática</p>
-        <p className="text-xs text-secondary">O assistente identifica o formato da fatura automaticamente.</p>
+      <div className="rounded-xl border border-primary bg-primary/40 p-4 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-primary">Importação Automática</p>
+            <p className="text-xs text-secondary mt-1">O assistente identifica o formato da fatura e sugere categorias inteligentes.</p>
+          </div>
+        </div>
 
         <input
           ref={fileInputRef}
@@ -703,7 +709,7 @@ export default function CreditCardCsvReconciliationPanel({
           className="hidden"
         />
 
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
           <Button
             type="button"
             variant="outline"
@@ -713,7 +719,11 @@ export default function CreditCardCsvReconciliationPanel({
           >
             Escolher arquivo CSV
           </Button>
-          {fileName && <p className="min-w-0 text-xs text-secondary break-all">Selecionado: {fileName}</p>}
+          {fileName && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-tertiary border border-primary/20 max-w-full overflow-hidden">
+              <p className="text-xs text-secondary truncate">{fileName}</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -727,40 +737,51 @@ export default function CreditCardCsvReconciliationPanel({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5">
-            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
-              <p className="text-[10px] text-secondary uppercase">Oficial (CSV)</p>
-              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals?.officialTotal || 0)}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-50">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Oficial (CSV)</p>
+              <p className="text-base font-bold text-primary">{formatCurrency(identifiedTotals?.officialTotal || 0)}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
-              <p className="text-[10px] text-secondary uppercase">Identificado</p>
-              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals?.identifiedTotal || 0)}</p>
+            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-100">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Identificado</p>
+              <p className="text-base font-bold text-primary">{formatCurrency(identifiedTotals?.identifiedTotal || 0)}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
-              <p className="text-[10px] text-secondary uppercase">Sugestões</p>
-              <p className="text-sm font-semibold text-primary">{formatCurrency(identifiedTotals?.missingTotal || 0)}</p>
+            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-150">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Sugestões</p>
+              <p className="text-base font-bold text-primary text-accent">{formatCurrency(identifiedTotals?.missingTotal || 0)}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5 text-center">
-              <p className="text-[10px] text-secondary uppercase">Diferença Final</p>
-              <p className={`text-sm font-bold ${Math.abs(identifiedTotals?.difference || 0) < 0.05 ? 'text-green-500' : 'text-red-500'}`}>
+            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-200">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Diferença</p>
+              <p className={`text-sm font-black ${Math.abs(identifiedTotals?.difference || 0) < 0.05 ? 'text-income' : 'text-expense'}`}>
                 {formatCurrency(identifiedTotals?.difference || 0)}
               </p>
             </div>
           </div>
 
           <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-            {comparisonRows.map((row) => {
+            {comparisonRows.map((row, index) => {
+              const staggerClass = index < 10 ? `animate-stagger-item delay-${(index + 1) * 50}` : 'animate-stagger-item'
               const draft = draftByOfficialId[row.official.id]
               const installment =
                 row.official.installmentNumber && row.official.installmentTotal
                   ? ` • Parcela ${row.official.installmentNumber}/${row.official.installmentTotal}`
                   : ''
 
+              const statusColorMap = {
+                conciliado: 'text-income',
+                conflitante: 'text-accent',
+                faltando: 'text-expense'
+              }
+
               return (
-                <div key={row.key} className="rounded-lg border border-primary bg-primary p-2 space-y-1.5">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">{row.status}</p>
-                    <p className="text-xs text-secondary">Data oficial: {formatDate(row.official.date)}</p>
+                <div key={row.key} className={`rounded-xl border border-primary bg-primary p-3 space-y-2 ${staggerClass}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${statusColorMap[row.status]}`}>
+                      {row.status}
+                    </span>
+                    <span className="text-[10px] font-medium text-secondary bg-tertiary px-2 py-0.5 rounded-full border border-primary/20">
+                      {formatDate(row.official.date)}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
@@ -806,18 +827,18 @@ export default function CreditCardCsvReconciliationPanel({
 
       {reconciliation && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-            <div className="rounded-lg border border-primary bg-primary p-1.5">
-              <p className="text-xs text-secondary">Conciliados</p>
-              <p className="text-sm font-semibold text-primary">{reconciliation.matched.length}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-primary bg-primary/30 p-3 animate-stagger-item delay-200">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conciliados</p>
+              <p className="text-base font-bold text-primary">{reconciliation.matched.length}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5">
-              <p className="text-xs text-secondary">Faltando no sistema</p>
-              <p className="text-sm font-semibold text-primary">{reconciliation.missing.length}</p>
+            <div className="rounded-xl border border-primary bg-primary/30 p-3 animate-stagger-item delay-250">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Faltando no sistema</p>
+              <p className="text-base font-bold text-primary">{reconciliation.missing.length}</p>
             </div>
-            <div className="rounded-lg border border-primary bg-primary p-1.5">
-              <p className="text-xs text-secondary">Conflitantes</p>
-              <p className="text-sm font-semibold text-primary">{reconciliation.conflicts.length}</p>
+            <div className="rounded-xl border border-primary bg-primary/30 p-3 animate-stagger-item delay-300">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conflitantes</p>
+              <p className="text-base font-bold text-primary">{reconciliation.conflicts.length}</p>
             </div>
           </div>
 
@@ -830,10 +851,11 @@ export default function CreditCardCsvReconciliationPanel({
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                {missingDrafts.map((draft) => (
+                {missingDrafts.map((draft, index) => (
                   <div
                     key={draft.id}
-                    className={`rounded-lg border bg-primary p-2 space-y-1.5 cursor-pointer ${draft.selected ? 'border-[var(--color-focus)] ring-1 ring-[var(--color-focus)]' : 'border-primary'}`}
+                    className={`rounded-xl border bg-primary/50 p-4 space-y-3 cursor-pointer transition-all duration-200 animate-stagger-item delay-${(index % 5 + 1) * 50} ${draft.selected ? 'border-[var(--color-focus)] ring-2 ring-[var(--color-focus)]/20 bg-primary/80' : 'border-primary hover:border-primary/60'
+                      }`}
                     onClick={() => {
                       setMissingDrafts((previous) => previous.map((item) =>
                         item.id === draft.id
@@ -924,7 +946,7 @@ export default function CreditCardCsvReconciliationPanel({
                   </div>
                 ))}
 
-                {reconciliation.conflicts.map((conflict) => {
+                {reconciliation.conflicts.map((conflict, index) => {
                   const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
                   const draft = conflictDraftByKey[key]
 
@@ -933,7 +955,8 @@ export default function CreditCardCsvReconciliationPanel({
                   return (
                     <div
                       key={`${conflict.existing.id}-${conflict.official.id}`}
-                      className={`rounded-lg border bg-primary p-2 space-y-1.5 cursor-pointer ${draft.selected ? 'border-[var(--color-focus)] ring-1 ring-[var(--color-focus)]' : 'border-primary'}`}
+                      className={`rounded-xl border bg-primary/50 p-4 space-y-3 cursor-pointer transition-all duration-200 animate-stagger-item delay-${(index % 5 + 1) * 50} ${draft.selected ? 'border-[var(--color-focus)] ring-2 ring-[var(--color-focus)]/20 bg-primary/80' : 'border-primary hover:border-primary/60'
+                        }`}
                       onClick={() => {
                         if (draft.applied) return
                         setConflictDrafts((previous) => previous.map((item) =>
@@ -1081,8 +1104,8 @@ export default function CreditCardCsvReconciliationPanel({
               <div className="space-y-2">
                 {suspiciousItems
                   .filter((item) => !fixedSuspiciousIds.has(String(item.id || '')))
-                  .map((item) => (
-                    <div key={item.id} className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-2.5 space-y-2">
+                  .map((item, index) => (
+                    <div key={item.id} className={`rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-3 animate-stagger-item delay-${(index + 1) * 50}`}>
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-primary break-words">
@@ -1102,7 +1125,7 @@ export default function CreditCardCsvReconciliationPanel({
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-1.5 sm:flex-row">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
                           type="button"
                           variant="outline"
@@ -1115,7 +1138,7 @@ export default function CreditCardCsvReconciliationPanel({
                         </Button>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           className="flex-1"
                           onClick={() => handleFixSuspicious(item, 'dismiss')}

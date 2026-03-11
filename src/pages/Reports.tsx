@@ -5,6 +5,7 @@ import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import Select from '@/components/Select'
 import { PAGE_HEADERS } from '@/constants/pages'
+import Loader from '@/components/Loader'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
 import { useCategories } from '@/hooks/useCategories'
@@ -19,7 +20,7 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { Scale } from 'lucide-react'
+import { Scale, Loader2 } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -1077,7 +1078,7 @@ export default function Reports() {
     <div>
       <PageHeader title={PAGE_HEADERS.reports.title} subtitle={PAGE_HEADERS.reports.description} />
 
-      <div className="p-4 lg:p-6 space-y-6">
+      <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
         <Card>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
             <div>
@@ -1166,27 +1167,27 @@ export default function Reports() {
         </Card>
 
         {loadingState ? (
-          <div className="text-center py-8 text-secondary">Carregando...</div>
+          <Loader text="Carregando..." className="py-8" />
         ) : (
           <>
             {viewMode === 'year' ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-50">
                     <p className="text-sm text-secondary">Rendas no ano</p>
                     <p className="text-2xl font-bold mt-2 text-income">{formatCurrency(annualTotals.income)}</p>
                   </Card>
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-100">
                     <p className="text-sm text-secondary">Despesas no ano</p>
                     <p className="text-2xl font-bold mt-2 text-expense">{formatCurrency(annualTotals.expenses)}</p>
                   </Card>
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-150">
                     <p className="text-sm text-secondary">Investimentos no ano</p>
                     <p className="text-2xl font-bold mt-2 text-balance">{formatCurrency(annualTotals.investments)}</p>
                   </Card>
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-200">
                     <p className="text-sm text-secondary">Saldo anual</p>
-                    <p className="text-2xl font-bold mt-2" style={{ color: annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
+                    <p className={`text-2xl font-bold mt-2 ${annualTotals.balance >= 0 ? 'text-income' : 'text-expense'}`}>
                       {formatCurrency(annualTotals.balance)}
                     </p>
                   </Card>
@@ -1312,21 +1313,21 @@ export default function Reports() {
             ) : monthSummary ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-50">
                     <p className="text-sm text-secondary">Rendas de {formatMonth(selectedMonth)}</p>
                     <p className="text-2xl font-bold mt-2 text-income">{formatCurrency(monthSummary.total_income)}</p>
                   </Card>
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-100">
                     <p className="text-sm text-secondary">Despesas de {formatMonth(selectedMonth)}</p>
                     <p className="text-2xl font-bold mt-2 text-expense">{formatCurrency(monthSummary.total_expenses)}</p>
                   </Card>
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-150">
                     <p className="text-sm text-secondary">Investimentos de {formatMonth(selectedMonth)}</p>
                     <p className="text-2xl font-bold mt-2 text-balance">{formatCurrency(monthSummary.total_investments)}</p>
                   </Card>
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-200">
                     <p className="text-sm text-secondary">Taxa de saldo do mês</p>
-                    <p className="text-2xl font-bold mt-2" style={{ color: savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
+                    <p className={`text-2xl font-bold mt-2 ${savingsRate >= 0 ? 'text-income' : 'text-expense'}`}>
                       {`${savingsRate.toFixed(1)}%`}
                     </p>
                   </Card>
@@ -1437,16 +1438,17 @@ export default function Reports() {
                     <div className="space-y-2">
                       {[...monthExpenseCategories]
                         .sort((a, b) => b.total - a.total)
-                        .map((category) => {
+                        .map((category, index) => {
                           const color = getExpenseColor(category.category_id, category.color)
                           const pct = monthExpenseTotal > 0 ? (category.total / monthExpenseTotal) * 100 : 0
+                          const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
                           return (
                             <button
                               key={category.category_id}
                               type="button"
                               onClick={() => openDetailModal('expense', category.category_id, category.category_name, 'month')}
-                              className={`${interactiveRowButtonClasses} p-2.5`}
+                              className={`${interactiveRowButtonClasses} p-2.5 animate-stagger-item ${staggerClass}`}
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
@@ -1477,16 +1479,17 @@ export default function Reports() {
                     <div className="space-y-2">
                       {[...monthIncomeCategories]
                         .sort((a, b) => b.total - a.total)
-                        .map((category) => {
+                        .map((category, index) => {
                           const color = getIncomeColor(category.income_category_id, category.color)
                           const pct = monthIncomeTotal > 0 ? (category.total / monthIncomeTotal) * 100 : 0
+                          const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
                           return (
                             <button
                               key={category.income_category_id}
                               type="button"
                               onClick={() => openDetailModal('income', category.income_category_id, category.category_name, 'month')}
-                              className={`${interactiveRowButtonClasses} p-2.5`}
+                              className={`${interactiveRowButtonClasses} p-2.5 animate-stagger-item ${staggerClass}`}
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
@@ -1582,13 +1585,22 @@ export default function Reports() {
           {filteredDetailItems.length === 0 ? (
             <p className="text-sm text-secondary">
               {yearDetailLoading && detailModal.period === 'year'
-                ? 'Carregando lançamentos do ano...'
+                ? (
+                  <div className="flex items-center gap-2 text-sm text-secondary">
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Carregando lançamentos do ano...</span>
+                  </div>
+                )
                 : `Nenhum lançamento encontrado para esta categoria no ${detailModal.period === 'year' ? 'ano' : 'mês'} selecionado.`}
             </p>
           ) : (
             <div className="space-y-2">
-              {visibleDetailItems.map((item) => (
-                <div key={item.id} className="rounded-lg border border-primary p-3">
+              {visibleDetailItems.map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`rounded-lg border border-primary p-3 animate-stagger-item ${index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
+                    }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-primary truncate">{item.description}</p>

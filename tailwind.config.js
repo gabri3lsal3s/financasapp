@@ -20,6 +20,8 @@ export default {
           800: '#075985',
           900: '#0c4a6e',
         },
+        secondary: 'var(--color-bg-secondary)',
+        tertiary: 'var(--color-bg-tertiary)',
       },
       screens: {
         'xs': '320px',

@@ -6,6 +6,7 @@ import { isBiometricRegistered, verifyBiometric } from '@/utils/biometric';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { Fingerprint, LogOut, AlertCircle } from 'lucide-react';
 import Button from '@/components/Button';
+import Loader from '@/components/Loader';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,13 +15,13 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  
+
   const { biometricLockTimeout } = useAppSettings();
 
   // App Lock pattern: if biometrics are registered, require unlock based on settings and session
   const [isLocked, setIsLocked] = useState(() => {
     if (!isBiometricRegistered()) return false;
-    
+
     // Check bypass ticket from Login
     const justLoggedIn = sessionStorage.getItem('minhas_financas:login_bypass');
     if (justLoggedIn === 'true') {
@@ -60,7 +61,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (lastHiddenStr) {
           const lastHidden = Number(lastHiddenStr);
           const diffMinutes = (Date.now() - lastHidden) / 60000;
-          
+
           if (diffMinutes >= biometricLockTimeout) {
             setIsLocked(true);
             autoUnlockAttempted.current = false; // Reset auto-trigger attempt
@@ -117,10 +118,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col items-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent dark:border-indigo-400 dark:border-t-transparent"></div>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Carregando...</p>
-        </div>
+        <Loader text="Carregando..." />
       </div>
     );
   }
@@ -137,7 +135,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tertiary border-2 border-primary">
             <Fingerprint className="h-12 w-12 text-primary animate-pulse" />
           </div>
-          
+
           <h2 className="mt-6 text-2xl font-bold tracking-tight text-primary">
             App Bloqueado
           </h2>

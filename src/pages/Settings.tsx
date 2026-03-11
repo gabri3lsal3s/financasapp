@@ -14,7 +14,7 @@ import {
   registerBiometric,
   removeBiometricCredential,
 } from '@/utils/biometric'
-import { Fingerprint, SlidersHorizontal, Sparkles, ShieldCheck } from 'lucide-react'
+import { Fingerprint, SlidersHorizontal, Sparkles, ShieldCheck, Loader2 } from 'lucide-react'
 
 type SettingsView = 'appearance' | 'personalization' | 'security'
 
@@ -95,14 +95,12 @@ export default function Settings() {
       aria-checked={checked}
       onClick={onChange}
       title={title}
-      className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-        checked ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
-      }`}
+      className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${checked ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
+        }`}
     >
       <span
-        className={`inline-block h-5 w-5 transform rounded-full motion-standard ${
-          checked ? 'translate-x-6 bg-[var(--color-primary)]' : 'translate-x-1 bg-[var(--color-text-secondary)]'
-        }`}
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'
+          }`}
       />
     </button>
   )
@@ -128,34 +126,34 @@ export default function Settings() {
   return (
     <div>
       <PageHeader title={PAGE_HEADERS.settings.title} subtitle={PAGE_HEADERS.settings.description} />
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 animate-page-enter">
 
         {/* Navigation */}
-        <Card>
+        <Card className="animate-stagger-item delay-50">
           <div className="grid grid-cols-3 gap-2">
             <Button
               type="button"
               variant={activeSettingsView === 'appearance' ? 'primary' : 'outline'}
               onClick={() => updateSettingsView('appearance')}
-              className="flex items-center justify-center gap-2 w-full"
+              className="flex items-center justify-center gap-2 w-full truncate"
             >
-              <Sparkles size={16} /> <span className="hidden sm:inline">Aparência</span>
+              <Sparkles size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Aparência</span>
             </Button>
             <Button
               type="button"
               variant={activeSettingsView === 'personalization' ? 'primary' : 'outline'}
               onClick={() => updateSettingsView('personalization')}
-              className="flex items-center justify-center gap-2 w-full"
+              className="flex items-center justify-center gap-2 w-full truncate"
             >
-              <SlidersHorizontal size={16} /> <span className="hidden sm:inline">Personalização</span>
+              <SlidersHorizontal size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Personalização</span>
             </Button>
             <Button
               type="button"
               variant={activeSettingsView === 'security' ? 'primary' : 'outline'}
               onClick={() => updateSettingsView('security')}
-              className="flex items-center justify-center gap-2 w-full"
+              className="flex items-center justify-center gap-2 w-full truncate"
             >
-              <ShieldCheck size={16} /> <span className="hidden sm:inline">Segurança</span>
+              <ShieldCheck size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Segurança</span>
             </Button>
           </div>
         </Card>
@@ -177,7 +175,7 @@ export default function Settings() {
             <p className="text-secondary text-sm">Ajuste preferências de experiência e recursos visuais</p>
           </div>
 
-          <Card>
+          <Card className="animate-stagger-item delay-100">
             <div className="space-y-5">
               <SettingRow
                 title="Insights personalizados do mês"
@@ -216,12 +214,12 @@ export default function Settings() {
 
         {/* Segurança */}
         <section className={activeSettingsView === 'security' ? 'space-y-4' : 'hidden'}>
-          <div>
+          <div className="animate-stagger-item delay-150">
             <h2 className="text-xl font-semibold text-primary mb-1">Segurança</h2>
             <p className="text-secondary text-sm">Gerencie o acesso biométrico ao app neste dispositivo</p>
           </div>
 
-          <Card>
+          <Card className="animate-stagger-item delay-200">
             <div className="space-y-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-tertiary border border-primary">
@@ -245,11 +243,10 @@ export default function Settings() {
               )}
 
               {biometricStatus && (
-                <div className={`rounded-lg border p-3 ${
-                  biometricStatus.type === 'success'
-                    ? 'border-[var(--color-success)] bg-[var(--color-success)]/10'
-                    : 'border-[var(--color-danger)] bg-[var(--color-danger)]/10'
-                }`}>
+                <div className={`rounded-lg border p-3 ${biometricStatus.type === 'success'
+                  ? 'border-[var(--color-success)] bg-[var(--color-success)]/10'
+                  : 'border-[var(--color-danger)] bg-[var(--color-danger)]/10'
+                  }`}>
                   <p className="text-sm text-primary">{biometricStatus.message}</p>
                 </div>
               )}
@@ -272,10 +269,19 @@ export default function Settings() {
                         variant="primary"
                         onClick={handleRegisterBiometric}
                         disabled={biometricLoading || !user}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 min-w-[180px] justify-center"
                       >
-                        <Fingerprint size={16} />
-                        {biometricLoading ? 'Registrando...' : 'Registrar biometria'}
+                        {biometricLoading ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={16} className="animate-spin" />
+                            <span>Registrando...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Fingerprint size={16} />
+                            <span>Registrar biometria</span>
+                          </>
+                        )}
                       </Button>
                     ) : (
                       <>
@@ -284,10 +290,19 @@ export default function Settings() {
                           variant="outline"
                           onClick={handleRegisterBiometric}
                           disabled={biometricLoading || !user}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 min-w-[180px] justify-center"
                         >
-                          <Fingerprint size={16} />
-                          {biometricLoading ? 'Atualizando...' : 'Atualizar biometria'}
+                          {biometricLoading ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 size={16} className="animate-spin" />
+                              <span>Atualizando...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Fingerprint size={16} />
+                              <span>Atualizar biometria</span>
+                            </>
+                          )}
                         </Button>
                         <Button
                           type="button"

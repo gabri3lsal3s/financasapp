@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { Mail, AlertCircle, KeyRound, ArrowLeft } from 'lucide-react';
+import { Mail, AlertCircle, KeyRound, ArrowLeft, Loader2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
@@ -37,7 +37,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
       <div className="w-full max-w-md space-y-8">
         <div>
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary">
@@ -88,7 +88,12 @@ export default function ForgotPassword() {
               variant="primary"
               fullWidth
             >
-              {loading ? 'Enviando...' : 'Enviar Link de Redefinição'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Enviando...</span>
+                </div>
+              ) : 'Enviar Link de Redefinição'}
             </Button>
           </form>
         </Card>

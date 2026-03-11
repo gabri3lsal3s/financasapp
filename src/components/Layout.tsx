@@ -47,6 +47,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
+  const isSettingsPage = location.pathname === '/settings'
   const mobileMenuRef = useRef<HTMLElement | null>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const desktopMenuRef = useRef<HTMLElement | null>(null)
@@ -266,12 +267,15 @@ export default function Layout({ children }: LayoutProps) {
           </>
         )}
 
-        <main className="safe-area-bottom pt-[calc(3.5rem+env(safe-area-inset-top))]">
+        <main className="relative safe-area-bottom pt-[calc(3.5rem+env(safe-area-inset-top))]">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-6">
             <section key={location.pathname} className="animate-page-enter">
               {children}
             </section>
           </div>
+          {!isSettingsPage && (
+            <div className="sticky bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-secondary to-transparent z-30 pointer-events-none" />
+          )}
         </main>
       </div>
 
@@ -385,16 +389,19 @@ export default function Layout({ children }: LayoutProps) {
           </nav>
         </aside>
 
-        <main className="safe-area-bottom">
+        <main className="relative safe-area-bottom">
           <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-8">
             <section key={location.pathname} className="animate-page-enter">
               {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
           </div>
+          {!isSettingsPage && (
+            <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-secondary to-transparent z-30 pointer-events-none" />
+          )}
         </main>
       </div>
 
-      {floatingCalculatorEnabled && <FloatingCalculator />}
+      {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
     </div>
   )
 }

@@ -69,13 +69,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   // Aplicar tema ao documento
   const applyTheme = (newTheme: Theme, newPalette: ColorPalette) => {
     const root = document.documentElement
-    
+
     // Remover todas as classes de tema
     root.classList.remove('mono-light', 'mono-dark')
-    
+
     // Adicionar nova classe
     root.classList.add(newTheme)
-    
+
     // Paletas de cores para elementos
     const colorPalettes: Record<ColorPalette, { income: string; expense: string; balance: string }> = {
       vivid: {
@@ -97,17 +97,17 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         '--ds-color-surface-secondary': '#f8f8f8',
         '--ds-color-surface-tertiary': '#e8e8e8',
         '--ds-color-text-primary': '#000000',
-        '--ds-color-text-secondary': '#555555',
+        '--ds-color-text-secondary': '#404040',
         '--ds-color-border-default': '#d0d0d0',
-        '--ds-color-accent-primary': '#6b7280',
-        '--ds-color-accent-primary-strong': '#1a1a1a',
-        '--ds-color-accent-primary-soft': '#808080',
+        '--ds-color-accent-primary': '#101010',
+        '--ds-color-accent-primary-strong': '#000000',
+        '--ds-color-accent-primary-soft': '#555555',
         '--ds-color-button-text': '#ffffff',
-        '--ds-color-intent-success': '#2d5016',
-        '--ds-color-intent-warning': '#5a4a00',
-        '--ds-color-intent-danger': '#8b0000',
+        '--ds-color-intent-success': '#1a3a0a',
+        '--ds-color-intent-warning': '#4a3c00',
+        '--ds-color-intent-danger': '#7b0000',
         '--ds-color-interaction-hover': '#f0f0f0',
-        '--ds-color-interaction-focus': '#b0b0b0',
+        '--ds-color-interaction-focus': '#808080',
         '--ds-color-interaction-disabled': '#d8d8d8',
         '--ds-color-interaction-active': '#e0e0e0',
         '--ds-motion-duration-fast': '200ms',
@@ -142,7 +142,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     if (!themeVars || !paletteVars) {
       return
     }
-    
+
     // Aplicar variáveis de tema
     Object.entries(themeVars).forEach(([key, value]) => {
       root.style.setProperty(key, value)
@@ -155,15 +155,29 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }
 
   const setTheme = (newTheme: Theme) => {
+    const root = document.documentElement
+    root.classList.add('theme-transitioning')
+
     setThemeState(newTheme)
     applyTheme(newTheme, colorPalette)
     localStorage.setItem('theme', newTheme)
+
+    setTimeout(() => {
+      root.classList.remove('theme-transitioning')
+    }, 450)
   }
 
   const setColorPalette = (newPalette: ColorPalette) => {
+    const root = document.documentElement
+    root.classList.add('theme-transitioning')
+
     setColorPaletteState(newPalette)
     applyTheme(theme, newPalette)
     localStorage.setItem('colorPalette', newPalette)
+
+    setTimeout(() => {
+      root.classList.remove('theme-transitioning')
+    }, 450)
   }
 
   return (

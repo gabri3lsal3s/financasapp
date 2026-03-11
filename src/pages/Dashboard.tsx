@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
+import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -121,6 +122,7 @@ export default function Dashboard() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
+  const isDataChangingRef = useRef(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   const formatAxisCurrencyTick = (value: number) => {
@@ -345,19 +347,24 @@ export default function Dashboard() {
     if (lastFetchedMonthRef.current !== currentMonth) {
       setMonthlyInsights([])
       setIsMonthTransitioning(true)
+      isDataChangingRef.current = true
       lastFetchedMonthRef.current = currentMonth
     }
 
     if (!monthlyInsightsEnabled) {
-      setInsightsLoading(false)
-      setIsMonthTransitioning(false)
+      if (!loading) {
+        setIsMonthTransitioning(false)
+        isDataChangingRef.current = false
+      }
       return
     }
 
-    if (!hasMonthlyData) {
+    if (!hasMonthlyData && !loading) {
       setInsightsLoading(false)
-      // Give other elements a moment to fade in cleanly before resolving transition
-      const fadeTimer = setTimeout(() => setIsMonthTransitioning(false), 150)
+      const fadeTimer = setTimeout(() => {
+        setIsMonthTransitioning(false)
+        isDataChangingRef.current = false
+      }, 150)
       return () => clearTimeout(fadeTimer)
     }
 
@@ -373,29 +380,23 @@ export default function Dashboard() {
             .map((item) => item.trim())
             .filter(Boolean)
           setMonthlyInsights(mergedInsights.slice(0, 3))
-        } else {
-          // If we get null, it's a failure (fetch error, offline, rate limit).
-          // DO NOT wipe the screen. Best to keep whatever is already rendered.
         }
       } catch (error) {
         if (isCancelled) return
-
-        // If it's explicitly an offline scenario, we suppress the annoying toast error.
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          return
-        }
-
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return
         setInsightToastError(error instanceof Error ? error.message : 'Falha ao carregar insights do mês.')
-        // IMPORTANT: We do NOT clear the existing insights here.
       } finally {
         if (!isCancelled) {
           setInsightsLoading(false)
-          setIsMonthTransitioning(false)
+          // Only resolve transition if data hooks are also done
+          if (!loading) {
+            setIsMonthTransitioning(false)
+            isDataChangingRef.current = false
+          }
         }
       }
     }
 
-    // Short delay for the fade-out to complete before fetching new content
     const timeoutId = setTimeout(() => {
       void loadInsights()
     }, 150)
@@ -408,11 +409,23 @@ export default function Dashboard() {
     currentMonth,
     monthlyInsightsEnabled,
     hasMonthlyData,
+    loading,
     totalExpenses,
     totalIncomes,
     totalInvestments,
-    isOnline, // Re-run when connection comes back to refresh from server
+    isOnline,
   ])
+
+  // Secondary effect to resolve transition if data finishes after insights or if insights are disabled
+  useEffect(() => {
+    if (isMonthTransitioning && !loading && (!monthlyInsightsEnabled || !insightsLoading)) {
+      const timer = setTimeout(() => {
+        setIsMonthTransitioning(false)
+        isDataChangingRef.current = false
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, insightsLoading, isMonthTransitioning, monthlyInsightsEnabled])
 
   const prioritizedExpenseCategoryItems = useMemo(() => {
     return expenseByCategory
@@ -972,7 +985,7 @@ export default function Dashboard() {
         }
       />
 
-      <div className="p-4 lg:p-6">
+      <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} isOnline={isOnline} />
 
         {/* Content area: fades in/out atomically when month changes */}
@@ -1032,8 +1045,10 @@ export default function Dashboard() {
 
           <div className={shouldShowMonthlyInsightsCard ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
 
-            {loading ? (
-              <div className="text-center py-8 text-secondary">Carregando...</div>
+            {loading || isMonthTransitioning ? (
+              <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
+                <Loader text="Carregando dados do mês..." />
+              </div>
             ) : !hasMonthlyData ? (
               <Card>
                 <div className="text-center py-8">
@@ -1043,7 +1058,7 @@ export default function Dashboard() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-50">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm text-secondary">Rendas</p>
@@ -1055,7 +1070,7 @@ export default function Dashboard() {
                     </div>
                   </Card>
 
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-100">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm text-secondary">Despesas</p>
@@ -1067,7 +1082,7 @@ export default function Dashboard() {
                     </div>
                   </Card>
 
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-150">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm text-secondary">Investimentos</p>
@@ -1079,7 +1094,7 @@ export default function Dashboard() {
                     </div>
                   </Card>
 
-                  <Card className="h-full">
+                  <Card className="h-full animate-stagger-item delay-200">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm text-secondary">Saldo</p>
@@ -1178,14 +1193,15 @@ export default function Dashboard() {
                           </div>
 
                           <div className="mt-4 space-y-3">
-                            {prioritizedExpenseCategoryItems.map((item) => {
+                            {prioritizedExpenseCategoryItems.map((item, index) => {
                               const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
+                              const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
                               return (
                                 <button
                                   key={item.name}
                                   type="button"
                                   onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
-                                  className={interactiveRowButtonClasses}
+                                  className={`${interactiveRowButtonClasses} animate-stagger-item ${staggerClass}`}
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-2.5 min-w-0">
@@ -1417,12 +1433,16 @@ export default function Dashboard() {
 
           {selectedExpenseCategoryDetails && selectedExpenseCategoryDetails.currentItems.length > 0 ? (
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-              {selectedExpenseCategoryDetails.currentItems.map((item) => {
+              {selectedExpenseCategoryDetails.currentItems.map((item, index) => {
                 const reportAmount = expenseAmountForDashboard(item.amount, item.report_weight)
                 const showOriginal = Math.abs(reportAmount - item.amount) > 0.009
+                const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
                 return (
-                  <div key={item.id} className="rounded-lg border border-primary bg-primary p-3">
+                  <div
+                    key={item.id}
+                    className={`rounded-lg border border-primary bg-primary p-3 animate-stagger-item ${staggerClass}`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-primary truncate">{item.description || item.category?.name || 'Despesa'}</p>

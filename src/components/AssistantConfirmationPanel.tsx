@@ -2,6 +2,7 @@ import AssistantEditableSlots from '@/components/AssistantEditableSlots'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import type { AssistantIntent, AssistantSlots } from '@/types'
+import { Loader2 } from 'lucide-react'
 
 interface CategoryOption {
   id: string
@@ -102,7 +103,12 @@ export default function AssistantConfirmationPanel({
             variant="outline"
             fullWidth
           >
-            {voiceListening ? 'Ouvindo...' : 'Confirmar por Voz'}
+            {voiceListening ? (
+              <div className="flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" />
+                <span>Ouvindo...</span>
+              </div>
+            ) : 'Confirmar por Voz'}
           </Button>
         )}
       </div>

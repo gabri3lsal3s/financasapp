@@ -23,8 +23,8 @@ export default function ModalActionFooter({
       {onDelete && deleteLabel && (
         <Button
           type="button"
-          variant="ghost"
-          className="btn-discrete-delete px-3 flex-shrink-0"
+          variant="ghost-danger"
+          className="px-3 flex-shrink-0"
           onClick={onDelete}
           title={deleteLabel}
         >
@@ -33,8 +33,8 @@ export default function ModalActionFooter({
       )}
       <Button
         type="submit"
-        variant="ghost"
-        className="btn-discrete-save px-3 flex-shrink-0"
+        variant="ghost-success"
+        className="px-3 flex-shrink-0"
         disabled={submitDisabled}
         title={submitLabel}
       >

@@ -41,8 +41,8 @@
 
   --ds-motion-duration-fast: 200ms;
   --ds-motion-duration-normal: 300ms;
-  --ds-motion-easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ds-motion-easing-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
+  --ds-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ds-motion-easing-emphasis: cubic-bezier(0.2, 0, 0, 1);
 
   --color-bg-primary: var(--ds-color-surface-primary);
   --color-bg-secondary: var(--ds-color-surface-secondary);
@@ -82,7 +82,22 @@
 
   * {
     border-color: var(--color-border);
-    @apply transition-colors duration-300;
+  }
+
+  /* Helper para sincronizar transição de temas */
+  .theme-transitioning,
+  .theme-transitioning *,
+  .theme-transitioning *::before,
+  .theme-transitioning *::after {
+    transition: background-color 0.45s ease,
+      background-image 0.45s ease,
+      background 0.45s ease,
+      border-color 0.45s ease,
+      color 0.45s ease,
+      fill 0.45s ease,
+      stroke 0.45s ease,
+      box-shadow 0.45s ease !important;
+    transition-delay: 0s !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -299,7 +314,72 @@
   }
 
   .animate-surface-enter {
-    animation: surface-enter 0.2s var(--easing-standard);
+    animation: surface-enter 0.3s var(--easing-standard) backwards;
+  }
+
+  @keyframes page-fade-in {
+    from {
+      opacity: 0.2;
+      transform: translateY(12px) scale(0.995);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-page-fade {
+    animation: page-fade-in 0.4s var(--easing-standard) forwards;
+  }
+
+  @keyframes stagger-item-enter {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-stagger-item {
+    animation: stagger-item-enter 0.5s var(--easing-emphasis) both;
+  }
+
+  /* Classes to generate delays (stagger) */
+  .delay-50 {
+    animation-delay: 50ms;
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-150 {
+    animation-delay: 150ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-250 {
+    animation-delay: 250ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .delay-400 {
+    animation-delay: 400ms;
+  }
+
+  .delay-500 {
+    animation-delay: 500ms;
   }
 
   @keyframes insight-card-enter {
@@ -332,12 +412,17 @@
     will-change: transform;
   }
 
-  .hover-lift-subtle:hover {
-    transform: translateY(-1px);
+  .hover-lift-subtle {
+    transition: transform 0.3s var(--easing-standard), box-shadow 0.3s var(--easing-standard), background-color 0.2s ease;
   }
 
-  .press-subtle:active {
-    transform: translateY(0) scale(0.99);
+  .hover-lift-subtle:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .press-subtle:active:not(:disabled) {
+    transform: scale(0.97) translateY(0);
+    transition: transform 0.1s ease;
   }
 
   .calculator-target-input {
@@ -454,24 +539,6 @@
     transition: width 90ms var(--easing-standard), height 90ms var(--easing-standard),
       left 90ms var(--easing-standard), top 90ms var(--easing-standard), opacity 120ms var(--easing-standard);
     opacity: 0.82;
-  }
-
-  .btn-discrete-save {
-    @apply text-secondary transition-all duration-200;
-  }
-
-  .btn-discrete-save:hover:not(:disabled) {
-    color: var(--color-income) !important;
-    background-color: color-mix(in srgb, var(--color-income) 10%, transparent) !important;
-  }
-
-  .btn-discrete-delete {
-    @apply text-secondary transition-all duration-200;
-  }
-
-  .btn-discrete-delete:hover:not(:disabled) {
-    color: var(--color-expense) !important;
-    background-color: color-mix(in srgb, var(--color-expense) 10%, transparent) !important;
   }
 
   /* Transition for concealment/display of insights and other blocks */

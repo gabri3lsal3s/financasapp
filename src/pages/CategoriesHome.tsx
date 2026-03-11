@@ -4,6 +4,7 @@ import { TrendingDown, TrendingUp, ArrowRight, Check } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
 import { useCategories } from '@/hooks/useCategories'
@@ -220,7 +221,7 @@ export default function CategoriesHome() {
   }
 
   return (
-    <div>
+    <div className="animate-page-enter">
       <PageHeader title={PAGE_HEADERS.categories.title} subtitle={PAGE_HEADERS.categories.description} />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
@@ -255,9 +256,7 @@ export default function CategoriesHome() {
         </div>
 
         {loadingData ? (
-          <Card>
-            <p className="text-sm text-secondary">Carregando dados das categorias...</p>
-          </Card>
+          <Loader text="Carregando dados das categorias..." className="py-12" />
         ) : (
           <>
             <Card>
@@ -270,8 +269,8 @@ export default function CategoriesHome() {
                 {categories.length === 0 ? (
                   <p className="text-sm text-secondary">Nenhuma categoria de despesa cadastrada.</p>
                 ) : (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-                    {categories.map((category) => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {categories.map((category, index) => {
                       const spent = expenseSpentByCategory.get(category.id) || 0
                       const limitAmount = expenseLimitMap.get(category.id)
                       const categoryColor = expenseCategoryColorMap[category.id] || category.color
@@ -280,19 +279,22 @@ export default function CategoriesHome() {
                       const isSaving = savingExpenseLimitIds.includes(category.id)
 
                       return (
-                        <div key={category.id} className="rounded-lg border border-primary p-2.5 bg-primary space-y-2 h-full">
+                        <div
+                          key={category.id}
+                          className={`rounded-lg border border-primary p-2.5 bg-primary space-y-2 h-full animate-stagger-item ${index < 6 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300'][index] : ''
+                            }`}
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="w-3 h-3 rounded-full border border-primary flex-shrink-0" style={{ backgroundColor: categoryColor }} />
                               <p className="font-medium text-primary truncate">{category.name}</p>
                             </div>
-                            <span className={`text-xs px-2 py-1 rounded-full border border-primary ${
-                              !hasLimit
-                                ? 'text-secondary bg-secondary'
-                                : exceeded
-                                  ? 'text-expense bg-secondary'
-                                  : 'text-income bg-secondary'
-                            }`}>
+                            <span className={`text-xs px-2 py-1 rounded-full border border-primary ${!hasLimit
+                              ? 'text-secondary bg-secondary'
+                              : exceeded
+                                ? 'text-expense bg-secondary'
+                                : 'text-income bg-secondary'
+                              }`}>
                               {!hasLimit ? 'Sem limite' : exceeded ? 'Ultrapassou' : 'Dentro do limite'}
                             </span>
                           </div>
@@ -320,10 +322,10 @@ export default function CategoriesHome() {
                             <Button
                               type="button"
                               size="sm"
-                              variant="ghost"
+                              variant="ghost-success"
                               onClick={() => saveExpenseLimit(category.id)}
                               disabled={isSaving}
-                              className="btn-discrete-save"
+                              className=""
                               title={isSaving ? 'Salvando...' : 'Salvar'}
                             >
                               <Check size={20} />
@@ -347,8 +349,8 @@ export default function CategoriesHome() {
                 {incomeCategories.length === 0 ? (
                   <p className="text-sm text-secondary">Nenhuma categoria de renda cadastrada.</p>
                 ) : (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-                    {incomeCategories.map((category) => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {incomeCategories.map((category, index) => {
                       const received = incomeByCategory.get(category.id) || 0
                       const expectationAmount = incomeExpectationMap.get(category.id)
                       const categoryColor = incomeCategoryColorMap[category.id] || category.color
@@ -357,19 +359,22 @@ export default function CategoriesHome() {
                       const isSaving = savingIncomeExpectationIds.includes(category.id)
 
                       return (
-                        <div key={category.id} className="rounded-lg border border-primary p-2.5 bg-primary space-y-2 h-full">
+                        <div
+                          key={category.id}
+                          className={`rounded-lg border border-primary p-2.5 bg-primary space-y-2 h-full animate-stagger-item ${index < 6 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300'][index] : ''
+                            }`}
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="w-3 h-3 rounded-full border border-primary flex-shrink-0" style={{ backgroundColor: categoryColor }} />
                               <p className="font-medium text-primary truncate">{category.name}</p>
                             </div>
-                            <span className={`text-xs px-2 py-1 rounded-full border border-primary ${
-                              !hasExpectation
-                                ? 'text-secondary bg-secondary'
-                                : exceeded
-                                  ? 'text-income bg-secondary'
-                                  : 'text-secondary bg-secondary'
-                            }`}>
+                            <span className={`text-xs px-2 py-1 rounded-full border border-primary ${!hasExpectation
+                              ? 'text-secondary bg-secondary'
+                              : exceeded
+                                ? 'text-income bg-secondary'
+                                : 'text-secondary bg-secondary'
+                              }`}>
                               {!hasExpectation ? 'Sem expectativa' : exceeded ? 'Superou expectativa' : 'Acompanhar'}
                             </span>
                           </div>
