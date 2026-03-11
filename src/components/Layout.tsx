@@ -273,9 +273,6 @@ export default function Layout({ children }: LayoutProps) {
               {children}
             </section>
           </div>
-          {!isSettingsPage && (
-            <div className="sticky bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-secondary to-transparent z-30 pointer-events-none" />
-          )}
         </main>
       </div>
 
@@ -395,9 +392,6 @@ export default function Layout({ children }: LayoutProps) {
               {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
           </div>
-          {!isSettingsPage && (
-            <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-secondary to-transparent z-30 pointer-events-none" />
-          )}
         </main>
       </div>
 

@@ -14,7 +14,7 @@ export function usePaletteColors() {
     },
     monochrome: {
       name: 'Monocromática',
-      colors: ['#e5e7eb', '#9ca3af', '#6b7280'],
+      colors: ['#e5e5e5', '#a3a3a3', '#737373'],
     },
   }
 

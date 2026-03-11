@@ -127,8 +127,10 @@
     border-radius: 4px;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-secondary);
+  @media (hover: hover) {
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-text-secondary);
+    }
   }
 }
 
@@ -413,11 +415,13 @@
   }
 
   .hover-lift-subtle {
-    transition: transform 0.3s var(--easing-standard), box-shadow 0.3s var(--easing-standard), background-color 0.2s ease;
+    transition: transform 0.15s var(--easing-standard), box-shadow 0.15s var(--easing-standard), background-color 0.1s ease;
   }
 
-  .hover-lift-subtle:hover:not(:disabled) {
-    transform: translateY(-2px);
+  @media (hover: hover) {
+    .hover-lift-subtle:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
   }
 
   .press-subtle:active:not(:disabled) {
