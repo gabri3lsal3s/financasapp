@@ -242,14 +242,14 @@ export default function Settings() {
 
         {/* Navigation */}
         <Card className="animate-stagger-item delay-50">
-          <div className={`grid ${isAdmin ? 'grid-cols-4' : 'grid-cols-3'} gap - 2`}>
+          <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'} gap-2`}>
             <Button
               type="button"
               variant={activeSettingsView === 'appearance' ? 'primary' : 'outline'}
               onClick={() => updateSettingsView('appearance')}
               className="flex items-center justify-center gap-2 w-full truncate"
             >
-              <Sparkles size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Aparência</span>
+              <Sparkles size={16} className="min-w-[16px]" /> <span className="hidden xs:inline sm:inline">Aparência</span>
             </Button>
             <Button
               type="button"
@@ -257,7 +257,7 @@ export default function Settings() {
               onClick={() => updateSettingsView('personalization')}
               className="flex items-center justify-center gap-2 w-full truncate"
             >
-              <SlidersHorizontal size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Personalização</span>
+              <SlidersHorizontal size={16} className="min-w-[16px]" /> <span className="hidden xs:inline sm:inline">Personalização</span>
             </Button>
             <Button
               type="button"
@@ -265,7 +265,7 @@ export default function Settings() {
               onClick={() => updateSettingsView('security')}
               className="flex items-center justify-center gap-2 w-full truncate"
             >
-              <ShieldCheck size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Segurança</span>
+              <ShieldCheck size={16} className="min-w-[16px]" /> <span className="hidden xs:inline sm:inline">Segurança</span>
             </Button>
             {isAdmin && (
               <Button
@@ -274,12 +274,12 @@ export default function Settings() {
                 onClick={() => updateSettingsView('admin')}
                 className="flex items-center justify-center gap-2 w-full truncate"
               >
-                <Users size={16} className="min-w-[16px]" /> <span className="hidden sm:inline">Admin</span>
+                <Users size={16} className="min-w-[16px]" /> <span className="hidden xs:inline sm:inline">Admin</span>
               </Button>
             )}
-
           </div>
         </Card>
+
 
         {/* Admin Panel */}
         {isAdmin && (
@@ -339,13 +339,13 @@ export default function Settings() {
                         </div>
                         <p className="text-xs text-secondary mt-0.5">Entrou em: {new Date(pUser.created_at).toLocaleDateString()}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mt-2 sm:mt-0">
                         {pUser.is_approved ? (
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className={pUser.is_blocked || pUser.rejection_count >= 2 ? 'text-[var(--color-success)] border-[var(--color-success)]' : 'text-[var(--color-warning)] border-[var(--color-warning)]'}
+                            className={`flex-1 sm:flex-none ${pUser.is_blocked || pUser.rejection_count >= 2 ? 'text-[var(--color-success)] border-[var(--color-success)]' : 'text-[var(--color-warning)] border-[var(--color-warning)]'}`}
                             onClick={() => handleUpdateUserStatus(pUser.id, true, !(pUser.is_blocked || pUser.rejection_count >= 2))}
                           >
                             {pUser.is_blocked || pUser.rejection_count >= 2 ? 'Desbloquear' : 'Bloquear'}
@@ -355,6 +355,7 @@ export default function Settings() {
                             type="button"
                             variant="primary"
                             size="sm"
+                            className="flex-1 sm:flex-none"
                             onClick={() => handleUpdateUserStatus(pUser.id, true, false)}
                           >
                             Aprovar
@@ -365,13 +366,14 @@ export default function Settings() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="text-[var(--color-danger)] border-[var(--color-danger)]"
+                            className="flex-1 sm:flex-none text-[var(--color-danger)] border-[var(--color-danger)]"
                             onClick={() => handleRejectUser(pUser.id, false, pUser.rejection_count)}
                           >
                             Recusar
                           </Button>
                         )}
                       </div>
+
 
 
                     </div>
