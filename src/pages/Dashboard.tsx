@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
@@ -16,21 +16,13 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, formatNumberBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles, RefreshCw, WifiOff } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import IconButton from '@/components/IconButton'
-import AssistantConfirmationPanel from '@/components/AssistantConfirmationPanel'
-import { useAssistantTurn } from '@/hooks/useAssistantTurn'
-import { useAssistantOfflineQueueStatus } from '@/hooks/useAssistantOfflineQueueStatus'
-import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { useVoiceAdapter } from '@/hooks/useVoiceAdapter'
-import { isSupabaseConfigured } from '@/lib/supabase'
-import { getAssistantMonthlyInsights } from '@/services/assistantService'
 import {
   Bar,
   BarChart,
@@ -50,60 +42,9 @@ import {
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
-  // Governança: tokens/contexto
-  const {
-    monthlyInsightsEnabled,
-    assistantConfirmationMode,
-    assistantConfirmationPolicyMode,
-    assistantLocale,
-    assistantOfflineBehavior,
-    assistantResponseDepth,
-    assistantAutoSpeak,
-    assistantSpeechRate,
-    assistantSpeechPitch,
-    assistantDoubleConfirmationEnabled,
-  } = useAppSettings();
-
-  const {
-    assistantLoading,
-    assistantError,
-    lastInterpretation,
-    editableConfirmationText,
-    setEditableConfirmationText,
-    editableSlots,
-    updateEditableSlots,
-    interpretCommand,
-    confirmLastInterpretation,
-    resetAssistantTurn,
-  } = useAssistantTurn('web-dashboard-device', {
-    locale: assistantLocale,
-    offlineBehavior: assistantOfflineBehavior,
-    responseDepth: assistantResponseDepth,
-  })
-  const { pendingCount: assistantOfflinePendingCount, hasPending: hasAssistantOfflinePending } = useAssistantOfflineQueueStatus()
-
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false)
   const { isOnline } = useNetworkStatus()
-  const {
-    voiceSupport,
-    setVoiceStatus,
-    voiceListening,
-    voicePhase,
-    lastHeardCommand,
-    clearVoiceFeedback,
-    captureSpeech,
-    stopActiveListening,
-    resolveVoiceConfirmation,
-    stopSpeaking,
-  } = useVoiceAdapter({
-    locale: assistantLocale,
-    networkErrorMessage: 'Falha de rede no reconhecimento de voz. Use o comando em texto e toque em Interpretar.',
-    autoSpeakEnabled: assistantAutoSpeak,
-    speechRate: assistantSpeechRate,
-    speechPitch: assistantSpeechPitch,
-  })
   const [quickAddType, setQuickAddType] = useState<QuickAddType>('expense')
   type QuickAddType = 'expense' | 'income' | 'investment';
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
@@ -120,12 +61,9 @@ export default function Dashboard() {
     income_category_id: '',
     description: '',
   })
-  const [monthlyInsights, setMonthlyInsights] = useState<string[]>([])
-  const [insightsLoading, setInsightsLoading] = useState(false)
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const isDataChangingRef = useRef(false)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   const formatAxisCurrencyTick = (value: number) => {
     if (value >= 1000) {
@@ -314,129 +252,31 @@ export default function Dashboard() {
   }, [expenseByCategory, expenseLimitMap])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const mediaQuery = window.matchMedia('(max-width: 640px)')
-    const updateViewport = () => setIsMobileViewport(mediaQuery.matches)
-
-    updateViewport()
-    mediaQuery.addEventListener('change', updateViewport)
-
-    return () => {
-      mediaQuery.removeEventListener('change', updateViewport)
-    }
-  }, [])
-
-  const [insightToastError, setInsightToastError] = useState<string | null>(null)
-
-  const handleRefreshInsights = async () => {
-    if (insightsLoading) return
-    setInsightsLoading(true)
-    try {
-      const result = await getAssistantMonthlyInsights(currentMonth, true)
-      if (result) {
-        const mergedInsights = [...result.highlights, ...result.recommendations]
-          .map((item) => item.trim())
-          .filter(Boolean)
-        setMonthlyInsights(mergedInsights.slice(0, 3))
-        setInsightToastError(null)
-      } else {
-        setInsightToastError('Não foi possível gerar os insights no momento. Tente novamente mais tarde.')
-      }
-    } catch (error) {
-      setInsightToastError(error instanceof Error ? error.message : 'Falha ao atualizar insights.')
-    } finally {
-      setInsightsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    let isCancelled = false
-
-    // Only map the transition and wipe insights if the user actually navigated to a different month.
-    // If it's the same month and just a dependency like `totalExpenses` updated locally, preserve the visual blocks.
     if (lastFetchedMonthRef.current !== currentMonth) {
-      setMonthlyInsights([])
       setIsMonthTransitioning(true)
       isDataChangingRef.current = true
       lastFetchedMonthRef.current = currentMonth
     }
 
-    if (!monthlyInsightsEnabled) {
-      if (!loading) {
-        setIsMonthTransitioning(false)
-        isDataChangingRef.current = false
-      }
-      return
-    }
-
-    if (!hasMonthlyData && !loading) {
-      setInsightsLoading(false)
+    if (!loading) {
       const fadeTimer = setTimeout(() => {
         setIsMonthTransitioning(false)
         isDataChangingRef.current = false
       }, 150)
       return () => clearTimeout(fadeTimer)
     }
-
-    const loadInsights = async () => {
-      setInsightsLoading(true)
-
-      try {
-        const result = await getAssistantMonthlyInsights(currentMonth)
-        if (isCancelled) return
-
-        if (result) {
-          const mergedInsights = [...result.highlights, ...result.recommendations]
-            .map((item) => item.trim())
-            .filter(Boolean)
-          setMonthlyInsights(mergedInsights.slice(0, 3))
-        }
-      } catch (error) {
-        if (isCancelled) return
-        if (typeof navigator !== 'undefined' && !navigator.onLine) return
-        setInsightToastError(error instanceof Error ? error.message : 'Falha ao carregar insights do mês.')
-      } finally {
-        if (!isCancelled) {
-          setInsightsLoading(false)
-          // Only resolve transition if data hooks are also done
-          if (!loading) {
-            setIsMonthTransitioning(false)
-            isDataChangingRef.current = false
-          }
-        }
-      }
-    }
-
-    const timeoutId = setTimeout(() => {
-      void loadInsights()
-    }, 150)
-
-    return () => {
-      isCancelled = true
-      clearTimeout(timeoutId)
-    }
-  }, [
-    currentMonth,
-    monthlyInsightsEnabled,
-    hasMonthlyData,
-    loading,
-    totalExpenses,
-    totalIncomes,
-    totalInvestments,
-    isOnline,
-  ])
+  }, [currentMonth, loading])
 
   // Secondary effect to resolve transition if data finishes after insights or if insights are disabled
   useEffect(() => {
-    if (isMonthTransitioning && !loading && (!monthlyInsightsEnabled || !insightsLoading)) {
+    if (isMonthTransitioning && !loading) {
       const timer = setTimeout(() => {
         setIsMonthTransitioning(false)
         isDataChangingRef.current = false
       }, 50)
       return () => clearTimeout(timer)
     }
-  }, [loading, insightsLoading, isMonthTransitioning, monthlyInsightsEnabled])
+  }, [loading, isMonthTransitioning])
 
 
 
@@ -602,97 +442,6 @@ export default function Dashboard() {
     )
   }
 
-  const interactiveRowButtonClasses =
-    'w-full rounded-lg border border-primary bg-secondary text-primary px-3 py-3 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
-
-  const insightNarrativeMoment = useMemo(() => {
-    const now = new Date()
-    const currentMonthKey = format(now, 'yyyy-MM')
-    const isClosedMonth = currentMonth < currentMonthKey
-
-    if (isClosedMonth) {
-      return {
-        isFinalized: true,
-      }
-    }
-
-    if (currentMonth !== currentMonthKey) {
-      return {
-        isFinalized: false,
-      }
-    }
-
-    const [year, month] = currentMonth.split('-').map(Number)
-    const daysInMonth = new Date(year, month, 0).getDate()
-    const isLastDay = now.getDate() >= daysInMonth
-
-    return {
-      isFinalized: isLastDay,
-    }
-  }, [currentMonth])
-
-  const monthlyInsightsNarrative = useMemo(() => {
-    if (!monthlyInsights.length) return ''
-
-    const normalized = monthlyInsights
-      .map((item) => item.replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
-      .map((item) => (/[.!?]$/.test(item) ? item : `${item}.`))
-
-    if (normalized.length === 1) {
-      const single = normalized[0].replace(/[.!?]+$/, '')
-      return `${single}.`
-    }
-
-    const withoutTrailingDot = normalized.map((item) => item.replace(/[.!?]+$/, ''))
-    const firstSentence = `${withoutTrailingDot[0]}.`
-
-    const toClauseAfterConnector = (value: string) => {
-      const text = value.trim()
-      if (!text) return text
-
-      const [firstChar, ...restChars] = text
-      const rest = restChars.join('')
-      return `${firstChar.toLowerCase()}${rest}`
-    }
-
-    const simplifyForMobile = (value: string) => {
-      const compact = value
-        .replace(/^Com base no andamento atual do mês,\s*/i, '')
-        .replace(/^No mês analisado,\s*/i, '')
-        .replace(/^vale revisar este ponto:\s*/i, '')
-        .replace(/\s+até o momento$/i, '')
-        .replace(/\s+até aqui$/i, '')
-        .trim()
-
-      const firstClause = compact.split(/[;:]/)[0]?.trim() || compact
-      return firstClause || compact
-    }
-
-    if (isMobileViewport) {
-      const firstMobileSentence = simplifyForMobile(withoutTrailingDot[0])
-
-      if (withoutTrailingDot.length === 1) {
-        return `${firstMobileSentence}.`
-      }
-
-      const secondMobileSentence = simplifyForMobile(withoutTrailingDot[1])
-      return `${firstMobileSentence}. ${secondMobileSentence}.`
-    }
-
-    if (withoutTrailingDot.length === 2) {
-      return insightNarrativeMoment.isFinalized
-        ? `${firstSentence} Além disso, ${toClauseAfterConnector(withoutTrailingDot[1])}.`
-        : `${firstSentence} Até aqui, ${toClauseAfterConnector(withoutTrailingDot[1])}.`
-    }
-
-    return insightNarrativeMoment.isFinalized
-      ? `${firstSentence} ${withoutTrailingDot[1]}. ${withoutTrailingDot[2]}.`
-      : `${firstSentence} ${withoutTrailingDot[1]}. Para os próximos dias, ${toClauseAfterConnector(withoutTrailingDot[2])}.`
-  }, [monthlyInsights, insightNarrativeMoment.isFinalized, isMobileViewport])
-
-  const shouldShowMonthlyInsightsCard = monthlyInsightsEnabled && hasMonthlyData
-
   const openQuickAdd = (type: QuickAddType) => {
     setQuickAddType(type)
     setFormData({
@@ -719,138 +468,6 @@ export default function Dashboard() {
     : quickAddType === 'income'
       ? 'Nova renda'
       : 'Novo investimento'
-
-  const playAssistantBeep = (type: 'start' | 'end' | 'heard' | 'executed' = 'start') => {
-    if (typeof window === 'undefined') return
-
-    const AudioContextCtor = (window as any).AudioContext || (window as any).webkitAudioContext
-    if (!AudioContextCtor) return
-
-    const context = new AudioContextCtor()
-    const oscillator = context.createOscillator()
-    const gain = context.createGain()
-
-    oscillator.type = 'sine'
-    const toneMap: Record<'start' | 'end' | 'heard' | 'executed', { start: number; end: number }> = {
-      start: { start: 880, end: 1040 },
-      end: { start: 520, end: 420 },
-      heard: { start: 700, end: 760 },
-      executed: { start: 980, end: 1180 },
-    }
-
-    const startFrequency = toneMap[type].start
-    const endFrequency = toneMap[type].end
-    oscillator.frequency.setValueAtTime(startFrequency, context.currentTime)
-    oscillator.frequency.exponentialRampToValueAtTime(endFrequency, context.currentTime + 0.14)
-    gain.gain.setValueAtTime(0.001, context.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.01)
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.14)
-
-    oscillator.connect(gain)
-    gain.connect(context.destination)
-    oscillator.start()
-    oscillator.stop(context.currentTime + 0.14)
-
-    oscillator.onended = () => {
-      context.close().catch(() => undefined)
-    }
-  }
-
-  const openAssistant = () => {
-    resetAssistantTurn()
-    setIsAssistantOpen(true)
-    clearVoiceFeedback()
-    void handleVoiceInterpret()
-  }
-
-  const closeAssistant = () => {
-    stopActiveListening()
-    stopSpeaking()
-    setIsAssistantOpen(false)
-    clearVoiceFeedback()
-    resetAssistantTurn()
-  }
-
-  const isExpenseIntent = lastInterpretation?.intent === 'add_expense'
-  const touchConfirmationEnabled = assistantConfirmationMode !== 'voice' || isExpenseIntent
-  const voiceConfirmationEnabled = assistantConfirmationMode !== 'touch' && !isExpenseIntent
-  const actionColumnsClass = touchConfirmationEnabled && voiceConfirmationEnabled
-    ? 'sm:grid-cols-3'
-    : 'sm:grid-cols-2'
-
-  const handleConfirmAssistant = async (confirmed: boolean) => {
-    if (!isSupabaseConfigured) return
-    try {
-      const result = await confirmLastInterpretation({ confirmed })
-      if (!result) return
-
-      // Só fecha se foi executado com sucesso ou se o usuário negou explicitamente
-      if (result.status === 'executed' || result.status === 'denied') {
-        if (result.status === 'executed') {
-          playAssistantBeep('executed')
-        }
-        closeAssistant()
-      }
-      // Se status for 'failed' por exemplo, mantemos aberto para o erro ser visível
-    } catch (error) {
-      console.error('[Dashboard] Error confirming assistant:', error)
-      // O erro já deve ser capturado pelo useAssistant e exibido no assistente
-      // mas garantimos que a UI não trave
-    }
-  }
-
-  const handleVoiceInterpret = async () => {
-    if (!isSupabaseConfigured || assistantLoading) return
-
-    if (voiceListening) {
-      stopActiveListening()
-      return
-    }
-
-    try {
-      playAssistantBeep()
-      const transcript = await captureSpeech('Fale seu comando')
-      if (!transcript) return
-
-      const result = await interpretCommand(transcript, {
-        confirmationMode: assistantConfirmationPolicyMode,
-        forceConfirmation: assistantDoubleConfirmationEnabled,
-      })
-      if (!result) return
-      if (!result.requiresConfirmation) {
-        playAssistantBeep('executed')
-      }
-    } catch (error) {
-      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao interpretar comando por voz.')
-    }
-  }
-
-  const handleVoiceConfirm = async () => {
-    if (!isSupabaseConfigured || assistantLoading || !lastInterpretation?.command.id) return
-    if (!voiceConfirmationEnabled) {
-      setVoiceStatus('Confirmação por voz está desativada nas suas configurações.')
-      return
-    }
-    // Permite confirmação por voz para todos os tipos agora, para maior flexibilidade
-
-    try {
-      const transcript = await captureSpeech('Confirme por voz')
-      if (!transcript) return
-
-      const confirmed = resolveVoiceConfirmation(transcript)
-      const result = await confirmLastInterpretation({
-        confirmed,
-        spokenText: transcript,
-        includeEditable: false,
-      })
-      if (!result) return
-      if (result.status === 'executed') {
-        playAssistantBeep('executed')
-      }
-    } catch (error) {
-      setVoiceStatus(error instanceof Error ? error.message : 'Erro ao confirmar por voz.')
-    }
-  }
 
   const handleQuickAddSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -946,44 +563,11 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* API error toast – subtle, bottom-right, auto-dismissable */}
-      {insightToastError && (
-        <div
-          role="alert"
-          className="fixed bottom-4 right-4 z-50 max-w-xs w-full bg-secondary border border-primary rounded-xl shadow-lg px-4 py-3 flex items-start gap-3 animate-fade-in"
-          onClick={() => setInsightToastError(null)}
-        >
-          <span className="text-xs text-secondary leading-relaxed flex-1 cursor-pointer">
-            ⚠️ {insightToastError}
-          </span>
-          <button
-            type="button"
-            className="text-secondary hover:text-primary flex-shrink-0 mt-0.5"
-            onClick={() => setInsightToastError(null)}
-            aria-label="Fechar notificação"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       <PageHeader
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
         action={
           <div className="flex items-center gap-2">
-            {isOnline && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={openAssistant}
-                className="flex items-center gap-2"
-                aria-label="Assistente"
-                title="Assistente"
-              >
-                <Sparkles size={16} />
-              </Button>
-            )}
             <Button
               size="sm"
               variant="outline"
@@ -1001,7 +585,6 @@ export default function Dashboard() {
       <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} isOnline={isOnline} />
 
-        {/* Content area: fades in/out atomically when month changes */}
         <div
           style={{
             opacity: isMonthTransitioning ? 0 : 1,
@@ -1009,51 +592,7 @@ export default function Dashboard() {
             willChange: 'opacity',
           }}
         >
-
-          <div className={`transition-conceal-container ${(!isOnline || !shouldShowMonthlyInsightsCard) ? 'is-concealed' : ''}`}>
-            <div className="transition-conceal-content">
-              {shouldShowMonthlyInsightsCard && (
-                <Card className="mt-4 lg:mt-6 animate-insight-enter">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="text-lg font-semibold text-primary">Insights personalizados do mês</h3>
-                      {isOnline && (
-                        <IconButton
-                          icon={isOnline ? <RefreshCw size={16} className={insightsLoading ? 'animate-spin' : ''} /> : <WifiOff size={16} />}
-                          onClick={handleRefreshInsights}
-                          disabled={insightsLoading}
-                          title={isOnline ? "Forçar atualização dos insights" : "Indisponível offline"}
-                          variant="neutral"
-                        />
-                      )}
-                    </div>
-
-                    <div className="transition-opacity duration-300" style={{ opacity: insightsLoading ? 0.4 : 1 }}>
-                      {(insightsLoading || isMonthTransitioning) ? (
-                        <div className="flex items-center gap-3 py-2 animate-pulse">
-                          <div className="w-1.5 h-10 rounded-full bg-tertiary" />
-                          <div className="flex-1 space-y-2">
-                            <div className="h-4 bg-tertiary rounded w-3/4" />
-                            <div className="h-3 bg-tertiary rounded w-1/2" />
-                          </div>
-                        </div>
-                      ) : monthlyInsightsNarrative.length > 0 ? (
-                        <p className="text-sm text-primary leading-relaxed">
-                          {monthlyInsightsNarrative}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-secondary leading-relaxed italic">
-                          Nenhum insight gerado para este mês. Clique em ↻ para gerar agora.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
-          </div>
-
-          <div className={shouldShowMonthlyInsightsCard ? 'mt-4 lg:mt-6' : 'mt-3 lg:mt-4'}>
+          <div className="mt-4 lg:mt-6">
 
             {loading || isMonthTransitioning ? (
               <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
@@ -1206,6 +745,7 @@ export default function Dashboard() {
                             {prioritizedExpenseCategoryItems.map((item, index) => {
                               const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
                               const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
+                              const interactiveRowButtonClasses = "w-full text-left bg-secondary border border-primary rounded-xl p-3 md:p-4 motion-standard hover-lift press-subtle group focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-colors"
                               return (
                                 <button
                                   key={item.name}
@@ -1469,72 +1009,6 @@ export default function Dashboard() {
             </div>
           ) : (
             <p className="text-sm text-secondary">Sem lançamentos dessa categoria no mês selecionado.</p>
-          )}
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={isAssistantOpen}
-        onClose={closeAssistant}
-        title="Assistente"
-      >
-        <div className="space-y-4">
-          {/* Subtle Status Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full transition-colors duration-300 ${voicePhase === 'listening' ? 'bg-[var(--color-success)] animate-pulse shadow-[0_0_8px_var(--color-success)]' : 'bg-secondary'}`} />
-              <span className="text-[10px] uppercase tracking-widest text-secondary font-semibold whitespace-nowrap">
-                {voicePhase === 'listening' ? 'Assistente Ouvindo' : 'Aguardando Comando'}
-              </span>
-            </div>
-            {lastHeardCommand && (
-              <span className="text-[11px] italic text-secondary break-words sm:truncate sm:max-w-[250px] sm:border-l sm:border-primary/20 sm:pl-3">
-                "{lastHeardCommand}"
-              </span>
-            )}
-          </div>
-
-
-          <Button
-            onClick={handleVoiceInterpret}
-            disabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition}
-            variant="outline"
-            fullWidth
-          >
-            {voiceListening ? 'Parar Escuta' : 'Falar Comando'}
-          </Button>
-
-          {lastInterpretation?.requiresConfirmation && (
-            <AssistantConfirmationPanel
-              intent={lastInterpretation.intent}
-              editableConfirmationText={editableConfirmationText}
-              onEditableConfirmationTextChange={setEditableConfirmationText}
-              editableSlots={editableSlots}
-              categories={categories.map((category) => ({ id: category.id, name: category.name }))}
-              incomeCategories={incomeCategories.map((category) => ({ id: category.id, name: category.name }))}
-              creditCards={creditCards.map(c => ({ id: c.id, name: c.name }))}
-              disabled={assistantLoading || !isSupabaseConfigured}
-              fallbackMonth={currentMonth}
-              onUpdateSlots={updateEditableSlots}
-              touchConfirmationEnabled={touchConfirmationEnabled}
-              voiceConfirmationEnabled={voiceConfirmationEnabled}
-              actionColumnsClass={actionColumnsClass}
-              onConfirm={() => handleConfirmAssistant(true)}
-              onDeny={() => handleConfirmAssistant(false)}
-              onVoiceConfirm={handleVoiceConfirm}
-              voiceConfirmDisabled={assistantLoading || !isSupabaseConfigured || !voiceSupport.recognition || voiceListening}
-              voiceListening={voiceListening}
-              containerClassName="space-y-3"
-            />
-          )}
-
-          {assistantError && <p className="text-xs text-[var(--color-danger)]">{assistantError}</p>}
-          {hasAssistantOfflinePending && (
-            <p className="text-xs text-secondary">
-              {assistantOfflinePendingCount === 1
-                ? '1 comando do assistente pendente de sincronização.'
-                : `${assistantOfflinePendingCount} comandos do assistente pendentes de sincronização.`}
-            </p>
           )}
         </div>
       </Modal>

@@ -1,0 +1,10 @@
+src/components/CreditCardCsvReconciliationPanel.tsx(18,41): error TS2307: Cannot find module '@/services/ai/reconciliation' or its corresponding type declarations.
+src/components/CreditCardCsvReconciliationPanel.tsx(432,17): error TS7006: Parameter 'classifications' implicitly has an 'any' type.
+src/components/CreditCardCsvReconciliationPanel.tsx(436,52): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/components/CreditCardCsvReconciliationPanel.tsx(464,18): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/hooks/useAssistant.ts(7,8): error TS2307: Cannot find module '@/services/assistantService' or its corresponding type declarations.
+src/hooks/useAssistant.ts(9,48): error TS2307: Cannot find module '@/services/assistant-core/confirmationPolicy' or its corresponding type declarations.
+src/pages/Dashboard.tsx(753,49): error TS2304: Cannot find name 'interactiveRowButtonClasses'.
+src/utils/assistantOfflineQueue.ts(4,8): error TS2307: Cannot find module '@/services/assistantService' or its corresponding type declarations.
+src/utils/assistantPrivacy.ts(1,10): error TS2305: Module '"@/hooks/useAppSettings"' has no exported member 'ASSISTANT_DATA_RETENTION_DAYS_KEY'.
+src/utils/assistantSessionContext.ts(1,48): error TS2307: Cannot find module '@/services/assistant-core/confirmationPolicy' or its corresponding type declarations.

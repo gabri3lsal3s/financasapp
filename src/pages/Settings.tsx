@@ -154,14 +154,10 @@ export default function Settings() {
   }, [])
 
   const {
-    monthlyInsightsEnabled,
-    setMonthlyInsightsEnabled,
     floatingCalculatorEnabled,
     setFloatingCalculatorEnabled,
     biometricLockTimeout,
     setBiometricLockTimeout,
-    assistantDoubleConfirmationEnabled,
-    setAssistantDoubleConfirmationEnabled,
   } = useAppSettings()
 
   const updateSettingsView = (view: SettingsView) => {
@@ -405,17 +401,6 @@ export default function Settings() {
           <Card className="animate-stagger-item delay-100">
             <div className="space-y-5">
               <SettingRow
-                title="Insights personalizados do mês"
-                description="O assistente analisa seu comportamento financeiro mensal e gera interpretações no Dashboard."
-              >
-                <ToggleSwitch
-                  checked={monthlyInsightsEnabled}
-                  onChange={() => setMonthlyInsightsEnabled(!monthlyInsightsEnabled)}
-                  title={monthlyInsightsEnabled ? 'Desativar insights' : 'Ativar insights'}
-                />
-              </SettingRow>
-
-              <SettingRow
                 title="Calculadora flutuante"
                 description="Exibe uma calculadora flutuante acessível em qualquer página do app."
               >
@@ -423,16 +408,6 @@ export default function Settings() {
                   checked={floatingCalculatorEnabled}
                   onChange={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
                   title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
-                />
-              </SettingRow>
-              <SettingRow
-                title="Revisão dupla com IA"
-                description="Exibe um painel de confirmação dos dados extraídos pela IA antes de salvar."
-              >
-                <ToggleSwitch
-                  checked={assistantDoubleConfirmationEnabled}
-                  onChange={() => setAssistantDoubleConfirmationEnabled(!assistantDoubleConfirmationEnabled)}
-                  title={assistantDoubleConfirmationEnabled ? 'Desativar revisão dupla' : 'Ativar revisão dupla'}
                 />
               </SettingRow>
             </div>

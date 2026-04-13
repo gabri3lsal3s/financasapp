@@ -1,7 +1,5 @@
 import { useEffect } from 'react'
 import { flushOfflineQueue } from '@/utils/offlineQueue'
-import { flushAssistantOfflineQueue } from '@/utils/assistantOfflineQueue'
-
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 export default function OfflineSyncManager() {
@@ -12,7 +10,6 @@ export default function OfflineSyncManager() {
 
     const runSync = () => {
       flushOfflineQueue()
-      flushAssistantOfflineQueue()
     }
 
     runSync()

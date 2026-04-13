@@ -1,8 +1,6 @@
-import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { useAppSettings } from '@/hooks/useAppSettings'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
@@ -23,15 +21,8 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
-import { runAssistantPrivacyCleanup } from '@/utils/assistantPrivacy'
 
 function App() {
-  const { assistantDataRetentionDays } = useAppSettings()
-
-  useEffect(() => {
-    runAssistantPrivacyCleanup(assistantDataRetentionDays)
-  }, [assistantDataRetentionDays])
-
   return (
     <AuthProvider>
       <ThemeProvider>

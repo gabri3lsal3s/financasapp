@@ -1,0 +1,6 @@
+
+> minhas-financas@1.0.0 build
+> tsc && vite build
+
+src/components/OfflineSyncManager.tsx(3,44): error TS2307: Cannot find module '@/utils/assistantOfflineQueue' or its corresponding type declarations.
+src/hooks/useAssistantOfflineSyncHistory.ts(6,8): error TS2307: Cannot find module '@/utils/assistantOfflineQueue' or its corresponding type declarations.
