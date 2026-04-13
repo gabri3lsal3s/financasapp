@@ -391,15 +391,15 @@ export default function Incomes() {
                   <Card
                     key={income.id}
                     onClick={() => handleOpenModal(income)}
-                    className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item ${staggerClass}`}
+                    className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col ${staggerClass}`}
                   >
-                    <div className="flex bg-primary">
+                    <div className="flex bg-primary flex-1 h-full">
                       <div
                         className="w-1 flex-shrink-0"
                         style={{ backgroundColor: categoryColor }}
                       />
                       <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-primary truncate flex items-center gap-2">
                               {income.description || category?.name || 'Renda'}
@@ -409,20 +409,20 @@ export default function Incomes() {
                                 </span>
                               )}
                             </p>
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-secondary truncate">
-                              <span className="truncate">{category?.name || 'Sem categoria'}</span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[12px] text-secondary leading-tight">
+                              <span className="font-medium">{category?.name || 'Sem categoria'}</span>
                             </div>
                           </div>
                           <div className="flex flex-col items-end flex-shrink-0">
                             {Math.abs(income.amount - (income.amount * (income.report_weight ?? 1))) > 0.009 && (
-                              <p className="text-xs text-secondary line-through opacity-70">
+                              <p className="text-[10px] text-secondary line-through opacity-70">
                                 {formatCurrency(income.amount)}
                               </p>
                             )}
                             <p className="text-base font-bold text-primary leading-tight">
                               {formatCurrency(income.amount * (income.report_weight ?? 1))}
                             </p>
-                            <p className="text-xs text-secondary mt-1 uppercase tracking-tight font-medium">
+                            <p className="text-[11px] text-secondary mt-1 uppercase tracking-tight font-medium opacity-80">
                               {formatDate(income.date)}
                             </p>
                           </div>

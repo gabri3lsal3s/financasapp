@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format, addMonths } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -15,7 +16,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Expense } from '@/types'
-import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { resolveBillCompetence } from '@/utils/creditCardBilling'
 import MonthSelector from '@/components/MonthSelector'
@@ -320,15 +321,15 @@ export default function Expenses() {
       <Card
         key={expense.id}
         onClick={() => handleOpenModal(expense)}
-        className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item ${staggerClass}`}
+        className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col ${staggerClass}`}
       >
-        <div className="flex bg-primary">
+        <div className="flex bg-primary flex-1 h-full">
           <div
             className="w-1 flex-shrink-0"
             style={{ backgroundColor: categoryColor }}
           />
           <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-primary truncate flex items-center gap-2">
                   {expense.description || expense.category?.name || 'Despesa'}
@@ -338,57 +339,64 @@ export default function Expenses() {
                     </span>
                   )}
                 </p>
-                <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-secondary truncate">
-                  <span className="truncate">{expense.category?.name || 'Sem categoria'}</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[12px] text-secondary leading-tight">
+                  <span className="font-medium">{expense.category?.name || 'Sem categoria'}</span>
                   {paymentLabel && paymentLabel !== 'Outros' && (
-                    <>
-                      <span className="opacity-30">•</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="opacity-30 flex-shrink-0">•</span>
                       <span className="truncate" style={{ color: getPaymentMethodColor(expense) }}>{paymentLabel}</span>
-                    </>
-                  )}
-                  {expense.payment_method === 'credit_card' && (
-                    <>
-                      <span className="opacity-30">•</span>
-                      <span className="truncate text-accent font-medium text-[11px] bg-accent/5 px-2 py-0.5 rounded-full border border-accent/10">
-                        {(() => {
-                          const competence = expense.bill_competence || (() => {
-                            const card = creditCards.find(c => c.id === expense.credit_card_id)
-                            const closingDay = card?.closing_day || 7
-                            return resolveBillCompetence(expense.date, closingDay)
-                          })()
-                          
-                          if (!competence) return ''
-                          const monthMap: Record<string, string> = {
-                            '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
-                            '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
-                            '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
-                          }
-                          const [_, m] = competence.split('-')
-                          return monthMap[m] || competence
-                        })()}
-                      </span>
-                    </>
-                  )}
-                  {isInstallment && (
-                    <>
-                      <span className="opacity-30">•</span>
-                      <span className="whitespace-nowrap">{expense.installment_number || 1}/{expense.installment_total}</span>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
               <div className="flex flex-col items-end flex-shrink-0">
                 {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
-                  <p className="text-xs text-secondary line-through opacity-70">
+                  <p className="text-[10px] text-secondary line-through opacity-70 mb-0.5">
                     {formatCurrency(expense.amount)}
                   </p>
                 )}
-                <p className="font-bold text-primary leading-tight">
-                  {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
-                </p>
-                <p className="text-xs text-secondary mt-1 uppercase tracking-tight font-medium">
-                  {formatDate(expense.date)}
-                </p>
+                <div className="flex items-center gap-2">
+                  {isInstallment && (
+                    <span className="text-[9px] font-bold text-secondary opacity-60 bg-secondary px-1 py-0.5 rounded border border-primary/10 tracking-tighter whitespace-nowrap">
+                      {expense.installment_number || 1}/{expense.installment_total}
+                    </span>
+                  )}
+                  <p className="text-base font-bold text-primary leading-tight">
+                    {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-1 text-[11px] text-secondary font-medium uppercase tracking-tight">
+                  {(() => {
+                    const competence = expense.bill_competence || (() => {
+                      const card = creditCards.find(c => c.id === expense.credit_card_id)
+                      const closingDay = card?.closing_day || 7
+                      return resolveBillCompetence(expense.date, closingDay)
+                    })()
+                    
+                    const isSameMonth = !competence || competence === expense.date.substring(0, 7)
+
+                    if (isSameMonth) {
+                      const [y, m, d] = expense.date.split('-')
+                      return <span className="opacity-80 whitespace-nowrap">{`${d}/${m}/${y}`}</span>
+                    }
+
+                    const monthMap: Record<string, string> = {
+                      '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+                      '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+                      '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+                    }
+                    const [_, m_comp] = competence.split('-')
+                    const monthName = monthMap[m_comp] || competence
+                    
+                    return (
+                      <>
+                        <span className="opacity-80 whitespace-nowrap">{format(new Date(expense.date + 'T12:00:00'), 'dd/MM')}</span>
+                        <span className="opacity-30 flex-shrink-0">•</span>
+                        <span className="text-accent lowercase first-letter:uppercase whitespace-nowrap">fatura {monthName}</span>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
           </div>
@@ -548,7 +556,7 @@ export default function Expenses() {
               {formData.credit_card_id && (
                 <div className="space-y-2">
                   <Select
-                    label="Fatura (Opcional)"
+                    label="Fatura (opcional)"
                     value={formData.bill_competence}
                     onChange={(e) => setFormData({ ...formData, bill_competence: e.target.value })}
                     options={[
@@ -561,16 +569,16 @@ export default function Expenses() {
                       for (let i = -1; i <= 1; i++) {
                         const d = addMonths(baseDate, i)
                         const competence = format(d, 'yyyy-MM')
-                        options.push({ value: competence, label: competence })
+                        const monthName = format(d, 'MMMM', { locale: ptBR })
+                        const label = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} (${format(d, 'MM')})`
+                        options.push({ value: competence, label })
                       }
                     }
                     return options
                       })()
                     ]}
                   />
-                  <p className="text-[10px] text-secondary">
-                    Use este campo para forçar a despesa em uma fatura específica. Se vazio, o sistema usará o dia de fechamento do cartão.
-                  </p>
+
                 </div>
               )}
             </>
@@ -588,11 +596,7 @@ export default function Expenses() {
             />
           )}
 
-          {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
-            <p className="text-xs text-secondary">
-              Esta despesa pertence ao parcelamento {editingExpense.installment_number || 1}/{editingExpense.installment_total}. A edição afeta apenas esta parcela.
-            </p>
-          )}
+
 
           <Select
             label="Categoria"
@@ -611,6 +615,13 @@ export default function Expenses() {
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             placeholder="Ex: Almoço, Uber..."
           />
+
+
+          {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
+            <p className="text-xs text-secondary italic bg-secondary/50 p-2 rounded-lg border border-primary/5 mb-4">
+              Esta despesa pertence ao parcelamento {editingExpense.installment_number || 1}/{editingExpense.installment_total}. A edição afeta apenas esta parcela.
+            </p>
+          )}
 
           <ModalActionFooter
             onCancel={handleCloseModal}

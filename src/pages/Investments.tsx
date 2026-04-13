@@ -198,12 +198,12 @@ export default function Investments() {
                   <Card
                     key={inv.id}
                     onClick={() => handleOpenModal(inv)}
-                    className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item ${staggerClass}`}
+                    className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col ${staggerClass}`}
                   >
-                    <div className="flex bg-primary">
-                      <div className="w-1 flex-shrink-0 bg-primary" />
+                    <div className="flex bg-primary flex-1 h-full">
+                      <div className="w-1 flex-shrink-0 bg-[#10b981]" />
                       <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-primary truncate flex items-center gap-2">
                               {inv.description || 'Investimento'}
@@ -213,16 +213,19 @@ export default function Investments() {
                                 </span>
                               )}
                             </p>
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-secondary truncate">
-                              <span className="truncate">Investimento</span>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[12px] text-secondary leading-tight">
+                              <span className="font-medium text-[#10b981]">Investimento</span>
                             </div>
                           </div>
                           <div className="flex flex-col items-end flex-shrink-0">
                             <p className="text-base font-bold text-primary leading-tight">
                               {formatCurrency(inv.amount)}
                             </p>
-                            <p className="text-xs text-secondary mt-1 uppercase tracking-tight font-medium">
-                              {formatMonth(inv.month)}
+                            <p className="text-[11px] text-secondary mt-1 tracking-tight font-medium opacity-80">
+                              {(() => {
+                                const formatted = formatMonth(inv.month)
+                                return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+                              })()}
                             </p>
                           </div>
                         </div>
