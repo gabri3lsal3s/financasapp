@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 
-type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits'
+type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits' | 'income_category_month_expectations'
 type QueueAction = 'create' | 'update' | 'delete'
 
 interface OfflineQueueItem {
@@ -196,6 +196,8 @@ async function processOne(item: OfflineQueueItem) {
 
     if (item.entity === 'expense_category_month_limits') {
       query = query.eq('category_id', payloadToUpdate.category_id).eq('month', payloadToUpdate.month)
+    } else if (item.entity === 'income_category_month_expectations') {
+      query = query.eq('income_category_id', payloadToUpdate.income_category_id).eq('month', payloadToUpdate.month)
     } else {
       query = query.eq('id', item.recordId)
     }
@@ -213,6 +215,8 @@ async function processOne(item: OfflineQueueItem) {
     let deleteQuery = supabase.from(item.entity).delete()
     if (item.entity === 'expense_category_month_limits' && item.payload) {
       deleteQuery = deleteQuery.eq('category_id', item.payload.category_id).eq('month', item.payload.month)
+    } else if (item.entity === 'income_category_month_expectations' && item.payload) {
+      deleteQuery = deleteQuery.eq('income_category_id', item.payload.income_category_id).eq('month', item.payload.month)
     } else {
       deleteQuery = deleteQuery.eq('id', item.recordId)
     }

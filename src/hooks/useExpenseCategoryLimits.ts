@@ -4,8 +4,10 @@ import { ExpenseCategoryMonthLimit } from '@/types'
 import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function useExpenseCategoryLimits(month: string) {
+  const { user } = useAuth()
   const { isOnline } = useNetworkStatus()
   const [limits, setLimits] = useState<ExpenseCategoryMonthLimit[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +80,7 @@ export function useExpenseCategoryLimits(month: string) {
         category_id: categoryId,
         month,
         limit_amount: amount,
+        user_id: user?.id,
       }
 
       const { data, error: upsertError } = await supabase
@@ -115,6 +118,7 @@ export function useExpenseCategoryLimits(month: string) {
           category_id: categoryId,
           month,
           limit_amount: amount,
+          user_id: user?.id,
         }
 
         enqueueOfflineOperation({

@@ -10,6 +10,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -22,9 +23,18 @@ export default function Login() {
 
     try {
       setError('');
+      setWarning('');
       setLoading(true);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      
+      if (error) {
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+          setWarning('Seu email ainda não foi confirmado. Por favor, verifique sua caixa de entrada e clique no link de confirmação enviado pelo Supabase. Caso não encontre, verifique a pasta de spam.');
+          return;
+        }
+        throw error;
+      }
+      
       sessionStorage.setItem('minhas_financas:login_bypass', 'true');
       navigate('/');
     } catch (err: any) {
@@ -50,6 +60,13 @@ export default function Login() {
           <div className="flex items-center space-x-2 rounded-md bg-[var(--color-danger)]/10 p-4 text-[var(--color-danger)]">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
             <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        {warning && (
+          <div className="flex items-center space-x-2 rounded-md bg-[var(--color-warning)]/10 p-4 text-[var(--color-warning)] border border-[var(--color-warning)]/20 animate-surface-enter">
+            <Mail className="h-5 w-5 flex-shrink-0" />
+            <p className="text-sm font-medium">{warning}</p>
           </div>
         )}
 

@@ -522,6 +522,23 @@ export default function CreditCards() {
       })),
     )
 
+    // Pós-processamento para garantir que estornos (registrados na tabela de pagamentos)
+    // reduzam o valor previsto da fatura em vez de aumentar o "total pago".
+    Object.entries(paymentsByCardItems).forEach(([cardId, items]) => {
+      let refundTotal = 0
+      items.forEach(item => {
+        const { isRefund } = parseRefundNote(item.note)
+        if (isRefund) {
+          refundTotal += Math.abs(item.amount)
+        }
+      })
+
+      if (refundTotal > 0) {
+        summarizedBill.expensesByCard[cardId] = Number((summarizedBill.expensesByCard[cardId] || 0) - refundTotal)
+        summarizedBill.paymentsByCard[cardId] = Number((summarizedBill.paymentsByCard[cardId] || 0) - refundTotal)
+      }
+    })
+
     return {
       expensesByCard: summarizedBill.expensesByCard,
       paymentsByCard: summarizedBill.paymentsByCard,

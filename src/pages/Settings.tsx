@@ -15,16 +15,18 @@ import {
   registerBiometric,
   removeBiometricCredential,
 } from '@/utils/biometric'
-import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2 } from 'lucide-react'
+import Modal from '@/components/Modal'
+import Input from '@/components/Input'
 
 
 
 
-type SettingsView = 'appearance' | 'personalization' | 'security' | 'admin'
+type SettingsView = 'appearance' | 'security' | 'admin'
 
 const parseSettingsView = (value: string | null, isAdmin: boolean): SettingsView => {
   if (value === 'admin' && isAdmin) return 'admin'
-  if (value === 'appearance' || value === 'personalization' || value === 'security') {
+  if (value === 'appearance' || value === 'security') {
     return value
   }
   return 'appearance'
@@ -153,6 +155,11 @@ export default function Settings() {
     setBiometricRegistered(isBiometricRegistered())
   }, [])
 
+  // Account deletion state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+
   const {
     floatingCalculatorEnabled,
     setFloatingCalculatorEnabled,
@@ -186,6 +193,32 @@ export default function Settings() {
     removeBiometricCredential()
     setBiometricRegistered(false)
     setBiometricStatus({ type: 'success', message: 'Biometria removida deste dispositivo.' })
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!user || deleteConfirmationText !== 'DELETAR') return
+
+    setDeletingAccount(true)
+    try {
+      // 1. Chamar o RPC para excluir o usuário (deve ser configurado no Supabase pelo ADM primeiro)
+      const { error } = await supabase.rpc('delete_own_account')
+
+      if (error) throw error
+
+      // 2. Se o RPC funcionou, limpar caches locais e sair
+      localStorage.clear() // Limpa tudo inclusive queues e temas
+      await supabase.auth.signOut()
+
+      // 3. Redirecionar será automático pelo ProtectedRoute ao perder a sessão
+      alert('Sua conta e todos os dados foram excluídos permanentemente.')
+    } catch (err: any) {
+      console.error('Error deleting account:', err)
+      alert(`Erro ao excluir conta: ${err.message || 'Verifique se a função do banco de dados foi configurada.'}`)
+    } finally {
+      setDeletingAccount(false)
+      setIsDeleteModalOpen(false)
+      setDeleteConfirmationText('')
+    }
   }
 
   const ToggleSwitch = ({
@@ -238,7 +271,7 @@ export default function Settings() {
 
         {/* Navigation */}
         <Card className="animate-stagger-item delay-50">
-          <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'} gap-2`}>
+          <div className={`grid ${isAdmin ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2'} gap-2`}>
             <Button
               type="button"
               variant={activeSettingsView === 'appearance' ? 'primary' : 'outline'}
@@ -246,14 +279,6 @@ export default function Settings() {
               className="flex items-center justify-center gap-2 w-full truncate"
             >
               <Sparkles size={16} className="min-w-[16px]" /> <span className="hidden xs:inline sm:inline">Aparência</span>
-            </Button>
-            <Button
-              type="button"
-              variant={activeSettingsView === 'personalization' ? 'primary' : 'outline'}
-              onClick={() => updateSettingsView('personalization')}
-              className="flex items-center justify-center gap-2 w-full truncate"
-            >
-              <SlidersHorizontal size={16} className="min-w-[16px]" /> <span className="hidden xs:inline sm:inline">Personalização</span>
             </Button>
             <Button
               type="button"
@@ -389,14 +414,6 @@ export default function Settings() {
           </div>
           <ThemeSwitcher />
           <ColorPaletteSwitcher />
-        </section>
-
-        {/* Personalização */}
-        <section className={activeSettingsView === 'personalization' ? 'space-y-4' : 'hidden'}>
-          <div>
-            <h2 className="text-xl font-semibold text-primary mb-1">Personalização</h2>
-            <p className="text-secondary text-sm">Ajuste preferências de experiência e recursos visuais</p>
-          </div>
 
           <Card className="animate-stagger-item delay-100">
             <div className="space-y-5">
@@ -542,10 +559,103 @@ export default function Settings() {
               )}
             </div>
           </Card>
+          {!isAdmin && (
+            <div className="animate-stagger-item delay-200 mt-6">
+              <div className="flex items-center gap-2 mb-3 text-[var(--color-danger)]">
+                <AlertTriangle size={18} />
+                <h3 className="text-base font-bold uppercase tracking-wider">Zona de Perigo</h3>
+              </div>
+
+              <Card className="border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5">
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className="text-base font-semibold text-primary">Excluir minha conta</h4>
+                      <p className="text-sm text-secondary mt-1">
+                        Esta ação apagará <strong>todos</strong> os seus dados (lançamentos, cartões, categorias e conta) permanentemente. Não há como desfazer.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsDeleteModalOpen(true)}
+                      className="text-[var(--color-danger)] border-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 flex items-center gap-2 justify-center"
+                    >
+                      <Trash2 size={16} />
+                      Excluir Conta
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
         </section>
 
-
       </div>
+
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => !deletingAccount && setIsDeleteModalOpen(false)}
+        title="Confirmar exclusão de conta"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger)]/10 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-[var(--color-danger)] flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-primary">
+                <p className="font-bold">Atenção!</p>
+                <p className="mt-1">
+                  Você está prestes a excluir permanentemente sua conta e todos os dados associados a ela.
+                  Esta ação é irreversível.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm text-primary leading-relaxed">
+              Para confirmar que deseja prosseguir com a exclusão total dos seus dados, digite <strong className="text-[var(--color-danger)]">DELETAR</strong> no campo abaixo:
+            </p>
+
+            <Input
+              value={deleteConfirmationText}
+              onChange={(e) => setDeleteConfirmationText(e.target.value.toUpperCase())}
+              placeholder="Digite DELETAR aqui"
+              autoFocus
+              disabled={deletingAccount}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              variant="primary"
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmationText !== 'DELETAR' || deletingAccount}
+              className="bg-[var(--color-danger)] hover:bg-[var(--color-danger)]/90 text-white w-full py-3 flex items-center justify-center gap-2"
+            >
+              {deletingAccount ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Excluindo...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 size={18} />
+                  <span>Sim, excluir minha conta permanentemente</span>
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={deletingAccount}
+              className="w-full"
+            >
+              Cancelar e voltar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

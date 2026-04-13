@@ -375,7 +375,7 @@ export type OfficialInvoiceItem = {
 
 const isInvoicePaymentDescription = (value: string) => {
   const text = normalize(value)
-  return /pagamento\s+de\s+fatura|pagamento\s+fatura|pagto\s+fatura|payment\s+of\s+invoice|payment\s+invoice/.test(text)
+  return /(?:pagamento|pagto|payment|recebimento|deposito)\s+(?:de\s+)?(?:fatura|invoice|conta|cartao)|pagamentos\s+validos\s+normais|automatic\s+payment|pagamento\s+efetuado/i.test(text)
 }
 
 const isRefundDescription = (value: string) => {
@@ -385,7 +385,7 @@ const isRefundDescription = (value: string) => {
 
 const isInvoicePaymentRow = (values: string[]) => {
   const fullText = normalize(values.join(' '))
-  return /pagamento\s+de\s+fatura|pagamento\s+fatura|pagto\s+fatura|payment\s+of\s+invoice|payment\s+invoice/.test(fullText)
+  return /(?:pagamento|pagto|payment|recebimento|deposito)\s+(?:de\s+)?(?:fatura|invoice|conta|cartao)|pagamentos\s+validos\s+normais|automatic\s+payment|pagamento\s+efetuado/i.test(fullText)
 }
 
 const isRefundByTransactionType = (value: string) => {

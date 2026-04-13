@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { IncomeCategoryMonthExpectation } from '@/types'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function useIncomeCategoryExpectations(month: string) {
+  const { user } = useAuth()
   const [expectations, setExpectations] = useState<IncomeCategoryMonthExpectation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -50,6 +52,7 @@ export function useIncomeCategoryExpectations(month: string) {
         income_category_id: incomeCategoryId,
         month,
         expectation_amount: amount,
+        user_id: user?.id,
       }
 
       const { data, error: upsertError } = await supabase
