@@ -10,6 +10,7 @@ import Select from '@/components/Select'
 import Loader from '@/components/Loader'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
+import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
@@ -19,7 +20,7 @@ import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/c
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -61,10 +62,12 @@ const getPaymentMethodColor = (expense: Expense) => {
 }
 
 export default function Expenses() {
+  const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
-  const { categories } = useCategories()
+  const { categories, loading: categoriesLoading } = useCategories()
+  const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
   const { creditCards } = useCreditCards()
   const { colorPalette } = usePaletteColors()
   const assignedCategories = assignUniquePaletteColors(categories, colorPalette)
@@ -86,6 +89,13 @@ export default function Expenses() {
   })
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
+
+  useEffect(() => {
+    const isReady = !loading && !categoriesLoading && !incomeCategoriesLoading
+    if (isReady && categories.length === 0 && incomeCategories.length === 0) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [loading, categoriesLoading, incomeCategoriesLoading, categories.length, incomeCategories.length, navigate])
 
   useEffect(() => {
     const month = searchParams.get('month')

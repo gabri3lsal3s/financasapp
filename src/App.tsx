@@ -18,6 +18,7 @@ import Settings from './pages/Settings'
 import CategoriesHome from './pages/CategoriesHome'
 import Categories from './pages/Categories'
 import IncomeCategories from './pages/IncomeCategories'
+import OnboardingCategories from './pages/OnboardingCategories'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -32,8 +33,8 @@ function App() {
   }, [assistantDataRetentionDays])
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <SupabaseWarning />
           <NetworkStatusToast />
@@ -56,6 +57,7 @@ function App() {
                     <Route path="/expense-categories" element={<Categories />} />
                     <Route path="/incomes" element={<Incomes />} />
                     <Route path="/income-categories" element={<IncomeCategories />} />
+                    <Route path="/onboarding" element={<OnboardingCategories />} />
                     <Route path="/investments" element={<Investments />} />
                     <Route path="/credit-cards" element={<CreditCards />} />
                     <Route path="/reports" element={<Reports />} />
@@ -66,8 +68,8 @@ function App() {
             } />
           </Routes>
         </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   )
 }
 

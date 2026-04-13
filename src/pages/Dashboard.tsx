@@ -8,6 +8,7 @@ import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useInvestments } from '@/hooks/useInvestments'
+import { useNavigate } from 'react-router-dom'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
@@ -152,8 +153,8 @@ export default function Dashboard() {
     })
   }
   const { colorPalette } = usePaletteColors()
-  const { categories } = useCategories()
-  const { incomeCategories } = useIncomeCategories()
+  const { categories, loading: categoriesLoading } = useCategories()
+  const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
   const { creditCards } = useCreditCards()
   const { expenses, loading: expensesLoading, refreshExpenses, createExpense } = useExpenses(currentMonth)
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
@@ -162,6 +163,15 @@ export default function Dashboard() {
   const { investments, loading: investmentsLoading, refreshInvestments, createInvestment } = useInvestments(currentMonth)
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
+  
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const isReady = !expensesLoading && !incomesLoading && !investmentsLoading && !categoriesLoading && !incomeCategoriesLoading
+    if (isReady && categories.length === 0 && incomeCategories.length === 0) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [expensesLoading, incomesLoading, investmentsLoading, categoriesLoading, incomeCategoriesLoading, categories.length, incomeCategories.length, navigate])
 
   const expenseAmountForDashboard = (amount: number, reportWeight?: number | null) =>
     amount * (reportWeight ?? 1)
@@ -427,6 +437,8 @@ export default function Dashboard() {
       return () => clearTimeout(timer)
     }
   }, [loading, insightsLoading, isMonthTransitioning, monthlyInsightsEnabled])
+
+
 
   const prioritizedExpenseCategoryItems = useMemo(() => {
     return expenseByCategory

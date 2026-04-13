@@ -9,6 +9,7 @@ import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { useIncomes } from '@/hooks/useIncomes'
+import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
@@ -30,7 +31,8 @@ export default function Incomes() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
-  const { incomeCategories } = useIncomeCategories()
+  const { categories, loading: categoriesLoading } = useCategories()
+  const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
   const { colorPalette } = usePaletteColors()
   const assignedIncomeCategories = assignUniquePaletteColors(incomeCategories, colorPalette)
   const incomeCategoryColorMap: Record<string, string> = {}
@@ -50,6 +52,13 @@ export default function Incomes() {
   const { isOnline } = useNetworkStatus()
   const [refundOriginLoading, setRefundOriginLoading] = useState(false)
   const [refundOrigin, setRefundOrigin] = useState<{ cardId: string; cardName: string; competence: string } | null>(null)
+
+  useEffect(() => {
+    const isReady = !loading && !categoriesLoading && !incomeCategoriesLoading
+    if (isReady && categories.length === 0 && incomeCategories.length === 0) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [loading, categoriesLoading, incomeCategoriesLoading, categories.length, incomeCategories.length, navigate])
 
   const isRefundIncome = (income: Income | null) =>
     [REFUND_INCOME_CATEGORY_NAME, LEGACY_REFUND_INCOME_CATEGORY_NAME].includes(

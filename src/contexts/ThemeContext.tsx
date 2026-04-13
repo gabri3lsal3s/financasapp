@@ -1,5 +1,6 @@
-import { useState, useEffect, ReactNode } from 'react'
+import { useState, useEffect, ReactNode, useCallback } from 'react'
 import { ThemeContext } from '@/contexts/themeSharedContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 export type Theme = 'mono-light' | 'mono-dark'
 export type ColorPalette = 'vivid' | 'monochrome'
@@ -40,34 +41,13 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>('mono-dark')
   const [colorPalette, setColorPaletteState] = useState<ColorPalette>('vivid')
+  const { user } = useAuth()
 
-  // Carregar tema e paleta do localStorage ao montar
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme')
-    const savedPalette = localStorage.getItem('colorPalette')
-
-    const hasValidTheme = isTheme(savedTheme)
-    const normalizedPalette = normalizePalette(savedPalette)
-    const hasValidPalette = normalizedPalette !== null
-
-    const initialTheme: Theme = hasValidTheme ? savedTheme : 'mono-dark'
-    const initialPalette: ColorPalette = hasValidPalette ? normalizedPalette : 'vivid'
-
-    if (!hasValidTheme) {
-      localStorage.setItem('theme', initialTheme)
-    }
-
-    if (!hasValidPalette) {
-      localStorage.setItem('colorPalette', initialPalette)
-    }
-
-    setThemeState(initialTheme)
-    setColorPaletteState(initialPalette)
-    applyTheme(initialTheme, initialPalette)
-  }, [])
+  const themeKey = user?.id ? `theme_${user.id}` : 'theme'
+  const paletteKey = user?.id ? `colorPalette_${user.id}` : 'colorPalette'
 
   // Aplicar tema ao documento
-  const applyTheme = (newTheme: Theme, newPalette: ColorPalette) => {
+  const applyTheme = useCallback((newTheme: Theme, newPalette: ColorPalette) => {
     const root = document.documentElement
 
     // Remover todas as classes de tema
@@ -152,7 +132,33 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     root.style.setProperty('--ds-color-data-income', paletteVars.income)
     root.style.setProperty('--ds-color-data-expense', paletteVars.expense)
     root.style.setProperty('--ds-color-data-balance', paletteVars.balance)
-  }
+  }, [])
+
+  // Carregar tema e paleta do localStorage ao montar e sempre que trocar de usuário
+  useEffect(() => {
+    const savedTheme = localStorage.getItem(themeKey)
+    const savedPalette = localStorage.getItem(paletteKey)
+
+    const hasValidTheme = isTheme(savedTheme)
+    const normalizedPalette = normalizePalette(savedPalette)
+    const hasValidPalette = normalizedPalette !== null
+
+    const initialTheme: Theme = hasValidTheme ? savedTheme : 'mono-dark'
+    const initialPalette: ColorPalette = hasValidPalette ? normalizedPalette : 'vivid'
+
+    if (!hasValidTheme) {
+      localStorage.setItem(themeKey, initialTheme)
+    }
+
+    if (!hasValidPalette) {
+      localStorage.setItem(paletteKey, initialPalette)
+    }
+
+    setThemeState(initialTheme)
+    setColorPaletteState(initialPalette)
+    applyTheme(initialTheme, initialPalette)
+  }, [user?.id, themeKey, paletteKey, applyTheme])
+
 
   const setTheme = (newTheme: Theme) => {
     const root = document.documentElement
@@ -160,7 +166,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     setThemeState(newTheme)
     applyTheme(newTheme, colorPalette)
-    localStorage.setItem('theme', newTheme)
+    localStorage.setItem(themeKey, newTheme)
 
     setTimeout(() => {
       root.classList.remove('theme-transitioning')
@@ -173,7 +179,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     setColorPaletteState(newPalette)
     applyTheme(theme, newPalette)
-    localStorage.setItem('colorPalette', newPalette)
+    localStorage.setItem(paletteKey, newPalette)
 
     setTimeout(() => {
       root.classList.remove('theme-transitioning')

@@ -4,11 +4,14 @@ import { IncomeCategory } from '@/types'
 import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { useAuth } from '@/contexts/AuthContext'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
 const DEFAULT_CATEGORY_COLOR = '#9ca3af'
 
 export function useIncomeCategories() {
+  const { user } = useAuth()
+  const cacheKey = user?.id ? `income_categories-all-${user.id}` : 'income_categories-all'
   const { isOnline } = useNetworkStatus()
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,7 +48,6 @@ export function useIncomeCategories() {
   const loadIncomeCategories = async () => {
     try {
       setLoading(true)
-      const cacheKey = 'income_categories-all'
       const cached = await getCache<IncomeCategory[]>(cacheKey)
       if (cached) {
         setIncomeCategories(cached)
@@ -101,7 +103,7 @@ export function useIncomeCategories() {
         }
         setIncomeCategories((prev) => {
           const next = [...prev, offlineCategory].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-          setCache('income_categories-all', next).catch(console.error)
+          setCache(cacheKey, next).catch(console.error)
           return next
         })
         return { data: offlineCategory, error: null }
@@ -138,7 +140,7 @@ export function useIncomeCategories() {
           const next = prev
             .map((cat) => (cat.id === id ? { ...cat, ...updates } : cat))
             .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-          setCache('income_categories-all', next).catch(console.error)
+          setCache(cacheKey, next).catch(console.error)
           return next
         })
         return { data: { id, ...updates } as IncomeCategory, error: null }
@@ -226,7 +228,7 @@ export function useIncomeCategories() {
         })
         setIncomeCategories((prev) => {
           const next = prev.filter((cat) => cat.id !== id)
-          setCache('income_categories-all', next).catch(console.error)
+          setCache(cacheKey, next).catch(console.error)
           return next
         })
         return { error: null }

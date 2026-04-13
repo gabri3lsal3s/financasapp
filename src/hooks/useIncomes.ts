@@ -5,10 +5,12 @@ import { format } from 'date-fns'
 import { enqueueOfflineOperation, shouldQueueOffline, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { getCache, setCache } from '@/services/offlineCache'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { useAuth } from '@/contexts/AuthContext'
 import { APP_START_DATE } from '@/utils/format'
 
 
 export function useIncomes(month?: string) {
+  const { user } = useAuth()
   const { isOnline } = useNetworkStatus()
   const [incomes, setIncomes] = useState<Income[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,7 +78,7 @@ export function useIncomes(month?: string) {
       return b.created_at.localeCompare(a.created_at)
     })
 
-  const getCacheKey = () => `incomes-${month || 'all'}`
+  const getCacheKey = () => user?.id ? `incomes-${month || 'all'}-${user.id}` : `incomes-${month || 'all'}`
 
   const loadIncomes = async () => {
     try {

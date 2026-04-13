@@ -126,6 +126,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('offline-sync-queue');
+    localStorage.removeItem('offline-conflict-queue');
+    try {
+      const { clearCacheByKeyPrefix } = await import('@/services/offlineCache');
+      await clearCacheByKeyPrefix('');
+    } catch (e) {
+      console.error('Failed to clear offline cache:', e);
+    }
   };
 
   const refreshProfile = async () => {

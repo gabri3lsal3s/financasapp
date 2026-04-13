@@ -6,6 +6,7 @@ import { resolveBillCompetence, splitAmountIntoInstallments } from '@/utils/cred
 import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { useAuth } from '@/contexts/AuthContext'
 import { APP_START_DATE } from '@/utils/format'
 
 
@@ -114,6 +115,7 @@ const generateInstallmentPayloads = (
 }
 
 export function useExpenses(month?: string) {
+  const { user } = useAuth()
   const { isOnline } = useNetworkStatus()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
@@ -128,7 +130,7 @@ export function useExpenses(month?: string) {
     setLoading(true)
   }
 
-  const getCacheKey = () => `expenses-${month || 'all'}`
+  const getCacheKey = () => user?.id ? `expenses-${month || 'all'}-${user.id}` : `expenses-${month || 'all'}`
 
   useEffect(() => {
     loadExpenses()

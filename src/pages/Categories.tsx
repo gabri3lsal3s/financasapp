@@ -10,7 +10,7 @@ import Loader from '@/components/Loader'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
-import { getCategoryColorForPalette } from '@/utils/categoryColors'
+import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Trash2, RefreshCw } from 'lucide-react'
 
@@ -61,9 +61,9 @@ export default function Categories() {
         alert('Erro ao atualizar categoria: ' + error)
       }
     } else {
-      // Usa cor do design system (palette)
-      const paletteColor = getCategoryColorForPalette('var(--color-primary)', colorPalette)
-      const categoryData = { ...formData, color: paletteColor }
+      // Usa função de fallback determinística (hash do nome) p/ cor única vívida
+      const randomColor = generateCategoryColor(formData.name, 'vivid')
+      const categoryData = { ...formData, color: randomColor }
       const { error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
       if (!error) {
         handleCloseModal()

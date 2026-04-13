@@ -10,7 +10,7 @@ import Loader from '@/components/Loader'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { IncomeCategory } from '@/types'
-import { getCategoryColor, getCategoryColorForPalette } from '@/utils/categoryColors'
+import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Trash2, RefreshCw } from 'lucide-react'
 
@@ -59,8 +59,7 @@ export default function IncomeCategories() {
         alert('Erro ao atualizar categoria: ' + error)
       }
     } else {
-      const randomIndex = Math.floor(Math.random() * 20)
-      const randomColor = getCategoryColor(randomIndex, 'vivid')
+      const randomColor = generateCategoryColor(formData.name, 'vivid')
       const categoryData = { ...formData, color: randomColor }
 
       const { error } = await createIncomeCategory(categoryData as Omit<IncomeCategory, 'id' | 'created_at'>)
