@@ -72,7 +72,7 @@ const generateInstallmentPayloads = (
     const billCompetence =
       expense.bill_competence ||
       (expense.payment_method === 'credit_card' && expense.credit_card_id && resolveClosingDayForDate
-        ? resolveBillCompetence(singleExpenseDate, (comp) => resolveClosingDayForDate(singleExpenseDate))
+        ? resolveBillCompetence(singleExpenseDate, () => resolveClosingDayForDate(singleExpenseDate))
         : undefined)
 
     return [{
@@ -92,7 +92,6 @@ const generateInstallmentPayloads = (
 
   return installmentAmounts.map((installmentAmount, index) => {
     const installmentDate = format(addMonths(baseDate, index), 'yyyy-MM-dd')
-    const closingDayForDate = resolveClosingDayForDate?.(installmentDate)
     
     let billCompetence: string | undefined
     if (expense.bill_competence && expense.payment_method === 'credit_card') {
@@ -101,7 +100,7 @@ const generateInstallmentPayloads = (
       const startDate = new Date(year, month - 1, 1)
       billCompetence = format(addMonths(startDate, index), 'yyyy-MM')
     } else if (expense.payment_method === 'credit_card' && expense.credit_card_id && resolveClosingDayForDate) {
-      billCompetence = resolveBillCompetence(installmentDate, (comp) => resolveClosingDayForDate(installmentDate))
+      billCompetence = resolveBillCompetence(installmentDate, () => resolveClosingDayForDate(installmentDate))
     }
 
     return {
