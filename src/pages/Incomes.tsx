@@ -422,7 +422,7 @@ export default function Incomes() {
                             <p className="text-base font-bold text-primary leading-tight">
                               {formatCurrency(income.amount * (income.report_weight ?? 1))}
                             </p>
-                            <p className="text-[11px] text-secondary mt-1 uppercase tracking-tight font-medium opacity-80">
+                            <p className="text-[11px] text-secondary mt-1 tracking-tight font-medium opacity-80">
                               {formatDate(income.date)}
                             </p>
                           </div>

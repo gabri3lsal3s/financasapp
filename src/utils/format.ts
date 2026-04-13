@@ -109,12 +109,14 @@ export function formatDate(date: string | Date): string {
 export function formatMonth(month: string): string {
   const [year, monthNum] = month.split('-')
   const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
-  return dateFormat(date, "MMMM 'de' yyyy", { locale: ptBR })
+  const formatted = dateFormat(date, "MMMM 'de' yyyy", { locale: ptBR })
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
 export function formatMonthShort(month: string): string {
   const [year, monthNum] = month.split('-')
   const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
-  return dateFormat(date, 'MMM/yyyy', { locale: ptBR })
+  const formatted = dateFormat(date, 'MMM/yyyy', { locale: ptBR })
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 

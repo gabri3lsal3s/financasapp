@@ -365,7 +365,7 @@ export default function Expenses() {
                     {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-1 text-[11px] text-secondary font-medium uppercase tracking-tight">
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-1 text-[11px] text-secondary font-medium tracking-tight">
                   {(() => {
                     const competence = expense.bill_competence || (() => {
                       const card = creditCards.find(c => c.id === expense.credit_card_id)
@@ -392,7 +392,7 @@ export default function Expenses() {
                       <>
                         <span className="opacity-80 whitespace-nowrap">{format(new Date(expense.date + 'T12:00:00'), 'dd/MM')}</span>
                         <span className="opacity-30 flex-shrink-0">•</span>
-                        <span className="text-accent lowercase first-letter:uppercase whitespace-nowrap">fatura {monthName}</span>
+                        <span className="text-accent whitespace-nowrap">Fatura de {monthName}</span>
                       </>
                     )
                   })()}
