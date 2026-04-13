@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { addMonths, subMonths, format } from 'date-fns'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -562,6 +563,7 @@ export default function CreditCardCsvReconciliationPanel({
           credit_card_id: card.id,
           description: finalDescription,
           report_weight: 1,
+          bill_competence: currentMonth,
         })
 
         if (created.error) {
@@ -596,6 +598,9 @@ export default function CreditCardCsvReconciliationPanel({
             date: draft.date,
             payment_method: 'credit_card',
             credit_card_id: card.id,
+            installment_number: conflict.official.installmentNumber,
+            installment_total: conflict.official.installmentTotal,
+            bill_competence: currentMonth,
           })
 
           if (result.error) {
@@ -641,6 +646,7 @@ export default function CreditCardCsvReconciliationPanel({
   // 1. Estornos registrados (aparecem como pagamento, não como despesa normal no CSV)
   // 2. Itens de competência de meses adjacentes (carregados para análise de parcelas, não são desta fatura)
   // 3. Itens já conciliados (matched ou conflict) — garantia contra duplicação por data/valor idênticos
+  // 4. Itens com valor zero (não aparecem no CSV)
   const reconciledIds = new Set<string>([
     ...(reconciliation?.matched ?? []).map((item) => String(item.existing.id || '')),
     ...(reconciliation?.conflicts ?? []).map((item) => String(item.existing.id || '')),
@@ -648,6 +654,9 @@ export default function CreditCardCsvReconciliationPanel({
 
   const suspiciousItems = (reconciliation?.existingOnly ?? []).filter((item) => {
     if (item.category_id === '__refund_registered__') return false
+    const amount = Math.abs(Number(item.base_amount ?? item.amount ?? 0))
+    if (amount < 0.01) return false
+    
     // Exclui itens de meses adjacentes (bill_competence fora do mês atual)
     const competence = String(item.bill_competence || '')
     if (competence && competence !== currentMonth) return false
@@ -739,11 +748,11 @@ export default function CreditCardCsvReconciliationPanel({
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-50">
-              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Oficial (CSV)</p>
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Oficial (Fatura)</p>
               <p className="text-base font-bold text-primary">{formatCurrency(identifiedTotals?.officialTotal || 0)}</p>
             </div>
             <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-100">
-              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Identificado</p>
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Identificado (Base)</p>
               <p className="text-base font-bold text-primary">{formatCurrency(identifiedTotals?.identifiedTotal || 0)}</p>
             </div>
             <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-150">
@@ -1122,6 +1131,55 @@ export default function CreditCardCsvReconciliationPanel({
                             ⚠ Este lançamento está vinculado ao cartão mas não foi encontrado na fatura oficial.
                             Pode estar cadastrado com cartão incorreto ou com outra forma de pagamento.
                           </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Remover este item do cartão? Ele será mantido como despesa comum.')) return
+                                await updateExpense(item.id, { payment_method: 'other', credit_card_id: null, bill_competence: null })
+                                setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
+                              }}
+                              className="text-[10px] text-red-400 hover:underline"
+                            >
+                              Remover do cartão
+                            </button>
+                            <button
+                              onClick={() => {
+                                setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
+                              }}
+                              className="text-[10px] text-secondary hover:underline"
+                            >
+                              Ignorar
+                            </button>
+                            {(() => {
+                              const purchaseDay = new Date(item.date + 'T12:00:00').getDate()
+                              if (purchaseDay >= 25 || purchaseDay <= 10) {
+                                const targetMonthLabel = purchaseDay >= 25 ? 'próxima' : 'anterior'
+                                return (
+                                  <button
+                                    onClick={async () => {
+                                      const baseDate = new Date(item.date + 'T12:00:00')
+                                      const newMonth = format(addMonths(baseDate, purchaseDay >= 25 ? 1 : -1), 'yyyy-MM')
+                                      
+                                      const confirmed = confirm(`Mover este lançamento para a fatura de ${newMonth}?`)
+                                      if (confirmed) {
+                                        const result = await updateExpense(item.id, { bill_competence: newMonth })
+                                        if (result.error) {
+                                          alert(`Erro ao mover: ${result.error}`)
+                                        } else {
+                                          setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
+                                          await onReloadBillData() // Recarrega para refletir a mudança
+                                        }
+                                      }
+                                    }}
+                                    className="text-[10px] text-blue-400 hover:underline"
+                                  >
+                                    Mover para fatura {targetMonthLabel}?
+                                  </button>
+                                )
+                              }
+                              return null
+                            })()}
+                          </div>
                         </div>
                       </div>
 

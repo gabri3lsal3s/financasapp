@@ -69,11 +69,11 @@ const generateInstallmentPayloads = (
 
   if (installmentTotal <= 1) {
     const singleExpenseDate = expense.date || format(new Date(), 'yyyy-MM-dd')
-    const closingDayForDate = resolveClosingDayForDate?.(singleExpenseDate)
     const billCompetence =
-      expense.payment_method === 'credit_card' && expense.credit_card_id && Number.isFinite(closingDayForDate)
-        ? resolveBillCompetence(singleExpenseDate, Number(closingDayForDate))
-        : undefined
+      expense.bill_competence ||
+      (expense.payment_method === 'credit_card' && expense.credit_card_id && resolveClosingDayForDate
+        ? resolveBillCompetence(singleExpenseDate, (comp) => resolveClosingDayForDate(singleExpenseDate))
+        : undefined)
 
     return [{
       amount: expense.amount,
@@ -93,10 +93,16 @@ const generateInstallmentPayloads = (
   return installmentAmounts.map((installmentAmount, index) => {
     const installmentDate = format(addMonths(baseDate, index), 'yyyy-MM-dd')
     const closingDayForDate = resolveClosingDayForDate?.(installmentDate)
-    const billCompetence =
-      expense.payment_method === 'credit_card' && expense.credit_card_id && Number.isFinite(closingDayForDate)
-        ? resolveBillCompetence(installmentDate, Number(closingDayForDate))
-        : undefined
+    
+    let billCompetence: string | undefined
+    if (expense.bill_competence && expense.payment_method === 'credit_card') {
+      // Se tiver competência manual, as parcelas seguintes seguem a sequência
+      const [year, month] = expense.bill_competence.split('-').map(Number)
+      const startDate = new Date(year, month - 1, 1)
+      billCompetence = format(addMonths(startDate, index), 'yyyy-MM')
+    } else if (expense.payment_method === 'credit_card' && expense.credit_card_id && resolveClosingDayForDate) {
+      billCompetence = resolveBillCompetence(installmentDate, (comp) => resolveClosingDayForDate(installmentDate))
+    }
 
     return {
       amount: installmentAmount,
@@ -393,15 +399,21 @@ export function useExpenses(month?: string) {
           : existingExpense?.credit_card_id) || null
 
       if (effectivePaymentMethod === 'credit_card' && effectiveCreditCardId && effectiveDate) {
-        const competence = effectiveDate.substring(0, 7)
-        const closingDayContext = await fetchCardClosingDayContext(effectiveCreditCardId, [competence])
-        const effectiveClosingDay = closingDayContext.closingDayByCompetence[competence] || closingDayContext.defaultClosingDay
+        // Se a competência for fornecida explicitamente (update manual), preserva ela.
+        // Caso contrário, recalcula apenas se a data ou cartão mudarem e não houver bill_competence explícita no payload.
+        let finalCompetence = updatePayload.bill_competence
+
+        if (finalCompetence === undefined) {
+          const competence = effectiveDate.substring(0, 7)
+          const closingDayContext = await fetchCardClosingDayContext(effectiveCreditCardId, [competence])
+          finalCompetence = resolveBillCompetence(effectiveDate, (c) => closingDayContext.closingDayByCompetence[c] || closingDayContext.defaultClosingDay)
+        }
 
         updatePayload = {
           ...updatePayload,
           payment_method: 'credit_card',
           credit_card_id: effectiveCreditCardId,
-          bill_competence: resolveBillCompetence(effectiveDate, Number(effectiveClosingDay)),
+          bill_competence: finalCompetence,
         }
       } else {
         updatePayload = {

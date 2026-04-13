@@ -37,7 +37,7 @@ export default function Register() {
       if (error) throw error;
       setIsRegistered(true);
     } catch (err: any) {
-      if (err.message?.toLowerCase().includes('rate limit')) {
+      if (err.status === 429 || err.message?.toLowerCase().includes('rate limit')) {
         setError('Muitas tentativas em pouco tempo. Por favor, aguarde alguns minutos antes de tentar novamente.');
       } else {
         setError(err.message || 'Falha ao criar conta');

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
+import { format, addMonths } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -86,6 +86,7 @@ export default function Expenses() {
     credit_card_id: '',
     category_id: '',
     description: '',
+    bill_competence: '', // Novo: para override manual
   })
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
@@ -148,6 +149,7 @@ export default function Expenses() {
         credit_card_id: expense.credit_card_id || '',
         category_id: expense.category_id,
         description: expense.description || '',
+        bill_competence: expense.bill_competence || '',
       })
     } else {
       setEditingExpense(null)
@@ -160,6 +162,7 @@ export default function Expenses() {
         credit_card_id: '',
         category_id: categories[0]?.id || '',
         description: '',
+        bill_competence: '',
       })
     }
     setIsModalOpen(true)
@@ -177,6 +180,7 @@ export default function Expenses() {
       credit_card_id: '',
       category_id: categories[0]?.id || '',
       description: '',
+      bill_competence: '',
     })
   }
 
@@ -203,6 +207,7 @@ export default function Expenses() {
         credit_card_id: '',
         category_id: categories[0]?.id || '',
         description: '',
+        bill_competence: '',
       })
       setIsModalOpen(true)
 
@@ -252,6 +257,7 @@ export default function Expenses() {
       payment_method: formData.payment_method as Expense['payment_method'],
       credit_card_id: formData.payment_method === 'credit_card' ? formData.credit_card_id : null,
       category_id: formData.category_id,
+      bill_competence: formData.bill_competence || null,
       ...(formData.description && { description: formData.description }),
     }
 
@@ -337,6 +343,29 @@ export default function Expenses() {
                     <>
                       <span className="opacity-30">•</span>
                       <span className="truncate" style={{ color: getPaymentMethodColor(expense) }}>{paymentLabel}</span>
+                    </>
+                  )}
+                  {expense.payment_method === 'credit_card' && (
+                    <>
+                      <span className="opacity-30">•</span>
+                      <span className="truncate text-accent font-medium text-[11px] bg-accent/5 px-2 py-0.5 rounded-full border border-accent/10">
+                        {(() => {
+                          const competence = expense.bill_competence || (() => {
+                            const card = creditCards.find(c => c.id === expense.credit_card_id)
+                            const closingDay = card?.closing_day || 7
+                            return resolveBillCompetence(expense.date, closingDay)
+                          })()
+                          
+                          if (!competence) return ''
+                          const monthMap: Record<string, string> = {
+                            '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+                            '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+                            '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+                          }
+                          const [_, m] = competence.split('-')
+                          return monthMap[m] || competence
+                        })()}
+                      </span>
                     </>
                   )}
                   {isInstallment && (
@@ -501,18 +530,49 @@ export default function Expenses() {
           />
 
           {formData.payment_method === 'credit_card' && (
-            <Select
-              label="Cartão"
-              value={formData.credit_card_id}
-              onChange={(e) => setFormData({ ...formData, credit_card_id: e.target.value })}
-              options={[
-                { value: '', label: 'Selecionar cartão' },
-                ...creditCards
-                  .filter((card) => card.is_active !== false || card.id === formData.credit_card_id)
-                  .map((card) => ({ value: card.id, label: card.name })),
-              ]}
-              required
-            />
+            <>
+              <Select
+                label="Cartão"
+                value={formData.credit_card_id}
+                onChange={(e) => setFormData({ ...formData, credit_card_id: e.target.value })}
+                options={[
+                  { value: '', label: 'Selecionar cartão' },
+                  ...creditCards
+                    .filter((card) => card.is_active !== false || card.id === formData.credit_card_id)
+                    .map((card) => ({ value: card.id, label: card.name })),
+                ]}
+                required
+              />
+
+              {formData.credit_card_id && (
+                <div className="space-y-2">
+                  <Select
+                    label="Fatura (Opcional)"
+                    value={formData.bill_competence}
+                    onChange={(e) => setFormData({ ...formData, bill_competence: e.target.value })}
+                    options={[
+                      { value: '', label: 'Cálculo automático' },
+                      ...(() => {
+                    const baseDate = formData.date ? new Date(formData.date + 'T12:00:00') : null
+                    const options = []
+                    
+                    if (baseDate && !isNaN(baseDate.getTime())) {
+                      for (let i = -1; i <= 1; i++) {
+                        const d = addMonths(baseDate, i)
+                        const competence = format(d, 'yyyy-MM')
+                        options.push({ value: competence, label: competence })
+                      }
+                    }
+                    return options
+                      })()
+                    ]}
+                  />
+                  <p className="text-[10px] text-secondary">
+                    Use este campo para forçar a despesa em uma fatura específica. Se vazio, o sistema usará o dia de fechamento do cartão.
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           {!editingExpense && (

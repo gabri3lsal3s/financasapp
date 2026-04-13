@@ -28,11 +28,9 @@ export const resolveExpenseBillCompetence = (
   }
 
   const cardId = String(row.credit_card_id || '')
-  const competence = String(row.date || '').slice(0, 7)
-  const closingDay = resolveClosingDay(cardId, competence)
-  if (!Number.isFinite(closingDay)) return undefined
+  if (!cardId) return undefined
 
-  return resolveBillCompetence(String(row.date), Number(closingDay))
+  return resolveBillCompetence(String(row.date), (comp) => resolveClosingDay(cardId, comp))
 }
 
 export type BillPaymentItem = {
@@ -40,11 +38,19 @@ export type BillPaymentItem = {
   amount: number
 }
 
-export const resolveBillCompetence = (purchaseDate: string, closingDay: number) => {
+export const resolveBillCompetence = (
+  purchaseDate: string, 
+  closingDayOrResolver: number | ((competence: string) => number | undefined)
+) => {
   const parsedDate = new Date(`${purchaseDate}T12:00:00`)
   if (!Number.isFinite(parsedDate.getTime())) {
     return format(new Date(), 'yyyy-MM')
   }
+
+  const competenceByDate = format(parsedDate, 'yyyy-MM')
+  const closingDay = typeof closingDayOrResolver === 'function'
+    ? (closingDayOrResolver(competenceByDate) ?? 7)
+    : closingDayOrResolver
 
   const normalizedClosingDay = clampDay(closingDay)
   const referenceDate = parsedDate.getDate() >= normalizedClosingDay

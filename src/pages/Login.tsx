@@ -28,8 +28,8 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
-        if (error.message.toLowerCase().includes('email not confirmed')) {
-          setWarning('Seu email ainda não foi confirmado. Por favor, verifique sua caixa de entrada e clique no link de confirmação enviado pelo Supabase. Caso não encontre, verifique a pasta de spam.');
+        if (error.status === 429 || error.message.toLowerCase().includes('email not confirmed')) {
+          setWarning(error.status === 429 ? 'Muitas tentativas em pouco tempo. Por favor, aguarde alguns minutos.' : 'Seu email ainda não foi confirmado. Por favor, verifique sua caixa de entrada e clique no link de confirmação enviado pelo Supabase. Caso não encontre, verifique a pasta de spam.');
           return;
         }
         throw error;

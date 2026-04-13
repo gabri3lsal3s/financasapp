@@ -691,6 +691,8 @@ export const reconcileCreditCardBill = (
     const needsUpdate =
       Math.abs(currentAmount - nextAmount) > 0.009
       || best.existing.date !== official.date
+      || (official.installmentNumber !== null && official.installmentNumber !== best.existing.installment_number)
+      || (official.installmentTotal !== null && official.installmentTotal !== best.existing.installment_total)
 
     conflicts.push({
       official,

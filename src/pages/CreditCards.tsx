@@ -56,6 +56,7 @@ type PaymentItem = {
 type BillDataSnapshot = {
   expensesByCard: Record<string, number>
   paymentsByCard: Record<string, number>
+  baseExpensesByCard: Record<string, number>
   billItemsByCard: Record<string, BillExpenseItem[]>
   paymentItemsByCard: Record<string, PaymentItem[]>
   monthlyCyclesByCard: Record<string, MonthlyCycleRow>
@@ -175,6 +176,7 @@ export default function CreditCards() {
 
   const [expensesByCard, setExpensesByCard] = useState<Record<string, number>>({})
   const [paymentsByCard, setPaymentsByCard] = useState<Record<string, number>>({})
+  const [baseExpensesByCard, setBaseExpensesByCard] = useState<Record<string, number>>({})
   const [billItemsByCard, setBillItemsByCard] = useState<Record<string, BillExpenseItem[]>>({})
   const [paymentItemsByCard, setPaymentItemsByCard] = useState<Record<string, PaymentItem[]>>({})
   const [monthlyCyclesByCard, setMonthlyCyclesByCard] = useState<Record<string, MonthlyCycleRow>>({})
@@ -414,8 +416,7 @@ export default function CreditCards() {
       .from('expenses')
       .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
       .not('credit_card_id', 'is', null)
-      .gte('date', searchStartDate)
-      .lte('date', searchEndDate)
+      .or(`bill_competence.eq.${targetMonth},and(date.gte.${searchStartDate},date.lte.${searchEndDate})`)
 
     const resolveClosingDay = (cardId: string, competence: string) => {
       const monthlyClosing = cycleClosingByCardAndMonth[`${cardId}:${competence}`]
@@ -431,22 +432,32 @@ export default function CreditCards() {
         category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
       }
     }).filter((row) => {
+      // Se houver fatura manual ou definida em conciliação prévia, PRIORIZAMOS e respeitamos
+      if (row.bill_competence) {
+        (row as any).competence_source = 'manual'
+        return row.bill_competence === targetMonth
+      }
+
       const rowDate = String(row.date)
       const rowCardId = String(row.credit_card_id)
 
       const competenceByDate = rowDate.slice(0, 7)
       const closingDay = resolveClosingDay(rowCardId, competenceByDate)
 
-      let resolvedCompetence = row.bill_competence
-      // Recálculo dinâmico da fatura baseado no dia de fechamento vigente, 
-      // ignorando o "bill_competence" predefinido no BD (que seria obsoleto se o ciclo mudou)
+      let resolvedCompetence = null
+      let source = 'auto'
+      
+      // Recálculo dinâmico apenas se não houver fatura fixa definida
       if (Number.isFinite(closingDay)) {
         resolvedCompetence = resolveBillCompetence(rowDate, Number(closingDay))
-      } else if (!resolvedCompetence) {
+        source = 'cycle'
+      } else {
         resolvedCompetence = resolveExpenseBillCompetence(row as any, resolveClosingDay)
+        source = 'date'
       }
 
       row.bill_competence = resolvedCompetence
+      ;(row as any).competence_source = source
       return resolvedCompetence === targetMonth
     }).map((row) => {
       const baseAmount = Number(row.amount || 0)
@@ -478,11 +489,11 @@ export default function CreditCards() {
     const paymentsByCardItems = (paymentRows || []).reduce<Record<string, PaymentItem[]>>((accumulator, row) => {
       const cardId = String(row.credit_card_id || '')
       const rawNote = String(row.note || '')
-      const isRefund = Number(row.amount || 0) < 0 && rawNote.startsWith('[REFUND]')
+      const isRefund = rawNote.startsWith('[REFUND]') || Number(row.amount || 0) < 0
       const paymentDate = String(row.payment_date || '')
       let finalCompetence = String(row.bill_competence || targetMonth)
 
-      if (isRefund) {
+      if (isRefund && !row.bill_competence) {
         const closingDay = resolveClosingDay(cardId, paymentDate.slice(0, 7))
         if (Number.isFinite(closingDay)) {
           finalCompetence = resolveBillCompetence(paymentDate, Number(closingDay))
@@ -522,26 +533,49 @@ export default function CreditCards() {
       })),
     )
 
+    let totalRefundByCard: Record<string, number> = {}
+
     // Pós-processamento para garantir que estornos (registrados na tabela de pagamentos)
     // reduzam o valor previsto da fatura em vez de aumentar o "total pago".
     Object.entries(paymentsByCardItems).forEach(([cardId, items]) => {
       let refundTotal = 0
       items.forEach(item => {
         const { isRefund } = parseRefundNote(item.note)
-        if (isRefund) {
+        // Um estorno pode vir como valor positivo ou negativo no banco/app, 
+        // mas aqui queremos o valor absoluto para subtrair dos totais.
+        if (isRefund || item.amount < 0) {
           refundTotal += Math.abs(item.amount)
         }
       })
+      totalRefundByCard[cardId] = Number(refundTotal.toFixed(2))
+    })
 
-      if (refundTotal > 0) {
-        summarizedBill.expensesByCard[cardId] = Number((summarizedBill.expensesByCard[cardId] || 0) - refundTotal)
-        summarizedBill.paymentsByCard[cardId] = Number((summarizedBill.paymentsByCard[cardId] || 0) - refundTotal)
-      }
+    const finalExpensesByCard: Record<string, number> = {}
+    const finalPaymentsByCard: Record<string, number> = {}
+    const finalBaseExpensesByCard: Record<string, number> = {}
+
+    Object.keys(summarizedBill.expensesByCard).forEach(cardId => {
+      const refundAmt = totalRefundByCard[cardId] || 0
+      
+      // O Previsto deve ser o líquido (Gastos - Estornos)
+      finalExpensesByCard[cardId] = Number((summarizedBill.expensesByCard[cardId] - refundAmt).toFixed(2))
+      
+      // O Pago deve conter apenas pagamentos REAIS.
+      // Como o summarizedBill.paymentsByCard incluiu todos os registros da tabela de pagamentos 
+      // (incluindo estornos registrados como pagamentos de ajuste), precisamos SUBTRAIR o refundAmt 
+      // para isolar apenas o que foi pagamento de fatura real.
+      finalPaymentsByCard[cardId] = Number((summarizedBill.paymentsByCard[cardId] - refundAmt).toFixed(2))
+      
+      // Calcular base total (sem pesos)
+      const cardExpenses = summarizedBill.billItemsByCard[cardId] || []
+      const baseTotal = cardExpenses.reduce((sum, item) => sum + (item.base_amount || 0), 0)
+      finalBaseExpensesByCard[cardId] = Number((baseTotal - refundAmt).toFixed(2))
     })
 
     return {
-      expensesByCard: summarizedBill.expensesByCard,
-      paymentsByCard: summarizedBill.paymentsByCard,
+      expensesByCard: finalExpensesByCard,
+      paymentsByCard: finalPaymentsByCard,
+      baseExpensesByCard: finalBaseExpensesByCard,
       billItemsByCard: summarizedBill.billItemsByCard,
       paymentItemsByCard: paymentsByCardItems,
       monthlyCyclesByCard: currentMonthCycles,
@@ -618,6 +652,7 @@ export default function CreditCards() {
       const snapshot = await getBillDataSnapshot(currentMonth)
       setExpensesByCard(snapshot.expensesByCard)
       setPaymentsByCard(snapshot.paymentsByCard)
+      setBaseExpensesByCard(snapshot.baseExpensesByCard)
       setBillItemsByCard(snapshot.billItemsByCard)
       setPaymentItemsByCard(snapshot.paymentItemsByCard)
       setMonthlyCyclesByCard(snapshot.monthlyCyclesByCard)
@@ -1337,7 +1372,14 @@ export default function CreditCards() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="rounded-lg border border-primary bg-secondary p-3">
                         <p className="text-xs text-secondary">Total previsto</p>
-                        <p className="text-base font-semibold text-primary">{formatCurrency(totalPrevisto)}</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-base font-semibold text-primary">{formatCurrency(totalPrevisto)}</p>
+                          {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
+                            <p className="text-[10px] text-secondary opacity-70" title="Valor base sem pesos">
+                              ({formatCurrency(baseExpensesByCard[card.id])})
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="rounded-lg border border-primary bg-secondary p-3">
                         <p className="text-xs text-secondary">Total pago</p>
@@ -1518,9 +1560,16 @@ export default function CreditCards() {
                               >
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                   <div className="min-w-0">
-                                    <p className="text-sm font-medium text-primary truncate">
-                                      {item.description || (isRefund ? 'Estorno' : item.category_name || 'Despesa')}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-medium text-primary truncate">
+                                        {item.description || (isRefund ? 'Estorno' : item.category_name || 'Despesa')}
+                                      </p>
+                                      {(item as any).competence_source === 'manual' && (
+                                        <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-[9px] text-primary font-medium flex items-center gap-0.5" title="Definido manualmente">
+                                          <Check size={8} /> Fatura fixa
+                                        </span>
+                                      )}
+                                    </div>
                                     <p className="text-xs text-secondary mt-0.5">
                                       {formatDate(item.date)}
                                       {installmentLabel ? ` • ${installmentLabel}` : ''}
