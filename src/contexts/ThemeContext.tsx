@@ -54,9 +54,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [colorPalette, setColorPaletteState] = useState<ColorPalette>('vivid')
   const { user } = useAuth()
 
-  const themeKey = user?.id ? `theme_${user.id}` : 'theme'
-  const paletteKey = user?.id ? `colorPalette_${user.id}` : 'colorPalette'
-
   // Aplicar tema ao documento
   const applyTheme = useCallback((newTheme: Theme, newPalette: ColorPalette) => {
     const root = document.documentElement

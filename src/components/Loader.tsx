@@ -16,8 +16,7 @@ export default function Loader({ size = 24, className = '', text }: LoaderProps)
                 style={{ animationDuration: '1.2s' }}
             />
             {text && (
-                <div className="flex items-center gap-2 text-secondary text-sm animate-pulse">
-                    <Loader2 size={14} className="animate-spin" />
+                <div className="text-secondary text-sm animate-pulse">
                     <span>{text}</span>
                 </div>
             )}
