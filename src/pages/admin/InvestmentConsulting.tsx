@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Users, ArrowRight, UserPlus, FileText, Settings } from 'lucide-react';
@@ -180,7 +180,7 @@ export default function InvestmentConsulting() {
                           {client.email ? (
                             <p className="text-sm text-secondary font-black truncate opacity-40">{client.email}</p>
                           ) : (
-                            <p className="text-xs text-secondary/30 font-bold italic">Sem e-mail cadastrado</p>
+                            <p className="text-xs text-secondary/30 font-black italic">Sem e-mail cadastrado</p>
                           )}
                         </div>
                         

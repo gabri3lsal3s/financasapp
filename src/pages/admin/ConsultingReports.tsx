@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Download, Loader2, BarChart2, Briefcase, Calendar, Save, Percent, Calculator, Trash2, FileText, ArrowLeft, ArrowRight, TrendingUp } from 'lucide-react';
+import { Download, Loader2, BarChart2, Calendar, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp } from 'lucide-react';
 import Button from '@/components/Button';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import PageHeader from '@/components/PageHeader';
@@ -394,11 +394,11 @@ export default function ConsultingReports() {
                           <span className={`text-[10px] font-black uppercase tracking-widest ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary opacity-50'}`}>Situação Atual</span>
                           <div className="flex items-center gap-2">
                              <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></div>
-                             <span className="text-[10px] font-bold text-[#10b981] uppercase">Live</span>
+                             <span className="text-[10px] font-black text-[#10b981] uppercase">Live</span>
                           </div>
                        </div>
                        <p className="font-black text-primary text-xl tracking-tighter">Posição em Aberto</p>
-                       <p className="text-xs font-bold text-secondary opacity-60 mt-1">Dados não arquivados</p>
+                       <p className="text-xs font-black text-secondary opacity-60 mt-1">Dados não arquivados</p>
                        <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
                           <p className="text-sm font-black text-primary">{formatCurrency(liveTotal)}</p>
                           <ArrowRight size={16} className={`transition-all ${activeReportMode === 'live' ? 'translate-x-1 text-primary' : 'text-secondary opacity-20'}`} />
@@ -422,7 +422,7 @@ export default function ConsultingReports() {
 
                     {historyReports.length === 0 && (
                        <div className="text-center py-10 opacity-40">
-                          <p className="text-xs font-bold text-secondary uppercase italic">Nenhum registro</p>
+                          <p className="text-xs font-black text-secondary uppercase italic">Nenhum registro</p>
                        </div>
                     )}
                 </div>
@@ -435,7 +435,7 @@ export default function ConsultingReports() {
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                          <div>
                             <h2 className="text-3xl font-black text-primary tracking-tighter">Editor de Relatório</h2>
-                            <p className="text-secondary font-bold text-sm">Configurando emissão para <span className="text-primary">{activeReportData.month}</span></p>
+                            <p className="text-secondary font-black text-sm">Configurando emissão para <span className="text-primary">{activeReportData.month}</span></p>
                          </div>
                          <div className="flex gap-3">
                             {activeReportMode !== 'live' && (
@@ -497,7 +497,7 @@ export default function ConsultingReports() {
                                      {Object.values(tableA).map((row, idx) => (
                                         <tr key={idx} className="hover:bg-white/5 transition-colors group">
                                            <td className="p-4">
-                                              <span className={`text-sm font-black tracking-tight ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
+                                              <span className={`text-sm font-black tracking-tighter ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
                                                  {row.label}
                                               </span>
                                            </td>
@@ -595,10 +595,10 @@ export default function ConsultingReports() {
                                   <div className="border-b-[6px] mb-12 pb-8 flex justify-between items-end" style={{ borderBottomColor: '#000' }}>
                                      <div>
                                        <h1 className="text-5xl font-black tracking-tighter" style={{ color: '#000', marginBottom: '8px' }}>RELATÓRIO MENSAL</h1>
-                                       <p className="text-[14px] font-bold tracking-[0.4em]" style={{ color: '#888' }}>GESTAO DE ALOCAÇÃO PATRIMONIAL</p>
+                                       <p className="text-[14px] font-black tracking-[0.4em]" style={{ color: '#888' }}>GESTAO DE ALOCAÇÃO PATRIMONIAL</p>
                                      </div>
                                      <div className="text-right">
-                                        <p className="text-2xl font-black tracking-tight" style={{ color: '#000', textTransform: 'uppercase' }}>{selectedClientName}</p>
+                                        <p className="text-2xl font-black tracking-tighter" style={{ color: '#000', textTransform: 'uppercase' }}>{selectedClientName}</p>
                                         <p style={{color: '#888', fontSize: '12px', fontWeight: '900', letterSpacing: '0.1em'}}>{activeReportData.month.split('-').reverse().join(' / ')}</p>
                                      </div>
                                   </div>
@@ -662,7 +662,7 @@ export default function ConsultingReports() {
 
                                            return (
                                               <tr key={idx} style={{ backgroundColor: row.label === 'Consolidada' ? '#fafafa' : 'transparent', fontWeight: row.label==='Consolidada'?'900':'normal' }}>
-                                                 <td className="p-4 border border-[#eee] font-bold">{row.label}</td>
+                                                 <td className="p-4 border border-[#eee] font-black">{row.label}</td>
                                                  <td className="p-4 border border-[#eee] text-center">
                                                     <span className="font-black" style={{fontSize: '13px'}}>{row.rentMês}%</span> <span style={{fontSize: '9px', color: '#999', display: 'block'}}>{row.benchMês}</span>
                                                  </td>
@@ -730,7 +730,7 @@ export default function ConsultingReports() {
                                         {planning.map((p, idx) => (
                                            <tr key={idx}>
                                               <td className="p-4 border border-[#eee] font-black uppercase text-[10px]" style={{color: '#000'}}>{p.acao}</td>
-                                              <td className="p-4 border border-[#eee] font-black tracking-tight">{p.ativo}</td>
+                                              <td className="p-4 border border-[#eee] font-black tracking-tighter">{p.ativo}</td>
                                               <td className="p-4 border border-[#eee] italic leading-relaxed text-[#333] font-medium">{p.justificativa}</td>
                                            </tr>
                                         ))}
@@ -760,7 +760,7 @@ export default function ConsultingReports() {
                          <Calculator size={50} className="text-primary opacity-30" />
                       </div>
                       <h3 className="text-2xl font-black text-primary mb-3">Painel de Emissão Técnica</h3>
-                      <p className="text-secondary max-w-sm font-bold opacity-60">Selecione um fechamento arquivado ou a posição "Live" para editar os parâmetros e exportar o relatório minimalista.</p>
+                      <p className="text-secondary max-w-sm font-black opacity-60">Selecione um fechamento arquivado ou a posição "Live" para editar os parâmetros e exportar o relatório minimalista.</p>
                    </div>
                 )}
              </div>

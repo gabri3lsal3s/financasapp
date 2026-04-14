@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Trash2, Settings, FolderPlus, DollarSign, Edit2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Settings, FolderPlus, Edit2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 import PageHeader from '@/components/PageHeader';
@@ -370,8 +370,8 @@ export default function PortfolioManagement() {
                                        )}
                                     </div>
                                     <div className="flex flex-wrap gap-y-1 gap-x-4 mt-2">
-                                       <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Saldo: <span className="text-primary font-bold">{formatCurrency(sectorTotalBal)}</span></span>
-                                       <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Exposição: <span className="text-primary font-bold">{(sectorCurrentPercent*100).toFixed(2)}%</span></span>
+                                       <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Saldo: <span className="text-primary font-black">{formatCurrency(sectorTotalBal)}</span></span>
+                                       <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Exposição: <span className="text-primary font-black">{(sectorCurrentPercent*100).toFixed(2)}%</span></span>
                                     </div>
                                  </div>
                                  
@@ -411,11 +411,11 @@ export default function PortfolioManagement() {
                                        {sectorAssets.map(asset => (
                                           <tr key={asset.id} className="hover:bg-white/5 transition-colors group">
                                              <td className="p-4">
-                                                <div className="font-bold text-primary tracking-tight">{asset.asset_name}</div>
+                                                <div className="font-black text-primary tracking-tighter">{asset.asset_name}</div>
                                              </td>
-                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-medium text-secondary/60 hidden md:table-cell text-[13px]">{asset.custom_rate || '—'}</td>}
-                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-medium text-secondary/60 hidden md:table-cell text-[13px]">{asset.maturity_date || '—'}</td>}
-                                             {macroGroup !== 'Renda Fixa' && <td className="p-4 font-medium text-secondary/60 hidden md:table-cell text-[13px]">{asset.variation_month || '—'}</td>}
+                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-black text-secondary/60 hidden md:table-cell text-[13px]">{asset.custom_rate || '—'}</td>}
+                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-black text-secondary/60 hidden md:table-cell text-[13px]">{asset.maturity_date || '—'}</td>}
+                                             {macroGroup !== 'Renda Fixa' && <td className="p-4 font-black text-secondary/60 hidden md:table-cell text-[13px]">{asset.variation_month || '—'}</td>}
                                              
                                              <td className="p-4 w-44">
                                                 <Input 
@@ -509,7 +509,7 @@ export default function PortfolioManagement() {
             />
             
             <div className="border-t border-[var(--color-border)] pt-3 mt-4">
-               <p className="text-xs font-bold text-secondary mb-3 uppercase">Campos Opcionais de Relatório</p>
+               <p className="text-xs font-black text-secondary mb-3 uppercase">Campos Opcionais de Relatório</p>
                <div className="grid grid-cols-2 gap-3">
                   <Input label="Valor Inicial (Aplicado)" inputMode="decimal" placeholder="Opcional" value={assetForm.applied_amount} onChange={e => setAssetForm({...assetForm, applied_amount: e.target.value})} />
                   <Input label="Taxa / Yield" placeholder="Ex: IPCA + 8%" value={assetForm.custom_rate} onChange={e => setAssetForm({...assetForm, custom_rate: e.target.value})} />
