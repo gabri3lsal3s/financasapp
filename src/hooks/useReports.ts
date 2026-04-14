@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MonthlySummary, CategoryExpense } from '@/types'
+import { MonthlySummary, CategoryExpense, Expense } from '@/types'
 import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 'date-fns'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
@@ -22,7 +22,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([])
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
   const [monthlyCategoryExpenses, setMonthlyCategoryExpenses] = useState<MonthlyCategoryExpenses>({})
-  const [annualExpenses, setAnnualExpenses] = useState<any[]>([])
+  const [annualExpenses, setAnnualExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
