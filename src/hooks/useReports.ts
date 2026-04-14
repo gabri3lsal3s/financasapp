@@ -57,6 +57,8 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
       let { data: expenses, error: expensesError } = await supabase
         .from('expenses')
         .select(`
+          id,
+          created_at,
           amount,
           report_weight,
           date,
@@ -73,6 +75,8 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
         const fallback = await supabase
           .from('expenses')
           .select(`
+            id,
+            created_at,
             amount,
             date,
             category_id,
@@ -181,7 +185,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
           annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
         })
       setCategoryExpenses(Array.from(annualCategoryMap.values()))
-      setAnnualExpenses(expenses || [])
+      setAnnualExpenses((expenses || []) as unknown as Expense[])
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar relatórios')
