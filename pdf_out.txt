@@ -1,0 +1,747 @@
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Relatório Mensal de Alocação 
+Março de 2026 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+ 
+Sumário 
+1. Resumo Executivo.......................................................................................................................... 3 
+1.1. Tabela de Rebalanceamento.................................................................................................... 3 
+2. Análise dos Ativos da Carteira......................................................................................................4 
+2.1. Análise da Carteira de Renda Fixa..........................................................................................4 
+2.1.1 Liquidação do Banco Pleno.............................................................................................4 
+2.2. Balanço das Ações...................................................................................................................5 
+2.2.1 Análise das Ações........................................................................................................... 6 
+2.3. Balanço dos ETFs....................................................................................................................7 
+2.3.1 Análise dos ETFs.............................................................................................................7 
+2.4. Balanço dos FIIs......................................................................................................................7 
+3. Resultados Consolidados............................................................................................................... 9 
+4. Planejamento Geral......................................................................................................................11 
+5. Taxa Fee (Mês).............................................................................................................................. 11 
+ 
+ 
+
+ 
+1. Resumo Executivo 
+O mês de março marcou a primeira correção significativa da carteira desde julho de 2025, com uma 
+rentabilidade consolidada de -2,02% (perda de capital de R$ 2.189,99). O principal ativo 
+responsável foi a carteira internacional (-5,41%), acompanhando a queda do S&P 500. Apesar da 
+desvalorização das cotas, a geração de renda passiva permanece sólida, com o Dividend Yield dos 
+FIIs subindo para expressivos 14,49%. 
+1.1. Tabela de Rebalanceamento 
+Ativo / Setor 
+Exposição Atual 
+Limite Alvo 
+Diferença 
+Status 
+AÇÕES (POR SETOR) 
+Equipamentos 
+(WEGE3) 
+10,47% 
+5,00% 
++5,47% 
+Excesso Crítico: Interromper 
+aportes 
+Bancos (BBAS, 
+ABCB, ITSA) 
+21,00% 
+18,00% 
++3,00% 
+Excesso: Aguardar diluição 
+natural 
+Petróleo (PRIO3) 
+6,94% 
+5,00% 
++1,94% 
+Excesso: Lucro recente; não 
+aportar 
+Saneamento (SAPR4) 
+8,36% 
+12,00% 
+-3,64% 
+Prioridade de Aporte 
+Energia (CPFE, TAEE) 
+12,36% 
+15,00% 
+-2,64% 
+Aporte Secundário 
+Saúde (RDOR3) 
+5,43% 
+7,00% 
+-1,57% 
+Aporte Estratégico 
+ETFs (INTERNACIONAL) 
+GLD (Ouro) 
+24,74% 
+20,00% 
++4,74% 
+Excesso: Reduzir exposição 
+gradualmente 
+BITB (Bitcoin) 
+6,79% 
+5,00% 
++1,79% 
+Excesso: Não aportar no 
+momento 
+VOO + IVVB11 (S&P 
+500) 
+30,43% 
+35,00% 
+-4,57% 
+— 
+FIIs / REITs 
+Logística 
+44,57% 
+30,00% 
++14,57% 
+Excesso Crítico 
+Outros 
+15,63% 
+5,00% 
++10,63% 
+Excesso Crítico 
+Híbrido 
+20,80% 
+40,00% 
+-19,20% 
+Prioridade de 
+Rebalanceamento 
+Shoppings 
+19,00% 
+25,00% 
+-6,00% 
+Prioridade de Aporte 
+ 
+ 
+
+ 
+2. Análise dos Ativos da Carteira 
+2.1. Análise da Carteira de Renda Fixa 
+Título 
+Taxa 
+Valor Aplicado 
+Saldo Bruto 
+Vencimento 
+CDB PINE 
+IPCA + 7,10% 
+R$1.000,00 
+R$1.222,26 
+Junho de 2027 
+CDB DIGIMAIS 
+121% do CDI 
+R$1.000,00 
+R$1.281,56 
+Agosto de 2029 
+CDB BMG 
+IPCA + 8,52% 
+R$2.000,00 
+R$2.337,28 
+Junho de 2027 
+CDB RODOBENS 
+IPCA + 8,59% 
+R$1.000,00 
+R$1.130,30 
+Setembro de 2026 
+CDB FACTA 
+120% do CDI 
+R$1.236,27 
+R$1.255,92 
+Fevereiro de 2026 
+CDB BMG 
+IPCA + 8,84% 
+R$1.000,00 
+R$1.003,84 
+ Março de 2028 
+CDB AGIBANK 
+15,75% 
+R$1.000,00 
+R$1.199,22 
+Junho de 2026 
+CDB BMG 
+16,22% 
+R$1.000,00 
+R$1.205,27 
+Janeiro de 2027 
+CDB BMG 
+15,44% 
+R$1.000,00 
+R$1.158,35 
+Março de 2027 
+CDB OMNI 
+15,50% 
+R$1.168,61 
+R$1.183,40 
+Janeiro de 2027 
+CDB BMG 
+14,59% 
+R$1.450,00 
+R$ 1.460,22 
+Março de 2029 
+CDB BMG 
+14,52% 
+R$1.000,00 
+R$ 1.007,11 
+Setembro de 2028 
+CDB BMG 
+14,72% 
+R$1.000,00 
+R$ 1.005,39 
+Março de 2030 
+Tesouro Prefixado 
+— 
+R$1.005,34 
+R$1.197,77 
+01 de 2027 
+Tesouro IPCA+ 
+— 
+R$2.075,86 
+R$2.390,95 
+05 de 2029 
+Tesouro Selic 
+— 
+R$8.331,49 
+R$8.944,69 
+D + 1 
+Tesouro Renda+ 
+— 
+R$1.005,02 
+R$1003,19 
+12 de 2084 
+Tesouro IPCA+ 
+— 
+R$322,39 
+R$335,51 
+08 de 2040 
+Tesouro Prefixado 
+— 
+R$305,31 
+R$328,44 
+01 de 2032 
+Total aplicado 
+R$ 27.900,29 
+Saldo Bruto Atual 
+R$ 30.650,67 
+ 
+2.1.1 Liquidação do Banco Pleno 
+O valor de R$ 1.210,03 reembolsado pelo FGC no dia 30/03 devido à liquidação do banco Pleno se 
+encontra em caixa para aportes futuros durante o mês de abril.
+ 
+ 
+
+ 
+2.2. Balanço das Ações 
+Ticker 
+Variação (Mês) 
+Variação (Início) 
+Saldo 
+% (Atual) 
+BBAS3 
+-12,45% 
+-3,79% 
+R$ 2.689,85 
+9,18% 
+ABCB4 
+-5,51% 
+25,16% 
+R$ 3.045,51 
+10,39% 
+ITSA4 
+-1,67% 
+59,45% 
+R$ 417,60 
+1,43% 
+BBSE3 
+6.79% 
+28,57% 
+R$ 531,45 
+1,81% 
+PSSA3 
+-3,40% 
+73,92% 
+R$ 4.093,74 
+13,97% 
+CPFE3 
+-2,99% 
+57,56% 
+R$ 3.447,50 
+11,77% 
+TAEE4 
+-1,49% 
+39,18% 
+R$ 172,92 
+0,59% 
+EMBJ3 
+-16,69% 
+4,59% 
+R$ 1.214,55 
+4,14% 
+KLBN4 
+-3,58% 
+6,68% 
+R$ 1.214,44 
+4,14% 
+MDIA3 
+-1,46% 
+3,32% 
+R$ 576,00 
+1,97% 
+VIVA3 
+-16,12% 
+57,07% 
+R$ 1.315,00 
+4,49% 
+PRIO3 
+21,51% 
+56,16% 
+R$ 2.033,10 
+6,94% 
+SAPR4 
+-0,92% 
+61,03% 
+R$ 2.450,00 
+8,36% 
+SLCE3 
+12,90% 
+22,15% 
+R$ 1.440,66 
+4,92% 
+WEGE3 
+2,56% 
+36,68% 
+R$ 3.068,91 
+10,47% 
+RDOR3 
+-2,82% 
+-2,82% 
+R$ 1.591,20 
+5,43% 
+ 
+Setor 
+Ações 
+Saldo 
+% Atual 
+% Limite 
+Bancos 
+BBAS3; ABCB4; ITSA4; 
+R$ 6.152,96 
+21% 
+18% 
+Seguros 
+BBSE3; PSSA3; 
+R$ 4.625,19 
+15,78% 
+15% 
+Energia 
+CPFE3; TAEE4; 
+R$ 3.620,42 
+12,36% 
+15% 
+Saneamento 
+SAPR4; 
+ R$ 2.450,00 
+8,36% 
+12% 
+Varejo 
+MDIA3; VIVA3; 
+R$ 1.891,00 
+6,45% 
+8% 
+Saúde 
+RDOR3; 
+R$ 1.591,20 
+5,43% 
+7% 
+Agricultura 
+SLCE3; 
+R$ 1.440,66 
+4,92% 
+5% 
+Petróleo 
+PRIO3; 
+R$ 2.033,10 
+6,94% 
+5% 
+Celulose 
+KLBN4; 
+R$ 1.214,44 
+4,14% 
+5% 
+ 
+
+ 
+Aviação 
+EMBJ3; 
+R$ 1.214,55 
+4,15% 
+5% 
+Equipamentos 
+WEGE3; 
+R$ 3.068,91 
+10,47% 
+5% 
+Saldo do Consolidado 
+R$ 29.302,43 
+2.2.1 Análise das Ações 
+Novo Setor Adicionado: O setor de Saúde (RDOR3) passou a integrar a carteira em março, com 
+um saldo de R$ 1.591,20 e um limite alvo de 7%. 
+Ajustes nos Limites Alvo (% Limite): Para acomodar o novo setor de saúde e rebalancear o risco, 
+você reduziu a porcentagem limite de vários setores: 
+-​
+Bancos: de 20% para 18% 
+-​
+Seguros: de 16% para 15% 
+-​
+Varejo: de 10% para 8% 
+-​
+Agricultura e Equipamentos: ambos reduzidos de 6% para 5% 
+Maiores Altas (Excluindo Novo Setor): O setor de Petróleo (PRIO3) apresentou a maior 
+valorização absoluta (+ R$ 398,40), seguido pelo setor de Agricultura (SLCE3), que subiu R$ 
+155,22. 
+Maiores Quedas: O Varejo sofreu um impacto significativo, recuando R$ 1.108,50 em um único 
+mês. O setor de Bancos também teve uma retração notável de R$ 548,60. 
+Sinal de Alerta (Acima do Limite Atual): Em março, a carteira possui alguns ativos que estão 
+desenquadrados (com peso maior do que a estratégia definida):​
+ 
+-​
+Equipamentos (WEGE3): Está em 10,47%, mas o limite foi rebaixado para 5% (o dobro 
+do recomendado). 
+-​
+Bancos: Está em 21%, superando o novo limite de 18%. 
+-​
+Petróleo (PRIO3): Subiu para 6,94%, ultrapassando o teto de 5%. 
+-​
+Seguros: Com 15,78%, está levemente acima do limite de 15%. 
+ 
+ 
+
+ 
+2.3. Balanço dos ETFs 
+Ticker 
+Saldo 
+Exposição Anterior 
+Exposição Atual 
+Limite 
+VOO + 
+IVVB11 
+R$ 5.594,95 
+30,43% 
+30,43% 
+35% 
+GLD 
+R$ 4.549,31 
+26,72% 
+24,74% 
+20% 
+VEA 
+R$ 3.493,96 
+17,38% 
+19,00% 
+20% 
+VWO + 
+MCHI + 
+EWW + 
+ARGT + 
+INDA 
+R$ 3.499,09 
+19,09% 
+19,03% 
+20% 
+BITB 
+R$ 1.248,91 
+6,38% 
+6,79% 
+5% 
+Saldo do Consolidado 
+R$ 18.386,22 
+2.3.1 Análise dos ETFs 
+Houve uma retração no saldo total consolidado, que passou de R$ 19.121,54 em fevereiro para R$ 
+18.386,22 em março, representando uma queda de R$ 735,32. 
+Acima do Limite (Sobre-alocados): 
+-​
+GLD (Ouro): Sofreu a maior queda financeira no mês (-R$ 559,83), o que ajudou a reduzir 
+a sua exposição de 26,72% para 24,74%. No entanto, ainda continua bem acima do seu 
+limite de 20%. 
+-​
+BITB (Bitcoin): Com a leve alta no mês, a exposição subiu de 6,38% para 6,79%, 
+distanciando-se um pouco mais do teto de 5%. 
+2.4. Balanço dos FIIs 
+Ticker 
+Variação (Mês) 
+Variação (Início) 
+Saldo 
+% 
+ALZR 
+-1,53% 
+11,96% 
+R$ 2.848,50 
+10,79% 
+BTCI 
+-0,32% 
+14,80% 
+R$ 92,30 
+0,35% 
+BTLG 
+0,37% 
+16,94% 
+R$ 728,07 
+2,76% 
+GARE 
+0,59% 
+18,14% 
+R$ 2.641,20 
+10,01% 
+GGRC 
+0,32% 
+11,39% 
+R$ 3.508,65 
+13,30% 
+ 
+
+ 
+HGLG 
+-0,94% 
+8,41% 
+R$ 2.654,72 
+10,06% 
+KNCR 
+-0,28% 
+27,93% 
+R$ 1.260,96 
+4,78% 
+LVBI 
+-0,83 
+9,14% 
+R$ 4.016,72 
+15,22% 
+NEWL 
+-7,01% 
+32,15% 
+R$ 853,60 
+3,23% 
+RZTR 
+-1,83% 
+23,22% 
+R$ 1.130,76 
+4,29% 
+TGAR 
+-7,80% 
+-23,10% 
+R$ 704,00 
+2,67% 
+VISC 
+-2,23% 
+7,36% 
+R$ 2.390,08 
+9,06% 
+XPML 
+-2,11% 
+10,21% 
+R$ 2.623,44 
+9,94% 
+VICI 
+-7,62% 
+-18,21% 
+R$ 379,40 
+1,44% 
+O 
+-6,52% 
+-6,33% 
+R$ 555,88 
+2,11% 
+ 
+Setores 
+FIIs / REITs 
+Saldo 
+Exposição 
+(ATUAL) 
+Exposição 
+(LIMITE) 
+Logística 
+BTLG; GGRC; HGLG; LVBI; NEWL; 
+R$ 11.761,76 
+44,57% 
+30% 
+Híbrido 
+ALZR11; GARE; 
+R$ 5.489,70 
+20,80% 
+40% 
+Shoppings 
+VISC; XPML; 
+R$ 5.013,52 
+19,00% 
+25% 
+Outros 
+RZTR; BTCI; KNCR; TGAR; VICI; O; 
+R$ 4.123,30 
+15,63% 
+5% 
+Saldo Consolidado 
+R$ 26.388,28 
+ 
+ 
+
+ 
+3. Resultados Consolidados 
+Tabela A – Tabela de Resultados Consolidados 
+Carteira 
+Rentabilidade 
+(Mês) 
+Índice 
+Rentabilidade 
+(Início) 
+Índice 
+Yield  
+Saldo Final 
+Consolidada 
+-2,02% 
+1,21% 
+(CDI) 
+24,59% 
+29,77% 
+(CDI) 
+5,38% 
+R$ 104.727,60 
+Nacional 
+-1,27% 
+0,67% 
+(Poupança) 
+24,02% 
+17,45% 
+(Poupança) 
+6,42% 
+R$ 85.152,58 
+Internacional 
+-5,41% 
+-5,13% 
+(S&P 500) 
+44,98% 
+25,15% 
+(S&P 500)1 
+0,64% 
+R$ 18.490,32 
+Renda Fixa 
+0,69% 
+1,21% (CDI) 
+25,44% 
+26,56% 
+(CDI) 
+— 
+R$ 30.650,67 
+Ações (Nacionais) 
+-2,69% 
+-0,70% 
+(IBOV) 
+31,84% 
+48,08% 
+(IBOV) 
+5,49% 
+R$ 29.302,43 
+FIIs / Reits 
+-1,47% 
+-0,91% 
+(IFIX) 
+8,71% 
+16,07% 
+(IFIX)2 
+14,49% 
+R$ 26.388,28 
+No mês de março a carteira obteve uma ganho de capital negativo de -R$2.189,99 com R$296,92 
+reais de proventos recebidos, o que totalizou uma rentabilidade mensal negativa de -2,02%. O mês 
+de março, portanto, foi o primeiro e maior mês negativo desde julho de 2025. A carteira que obteve 
+a maior rentabilidade negativa no mês foi a carteira internacional com -5,41% 
+A transição de fevereiro para março marcou uma virada significativa na dinâmica da sua carteira. 
+Enquanto fevereiro foi um mês de ganhos generalizados em quase todas as classes de ativos, março 
+trouxe um cenário de correção, puxando a rentabilidade consolidada para o campo negativo. 
+Renda Fixa perdeu tração: Em fevereiro, ela superou o CDI (1,16% vs 0,94%). Em março, apesar 
+de ser a única classe com retorno positivo (0,69%), ela rendeu quase a metade do CDI do mês 
+(1,21%). Isso pode ser reflexo de uma marcação a mercado negativa em seus títulos prefixados ou 
+atrelados à inflação (IPCA+). 
+-​
+Ações Nacionais sofrendo mais que o índice: Em fevereiro, a bolsa subiu 4,09%, mas suas 
+ações subiram apenas 2,07%. Em março, a bolsa caiu 0,70%, mas suas ações caíram 2,69%. 
+A sua seleção de ativos (stock picking) está sentindo os impactos com mais força do que a 
+2 Foi considerado como data de início o dia 02 de fevereiro de 2024 devido a data de início dos investimentos no 
+mercado imobiliário. 
+1 Foi considerado como data de início o dia 23 de fevereiro de 2024 devido a data de início dos investimentos no 
+mercado internacional em 29/02/2024 (IVVB11). 
+ 
+
+ 
+média do mercado. 
+-​
+Exterior em forte correção: A carteira internacional já vinha de uma leve queda em 
+fevereiro (-0,90%) e se aprofundou bastante em março (-5,41%), acompanhando de perto o 
+tropeço do S&P 500 (-5,13%). 
+Um dos pontos mais positivos do relatório de março foi o comportamento da sua geração de renda 
+passiva, especialmente nos fundos imobiliários e REITs. 
+-​
+Yield Consolidado: Manteve-se praticamente estável, passando de 5,46% para 5,38%. 
+-​
+Yield de FIIs/REITs: Deu um salto excelente, subindo de 13,55% em fevereiro para 
+14,49% em março. O retorno total desde o início caiu (de 10,34% para 8,71%), mostrando 
+que as cotas desvalorizaram, mas o seu rendimento em proventos sobre o capital investido 
+aumentou, o que é um excelente sinal para quem busca fluxo de caixa. 
+ 
+ 
+
+ 
+4. Planejamento Geral 
+O objetivo para o próximo ciclo é a diluição de risco por meio do redirecionamento de aportes para 
+ativos sub-alocados, corrigindo o desenquadramento causado pela valorização de ativos específicos 
+e pela mudança nos limites alvo. 
+Ação 
+Ativo/Setor 
+Justificativa 
+Aportar 
+VOO / IVVB11 
+Rebalancear carteira internacional aproveitando a 
+baixa. 
+Aportar 
+FIIs Híbridos / 
+Saneamento 
+Setores mais distantes do limite alvo (sub-alocados). 
+Aguardar 
+WEGE3 / PRIO3 / 
+Bancos 
+Exposição acima do teto; aguardar crescimento das 
+outras posições. 
+Monitorar 
+Bancos / Seguros 
+Redução gradual dos limites de 20% para 18% e 16% 
+para 15%. 
+ 
+-​
+Renda Fixa (R$ 30,6 mil): Única classe com retorno positivo no mês, embora abaixo do 
+CDI.  
+-​
+Ações (R$ 29,3 mil): Setores de Equipamentos (WEG) e Bancos estão significativamente 
+acima dos limites alvo após o reajuste estratégico para inclusão do setor de Saúde. 
+-​
+ETFs (R$ 18,3 mil): Exposição em Ouro (GLD) e Bitcoin (BITB) acima do teto, exigindo 
+pausa em novos aportes. 
+-​
+FIIs (R$ 26,3 mil): Forte concentração no setor Logístico (44,5% vs alvo de 30%). 
+ 
+5. Taxa Fee (Mês) 
+Saldo Final 
+R$104.727,603 
+Fee based4 
+R$104,72 
+ 
+4 Taxa Fee-based de 0,1% ao mês (1,2% ao ano) do Patrimônio sob-gestão 
+3 Não estão sendo considerados os valores em caixa e ainda não alocados em carteira 
+ 

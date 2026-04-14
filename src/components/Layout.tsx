@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useBackgroundCache } from '@/hooks/useBackgroundCache'
 import { useNavigate } from 'react-router-dom'
 
-import { WifiOff, ArrowLeft } from 'lucide-react'
+import { WifiOff, ArrowLeft, Briefcase } from 'lucide-react'
 
 interface LayoutProps {
   children: ReactNode
@@ -41,7 +41,7 @@ function OfflinePlaceholder() {
 
 export default function Layout({ children }: LayoutProps) {
   const { floatingCalculatorEnabled } = useAppSettings()
-  const { signOut } = useAuth()
+  const { signOut, profile } = useAuth()
   useBackgroundCache()
   const navigate = useNavigate()
   const location = useLocation()
@@ -73,12 +73,14 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
     { path: '/credit-cards', icon: CreditCard, label: 'Cartões', onlineOnly: true },
     { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
+    ...(profile?.is_admin ? [{ path: '/admin/consulting', icon: Briefcase, label: 'Consultoria', onlineOnly: true }] : []),
     { path: '/categories', icon: Tags, label: 'Categorias', onlineOnly: true },
     { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false },
   ]
 
-  const mainItemsList = navItems.slice(0, 6)
-  const settingsItemsList = navItems.slice(6)
+  const totalMainItems = profile?.is_admin ? 7 : 6
+  const mainItemsList = navItems.slice(0, totalMainItems)
+  const settingsItemsList = navItems.slice(totalMainItems)
 
   const isCurrentPathOnlineOnly = navItems.find(item => item.path === location.pathname)?.onlineOnly || false
   const shouldShowOfflinePlaceholder = !isOnline && isCurrentPathOnlineOnly

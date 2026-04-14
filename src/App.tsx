@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
 import NetworkStatusToast from './components/NetworkStatusToast'
 import { ConflictResolutionModal } from './components/ConflictResolutionModal'
+import { Toaster } from 'react-hot-toast'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Incomes from './pages/Incomes'
@@ -22,6 +23,12 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 
+// Admin Routes
+import AdminRoute from './components/AdminRoute'
+import InvestmentConsulting from './pages/admin/InvestmentConsulting'
+import PortfolioManagement from './pages/admin/PortfolioManagement'
+import ConsultingReports from './pages/admin/ConsultingReports'
+
 function App() {
   return (
     <AuthProvider>
@@ -30,6 +37,7 @@ function App() {
           <SupabaseWarning />
           <NetworkStatusToast />
           <ConflictResolutionModal />
+          <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
           <Routes>
             {/* Rotas Públicas */}
             <Route path="/login" element={<Login />} />
@@ -53,6 +61,17 @@ function App() {
                     <Route path="/credit-cards" element={<CreditCards />} />
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/settings" element={<Settings />} />
+                    
+                    {/* Rotas de Administração */}
+                    <Route path="/admin/consulting" element={
+                       <AdminRoute><InvestmentConsulting /></AdminRoute>
+                    } />
+                    <Route path="/admin/consulting/reports" element={
+                       <AdminRoute><ConsultingReports /></AdminRoute>
+                    } />
+                    <Route path="/admin/consulting/:clientId" element={
+                       <AdminRoute><PortfolioManagement /></AdminRoute>
+                    } />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
