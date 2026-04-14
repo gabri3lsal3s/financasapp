@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Modal from './Modal';
-import Button from './Button';
-import { formatMonth } from '@/utils/format';
 
 interface MonthPickerModalProps {
   isOpen: boolean;

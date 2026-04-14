@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Download, Loader2, BarChart2, Calendar, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp, Edit2 } from 'lucide-react';
+import { Download, Loader2, BarChart2, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp, Edit2 } from 'lucide-react';
 import Button from '@/components/Button';
 import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2canvas from 'html2canvas';
@@ -10,8 +10,6 @@ import Card from '@/components/Card';
 import Select from '@/components/Select';
 import Input from '@/components/Input';
 import Loader from '@/components/Loader';
-import Modal from '@/components/Modal';
-import ModalActionFooter from '@/components/ModalActionFooter';
 import MonthPickerModal from '@/components/MonthPickerModal';
 import { formatCurrency, formatMonthShort, addMonths, getCurrentMonthString } from '@/utils/format';
 import { toast } from 'react-hot-toast';
@@ -239,18 +237,6 @@ export default function ConsultingReports() {
       setReportToEdit(report);
       setNewReportMonth(report.month);
       setShowEditDateModal(true);
-   };
-
-   const handleUpdateReportMonth = async (targetReportId: string, monthValue: string) => {
-      try {
-          const { error } = await supabase.from('consulting_reports').update({ month: monthValue }).eq('id', targetReportId);
-          if (error) throw error;
-          toast.success("Data atualizada");
-          setShowEditDateModal(false);
-          fetchClientData(selectedClientId);
-      } catch (e) {
-          toast.error("Erro ao atualizar data");
-      }
    };
 
   const loadPdfEngineFor = async (mode: 'live' | string) => {
