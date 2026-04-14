@@ -11,6 +11,7 @@ export interface UseReportsReturn {
   monthlySummaries: MonthlySummary[]
   categoryExpenses: CategoryExpense[]
   monthlyCategoryExpenses: MonthlyCategoryExpenses
+  annualExpenses: Expense[] // Adicionado para permitir agrupamentos flexíveis no componente se necessário
   loading: boolean
   error: string | null
   refreshReports: () => Promise<void>
@@ -21,6 +22,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([])
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
   const [monthlyCategoryExpenses, setMonthlyCategoryExpenses] = useState<MonthlyCategoryExpenses>({})
+  const [annualExpenses, setAnnualExpenses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,7 +61,10 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
           report_weight,
           date,
           category_id,
-          category:categories(id, name, color)
+          payment_method,
+          credit_card_id,
+          category:categories(id, name, color),
+          credit_card:credit_cards(id, name, color)
         `)
         .gte('date', format(startDate, 'yyyy-MM-dd'))
         .lte('date', format(endDate, 'yyyy-MM-dd'))
@@ -71,7 +76,10 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
             amount,
             date,
             category_id,
-            category:categories(id, name, color)
+            payment_method,
+            credit_card_id,
+            category:categories(id, name, color),
+            credit_card:credit_cards(id, name, color)
           `)
           .gte('date', format(startDate, 'yyyy-MM-dd'))
           .lte('date', format(endDate, 'yyyy-MM-dd'))
@@ -173,6 +181,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
           annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
         })
       setCategoryExpenses(Array.from(annualCategoryMap.values()))
+      setAnnualExpenses(expenses || [])
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar relatórios')
@@ -189,6 +198,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
     monthlySummaries,
     categoryExpenses,
     monthlyCategoryExpenses,
+    annualExpenses,
     loading,
     error,
     refreshReports: loadReports,

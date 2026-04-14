@@ -15,6 +15,7 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useInvestments } from '@/hooks/useInvestments'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
+import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
@@ -44,7 +45,7 @@ import {
 } from 'recharts'
 import { useSearchParams } from 'react-router-dom'
 type ViewMode = 'year' | 'month'
-type DetailType = 'expense' | 'income'
+type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
 
 type MonthlySummary = {
   month: string
@@ -89,6 +90,24 @@ type DetailModalState = {
   categoryId: string
   categoryName: string
   period: 'month' | 'year'
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'Dinheiro',
+  debit: 'Débito',
+  credit_card: 'Cartão de Crédito',
+  pix: 'Pix',
+  transfer: 'Transferência',
+  other: 'Outros',
+}
+
+const PAYMENT_METHOD_COLORS: Record<string, string> = {
+  cash: '#10b981', // emerald-500
+  debit: '#3b82f6', // blue-500
+  credit_card: '#8b5cf6', // violet-500
+  pix: '#06b6d4', // cyan-500
+  transfer: '#f59e0b', // amber-500
+  other: '#6b7280', // gray-500
 }
 
 const DETAIL_ITEMS_STEP = 8
@@ -151,7 +170,7 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [availableMonths, setAvailableMonths] = useState<string[]>([])
   const [loadingAvailablePeriods, setLoadingAvailablePeriods] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('year')
+  const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [detailModal, setDetailModal] = useState<DetailModalState>({
     isOpen: false,
     type: 'expense',
@@ -171,6 +190,8 @@ export default function Reports() {
   const [hiddenAnnualFlowSeries, setHiddenAnnualFlowSeries] = useState<string[]>([])
   const [hiddenDailyConsolidatedSeries, setHiddenDailyConsolidatedSeries] = useState<string[]>([])
   const [hiddenMonthCompositionSeries, setHiddenMonthCompositionSeries] = useState<string[]>([])
+  const [evolutionType, setEvolutionType] = useState<'expense' | 'income'>('expense')
+  const [drilldownSectionType, setDrilldownSectionType] = useState<'expense' | 'income'>('expense')
   const {
     dashboardReportsWeightsEnabled,
     setDashboardReportsWeightsEnabled,
@@ -273,9 +294,10 @@ export default function Reports() {
   const { incomeCategories } = useIncomeCategories()
   const includeReportWeights = dashboardReportsWeightsEnabled
   const previousMonth = useMemo(() => addMonths(selectedMonth, -1), [selectedMonth])
-  const { monthlySummaries, categoryExpenses, monthlyCategoryExpenses, loading } = useReports(selectedYear, includeReportWeights)
+  const { monthlySummaries, categoryExpenses, monthlyCategoryExpenses, annualExpenses, loading } = useReports(selectedYear, includeReportWeights)
   const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear, includeReportWeights)
   const { expenses: monthExpenses, loading: loadingMonthExpenses } = useExpenses(selectedMonth)
+  const { creditCards } = useCreditCards()
   const { incomes: monthIncomes, loading: loadingMonthIncomes } = useIncomes(selectedMonth)
   const { expenses: previousMonthExpenses, loading: loadingPreviousMonthExpenses } = useExpenses(previousMonth)
   const { incomes: previousMonthIncomes, loading: loadingPreviousMonthIncomes } = useIncomes(previousMonth)
@@ -310,6 +332,12 @@ export default function Reports() {
   const getIncomeColor = useCallback(
     (categoryId: string, fallback: string) => incomeCategoryIdToColor[categoryId] ?? fallback,
     [incomeCategoryIdToColor]
+  )
+
+  const getAmountByMode = useCallback(
+    (entry: { amount: number; report_weight?: number | null }) =>
+      includeReportWeights ? entry.amount * (entry.report_weight ?? 1) : entry.amount,
+    [includeReportWeights]
   )
 
   const monthlyData = useMemo(
@@ -349,6 +377,50 @@ export default function Reports() {
       })),
     [incomeByCategory, getIncomeColor]
   )
+
+  const annualPiePaymentMethods = useMemo(() => {
+    const methodsMap = new Map<string, number>()
+    const cardsMap = new Map<string, number>()
+
+    annualExpenses.forEach((exp) => {
+      const amount = getAmountByMode(exp)
+      if (exp.payment_method === 'credit_card' && exp.credit_card_id) {
+        cardsMap.set(exp.credit_card_id, (cardsMap.get(exp.credit_card_id) || 0) + amount)
+      } else {
+        const method = exp.payment_method || 'other'
+        methodsMap.set(method, (methodsMap.get(method) || 0) + amount)
+      }
+    })
+
+    const results: PieDatum[] = []
+
+    Array.from(methodsMap.entries())
+      .filter(([method]) => method !== 'credit_card')
+      .forEach(([method, total]) => {
+        results.push({
+          name: PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other,
+          value: total,
+          color: PAYMENT_METHOD_COLORS[method] || PAYMENT_METHOD_COLORS.other,
+          categoryId: method,
+          detailType: 'payment_method' as const,
+          detailPeriod: 'year' as const,
+        })
+      })
+
+    Array.from(cardsMap.entries()).forEach(([cardId, total]) => {
+      const card = creditCards.find((c) => c.id === cardId)
+      results.push({
+        name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
+        value: total,
+        color: card?.color || '#8b5cf6',
+        categoryId: cardId,
+        detailType: 'credit_card' as const,
+        detailPeriod: 'year' as const,
+      })
+    })
+
+    return results
+  }, [annualExpenses, creditCards, getAmountByMode])
 
   const cumulativeBalanceData = useMemo(() => {
     let cumulative = 0
@@ -491,6 +563,50 @@ export default function Reports() {
     color: getIncomeColor(cat.income_category_id, cat.color),
   }))
 
+  const monthPiePaymentMethods = useMemo(() => {
+    const methodsMap = new Map<string, number>()
+    const cardsMap = new Map<string, number>()
+
+    monthExpenses.forEach((exp) => {
+      const amount = getAmountByMode(exp)
+      if (exp.payment_method === 'credit_card' && exp.credit_card_id) {
+        cardsMap.set(exp.credit_card_id, (cardsMap.get(exp.credit_card_id) || 0) + amount)
+      } else {
+        const method = exp.payment_method || 'other'
+        methodsMap.set(method, (methodsMap.get(method) || 0) + amount)
+      }
+    })
+
+    const results: PieDatum[] = []
+
+    Array.from(methodsMap.entries())
+      .filter(([method]) => method !== 'credit_card')
+      .forEach(([method, total]) => {
+        results.push({
+          name: PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other,
+          value: total,
+          color: PAYMENT_METHOD_COLORS[method] || PAYMENT_METHOD_COLORS.other,
+          categoryId: method,
+          detailType: 'payment_method' as const,
+          detailPeriod: 'month' as const,
+        })
+      })
+
+    Array.from(cardsMap.entries()).forEach(([cardId, total]) => {
+      const card = creditCards.find((c) => c.id === cardId)
+      results.push({
+        name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
+        value: total,
+        color: card?.color || '#8b5cf6',
+        categoryId: cardId,
+        detailType: 'credit_card' as const,
+        detailPeriod: 'month' as const,
+      })
+    })
+
+    return results
+  }, [monthExpenses, creditCards, getAmountByMode])
+
   const monthQuickData = useMemo(() => {
     if (!monthSummary) {
       return []
@@ -506,19 +622,15 @@ export default function Reports() {
     ]
   }, [monthSummary, selectedMonth])
 
-  const getAmountByMode = useCallback(
-    (entry: { amount: number; report_weight?: number | null }) =>
-      includeReportWeights ? entry.amount * (entry.report_weight ?? 1) : entry.amount,
-    [includeReportWeights]
-  )
 
   const detailItems = useMemo(() => {
     if (!detailModal.isOpen) {
       return [] as Array<{ id: string; description: string; date: string; amount: number }>
     }
 
-    if (detailModal.period === 'year' && detailModal.type === 'expense') {
-      return yearExpenseItems
+    if (detailModal.type === 'expense') {
+      const items = detailModal.period === 'year' ? yearExpenseItems : monthExpenses
+      return items
         .filter((item) => item.category_id === detailModal.categoryId)
         .map((item) => ({
           id: item.id,
@@ -529,8 +641,9 @@ export default function Reports() {
         .sort((a, b) => b.date.localeCompare(a.date))
     }
 
-    if (detailModal.period === 'year' && detailModal.type === 'income') {
-      return yearIncomeItems
+    if (detailModal.type === 'income') {
+      const items = detailModal.period === 'year' ? yearIncomeItems : monthIncomes
+      return items
         .filter((item) => item.income_category_id === detailModal.categoryId)
         .map((item) => ({
           id: item.id,
@@ -541,9 +654,10 @@ export default function Reports() {
         .sort((a, b) => b.date.localeCompare(a.date))
     }
 
-    if (detailModal.type === 'expense') {
-      return monthExpenses
-        .filter((item) => item.category_id === detailModal.categoryId)
+    if (detailModal.type === 'payment_method') {
+      const items = detailModal.period === 'year' ? annualExpenses : monthExpenses
+      return items
+        .filter((item) => (item.payment_method || 'other') === detailModal.categoryId)
         .map((item) => ({
           id: item.id,
           description: item.description || item.category?.name || 'Despesa',
@@ -553,15 +667,20 @@ export default function Reports() {
         .sort((a, b) => b.date.localeCompare(a.date))
     }
 
-    return monthIncomes
-      .filter((item) => item.income_category_id === detailModal.categoryId)
-      .map((item) => ({
-        id: item.id,
-        description: item.description || item.income_category?.name || 'Renda',
-        date: item.date,
-        amount: getAmountByMode(item),
-      }))
-      .sort((a, b) => b.date.localeCompare(a.date))
+    if (detailModal.type === 'credit_card') {
+      const items = detailModal.period === 'year' ? annualExpenses : monthExpenses
+      return items
+        .filter((item) => item.credit_card_id === detailModal.categoryId)
+        .map((item) => ({
+          id: item.id,
+          description: item.description || item.category?.name || 'Despesa',
+          date: item.date,
+          amount: getAmountByMode(item),
+        }))
+        .sort((a, b) => b.date.localeCompare(a.date))
+    }
+
+    return []
   }, [detailModal, monthExpenses, monthIncomes, yearExpenseItems, yearIncomeItems, getAmountByMode])
 
   const detailCurrentTotal = useMemo(
@@ -1020,7 +1139,7 @@ export default function Reports() {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={86}
+                outerRadius={100}
                 labelLine={false}
                 label={false}
                 fill="var(--color-primary)"
@@ -1087,20 +1206,20 @@ export default function Reports() {
                 <Button
                   type="button"
                   size="sm"
-                  variant={controlButtonVariant('year')}
-                  className="w-full"
-                  onClick={() => setViewMode('year')}
-                >
-                  Ano
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
                   variant={controlButtonVariant('month')}
                   className="w-full"
                   onClick={() => setViewMode('month')}
                 >
                   Mês
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={controlButtonVariant('year')}
+                  className="w-full"
+                  onClick={() => setViewMode('year')}
+                >
+                  Ano
                 </Button>
               </div>
             </div>
@@ -1193,7 +1312,7 @@ export default function Reports() {
                   </Card>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+                <div className="grid grid-cols-1 gap-4 items-stretch">
                   <Card className="h-full flex flex-col">
                     <h3 className="text-lg font-semibold text-primary mb-4">Fluxo mensal ({selectedYear})</h3>
                     <ResponsiveContainer width="100%" height={280}>
@@ -1234,19 +1353,43 @@ export default function Reports() {
                   </Card>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
                   {renderPieCard(`Despesas por categoria (${selectedYear})`, annualPieExpenses)}
                   {renderPieCard(`Rendas por categoria (${selectedYear})`, annualPieIncomes)}
+                  {renderPieCard(`Formas de Pagamento (${selectedYear})`, annualPiePaymentMethods)}
                 </div>
 
                 <div className="space-y-4">
                   <Card className="h-full flex flex-col">
-                    <h3 className="text-lg font-semibold text-primary mb-4">Evolução mensal por categoria (despesas)</h3>
-                    {annualExpenseTrendSeries.length === 0 || annualExpenseTrendVisibleData.length === 0 ? (
-                      <p className="text-sm text-secondary">Sem despesas no ano selecionado.</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                      <h3 className="text-lg font-semibold text-primary">
+                        Evolução mensal por categoria ({evolutionType === 'expense' ? 'despesas' : 'rendas'})
+                      </h3>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant={evolutionType === 'expense' ? 'secondary' : 'outline'}
+                          className="min-h-0 py-1 px-3 text-xs"
+                          onClick={() => setEvolutionType('expense')}
+                        >
+                          Despesas
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={evolutionType === 'income' ? 'secondary' : 'outline'}
+                          className="min-h-0 py-1 px-3 text-xs"
+                          onClick={() => setEvolutionType('income')}
+                        >
+                          Rendas
+                        </Button>
+                      </div>
+                    </div>
+                    {((evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries).length === 0 || 
+                      (evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData).length === 0) ? (
+                      <p className="text-sm text-secondary">Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no ano selecionado.</p>
                     ) : (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={annualExpenseTrendVisibleData}>
+                      <ResponsiveContainer width="100%" height={320}>
+                        <LineChart data={evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                           <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
                           <YAxis
@@ -1256,42 +1399,13 @@ export default function Reports() {
                             tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
                           />
                           <Tooltip content={<ChartTooltip />} />
-                          <Legend content={renderInteractiveLegend(hiddenExpenseSeries, toggleExpenseSeries)} />
-                          {annualExpenseTrendSeries.map((series) => (
-                            <Line
-                              key={series.key}
-                              type="monotone"
-                              dataKey={series.key}
-                              name={series.name}
-                              stroke={series.color}
-                              strokeWidth={2}
-                              dot={false}
-                              hide={!visibleExpenseTrendSeries.some((visible) => visible.key === series.key)}
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
-                    )}
-                  </Card>
-
-                  <Card className="h-full flex flex-col">
-                    <h3 className="text-lg font-semibold text-primary mb-4">Evolução mensal por categoria (rendas)</h3>
-                    {annualIncomeTrendSeries.length === 0 || annualIncomeTrendVisibleData.length === 0 ? (
-                      <p className="text-sm text-secondary">Sem rendas no ano selecionado.</p>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={annualIncomeTrendVisibleData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                          <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                          <YAxis
-                            stroke="var(--color-text-secondary)"
-                            fontSize={12}
-                            tick={{ fill: 'var(--color-text-secondary)' }}
-                            tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                          <Legend 
+                            content={renderInteractiveLegend(
+                              evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries, 
+                              evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries
+                            )} 
                           />
-                          <Tooltip content={<ChartTooltip />} />
-                          <Legend content={renderInteractiveLegend(hiddenIncomeSeries, toggleIncomeSeries)} />
-                          {annualIncomeTrendSeries.map((series) => (
+                          {(evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries).map((series) => (
                             <Line
                               key={series.key}
                               type="monotone"
@@ -1300,7 +1414,7 @@ export default function Reports() {
                               stroke={series.color}
                               strokeWidth={2}
                               dot={false}
-                              hide={!visibleIncomeTrendSeries.some((visible) => visible.key === series.key)}
+                              hide={!(evolutionType === 'expense' ? visibleExpenseTrendSeries : visibleIncomeTrendSeries).some((visible) => visible.key === series.key)}
                             />
                           ))}
                         </LineChart>
@@ -1424,71 +1538,56 @@ export default function Reports() {
                   </Card>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
                   {renderPieCard(`Despesas por categoria (${formatMonth(selectedMonth)})`, monthPieExpenses)}
                   {renderPieCard(`Rendas por categoria (${formatMonth(selectedMonth)})`, monthPieIncomes)}
+                  {renderPieCard(`Formas de Pagamento (${formatMonth(selectedMonth)})`, monthPiePaymentMethods)}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 items-stretch">
                   <Card className="h-full">
-                    <div className="mb-3">
-                      <h3 className="text-lg font-semibold text-primary">Detalhamento despesas</h3>
-                      <p className="text-xs text-secondary">Categorias do mês com distribuição proporcional.</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-primary">Detalhamento por categoria ({drilldownSectionType === 'expense' ? 'despesas' : 'rendas'})</h3>
+                        <p className="text-xs text-secondary">Categorias do mês com distribuição proporcional.</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant={drilldownSectionType === 'expense' ? 'secondary' : 'outline'}
+                          className="min-h-0 py-1 px-3 text-xs"
+                          onClick={() => setDrilldownSectionType('expense')}
+                        >
+                          Despesas
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={drilldownSectionType === 'income' ? 'secondary' : 'outline'}
+                          className="min-h-0 py-1 px-3 text-xs"
+                          onClick={() => setDrilldownSectionType('income')}
+                        >
+                          Rendas
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-2">
-                      {[...monthExpenseCategories]
+                      {[...(drilldownSectionType === 'expense' ? monthExpenseCategories : monthIncomeCategories)]
                         .sort((a, b) => b.total - a.total)
                         .map((category, index) => {
-                          const color = getExpenseColor(category.category_id, category.color)
-                          const pct = monthExpenseTotal > 0 ? (category.total / monthExpenseTotal) * 100 : 0
+                          const isExpense = drilldownSectionType === 'expense'
+                          const id = isExpense ? (category as ExpenseCategorySummary).category_id : (category as IncomeCategorySummary).income_category_id
+                          const color = isExpense 
+                            ? getExpenseColor(id, category.color)
+                            : getIncomeColor(id, category.color)
+                          const totalBase = isExpense ? monthExpenseTotal : monthIncomeTotal
+                          const pct = totalBase > 0 ? (category.total / totalBase) * 100 : 0
                           const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
                           return (
                             <button
-                              key={category.category_id}
+                              key={id}
                               type="button"
-                              onClick={() => openDetailModal('expense', category.category_id, category.category_name, 'month')}
-                              className={`${interactiveRowButtonClasses} p-2.5 animate-stagger-item ${staggerClass}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-primary truncate">{category.category_name}</span>
-                                </div>
-                                <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-primary font-semibold flex-shrink-0">
-                                  {formatCurrency(category.total)}
-                                </span>
-                              </div>
-
-                              <div className="w-full h-1.5 rounded-full bg-secondary mt-2">
-                                <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-                              </div>
-
-                              <p className="text-[11px] text-secondary mt-1.5">{pct.toFixed(1)}% do total</p>
-                            </button>
-                          )
-                        })}
-                    </div>
-                  </Card>
-
-                  <Card className="h-full">
-                    <div className="mb-3">
-                      <h3 className="text-lg font-semibold text-primary">Detalhamento rendas</h3>
-                      <p className="text-xs text-secondary">Categorias do mês com distribuição proporcional.</p>
-                    </div>
-                    <div className="space-y-2">
-                      {[...monthIncomeCategories]
-                        .sort((a, b) => b.total - a.total)
-                        .map((category, index) => {
-                          const color = getIncomeColor(category.income_category_id, category.color)
-                          const pct = monthIncomeTotal > 0 ? (category.total / monthIncomeTotal) * 100 : 0
-                          const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
-
-                          return (
-                            <button
-                              key={category.income_category_id}
-                              type="button"
-                              onClick={() => openDetailModal('income', category.income_category_id, category.category_name, 'month')}
+                              onClick={() => openDetailModal(isExpense ? 'expense' : 'income', id, category.category_name, 'month')}
                               className={`${interactiveRowButtonClasses} p-2.5 animate-stagger-item ${staggerClass}`}
                             >
                               <div className="flex items-center justify-between gap-2">
@@ -1528,7 +1627,12 @@ export default function Reports() {
           setDetailSearch('')
           setDetailModal((prev) => ({ ...prev, isOpen: false }))
         }}
-        title={`${detailModal.type === 'expense' ? 'Despesas' : 'Rendas'} • ${detailModal.categoryName}`}
+        title={`${
+          detailModal.type === 'expense' ? 'Despesas' :
+          detailModal.type === 'income' ? 'Rendas' :
+          detailModal.type === 'payment_method' ? 'Pagamentos' :
+          'Cartão de Crédito'
+        } • ${detailModal.categoryName}`}
       >
         <div className="space-y-4">
           <div className="space-y-2">

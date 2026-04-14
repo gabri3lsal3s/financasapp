@@ -173,6 +173,10 @@ export default function CreditCards() {
   const [editingRefundIncomeId, setEditingRefundIncomeId] = useState<string>('')
   const [refundIncomeEditForm, setRefundIncomeEditForm] = useState<RefundIncomeFormState>(DEFAULT_REFUND_INCOME_FORM())
   const [reconciliationCardId, setReconciliationCardId] = useState<string>('')
+  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false)
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1)
+  const [migrationTargetCardId, setMigrationTargetCardId] = useState<string>('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const [expensesByCard, setExpensesByCard] = useState<Record<string, number>>({})
   const [paymentsByCard, setPaymentsByCard] = useState<Record<string, number>>({})
@@ -186,6 +190,7 @@ export default function CreditCards() {
     loading,
     createCreditCard,
     updateCreditCard,
+    deleteCreditCard,
     refreshCreditCards,
   } = useCreditCards()
   const { categories } = useCategories()
@@ -223,6 +228,79 @@ export default function CreditCards() {
     setIsCardModalOpen(false)
     setEditingCard(null)
     setCardForm(DEFAULT_FORM)
+  }
+
+  const handleStartDelete = () => {
+    setDeleteStep(1)
+    setMigrationTargetCardId('')
+    setIsDeleteConfirmModalOpen(true)
+  }
+
+  const handleCancelDelete = () => {
+    setIsDeleteConfirmModalOpen(false)
+    setDeleteStep(1)
+    setMigrationTargetCardId('')
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!editingCard) return
+
+    try {
+      setIsDeleting(true)
+
+      // Step 1: Check for expenses if we are still in step 1
+      if (deleteStep === 1) {
+        const { count, error: countError } = await supabase
+          .from('expenses')
+          .select('*', { count: 'exact', head: true })
+          .eq('credit_card_id', editingCard.id)
+
+        if (countError) throw countError
+
+        if (count && count > 0) {
+          setDeleteStep(2)
+          return
+        }
+      }
+
+      // Step 2 or no expenses: execute deletion
+      if (migrationTargetCardId) {
+        // Migrate expenses
+        const { error: migrationError } = await supabase
+          .from('expenses')
+          .update({ credit_card_id: migrationTargetCardId })
+          .eq('credit_card_id', editingCard.id)
+
+        if (migrationError) throw migrationError
+      } else {
+        // Unbind expenses
+        const { error: unbindError } = await supabase
+          .from('expenses')
+          .update({ credit_card_id: null, payment_method: 'other' })
+          .eq('credit_card_id', editingCard.id)
+
+        if (unbindError) throw unbindError
+      }
+
+      // Cleanup related tables
+      await Promise.all([
+        supabase.from('credit_card_bill_payments').delete().eq('credit_card_id', editingCard.id),
+        supabase.from('credit_card_monthly_cycles').delete().eq('credit_card_id', editingCard.id),
+      ])
+
+      // Delete the card
+      const { error: deleteError } = await deleteCreditCard(editingCard.id)
+      if (deleteError) throw new Error(deleteError)
+
+      handleCancelDelete()
+      closeCardModal()
+      await refreshCreditCards()
+      await loadBillData()
+    } catch (err) {
+      alert(`Erro ao excluir cartão: ${err instanceof Error ? err.message : 'Ocorreu um erro inesperado'}`)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const openPaymentField = (cardId: string) => {
@@ -1728,8 +1806,72 @@ export default function CreditCards() {
           <ModalActionFooter
             onCancel={closeCardModal}
             submitLabel={editingCard ? 'Salvar alterações' : 'Salvar cartão'}
+            submitDisabled={loading}
+            onDelete={editingCard ? handleStartDelete : undefined}
+            deleteLabel="Excluir cartão"
           />
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={isDeleteConfirmModalOpen}
+        onClose={handleCancelDelete}
+        title={deleteStep === 1 ? 'Excluir cartão' : 'Migrar despesas'}
+      >
+        <div className="space-y-4">
+          {deleteStep === 1 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-primary">
+                Deseja realmente excluir o cartão <strong>{editingCard?.name}</strong>?
+              </p>
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 text-xs leading-relaxed">
+                <p className="font-semibold mb-1">Aviso:</p>
+                <p>Esta ação é irreversível e removerá permanentemente o histórico de faturas e pagamentos deste cartão.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-secondary">
+                Existem despesas vinculadas a este cartão. O que deseja fazer?
+              </p>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-secondary ml-1">Migrar despesas para:</label>
+                <select
+                  value={migrationTargetCardId}
+                  onChange={(e) => setMigrationTargetCardId(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-primary bg-secondary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] appearance-none"
+                >
+                  <option value="">Apenas desvincular (método 'Outro')</option>
+                  {creditCards
+                    .filter((c) => c.id !== editingCard?.id && c.is_active !== false)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              {migrationTargetCardId === '' && (
+                <p className="text-xs text-secondary italic">* As despesas se tornarão avulsas e não pertencerão a nenhuma fatura.</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex pt-4 justify-center items-center gap-4">
+            <Button type="button" variant="outline" onClick={handleCancelDelete} className="w-full" disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant={deleteStep === 1 ? 'primary' : 'danger'}
+              onClick={handleConfirmDelete}
+              className="w-full"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Processando...' : deleteStep === 1 ? 'Próximo' : 'Confirmar Exclusão'}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       <Modal

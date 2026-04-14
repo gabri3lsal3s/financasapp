@@ -131,6 +131,35 @@ export function useCreditCards() {
     return updateCreditCard(id, { is_active: false })
   }
 
+  const deleteCreditCard = async (id: string) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('credit_cards')
+        .delete()
+        .eq('id', id)
+
+      if (deleteError) throw deleteError
+
+      const nextCards = creditCards.filter((card) => card.id !== id)
+      setCreditCards(nextCards)
+      await setCache('credit_cards-all', nextCards)
+      return { error: null }
+    } catch (err) {
+      if (shouldQueueOffline(err)) {
+        enqueueOfflineOperation({
+          entity: 'credit_cards',
+          action: 'delete',
+          recordId: id,
+        })
+        const nextCards = creditCards.filter((card) => card.id !== id)
+        setCreditCards(nextCards)
+        await setCache('credit_cards-all', nextCards).catch(console.error)
+        return { error: null }
+      }
+      return { error: err instanceof Error ? err.message : 'Erro ao excluir cartão de crédito' }
+    }
+  }
+
   return {
     creditCards,
     loading,
@@ -138,6 +167,7 @@ export function useCreditCards() {
     createCreditCard,
     updateCreditCard,
     deactivateCreditCard,
+    deleteCreditCard,
     refreshCreditCards: loadCreditCards,
   }
 }
