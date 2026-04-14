@@ -646,7 +646,7 @@ export default function FloatingCalculator() {
 
   const keypadRowClass = `grid grid-cols-4 ${keypadGridGapClass} flex-1 min-h-0`
   const keypadSingleRowClass = `grid grid-cols-1 ${keypadGridGapClass} flex-1 min-h-0`
-  const keypadButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-tertiary/50 text-primary ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] border border-primary/20`
+  const keypadButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-secondary text-primary ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] border border-primary/20`
   const keypadPrimaryButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-[var(--color-primary)] text-[var(--color-button-text)] ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]`
 
   const openCalculator = () => {
@@ -1044,7 +1044,7 @@ export default function FloatingCalculator() {
     <>
       {isExpanded && isResizingPanel && resizePreviewRect && (
         <div
-          className="fixed z-[1000] pointer-events-none rounded-2xl border border-primary/60 bg-transparent calculator-resize-ghost"
+          className="fixed z-[1000] pointer-events-none rounded-2xl border border-[var(--ds-color-accent-primary)]/60 bg-transparent calculator-resize-ghost"
           style={{
             left: resizePreviewRect.left,
             top: resizePreviewRect.top,
@@ -1056,7 +1056,7 @@ export default function FloatingCalculator() {
 
       {isExpanded && (
         <div
-          className="fixed z-[1001] rounded-2xl border border-primary bg-secondary/95 backdrop-blur-xl p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
+          className="fixed z-[1001] rounded-2xl border border-primary bg-primary/95 backdrop-blur-xl p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
           onPointerDown={startDrag}
           style={{
             left: panelRect.left,
@@ -1088,7 +1088,7 @@ export default function FloatingCalculator() {
               />
             </div>
 
-            <div className={`w-full rounded-lg border px-3 py-2 text-right ${isCompactPanel ? 'text-base' : 'text-lg'} font-semibold animate-calculator-display ${hasError ? 'border-[var(--color-danger)] text-[var(--color-danger)]' : 'border-primary text-primary'
+            <div className={`w-full rounded-lg border px-3 py-2 text-right ${isCompactPanel ? 'text-base' : 'text-lg'} font-semibold animate-calculator-display ${hasError ? 'border-[var(--ds-color-intent-danger)] text-[var(--ds-color-intent-danger)]' : 'border-primary text-primary'
               }`}>
               {displayExpression}
             </div>

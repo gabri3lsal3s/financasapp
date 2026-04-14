@@ -255,7 +255,7 @@ export default function Layout({ children }: LayoutProps) {
 
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
                 >
                   <div className="flex items-center gap-3">
                     <LogOut size={18} />
@@ -373,7 +373,7 @@ export default function Layout({ children }: LayoutProps) {
             <button
               onClick={handleLogout}
               title="Sair"
-              className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 ${isDesktopMenuExpanded
+              className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 ${isDesktopMenuExpanded
                 ? 'justify-start px-4 py-3'
                 : 'justify-center p-3'
                 }`}
