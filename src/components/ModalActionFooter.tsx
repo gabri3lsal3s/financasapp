@@ -2,7 +2,7 @@ import Button from '@/components/Button'
 import { Trash2, Check } from 'lucide-react'
 
 interface ModalActionFooterProps {
-  submitLabel: string
+  submitLabel?: string
   submitDisabled?: boolean
   deleteLabel?: string
   onDelete?: () => void
@@ -31,15 +31,17 @@ export default function ModalActionFooter({
           <Trash2 size={24} />
         </Button>
       )}
-      <Button
-        type="submit"
-        variant="ghost-success"
-        className="px-3 flex-shrink-0"
-        disabled={submitDisabled}
-        title={submitLabel}
-      >
-        <Check size={24} />
-      </Button>
+      {submitLabel && (
+        <Button
+          type="submit"
+          variant="ghost-success"
+          className="px-3 flex-shrink-0"
+          disabled={submitDisabled}
+          title={submitLabel}
+        >
+          <Check size={24} />
+        </Button>
+      )}
     </div>
   )
 }

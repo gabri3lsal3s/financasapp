@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Download, Loader2, BarChart2, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp, Edit2 } from 'lucide-react';
 import Button from '@/components/Button';
@@ -16,8 +16,12 @@ import { toast } from 'react-hot-toast';
 
 interface Client { id: string; name: string; }
 
+interface PortfolioMacroSector {
+  id: string; client_id: string; name: string; target_percentage: number;
+}
+
 interface PortfolioSector {
-  id: string; client_id: string; macro_category: string; sector_name: string; target_percentage: number;
+  id: string; client_id: string; macro_sector_id: string | null; macro_category: string; sector_name: string; target_percentage: number;
 }
 
 interface PortfolioAsset {
@@ -25,7 +29,15 @@ interface PortfolioAsset {
   sector_id?: string; applied_amount?: number; custom_rate?: string; maturity_date?: string; variation_month?: string; variation_total?: string;
 }
 
-interface ConsultingReport { id: string; month: string; total_balance: number; notes: string; created_at: string; }
+interface ConsultingReport { 
+  id: string; 
+  month: string; 
+  total_balance: number; 
+  notes: string; 
+  created_at: string; 
+  performance_table?: Record<string, TableARow>;
+  planning_actions?: PlanningRow[];
+}
 
 // Constants moved or no longer needed in this scope
 
@@ -33,7 +45,8 @@ interface ConsultingReport { id: string; month: string; total_balance: number; n
 interface TableARow {
   label: string;
   rentMês: string;
-  benchMês: string;
+  benchMês: string; // This will now store the percentage value
+  benchName?: string; // This will store the index name (CDI, IBOV...)
   rentInício: string;
   benchInício: string;
   yield: string;
@@ -49,6 +62,7 @@ export default function ConsultingReports() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   
+  const [liveMacroSectors, setLiveMacroSectors] = useState<PortfolioMacroSector[]>([]);
   const [liveSectors, setLiveSectors] = useState<PortfolioSector[]>([]);
   const [liveAssets, setLiveAssets] = useState<PortfolioAsset[]>([]);
   const [liveTotal, setLiveTotal] = useState(0);
@@ -97,6 +111,9 @@ export default function ConsultingReports() {
   const fetchClientData = async (clientId: string) => {
     setLoading(true);
     try {
+      const { data: macData } = await supabase.from('portfolio_macro_sectors').select('*').eq('client_id', clientId);
+      setLiveMacroSectors(macData || []);
+
       const { data: secData } = await supabase.from('portfolio_sectors').select('*').eq('client_id', clientId);
       setLiveSectors(secData || []);
 
@@ -149,32 +166,38 @@ export default function ConsultingReports() {
      }
   };
 
+  const getDefaultBenchName = (macroName: string) => {
+      const mn = macroName.toLowerCase();
+      if (mn.includes('consolidada')) return 'Poupança';
+      if (mn.includes('ações nacionais') || mn === 'ações') return 'IBOV';
+      if (mn.includes('renda fixa')) return 'CDI';
+      if (mn.includes('fundo imobiliário') || mn.includes('fii')) return 'IFIX';
+      if (mn.includes('exterior') || mn.includes('mercado internacional')) return 'S&P500';
+      return 'Bench';
+   };
+
   const initTableA = (assetsArray: PortfolioAsset[]) => {
-     const macros = ['Consolidada', ...new Set(assetsArray.map(a => {
+     const macroNames = liveMacroSectors.length > 0 ? liveMacroSectors.map(m => m.name) : [...new Set(assetsArray.map(a => {
         const s = liveSectors.find(ls => ls.id === a.sector_id);
         return s ? s.macro_category : a.category;
      }))];
      
+     const macros = ['Consolidada', ...macroNames];
+     
      const newTable: Record<string, TableARow> = {};
      macros.forEach(m => {
-         let bench = '-';
-         if (m === 'Consolidada') bench = 'CDI';
-         else if (m === 'Ações Nacionais') bench = 'IBOV';
-         else if (m === 'Renda Fixa') bench = 'CDI';
-         else if (m === 'Fundo Imobiliário (FII)') bench = 'IFIX';
-         else if (m === 'Exterior (ETFs)') bench = 'S&P500';
-
-         newTable[m] = {
-            label: m,
-            rentMês: '-',
-            benchMês: bench,
-            rentInício: '-',
-            benchInício: '-',
-            yield: '-'
-         }
-      });
-      setTableA(newTable);
-   };
+          newTable[m] = {
+             label: m,
+             rentMês: '-',
+             benchMês: '-',
+             benchName: getDefaultBenchName(m),
+             rentInício: '-',
+             benchInício: '-',
+             yield: '-'
+          }
+       });
+       setTableA(newTable);
+    };
 
   const selectedClientName = useMemo(() => clients.find(c => c.id === selectedClientId)?.name || '', [clients, selectedClientId]);
 
@@ -188,7 +211,14 @@ export default function ConsultingReports() {
 
      setSavingMonth(true);
      try {
-        const { data: newReport } = await supabase.from('consulting_reports').insert([{ client_id: selectedClientId, month: monthStr, total_balance: liveTotal, notes: "" }]).select().single();
+        const { data: newReport } = await supabase.from('consulting_reports').insert([{ 
+           client_id: selectedClientId, 
+           month: monthStr, 
+           total_balance: liveTotal, 
+           notes: "",
+           performance_table: tableA,
+           planning_actions: planning
+        }]).select().single();
         const frozenAssets = liveAssets.map(a => ({
            report_id: newReport.id, asset_name: a.asset_name, category: a.category, current_balance: a.current_balance,
            sector_id: a.sector_id, applied_amount: a.applied_amount, custom_rate: a.custom_rate, maturity_date: a.maturity_date, variation_month: a.variation_month, variation_total: a.variation_total
@@ -203,14 +233,12 @@ export default function ConsultingReports() {
       if (!activeReportData || activeReportMode === 'live') return;
       setSavingMonth(true);
       try {
-         // Update Metadata
          await supabase.from('consulting_reports').update({ 
-            notes: notes 
+            notes: notes,
+            performance_table: tableA,
+            planning_actions: planning
          }).eq('id', activeReportData.id);
-
-         // Note: Logic for updating frozen assets could be added here if needed, 
-         // but usually notes and planning (tags) are the priority for corrections.
-         
+ 
          toast.success("Histórico atualizado com sucesso");
          fetchClientData(selectedClientId);
       } catch (err) {
@@ -252,8 +280,27 @@ export default function ConsultingReports() {
            setActiveReportData(rep); setNotes(rep.notes || '');
            const { data } = await supabase.from('consulting_report_assets').select('*').eq('report_id', rep.id);
            const assetsFromSnapshot = (data || []) as PortfolioAsset[];
-           setActivePdfAssets(assetsFromSnapshot);
-           initTableA(assetsFromSnapshot);
+           
+           if (rep.performance_table && Object.keys(rep.performance_table).length > 0) {
+              const backfilled = { ...rep.performance_table };
+              Object.keys(backfilled).forEach(k => {
+                 if (!backfilled[k].benchName || backfilled[k].benchName === '-') {
+                    backfilled[k].benchName = getDefaultBenchName(backfilled[k].label);
+                 }
+              });
+              setTableA(backfilled);
+           } else {
+              initTableA(assetsFromSnapshot);
+           }
+
+           if (rep.planning_actions && rep.planning_actions.length > 0) {
+              setPlanning(rep.planning_actions);
+           } else {
+              setPlanning([
+                 { acao: 'Aportar', ativo: 'FIIs / Exterior', justificativa: 'Ativos sub-alocados em relação ao alvo.' },
+                 { acao: 'Aguardar', ativo: 'Ações Nacionais', justificativa: 'Exposição acima do limite; aguardar diluição.' }
+              ]);
+           }
         }
      }
   };
@@ -289,9 +336,10 @@ export default function ConsultingReports() {
         const secId = a.sector_id || 'orphan';
         if (!res[secId]) {
            const sObj = liveSectors.find(ls => ls.id === secId);
+           const mObj = sObj ? liveMacroSectors.find(m => m.id === sObj.macro_sector_id) : null;
            res[secId] = {
               sectorName: sObj ? sObj.sector_name : 'Sem Setor Atribuído',
-              macro: sObj ? sObj.macro_category : a.category,
+              macro: mObj ? mObj.name : (sObj ? sObj.macro_category : a.category),
               currentBal: 0,
               targetP: sObj ? sObj.target_percentage : 0,
               status: '', statusColor: '',
@@ -313,7 +361,7 @@ export default function ConsultingReports() {
         else { res[k].status = 'Enquadrado'; res[k].statusColor = '#9ca3af'; }
      });
      return res;
-  }, [activePdfAssets, liveSectors]);
+  }, [activePdfAssets, liveSectors, liveMacroSectors]);
 
   const generatePDF = async () => {
     if (!reportRef.current) return;
@@ -322,10 +370,27 @@ export default function ConsultingReports() {
       await new Promise(r => setTimeout(r, 600));
       const canvas = await html2canvas(reportRef.current, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
       const imgData = canvas.toDataURL('image/png');
+      
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const imgWidth = 210; 
+      const pageHeight = 297; 
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add subsequent pages if content exceeds A4 height
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
       pdf.save(`Relatorio_${selectedClientName}_${activeReportData?.month}.pdf`);
     } catch (err) { alert("Erro ao gerar PDF"); } finally { setGeneratingPDF(false); }
   };
@@ -335,6 +400,24 @@ export default function ConsultingReports() {
      data.push({ month: 'Atual', Patrimônio: liveTotal });
      return data;
   }, [historyReports, liveTotal]);
+
+   const sortedTableAData = useMemo(() => {
+      const data = Object.values(tableA).map(row => {
+         const balance = row.label === 'Consolidada' ? (activeReportData?.total_balance || 0) : 
+                        activePdfAssets.filter(a => {
+                           const s = liveSectors.find(ls => ls.id === a.sector_id);
+                           const macroName = s ? liveMacroSectors.find(m => m.id === s.macro_sector_id)?.name : null;
+                           return (macroName || (s ? s.macro_category : a.category)) === row.label;
+                        }).reduce((s, a) => s + a.current_balance, 0);
+         return { ...row, balance };
+      });
+
+      return data.sort((a, b) => {
+         if (a.label === 'Consolidada') return -1;
+         if (b.label === 'Consolidada') return 1;
+         return b.balance - a.balance;
+      });
+   }, [tableA, activeReportData, activePdfAssets, liveSectors, liveMacroSectors]);
 
   const updateTableA = (label: string, field: keyof TableARow, value: string) => {
      setTableA(prev => ({
@@ -353,7 +436,6 @@ export default function ConsultingReports() {
       />
       
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
-          {/* Top Row: Client & Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
              <Card className="p-6 flex flex-col justify-between bg-secondary/10 hover:border-primary/20 transition-all border-white/5 md:col-span-1">
                 <Select 
@@ -402,11 +484,9 @@ export default function ConsultingReports() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-             {/* Left Column: History Sidebar */}
              <div className="lg:col-span-1 space-y-4">
                 <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest pl-1 opacity-60">Histórico de Fechamentos</h3>
                 <div className="space-y-3 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
-                     {/* Live State Card */}
                      <div 
                         onClick={() => loadPdfEngineFor('live')}
                         className={`p-4 rounded-xl border transition-all cursor-pointer group relative ${activeReportMode === 'live' ? 'border-primary/50 bg-primary/5 scale-[1.02]' : 'border-white/5 bg-secondary/5 hover:border-white/10 hover:lift-subtle'}`}
@@ -425,7 +505,6 @@ export default function ConsultingReports() {
                         </div>
                      </div>
 
-                     {/* Historical Cards */}
                      {historyReports.map(r => (
                         <div 
                            key={r.id} onClick={() => loadPdfEngineFor(r.id)}
@@ -467,7 +546,6 @@ export default function ConsultingReports() {
                 </div>
              </div>
 
-             {/* Right Column: Main Editor */}
              <div className="lg:col-span-3 space-y-6">
                 {activeReportMode && activeReportData ? (
                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
@@ -490,7 +568,6 @@ export default function ConsultingReports() {
                          </div>
                       </div>
 
-                      {/* Comparison Highlights */}
                       {comparisonData && (
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in zoom-in duration-500">
                             <Card className="p-4 bg-primary/5 border-primary/20">
@@ -516,7 +593,6 @@ export default function ConsultingReports() {
                       )}
 
                       <div className="space-y-6">
-                         {/* Table A Editor */}
                          <Card className="p-0 overflow-hidden bg-secondary/10 border-white/5">
                             <div className="bg-white/5 p-4 border-b border-white/5">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Balanço de Performance Consolidado (Tabela A)</h4>
@@ -533,7 +609,7 @@ export default function ConsultingReports() {
                                      </tr>
                                   </thead>
                                   <tbody className="divide-y divide-white/5">
-                                     {Object.values(tableA).map((row, idx) => (
+                                     {sortedTableAData.map((row, idx) => (
                                         <tr key={idx} className="hover:bg-white/5 transition-colors group">
                                            <td className="p-4">
                                               <span className={`text-sm font-bold tracking-tight ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
@@ -544,7 +620,10 @@ export default function ConsultingReports() {
                                               <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} />
+                                              <div className="flex flex-col items-center gap-1">
+                                                 <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} placeholder="0,00" />
+                                                 {row.benchName && <span className="text-[9px] text-secondary font-black uppercase opacity-60">{row.benchName}</span>}
+                                              </div>
                                            </td>
                                            <td className="p-4">
                                               <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
@@ -559,7 +638,6 @@ export default function ConsultingReports() {
                             </div>
                          </Card>
 
-                         {/* Analysis & Fee */}
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Card className="p-6 bg-secondary/10 border-white/5">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Parecer do Especialista</h4>
@@ -583,7 +661,6 @@ export default function ConsultingReports() {
                             </Card>
                          </div>
 
-                         {/* Actions Planner */}
                          <Card className="p-6 bg-secondary/10 border-white/5 relative overflow-hidden">
                             <div className="flex justify-between items-center mb-6 relative z-10">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Diretriz de Ações Para o Próximo Ciclo</h4>
@@ -618,19 +695,16 @@ export default function ConsultingReports() {
                             </div>
                          </Card>
 
-                         {/* Separator */}
                          <div className="flex items-center gap-6 py-10 opacity-20">
                             <div className="h-px flex-1 bg-white"></div>
                             <FileText size={24} className="text-white"/>
                             <div className="h-px flex-1 bg-white"></div>
                          </div>
 
-                         {/* PDF PREVIEW BOX */}
                          <div className="bg-[#f0f0f0] p-4 md:p-12 overflow-x-auto rounded-3xl border-4 border-white/5">
                             <div className="bg-white shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] mx-auto rounded-sm overflow-hidden" style={{ width: '840px', minWidth: '840px' }}>
                                <div ref={reportRef} className="p-20 text-[12px]" style={{ backgroundColor: '#fff', color: '#111', fontFamily: 'Arial, Helvetica, sans-serif', lineHeight: '1.6' }}>
                                   
-                                  {/* Minimalist Header PDF */}
                                   <div className="border-b-[6px] mb-12 pb-8 flex justify-between items-end" style={{ borderBottomColor: '#000' }}>
                                      <div>
                                        <h1 className="text-5xl font-black tracking-tighter" style={{ color: '#000', marginBottom: '8px' }}>RELATÓRIO MENSAL</h1>
@@ -642,7 +716,6 @@ export default function ConsultingReports() {
                                      </div>
                                   </div>
 
-                                  {/* 1. EXECUTIVE SUMMARY */}
                                   <h3 className="font-black uppercase mb-4 text-[16px] border-b-2 pb-1" style={{borderColor: '#eee'}}>1. SUMÁRIO EXECUTIVO</h3>
                                   <div className="mb-10 p-8 bg-[#fcfcfc] border-l-[10px] border-[#000]">
                                      <p className="font-medium text-[14px] leading-relaxed" style={{color: '#222'}}>
@@ -650,7 +723,6 @@ export default function ConsultingReports() {
                                      </p>
                                   </div>
 
-                                  {/* 1.1 REBALANCE TABLE */}
                                   <h4 className="font-black uppercase mb-3 text-[12px] tracking-wider">1.1 TABELA DE REBALANCEAMENTO ESTRUTURAL</h4>
                                   <table className="w-full text-left mb-14 border-collapse" style={{fontSize: '11px'}}>
                                      <thead>
@@ -662,21 +734,55 @@ export default function ConsultingReports() {
                                         </tr>
                                      </thead>
                                      <tbody>
-                                        {Object.values(pdfRebalanceData).sort((a,b) => b.currentBal - a.currentBal).map((sec, idx) => (
-                                           <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                                              <td className="p-4 border border-[#eee]">
-                                                 <span className="font-black uppercase text-[12px]" style={{color: '#000'}}>{sec.macro}</span><br/>
-                                                 <span style={{fontSize: '10px', color: '#666', fontWeight: 'bold'}}>{sec.sectorName}</span>
-                                              </td>
-                                              <td className="p-4 border border-[#eee] text-center font-black">{( (sec.currentBal / (activeReportData.total_balance||1)) * 100).toFixed(2)}%</td>
-                                              <td className="p-4 border border-[#eee] text-center font-medium">{(sec.targetP * 100).toFixed(2)}%</td>
-                                              <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: sec.statusColor }}>{sec.status}</td>
-                                           </tr>
-                                        ))}
-                                     </tbody>
+                                         {liveMacroSectors.map(macro => {
+                                            const macroSectorsInGroup = Object.values(pdfRebalanceData).filter(s => s.macro === macro.name);
+                                            const macroTotalBal = macroSectorsInGroup.reduce((sum, s) => sum + s.currentBal, 0);
+                                            const activeTotal = activeReportData.total_balance || 1;
+                                            const macroCurrentP = (macroTotalBal / activeTotal) * 100;
+                                            const macroDiff = macroCurrentP - (macro.target_percentage * 100);
+                                            
+                                            if (macroTotalBal === 0 && macro.target_percentage === 0) return null;
+
+                                            return (
+                                               <Fragment key={macro.id}>
+                                                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                                                     <td className="p-4 border border-[#eee]">
+                                                        <span className="font-black uppercase text-[12px]" style={{color: '#000'}}>{macro.name}</span>
+                                                     </td>
+                                                     <td className="p-4 border border-[#eee] text-center font-black">{macroCurrentP.toFixed(2)}%</td>
+                                                     <td className="p-4 border border-[#eee] text-center font-medium">{(macro.target_percentage * 100).toFixed(2)}%</td>
+                                                     <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: macroDiff > 5 ? '#ef4444' : macroDiff < -5 ? '#10b981' : '#000' }}>
+                                                        {macroDiff > 2 ? 'EXCESSO' : macroDiff < -2 ? 'APORTE' : 'ENQUADRADO'}
+                                                     </td>
+                                                  </tr>
+                                                  {macroSectorsInGroup.sort((a,b) => b.currentBal - a.currentBal).map((sec, sidx) => (
+                                                     <tr key={sidx} style={{ backgroundColor: '#fff' }}>
+                                                        <td className="p-4 border border-[#eee] pl-8">
+                                                           <span style={{fontSize: '10px', color: '#666', fontWeight: 'bold'}}>{sec.sectorName}</span>
+                                                        </td>
+                                                        <td className="p-4 border border-[#eee] text-center" style={{fontSize: '10px'}}>{( (sec.currentBal / activeTotal) * 100).toFixed(2)}%</td>
+                                                        <td className="p-4 border border-[#eee] text-center" style={{fontSize: '10px'}}>{(sec.targetP * 100).toFixed(2)}%</td>
+                                                        <td className="p-4 border border-[#eee] text-right uppercase text-[9px]" style={{ color: sec.statusColor }}>{sec.status}</td>
+                                                     </tr>
+                                                  ))}
+                                               </Fragment>
+                                            );
+                                         })}
+                                         
+                                         {liveMacroSectors.length === 0 && Object.values(pdfRebalanceData).sort((a,b) => b.currentBal - a.currentBal).map((sec, idx) => (
+                                            <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                               <td className="p-4 border border-[#eee]">
+                                                  <span className="font-black uppercase text-[12px]" style={{color: '#000'}}>{sec.macro}</span><br/>
+                                                  <span style={{fontSize: '10px', color: '#666', fontWeight: 'bold'}}>{sec.sectorName}</span>
+                                               </td>
+                                               <td className="p-4 border border-[#eee] text-center font-black">{( (sec.currentBal / (activeReportData.total_balance||1)) * 100).toFixed(2)}%</td>
+                                               <td className="p-4 border border-[#eee] text-center font-medium">{(sec.targetP * 100).toFixed(2)}%</td>
+                                               <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: sec.statusColor }}>{sec.status}</td>
+                                            </tr>
+                                         ))}
+                                      </tbody>
                                   </table>
 
-                                  {/* 2. RESULTS CONSOLIDATED */}
                                   <h3 className="font-black uppercase mb-4 text-[16px] border-b-2 pb-1" style={{borderColor: '#eee'}}>2. RESULTADOS CONSOLIDADOS</h3>
                                   <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.3em]">Balanço de Performance por Macro-Classe de Ativos</p>
                                   <table className="w-full text-left mb-14 border-collapse" style={{fontSize: '11px'}}>
@@ -690,20 +796,18 @@ export default function ConsultingReports() {
                                         </tr>
                                      </thead>
                                      <tbody>
-                                        {Object.values(tableA).map((row, idx) => {
-                                           const bal = row.label === 'Consolidada' ? activeReportData.total_balance : 
-                                                       activePdfAssets.filter(a => {
-                                                          const s = liveSectors.find(ls => ls.id === a.sector_id);
-                                                          return (s ? s.macro_category : a.category) === row.label;
-                                                       }).reduce((s, a) => s + a.current_balance, 0);
-                                           
+                                        {sortedTableAData.map((row, idx) => {
+                                           const bal = row.balance;
                                            if (row.label !== 'Consolidada' && bal === 0) return null;
 
                                            return (
                                               <tr key={idx} style={{ backgroundColor: row.label === 'Consolidada' ? '#fafafa' : 'transparent', fontWeight: row.label==='Consolidada'?'900':'normal' }}>
                                                  <td className="p-4 border border-[#eee] font-black">{row.label}</td>
                                                  <td className="p-4 border border-[#eee] text-center">
-                                                    <span className="font-black" style={{fontSize: '13px'}}>{row.rentMês}%</span> <span style={{fontSize: '9px', color: '#999', display: 'block'}}>{row.benchMês}</span>
+                                                    <div className="flex flex-col items-center">
+                                                       <span className="font-black" style={{fontSize: '13px'}}>{row.rentMês}%</span>
+                                                       <span style={{fontSize: '9px', color: '#999', fontWeight: 'bold'}}>{row.benchName || getDefaultBenchName(row.label)}: {row.benchMês}%</span>
+                                                    </div>
                                                  </td>
                                                  <td className="p-4 border border-[#eee] text-center">
                                                     <span className="font-black" style={{fontSize: '13px'}}>{row.rentInício}%</span>
