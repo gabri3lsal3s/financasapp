@@ -138,7 +138,7 @@ export default function InvestmentConsulting() {
              </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {clients.map((client, index) => {
               const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
               const staggerClass = index < 5 ? staggerClasses[index] : ''
@@ -146,58 +146,44 @@ export default function InvestmentConsulting() {
               return (
                 <div key={client.id} className={`animate-stagger-item ${staggerClass}`}>
                   <Card 
-                    className="group relative overflow-hidden p-0 hover:border-primary/40 transition-all duration-500 cursor-pointer shadow-lg hover:shadow-primary/5 bg-secondary/10 border-white/5 h-full"
+                    className="group relative overflow-hidden p-5 hover:border-white/10 transition-all duration-300 cursor-pointer bg-secondary/5 border-white/5 w-full"
                     onClick={() => navigate(`/admin/consulting/${client.id}`)}
                   >
-                    {/* Accent bar */}
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/20 group-hover:bg-primary transition-all duration-500" />
-                    
-                    <div className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="bg-primary/5 p-3 rounded-2xl group-hover:bg-primary/20 transition-colors">
-                            <Users className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/5">
-                              <div className={`w-2 h-2 rounded-full animate-pulse ${client.status === 'active' ? 'bg-[#10b981]' : 'bg-gray-500'}`} />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-secondary">
-                                {client.status === 'active' ? 'Ativo' : 'Inativo'}
-                              </span>
-                            </div>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleOpenModal(client); }} 
-                              className="p-1.5 rounded-lg bg-white/5 md:bg-white/5 hover:bg-white/10 text-secondary hover:text-primary transition-all opacity-100 md:opacity-0 group-hover:opacity-100"
-                            >
-                               <Settings size={14} />
-                            </button>
-                          </div>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex justify-between items-start">
+                        <div className="bg-primary/5 p-2 rounded-xl group-hover:bg-primary/10 transition-colors">
+                          <Users className="h-5 w-5 text-primary" />
                         </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'active' ? 'bg-[#10b981]' : 'bg-gray-500'}`} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
+                              {client.status === 'active' ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleOpenModal(client); }} 
+                            className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-secondary hover:text-primary transition-all active:scale-95"
+                          >
+                              <Settings size={14} />
+                          </button>
+                        </div>
+                      </div>
 
-                        <div className="space-y-1">
-                          <h3 className="text-2xl font-black text-primary tracking-tighter transition-colors duration-300">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-0.5 min-w-0">
+                          <h3 className="text-lg font-semibold text-primary tracking-tight truncate">
                             {client.name}
                           </h3>
                           {client.email ? (
-                            <p className="text-sm text-secondary font-black truncate opacity-40">{client.email}</p>
+                            <p className="text-sm text-secondary truncate opacity-60 font-medium">{client.email}</p>
                           ) : (
-                            <p className="text-xs text-secondary/30 font-black italic">Sem e-mail cadastrado</p>
+                            <p className="text-xs text-secondary/30 italic">Sem e-mail</p>
                           )}
                         </div>
-                        
-                        <div className="mt-8 flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-[0.2em] opacity-60 group-hover:opacity-100 transition-opacity">
-                            Gestão de Carteira
-                          </div>
-                          <div className="flex items-center gap-2 text-primary font-black text-sm">
-                            <div className="p-1 text-secondary/40 md:text-primary/40 group-hover:text-primary transition-all duration-300">
-                              <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                            </div>
-                          </div>
-                        </div>
+                        <ArrowRight size={20} className="text-secondary/20 group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+                      </div>
                     </div>
-
-                    {/* Hover Glow */}
-                    <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   </Card>
                 </div>
               )
@@ -215,14 +201,18 @@ export default function InvestmentConsulting() {
               placeholder="Ex: João da Silva"
               required
             />
-            <Input
-              label="E-mail de Integração"
-              type="email"
-              value={newClientEmail}
-              onChange={(e) => setNewClientEmail(e.target.value)}
-              placeholder="joao@exemplo.com"
-              description="Este e-mail será usado para sincronizar os dados com o usuário final."
-            />
+             <div className="space-y-1">
+                <Input
+                  label="E-mail de Integração"
+                  type="email"
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
+                  placeholder="joao@exemplo.com"
+                />
+                <p className="text-[10px] text-secondary font-black uppercase tracking-widest opacity-40 ml-1">
+                  Este e-mail será usado para sincronizar os dados com o usuário final.
+                </p>
+             </div>
             <ModalActionFooter
                onCancel={() => setShowAddModal(false)}
                submitLabel={editingClient ? "Atualizar" : "Salvar"}

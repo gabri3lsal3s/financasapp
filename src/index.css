@@ -133,14 +133,26 @@
     }
   }
 
-  /* Ocultar tudo que for nativo do seletor de data para usar o ícone customizado */
+  /* Ocultar tudo que for nativo do seletor de data para usar o ícone customizado, mas permitir que o clique abra o seletor */
   input[type="date"]::-webkit-inner-spin-button,
   input[type="date"]::-webkit-outer-spin-button,
-  input[type="date"]::-webkit-clear-button,
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  input[type="date"]::-webkit-clear-button {
     display: none !important;
-    -webkit-appearance: none !important;
-    appearance: none !important;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    color: transparent;
+    background: transparent;
+    cursor: pointer;
+    z-index: 10;
   }
 
   /* Garante que o campo de data se comporte como um seletor clicável em toda sua área */

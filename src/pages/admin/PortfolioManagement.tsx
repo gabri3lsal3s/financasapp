@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Trash2, Settings, FolderPlus, Edit2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, FolderPlus, Edit2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 import PageHeader from '@/components/PageHeader';
@@ -296,29 +296,29 @@ export default function PortfolioManagement() {
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
          {/* Top Stats */}
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-             <Card className="flex flex-col justify-between p-5 border-b-4 border-b-primary shadow-lg bg-secondary/10 backdrop-blur-sm border-white/5">
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-2 opacity-60">Patrimônio Gerido</span>
-                 <p className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(totalInWallet)}</p>
+             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
+                 <span className="text-xs text-secondary mb-2">Patrimônio Gerido</span>
+                 <p className="text-2xl font-bold text-primary tracking-tight">{formatCurrency(totalInWallet)}</p>
              </Card>
-             <Card className="flex flex-col justify-between p-5 border-b-4 border-b-[#10b981] shadow-lg bg-secondary/10 backdrop-blur-sm border-white/5">
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-2 opacity-60">Aporte em Aberto (Caixa)</span>
+             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
+                 <span className="text-xs text-secondary mb-2">Aporte em Aberto (Caixa)</span>
                  <div className="flex items-center gap-2">
-                    <span className="text-primary font-black text-lg">R$</span>
+                    <span className="text-primary font-semibold text-lg">R$</span>
                     <input 
                        value={cashBalance} onChange={e => setCashBalance(e.target.value)}
                        onBlur={() => { const p = parseMoneyInput(cashBalance); if(!Number.isNaN(p)) setCashBalance(formatMoneyInput(p)) }}
                        placeholder="0,00" inputMode="decimal"
-                       className="bg-transparent border-none outline-none text-3xl font-black text-[#10b981] w-full tracking-tighter"
+                       className="bg-transparent border-none outline-none text-2xl font-bold text-[#10b981] w-full tracking-tight"
                     />
                  </div>
              </Card>
-             <Card className="flex flex-col justify-between p-5 border-b-4 border-b-blue-500 shadow-lg bg-secondary/10 backdrop-blur-sm border-white/5">
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-2 opacity-60">Patrimônio Futuro Total</span>
-                 <p className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(futureTotal)}</p>
+             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
+                 <span className="text-xs text-secondary mb-2">Patrimônio Futuro Total</span>
+                 <p className="text-2xl font-bold text-primary tracking-tight">{formatCurrency(futureTotal)}</p>
              </Card>
-             <Card className={`flex flex-col justify-between p-5 border-b-4 shadow-lg bg-secondary/10 backdrop-blur-sm border-white/5 ${Math.abs(totalTargetAllocation - 1) > 0.01 ? 'border-b-red-500' : 'border-b-purple-500'}`}>
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-2 opacity-60">Alocação Alvo Total</span>
-                 <p className={`text-3xl font-black tracking-tighter ${Math.abs(totalTargetAllocation - 1) > 0.01 ? 'text-red-500' : 'text-primary'}`}>
+             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
+                 <span className="text-xs text-secondary mb-2">Alocação Alvo Total</span>
+                 <p className={`text-2xl font-bold tracking-tight ${Math.abs(totalTargetAllocation - 1) > 0.01 ? 'text-red-500' : 'text-primary'}`}>
                     {(totalTargetAllocation*100).toFixed(1)}%
                  </p>
              </Card>
@@ -337,7 +337,7 @@ export default function PortfolioManagement() {
          <div className="space-y-8">
             {Object.keys(groupedData).map(macroGroup => (
                <div key={macroGroup} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  <h2 className="text-xl font-black text-primary mb-4 ml-1 uppercase tracking-[0.2em] opacity-80 border-l-4 border-primary pl-4">{macroGroup}</h2>
+                  <h2 className="text-sm font-semibold text-secondary mb-4 ml-1 uppercase tracking-widest opacity-60">{macroGroup}</h2>
                   
                   <div className="grid grid-cols-1 gap-6">
                      {groupedData[macroGroup].map(({sector, assets: sectorAssets}, index) => {
@@ -355,7 +355,7 @@ export default function PortfolioManagement() {
                               <div className="bg-white/5 backdrop-blur-md p-5 flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-white/5">
                                  <div className="flex-1">
                                     <div className="flex items-center gap-3">
-                                       <h3 className="text-xl font-black text-primary tracking-tighter">
+                                       <h3 className="text-lg font-semibold text-primary tracking-tight">
                                           {sector.sector_name}
                                        </h3>
                                        {sector.id !== 'orphan' && (
@@ -370,25 +370,25 @@ export default function PortfolioManagement() {
                                        )}
                                     </div>
                                     <div className="flex flex-wrap gap-y-1 gap-x-4 mt-2">
-                                       <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Saldo: <span className="text-primary font-black">{formatCurrency(sectorTotalBal)}</span></span>
-                                       <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Exposição: <span className="text-primary font-black">{(sectorCurrentPercent*100).toFixed(2)}%</span></span>
+                                       <span className="text-xs text-secondary">Saldo: <span className="text-primary font-bold">{formatCurrency(sectorTotalBal)}</span></span>
+                                       <span className="text-xs text-secondary">Exposição: <span className="text-primary font-bold">{(sectorCurrentPercent*100).toFixed(2)}%</span></span>
                                     </div>
                                  </div>
                                  
                                  <div className="flex items-center gap-6 self-end md:self-center">
                                     {sector.id !== 'orphan' && (
                                        <div className="text-right">
-                                          <div className="flex items-center gap-2 bg-black/40 p-2 px-3 rounded-xl border border-white/5">
-                                             <span className="text-[9px] font-black text-secondary uppercase tracking-widest">Alvo</span>
+                                          <div className="flex items-center gap-2 bg-black/40 p-1.5 px-3 rounded-xl border border-white/5">
+                                             <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider">Alvo</span>
                                              <input 
                                                 value={(sector.target_percentage * 100).toString().replace('.', ',')}
                                                 onChange={(e) => handleUpdateSectorTarget(sector.id, e.target.value)}
-                                                className="w-12 bg-transparent border-none text-right font-black text-base text-primary focus:ring-0 p-0 tracking-tighter"
+                                                className="w-12 bg-transparent border-none text-right font-bold text-base text-primary focus:ring-0 p-0 tracking-tight"
                                                 inputMode="decimal"
                                              />
-                                             <span className="text-[9px] font-black text-secondary">%</span>
+                                             <span className="text-[10px] font-semibold text-secondary">%</span>
                                           </div>
-                                          <p className={`text-[10px] mt-1.5 font-black uppercase tracking-[0.15em] ${statusObj.color}`}>{statusObj.label}</p>
+                                          <p className={`text-[10px] mt-1.5 font-bold uppercase tracking-wider ${statusObj.color}`}>{statusObj.label}</p>
                                        </div>
                                     )}
                                  </div>
@@ -398,8 +398,8 @@ export default function PortfolioManagement() {
                               <div className="p-0 overflow-x-auto">
                                  <table className="w-full text-left bg-transparent min-w-[600px]">
                                     <thead>
-                                       <tr className="text-[10px] text-secondary border-b border-white/5 uppercase font-black tracking-widest bg-white/5">
-                                          <th className="p-4">TICKER / TÍTULO</th>
+                                       <tr className="text-xs text-secondary border-b border-white/5 uppercase font-semibold tracking-wider bg-white/5">
+                                          <th className="p-4">Ticker / Título</th>
                                           {macroGroup === 'Renda Fixa' && <th className="p-4 hidden md:table-cell">Taxa</th>}
                                           {macroGroup === 'Renda Fixa' && <th className="p-4 hidden md:table-cell">Vencimento</th>}
                                           {macroGroup !== 'Renda Fixa' && <th className="p-4 hidden md:table-cell">Var. Mês</th>}
@@ -411,17 +411,17 @@ export default function PortfolioManagement() {
                                        {sectorAssets.map(asset => (
                                           <tr key={asset.id} className="hover:bg-white/5 transition-colors group">
                                              <td className="p-4">
-                                                <div className="font-black text-primary tracking-tighter">{asset.asset_name}</div>
+                                                <div className="font-semibold text-primary tracking-tight">{asset.asset_name}</div>
                                              </td>
-                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-black text-secondary/60 hidden md:table-cell text-[13px]">{asset.custom_rate || '—'}</td>}
-                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-black text-secondary/60 hidden md:table-cell text-[13px]">{asset.maturity_date || '—'}</td>}
-                                             {macroGroup !== 'Renda Fixa' && <td className="p-4 font-black text-secondary/60 hidden md:table-cell text-[13px]">{asset.variation_month || '—'}</td>}
+                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-medium text-secondary/60 hidden md:table-cell text-sm">{asset.custom_rate || '—'}</td>}
+                                             {macroGroup === 'Renda Fixa' && <td className="p-4 font-medium text-secondary/60 hidden md:table-cell text-sm">{asset.maturity_date || '—'}</td>}
+                                             {macroGroup !== 'Renda Fixa' && <td className="p-4 font-medium text-secondary/60 hidden md:table-cell text-sm">{asset.variation_month || '—'}</td>}
                                              
                                              <td className="p-4 w-44">
                                                 <Input 
                                                   value={asset.current_balance.toString().replace('.', ',')}
                                                   onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
-                                                  className="text-right font-black h-9 bg-black/20 border-white/5 focus:border-primary/40 text-primary"
+                                                  className="text-right font-bold h-9 bg-secondary border-white/5 focus:border-primary/40 text-primary"
                                                   inputMode="decimal"
                                                 />
                                              </td>
@@ -482,7 +482,7 @@ export default function PortfolioManagement() {
                value={sectorForm.target_percentage}
                onChange={e => setSectorForm({...sectorForm, target_percentage: e.target.value})}
             />
-            <ModalActionFooter onCancel={() => setShowSectorModal(false)} submitLabel={editingSector ? "Atualizar" : "Salvar"} isSubmitDisabled={saving} />
+            <ModalActionFooter onCancel={() => setShowSectorModal(false)} submitLabel={editingSector ? "Atualizar" : "Salvar"} submitDisabled={saving} />
          </form>
       </Modal>
 
@@ -509,7 +509,7 @@ export default function PortfolioManagement() {
             />
             
             <div className="border-t border-[var(--color-border)] pt-3 mt-4">
-               <p className="text-xs font-black text-secondary mb-3 uppercase">Campos Opcionais de Relatório</p>
+               <p className="text-xs font-bold text-secondary mb-3 uppercase">Campos Opcionais de Relatório</p>
                <div className="grid grid-cols-2 gap-3">
                   <Input label="Valor Inicial (Aplicado)" inputMode="decimal" placeholder="Opcional" value={assetForm.applied_amount} onChange={e => setAssetForm({...assetForm, applied_amount: e.target.value})} />
                   <Input label="Taxa / Yield" placeholder="Ex: IPCA + 8%" value={assetForm.custom_rate} onChange={e => setAssetForm({...assetForm, custom_rate: e.target.value})} />
@@ -519,7 +519,7 @@ export default function PortfolioManagement() {
                </div>
             </div>
 
-            <ModalActionFooter onCancel={() => setShowAssetModal(false)} submitLabel={editingAsset ? "Atualizar Ativo" : "Salvar Ativo"} isSubmitDisabled={saving} />
+            <ModalActionFooter onCancel={() => setShowAssetModal(false)} submitLabel={editingAsset ? "Atualizar Ativo" : "Salvar Ativo"} submitDisabled={saving} />
          </form>
       </Modal>
     </div>

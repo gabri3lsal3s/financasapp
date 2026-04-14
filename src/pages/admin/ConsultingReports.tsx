@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Download, Loader2, BarChart2, Calendar, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp } from 'lucide-react';
+import { Download, Loader2, BarChart2, Calendar, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp, Edit2 } from 'lucide-react';
 import Button from '@/components/Button';
-import { Tooltip, Legend, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import PageHeader from '@/components/PageHeader';
@@ -10,6 +10,9 @@ import Card from '@/components/Card';
 import Select from '@/components/Select';
 import Input from '@/components/Input';
 import Loader from '@/components/Loader';
+import Modal from '@/components/Modal';
+import ModalActionFooter from '@/components/ModalActionFooter';
+import MonthPickerModal from '@/components/MonthPickerModal';
 import { formatCurrency, formatMonthShort, addMonths, getCurrentMonthString } from '@/utils/format';
 import { toast } from 'react-hot-toast';
 
@@ -26,12 +29,8 @@ interface PortfolioAsset {
 
 interface ConsultingReport { id: string; month: string; total_balance: number; notes: string; created_at: string; }
 
-const MACRO_ORDER = ['Renda Fixa', 'Ações Nacionais', 'Fundo Imobiliário (FII)', 'Exterior (ETFs)', 'Criptoativos', 'Outros'];
+// Constants moved or no longer needed in this scope
 
-const CATEGORY_COLORS: Record<string, string> = {
-  'Ações Nacionais': '#8b5cf6', 'Renda Fixa': '#3b82f6', 'Fundo Imobiliário (FII)': '#10b981', 'Exterior (ETFs)': '#f59e0b', 'Criptoativos': '#ec4899', 'Outros': '#6b7280'
-};
-const PDF_COLORS = { textDark: '#1f2937', textMuted: '#6b7280', borderLight: '#e5e7eb', bgWhite: '#ffffff', brandGray: '#4b5563', lineGray: '#d1d5db' };
 
 interface TableARow {
   label: string;
@@ -74,6 +73,11 @@ export default function ConsultingReports() {
      { acao: 'Aportar', ativo: 'FIIs / Exterior', justificativa: 'Ativos sub-alocados em relação ao alvo.' },
      { acao: 'Aguardar', ativo: 'Ações Nacionais', justificativa: 'Exposição acima do limite; aguardar diluição.' }
   ]);
+
+  // History Management State
+  const [showEditDateModal, setShowEditDateModal] = useState(false);
+  const [reportToEdit, setReportToEdit] = useState<ConsultingReport | null>(null);
+  const [newReportMonth, setNewReportMonth] = useState('');
 
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -218,6 +222,37 @@ export default function ConsultingReports() {
       }
    };
 
+   const handleDeleteReport = async (reportId: string) => {
+      if (!window.confirm("Tem certeza que deseja excluir este fechamento permanentemente?")) return;
+      try {
+          const { error } = await supabase.from('consulting_reports').delete().eq('id', reportId);
+          if (error) throw error;
+          toast.success("Fechamento removido");
+          if (activeReportMode === reportId) setActiveReportMode(null);
+          fetchClientData(selectedClientId);
+      } catch (e) {
+          toast.error("Erro ao excluir");
+      }
+   };
+
+   const handleOpenEditModal = (report: ConsultingReport) => {
+      setReportToEdit(report);
+      setNewReportMonth(report.month);
+      setShowEditDateModal(true);
+   };
+
+   const handleUpdateReportMonth = async (targetReportId: string, monthValue: string) => {
+      try {
+          const { error } = await supabase.from('consulting_reports').update({ month: monthValue }).eq('id', targetReportId);
+          if (error) throw error;
+          toast.success("Data atualizada");
+          setShowEditDateModal(false);
+          fetchClientData(selectedClientId);
+      } catch (e) {
+          toast.error("Erro ao atualizar data");
+      }
+   };
+
   const loadPdfEngineFor = async (mode: 'live' | string) => {
      setActiveReportMode(mode); setNotes('');
      if (mode === 'live') {
@@ -353,8 +388,8 @@ export default function ConsultingReports() {
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                    <TrendingUp size={100} className="text-primary"/>
                 </div>
-                <h3 className="text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                   <BarChart2 size={16} className="text-primary"/> Evolução do Patrimônio Líquido Gerido
+                <h3 className="text-sm font-semibold text-secondary flex items-center gap-2 mb-4">
+                   <BarChart2 size={16} className="text-primary"/> Evolução do Patrimônio Gerido
                 </h3>
                 <div className="h-44 w-full">
                    <ResponsiveContainer width="100%" height="100%">
@@ -365,15 +400,15 @@ export default function ConsultingReports() {
                              <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
                            </linearGradient>
                          </defs>
-                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: 'var(--color-secondary)', fontSize: 10, fontWeight: 700}} dy={10} />
-                         <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--color-secondary)', fontSize: 10, fontWeight: 700}} dx={-10}/>
+                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: 'var(--color-text-secondary)', fontSize: 10}} dy={10} />
+                         <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--color-text-secondary)', fontSize: 10}} dx={-10}/>
                          <Tooltip 
-                            contentStyle={{backgroundColor: '#111', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)'}}
+                            contentStyle={{backgroundColor: 'var(--color-primary)', borderRadius: '12px', border: '1px solid var(--color-border)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)'}}
                             itemStyle={{color: 'var(--color-primary)', fontWeight: 'bold'}}
                             formatter={(v: number) => formatCurrency(v)} 
                          />
-                         <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorPat)" />
+                         <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorPat)" />
                       </AreaChart>
                    </ResponsiveContainer>
                 </div>
@@ -383,42 +418,60 @@ export default function ConsultingReports() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
              {/* Left Column: History Sidebar */}
              <div className="lg:col-span-1 space-y-4">
-                <h3 className="text-[10px] font-black text-secondary uppercase tracking-[0.3em] pl-1 opacity-60">Histórico de Fechamentos</h3>
+                <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest pl-1 opacity-60">Histórico de Fechamentos</h3>
                 <div className="space-y-3 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
-                    {/* Live State Card */}
-                    <div 
-                       onClick={() => loadPdfEngineFor('live')}
-                       className={`p-5 rounded-2xl border-2 transition-all cursor-pointer group hover:scale-[1.02] ${activeReportMode === 'live' ? 'border-primary bg-primary/5 shadow-xl shadow-primary/10' : 'border-white/5 bg-secondary/5 hover:border-white/20'}`}
-                    >
-                       <div className="flex justify-between items-center mb-1">
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary opacity-50'}`}>Situação Atual</span>
-                          <div className="flex items-center gap-2">
-                             <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></div>
-                             <span className="text-[10px] font-black text-[#10b981] uppercase">Live</span>
-                          </div>
-                       </div>
-                       <p className="font-black text-primary text-xl tracking-tighter">Posição em Aberto</p>
-                       <p className="text-xs font-black text-secondary opacity-60 mt-1">Dados não arquivados</p>
-                       <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
-                          <p className="text-sm font-black text-primary">{formatCurrency(liveTotal)}</p>
-                          <ArrowRight size={16} className={`transition-all ${activeReportMode === 'live' ? 'translate-x-1 text-primary' : 'text-secondary opacity-20'}`} />
-                       </div>
-                    </div>
-
-                    {/* Historical Cards */}
-                    {historyReports.map(r => (
-                        <div 
-                           key={r.id} onClick={() => loadPdfEngineFor(r.id)}
-                           className={`p-5 rounded-2xl border-2 transition-all cursor-pointer group hover:scale-[1.02] ${activeReportMode === r.id ? 'border-primary bg-primary/5 shadow-xl shadow-primary/10' : 'border-white/5 bg-secondary/5 hover:border-white/20'}`}
-                        >
-                           <span className={`text-[10px] font-black uppercase tracking-widest ${activeReportMode === r.id ? 'text-primary' : 'text-secondary opacity-50'}`}>Relatório Mensal</span>
-                           <p className="font-black text-primary text-xl tracking-tighter mt-1">{r.month}</p>
-                           <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
-                              <p className="text-sm font-black text-primary">{formatCurrency(r.total_balance)}</p>
-                              <Calendar size={16} className="text-secondary opacity-20" />
+                     {/* Live State Card */}
+                     <div 
+                        onClick={() => loadPdfEngineFor('live')}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer group relative ${activeReportMode === 'live' ? 'border-primary/50 bg-primary/5 scale-[1.02]' : 'border-white/5 bg-secondary/5 hover:border-white/10 hover:lift-subtle'}`}
+                     >
+                        <div className="flex justify-between items-center mb-1">
+                           <span className={`text-[10px] font-semibold uppercase tracking-wider ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary opacity-50'}`}>Situação Atual</span>
+                           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#10b981]/10 border border-[#10b981]/20">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></div>
+                              <span className="text-[10px] font-semibold text-[#10b981] uppercase">Live</span>
                            </div>
                         </div>
-                    ))}
+                        <p className={`font-semibold text-lg tracking-tight transition-colors ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary/80'}`}>Posição em Aberto</p>
+                        <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
+                           <p className="text-sm font-bold text-primary">{formatCurrency(liveTotal)}</p>
+                           <ArrowRight size={14} className={`transition-all ${activeReportMode === 'live' ? 'translate-x-1 text-primary' : 'text-secondary opacity-20'}`} />
+                        </div>
+                     </div>
+
+                     {/* Historical Cards */}
+                     {historyReports.map(r => (
+                        <div 
+                           key={r.id} onClick={() => loadPdfEngineFor(r.id)}
+                           className={`p-4 rounded-xl border transition-all cursor-pointer group relative ${activeReportMode === r.id ? 'border-primary/50 bg-primary/5 scale-[1.02]' : 'border-white/5 bg-secondary/5 hover:border-white/10 hover:lift-subtle'}`}
+                        >
+                           <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); handleOpenEditModal(r); }}
+                                 className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-secondary hover:text-primary transition-all"
+                                 title="Editar data"
+                              >
+                                 <Edit2 size={12} />
+                              </button>
+                              <button 
+                                 onClick={(e) => { e.stopPropagation(); handleDeleteReport(r.id); }}
+                                 className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-secondary hover:text-red-500 transition-all"
+                                 title="Excluir fechamento"
+                              >
+                                 <Trash2 size={12} />
+                              </button>
+                           </div>
+
+                           <div className="flex justify-between items-center mb-1">
+                              <span className={`text-[10px] font-semibold uppercase tracking-wider ${activeReportMode === r.id ? 'text-primary' : 'text-secondary opacity-50'}`}>Relatório Mensal</span>
+                           </div>
+                           <p className={`font-semibold text-lg tracking-tight transition-colors ${activeReportMode === r.id ? 'text-primary' : 'text-secondary/80'}`}>{r.month}</p>
+                           <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
+                              <p className="text-sm font-bold text-primary">{formatCurrency(r.total_balance)}</p>
+                              <ArrowRight size={14} className={`transition-all ${activeReportMode === r.id ? 'translate-x-1 text-primary' : 'text-secondary opacity-20'}`} />
+                           </div>
+                        </div>
+                     ))}
 
                     {historyReports.length === 0 && (
                        <div className="text-center py-10 opacity-40">
@@ -434,8 +487,8 @@ export default function ConsultingReports() {
                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                          <div>
-                            <h2 className="text-3xl font-black text-primary tracking-tighter">Editor de Relatório</h2>
-                            <p className="text-secondary font-black text-sm">Configurando emissão para <span className="text-primary">{activeReportData.month}</span></p>
+                            <h2 className="text-2xl font-bold text-primary tracking-tight">Editor de Relatório</h2>
+                            <p className="text-secondary text-sm">Configurando emissão para <span className="text-primary font-semibold">{activeReportData.month}</span></p>
                          </div>
                          <div className="flex gap-3">
                             {activeReportMode !== 'live' && (
@@ -480,12 +533,12 @@ export default function ConsultingReports() {
                          {/* Table A Editor */}
                          <Card className="p-0 overflow-hidden bg-secondary/10 border-white/5">
                             <div className="bg-white/5 p-4 border-b border-white/5">
-                               <h4 className="text-[10px] font-black text-secondary uppercase tracking-[0.3em]">Balanço de Performance Consolidado (Tabela A)</h4>
+                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Balanço de Performance Consolidado (Tabela A)</h4>
                             </div>
                             <div className="overflow-x-auto custom-scrollbar">
                                <table className="w-full text-left border-collapse min-w-[700px]">
                                   <thead>
-                                     <tr className="text-[9px] text-secondary uppercase font-black border-b border-white/5 bg-black/20">
+                                     <tr className="text-[10px] text-secondary uppercase font-semibold border-b border-white/5 bg-black/20">
                                         <th className="p-4">Carteira / Classe</th>
                                         <th className="p-4 text-center">Referência (%)</th>
                                         <th className="p-4 text-center">Índice (Bench)</th>
@@ -497,21 +550,21 @@ export default function ConsultingReports() {
                                      {Object.values(tableA).map((row, idx) => (
                                         <tr key={idx} className="hover:bg-white/5 transition-colors group">
                                            <td className="p-4">
-                                              <span className={`text-sm font-black tracking-tighter ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
+                                              <span className={`text-sm font-bold tracking-tight ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
                                                  {row.label}
                                               </span>
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-black/40 border-2 border-white/10 rounded-xl px-2 py-2 text-center text-primary font-black outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-black/40 border-2 border-white/10 rounded-xl px-2 py-2 text-center text-primary font-black outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} />
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-black/40 border-2 border-white/10 rounded-xl px-2 py-2 text-center text-primary font-black outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-black/40 border-2 border-white/10 rounded-xl px-2 py-2 text-center text-primary font-black outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
                                            </td>
                                         </tr>
                                      ))}
@@ -523,7 +576,7 @@ export default function ConsultingReports() {
                          {/* Analysis & Fee */}
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Card className="p-6 bg-secondary/10 border-white/5">
-                               <h4 className="text-[10px] font-black text-secondary uppercase tracking-[0.3em] mb-4">Parecer do Especialista</h4>
+                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Parecer do Especialista</h4>
                                <textarea 
                                  className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[140px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" 
                                  value={notes} 
@@ -534,8 +587,8 @@ export default function ConsultingReports() {
 
                             <Card className="p-6 bg-secondary/10 border-white/5 flex flex-col justify-between">
                                <div>
-                                  <h4 className="text-[10px] font-black text-secondary uppercase tracking-[0.3em] mb-4">Cálculo de Fee Baseado em Patrimônio</h4>
-                                  <Input label="Comissão Mensal (%)" tobacco="accent-primary" value={feeRate} onChange={e=>setFeeRate(e.target.value)} />
+                                  <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Cálculo de Fee Baseado em Patrimônio</h4>
+                                  <Input label="Comissão Mensal (%)" value={feeRate} onChange={e=>setFeeRate(e.target.value)} />
                                </div>
                                <div className="p-5 bg-primary/10 rounded-2xl border border-primary/20 text-center mt-6">
                                   <p className="text-[9px] font-black text-secondary uppercase tracking-widest mb-1 opacity-60">Valor Estimado do Fee</p>
@@ -547,7 +600,7 @@ export default function ConsultingReports() {
                          {/* Actions Planner */}
                          <Card className="p-6 bg-secondary/10 border-white/5 relative overflow-hidden">
                             <div className="flex justify-between items-center mb-6 relative z-10">
-                               <h4 className="text-[10px] font-black text-secondary uppercase tracking-[0.3em]">Diretriz de Ações Para o Próximo Ciclo</h4>
+                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Diretriz de Ações Para o Próximo Ciclo</h4>
                                <Button size="sm" variant="ghost" onClick={() => setPlanning([...planning, { acao: '', ativo: '', justificativa: '' }])} className="text-[9px] font-black uppercase text-primary border border-primary/20 hover:bg-primary/20 h-8 px-4">Nova Diretriz</Button>
                             </div>
                             <div className="space-y-3 relative z-10">
@@ -765,7 +818,27 @@ export default function ConsultingReports() {
                 )}
              </div>
           </div>
-      </div>
+       </div>
+
+
+       <MonthPickerModal 
+          isOpen={showEditDateModal} 
+          onClose={() => setShowEditDateModal(false)}
+          value={newReportMonth}
+          onChange={async (val) => {
+            if (!reportToEdit) return;
+            try {
+                const { error } = await supabase.from('consulting_reports').update({ month: val }).eq('id', reportToEdit.id);
+                if (error) throw error;
+                toast.success("Data atualizada");
+                setShowEditDateModal(false);
+                fetchClientData(selectedClientId);
+            } catch (e) {
+                toast.error("Erro ao atualizar data");
+            }
+          }}
+          title="Ajustar Mês de Referência"
+       />
     </div>
   );
 }

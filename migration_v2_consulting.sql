@@ -119,6 +119,18 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'Users can insert own consulting reports') THEN
         CREATE POLICY "Users can insert own consulting reports" ON consulting_reports FOR INSERT WITH CHECK (auth.uid() = user_id);
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'Users can update own consulting reports') THEN
+        CREATE POLICY "Users can update own consulting reports" ON consulting_reports FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'Users can delete own consulting reports') THEN
+        CREATE POLICY "Users can delete own consulting reports" ON consulting_reports FOR DELETE USING (auth.uid() = user_id);
+    END IF;
+
+    -- Report Assets (Garantir acesso aos ativos congelados)
+    IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'Users can manage own consulting report assets') THEN
+        CREATE POLICY "Users can manage own consulting report assets" ON consulting_report_assets FOR ALL
+        USING (auth.uid() IN (SELECT user_id FROM consulting_reports WHERE id = report_id));
+    END IF;
 
     -- Setores
     IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'Users can view own portfolio sectors') THEN
