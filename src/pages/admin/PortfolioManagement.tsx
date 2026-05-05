@@ -1,16 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Plus, Trash2, FolderPlus, Edit2, ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { FolderPlus, Edit2, Trash2, Plus, Settings } from 'lucide-react';
 import Button from '@/components/Button';
-import Loader from '@/components/Loader';
-import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
 import Input from '@/components/Input';
+import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import ModalActionFooter from '@/components/ModalActionFooter';
-import Select from '@/components/Select';
-import { formatCurrency, formatMoneyInput, parseMoneyInput } from '@/utils/format';
+import Loader from '@/components/Loader';
+import { formatCurrency, parseMoneyInput, formatMoneyInput } from '@/utils/format';
 
 interface PortfolioMacroSector {
   id: string;
@@ -50,9 +48,12 @@ interface Client {
 
 
 
-export default function PortfolioManagement() {
-  const { clientId } = useParams<{ clientId: string }>();
-  const navigate = useNavigate();
+interface PortfolioManagementProps {
+  clientId: string;
+  selectedMonth?: string;
+}
+
+export default function PortfolioManagement({ clientId, selectedMonth = 'live' }: PortfolioManagementProps) {
   const [client, setClient] = useState<Client | null>(null);
   
   const [macroSectors, setMacroSectors] = useState<PortfolioMacroSector[]>([]);
@@ -64,7 +65,7 @@ export default function PortfolioManagement() {
   const [saving, setSaving] = useState(false);
 
   // Visualization States
-  const [collapsedMacros, setCollapsedMacros] = useState<Set<string>>(new Set());
+  // const [collapsedMacros, setCollapsedMacros] = useState<Set<string>>(new Set());
   const [showMacroManagerModal, setShowMacroManagerModal] = useState(false);
   const [editingMacro, setEditingMacro] = useState<PortfolioMacroSector | null>(null);
   const [macroForm, setMacroForm] = useState({ name: '', target_percentage: '' });
@@ -82,9 +83,14 @@ export default function PortfolioManagement() {
      applied_amount: '', custom_rate: '', maturity_date: '', variation_month: '', variation_total: ''
   });
 
+  // Quick Update State
+  const [showQuickUpdateModal, setShowQuickUpdateModal] = useState(false);
+  const [quickUpdateBalances, setQuickUpdateBalances] = useState<Record<string, string>>({});
+  const [quickUpdateSearch, setQuickUpdateSearch] = useState('');
+
   useEffect(() => {
     if (clientId) fetchPortfolio();
-  }, [clientId]);
+  }, [clientId, selectedMonth]);
 
   const fetchPortfolio = async () => {
     setLoading(true);
@@ -101,15 +107,17 @@ export default function PortfolioManagement() {
       if (macErr) throw macErr;
       setMacroSectors(macrosData || []);
 
-      const { data: assetsData, error: astErr } = await supabase.from('portfolio_assets').select('*').eq('client_id', clientId).order('asset_name');
-      if (astErr) throw astErr;
-      setAssets(assetsData || []);
+      if (selectedMonth === 'live') {
+         const { data: assetsData, error: astErr } = await supabase.from('portfolio_assets').select('*').eq('client_id', clientId).order('asset_name');
+         if (astErr) throw astErr;
+         setAssets(assetsData || []);
+      } else {
+         const { data: assetsData, error: astErr } = await supabase.from('consulting_report_assets').select('*').eq('report_id', selectedMonth).order('asset_name');
+         if (astErr) throw astErr;
+         setAssets(assetsData || []);
+      }
 
-      // Default collapse all
-      const initialCollapsed = new Set<string>();
-      if (macrosData) macrosData.forEach(m => initialCollapsed.add(m.id));
-      initialCollapsed.add('orphans');
-      setCollapsedMacros(initialCollapsed);
+
     } catch (err) {
       console.error(err);
       alert('Erro ao carregar os dados');
@@ -174,6 +182,54 @@ export default function PortfolioManagement() {
      }
   };
 
+  const openQuickUpdate = () => {
+    const balances: Record<string, string> = {};
+    assets.forEach(a => { balances[a.id] = formatMoneyInput(a.current_balance); });
+    setQuickUpdateBalances(balances);
+    setShowQuickUpdateModal(true);
+  };
+
+  const saveQuickUpdate = async () => {
+    setSaving(true);
+    try {
+      const updates = Object.keys(quickUpdateBalances).map(id => {
+         let num = parseMoneyInput(quickUpdateBalances[id]);
+         if (Number.isNaN(num)) num = 0;
+         return { id, current_balance: num };
+      });
+
+      const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+
+      for (const update of updates) {
+         await supabase.from(tableName).update({ current_balance: update.current_balance }).eq('id', update.id);
+      }
+
+      // For historical months, also update total_balance on the report
+      if (selectedMonth !== 'live') {
+         const newTotal = updates.reduce((sum, u) => sum + u.current_balance, 0);
+         await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+      }
+
+      setAssets(assets.map(a => {
+         const up = updates.find(u => u.id === a.id);
+         return up ? { ...a, current_balance: up.current_balance } : a;
+      }));
+      setShowQuickUpdateModal(false);
+    } catch(e) { 
+      alert("Erro na atualização rápida"); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
+
+  // Validations
+  const macroTargetSum = useMemo(() => macroSectors.reduce((sum, m) => sum + m.target_percentage, 0), [macroSectors]);
+  const isMacroTargetValid = Math.abs(macroTargetSum - 1) < 0.001 || macroSectors.length === 0;
+
+
+
+
   // Handle Sector Save
   const handleSaveSector = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,32 +273,7 @@ export default function PortfolioManagement() {
     }
   };
 
-  const handleDeleteSector = async (id: string) => {
-     if(!window.confirm('Excluir este setor apagará os ativos dentro dele!')) return;
-     setSectors(sectors.filter(s => s.id !== id));
-     setAssets(assets.filter(a => a.sector_id !== id));
-     await supabase.from('portfolio_sectors').delete().eq('id', id);
-  };
 
-  const handleUpdateSectorTarget = async (id: string, value: string) => {
-     let num = parseMoneyInput(value);
-     if (Number.isNaN(num)) num = 0;
-     const finalVal = num / 100;
-     setSectors(sectors.map(s => s.id === id ? { ...s, target_percentage: finalVal } : s));
-     try {
-        await supabase.from('portfolio_sectors').update({ target_percentage: finalVal }).eq('id', id);
-     } catch (e) {}
-  };
-
-  const handleUpdateMacroTarget = async (id: string, value: string) => {
-     let num = parseMoneyInput(value);
-     if (Number.isNaN(num)) num = 0;
-     const finalVal = num / 100;
-     setMacroSectors(macroSectors.map(m => m.id === id ? { ...m, target_percentage: finalVal } : m));
-     try {
-        await supabase.from('portfolio_macro_sectors').update({ target_percentage: finalVal }).eq('id', id);
-     } catch (e) {}
-  };
 
   const handleSaveMacro = async (e: React.FormEvent) => {
      e.preventDefault();
@@ -292,6 +323,7 @@ export default function PortfolioManagement() {
      }
   };
 
+  /*
   const toggleMacroCollapse = (macroKey: string) => {
      const newCollapsed = new Set(collapsedMacros);
      if (newCollapsed.has(macroKey)) {
@@ -301,6 +333,7 @@ export default function PortfolioManagement() {
      }
      setCollapsedMacros(newCollapsed);
   };
+  */
 
   // Handle Asset Save
   const handleSaveAsset = async (e: React.FormEvent) => {
@@ -317,35 +350,56 @@ export default function PortfolioManagement() {
     let applied = parseMoneyInput(assetForm.applied_amount);
     
     const assetPayload = {
-       client_id: clientId,
-       sector_id: parentSector.id,
-       category: parentSector.macro_category,
-       asset_name: assetForm.asset_name,
-       current_balance: Number.isNaN(balance) ? 0 : balance,
-       applied_amount: Number.isNaN(applied) ? null : applied,
-       custom_rate: assetForm.custom_rate,
-       maturity_date: assetForm.maturity_date,
-       variation_month: assetForm.variation_month,
-       variation_total: assetForm.variation_total
-    };
+        client_id: clientId,
+        sector_id: parentSector.id,
+        category: parentSector.macro_category,
+        asset_name: assetForm.asset_name,
+        current_balance: Number.isNaN(balance) ? 0 : balance,
+        target_percentage: editingAsset ? editingAsset.target_percentage : 0,
+        applied_amount: Number.isNaN(applied) ? null : applied,
+        custom_rate: assetForm.custom_rate,
+        maturity_date: assetForm.maturity_date,
+        variation_month: assetForm.variation_month,
+        variation_total: assetForm.variation_total
+     };
 
     try {
-      if (editingAsset) {
-         const { data, error } = await supabase.from('portfolio_assets')
-            .update(assetPayload).eq('id', editingAsset.id).select();
-         if (error) throw error;
-         setAssets(assets.map(a => a.id === editingAsset.id ? data[0] : a));
-      } else {
-         const { data, error } = await supabase.from('portfolio_assets').insert([assetPayload]).select();
-         if (error) throw error;
-         setAssets(prev => [...prev, { ...data[0], target_percentage: data[0].target_percentage ?? 0 }]);
-      }
-      setShowAssetModal(false);
-    } catch(err) {
-      alert("Erro ao salvar ativo");
-    } finally {
-      setSaving(false);
-    }
+       const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+       const payload = { ...assetPayload };
+       
+       if (selectedMonth !== 'live') {
+          // @ts-ignore
+          payload.report_id = selectedMonth;
+          // @ts-ignore
+          delete payload.client_id;
+       }
+
+       if (editingAsset) {
+          const { data, error } = await supabase.from(tableName)
+             .update(payload).eq('id', editingAsset.id).select();
+          if (error) throw error;
+          setAssets(assets.map(a => a.id === editingAsset.id ? data[0] : a));
+       } else {
+          const { data, error } = await supabase.from(tableName).insert([payload]).select();
+          if (error) throw error;
+          setAssets(prev => [...prev, { ...data[0], target_percentage: data[0].target_percentage ?? 0 }]);
+       }
+
+       if (selectedMonth !== 'live') {
+          const currentAssets = editingAsset 
+             ? assets.map(a => a.id === editingAsset.id ? { ...a, current_balance: payload.current_balance } : a)
+             : [...assets, { current_balance: payload.current_balance }];
+          const newTotal = currentAssets.reduce((sum, a) => sum + (a.current_balance || 0), 0);
+          await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+       }
+
+       setShowAssetModal(false);
+     } catch(err) {
+        console.error(err);
+        alert("Erro ao salvar ativo");
+     } finally {
+       setSaving(false);
+     }
   };
 
   const handleUpdateAssetBalance = async (id: string, value: string) => {
@@ -353,7 +407,14 @@ export default function PortfolioManagement() {
      if (Number.isNaN(num)) num = 0;
      setAssets(assets.map(a => a.id === id ? { ...a, current_balance: num } : a));
      try {
-        await supabase.from('portfolio_assets').update({ current_balance: num }).eq('id', id);
+        if (selectedMonth === 'live') {
+           await supabase.from('portfolio_assets').update({ current_balance: num }).eq('id', id);
+        } else {
+           await supabase.from('consulting_report_assets').update({ current_balance: num }).eq('id', id);
+           const updatedAssets = assets.map(a => a.id === id ? num : a.current_balance);
+           const newTotal = updatedAssets.reduce((acc, curr) => acc + curr, 0);
+           await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+        }
      } catch(e) {}
   };
 
@@ -363,13 +424,20 @@ export default function PortfolioManagement() {
      if (Number.isNaN(num)) num = 0;
      const finalVal = num / 100;
      setAssets(assets.map(a => a.id === id ? { ...a, target_percentage: finalVal } : a));
-     await supabase.from('portfolio_assets').update({ target_percentage: finalVal }).eq('id', id);
+     const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+     await supabase.from(tableName).update({ target_percentage: finalVal }).eq('id', id);
   };
 
   const handleDeleteAsset = async (id: string) => {
     if (!window.confirm('Excluir ativo?')) return;
     setAssets(assets.filter(a => a.id !== id));
-    await supabase.from('portfolio_assets').delete().eq('id', id);
+     const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+     await supabase.from(tableName).delete().eq('id', id);
+
+     if (selectedMonth !== 'live') {
+        const newTotal = assets.filter(a => a.id !== id).reduce((sum, a) => sum + a.current_balance, 0);
+        await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+     }
   };
 
 
@@ -592,17 +660,7 @@ export default function PortfolioManagement() {
 
   return (
     <div>
-       <PageHeader 
-        title={client.name}
-        subtitle="Gestor do Método Cerrado (Alocação Setorial)"
-        action={
-          <Button size="sm" variant="outline" onClick={() => navigate('/admin/consulting')} className="flex items-center gap-2">
-            <ArrowLeft size={16} /> Voltar
-          </Button>
-        }
-      />
-
-      <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
+      <div className="space-y-6 animate-page-enter">
          {/* Top Stats */}
          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
@@ -637,268 +695,143 @@ export default function PortfolioManagement() {
             <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" className="flex items-center gap-2 border-white/10 hover:bg-white/5">
                <Settings size={16} /> Gerenciar Classes
             </Button>
+            
+            {selectedMonth === 'live' ? (
+               <Button onClick={openQuickUpdate} variant="primary" className="flex items-center gap-2 font-bold ml-auto">
+                  <Edit2 size={16} /> Atualização Rápida
+               </Button>
+            ) : (
+               <div className="ml-auto flex items-center gap-2">
+                  <div className="flex items-center gap-2 p-2 px-3 rounded-xl bg-orange-500/10 text-orange-500 text-xs font-bold border border-orange-500/20">
+                     ⚠️ Histórico
+                  </div>
+                  <Button onClick={openQuickUpdate} variant="primary" className="flex items-center gap-2 font-bold">
+                     <Edit2 size={16} /> Atualização Rápida
+                  </Button>
+               </div>
+            )}
          </div>
 
-         <div className="space-y-12">
-            {groupedData.map(group => {
-               const { macroKey, macro } = group;
-               const isCollapsed = collapsedMacros.has(macroKey);
-               
-               const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
-               const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
-               const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
+         {!isMacroTargetValid && (
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-sm font-semibold flex items-center justify-between">
+               <span>Aviso: A soma dos alvos das Classes (Macros) é {(macroTargetSum * 100).toFixed(2)}% (deveria ser 100%).</span>
+            </div>
+         )}
 
-               return (
-                  <div key={macroKey} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                     {/* Macro Sector Header */}
-                     <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 px-1 gap-4">
-                        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => toggleMacroCollapse(macroKey)}>
-                           <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/10 transition-colors">
-                              {isCollapsed ? <ChevronRight size={20} className="text-secondary" /> : <ChevronDown size={20} className="text-primary" />}
-                           </div>
-                           <div>
-                              <h2 className="text-xl font-bold text-primary tracking-tight uppercase flex flex-wrap items-center gap-2 md:gap-3">
-                                 {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
-                                 {macro && <span className={`text-[10px] px-2 py-0.5 rounded-full bg-black/40 border border-white/10 ${macroStatus?.color} tracking-widest font-black whitespace-nowrap`}>{macroStatus?.label}</span>}
-                              </h2>
-                               <div className="flex flex-wrap gap-4 mt-1">
-                                 <span className="text-[10px] md:text-xs text-secondary">Saldo: <span className="text-primary font-bold">{formatCurrency(macroTotalBal)}</span></span>
-                                 <span className="text-[10px] md:text-xs text-secondary">Exp. Carteira: <span className="text-primary font-bold">{(macroCurrentPercent*100).toFixed(2)}%</span></span>
-                                 {allocationSuggestions[macroKey] > 0 && (
-                                    <span className="text-[10px] md:text-xs text-[#10b981] font-black uppercase tracking-wider animate-pulse">
-                                       Sugerido: {formatCurrency(allocationSuggestions[macroKey])}
-                                    </span>
-                                 )}
-                              </div>
-                           </div>
-                        </div>
+         <div className="bg-secondary/5 rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+            <div className="overflow-x-auto">
+               <table className="w-full text-left bg-transparent min-w-[800px]">
+                  <thead>
+                     <tr className="text-[10px] text-secondary border-b border-white/5 uppercase font-black tracking-widest bg-black/40">
+                        <th className="p-4 pl-6">Ativo</th>
+                        <th className="p-4 text-center">Setor</th>
+                        <th className="p-4 text-center">Alvo(%)</th>
+                        <th className="p-4 text-center">Exp. Atual(%)</th>
+                        <th className="p-4 text-right">Saldo Atual (R$)</th>
+                        <th className="p-4 text-right text-[#10b981]">Sugestão (R$)</th>
+                        <th className="p-4 text-center">Ações</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                     {groupedData.map(group => {
+                        const { macroKey, macro } = group;
+                        const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
+                        const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
+                        const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
 
-                        {macro && (
-                           <div className="flex items-center gap-3 bg-black/40 p-2 px-4 rounded-2xl border border-white/5 shadow-xl self-start md:self-center ml-11 md:ml-0">
-                              <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Alvo Macro</span>
-                              <div className="flex items-center gap-1">
-                                 <input 
-                                    value={(macro.target_percentage * 100).toFixed(2).replace('.', ',')}
-                                    onChange={(e) => handleUpdateMacroTarget(macro.id, e.target.value)}
-                                    className="w-12 bg-transparent border-none text-right font-black text-lg text-primary focus:ring-0 p-0 tracking-tighter"
-                                    inputMode="decimal"
-                                 />
-                                 <span className="text-sm font-black text-secondary">%</span>
-                              </div>
-                           </div>
-                        )}
-                     </div>
-                     
-                     {!isCollapsed && (
-                        <div className="grid grid-cols-1 gap-8 ml-0 md:ml-4 border-l-2 border-white/5 pl-0 md:pl-6">
-                           {group.items.map(({sector, assets: sectorAssets}, index) => {
-                              const sectorTotalBal = sectorAssets.reduce((sum, a) => sum + a.current_balance, 0);
-                              // Exposição do setor é relativa ao saldo total da CLASSE (macro)
-                              const sectorCurrentPercent = macroTotalBal > 0 ? (sectorTotalBal / macroTotalBal) : 0;
-                              const statusObj = getSectorStatus(sector.target_percentage - sectorCurrentPercent);
-                              
-                              const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-                              const staggerClass = index < 5 ? staggerClasses[index] : ''
-
-                              return (
-                                 <div key={sector.id} className={`animate-stagger-item ${staggerClass}`}>
-                                    <Card className="p-0 overflow-hidden border-white/5 bg-secondary/5 group/card h-full shadow-lg">
-                                    {/* Sector Header */}
-                                    <div className="bg-white/5 backdrop-blur-md p-4 md:p-5 flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-white/5">
-                                       <div className="flex-1">
-                                          <div className="flex items-center gap-3">
-                                             <h3 className="text-base md:text-lg font-semibold text-primary tracking-tight">
-                                                {sector.sector_name}
-                                             </h3>
-                                             {sector.id !== 'orphan' && (
-                                                <div className="flex items-center gap-1 opacity-100 md:opacity-20 md:group-hover/card:opacity-100 transition-opacity">
-                                                  <button onClick={() => openSectorModal(sector)} className="text-secondary hover:text-primary transition-colors p-1" title="Editar Setor">
-                                                     <Edit2 size={14}/>
-                                                  </button>
-                                                  <button onClick={() => handleDeleteSector(sector.id)} className="text-[var(--color-danger)] hover:scale-110 transition-transform p-1" title="Excluir Setor">
-                                                     <Trash2 size={14}/>
-                                                  </button>
-                                                </div>
-                                             )}
-                                          </div>
-                                          <div className="flex flex-wrap gap-y-1 gap-x-4 mt-1 md:mt-2">
-                                             <span className="text-[10px] md:text-xs text-secondary">Setor: <span className="text-primary font-bold">{formatCurrency(sectorTotalBal)}</span></span>
-                                             <span className="text-[10px] md:text-xs text-secondary">Exp. na Classe: <span className="text-primary font-bold">{(sectorCurrentPercent*100).toFixed(2)}%</span></span>
-                                             {allocationSuggestions[sector.id] > 0 && (
-                                                <span className="text-[10px] md:text-xs text-[#10b981] font-bold">Aporte Sugerido: {formatCurrency(allocationSuggestions[sector.id])}</span>
-                                             )}
-                                          </div>
-                                       </div>
-                                       
-                                       <div className="flex items-center gap-6 self-start md:self-center">
-                                          {sector.id !== 'orphan' && (
-                                             <div className="text-left md:text-right">
-                                                <div className="flex items-center gap-2 bg-black/40 p-1.5 px-3 rounded-xl border border-white/5">
-                                                   <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider">Alvo</span>
-                                                   <input 
-                                                      value={(sector.target_percentage * 100).toFixed(2).replace('.', ',')}
-                                                      onChange={(e) => handleUpdateSectorTarget(sector.id, e.target.value)}
-                                                      className="w-12 bg-transparent border-none text-right font-bold text-base text-primary focus:ring-0 p-0 tracking-tight"
-                                                      inputMode="decimal"
-                                                   />
-                                                   <span className="text-[10px] font-semibold text-secondary">%</span>
-                                                </div>
-                                                <p className={`text-[10px] mt-1.5 font-bold uppercase tracking-wider ${statusObj.color}`}>{statusObj.label}</p>
-                                             </div>
-                                          )}
-                                       </div>
-                                    </div>
-   
-                                    {/* Sector Assets - Desktop Table */}
-                                    <div className="hidden md:block p-0 overflow-x-auto">
-                                       <table className="w-full text-left bg-transparent min-w-[600px]">
-                                          <thead>
-                                             <tr className="text-[10px] text-secondary border-b border-white/5 uppercase font-black tracking-widest bg-white/5">
-                                                <th className="p-4">Ticker / Título</th>
-                                                <th className="p-4 text-center">Alvo na Classe (%)</th>
-                                                <th className="p-4 text-right">Exp. atual na Classe</th>
-                                                <th className="p-4 text-right">Saldo Atual (R$)</th>
-                                                <th className="p-4 text-right text-[#10b981]">Sugestão (R$)</th>
-                                                <th className="p-4 text-center w-24">Ações</th>
-                                             </tr>
-                                          </thead>
-                                          <tbody className="divide-y divide-white/5">
-                                             {sectorAssets.map(asset => {
-                                                const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
-                                                const assetGap = asset.target_percentage - assetCurrentPercent;
-                                                const assetStatus = getSectorStatus(assetGap);
-                                                return (
-                                                <tr key={asset.id} className="hover:bg-white/5 transition-colors group">
-                                                   <td className="p-4">
-                                                      <div className="font-semibold text-primary tracking-tight">{asset.asset_name}</div>
-                                                      <div className="text-[10px] text-secondary/40 font-bold uppercase">
-                                                         {macro?.name === 'Renda Fixa' ? (asset.custom_rate || '�?"') : (asset.variation_month || '�?"')}
-                                                      </div>
-                                                   </td>
-                                                   
-                                                   <td className="p-4 w-32">
-                                                      <div className="flex items-center justify-center gap-1 bg-black/20 rounded-lg border border-white/5 p-1 px-2">
-                                                         <input 
-                                                            value={(asset.target_percentage * 100).toFixed(2).replace('.', ',')}
-                                                            onChange={(e) => handleUpdateAssetTarget(asset.id, e.target.value)}
-                                                            className="w-10 bg-transparent border-none text-right font-bold text-xs text-primary focus:ring-0 p-0"
-                                                            inputMode="decimal"
-                                                         />
-                                                         <span className="text-[9px] font-bold text-secondary">%</span>
-                                                      </div>
-                                                   </td>
-
-                                                   <td className="p-4 text-right">
-                                                      <span className={`text-xs font-bold ${assetStatus.color}`}>{(assetCurrentPercent * 100).toFixed(2)}%</span>
-                                                   </td>
-
-                                                   <td className="p-4 w-44">
-                                                      <Input 
-                                                        value={asset.current_balance.toString().replace('.', ',')}
-                                                        onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
-                                                        className="text-right font-bold h-9 bg-secondary border-white/5 focus:border-primary/40 text-primary"
-                                                        inputMode="decimal"
-                                                      />
-                                                   </td>
-                                                   <td className="p-4 text-right">
-                                                      {allocationSuggestions[asset.id] > 0 ? (
-                                                         <div className="flex flex-col items-end">
-                                                            <span className="text-xs font-black text-[#10b981]">{formatCurrency(allocationSuggestions[asset.id])}</span>
-                                                            <span className="text-[9px] text-secondary/40 font-bold uppercase tracking-tight">Comprar</span>
-                                                         </div>
-                                                      ) : (
-                                                         <span className="text-xs text-secondary/20">�?"</span>
-                                                      )}
-                                                   </td>
-                                                   <td className="p-3 text-center">
-                                                      <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                         <button onClick={() => openAssetModal(asset)} className="text-secondary hover:text-primary hover:scale-110 p-1" title="Editar Ativo">
-                                                            <Edit2 size={16}/>
-                                                         </button>
-                                                         <button onClick={() => handleDeleteAsset(asset.id)} className="text-[var(--color-danger)] hover:scale-110 p-1" title="Excluir Ativo">
-                                                            <Trash2 size={16}/>
-                                                         </button>
-                                                      </div>
-                                                   </td>
-                                                </tr>
-                                                );
-                                             })}
-                                             {sectorAssets.length === 0 && (
-                                                <tr><td colSpan={6} className="p-4 text-center text-secondary text-sm">Nenhum ativo. Adicione!</td></tr>
-                                             )}
-                                          </tbody>
-                                       </table>
-                                    </div>
-
-                                    {/* Sector Assets - Mobile Cards */}
-                                    <div className="md:hidden divide-y divide-white/5 px-2">
-                                       {sectorAssets.map(asset => {
-                                          const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
-                                          const assetStatus = getSectorStatus(asset.target_percentage - assetCurrentPercent);
-                                          return (
-                                          <div key={asset.id} className="p-4 space-y-4">
-                                             <div className="flex justify-between items-start">
-                                                <div>
-                                                   <div className="font-bold text-primary tracking-tight">{asset.asset_name}</div>
-                                                   <div className="text-[10px] text-secondary/60 font-black uppercase mt-0.5">
-                                                      {macro?.name === 'Renda Fixa' ? (asset.custom_rate || 'Renda Fixa') : (asset.variation_month || 'Variável')}
-                                                   </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                   <button onClick={() => openAssetModal(asset)} className="p-2 bg-white/5 rounded-lg text-secondary"><Edit2 size={14}/></button>
-                                                   <button onClick={() => handleDeleteAsset(asset.id)} className="p-2 bg-red-500/10 rounded-lg text-red-500"><Trash2 size={14}/></button>
-                                                </div>
-                                             </div>
-                                             
-                                             <div className="grid grid-cols-2 gap-3">
-                                                <div className="bg-black/20 p-3 rounded-xl border border-white/5">
-                                                   <p className="text-[9px] font-black text-secondary uppercase mb-1 opacity-50">Saldo Atual</p>
-                                                   <input 
-                                                      value={asset.current_balance.toString().replace('.', ',')}
-                                                      onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
-                                                      className="w-full bg-transparent border-none text-primary font-black p-0 focus:ring-0 text-sm"
-                                                      inputMode="decimal"
-                                                   />
-                                                </div>
-                                                <div className="bg-black/20 p-3 rounded-xl border border-white/5">
-                                                   <p className="text-[9px] font-black text-secondary uppercase mb-1 opacity-50">Alvo na Classe (%)</p>
-                                                   <div className="flex items-center gap-1">
-                                                      <input 
-                                                         value={(asset.target_percentage * 100).toFixed(2).replace('.', ',')}
-                                                         onChange={(e) => handleUpdateAssetTarget(asset.id, e.target.value)}
-                                                         className="w-full bg-transparent border-none text-primary font-black p-0 focus:ring-0 text-sm"
-                                                         inputMode="decimal"
-                                                      />
-                                                      <span className="text-[10px] font-black text-secondary">%</span>
-                                                   </div>
-                                                </div>
-                                                <div className="bg-black/20 p-3 rounded-xl border border-white/5 col-span-2">
-                                                   <p className="text-[9px] font-black text-secondary uppercase mb-1 opacity-50">Exp. atual na Classe</p>
-                                                   <span className={`text-sm font-black ${assetStatus.color}`}>{(assetCurrentPercent * 100).toFixed(2)}%</span>
-                                                   <div className="mt-2 pt-2 border-t border-white/5">
-                                                      <p className={`text-[9px] font-bold uppercase tracking-tight ${assetStatus.color} opacity-70 mb-1`}>{assetStatus.label}</p>
-                                                      {allocationSuggestions[asset.id] > 0 && (
-                                                         <p className="text-[10px] text-[#10b981] font-black">Sugerido: {formatCurrency(allocationSuggestions[asset.id])}</p>
-                                                      )}
-                                                   </div>
-                                                </div>
-                                             </div>
-                                          </div>
-                                          );
-                                       })}
-                                       {sectorAssets.length === 0 && (
-                                          <p className="p-6 text-center text-xs text-secondary opacity-50">Nenhum ativo cadastrado.</p>
+                        return (
+                           <Fragment key={macroKey}>
+                              <tr className="bg-white/5 border-b border-white/10">
+                                 <td colSpan={7} className="p-3 pl-6">
+                                    <div className="flex items-center gap-3">
+                                       <h3 className="font-bold text-primary tracking-tight uppercase text-sm">
+                                          {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
+                                       </h3>
+                                       {macroStatus && (
+                                          <span className={`text-[9px] px-2 py-0.5 rounded-full bg-black/40 border border-white/10 ${macroStatus.color} tracking-widest font-black whitespace-nowrap`}>
+                                             {macroStatus.label}
+                                          </span>
                                        )}
+                                       <span className="text-[10px] text-secondary ml-auto pr-4 font-semibold uppercase tracking-wider">
+                                          Total da Classe: <span className="text-primary">{formatCurrency(macroTotalBal)}</span> ({(macroCurrentPercent*100).toFixed(2)}%)
+                                       </span>
                                     </div>
-                                    </Card>
-                                 </div>
-                              )
-                           })}
-                        </div>
+                                 </td>
+                              </tr>
+                              
+                              {group.items.map(({sector, assets: sectorAssets}) => {
+                                 
+                                 return sectorAssets.map(asset => {
+                                    const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
+                                    const assetGap = asset.target_percentage - assetCurrentPercent;
+                                    const assetStatus = getSectorStatus(assetGap);
+                                    
+                                    return (
+                                       <tr key={asset.id} className="hover:bg-white/5 transition-colors group">
+                                          <td className="p-4 pl-6">
+                                             <div className="font-semibold text-primary">{asset.asset_name}</div>
+                                             <div className="text-[10px] text-secondary/40 font-bold uppercase mt-0.5">
+                                                {macro?.name === 'Renda Fixa' ? (asset.custom_rate || 'Renda Fixa') : (asset.variation_month || 'Variável')}
+                                             </div>
+                                          </td>
+                                          <td className="p-4 text-center">
+                                             <span className="text-xs text-secondary font-medium bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                                {sector.sector_name}
+                                             </span>
+                                          </td>
+                                          <td className="p-4 w-28 text-center">
+                                             <div className="flex items-center justify-center gap-1">
+                                                <input 
+                                                   value={(asset.target_percentage * 100).toFixed(2).replace('.', ',')}
+                                                   onChange={(e) => handleUpdateAssetTarget(asset.id, e.target.value)}
+                                                   className="w-10 bg-transparent border-none text-right font-bold text-xs text-primary focus:ring-0 p-0"
+                                                   inputMode="decimal"
+                                                />
+                                                <span className="text-[9px] font-bold text-secondary">%</span>
+                                             </div>
+                                          </td>
+                                          <td className="p-4 text-center">
+                                             <span className={`text-xs font-bold ${assetStatus.color}`}>{(assetCurrentPercent * 100).toFixed(2)}%</span>
+                                          </td>
+                                          <td className="p-3 w-48 text-right">
+                                             <Input 
+                                               value={asset.current_balance.toString().replace('.', ',')}
+                                               onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
+                                               className="text-right font-bold h-9 bg-[#111] border-white/5 focus:border-primary/40 text-primary w-full"
+                                               inputMode="decimal"
+                                             />
+                                          </td>
+                                          <td className="p-4 text-right">
+                                             {allocationSuggestions[asset.id] > 0 ? (
+                                                <span className="text-xs font-black text-[#10b981]">{formatCurrency(allocationSuggestions[asset.id])}</span>
+                                             ) : (
+                                                <span className="text-xs text-secondary/20">--</span>
+                                             )}
+                                          </td>
+                                          <td className="p-3 text-center">
+                                             <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => openAssetModal(asset)} className="text-secondary hover:text-primary hover:scale-110 p-1" title="Editar Ativo">
+                                                   <Edit2 size={16}/>
+                                                </button>
+                                                <button onClick={() => handleDeleteAsset(asset.id)} className="text-[var(--color-danger)] hover:scale-110 p-1" title="Excluir Ativo">
+                                                   <Trash2 size={16}/>
+                                                </button>
+                                             </div>
+                                          </td>
+                                       </tr>
+                                    );
+                                 });
+                              })}
+                           </Fragment>
+                        );
+                     })}
+                     {assets.length === 0 && (
+                        <tr><td colSpan={7} className="p-8 text-center text-secondary text-sm">Nenhum ativo cadastrado neste mês.</td></tr>
                      )}
-                  </div>
-               );
-            })}
+                  </tbody>
+               </table>
+            </div>
+         </div>
             
             {groupedData.length === 0 && (
                <div className="text-center py-10 opacity-60">
@@ -907,8 +840,6 @@ export default function PortfolioManagement() {
                </div>
             )}
          </div>
-      </div>
-
       {/* Modal Sector */}
       <Modal isOpen={showSectorModal} onClose={() => setShowSectorModal(false)} title={editingSector ? "Editar Grupo/Setor" : "Criar Grupo/Setor"}>
          <form onSubmit={handleSaveSector} className="space-y-4">
@@ -1016,6 +947,59 @@ export default function PortfolioManagement() {
                </div>
             </div>
             <ModalActionFooter onCancel={() => setShowMacroManagerModal(false)} />
+         </div>
+      </Modal>
+
+      {/* Modal Quick Update */}
+      <Modal isOpen={showQuickUpdateModal} onClose={() => { setShowQuickUpdateModal(false); setQuickUpdateSearch(''); }} title="Atualização Rápida de Saldos" maxWidth="max-w-4xl">
+         <div className="space-y-4">
+            <p className="text-sm text-secondary">Atualize rapidamente o saldo de todos os ativos para o fechamento do mês.</p>
+            {/* Search field */}
+            <input
+               autoFocus
+               type="text"
+               placeholder="🔍 Pesquisar ativo..."
+               value={quickUpdateSearch}
+               onChange={e => setQuickUpdateSearch(e.target.value)}
+               className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-sm text-primary outline-none focus:border-primary/50 transition-all placeholder:text-secondary/40"
+            />
+            <div className="max-h-[55vh] overflow-y-auto custom-scrollbar pr-2">
+               <table className="w-full text-left">
+                  <thead className="sticky top-0 bg-[#161616] z-10">
+                     <tr className="text-[10px] text-secondary border-b border-white/5 uppercase font-black tracking-widest">
+                        <th className="p-3">Ativo</th>
+                        <th className="p-3">Setor / Classe</th>
+                        <th className="p-3 text-right">Saldo Atual (R$)</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                     {assets
+                       .filter(a => !quickUpdateSearch || a.asset_name.toLowerCase().includes(quickUpdateSearch.toLowerCase()))
+                       .sort((a,b) => a.asset_name.localeCompare(b.asset_name)).map(asset => {
+                        const s = sectors.find(sec => sec.id === asset.sector_id);
+                        return (
+                           <tr key={asset.id} className="hover:bg-white/5">
+                              <td className="p-3 font-bold text-primary">{asset.asset_name}</td>
+                              <td className="p-3 text-xs text-secondary">{s?.sector_name || '-'} <span className="opacity-50">({s?.macro_category || '-'})</span></td>
+                              <td className="p-3 w-48">
+                                 <Input 
+                                    value={quickUpdateBalances[asset.id] || ''}
+                                    onChange={(e) => setQuickUpdateBalances({...quickUpdateBalances, [asset.id]: e.target.value})}
+                                    onBlur={() => {
+                                       const p = parseMoneyInput(quickUpdateBalances[asset.id]);
+                                       if (!Number.isNaN(p)) setQuickUpdateBalances({...quickUpdateBalances, [asset.id]: formatMoneyInput(p)});
+                                    }}
+                                    className="text-right font-bold h-9 bg-black/40 border-white/10"
+                                    inputMode="decimal"
+                                 />
+                              </td>
+                           </tr>
+                        );
+                     })}
+                  </tbody>
+               </table>
+            </div>
+            <ModalActionFooter onCancel={() => setShowQuickUpdateModal(false)} submitLabel="Salvar Atualizações" onSubmit={saveQuickUpdate} submitDisabled={saving} />
          </div>
       </Modal>
     </div>

@@ -7,9 +7,10 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: ReactNode
+  maxWidth?: string
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, maxWidth }: ModalProps) {
   const modalPanelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
@@ -66,7 +67,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     >
       <div
         ref={modalPanelRef}
-        className="bg-primary w-full max-w-md max-h-[calc(100vh-2rem)] rounded-2xl shadow-xl border border-primary overflow-hidden animate-slide-up motion-emphasis"
+        className={`bg-primary w-full ${maxWidth || 'max-w-md'} max-h-[calc(100vh-2rem)] rounded-2xl shadow-xl border border-primary overflow-hidden animate-slide-up motion-emphasis`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

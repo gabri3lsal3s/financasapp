@@ -26,8 +26,7 @@ import ResetPassword from './pages/ResetPassword'
 // Admin Routes
 import AdminRoute from './components/AdminRoute'
 import InvestmentConsulting from './pages/admin/InvestmentConsulting'
-import PortfolioManagement from './pages/admin/PortfolioManagement'
-import ConsultingReports from './pages/admin/ConsultingReports'
+import ClientDashboard from './pages/admin/ClientDashboard'
 
 function App() {
   return (
@@ -66,11 +65,8 @@ function App() {
                     <Route path="/admin/consulting" element={
                        <AdminRoute><InvestmentConsulting /></AdminRoute>
                     } />
-                    <Route path="/admin/consulting/reports" element={
-                       <AdminRoute><ConsultingReports /></AdminRoute>
-                    } />
                     <Route path="/admin/consulting/:clientId" element={
-                       <AdminRoute><PortfolioManagement /></AdminRoute>
+                       <AdminRoute><ClientDashboard /></AdminRoute>
                     } />
                   </Routes>
                 </Layout>

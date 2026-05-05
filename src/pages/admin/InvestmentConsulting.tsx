@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Users, ArrowRight, UserPlus, FileText, Settings } from 'lucide-react';
+import { Users, ArrowRight, UserPlus, Settings } from 'lucide-react';
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 import PageHeader from '@/components/PageHeader';
@@ -109,10 +109,7 @@ export default function InvestmentConsulting() {
         subtitle="Gerencie a carteira de seus clientes"
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => navigate('/admin/consulting/reports')} variant="ghost" className="flex items-center gap-2">
-              <FileText size={16} />
-              <span className="hidden sm:inline">Relatórios</span>
-            </Button>
+
             <Button size="sm" onClick={() => handleOpenModal()} variant="outline" className="flex items-center gap-2">
               <UserPlus size={16} />
               <span className="hidden sm:inline">Novo Cliente</span>

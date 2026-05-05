@@ -1,20 +1,17 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Download, Loader2, BarChart2, Save, Calculator, Trash2, FileText, ArrowRight, TrendingUp, Edit2 } from 'lucide-react';
+import { Download, Loader2, BarChart2, Save, Calculator, Trash2, ArrowRight, TrendingUp, Edit2, FileText } from 'lucide-react';
 import Button from '@/components/Button';
 import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import PageHeader from '@/components/PageHeader';
 import Card from '@/components/Card';
-import Select from '@/components/Select';
 import Input from '@/components/Input';
 import Loader from '@/components/Loader';
 import MonthPickerModal from '@/components/MonthPickerModal';
-import { formatCurrency, formatMonthShort, addMonths, getCurrentMonthString } from '@/utils/format';
+import { formatCurrency, formatMonthShort } from '@/utils/format';
 import { toast } from 'react-hot-toast';
-
-interface Client { id: string; name: string; }
+import ReportCharts from '@/components/ReportCharts';
 
 interface PortfolioMacroSector {
   id: string; client_id: string; name: string; target_percentage: number;
@@ -26,7 +23,17 @@ interface PortfolioSector {
 
 interface PortfolioAsset {
   id?: string; category: string; asset_name: string; current_balance: number;
+  target_percentage?: number;
   sector_id?: string; applied_amount?: number; custom_rate?: string; maturity_date?: string; variation_month?: string; variation_total?: string;
+}
+
+interface AssetMover {
+  asset_name: string;
+  category: string;
+  currentBalance: number;
+  prevBalance: number;
+  changePercent: number;
+  changeValue: number;
 }
 
 interface ConsultingReport { 
@@ -58,10 +65,8 @@ interface PlanningRow {
   justificativa: string;
 }
 
-export default function ConsultingReports() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  
+export default function ConsultingReports({ clientId, selectedMonth: _selectedMonth, onReportArchived: _onReportArchived }: { clientId: string, selectedMonth?: string, onReportArchived?: () => Promise<void> }) {
+  const [clientName, setClientName] = useState<string>('');
   const [liveMacroSectors, setLiveMacroSectors] = useState<PortfolioMacroSector[]>([]);
   const [liveSectors, setLiveSectors] = useState<PortfolioSector[]>([]);
   const [liveAssets, setLiveAssets] = useState<PortfolioAsset[]>([]);
@@ -77,6 +82,13 @@ export default function ConsultingReports() {
   const [activePdfAssets, setActivePdfAssets] = useState<PortfolioAsset[]>([]);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [notes, setNotes] = useState('');
+  const [scenarioNotes, setScenarioNotes] = useState('');
+  const [nextSteps, setNextSteps] = useState('');
+  const [compositionNotes, setCompositionNotes] = useState('');
+
+  // Top Movers State
+  const [topMoversMonth, setTopMoversMonth] = useState<{ gainers: AssetMover[]; losers: AssetMover[] }>({ gainers: [], losers: [] });
+  const [topMoversYtd, setTopMoversYtd] = useState<{ gainers: AssetMover[]; losers: AssetMover[] }>({ gainers: [], losers: [] });
 
   // Table A Editing State
   const [tableA, setTableA] = useState<Record<string, TableARow>>({});
@@ -93,25 +105,18 @@ export default function ConsultingReports() {
 
   const reportRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetchClients(); }, []);
   useEffect(() => {
-    if (selectedClientId) { fetchClientData(selectedClientId); setActiveReportMode(null); }
+    if (clientId) { fetchClientData(clientId); setActiveReportMode(null); }
     else { setLiveAssets([]); setHistoryReports([]); setLiveSectors([]); }
-  }, [selectedClientId]);
+  }, [clientId]);
 
-  const fetchClients = async () => {
-    try {
-      const { data, error } = await supabase.from('consulting_clients').select('id, name').order('name');
-      if (error) throw error;
-      setClients(data || []);
-      if (data && data.length > 0) setSelectedClientId(data[0].id);
-    } catch (err) {} finally { setLoading(false); }
-  };
-
-  const fetchClientData = async (clientId: string) => {
+  const fetchClientData = async (id: string) => {
     setLoading(true);
     try {
-      const { data: macData } = await supabase.from('portfolio_macro_sectors').select('*').eq('client_id', clientId);
+      const { data: cData } = await supabase.from('consulting_clients').select('name').eq('id', id).single();
+      if (cData) setClientName(cData.name);
+
+      const { data: macData } = await supabase.from('portfolio_macro_sectors').select('*').eq('client_id', id);
       setLiveMacroSectors(macData || []);
 
       const { data: secData } = await supabase.from('portfolio_sectors').select('*').eq('client_id', clientId);
@@ -126,45 +131,94 @@ export default function ConsultingReports() {
       const history = (reportsData || []) as ConsultingReport[];
       setHistoryReports(history);
       
-      // Auto-archive check
-      checkAutoArchive(clientId, history, live);
+
     } catch (err) {} finally { setLoading(false); }
   };
 
-  const checkAutoArchive = async (clientId: string, history: ConsultingReport[], assets: PortfolioAsset[]) => {
-     if (assets.length === 0) return;
-     
-     const currentMonth = getCurrentMonthString();
-     const prevMonth = addMonths(currentMonth, -1);
-     
-     // Check if prev month is missing in history
-     const exists = history.some(r => r.month === prevMonth);
-     if (!exists) {
-        setSavingMonth(true);
-        try {
-           const total = assets.reduce((sum, a) => sum + a.current_balance, 0);
-           const { data: newReport, error } = await supabase.from('consulting_reports').insert([{ 
-              client_id: clientId, 
-              month: prevMonth, 
-              total_balance: total, 
-              notes: "Arquivamento automático gerado pelo sistema." 
-           }]).select().single();
-           
-           if (!error && newReport) {
-              const frozenAssets = assets.map(a => ({
-                 report_id: newReport.id, asset_name: a.asset_name, category: a.category, current_balance: a.current_balance,
-                 sector_id: a.sector_id, applied_amount: a.applied_amount, custom_rate: a.custom_rate, maturity_date: a.maturity_date, variation_month: a.variation_month, variation_total: a.variation_total
-              }));
-              await supabase.from('consulting_report_assets').insert(frozenAssets);
-              
-              // Refresh history
-              const { data: updatedHistory } = await supabase.from('consulting_reports').select('*').eq('client_id', clientId).order('month', { ascending: true });
-              setHistoryReports(updatedHistory || []);
-              toast.success(`Mês de ${prevMonth} arquivado automaticamente.`);
-           }
-        } catch (e) {} finally { setSavingMonth(false); }
-     }
+  // ─── Top Movers helpers ───────────────────────────────────────────────────
+  const computeTopMovers = async (currentAssets: PortfolioAsset[], currentReportId: string) => {
+    // Month-over-month: get prev report assets
+    const currentReport = historyReports.find(r => r.id === currentReportId);
+    const sortedHistory = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
+    const currentIdx = sortedHistory.findIndex(r => r.id === currentReportId);
+    const prevReport = currentIdx > 0 ? sortedHistory[currentIdx - 1] : null;
+
+    let monthMovers = { gainers: [] as AssetMover[], losers: [] as AssetMover[] };
+    if (prevReport) {
+      const { data: prevAssets } = await supabase.from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
+      const prev = (prevAssets || []) as PortfolioAsset[];
+      const movers: AssetMover[] = currentAssets.map(a => {
+        const p = prev.find(pa => pa.asset_name === a.asset_name);
+        if (!p || p.current_balance === 0) return null;
+        const changeValue = a.current_balance - p.current_balance;
+        const changePercent = (changeValue / p.current_balance) * 100;
+        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: p.current_balance, changePercent, changeValue };
+      }).filter(Boolean) as AssetMover[];
+      movers.sort((a, b) => b.changePercent - a.changePercent);
+      monthMovers = { gainers: movers.filter(m => m.changePercent > 0).slice(0, 5), losers: movers.filter(m => m.changePercent < 0).slice(-5).reverse() };
+    }
+    setTopMoversMonth(monthMovers);
+
+    // YTD: find Jan of current year
+    const currentYear = currentReport?.month?.slice(0, 4) || new Date().getFullYear().toString();
+    const janReport = sortedHistory.find(r => r.month.startsWith(`${currentYear}-01`) || r.month.startsWith(`${currentYear}-02`)) ||
+                      sortedHistory.find(r => r.month.startsWith(currentYear));
+    let ytdMovers = { gainers: [] as AssetMover[], losers: [] as AssetMover[] };
+    if (janReport && janReport.id !== currentReportId) {
+      const { data: janAssets } = await supabase.from('consulting_report_assets').select('*').eq('report_id', janReport.id);
+      const jan = (janAssets || []) as PortfolioAsset[];
+      const movers: AssetMover[] = currentAssets.map(a => {
+        const j = jan.find(ja => ja.asset_name === a.asset_name);
+        if (!j || j.current_balance === 0) return null;
+        const changeValue = a.current_balance - j.current_balance;
+        const changePercent = (changeValue / j.current_balance) * 100;
+        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: j.current_balance, changePercent, changeValue };
+      }).filter(Boolean) as AssetMover[];
+      movers.sort((a, b) => b.changePercent - a.changePercent);
+      ytdMovers = { gainers: movers.filter(m => m.changePercent > 0).slice(0, 5), losers: movers.filter(m => m.changePercent < 0).slice(-5).reverse() };
+    }
+    setTopMoversYtd(ytdMovers);
   };
+
+  const generateAutoSuggestions = (assets: PortfolioAsset[], compData: typeof comparisonData) => {
+    const suggestions: string[] = [];
+    if (compData) {
+      if (compData.percent >= 1) suggestions.push(`A carteira apresentou expansão patrimonial de ${compData.percent.toFixed(2)}% no período, superando a variação do mês anterior.`);
+      else if (compData.percent < 0) suggestions.push(`A carteira registrou retração de ${Math.abs(compData.percent).toFixed(2)}% no período. Recomenda-se revisão do posicionamento defensivo.`);
+      else suggestions.push(`A carteira manteve estabilidade patrimonial no período, com variação de ${compData.percent.toFixed(2)}%.`);
+    }
+    const rfAssets = assets.filter(a => a.category?.toLowerCase().includes('renda fixa'));
+    const rvAssets = assets.filter(a => a.category?.toLowerCase().includes('ações') || a.category?.toLowerCase().includes('renda variável'));
+    const rfTotal = rfAssets.reduce((s, a) => s + a.current_balance, 0);
+    const rvTotal = rvAssets.reduce((s, a) => s + a.current_balance, 0);
+    const total = assets.reduce((s, a) => s + a.current_balance, 0);
+    if (total > 0) {
+      const rfPct = (rfTotal / total * 100).toFixed(0);
+      const rvPct = (rvTotal / total * 100).toFixed(0);
+      suggestions.push(`A alocação consolidada está distribuída em aproximadamente ${rfPct}% em Renda Fixa e ${rvPct}% em Renda Variável, refletindo o perfil de risco definido no mandato.`);
+    }
+    return suggestions.join(' ');
+  };
+
+  const handleCopyFromPrevious = () => {
+    if (!activeReportData) return;
+    const sortedHistory = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
+    const currentIdx = sortedHistory.findIndex(r => r.id === activeReportData.id);
+    const isLive = activeReportMode === 'live';
+    const prevReport = isLive
+      ? (sortedHistory.length > 0 ? sortedHistory[sortedHistory.length - 1] : null)
+      : (currentIdx > 0 ? sortedHistory[currentIdx - 1] : null);
+    if (!prevReport) { toast('Não há relatório anterior para copiar.'); return; }
+    if (prevReport.notes) setNotes(prevReport.notes);
+    if (prevReport.performance_table) setTableA(prev => ({
+      ...Object.fromEntries(Object.entries(prevReport.performance_table!).map(([k, v]) => [k, { ...v, rentMês: '-' }])),
+      ...Object.fromEntries(Object.keys(prev).filter(k => !prevReport.performance_table![k]).map(k => [k, prev[k]]))
+    }));
+    if (prevReport.planning_actions?.length) setPlanning(prevReport.planning_actions);
+    toast.success('Dados copiados do mês anterior!');
+  };
+
+
 
   const getDefaultBenchName = (macroName: string) => {
       const mn = macroName.toLowerCase();
@@ -185,24 +239,25 @@ export default function ConsultingReports() {
      const macros = ['Consolidada', ...macroNames];
      
      const newTable: Record<string, TableARow> = {};
+     const lastReport = historyReports.length > 0 ? historyReports[historyReports.length - 1] : null;
+
      macros.forEach(m => {
+          const pastRow = lastReport?.performance_table?.[m];
           newTable[m] = {
              label: m,
-             rentMês: '-',
-             benchMês: '-',
-             benchName: getDefaultBenchName(m),
-             rentInício: '-',
-             benchInício: '-',
-             yield: '-'
+             rentMês: '-', // Rentabilidade do mês atual deve ser preenchida
+             benchMês: pastRow?.benchMês || '-',
+             benchName: pastRow?.benchName || getDefaultBenchName(m),
+             rentInício: pastRow?.rentInício || '-', // Carrega o acumulado
+             benchInício: pastRow?.benchInício || '-',
+             yield: pastRow?.yield || '-'
           }
        });
        setTableA(newTable);
     };
 
-  const selectedClientName = useMemo(() => clients.find(c => c.id === selectedClientId)?.name || '', [clients, selectedClientId]);
-
   const handleSaveMonth = async () => {
-     if (!selectedClientId) return;
+     if (!clientId) return;
      if (liveAssets.length === 0) return alert("Não há ativos.");
      const monthStr = new Date().toISOString().slice(0, 7);
      if (historyReports.some(r => r.month === monthStr)) {
@@ -212,20 +267,24 @@ export default function ConsultingReports() {
      setSavingMonth(true);
      try {
         const { data: newReport } = await supabase.from('consulting_reports').insert([{ 
-           client_id: selectedClientId, 
+           client_id: clientId, 
            month: monthStr, 
            total_balance: liveTotal, 
-           notes: "",
-           performance_table: tableA,
+           notes: notes,
+            scenario_notes: scenarioNotes,
+            next_steps: nextSteps,
+            composition_notes: compositionNotes,
+            performance_table: tableA,
            planning_actions: planning
         }]).select().single();
         const frozenAssets = liveAssets.map(a => ({
            report_id: newReport.id, asset_name: a.asset_name, category: a.category, current_balance: a.current_balance,
+           target_percentage: a.target_percentage || 0,
            sector_id: a.sector_id, applied_amount: a.applied_amount, custom_rate: a.custom_rate, maturity_date: a.maturity_date, variation_month: a.variation_month, variation_total: a.variation_total
         }));
         await supabase.from('consulting_report_assets').insert(frozenAssets);
         alert('Mês arquivado com sucesso!');
-        fetchClientData(selectedClientId);
+        fetchClientData(clientId);
      } catch (err) {} finally { setSavingMonth(false); }
   };
 
@@ -235,12 +294,15 @@ export default function ConsultingReports() {
       try {
          await supabase.from('consulting_reports').update({ 
             notes: notes,
+            scenario_notes: scenarioNotes,
+            next_steps: nextSteps,
+            composition_notes: compositionNotes,
             performance_table: tableA,
             planning_actions: planning
          }).eq('id', activeReportData.id);
  
          toast.success("Histórico atualizado com sucesso");
-         fetchClientData(selectedClientId);
+         fetchClientData(clientId);
       } catch (err) {
          toast.error("Erro ao atualizar histórico");
       } finally {
@@ -255,7 +317,7 @@ export default function ConsultingReports() {
           if (error) throw error;
           toast.success("Fechamento removido");
           if (activeReportMode === reportId) setActiveReportMode(null);
-          fetchClientData(selectedClientId);
+          fetchClientData(clientId);
       } catch (e) {
           toast.error("Erro ao excluir");
       }
@@ -268,7 +330,9 @@ export default function ConsultingReports() {
    };
 
   const loadPdfEngineFor = async (mode: 'live' | string) => {
-     setActiveReportMode(mode); setNotes('');
+     setActiveReportMode(mode); setNotes(''); setScenarioNotes(''); setNextSteps('');
+     setTopMoversMonth({ gainers: [], losers: [] });
+     setTopMoversYtd({ gainers: [], losers: [] });
      if (mode === 'live') {
         const data = { id: 'live', month: new Date().toISOString().slice(0,7), total_balance: liveTotal, notes: '', created_at: new Date().toISOString() };
         setActiveReportData(data);
@@ -277,9 +341,14 @@ export default function ConsultingReports() {
      } else {
         const rep = historyReports.find(r => r.id === mode);
         if (rep) {
-           setActiveReportData(rep); setNotes(rep.notes || '');
+           setActiveReportData(rep); 
+           setNotes(rep.notes || '');
+           setScenarioNotes((rep as any).scenario_notes || '');
+           setNextSteps((rep as any).next_steps || '');
+           setCompositionNotes((rep as any).composition_notes || '');
            const { data } = await supabase.from('consulting_report_assets').select('*').eq('report_id', rep.id);
            const assetsFromSnapshot = (data || []) as PortfolioAsset[];
+           setActivePdfAssets(assetsFromSnapshot);
            
            if (rep.performance_table && Object.keys(rep.performance_table).length > 0) {
               const backfilled = { ...rep.performance_table };
@@ -301,9 +370,13 @@ export default function ConsultingReports() {
                  { acao: 'Aguardar', ativo: 'Ações Nacionais', justificativa: 'Exposição acima do limite; aguardar diluição.' }
               ]);
            }
+
+           // Trigger top movers computation asynchronously
+           computeTopMovers(assetsFromSnapshot, rep.id);
         }
      }
   };
+
 
    const comparisonData = useMemo(() => {
      if (!activeReportData) return null;
@@ -391,7 +464,7 @@ export default function ConsultingReports() {
         heightLeft -= pageHeight;
       }
 
-      pdf.save(`Relatorio_${selectedClientName}_${activeReportData?.month}.pdf`);
+      pdf.save(`Relatorio_${clientName}_${activeReportData?.month}.pdf`);
     } catch (err) { alert("Erro ao gerar PDF"); } finally { setGeneratingPDF(false); }
   };
 
@@ -426,26 +499,21 @@ export default function ConsultingReports() {
      }));
   };
 
-  if (loading && !selectedClientId) return <div className="flex justify-center p-20"><Loader text="Sincronizando dados..." /></div>;
+  if (loading && !clientId) return <div className="flex justify-center p-20"><Loader text="Sincronizando dados..." /></div>;
 
   return (
     <div>
-      <PageHeader 
-        title="Consultoria de Investimentos" 
-        subtitle="Analise a evolução patrimonial e gere relatórios com o Método Cerrado" 
-      />
-      
-      <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
+      <div className="space-y-6 animate-page-enter">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
              <Card className="p-6 flex flex-col justify-between bg-secondary/10 hover:border-primary/20 transition-all border-white/5 md:col-span-1">
-                <Select 
-                  label="Selecione o Cliente"
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                  options={clients.map(c => ({ value: c.id, label: c.name }))}
-                />
-                <div className="mt-6 flex flex-col gap-3">
-                   <Button onClick={handleSaveMonth} disabled={savingMonth || !selectedClientId} variant="outline" className="w-full flex items-center justify-center gap-2 border-primary/20 hover:bg-primary/10 transition-all font-black text-xs">
+                <div>
+                   <h3 className="text-sm font-semibold text-secondary flex items-center gap-2 mb-4">
+                      Ações do Mês
+                   </h3>
+                   <p className="text-xs text-secondary/60 mb-6">Gere os relatórios em PDF ou arquive o mês para manter o histórico patrimonial seguro.</p>
+                </div>
+                <div className="flex flex-col gap-3">
+                   <Button onClick={handleSaveMonth} disabled={savingMonth || !clientId} variant="outline" className="w-full flex items-center justify-center gap-2 border-primary/20 hover:bg-primary/10 transition-all font-black text-xs">
                       {savingMonth ? <Loader2 size={14} className="animate-spin" /> : <Save size={14}/>}
                       Arquivar Mês Atual
                    </Button>
@@ -554,7 +622,8 @@ export default function ConsultingReports() {
                             <h2 className="text-2xl font-bold text-primary tracking-tight">Editor de Relatório</h2>
                             <p className="text-secondary text-sm">Configurando emissão para <span className="text-primary font-semibold">{activeReportData.month}</span></p>
                          </div>
-                         <div className="flex gap-3">
+                         <div className="flex gap-3 flex-wrap">
+                            <button onClick={handleCopyFromPrevious} className="text-xs px-3 py-2 rounded-lg border border-white/10 text-secondary hover:text-primary hover:bg-white/5 transition-all">Copiar Mês Anterior</button>
                             {activeReportMode !== 'live' && (
                                <Button onClick={handleUpdateHistoricalReport} disabled={savingMonth} variant="outline" className="flex items-center gap-2 border-primary/40">
                                   {savingMonth ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -638,17 +707,61 @@ export default function ConsultingReports() {
                             </div>
                          </Card>
 
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card className="p-6 bg-secondary/10 border-white/5">
-                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Parecer do Especialista</h4>
-                               <textarea 
-                                 className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[140px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" 
-                                 value={notes} 
-                                 onChange={e=>setNotes(e.target.value)} 
-                                 placeholder="Insira aqui sua análise técnica mensal e visão estratégica de mercado..."
-                               />
-                            </Card>
+                         {/* Top Movers - Mês */}
+                         {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
+                            <div className="grid grid-cols-2 gap-4">
+                               {([{t:'Top Altas M\u00eas',l:topMoversMonth.gainers,c:'text-emerald-400'},{t:'Top Baixas M\u00eas',l:topMoversMonth.losers,c:'text-red-400'}] as {t:string,l:typeof topMoversMonth.gainers,c:string}[]).map(({t,l,c})=>(
+                                  <Card key={t} className="p-4 bg-secondary/10 border-white/5">
+                                     <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
+                                     {l.map((m,i)=>(
+                                        <div key={i} className="flex justify-between text-xs py-0.5">
+                                           <span className="text-secondary truncate max-w-[55%]">{m.asset_name}</span>
+                                           <span className={'font-black ' + c}>{m.changePercent>0?'+':''}{m.changePercent.toFixed(2)}%</span>
+                                        </div>
+                                     ))}
+                                  </Card>
+                               ))}
+                            </div>
+                         )}
+                         {/* Top Movers - YTD */}
+                         {(topMoversYtd.gainers.length > 0 || topMoversYtd.losers.length > 0) && (
+                            <div className="grid grid-cols-2 gap-4">
+                               {([{t:'Top Altas Ano (YTD)',l:topMoversYtd.gainers,c:'text-blue-400'},{t:'Top Baixas Ano (YTD)',l:topMoversYtd.losers,c:'text-orange-400'}] as {t:string,l:typeof topMoversYtd.gainers,c:string}[]).map(({t,l,c})=>(
+                                  <Card key={t} className="p-4 bg-secondary/10 border-white/5">
+                                     <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
+                                     {l.map((m,i)=>(
+                                        <div key={i} className="flex justify-between text-xs py-0.5">
+                                           <span className="text-secondary truncate max-w-[55%]">{m.asset_name}</span>
+                                           <span className={'font-black ' + c}>{m.changePercent>0?'+':''}{m.changePercent.toFixed(2)}%</span>
+                                        </div>
+                                     ))}
+                                  </Card>
+                               ))}
+                            </div>
+                         )}
 
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card className="p-6 bg-secondary/10 border-white/5 col-span-2">
+                               <div className="flex justify-between items-center mb-3">
+                                  <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Sumário Executivo</h4>
+                                  <button onClick={() => setNotes(generateAutoSuggestions(activePdfAssets, comparisonData))} className="text-[10px] text-primary border border-primary/20 px-3 py-1 rounded-lg hover:bg-primary/10 transition-all font-bold">✨ Auto-sugerir</button>
+                               </div>
+                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Sumário executivo e análise técnica..." />
+                            </Card>
+                            <Card className="p-6 bg-secondary/10 border-white/5">
+                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Cenário Econômico</h4>
+                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={scenarioNotes} onChange={e=>setScenarioNotes(e.target.value)} placeholder="Análise macro: juros, inflação, câmbio..." />
+                            </Card>
+                            <Card className="p-6 bg-secondary/10 border-white/5">
+                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Próximos Passos</h4>
+                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={nextSteps} onChange={e=>setNextSteps(e.target.value)} placeholder="Diretrizes para o próximo ciclo..." />
+                            </Card>
+                            <Card className="p-6 bg-secondary/10 border-white/5 col-span-2">
+                               <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Descrição da Composição Alvo</h4>
+                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={compositionNotes} onChange={e=>setCompositionNotes(e.target.value)} placeholder="Comentários sobre a alocação atual vs alvo..." />
+                            </Card>
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Card className="p-6 bg-secondary/10 border-white/5 flex flex-col justify-between">
                                <div>
                                   <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Cálculo de Fee Baseado em Patrimônio</h4>
@@ -711,20 +824,37 @@ export default function ConsultingReports() {
                                        <p className="text-[14px] font-black tracking-[0.4em]" style={{ color: '#888' }}>GESTAO DE ALOCAÇÃO PATRIMONIAL</p>
                                      </div>
                                      <div className="text-right">
-                                        <p className="text-2xl font-black tracking-tighter" style={{ color: '#000', textTransform: 'uppercase' }}>{selectedClientName}</p>
+                                        <p className="text-2xl font-black tracking-tighter" style={{ color: '#000', textTransform: 'uppercase' }}>{clientName}</p>
                                         <p style={{color: '#888', fontSize: '12px', fontWeight: '900', letterSpacing: '0.1em'}}>{activeReportData.month.split('-').reverse().join(' / ')}</p>
                                      </div>
                                   </div>
 
-                                  <h3 className="font-black uppercase mb-4 text-[16px] border-b-2 pb-1" style={{borderColor: '#eee'}}>1. SUMÁRIO EXECUTIVO</h3>
-                                  <div className="mb-10 p-8 bg-[#fcfcfc] border-l-[10px] border-[#000]">
-                                     <p className="font-medium text-[14px] leading-relaxed" style={{color: '#222'}}>
+                                  <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>1. SUMÁRIO EXECUTIVO</h3>
+                                  <div className="mb-12" style={{ overflow: "hidden", wordWrap: "break-word" }}>
+                                     <p className="font-medium text-[14px] leading-relaxed" style={{color: '#222', textAlign: 'justify'}}>
                                         {notes || "Apresentação consolidada da carteira sob custódia, estruturada através do Método Cerrado para fins de rebalanceamento e otimização de rentabilidade histórica."}
                                      </p>
                                   </div>
 
-                                  <h4 className="font-black uppercase mb-3 text-[12px] tracking-wider">1.1 TABELA DE REBALANCEAMENTO ESTRUTURAL</h4>
-                                  <table className="w-full text-left mb-14 border-collapse" style={{fontSize: '11px'}}>
+                                  {(scenarioNotes || nextSteps) && (
+                                     <div className="grid grid-cols-2 gap-6 mb-12">
+                                        {scenarioNotes && (
+                                           <div style={{ overflow: 'hidden', wordWrap: 'break-word' }}>
+                                              <p style={{fontSize: '9px', fontWeight: 'bold', color: '#999', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '6px'}}>CENÁRIO ECONÔMICO</p>
+                                              <p style={{ fontSize: '11px', color: '#333', lineHeight: '1.6', textAlign: 'justify' }}>{scenarioNotes}</p>
+                                           </div>
+                                        )}
+                                        {nextSteps && (
+                                           <div style={{ overflow: 'hidden', wordWrap: 'break-word' }}>
+                                              <p style={{fontSize: '9px', fontWeight: 'bold', color: '#999', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '6px'}}>PRÓXIMOS PASSOS</p>
+                                              <p style={{ fontSize: '11px', color: '#333', lineHeight: '1.6', textAlign: 'justify' }}>{nextSteps}</p>
+                                           </div>
+                                        )}
+                                     </div>
+                                  )}
+
+                                  <h4 className="font-black uppercase mb-4 text-[13px] tracking-[0.2em]" style={{ color: "#000" }}>1.1 TABELA DE REBALANCEAMENTO ESTRUTURAL</h4>
+                                  <table className="w-full text-left mb-12 border-collapse" style={{fontSize: '11px'}}>
                                      <thead>
                                         <tr style={{ backgroundColor: '#000', color: '#fff' }}>
                                            <th className="p-4 border border-black uppercase tracking-widest">SETOR / CLASSIFICAÇÃO</th>
@@ -734,65 +864,83 @@ export default function ConsultingReports() {
                                         </tr>
                                      </thead>
                                      <tbody>
-                                         {liveMacroSectors.map(macro => {
-                                            const macroSectorsInGroup = Object.values(pdfRebalanceData).filter(s => s.macro === macro.name);
-                                            const macroTotalBal = macroSectorsInGroup.reduce((sum, s) => sum + s.currentBal, 0);
+                                          {(() => {
                                             const activeTotal = activeReportData.total_balance || 1;
-                                            const macroCurrentP = (macroTotalBal / activeTotal) * 100;
-                                            const macroDiff = macroCurrentP - (macro.target_percentage * 100);
-                                            
-                                            if (macroTotalBal === 0 && macro.target_percentage === 0) return null;
+                                            const misalignedMacros = liveMacroSectors.map(macro => {
+                                               const macroSectorsInGroup = Object.values(pdfRebalanceData).filter(s => s.macro === macro.name);
+                                               const macroTotalBal = macroSectorsInGroup.reduce((sum, s) => sum + s.currentBal, 0);
+                                               const macroCurrentP = (macroTotalBal / activeTotal) * 100;
+                                               const macroDiff = macroCurrentP - (macro.target_percentage * 100);
+                                               
+                                               if (Math.abs(macroDiff) <= 2) return null;
+                                               
+                                               const misalignedSectors = macroSectorsInGroup.filter(sec => sec.status !== "Enquadrado");
+                                               return { macro, macroCurrentP, macroDiff, misalignedSectors };
+                                            }).filter(Boolean);
 
-                                            return (
-                                               <Fragment key={macro.id}>
-                                                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
-                                                     <td className="p-4 border border-[#eee]">
-                                                        <span className="font-black uppercase text-[12px]" style={{color: '#000'}}>{macro.name}</span>
-                                                     </td>
-                                                     <td className="p-4 border border-[#eee] text-center font-black">{macroCurrentP.toFixed(2)}%</td>
-                                                     <td className="p-4 border border-[#eee] text-center font-medium">{(macro.target_percentage * 100).toFixed(2)}%</td>
-                                                     <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: macroDiff > 5 ? '#ef4444' : macroDiff < -5 ? '#10b981' : '#000' }}>
-                                                        {macroDiff > 2 ? 'EXCESSO' : macroDiff < -2 ? 'APORTE' : 'ENQUADRADO'}
-                                                     </td>
-                                                  </tr>
-                                                  {macroSectorsInGroup.sort((a,b) => b.currentBal - a.currentBal).map((sec, sidx) => (
-                                                     <tr key={sidx} style={{ backgroundColor: '#fff' }}>
-                                                        <td className="p-4 border border-[#eee] pl-8">
-                                                           <span style={{fontSize: '10px', color: '#666', fontWeight: 'bold'}}>{sec.sectorName}</span>
+                                            if (misalignedMacros.length === 0) {
+                                              return (
+                                                <tr><td colSpan={4} style={{ textAlign: "center", padding: "20px", fontSize: "11px", color: "#888", fontStyle: "italic" }}>
+                                                  Todos os setores estão enquadrados. ✓
+                                                </td></tr>
+                                              );
+                                            }
+
+                                            return misalignedMacros.map(row => {
+                                               if (!row) return null;
+                                               const { macro, macroCurrentP, macroDiff, misalignedSectors } = row;
+                                               return (
+                                                  <Fragment key={macro.id}>
+                                                     <tr style={{ backgroundColor: "#f0f0f0", fontWeight: "bold" }}>
+                                                        <td className="p-4 border border-[#eee]">
+                                                           <span className="font-black uppercase text-[12px]" style={{color: "#000"}}>{macro.name}</span>
                                                         </td>
-                                                        <td className="p-4 border border-[#eee] text-center" style={{fontSize: '10px'}}>{( (sec.currentBal / activeTotal) * 100).toFixed(2)}%</td>
-                                                        <td className="p-4 border border-[#eee] text-center" style={{fontSize: '10px'}}>{(sec.targetP * 100).toFixed(2)}%</td>
-                                                        <td className="p-4 border border-[#eee] text-right uppercase text-[9px]" style={{ color: sec.statusColor }}>{sec.status}</td>
+                                                        <td className="p-4 border border-[#eee] text-center font-black">{macroCurrentP.toFixed(2)}%</td>
+                                                        <td className="p-4 border border-[#eee] text-center font-medium">{(macro.target_percentage * 100).toFixed(2)}%</td>
+                                                        <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: macroDiff > 5 ? "#c00" : macroDiff < -5 ? "#060" : "#333" }}>
+                                                           {macroDiff > 2 ? "EXCESSO" : "APORTE NECESSÁRIO"}
+                                                        </td>
                                                      </tr>
-                                                  ))}
-                                               </Fragment>
-                                            );
-                                         })}
-                                         
-                                         {liveMacroSectors.length === 0 && Object.values(pdfRebalanceData).sort((a,b) => b.currentBal - a.currentBal).map((sec, idx) => (
-                                            <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                                               <td className="p-4 border border-[#eee]">
-                                                  <span className="font-black uppercase text-[12px]" style={{color: '#000'}}>{sec.macro}</span><br/>
-                                                  <span style={{fontSize: '10px', color: '#666', fontWeight: 'bold'}}>{sec.sectorName}</span>
-                                               </td>
-                                               <td className="p-4 border border-[#eee] text-center font-black">{( (sec.currentBal / (activeReportData.total_balance||1)) * 100).toFixed(2)}%</td>
-                                               <td className="p-4 border border-[#eee] text-center font-medium">{(sec.targetP * 100).toFixed(2)}%</td>
-                                               <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: sec.statusColor }}>{sec.status}</td>
-                                            </tr>
-                                         ))}
+                                                     {misalignedSectors.sort((a,b) => b.currentBal - a.currentBal).map((sec, sidx) => (
+                                                        <tr key={sidx} style={{ backgroundColor: "#fff" }}>
+                                                           <td className="p-4 border border-[#eee] pl-8">
+                                                              <span style={{fontSize: "10px", color: "#555", fontWeight: "bold"}}>{sec.sectorName}</span>
+                                                           </td>
+                                                           <td className="p-4 border border-[#eee] text-center" style={{fontSize: "10px"}}>{((sec.currentBal / activeTotal) * 100).toFixed(2)}%</td>
+                                                           <td className="p-4 border border-[#eee] text-center" style={{fontSize: "10px"}}>{(sec.targetP * 100).toFixed(2)}%</td>
+                                                           <td className="p-4 border border-[#eee] text-right uppercase text-[9px]" style={{ color: sec.statusColor }}>{sec.status}</td>
+                                                        </tr>
+                                                     ))}
+                                                  </Fragment>
+                                               );
+                                            });
+                                         })()}
+                                          {liveMacroSectors.length === 0 && Object.values(pdfRebalanceData)
+                                            .filter(sec => sec.status !== "Enquadrado")
+                                            .sort((a,b) => b.currentBal - a.currentBal).map((sec, idx) => (
+                                             <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                                <td className="p-4 border border-[#eee]">
+                                                   <span className="font-black uppercase text-[12px]" style={{color: "#000"}}>{sec.macro}</span><br/>
+                                                   <span style={{fontSize: "10px", color: "#666", fontWeight: "bold"}}>{sec.sectorName}</span>
+                                                </td>
+                                                <td className="p-4 border border-[#eee] text-center font-black">{((sec.currentBal / (activeReportData.total_balance||1)) * 100).toFixed(2)}%</td>
+                                                <td className="p-4 border border-[#eee] text-center font-medium">{(sec.targetP * 100).toFixed(2)}%</td>
+                                                <td className="p-4 border border-[#eee] text-right font-black uppercase text-[10px]" style={{ color: sec.statusColor }}>{sec.status}</td>
+                                             </tr>
+                                          ))}
                                       </tbody>
                                   </table>
 
-                                  <h3 className="font-black uppercase mb-4 text-[16px] border-b-2 pb-1" style={{borderColor: '#eee'}}>2. RESULTADOS CONSOLIDADOS</h3>
-                                  <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.3em]">Balanço de Performance por Macro-Classe de Ativos</p>
-                                  <table className="w-full text-left mb-14 border-collapse" style={{fontSize: '11px'}}>
+                                  <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>2. RESULTADOS CONSOLIDADOS</h3>
+                                  
+                                  <table className="w-full text-left mb-12 border-collapse" style={{fontSize: '11px'}}>
                                      <thead>
-                                        <tr style={{ backgroundColor: '#f0f0f0', borderBottom: '4px solid #000' }}>
-                                           <th className="p-4 border border-[#ddd]">CLASSE PATRIMONIAL</th>
-                                           <th className="p-4 border border-[#ddd] text-center">RENT. MÊS (%)</th>
-                                           <th className="p-4 border border-[#ddd] text-center">RENT. TOTAL (%)</th>
-                                           <th className="p-4 border border-[#ddd] text-center">YIELD ESTIMADO</th>
-                                           <th className="p-4 border border-[#ddd] text-right">VALOR CONSOLIDADO</th>
+                                        <tr style={{ backgroundColor: '#000', color: '#fff' }}>
+                                           <th className="p-4 border border-[#eee]">CLASSE PATRIMONIAL</th>
+                                           <th className="p-4 border border-[#eee] text-center">RENT. MÊS (%)</th>
+                                           <th className="p-4 border border-[#eee] text-center">RENT. TOTAL (%)</th>
+                                           <th className="p-4 border border-[#eee] text-center">YIELD ESTIMADO</th>
+                                           <th className="p-4 border border-[#eee] text-right">VALOR CONSOLIDADO</th>
                                         </tr>
                                      </thead>
                                      <tbody>
@@ -823,7 +971,7 @@ export default function ConsultingReports() {
                                   {/* 3. EVOLUÇÃO COMPARATIVA */}
                                   {comparisonData && (
                                      <>
-                                        <h3 className="font-black uppercase mb-4 text-[16px] border-b-2 pb-1" style={{borderColor: '#eee'}}>3. ANÁLISE COMPARATIVA ({comparisonData.prevMonth})</h3>
+                                        <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>3. ANÁLISE COMPARATIVA ({comparisonData.prevMonth})</h3>
                                         <div className="grid grid-cols-3 gap-6 mb-8">
                                            <div className="p-4 bg-[#f9f9f9] border border-[#eee]">
                                               <p style={{fontSize: '9px', fontWeight: 'bold', color: '#888', textTransform: 'uppercase'}}>Variação Patrimonial</p>
@@ -844,53 +992,121 @@ export default function ConsultingReports() {
                                               </p>
                                            </div>
                                         </div>
-                                        
-                                        <div className="mb-12">
-                                           <p className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-[0.2em]">Benchmarks do Mercado no Período</p>
-                                           <div className="flex justify-between p-4 bg-white border border-[#eee]">
-                                              {['CDI', 'IBOV', 'S&P500', 'IFIX'].map(idx => (
-                                                 <div key={idx} className="text-center px-4 border-r last:border-r-0 border-[#eee]">
-                                                    <p style={{fontSize: '9px', fontWeight: 'bold', color: '#888'}}>{idx}</p>
-                                                    <p style={{fontSize: '11px', fontWeight: '900'}}>{tableA[idx === 'CDI' ? 'Consolidada' : idx === 'IBOV' ? 'Ações Nacionais' : idx === 'S&P500' ? 'Exterior (ETFs)' : 'Fundo Imobiliário (FII)']?.benchMês || '—'}%</p>
+                                        {/* TOP MOVERS SECTION IN PDF */}
+                                        <div className="grid grid-cols-2 gap-8 mb-12">
+                                           {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
+                                              <div>
+                                                 <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Maiores Movimentações do Mês</p>
+                                                 <div className="grid grid-cols-2 gap-4">
+                                                    {topMoversMonth.gainers.length > 0 && (
+                                                       <div className="p-4 bg-[#fcfcfc] border border-[#eee]">
+                                                          <p className="text-[8px] font-black text-emerald-600 uppercase mb-2">Top Altas</p>
+                                                          {topMoversMonth.gainers.map((m, i) => (
+                                                             <div key={i} className="flex justify-between items-center py-1 border-b border-[#eee] last:border-0">
+                                                                <span className="text-[9px] font-bold text-[#333] truncate pr-2">{m.asset_name}</span>
+                                                                <span className="text-[9px] font-black text-emerald-600">+{m.changePercent.toFixed(2)}%</span>
+                                                             </div>
+                                                          ))}
+                                                       </div>
+                                                    )}
+                                                    {topMoversMonth.losers.length > 0 && (
+                                                       <div className="p-4 bg-[#fcfcfc] border border-[#eee]">
+                                                          <p className="text-[8px] font-black text-red-600 uppercase mb-2">Top Baixas</p>
+                                                          {topMoversMonth.losers.map((m, i) => (
+                                                             <div key={i} className="flex justify-between items-center py-1 border-b border-[#eee] last:border-0">
+                                                                <span className="text-[9px] font-bold text-[#333] truncate pr-2">{m.asset_name}</span>
+                                                                <span className="text-[9px] font-black text-red-600">{m.changePercent.toFixed(2)}%</span>
+                                                             </div>
+                                                          ))}
+                                                       </div>
+                                                    )}
                                                  </div>
-                                              ))}
-                                           </div>
+                                              </div>
+                                           )}
+                                           
+                                           {(topMoversYtd.gainers.length > 0 || topMoversYtd.losers.length > 0) && (
+                                              <div>
+                                                 <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Maiores Movimentações do Ano (YTD)</p>
+                                                 <div className="grid grid-cols-2 gap-4">
+                                                    {topMoversYtd.gainers.length > 0 && (
+                                                       <div className="p-4 bg-[#fcfcfc] border border-[#eee]">
+                                                          <p className="text-[8px] font-black text-blue-600 uppercase mb-2">Top Altas</p>
+                                                          {topMoversYtd.gainers.map((m, i) => (
+                                                             <div key={i} className="flex justify-between items-center py-1 border-b border-[#eee] last:border-0">
+                                                                <span className="text-[9px] font-bold text-[#333] truncate pr-2">{m.asset_name}</span>
+                                                                <span className="text-[9px] font-black text-blue-600">+{m.changePercent.toFixed(2)}%</span>
+                                                             </div>
+                                                          ))}
+                                                       </div>
+                                                    )}
+                                                    {topMoversYtd.losers.length > 0 && (
+                                                       <div className="p-4 bg-[#fcfcfc] border border-[#eee]">
+                                                          <p className="text-[8px] font-black text-orange-600 uppercase mb-2">Top Baixas</p>
+                                                          {topMoversYtd.losers.map((m, i) => (
+                                                             <div key={i} className="flex justify-between items-center py-1 border-b border-[#eee] last:border-0">
+                                                                <span className="text-[9px] font-bold text-[#333] truncate pr-2">{m.asset_name}</span>
+                                                                <span className="text-[9px] font-black text-orange-600">{m.changePercent.toFixed(2)}%</span>
+                                                             </div>
+                                                          ))}
+                                                       </div>
+                                                    )}
+                                                 </div>
+                                              </div>
+                                           )}
                                         </div>
+</>
+                                  )}
+
+                                  {/* CHARTS SECTION */}
+                                  <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>{comparisonData ? "4" : "3"}. ANÁLISE GRÁFICA DA CARTEIRA</h3>
+                                  <div style={{marginBottom: '48px'}}>
+                                     <ReportCharts
+                                        assets={activePdfAssets}
+                                        macroSectors={liveMacroSectors}
+                                        sectors={liveSectors}
+                                       historyReports={historyReports}
+                                        totalBalance={activeReportData.total_balance || 1}
+                                        compositionDescription={compositionNotes}
+                                     />
+                                  </div>
+
+                                  {/* 4. PLANNING */}
+                                  {planning.length > 0 && (
+                                     <>
+                                        <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>{comparisonData ? '5' : '4'}. PLANEJAMENTO E RECOMENDAÇÕES</h3>
+                                        <table className="w-full text-left mb-12 border-collapse" style={{fontSize: '11px'}}>
+                                           <thead>
+                                              <tr style={{ backgroundColor: '#000', color: '#fff' }}>
+                                                 <th className="p-4 border border-[#eee] w-36 uppercase tracking-widest">DIRETRIZ</th>
+                                                 <th className="p-4 border border-[#eee] w-52">ATIVO OU SETOR</th>
+                                                 <th className="p-4 border border-[#eee]">RACIONALE DA ANÁLISE</th>
+                                              </tr>
+                                           </thead>
+                                           <tbody>
+                                              {planning.map((p, idx) => (
+                                                 <tr key={idx}>
+                                                    <td className="p-4 border border-[#eee] font-black uppercase text-[10px]" style={{color: '#000'}}>{p.acao}</td>
+                                                    <td className="p-4 border border-[#eee] font-black tracking-tighter">{p.ativo}</td>
+                                                    <td className="p-4 border border-[#eee] italic leading-relaxed text-[#333] font-medium">{p.justificativa}</td>
+                                                 </tr>
+                                              ))}
+                                           </tbody>
+                                        </table>
                                      </>
                                   )}
 
-                                  {/* 4. PLANNING */}
-                                  <h3 className="font-black uppercase mb-4 text-[16px] border-b-2 pb-1" style={{borderColor: '#eee'}}>{comparisonData ? '4' : '3'}. PLANEJAMENTO E RECOMENDAÇÕES</h3>
-                                  <table className="w-full text-left mb-14 border-collapse" style={{fontSize: '11px'}}>
-                                     <thead>
-                                        <tr style={{ backgroundColor: '#f0f0f0', borderBottom: '4px solid #000' }}>
-                                           <th className="p-4 border border-[#eee] w-36 uppercase tracking-widest">DIRETRIZ</th>
-                                           <th className="p-4 border border-[#eee] w-52">ATIVO OU SETOR</th>
-                                           <th className="p-4 border border-[#eee]">RACIONALE DA ANÁLISE</th>
-                                        </tr>
-                                     </thead>
-                                     <tbody>
-                                        {planning.map((p, idx) => (
-                                           <tr key={idx}>
-                                              <td className="p-4 border border-[#eee] font-black uppercase text-[10px]" style={{color: '#000'}}>{p.acao}</td>
-                                              <td className="p-4 border border-[#eee] font-black tracking-tighter">{p.ativo}</td>
-                                              <td className="p-4 border border-[#eee] italic leading-relaxed text-[#333] font-medium">{p.justificativa}</td>
-                                           </tr>
-                                        ))}
-                                     </tbody>
-                                  </table>
-
                                   {/* 4. FEE FOOTER */}
-                                  <div className="mt-24 pt-10 flex justify-between items-end border-t-[3px] border-black">
-                                     <div>
-                                        <h4 className="font-black uppercase text-[12px] mb-3 tracking-[0.4em]" style={{color: '#999'}}>{comparisonData ? '5' : '4'}. TAXA DE GESTÃO (FEE-BASED)</h4>
-                                        <p style={{fontSize: '12px', color: '#555', fontWeight: 'bold'}}>Calculado sobre o Patrimônio Total Consolidado Gerido: {feeRate}%</p>
-                                        <p className="text-4xl font-black mt-3 tracking-tighter" style={{color: '#000'}}>{formatCurrency(activeReportData.total_balance * (parseFloat(feeRate.replace(',','.')) / 100))}</p>
-                                     </div>
-                                     <div className="text-right" style={{fontSize: '10px', textTransform: 'uppercase', fontWeight: '900', color: '#bbb', letterSpacing: '0.2em'}}>
-                                        <p>Consultoria Indepentente</p>
-                                        <p>Documento Oficial e Confidencial</p>
-                                     </div>
+                                  <div className="mt-24">
+                                      <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>{(comparisonData ? (planning.length > 0 ? 6 : 5) : (planning.length > 0 ? 5 : 4))}. TAXA DE GESTÃO (FEE-BASED)</h3>
+                                      <div className="flex justify-between items-end">
+                                         <div>
+                                            <p className="text-4xl font-black mt-4 tracking-tighter" style={{color: '#000'}}>{formatCurrency(activeReportData.total_balance * (parseFloat(feeRate.replace(',','.')) / 100))}</p>
+                                            <p style={{fontSize: '11px', color: '#888', fontWeight: 'bold', marginTop: '4px'}}>Calculado sobre o Patrimônio Total Consolidado Gerido: {feeRate}%</p>
+                                         </div>
+                                         <div className="text-right" style={{fontSize: '10px', textTransform: 'uppercase', fontWeight: '900', color: '#bbb', letterSpacing: '0.2em'}}>
+                                            <p></p>
+                                         </div>
+                                      </div>
                                   </div>
                                </div>
                             </div>
@@ -922,7 +1138,7 @@ export default function ConsultingReports() {
                 if (error) throw error;
                 toast.success("Data atualizada");
                 setShowEditDateModal(false);
-                fetchClientData(selectedClientId);
+                fetchClientData(clientId);
             } catch (e) {
                 toast.error("Erro ao atualizar data");
             }
