@@ -1,43 +1,108 @@
-import { SelectHTMLAttributes, forwardRef, useId } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useState, useRef, useEffect, forwardRef, useId } from 'react'
+import { ChevronDown, Check } from 'lucide-react'
 
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps {
   label?: string
   error?: string
+  value: string
+  onChange: (e: { target: { value: string, name?: string } }) => void
   options: { value: string; label: string }[]
+  placeholder?: string
+  name?: string
+  className?: string
+  disabled?: boolean
+  required?: boolean
 }
 
-const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, options, className = '', id, ...props }, ref) => {
+const Select = forwardRef<HTMLDivElement, SelectProps>(
+  ({ label, error, options, value, onChange, placeholder = 'Selecione...', name, className = '', disabled, required }, ref) => {
+    const [isOpen, setIsOpen] = useState(false)
+    const containerRef = useRef<HTMLDivElement>(null)
     const generatedId = useId()
-    const selectId = id ?? generatedId
+
+    const selectedOption = options.find(opt => opt.value === value)
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+          setIsOpen(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const handleSelect = (val: string) => {
+      if (disabled) return
+      onChange({ target: { value: val, name } })
+      setIsOpen(false)
+    }
 
     return (
-      <div className="w-full">
+      <div className={`w-full ${className}`} ref={containerRef}>
         {label && (
-          <label htmlFor={selectId} className="block text-sm font-medium text-primary mb-1">
-            {label}
+          <label className="block text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 opacity-60 ml-1">
+            {label} {required && <span className="text-danger">*</span>}
           </label>
         )}
-        <div className="relative">
-          <select
-            ref={ref}
-            id={selectId}
-            className={`w-full pl-4 pr-10 py-2 border rounded-lg bg-primary text-primary hover:border-[var(--color-focus)] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all duration-[var(--transition-fast)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] appearance-none ${error ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'
-              } ${className}`}
-            {...props}
+        
+        <div className="relative" ref={ref}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => !disabled && setIsOpen(!isOpen)}
+            className={`
+              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium
+              ${isOpen 
+                ? 'border-primary bg-primary/10 ring-2 ring-primary/20 shadow-lg shadow-primary/10' 
+                : 'border-primary/20 bg-primary hover:bg-tertiary shadow-none'
+              }
+              ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : 'cursor-pointer'}
+              ${error ? 'border-danger/50' : ''}
+            `}
           >
-            {options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-secondary">
-            <ChevronDown size={18} />
-          </div>
+            <span className={`truncate ${!selectedOption ? 'text-secondary/40' : 'text-primary'}`}>
+              {selectedOption ? selectedOption.label : placeholder}
+            </span>
+            <ChevronDown 
+              size={18} 
+              className={`text-secondary transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} 
+            />
+          </button>
+
+          {isOpen && (
+            <div className="absolute z-[1000] w-full mt-2 bg-primary border border-primary rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="max-h-60 overflow-y-auto custom-scrollbar p-1.5">
+                {options.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-secondary/40 italic">Nenhuma opção disponível</div>
+                ) : (
+                  options.map((option) => {
+                    const isSelected = option.value === value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleSelect(option.value)}
+                        className={`
+                          w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all mb-0.5 last:mb-0
+                          ${isSelected 
+                            ? 'bg-primary text-black font-bold' 
+                            : 'text-secondary hover:bg-tertiary hover:text-primary'
+                          }
+                        `}
+                      >
+                        <span className="truncate pr-4">{option.label}</span>
+                        {isSelected && <Check size={14} />}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
-        {error && <p className="mt-1 text-sm text-[var(--color-danger)]">{error}</p>}
+        
+        {error && <p className="mt-1.5 text-[10px] font-bold text-danger ml-1">{error}</p>}
       </div>
     )
   }
@@ -46,8 +111,3 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
 Select.displayName = 'Select'
 
 export default Select
-
-
-
-
-

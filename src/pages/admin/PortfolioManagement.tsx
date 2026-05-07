@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, FolderPlus, Edit2, Trash2, Plus, Settings } from 'lucide-react';
+import { ChevronLeft, FolderPlus, Edit2, Trash2, Plus, Settings, Loader2, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -39,8 +39,8 @@ interface PortfolioAsset {
   applied_amount?: number;
   custom_rate?: string;
   maturity_date?: string;
-  variation_month?: string;
-  variation_total?: string;
+  monthly_contribution?: number;
+  monthly_dividends?: number;
 }
 
 interface Client {
@@ -53,9 +53,10 @@ interface Client {
 interface PortfolioManagementProps {
   clientId: string;
   selectedMonth?: string;
+  hideHeader?: boolean;
 }
 
-export default function PortfolioManagement({ clientId, selectedMonth = 'live' }: PortfolioManagementProps) {
+export default function PortfolioManagement({ clientId, selectedMonth = 'live', hideHeader = false }: PortfolioManagementProps) {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   
@@ -82,13 +83,28 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<PortfolioAsset | null>(null);
   const [assetForm, setAssetForm] = useState({
-     sector_id: '', asset_name: '', current_balance: '',
-     applied_amount: '', custom_rate: '', maturity_date: '', variation_month: '', variation_total: ''
+      sector_id: '', asset_name: '', current_balance: '',
+      applied_amount: '', custom_rate: '', maturity_date: '',
+      monthly_contribution: '', monthly_dividends: ''
+   });
+
+  // Movement States
+  const [showMovementModal, setShowMovementModal] = useState(false);
+  const [movementForm, setMovementForm] = useState({
+     asset_id: '',
+     contribution: '',
+     dividends: ''
   });
 
   // Quick Update State
   const [showQuickUpdateModal, setShowQuickUpdateModal] = useState(false);
   const [quickUpdateBalances, setQuickUpdateBalances] = useState<Record<string, string>>({});
+  const [quickUpdateContributions, setQuickUpdateContributions] = useState<Record<string, string>>({});
+  const [quickUpdateDividends, setQuickUpdateDividends] = useState<Record<string, string>>({});
+  const [initialQuickUpdateBalances, setInitialQuickUpdateBalances] = useState<Record<string, number>>({});
+  const [modifiedAssetIds, setModifiedAssetIds] = useState<Set<string>>(new Set());
+  const [savingRowIds, setSavingRowIds] = useState<Set<string>>(new Set());
+  const [dirtyAssetIds, setDirtyAssetIds] = useState<Set<string>>(new Set());
   const [quickUpdateSearch, setQuickUpdateSearch] = useState('');
 
   useEffect(() => {
@@ -130,6 +146,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
   };
 
   const totalInWallet = useMemo(() => assets.reduce((acc, curr) => acc + curr.current_balance, 0), [assets]);
+  const totalDividends = useMemo(() => assets.reduce((acc, curr) => acc + (curr.monthly_dividends || 0), 0), [assets]);
   const parsedCash = parseMoneyInput(cashBalance);
   const futureTotal = totalInWallet + (Number.isNaN(parsedCash) ? 0 : parsedCash);
 
@@ -159,15 +176,16 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
            applied_amount: asset.applied_amount ? formatMoneyInput(asset.applied_amount) : '',
            custom_rate: asset.custom_rate || '',
            maturity_date: asset.maturity_date || '',
-           variation_month: asset.variation_month || '',
-           variation_total: asset.variation_total || ''
-        });
+            monthly_contribution: asset.monthly_contribution ? formatMoneyInput(asset.monthly_contribution) : '',
+            monthly_dividends: asset.monthly_dividends ? formatMoneyInput(asset.monthly_dividends) : ''
+         });
      } else {
         setEditingAsset(null);
         setAssetForm({
-           sector_id: defaultSectorId || '', asset_name: '', current_balance: '',
-           applied_amount: '', custom_rate: '', maturity_date: '', variation_month: '', variation_total: ''
-        });
+            sector_id: defaultSectorId || '', asset_name: '', current_balance: '',
+            applied_amount: '', custom_rate: '', maturity_date: '',
+            monthly_contribution: '', monthly_dividends: ''
+         });
      }
      setShowAssetModal(true);
   };
@@ -186,43 +204,77 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
   };
 
   const openQuickUpdate = () => {
-    const balances: Record<string, string> = {};
-    assets.forEach(a => { balances[a.id] = formatNumberWithTwoDecimalsBR(a.current_balance); });
-    setQuickUpdateBalances(balances);
-    setShowQuickUpdateModal(true);
+     const balances: Record<string, string> = {};
+     const initialBalances: Record<string, number> = {};
+     const contributions: Record<string, string> = {};
+     const dividends: Record<string, string> = {};
+     assets.forEach(a => { 
+       balances[a.id] = formatNumberWithTwoDecimalsBR(a.current_balance);
+       initialBalances[a.id] = a.current_balance;
+       contributions[a.id] = formatNumberWithTwoDecimalsBR(a.monthly_contribution || 0);
+       dividends[a.id] = formatNumberWithTwoDecimalsBR(a.monthly_dividends || 0);
+     });
+     setQuickUpdateBalances(balances);
+     setInitialQuickUpdateBalances(initialBalances);
+     setQuickUpdateContributions(contributions);
+     setQuickUpdateDividends(dividends);
+     setModifiedAssetIds(new Set());
+     setSavingRowIds(new Set());
+     setDirtyAssetIds(new Set());
+     setShowQuickUpdateModal(true);
+   };
+
+  const saveQuickUpdateRow = async (id: string) => {
+    let bal = parseMoneyInput(quickUpdateBalances[id]);
+    let contr = parseMoneyInput(quickUpdateContributions[id]);
+    let div = parseMoneyInput(quickUpdateDividends[id]);
+    
+    if (Number.isNaN(bal)) bal = 0;
+    if (Number.isNaN(contr)) contr = 0;
+    if (Number.isNaN(div)) div = 0;
+
+    setSavingRowIds(prev => new Set(prev).add(id));
+
+    try {
+      const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+      
+      const { data, error } = await supabase.from(tableName).update({ 
+        current_balance: bal,
+        monthly_contribution: contr,
+        monthly_dividends: div
+      }).eq('id', id).select().single();
+
+      if (error) throw error;
+
+      setAssets(prev => prev.map(a => a.id === id ? data : a));
+      setDirtyAssetIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setModifiedAssetIds(prev => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      
+      if (selectedMonth !== 'live') {
+         const newTotal = assets.reduce((sum, a) => sum + (a.id === id ? bal : a.current_balance), 0);
+         await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+      }
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setSavingRowIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   const saveQuickUpdate = async () => {
-    setSaving(true);
-    try {
-      const updates = Object.keys(quickUpdateBalances).map(id => {
-         let num = parseMoneyInput(quickUpdateBalances[id]);
-         if (Number.isNaN(num)) num = 0;
-         return { id, current_balance: num };
-      });
-
-      const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
-
-      for (const update of updates) {
-         await supabase.from(tableName).update({ current_balance: update.current_balance }).eq('id', update.id);
-      }
-
-      // For historical months, also update total_balance on the report
-      if (selectedMonth !== 'live') {
-         const newTotal = updates.reduce((sum, u) => sum + u.current_balance, 0);
-         await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
-      }
-
-      setAssets(assets.map(a => {
-         const up = updates.find(u => u.id === a.id);
-         return up ? { ...a, current_balance: up.current_balance } : a;
-      }));
-      setShowQuickUpdateModal(false);
-    } catch(e) { 
-      alert("Erro na atualização rápida"); 
-    } finally { 
-      setSaving(false); 
-    }
+     setShowQuickUpdateModal(false);
   };
 
 
@@ -362,9 +414,9 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
         applied_amount: Number.isNaN(applied) ? null : applied,
         custom_rate: assetForm.custom_rate,
         maturity_date: assetForm.maturity_date,
-        variation_month: assetForm.variation_month,
-        variation_total: assetForm.variation_total
-     };
+        monthly_contribution: Number.isNaN(parseMoneyInput(assetForm.monthly_contribution)) ? 0 : parseMoneyInput(assetForm.monthly_contribution),
+         monthly_dividends: Number.isNaN(parseMoneyInput(assetForm.monthly_dividends)) ? 0 : parseMoneyInput(assetForm.monthly_dividends)
+      };
 
     try {
        const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
@@ -404,6 +456,52 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
        setSaving(false);
      }
   };
+
+  const handleSaveMovement = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!movementForm.asset_id || !clientId) return;
+      setSaving(true);
+      
+      const asset = assets.find(a => a.id === movementForm.asset_id);
+      if (!asset) return;
+
+      const contribution = parseMoneyInput(movementForm.contribution) || 0;
+      const dividends = parseMoneyInput(movementForm.dividends) || 0;
+      
+      // Update balance automatically: New = Current + Contribution
+      const newBalance = asset.current_balance + contribution;
+
+      try {
+         const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+         
+         const { data, error } = await supabase.from(tableName)
+            .update({ 
+               current_balance: newBalance,
+               monthly_contribution: (asset.monthly_contribution || 0) + contribution,
+               monthly_dividends: (asset.monthly_dividends || 0) + dividends
+            })
+            .eq('id', asset.id)
+            .select()
+            .single();
+
+         if (error) throw error;
+
+         setAssets(assets.map(a => a.id === asset.id ? data : a));
+         
+         if (selectedMonth !== 'live') {
+            const updatedAssets = assets.map(a => a.id === asset.id ? newBalance : a.current_balance);
+            const newTotal = updatedAssets.reduce((acc, curr) => acc + curr, 0);
+            await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+         }
+
+         setShowMovementModal(false);
+         setMovementForm({ asset_id: '', contribution: '', dividends: '' });
+      } catch (err) {
+         alert("Erro ao salvar movimentação");
+      } finally {
+         setSaving(false);
+      }
+   };
 
   const handleUpdateAssetBalance = async (id: string, value: string) => {
      let num = parseMoneyInput(value);
@@ -663,69 +761,111 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
 
   return (
     <div className="min-h-screen bg-secondary/30">
-      <PageHeader 
-        title="Gestão de Carteira"
-        subtitle={`Cliente: ${client?.name || '...'}`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="flex items-center gap-2">
-               <ChevronLeft size={16} /> Voltar
-            </Button>
-            <Button onClick={() => openSectorModal()} variant="outline" size="sm" className="flex items-center gap-2">
-               <FolderPlus size={16} /> <span className="hidden sm:inline">Novo Grupo</span>
-            </Button>
-            <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" size="sm" className="flex items-center gap-2">
-               <Plus size={16} /> <span className="hidden sm:inline">Novo Ativo</span>
-            </Button>
-            <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
-               <Settings size={16} /> <span className="hidden sm:inline">Classes</span>
-            </Button>
-            
-            {selectedMonth === 'live' ? (
-               <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold ml-2">
-                  <Edit2 size={16} /> Atualização Rápida
-               </Button>
-            ) : (
-               <div className="flex items-center gap-2 ml-2">
-                  <div className="flex items-center gap-2 p-1.5 px-3 rounded-xl bg-warning/10 text-warning text-[10px] font-black border border-warning/20 uppercase tracking-widest">
-                     ⚠️ Histórico
+      {!hideHeader && (
+        <PageHeader 
+          title="Gestão de Carteira"
+          subtitle={`Cliente: ${client?.name || '...'}`}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="flex items-center gap-2">
+                 <ChevronLeft size={16} /> Voltar
+              </Button>
+              <Button onClick={() => openSectorModal()} variant="outline" size="sm" className="flex items-center gap-2">
+                 <FolderPlus size={16} /> <span className="hidden sm:inline">Novo Grupo</span>
+              </Button>
+              <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" size="sm" className="flex items-center gap-2">
+                 <Plus size={16} /> <span className="hidden sm:inline">Novo Ativo</span>
+              </Button>
+              <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                 <Settings size={16} /> <span className="hidden sm:inline">Classes</span>
+              </Button>
+              
+              {selectedMonth === 'live' ? (
+                  <div className="flex items-center gap-2 ml-2">
+                     <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                        <Plus size={16} /> Movimentação / Proventos
+                     </Button>
+                     <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold">
+                        <Edit2 size={16} /> Atualização Rápida
+                     </Button>
                   </div>
-                  <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold">
-                     <Edit2 size={16} /> Atualização Rápida
-                  </Button>
-               </div>
-            )}
-          </div>
-        }
-      />
+               ) : (
+                  <div className="flex items-center gap-2 ml-2">
+                     <div className="flex items-center gap-2 p-1.5 px-3 rounded-xl bg-warning/10 text-warning text-[10px] font-black border border-warning/20 uppercase tracking-widest">
+                        ⚠️ Histórico
+                     </div>
+                     <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                        <Plus size={16} /> Movimentação / Proventos
+                     </Button>
+                     <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold">
+                        <Edit2 size={16} /> Atualização Rápida
+                     </Button>
+                  </div>
+               )}
+            </div>
+          }
+        />
+      )}
 
-      <div className="p-4 lg:p-8 space-y-6 animate-page-enter">
+      <div className={`${hideHeader ? 'p-0' : 'p-4 lg:p-8'} space-y-6 animate-page-enter`}>
+         {/* Top Actions when header is hidden */}
+         {hideHeader && (
+           <div className="flex items-center justify-between gap-2 mb-2 w-full">
+              <div className="flex items-center gap-2">
+                <Button onClick={() => openSectorModal()} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2" title="Novo Grupo">
+                   <FolderPlus size={16} />
+                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Grupo</span>
+                </Button>
+                <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2" title="Novo Ativo">
+                   <Plus size={16} />
+                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Ativo</span>
+                </Button>
+                <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Classes">
+                   <Settings size={16} />
+                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Classes</span>
+                </Button>
+                <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Movimentação / Proventos">
+                  <Plus size={16} />
+                  <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Movim.</span>
+               </Button>
+              </div>
+               <Button onClick={openQuickUpdate} variant="primary" size="sm" className="h-9 px-3 flex items-center gap-2 font-bold shadow-lg shadow-primary/20" title="Atualização Rápida">
+                  <Edit2 size={16} />
+                  <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-widest whitespace-nowrap">Atualiz. Rápida</span>
+               </Button>
+           </div>
+         )}
+
          {/* Top Stats */}
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             <Card className="flex flex-col justify-between p-5 bg-primary border-primary shadow-sm">
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 mb-2">Patrimônio Gerido</span>
-                 <p className="text-2xl font-black text-primary tracking-tighter">{formatCurrency(totalInWallet)}</p>
-             </Card>
-             <Card className="flex flex-col justify-between p-5 bg-primary border-primary shadow-sm">
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 mb-2">Aporte em Aberto (Caixa)</span>
-                 <div className="flex items-center gap-2">
-                    <span className="text-primary font-black text-lg">R$</span>
-                    <input 
-                       value={cashBalance} onChange={e => setCashBalance(e.target.value)}
-                       onBlur={() => { const p = parseMoneyInput(cashBalance); if(!Number.isNaN(p)) setCashBalance(formatMoneyInput(p)) }}
-                       placeholder="0,00" inputMode="decimal"
-                       className="bg-tertiary/30 px-2 py-1 rounded-lg border-none outline-none text-2xl font-black text-income w-full tracking-tighter focus:bg-tertiary transition-all"
-                    />
-                 </div>
-             </Card>
-             <Card className="flex flex-col justify-between p-5 bg-primary border-primary shadow-sm">
-                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 mb-2">Patrimônio Futuro Total</span>
-                 <p className="text-2xl font-black text-primary tracking-tighter">{formatCurrency(futureTotal)}</p>
-             </Card>
-         </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <Card className="flex flex-col justify-between p-4 md:p-5 bg-primary border-primary shadow-none col-span-2 lg:col-span-1">
+                  <span className="text-ui-label mb-2">Patrimônio Gerido</span>
+                  <p className="text-ui-heading tracking-tighter">{formatCurrency(totalInWallet)}</p>
+              </Card>
+              <Card className="flex flex-col justify-between p-4 md:p-5 bg-primary border-primary shadow-none col-span-1 lg:col-span-1">
+                  <span className="text-ui-label mb-2">Aporte em Aberto</span>
+                  <div className="flex items-center gap-1 md:gap-2">
+                     <span className="text-primary font-black text-xs md:text-lg">R$</span>
+                     <input 
+                        value={cashBalance} onChange={e => setCashBalance(e.target.value)}
+                        onBlur={() => { const p = parseMoneyInput(cashBalance); if(!Number.isNaN(p)) setCashBalance(formatMoneyInput(p)) }}
+                        placeholder="0,00" inputMode="decimal"
+                        className="bg-transparent border-none p-0 text-ui-heading w-full focus:ring-0 placeholder:opacity-20"
+                     />
+                  </div>
+              </Card>
+              <Card className="flex flex-col justify-between p-4 md:p-5 bg-primary border-primary shadow-none col-span-1 lg:col-span-1">
+                  <span className="text-ui-label mb-2">Proventos do Mês</span>
+                  <p className="text-ui-heading tracking-tighter text-income">{formatCurrency(totalDividends)}</p>
+              </Card>
+              <Card className="flex flex-col justify-between p-4 md:p-5 bg-primary border-primary shadow-none col-span-2 lg:col-span-1">
+                  <span className="text-ui-label mb-2">Patrimônio Futuro</span>
+                  <p className="text-ui-heading tracking-tighter">{formatCurrency(futureTotal)}</p>
+              </Card>
+          </div>
 
          {!isMacroTargetValid && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-sm font-semibold flex items-center justify-between">
+            <div className="p-3 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm font-semibold flex items-center justify-between">
                <span>Aviso: A soma dos alvos das Classes (Macros) é {formatNumberWithTwoDecimalsBR(macroTargetSum * 100)}% (deveria ser 100%).</span>
             </div>
          )}
@@ -736,14 +876,13 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                <div className="overflow-x-auto">
                <table className="w-full text-left bg-transparent min-w-[800px]">
                   <thead>
-                     <tr className="text-[10px] text-secondary border-b border-primary uppercase font-black tracking-widest bg-secondary/50">
+                     <tr className="text-ui-label border-b border-primary bg-secondary/50">
                         <th className="p-4 pl-6">Ativo</th>
                         <th className="p-4 text-center">Setor</th>
                         <th className="p-4 text-center">Alvo(%)</th>
                         <th className="p-4 text-center">Exp. Atual(%)</th>
                         <th className="p-4 text-right">Saldo Atual (R$)</th>
                         <th className="p-4 text-right text-income">Sugestão (R$)</th>
-                        <th className="p-4 text-center">Ações</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-primary/10">
@@ -756,7 +895,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                         return (
                            <Fragment key={macroKey}>
                               <tr className="bg-secondary/20 border-b border-primary">
-                                 <td colSpan={7} className="p-3 pl-6">
+                                 <td colSpan={6} className="p-3 pl-6">
                                     <div className="flex items-center gap-3">
                                        <h3 className="font-bold text-primary tracking-tight uppercase text-sm">
                                           {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
@@ -781,11 +920,15 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                     const assetStatus = getSectorStatus(assetGap);
                                     
                                     return (
-                                       <tr key={asset.id} className="hover:bg-tertiary transition-colors group">
-                                          <td className="p-4 pl-6">
-                                             <div className="font-semibold text-primary">{asset.asset_name}</div>
-                                             <div className="text-[10px] text-secondary/40 font-bold uppercase mt-0.5">
-                                                {macro?.name === 'Renda Fixa' ? (asset.custom_rate || 'Renda Fixa') : (asset.variation_month || 'Variável')}
+                                       <tr 
+                                          key={asset.id} 
+                                          onClick={() => openAssetModal(asset)}
+                                          className="hover:bg-tertiary transition-colors group cursor-pointer"
+                                       >
+                                          <td className="p-4 pl-6 group/name">
+                                             <div className="font-semibold text-primary group-hover/name:text-primary transition-colors">{asset.asset_name}</div>
+                                             <div className="text-[10px] text-secondary/40 font-bold uppercase mt-0.5 group-hover/name:text-secondary/60">
+                                                {asset.custom_rate || 'Variável'} {asset.maturity_date ? `| Venc: ${asset.maturity_date}` : ''}
                                              </div>
                                           </td>
                                           <td className="p-4 text-center">
@@ -797,6 +940,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                              <div className="flex items-center justify-center gap-1">
                                                 <input 
                                                    value={formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}
+                                                   onClick={e => e.stopPropagation()}
                                                    onChange={(e) => handleUpdateAssetTarget(asset.id, e.target.value)}
                                                    className="w-10 bg-transparent border-none text-right font-bold text-xs text-primary focus:ring-0 p-0"
                                                    inputMode="decimal"
@@ -807,7 +951,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                           <td className="p-4 text-center">
                                              <span className={`text-xs font-bold ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
                                           </td>
-                                          <td className="p-3 w-48 text-right">
+                                          <td className="p-3 w-48 text-right" onClick={e => e.stopPropagation()}>
                                              <Input 
                                                value={formatNumberWithTwoDecimalsBR(asset.current_balance)}
                                                onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
@@ -817,20 +961,10 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                           </td>
                                           <td className="p-4 text-right">
                                              {allocationSuggestions[asset.id] > 0 ? (
-                                                <span className="text-xs font-black text-[#10b981]">{formatCurrency(allocationSuggestions[asset.id])}</span>
+                                                <span className="text-xs font-black text-income">{formatCurrency(allocationSuggestions[asset.id])}</span>
                                              ) : (
                                                 <span className="text-xs text-secondary/20">--</span>
                                              )}
-                                          </td>
-                                          <td className="p-3 text-center">
-                                             <div className="flex items-center justify-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => openAssetModal(asset)} className="text-secondary hover:text-primary hover:scale-110 p-1" title="Editar Ativo">
-                                                   <Edit2 size={16}/>
-                                                </button>
-                                                <button onClick={() => handleDeleteAsset(asset.id)} className="text-[var(--color-danger)] hover:scale-110 p-1" title="Excluir Ativo">
-                                                   <Trash2 size={16}/>
-                                                </button>
-                                             </div>
                                           </td>
                                        </tr>
                                     );
@@ -840,7 +974,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                         );
                      })}
                      {assets.length === 0 && (
-                        <tr><td colSpan={7} className="p-8 text-center text-secondary text-sm">Nenhum ativo cadastrado neste mês.</td></tr>
+                        <tr><td colSpan={6} className="p-8 text-center text-secondary text-sm">Nenhum ativo cadastrado neste mês.</td></tr>
                      )}
                   </tbody>
                </table>
@@ -886,45 +1020,38 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                        const assetStatus = getSectorStatus(assetGap);
                                        
                                        return (
-                                          <Card key={asset.id} className="p-4 bg-secondary border-primary space-y-3">
-                                             <div className="flex justify-between items-start">
-                                                <div className="min-w-0">
-                                                   <div className="font-bold text-primary text-sm truncate">{asset.asset_name}</div>
-                                                   <div className="text-[10px] text-secondary/60 font-medium">
-                                                      {macro?.name === 'Renda Fixa' ? (asset.custom_rate || 'Renda Fixa') : (asset.variation_month || 'Variável')}
+                                          <Card key={asset.id} onClick={() => openAssetModal(asset)} className="p-3 bg-primary border-primary shadow-none active:scale-[0.98] transition-transform cursor-pointer hover:border-primary/40">
+                                             <div className="flex justify-between items-start gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                   <div className="font-bold text-primary text-sm truncate leading-tight">{asset.asset_name}</div>
+                                                   <div className="text-[9px] text-secondary/60 font-black uppercase tracking-wider mt-0.5">
+                                                      {asset.custom_rate || 'Variável'} {asset.maturity_date ? `| Venc: ${asset.maturity_date}` : ''}
                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                   <button onClick={() => openAssetModal(asset)} className="p-2 bg-tertiary rounded-lg text-secondary">
-                                                      <Edit2 size={14}/>
-                                                   </button>
-                                                   <button onClick={() => handleDeleteAsset(asset.id)} className="p-2 bg-tertiary rounded-lg text-danger">
-                                                      <Trash2 size={14}/>
-                                                   </button>
                                                 </div>
                                              </div>
 
-                                             <div className="grid grid-cols-2 gap-4 pt-1">
+                                             <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-primary/5">
                                                 <div>
-                                                   <p className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40 mb-1">Saldo Atual</p>
-                                                   <p className="text-sm font-bold text-primary">{formatCurrency(asset.current_balance)}</p>
+                                                   <p className="text-[8px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Saldo</p>
+                                                   <p className="text-xs font-black text-primary">{formatCurrency(asset.current_balance)}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                   <p className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40 mb-1">Sugestão</p>
-                                                   <p className="text-sm font-bold text-income">
+                                                   <p className="text-[8px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Sugestão</p>
+                                                   <p className="text-xs font-black text-income">
                                                       {allocationSuggestions[asset.id] > 0 ? formatCurrency(allocationSuggestions[asset.id]) : '--'}
                                                    </p>
                                                 </div>
                                              </div>
 
-                                             <div className="flex items-center justify-between pt-2 border-t border-primary/10">
-                                                <div className="flex items-center gap-1">
-                                                   <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">Alvo:</span>
-                                                   <span className="text-xs font-bold text-primary">{formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}%</span>
+                                             <div className="flex items-center justify-between mt-2 px-2 py-1.5 bg-secondary/30 rounded-lg">
+                                                <div className="flex items-center gap-1.5">
+                                                   <span className="text-[8px] text-secondary font-black uppercase tracking-widest">Alvo</span>
+                                                   <span className="text-[10px] font-black text-primary">{formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}%</span>
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                   <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">Atual:</span>
-                                                   <span className={`text-xs font-bold ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
+                                                <div className="w-px h-3 bg-primary/10"></div>
+                                                <div className="flex items-center gap-1.5">
+                                                   <span className="text-[8px] text-secondary font-black uppercase tracking-widest">Atual</span>
+                                                   <span className={`text-[10px] font-black ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
                                                 </div>
                                              </div>
                                           </Card>
@@ -1001,24 +1128,28 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
             />
             
             <div className="border-t border-[var(--color-border)] pt-3 mt-4">
-               <p className="text-xs font-bold text-secondary mb-3 uppercase">Campos Opcionais de Relatório</p>
+               <p className="text-xs font-bold text-secondary mb-3 uppercase">Informações Complementares</p>
                <div className="grid grid-cols-2 gap-3">
                   <Input label="Valor Inicial (Aplicado)" inputMode="decimal" placeholder="Opcional" value={assetForm.applied_amount} onChange={e => setAssetForm({...assetForm, applied_amount: e.target.value})} />
                   <Input label="Taxa / Yield" placeholder="Ex: IPCA + 8%" value={assetForm.custom_rate} onChange={e => setAssetForm({...assetForm, custom_rate: e.target.value})} />
                   <Input label="Vencimento" placeholder="Ex: Mar/26" value={assetForm.maturity_date} onChange={e => setAssetForm({...assetForm, maturity_date: e.target.value})} />
-                  <Input label="Variação Mês" placeholder="Ex: -5,12%" value={assetForm.variation_month} onChange={e => setAssetForm({...assetForm, variation_month: e.target.value})} />
-                  <Input label="Variação Total" placeholder="Ex: +15,0%" value={assetForm.variation_total} onChange={e => setAssetForm({...assetForm, variation_total: e.target.value})} />
                </div>
             </div>
 
-            <ModalActionFooter onCancel={() => setShowAssetModal(false)} submitLabel={editingAsset ? "Atualizar Ativo" : "Salvar Ativo"} submitDisabled={saving} />
+            <ModalActionFooter 
+                onCancel={() => setShowAssetModal(false)} 
+                submitLabel={editingAsset ? "Atualizar Ativo" : "Salvar Ativo"} 
+                submitDisabled={saving}
+                onDelete={editingAsset ? () => handleDeleteAsset(editingAsset.id) : undefined}
+                deleteLabel="Excluir Ativo"
+             />
          </form>
       </Modal>
 
       {/* Modal Macro Manager */}
       <Modal isOpen={showMacroManagerModal} onClose={() => setShowMacroManagerModal(false)} title="Gerenciar Macro Classes">
          <div className="space-y-6">
-            <div className="bg-primary p-4 rounded-2xl border border-primary shadow-sm">
+            <div className="bg-primary p-4 rounded-2xl border border-primary shadow-none">
                <h4 className="text-xs font-black text-secondary uppercase tracking-widest mb-4">{editingMacro ? 'Editar Classe' : 'Nova Classe de Ativo'}</h4>
                <form onSubmit={handleSaveMacro} className="space-y-4">
                   <Input label="Nome da Classe" value={macroForm.name} onChange={e => setMacroForm({...macroForm, name: e.target.value})} required placeholder="Ex: Renda Fixa, Ações..." />
@@ -1040,7 +1171,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                <h4 className="text-xs font-black text-secondary uppercase tracking-widest pl-1">Classes Cadastradas</h4>
                <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                   {macroSectors.map(m => (
-                     <div key={m.id} className="flex justify-between items-center p-3 bg-primary rounded-xl border border-primary shadow-sm group">
+                     <div key={m.id} className="flex justify-between items-center p-3 bg-primary rounded-xl border border-primary shadow-none group">
                         <div>
                            <p className="text-sm font-bold text-primary">{m.name}</p>
                            <p className="text-[10px] text-secondary font-black uppercase">Alvo: {formatNumberWithTwoDecimalsBR(m.target_percentage*100)}%</p>
@@ -1073,39 +1204,86 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                placeholder="🔍 Pesquisar ativo..."
                value={quickUpdateSearch}
                onChange={e => setQuickUpdateSearch(e.target.value)}
-               className="w-full bg-primary border border-primary rounded-xl px-4 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-secondary/40 shadow-sm"
+               className="w-full bg-primary border border-primary rounded-xl px-4 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-secondary/40 shadow-none"
             />
             <div className="max-h-[55vh] overflow-y-auto custom-scrollbar pr-2 bg-primary/30 rounded-xl border border-primary/10 p-1">
                <table className="w-full text-left">
-                  <thead className="sticky top-0 bg-primary z-10 shadow-sm">
+                  <thead className="sticky top-0 bg-primary z-10 shadow-none">
                      <tr className="text-[10px] text-secondary border-b border-primary uppercase font-black tracking-widest bg-secondary/50">
-                        <th className="p-3">Ativo</th>
-                        <th className="p-3">Setor / Classe</th>
-                        <th className="p-3 text-right">Saldo Atual (R$)</th>
+                        <th className="p-3">Ativo / Setor</th>
+                        <th className="p-3 text-right">Saldo Base (R$)</th>
+                        <th className="p-3 text-right">Aporte/Venda (R$)</th>
+                        <th className="p-3 text-right">Proventos (R$)</th>
+                        <th className="p-3 text-right">Saldo Final (R$)</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-primary/10">
                      {assets
                        .filter(a => !quickUpdateSearch || a.asset_name.toLowerCase().includes(quickUpdateSearch.toLowerCase()))
-                       .sort((a,b) => a.asset_name.localeCompare(b.asset_name)).map(asset => {
+                       .sort((a,b) => { const aMod = modifiedAssetIds.has(a.id); const bMod = modifiedAssetIds.has(b.id); if (aMod && !bMod) return -1; if (!aMod && bMod) return 1; return a.asset_name.localeCompare(b.asset_name); }).map(asset => {
                         const s = sectors.find(sec => sec.id === asset.sector_id);
                         return (
-                           <tr key={asset.id} className="hover:bg-tertiary">
-                              <td className="p-3 font-bold text-primary">{asset.asset_name}</td>
-                              <td className="p-3 text-xs text-secondary">{s?.sector_name || '-'} <span className="opacity-50">({s?.macro_category || '-'})</span></td>
-                              <td className="p-3 w-48">
-                                 <Input 
-                                    value={quickUpdateBalances[asset.id] || ''}
-                                    onChange={(e) => setQuickUpdateBalances({...quickUpdateBalances, [asset.id]: e.target.value})}
-                                    onBlur={() => {
-                                       const p = parseMoneyInput(quickUpdateBalances[asset.id]);
-                                       if (!Number.isNaN(p)) setQuickUpdateBalances({...quickUpdateBalances, [asset.id]: formatMoneyInput(p)});
-                                    }}
-                                    className="text-right font-black h-9 bg-primary border-primary shadow-sm"
-                                    inputMode="decimal"
-                                 />
-                              </td>
-                           </tr>
+                           <tr key={asset.id} className={`transition-all ${modifiedAssetIds.has(asset.id) ? 'bg-income/5' : 'hover:bg-tertiary'} ${savingRowIds.has(asset.id) ? 'opacity-50 grayscale' : ''}`}>
+                               <td className="p-3">
+                                  <div className="font-bold text-primary flex items-center gap-2">
+                                     <span className="truncate max-w-[120px]">{asset.asset_name}</span>
+                                     {savingRowIds.has(asset.id) ? (
+                                        <Loader2 size={10} className="animate-spin text-primary opacity-40" />
+                                     ) : dirtyAssetIds.has(asset.id) ? (
+                                        <Pencil size={10} className="text-warning animate-pulse" />
+                                     ) : (
+                                        modifiedAssetIds.has(asset.id) && <span className="w-1.5 h-1.5 rounded-full bg-income shadow-sm"></span>
+                                     )}
+                                  </div>
+                                  <div className="flex flex-col">
+                                     <span className="text-[9px] text-secondary opacity-40 font-black uppercase leading-tight">{s?.sector_name}</span>
+                                     {(asset.custom_rate || asset.maturity_date) && (
+                                        <span className="text-[8px] text-secondary opacity-60 font-medium italic leading-tight mt-0.5">
+                                           {asset.custom_rate} {asset.maturity_date && `• ${asset.maturity_date}`}
+                                        </span>
+                                     )}
+                                  </div>
+                               </td>
+                               <td className="p-3 text-right font-black text-xs text-secondary/40">
+                                  {formatCurrency(initialQuickUpdateBalances[asset.id] || 0)}
+                               </td>
+                               <td className="p-3">
+                                  <Input 
+                                     value={quickUpdateContributions[asset.id] || ''}
+                                     onChange={(e) => {
+                                        setQuickUpdateContributions({...quickUpdateContributions, [asset.id]: e.target.value});
+                                        setDirtyAssetIds(prev => new Set(prev).add(asset.id));
+                                     }}
+                                     onBlur={() => saveQuickUpdateRow(asset.id)}
+                                     className="text-right font-bold h-8 bg-primary border-primary text-[11px] shadow-none"
+                                     inputMode="decimal"
+                                  />
+                               </td>
+                               <td className="p-3">
+                                  <Input 
+                                     value={quickUpdateDividends[asset.id] || ''}
+                                     onChange={(e) => {
+                                        setQuickUpdateDividends({...quickUpdateDividends, [asset.id]: e.target.value});
+                                        setDirtyAssetIds(prev => new Set(prev).add(asset.id));
+                                     }}
+                                     onBlur={() => saveQuickUpdateRow(asset.id)}
+                                     className="text-right font-bold h-8 bg-primary border-primary text-[11px] shadow-none"
+                                     inputMode="decimal"
+                                  />
+                               </td>
+                               <td className="p-3 w-40">
+                                  <Input 
+                                     value={quickUpdateBalances[asset.id] || ''}
+                                     onChange={(e) => {
+                                        setQuickUpdateBalances({...quickUpdateBalances, [asset.id]: e.target.value});
+                                        setDirtyAssetIds(prev => new Set(prev).add(asset.id));
+                                     }}
+                                     onBlur={() => saveQuickUpdateRow(asset.id)}
+                                     className="text-right font-black h-8 bg-primary border-primary text-[11px] shadow-none ring-primary/20"
+                                     inputMode="decimal"
+                                  />
+                               </td>
+                            </tr>
                         );
                      })}
                   </tbody>
@@ -1114,7 +1292,51 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
             <ModalActionFooter onCancel={() => setShowQuickUpdateModal(false)} submitLabel="Salvar Atualizações" onSubmit={saveQuickUpdate} submitDisabled={saving} />
          </div>
       </Modal>
-    </div>
+
+      {/* Modal Movement & Dividends */}
+      <Modal isOpen={showMovementModal} onClose={() => setShowMovementModal(false)} title="Registrar Movimentação / Proventos">
+         <form onSubmit={handleSaveMovement} className="space-y-4">
+            <Select
+               label="Selecione o Ativo" required
+               value={movementForm.asset_id}
+               onChange={e => setMovementForm({...movementForm, asset_id: e.target.value})}
+               options={[ {value: '', label:'-- Escolha --'}, ...assets.sort((a,b) => { const aMod = modifiedAssetIds.has(a.id); const bMod = modifiedAssetIds.has(b.id); if (aMod && !bMod) return -1; if (!aMod && bMod) return 1; return a.asset_name.localeCompare(b.asset_name); }).map(a => ({ value: a.id, label: a.asset_name }))]}
+            />
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <Input 
+                  label="Aporte (+) ou Venda (-)" 
+                  inputMode="decimal" 
+                  placeholder="0,00"
+                  value={movementForm.contribution} 
+                  onChange={e => setMovementForm({...movementForm, contribution: e.target.value})}
+                  onBlur={() => {
+                     const p = parseMoneyInput(movementForm.contribution);
+                     if(!Number.isNaN(p)) setMovementForm({...movementForm, contribution: formatMoneyInput(p)});
+                  }}
+                  helperText="O saldo do ativo será atualizado automaticamente com base neste valor."
+               />
+               <Input 
+                  label="Proventos / Rendimentos" 
+                  inputMode="decimal" 
+                  placeholder="0,00"
+                  value={movementForm.dividends} 
+                  onChange={e => setMovementForm({...movementForm, dividends: e.target.value})}
+                  onBlur={() => {
+                     const p = parseMoneyInput(movementForm.dividends);
+                     if(!Number.isNaN(p)) setMovementForm({...movementForm, dividends: formatMoneyInput(p)});
+                  }}
+               />
+            </div>
+
+            <div className="p-3 bg-secondary/50 rounded-xl border border-primary/10 text-[10px] text-secondary/60 italic leading-relaxed">
+               Nota: Esta ação atualiza o saldo atual do ativo somando o aporte. Proventos não alteram o saldo, mas são contabilizados na rentabilidade do relatório.
+            </div>
+
+            <ModalActionFooter onCancel={() => setShowMovementModal(false)} submitLabel="Salvar Movimentação" submitDisabled={saving} />
+         </form>
+      </Modal>
+   </div>
   );
 }
 

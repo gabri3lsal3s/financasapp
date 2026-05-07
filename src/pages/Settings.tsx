@@ -18,6 +18,7 @@ import {
 import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2 } from 'lucide-react'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
+import Select from '@/components/Select'
 
 
 
@@ -544,16 +545,17 @@ export default function Settings() {
                     title="Bloqueio automático"
                     description="Exige biometria após tempo de inatividade ou ao sair do app/desligar a tela."
                   >
-                    <select
-                      value={String(biometricLockTimeout)}
-                      onChange={(e) => setBiometricLockTimeout(Number(e.target.value) as any)}
-                      className="block w-full min-w-[200px] rounded-lg border border-primary bg-secondary p-2.5 text-sm text-primary shadow-sm focus:border-[var(--color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                    >
-                      <option value="0">Imediatamente / Desligar Tela</option>
-                      <option value="1">Após 1 minuto</option>
-                      <option value="5">Após 5 minutos</option>
-                      <option value="15">Após 15 minutos</option>
-                    </select>
+                  <Select
+                    value={String(biometricLockTimeout)}
+                    onChange={(e) => setBiometricLockTimeout(Number(e.target.value) as any)}
+                    options={[
+                      { value: '0', label: 'Imediatamente / Desligar Tela' },
+                      { value: '1', label: 'Após 1 minuto' },
+                      { value: '5', label: 'Após 5 minutos' },
+                      { value: '15', label: 'Após 15 minutos' }
+                    ]}
+                    className="min-w-[200px]"
+                  />
                   </SettingRow>
                 </>
               )}

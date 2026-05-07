@@ -154,7 +154,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-secondary">
       <div className="lg:hidden">
-        <header className="fixed top-0 inset-x-0 z-40 bg-secondary border-b border-primary safe-area-top">
+        <header className="fixed top-0 inset-x-0 z-[100] bg-secondary border-b border-primary safe-area-top">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="h-14 flex items-center justify-center relative">
               <button
@@ -176,11 +176,11 @@ export default function Layout({ children }: LayoutProps) {
             <button
               type="button"
               aria-label="Fechar menu"
-              className="fixed inset-0 z-40 bg-[var(--color-bg-secondary)]/75 animate-fade-in motion-standard"
+              className="fixed inset-0 z-[110] bg-[var(--color-bg-secondary)]/75 animate-fade-in motion-standard"
               onClick={() => setIsMobileMenuOpen(false)}
             />
 
-            <aside ref={mobileMenuRef} className="fixed top-0 left-0 bottom-0 z-50 w-[85vw] max-w-[340px] bg-secondary border-r border-primary safe-area-top safe-area-bottom overflow-y-auto animate-slide-in-left motion-emphasis">
+            <aside ref={mobileMenuRef} className="fixed top-0 left-0 bottom-0 z-[120] w-[85vw] max-w-[340px] bg-secondary border-r border-primary safe-area-top safe-area-bottom overflow-y-auto animate-slide-in-left motion-emphasis">
               <div className="p-4 border-b border-primary flex items-center justify-between">
                 <h2 className="text-base font-semibold text-primary">Menu</h2>
                 <button

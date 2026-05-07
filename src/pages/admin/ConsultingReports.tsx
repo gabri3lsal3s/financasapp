@@ -26,7 +26,9 @@ interface PortfolioSector {
 interface PortfolioAsset {
   id?: string; category: string; asset_name: string; current_balance: number;
   target_percentage?: number;
-  sector_id?: string; applied_amount?: number; custom_rate?: string; maturity_date?: string; variation_month?: string; variation_total?: string;
+  sector_id?: string; applied_amount?: number; custom_rate?: string; maturity_date?: string;
+  monthly_contribution?: number;
+  monthly_dividends?: number;
 }
 
 interface AssetMover {
@@ -67,7 +69,7 @@ interface PlanningRow {
   justificativa: string;
 }
 
-export default function ConsultingReports({ clientId, selectedMonth: _selectedMonth, onReportArchived: _onReportArchived }: { clientId: string, selectedMonth?: string, onReportArchived?: () => Promise<void> }) {
+export default function ConsultingReports({ clientId, selectedMonth: _selectedMonth, onReportArchived: _onReportArchived, hideHeader = false }: { clientId: string, selectedMonth?: string, onReportArchived?: () => Promise<void>, hideHeader?: boolean }) {
    const navigate = useNavigate();
    const [clientName, setClientName] = useState<string>('');
   const [liveMacroSectors, setLiveMacroSectors] = useState<PortfolioMacroSector[]>([]);
@@ -130,7 +132,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
       setLiveAssets(live);
       setLiveTotal(live.reduce((acc, a) => acc + a.current_balance, 0));
 
-      const { data: reportsData } = await supabase.from('consulting_reports').select('*').eq('client_id', clientId).order('month', { ascending: true });
+      const { data: reportsData } = await supabase.from('consulting_reports').select('*').eq('client_id', clientId).order('month', { ascending: false });
       const history = (reportsData || []) as ConsultingReport[];
       setHistoryReports(history);
       
@@ -283,7 +285,9 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
         const frozenAssets = liveAssets.map(a => ({
            report_id: newReport.id, asset_name: a.asset_name, category: a.category, current_balance: a.current_balance,
            target_percentage: a.target_percentage || 0,
-           sector_id: a.sector_id, applied_amount: a.applied_amount, custom_rate: a.custom_rate, maturity_date: a.maturity_date, variation_month: a.variation_month, variation_total: a.variation_total
+           sector_id: a.sector_id, applied_amount: a.applied_amount, custom_rate: a.custom_rate, maturity_date: a.maturity_date,
+           monthly_contribution: a.monthly_contribution || 0,
+           monthly_dividends: a.monthly_dividends || 0
         }));
         await supabase.from('consulting_report_assets').insert(frozenAssets);
         alert('Mês arquivado com sucesso!');
@@ -389,13 +393,21 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
      
      if (!prevReport) return null;
      
-     const diff = activeReportData.total_balance - prevReport.total_balance;
-     const percent = (diff / prevReport.total_balance) * 100;
+     const totalContributions = activePdfAssets.reduce((sum, a) => sum + (a.monthly_contribution || 0), 0);
+     const totalDividends = activePdfAssets.reduce((sum, a) => sum + (a.monthly_dividends || 0), 0);
+
+     const nominalChange = activeReportData.total_balance - prevReport.total_balance;
+     const realGain = nominalChange - totalContributions; // Capital gain (excluding new money)
+     const totalReturn = realGain + totalDividends; // Total performance (capital gain + income)
+     const percent = (totalReturn / prevReport.total_balance) * 100;
      
      return {
         prevBalance: prevReport.total_balance,
-        diff,
+        diff: totalReturn,
         percent,
+        nominalChange,
+        totalContributions,
+        totalDividends,
         prevMonth: prevReport.month,
         benchmarks: [
            { label: 'CDI', value: '—' },
@@ -404,7 +416,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
            { label: 'IFIX', value: '—' }
         ]
      };
-   }, [activeReportData, historyReports, activeReportMode]);
+   }, [activeReportData, historyReports, activeReportMode, activePdfAssets]);
 
   const pdfRebalanceData = useMemo(() => {
      const res: Record<string, { sectorName: string, macro: string, currentBal: number, targetP: number, status: string, statusColor: string, assetsArr: any[] }> = {};
@@ -506,19 +518,21 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
   return (
     <div className="min-h-screen bg-secondary/30">
-      <PageHeader 
-        title="Relatórios de Consultoria"
-        subtitle={`Cliente: ${clientName}`}
-        action={
-          <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="flex items-center gap-2">
-             <ChevronLeft size={16} /> Voltar
-          </Button>
-        }
-      />
+      {!hideHeader && (
+        <PageHeader 
+          title="Relatórios de Consultoria"
+          subtitle={`Cliente: ${clientName}`}
+          action={
+            <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="flex items-center gap-2">
+               <ChevronLeft size={16} /> Voltar
+            </Button>
+          }
+        />
+      )}
       
-      <div className="p-4 lg:p-8 space-y-6 animate-page-enter">
+      <div className={`${hideHeader ? 'p-0' : 'p-4 lg:p-8'} space-y-6 animate-page-enter`}>
           {/* Evolution Chart - Full Width */}
-          <Card className="p-6 bg-primary relative overflow-hidden group border-primary shadow-sm w-full">
+          <Card className="p-6 bg-primary relative overflow-hidden group border-primary shadow-none w-full">
              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 <TrendingUp size={100} className="text-primary"/>
              </div>
@@ -550,7 +564,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
           {/* History Management - Full Width & Compact */}
           <div className="space-y-4">
-             <div className="flex justify-between items-end px-1">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
                 <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest pl-1 opacity-60 flex items-center gap-2">
                    <FileText size={14} /> Histórico de Fechamentos
                 </h3>
@@ -559,17 +573,17 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                    disabled={savingMonth || !clientId} 
                    variant="outline" 
                    size="sm"
-                   className="flex items-center gap-2 border-primary/20 hover:bg-primary/5 transition-all font-black text-[10px] uppercase tracking-widest px-4"
+                   className="w-full sm:w-auto flex items-center justify-center gap-2 border-primary/20 hover:bg-primary/5 transition-all font-black text-[10px] uppercase tracking-widest px-6 h-10 sm:h-9"
                 >
                    {savingMonth ? <Loader2 size={14} className="animate-spin" /> : <Save size={14}/>}
-                   Arquivar Mês Atual
+                   <span>Arquivar Mês Atual</span>
                 </Button>
              </div>
              
              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar -mx-1">
                   <div 
                      onClick={() => loadPdfEngineFor('live')}
-                     className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-sm ${activeReportMode === 'live' ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
+                     className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-none ${activeReportMode === 'live' ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
                   >
                      <div className="flex justify-between items-center mb-1">
                         <span className={`text-[9px] font-black uppercase tracking-wider ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary opacity-40'}`}>Atual</span>
@@ -585,7 +599,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                   {historyReports.map(r => (
                      <div 
                         key={r.id} onClick={() => loadPdfEngineFor(r.id)}
-                        className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-sm ${activeReportMode === r.id ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
+                        className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-none ${activeReportMode === r.id ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
                      >
                         <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                            <button 
@@ -628,8 +642,8 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                          <div>
-                            <h2 className="text-2xl font-bold text-primary tracking-tight">Editor de Relatório</h2>
-                            <p className="text-secondary text-sm">Configurando emissão para <span className="text-primary font-semibold">{activeReportData.month}</span></p>
+                            <h2 className="text-ui-heading">Editor de Relatório</h2>
+                            <p className="text-secondary text-fluid-xs font-bold">Configurando emissão para <span className="text-primary font-black">{activeReportData.month}</span></p>
                          </div>
                          <div className="flex gap-3 flex-wrap">
                             <button onClick={handleCopyFromPrevious} className="text-xs px-3 py-2 rounded-lg border border-white/10 text-secondary hover:text-primary hover:bg-white/5 transition-all">Copiar Mês Anterior</button>
@@ -647,25 +661,47 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                       </div>
 
                       {comparisonData && (
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in zoom-in duration-500">
-                            <Card className="p-4 bg-primary border-primary shadow-sm">
-                               <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Patrimônio Anterior ({comparisonData.prevMonth})</p>
-                               <p className="text-lg font-black text-primary/80">{formatCurrency(comparisonData.prevBalance)}</p>
-                            </Card>
-                            <Card className="p-4 bg-primary border-primary shadow-sm">
-                               <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Variação Nominal</p>
+                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in zoom-in duration-500">
+                            <Card className="p-4 bg-primary border-primary shadow-none">
+                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Evolução Patrimonial</p>
                                <div className="flex items-center gap-2">
-                                  <p className={`text-lg font-black ${comparisonData.diff >= 0 ? 'text-income' : 'text-danger'}`}>
-                                     {comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)}
+                                  <p className={`text-ui-value ${comparisonData.nominalChange >= 0 ? 'text-primary' : 'text-danger'}`}>
+                                     {comparisonData.nominalChange >= 0 ? '+' : ''}{formatCurrency(comparisonData.nominalChange)}
                                   </p>
-                                  {comparisonData.diff >= 0 ? <TrendingUp size={16} className="text-income"/> : <TrendingUp size={16} className="text-danger rotate-180"/>}
                                </div>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Saldo Final vs Inicial</p>
                             </Card>
-                            <Card className="p-4 bg-primary border-primary shadow-sm">
-                               <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Rentabilidade Estimada</p>
-                               <p className={`text-lg font-black ${comparisonData.percent >= 0 ? 'text-income' : 'text-danger'}`}>
-                                  {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
+                            
+                            <Card className="p-4 bg-primary border-primary shadow-none">
+                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Aporte Líquido</p>
+                               <p className={`text-ui-value ${comparisonData.totalContributions >= 0 ? 'text-income' : 'text-danger'}`}>
+                                  {comparisonData.totalContributions >= 0 ? '+' : ''}{formatCurrency(comparisonData.totalContributions)}
                                </p>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Total Aportes - Vendas</p>
+                            </Card>
+
+                            <Card className="p-4 bg-primary border-primary shadow-none">
+                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Proventos Recebidos</p>
+                               <div className="flex items-center gap-2">
+                                  <p className="text-ui-value text-income">
+                                     +{formatCurrency(comparisonData.totalDividends)}
+                                  </p>
+                                  <TrendingUp size={16} className="text-income"/>
+                               </div>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Dividendos e Rendimentos</p>
+                            </Card>
+
+                            <Card className="p-4 bg-primary border-primary shadow-none">
+                               <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Rentabilidade Real (Gain)</p>
+                               <div className="flex items-center gap-2">
+                                  <p className={`text-ui-value ${comparisonData.percent >= 0 ? 'text-income' : 'text-danger'}`}>
+                                     {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
+                                  </p>
+                                  <p className={`text-[10px] font-bold ${comparisonData.diff >= 0 ? 'text-income' : 'text-danger'}`}>
+                                     ({comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)})
+                                  </p>
+                               </div>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Performance (Ganho + Proventos)</p>
                             </Card>
                          </div>
                       )}
@@ -673,7 +709,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                       <div className="space-y-6">
                          <div className="space-y-4">
                              {/* Desktop Table View */}
-                             <Card className="hidden md:block p-0 overflow-hidden bg-primary border-primary shadow-sm">
+                             <Card className="hidden md:block p-0 overflow-hidden bg-primary border-primary shadow-none">
                             <div className="bg-tertiary p-4 border-b border-primary">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Balanço de Performance Consolidado (Tabela A)</h4>
                             </div>
@@ -724,7 +760,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60">Balanço de Performance (Tabela A)</h4>
                             </div>
                             {sortedTableAData.map((row, idx) => (
-                               <Card key={idx} className="p-4 bg-primary border-primary shadow-sm space-y-4">
+                               <Card key={idx} className="p-4 bg-primary border-primary shadow-none space-y-4">
                                   <div className="flex justify-between items-center border-b border-primary/10 pb-2">
                                      <span className={`text-sm font-black tracking-tight ${row.label === 'Consolidada' ? 'text-primary' : 'text-secondary'}`}>
                                         {row.label}
@@ -762,9 +798,9 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
                          {/* Top Movers - Mês */}
                          {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                {([{t:'Top Altas M\u00eas',l:topMoversMonth.gainers,c:'text-emerald-400'},{t:'Top Baixas M\u00eas',l:topMoversMonth.losers,c:'text-red-400'}] as {t:string,l:typeof topMoversMonth.gainers,c:string}[]).map(({t,l,c})=>(
-                                  <Card key={t} className="p-4 bg-primary border-primary shadow-sm">
+                                  <Card key={t} className="p-4 bg-primary border-primary shadow-none">
                                      <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
                                      {l.map((m,i)=>(
                                         <div key={i} className="flex justify-between text-xs py-0.5">
@@ -778,9 +814,9 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                          )}
                          {/* Top Movers - YTD */}
                          {(topMoversYtd.gainers.length > 0 || topMoversYtd.losers.length > 0) && (
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                {([{t:'Top Altas Ano (YTD)',l:topMoversYtd.gainers,c:'text-blue-400'},{t:'Top Baixas Ano (YTD)',l:topMoversYtd.losers,c:'text-orange-400'}] as {t:string,l:typeof topMoversYtd.gainers,c:string}[]).map(({t,l,c})=>(
-                                  <Card key={t} className="p-4 bg-primary border-primary shadow-sm">
+                                  <Card key={t} className="p-4 bg-primary border-primary shadow-none">
                                      <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
                                      {l.map((m,i)=>(
                                         <div key={i} className="flex justify-between text-xs py-0.5">
@@ -794,28 +830,28 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                          )}
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card className="p-6 bg-primary border-primary shadow-sm col-span-2">
+                            <Card className="p-6 bg-primary border-primary shadow-none col-span-1 md:col-span-2">
                                <div className="flex justify-between items-center mb-3">
                                   <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Sumário Executivo</h4>
                                   <button onClick={() => setNotes(generateAutoSuggestions(activePdfAssets, comparisonData))} className="text-[10px] text-primary border border-primary/20 px-3 py-1 rounded-lg hover:bg-primary/10 transition-all font-bold">✨ Auto-sugerir</button>
                                </div>
                                <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Sumário executivo e análise técnica..." />
                             </Card>
-                            <Card className="p-6 bg-primary border-primary shadow-sm">
+                            <Card className="p-6 bg-primary border-primary shadow-none">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Cenário Econômico</h4>
                                <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={scenarioNotes} onChange={e=>setScenarioNotes(e.target.value)} placeholder="Análise macro: juros, inflação, câmbio..." />
                             </Card>
-                            <Card className="p-6 bg-primary border-primary shadow-sm">
+                            <Card className="p-6 bg-primary border-primary shadow-none">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Próximos Passos</h4>
                                <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={nextSteps} onChange={e=>setNextSteps(e.target.value)} placeholder="Diretrizes para o próximo ciclo..." />
                             </Card>
-                            <Card className="p-6 bg-primary border-primary shadow-sm col-span-2">
+                            <Card className="p-6 bg-primary border-primary shadow-none col-span-1 md:col-span-2">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Descrição da Composição Alvo</h4>
                                <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={compositionNotes} onChange={e=>setCompositionNotes(e.target.value)} placeholder="Comentários sobre a alocação atual vs alvo..." />
                             </Card>
                          </div>
                          <div className="w-full">
-                             <Card className="p-6 bg-primary border-primary shadow-sm">
+                             <Card className="p-6 bg-primary border-primary shadow-none">
                                 <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                                    <div className="flex-1 w-full">
                                       <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Cálculo de Fee Baseado em Patrimônio</h4>
@@ -829,14 +865,14 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                              </Card>
                           </div>
 
-                         <Card className="p-6 bg-primary border-primary shadow-sm relative overflow-hidden">
+                         <Card className="p-6 bg-primary border-primary shadow-none relative overflow-hidden">
                             <div className="flex justify-between items-center mb-6 relative z-10">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Diretriz de Ações Para o Próximo Ciclo</h4>
                                <Button size="sm" variant="ghost" onClick={() => setPlanning([...planning, { acao: '', ativo: '', justificativa: '' }])} className="text-[9px] font-black uppercase text-primary border border-primary/20 hover:bg-primary/20 h-8 px-4">Nova Diretriz</Button>
                             </div>
                             <div className="space-y-3 relative z-10">
                                {planning.map((p, i) => (
-                                  <div key={i} className="group flex flex-col md:flex-row gap-4 p-4 bg-primary border-primary shadow-sm hover:border-primary transition-all">
+                                  <div key={i} className="group flex flex-col md:flex-row gap-4 p-4 bg-primary border-primary shadow-none hover:border-primary transition-all">
                                      <div className="md:w-1/4">
                                         <label className="text-[9px] font-black text-secondary uppercase block mb-1 opacity-40">Ação</label>
                                         <input className="w-full bg-transparent border-none text-primary font-black text-sm p-0 focus:ring-0" placeholder="Ex: Manter" value={p.acao} onChange={e => {
@@ -863,11 +899,6 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                             </div>
                          </Card>
 
-                         <div className="flex items-center gap-6 py-10 opacity-20">
-                            <div className="h-px flex-1 bg-secondary"></div>
-                            <FileText size={24} className="text-secondary"/>
-                            <div className="h-px flex-1 bg-secondary"></div>
-                         </div>
 
                          <div className="bg-secondary p-4 md:p-12 overflow-x-auto rounded-3xl border-4 border-primary">
                             <div className="bg-white shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] mx-auto rounded-sm overflow-hidden" style={{ width: '840px', minWidth: '840px' }}>
@@ -957,7 +988,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                                         </td>
                                                      </tr>
                                                      {misalignedSectors.sort((a,b) => b.currentBal - a.currentBal).map((sec, sidx) => (
-                                                        <tr key={sidx} style={{ backgroundColor: "#fff" }}>
+                                                        <tr key={sidx} style={{ backgroundColor: "var(--color-tertiary)" }}>
                                                            <td className="p-4 border border-[#eee] pl-8">
                                                               <span style={{fontSize: "10px", color: "#555", fontWeight: "bold"}}>{sec.sectorName}</span>
                                                            </td>
@@ -975,8 +1006,8 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                             .sort((a,b) => b.currentBal - a.currentBal).map((sec, idx) => (
                                              <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
                                                 <td className="p-4 border border-[#eee]">
-                                                   <span className="font-black uppercase text-[12px]" style={{color: "#000"}}>{sec.macro}</span><br/>
-                                                   <span style={{fontSize: "10px", color: "#666", fontWeight: "bold"}}>{sec.sectorName}</span>
+                                                   <span className="text-black font-black uppercase text-[12px]">{sec.macro}</span><br/>
+                                                   <span className="text-slate-600" style={{fontSize: "10px", fontWeight: "bold"}}>{sec.sectorName}</span>
                                                 </td>
                                                 <td className="p-4 border border-[#eee] text-center font-black">{((sec.currentBal / (activeReportData.total_balance||1)) * 100).toFixed(2)}%</td>
                                                 <td className="p-4 border border-[#eee] text-center font-medium">{(sec.targetP * 100).toFixed(2)}%</td>
@@ -1052,7 +1083,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                            {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
                                               <div>
                                                  <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Maiores Movimentações do Mês</p>
-                                                 <div className="grid grid-cols-2 gap-4">
+                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {topMoversMonth.gainers.length > 0 && (
                                                        <div className="p-4 bg-[#fcfcfc] border border-[#eee]">
                                                           <p className="text-[8px] font-black text-emerald-600 uppercase mb-2">Top Altas</p>
@@ -1082,7 +1113,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                            {(topMoversYtd.gainers.length > 0 || topMoversYtd.losers.length > 0) && (
                                               <div>
                                                  <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Maiores Movimentações do Ano (YTD)</p>
-                                                 <div className="grid grid-cols-2 gap-4">
+                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {topMoversYtd.gainers.length > 0 && (
                                                        <div className="p-4 bg-[#fcfcfc] border border-[#eee]">
                                                           <p className="text-[8px] font-black text-blue-600 uppercase mb-2">Top Altas</p>
@@ -1169,13 +1200,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                       </div>
                    </div>
                 ) : (
-                   <div className="h-full min-h-[500px] flex flex-col items-center justify-center text-center p-20 bg-secondary/5 rounded-[3rem] border-2 border-dashed border-white/5 animate-pulse">
-                      <div className="p-8 bg-primary/5 rounded-full mb-8 shadow-inner">
-                         <Calculator size={50} className="text-primary opacity-30" />
-                      </div>
-                      <h3 className="text-2xl font-black text-primary mb-3">Painel de Emissão Técnica</h3>
-                      <p className="text-secondary max-w-sm font-black opacity-60">Selecione um fechamento arquivado ou a posição "Live" para editar os parâmetros e exportar o relatório minimalista.</p>
-                   </div>
+                    null
                 )}
              </div>
           </div>

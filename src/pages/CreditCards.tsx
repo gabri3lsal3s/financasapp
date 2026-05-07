@@ -1836,20 +1836,17 @@ export default function CreditCards() {
               </p>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-secondary ml-1">Migrar despesas para:</label>
-                <select
+                <Select
                   value={migrationTargetCardId}
                   onChange={(e) => setMigrationTargetCardId(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-primary bg-secondary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] appearance-none"
-                >
-                  <option value="">Apenas desvincular (método 'Outro')</option>
-                  {creditCards
-                    .filter((c) => c.id !== editingCard?.id && c.is_active !== false)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                </select>
+                  options={[
+                    { value: '', label: 'Apenas desvincular (método \'Outro\')' },
+                    ...creditCards
+                      .filter((c) => c.id !== editingCard?.id && c.is_active !== false)
+                      .map((c) => ({ value: c.id, label: c.name }))
+                  ]}
+                  className="w-full"
+                />
               </div>
               {migrationTargetCardId === '' && (
                 <p className="text-xs text-secondary italic">* As despesas se tornarão avulsas e não pertencerão a nenhuma fatura.</p>

@@ -460,7 +460,9 @@ ADD COLUMN IF NOT EXISTS applied_amount DECIMAL(15, 2),
 ADD COLUMN IF NOT EXISTS custom_rate TEXT,
 ADD COLUMN IF NOT EXISTS maturity_date TEXT,
 ADD COLUMN IF NOT EXISTS variation_month TEXT,
-ADD COLUMN IF NOT EXISTS variation_total TEXT;
+ADD COLUMN IF NOT EXISTS variation_total TEXT,
+ADD COLUMN IF NOT EXISTS monthly_contribution DECIMAL(15, 2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS monthly_dividends DECIMAL(15, 2) DEFAULT 0;
 
 -- Equivalente para Report Assets (Fotografia congelada estendida)
 ALTER TABLE consulting_report_assets
@@ -469,4 +471,6 @@ ADD COLUMN IF NOT EXISTS applied_amount DECIMAL(15, 2),
 ADD COLUMN IF NOT EXISTS custom_rate TEXT,
 ADD COLUMN IF NOT EXISTS maturity_date TEXT,
 ADD COLUMN IF NOT EXISTS variation_month TEXT,
-ADD COLUMN IF NOT EXISTS variation_total TEXT;
+ADD COLUMN IF NOT EXISTS variation_total TEXT,
+ADD COLUMN IF NOT EXISTS monthly_contribution DECIMAL(15, 2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS monthly_dividends DECIMAL(15, 2) DEFAULT 0;

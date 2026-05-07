@@ -4,11 +4,11 @@
 
 :root {
   --ds-color-surface-primary: #ffffff;
-  --ds-color-surface-secondary: #f3f4f6;
-  --ds-color-surface-tertiary: #e5e7eb;
-  --ds-color-text-primary: #1f2937;
-  --ds-color-text-secondary: #6b7280;
-  --ds-color-border-default: #e5e7eb;
+  --ds-color-surface-secondary: #f9fafb;
+  --ds-color-surface-tertiary: #f3f4f6;
+  --ds-color-text-primary: #000000;
+  --ds-color-text-secondary: #111827;
+  --ds-color-border-default: #d1d5db;
   --ds-color-accent-primary: #0ea5e9;
   --ds-color-accent-primary-strong: #0284c7;
   --ds-color-accent-primary-soft: #bae6fd;
@@ -180,26 +180,48 @@
     padding-right: env(safe-area-inset-right);
   }
 
-  /* Tipografia fluida responsiva */
+  /* Tipografia fluida responsiva - Escala Aprimorada */
+  .text-fluid-xs {
+    font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+  }
+  
   .text-fluid-sm {
-    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    font-size: clamp(0.8rem, 2vw, 0.875rem);
   }
 
   .text-fluid-base {
-    font-size: clamp(0.875rem, 2.5vw, 1rem);
+    font-size: clamp(0.9rem, 2.5vw, 1rem);
   }
 
   .text-fluid-lg {
-    font-size: clamp(1rem, 3vw, 1.125rem);
+    font-size: clamp(1.125rem, 3vw, 1.25rem);
   }
 
   .text-fluid-xl {
-    font-size: clamp(1.25rem, 4vw, 1.5rem);
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
   }
 
   .text-fluid-2xl {
-    font-size: clamp(1.5rem, 5vw, 1.875rem);
+    font-size: clamp(1.75rem, 5vw, 2.25rem);
   }
+
+  /* Classes Utilitárias de Hierarquia UI */
+  .text-ui-label {
+    @apply text-fluid-xs font-black uppercase tracking-widest text-secondary opacity-70;
+  }
+
+  .text-ui-value {
+    @apply text-fluid-lg font-black tracking-tighter text-primary;
+  }
+
+  .text-ui-title {
+    @apply text-fluid-base font-black tracking-tight text-primary uppercase;
+  }
+
+  .text-ui-heading {
+    @apply text-fluid-xl font-black tracking-tighter text-primary;
+  }
+
 
   /* Cores dinâmicas baseadas em tema */
   .bg-primary {
