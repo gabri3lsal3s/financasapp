@@ -164,6 +164,83 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
     }
     setTopMoversMonth(monthMovers);
 
+    // ── Auto-fill Table A performance per macro group ─────────────────────
+    if (prevReport) {
+      const { data: prevAssetsForTable } = await supabase
+        .from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
+      const prev = (prevAssetsForTable || []) as PortfolioAsset[];
+
+      const getMacroName = (asset: PortfolioAsset) => {
+        const s = liveSectors.find(ls => ls.id === asset.sector_id);
+        const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
+        return m?.name || s?.macro_category || asset.category || 'Outros';
+      };
+
+      // Group current assets by macro
+      const macroGroups: Record<string, { curr: PortfolioAsset[], prev: PortfolioAsset[] }> = {};
+      currentAssets.forEach(a => {
+        const key = getMacroName(a);
+        if (!macroGroups[key]) macroGroups[key] = { curr: [], prev: [] };
+        macroGroups[key].curr.push(a);
+      });
+      // Add prev assets to their groups
+      prev.forEach(a => {
+        const key = getMacroName(a);
+        if (!macroGroups[key]) macroGroups[key] = { curr: [], prev: [] };
+        macroGroups[key].prev.push(a);
+      });
+
+      // Totals for consolidated
+      const totalCurr = currentAssets.reduce((s, a) => s + a.current_balance, 0);
+      const totalPrev = prev.reduce((s, a) => s + a.current_balance, 0);
+      const totalContrib = currentAssets.reduce((s, a) => s + (a.monthly_contribution || 0), 0);
+      const totalDivs = currentAssets.reduce((s, a) => s + (a.monthly_dividends || 0), 0);
+      const consolidatedRent = totalPrev > 0 
+        ? (((totalCurr - totalPrev - totalContrib) + totalDivs) / totalPrev * 100).toFixed(2)
+        : '-';
+      const consolidatedYield = totalCurr > 0
+        ? (totalDivs / totalCurr * 100).toFixed(2)
+        : '-';
+
+      setTableA(prev => {
+        const updated = { ...prev };
+
+        // Update Consolidada
+        if (updated['Consolidada']) {
+          updated['Consolidada'] = {
+            ...updated['Consolidada'],
+            rentMês: consolidatedRent !== '-' ? consolidatedRent : updated['Consolidada'].rentMês,
+            yield: consolidatedYield !== '-' ? consolidatedYield : updated['Consolidada'].yield,
+          };
+        }
+
+        // Update each macro group
+        Object.entries(macroGroups).forEach(([macroKey, { curr, prev: prevG }]) => {
+          if (!updated[macroKey]) return;
+          const currBal = curr.reduce((s, a) => s + a.current_balance, 0);
+          const prevBal = prevG.reduce((s, a) => s + a.current_balance, 0);
+          const contribs = curr.reduce((s, a) => s + (a.monthly_contribution || 0), 0);
+          const divs = curr.reduce((s, a) => s + (a.monthly_dividends || 0), 0);
+
+          const rent = prevBal > 0
+            ? (((currBal - prevBal - contribs) + divs) / prevBal * 100).toFixed(2)
+            : '-';
+          const yld = currBal > 0
+            ? (divs / currBal * 100).toFixed(2)
+            : '-';
+
+          updated[macroKey] = {
+            ...updated[macroKey],
+            rentMês: rent !== '-' ? rent : updated[macroKey].rentMês,
+            yield: yld !== '-' ? yld : updated[macroKey].yield,
+          };
+        });
+
+        return updated;
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // YTD: find Jan of current year
     const currentYear = currentReport?.month?.slice(0, 4) || new Date().getFullYear().toString();
     const janReport = sortedHistory.find(r => r.month.startsWith(`${currentYear}-01`) || r.month.startsWith(`${currentYear}-02`)) ||
@@ -1054,32 +1131,83 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                      </tbody>
                                   </table>
 
-                                  {/* 3. EVOLUÇÃO COMPARATIVA */}
+                                  {/* 3. MOVIMENTAÇÕES DO MÊS */}
                                   {comparisonData && (
                                      <>
-                                        <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>3. ANÁLISE COMPARATIVA ({comparisonData.prevMonth})</h3>
-                                        <div className="grid grid-cols-3 gap-6 mb-8">
-                                           <div className="p-4 bg-[#f9f9f9] border border-[#eee]">
-                                              <p style={{fontSize: '9px', fontWeight: 'bold', color: '#888', textTransform: 'uppercase'}}>Variação Patrimonial</p>
-                                              <p style={{fontSize: '18px', fontWeight: '900', color: comparisonData.diff >= 0 ? '#000' : '#d00'}}>
-                                                 {comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)}
+                                        <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>3. MOVIMENTAÇÕES DO MÊS ({comparisonData.prevMonth})</h3>
+                                        <div className="grid grid-cols-4 gap-4 mb-6">
+                                           <div className="p-4 border border-[#eee]">
+                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Evolução Patrimonial</p>
+                                              <p style={{fontSize: '16px', fontWeight: '900', color: comparisonData.nominalChange >= 0 ? '#000' : '#d00'}}>
+                                                 {comparisonData.nominalChange >= 0 ? '+' : ''}{formatCurrency(comparisonData.nominalChange)}
                                               </p>
+                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Saldo Final vs Inicial</p>
                                            </div>
-                                           <div className="p-4 bg-[#f9f9f9] border border-[#eee]">
-                                              <p style={{fontSize: '9px', fontWeight: 'bold', color: '#888', textTransform: 'uppercase'}}>Rentabilidade Líquida</p>
-                                              <p style={{fontSize: '18px', fontWeight: '900', color: comparisonData.diff >= 0 ? '#000' : '#d00'}}>
+                                           <div className="p-4 border border-[#eee]">
+                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Aporte Líquido</p>
+                                              <p style={{fontSize: '16px', fontWeight: '900', color: comparisonData.totalContributions >= 0 ? '#10b981' : '#d00'}}>
+                                                 {comparisonData.totalContributions >= 0 ? '+' : ''}{formatCurrency(comparisonData.totalContributions)}
+                                              </p>
+                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Total Aportes - Vendas</p>
+                                           </div>
+                                           <div className="p-4 border border-[#eee]">
+                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Proventos Recebidos</p>
+                                              <p style={{fontSize: '16px', fontWeight: '900', color: '#10b981'}}>
+                                                 +{formatCurrency(comparisonData.totalDividends)}
+                                              </p>
+                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Dividendos e Rendimentos</p>
+                                           </div>
+                                           <div className="p-4 border border-[#eee]">
+                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#555', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Rentabilidade Real (Gain)</p>
+                                              <p style={{fontSize: '18px', fontWeight: '900', color: comparisonData.percent >= 0 ? '#000' : '#d00'}}>
                                                  {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
                                               </p>
-                                           </div>
-                                           <div className="p-4 bg-[#f9f9f9] border border-[#eee]">
-                                              <p style={{fontSize: '9px', fontWeight: 'bold', color: '#888', textTransform: 'uppercase'}}>Status do Período</p>
-                                              <p style={{fontSize: '14px', fontWeight: '900', color: comparisonData.diff >= 0 ? '#10b981' : '#f00', textTransform: 'uppercase'}}>
-                                                 {comparisonData.diff >= 0 ? 'Expansão' : 'Retração'}
+                                              <p style={{fontSize: '8px', color: '#888', fontWeight: 'bold', marginTop: '4px'}}>
+                                                 {comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)} • Performance (Ganho + Proventos)
                                               </p>
                                            </div>
                                         </div>
-                                        {/* TOP MOVERS SECTION IN PDF */}
-                                        <div className="grid grid-cols-2 gap-8 mb-12">
+
+                                        {activePdfAssets.some(a => (a.monthly_contribution || 0) !== 0 || (a.monthly_dividends || 0) !== 0) && (
+                                           <div className="mb-12">
+                                              <p style={{fontSize: '9px', fontWeight: '900', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '8px'}}>Detalhamento por Ativo</p>
+                                              <table className="w-full text-left border-collapse" style={{fontSize: '10px'}}>
+                                                 <thead>
+                                                    <tr style={{ backgroundColor: '#f0f0f0' }}>
+                                                       <th className="p-2 border border-[#ddd] font-black uppercase tracking-wider">Ativo</th>
+                                                       <th className="p-2 border border-[#ddd] text-center font-black uppercase tracking-wider">Saldo Anterior</th>
+                                                       <th className="p-2 border border-[#ddd] text-center font-black uppercase tracking-wider">Aporte / Venda</th>
+                                                       <th className="p-2 border border-[#ddd] text-center font-black uppercase tracking-wider">Proventos</th>
+                                                       <th className="p-2 border border-[#ddd] text-right font-black uppercase tracking-wider">Saldo Final</th>
+                                                    </tr>
+                                                 </thead>
+                                                 <tbody>
+                                                    {activePdfAssets
+                                                       .filter(a => (a.monthly_contribution || 0) !== 0 || (a.monthly_dividends || 0) !== 0)
+                                                       .map((a, i) => {
+                                                          const contr = a.monthly_contribution || 0;
+                                                          const div = a.monthly_dividends || 0;
+                                                          const prevBal = a.current_balance - contr;
+                                                          return (
+                                                             <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                                                <td className="p-2 border border-[#eee] font-bold" style={{color: '#222'}}>{a.asset_name}</td>
+                                                                <td className="p-2 border border-[#eee] text-center" style={{color: '#555'}}>{formatCurrency(prevBal)}</td>
+                                                                <td className="p-2 border border-[#eee] text-center font-bold" style={{color: contr >= 0 ? '#10b981' : '#d00'}}>
+                                                                   {contr !== 0 ? `${contr >= 0 ? '+' : ''}${formatCurrency(contr)}` : '—'}
+                                                                </td>
+                                                                <td className="p-2 border border-[#eee] text-center font-bold" style={{color: '#10b981'}}>
+                                                                   {div !== 0 ? `+${formatCurrency(div)}` : '—'}
+                                                                </td>
+                                                                <td className="p-2 border border-[#eee] text-right font-black" style={{color: '#000'}}>{formatCurrency(a.current_balance)}</td>
+                                                             </tr>
+                                                          );
+                                                       })}
+                                                 </tbody>
+                                              </table>
+                                           </div>
+                                        )}
+                                        
+                                        <div className="grid grid-cols-2 gap-8 mb-4">
                                            {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
                                               <div>
                                                  <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-[0.2em]">Maiores Movimentações do Mês</p>
@@ -1145,7 +1273,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
                                   {/* CHARTS SECTION */}
                                   <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>{comparisonData ? "4" : "3"}. ANÁLISE GRÁFICA DA CARTEIRA</h3>
-                                  <div style={{marginBottom: '48px'}}>
+                                  <div style={{marginBottom: '24px'}}>
                                      <ReportCharts
                                         assets={activePdfAssets}
                                         macroSectors={liveMacroSectors}
