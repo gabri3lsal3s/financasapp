@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, forwardRef, useId } from 'react'
+import { useState, useRef, useEffect, forwardRef } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 
 interface SelectProps {
