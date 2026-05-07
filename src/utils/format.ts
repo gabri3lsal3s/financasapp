@@ -98,7 +98,7 @@ export function parseMoneyInput(value: string): number {
 }
 
 export function formatMoneyInput(value: number): string {
-  return Number(value).toFixed(2).replace('.', ',')
+  return formatNumberWithTwoDecimalsBR(value)
 }
 
 export function formatDate(date: string | Date): string {

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ArrowLeft, PieChart, FileText, Calendar } from 'lucide-react';
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
+import PageHeader from '@/components/PageHeader';
 import PortfolioManagement from './PortfolioManagement';
 import ConsultingReports from './ConsultingReports';
 
@@ -76,69 +77,60 @@ export default function ClientDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header Unificado */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            className="p-2 bg-secondary/20 hover:bg-secondary/40 text-primary border-none"
-            onClick={() => navigate('/admin/consulting')}
-          >
-            <ArrowLeft size={20} />
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight">
-              {client.name}
-            </h1>
-            <p className="text-secondary font-medium">Gestão Integrada</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          {/* Seletor de Mês */}
-          <div className="flex items-center bg-black/20 rounded-xl border border-white/5 px-3 py-1.5 h-[42px]">
-            <Calendar size={16} className="text-secondary mr-2" />
-            <select
-              className="bg-transparent text-primary text-sm font-bold focus:outline-none appearance-none cursor-pointer pr-4"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            >
-              <option value="live" className="bg-[#111] text-primary">Posição Atual (Live)</option>
-              {historyReports.map(r => (
-                <option key={r.id} value={r.id} className="bg-[#111] text-primary">
-                  {r.month.split('-').reverse().join('/')} (Arquivado)
-                </option>
-              ))}
-            </select>
-          </div>
+      <PageHeader 
+        title={client.name}
+        subtitle="Gestão Integrada de Consultoria"
+        action={
+          <div className="flex flex-col md:flex-row items-center gap-3">
+             {/* Seletor de Mês */}
+             <div className="flex items-center bg-secondary/50 rounded-xl border border-primary px-3 py-1.5 h-[42px] shadow-sm">
+               <Calendar size={16} className="text-secondary mr-2" />
+               <select
+                 className="bg-transparent text-primary text-[10px] uppercase tracking-widest font-black focus:outline-none appearance-none cursor-pointer pr-4"
+                 value={selectedMonth}
+                 onChange={(e) => setSelectedMonth(e.target.value)}
+               >
+                 <option value="live" className="bg-primary text-primary">Posição Atual (Live)</option>
+                 {historyReports.map(r => (
+                   <option key={r.id} value={r.id} className="bg-primary text-primary">
+                     {r.month.split('-').reverse().join('/')} (Arquivado)
+                   </option>
+                 ))}
+               </select>
+             </div>
 
-          {/* Navegação por Abas */}
-          <div className="flex bg-black/20 p-1.5 rounded-xl border border-white/5 w-fit">
-          <button
-            onClick={() => setActiveTab('portfolio')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'portfolio' 
-                ? 'bg-primary text-white shadow-lg' 
-                : 'text-secondary hover:text-primary hover:bg-white/5'
-            }`}
-          >
-            <PieChart size={16} />
-            <span className="hidden sm:inline">Portfólio</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'reports' 
-                ? 'bg-primary text-white shadow-lg' 
-                : 'text-secondary hover:text-primary hover:bg-white/5'
-            }`}
-          >
-            <FileText size={16} />
-            <span className="hidden sm:inline">Relatórios</span>
-          </button>
-        </div>
-        </div>
-      </div>
+             {/* Navegação por Abas */}
+             <div className="flex bg-secondary/50 p-1 rounded-xl border border-primary w-fit shadow-sm">
+               <button
+                 onClick={() => setActiveTab('portfolio')}
+                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                   activeTab === 'portfolio' 
+                     ? 'bg-primary text-primary shadow-md border border-primary' 
+                     : 'text-secondary opacity-60 hover:text-primary hover:opacity-100'
+                 }`}
+               >
+                 <PieChart size={14} />
+                 <span>Portfólio</span>
+               </button>
+               <button
+                 onClick={() => setActiveTab('reports')}
+                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                   activeTab === 'reports' 
+                     ? 'bg-primary text-primary shadow-md border border-primary' 
+                     : 'text-secondary opacity-60 hover:text-primary hover:opacity-100'
+                 }`}
+               >
+                 <FileText size={14} />
+                 <span>Relatórios</span>
+               </button>
+             </div>
+
+             <Button onClick={() => navigate('/admin/consulting')} variant="ghost" size="sm" className="hidden md:flex items-center gap-2">
+                <ArrowLeft size={16} /> Voltar
+             </Button>
+          </div>
+        }
+      />
       {/* Área de Renderização das Abas */}
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {activeTab === 'portfolio' && clientId && (

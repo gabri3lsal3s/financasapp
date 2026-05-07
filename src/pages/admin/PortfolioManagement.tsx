@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
-import { FolderPlus, Edit2, Trash2, Plus, Settings } from 'lucide-react';
+import { ChevronLeft, FolderPlus, Edit2, Trash2, Plus, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Input from '@/components/Input';
@@ -8,7 +9,8 @@ import Select from '@/components/Select';
 import Modal from '@/components/Modal';
 import ModalActionFooter from '@/components/ModalActionFooter';
 import Loader from '@/components/Loader';
-import { formatCurrency, parseMoneyInput, formatMoneyInput } from '@/utils/format';
+import PageHeader from '@/components/PageHeader';
+import { formatCurrency, parseMoneyInput, formatMoneyInput, formatNumberWithTwoDecimalsBR } from '@/utils/format';
 
 interface PortfolioMacroSector {
   id: string;
@@ -54,6 +56,7 @@ interface PortfolioManagementProps {
 }
 
 export default function PortfolioManagement({ clientId, selectedMonth = 'live' }: PortfolioManagementProps) {
+  const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   
   const [macroSectors, setMacroSectors] = useState<PortfolioMacroSector[]>([]);
@@ -137,7 +140,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
         setSectorForm({
            macro_category: sector.macro_category,
            sector_name: sector.sector_name,
-           target_percentage: (sector.target_percentage * 100).toFixed(2).replace('.', ',')
+           target_percentage: formatNumberWithTwoDecimalsBR(sector.target_percentage * 100)
         });
      } else {
         setEditingSector(null);
@@ -152,7 +155,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
         setAssetForm({
            sector_id: asset.sector_id || '',
            asset_name: asset.asset_name,
-           current_balance: formatMoneyInput(asset.current_balance),
+           current_balance: formatNumberWithTwoDecimalsBR(asset.current_balance),
            applied_amount: asset.applied_amount ? formatMoneyInput(asset.applied_amount) : '',
            custom_rate: asset.custom_rate || '',
            maturity_date: asset.maturity_date || '',
@@ -174,7 +177,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
         setEditingMacro(macro);
         setMacroForm({
            name: macro.name,
-           target_percentage: (macro.target_percentage * 100).toFixed(2).replace('.', ',')
+           target_percentage: formatNumberWithTwoDecimalsBR(macro.target_percentage * 100)
         });
      } else {
         setEditingMacro(null);
@@ -184,7 +187,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
 
   const openQuickUpdate = () => {
     const balances: Record<string, string> = {};
-    assets.forEach(a => { balances[a.id] = formatMoneyInput(a.current_balance); });
+    assets.forEach(a => { balances[a.id] = formatNumberWithTwoDecimalsBR(a.current_balance); });
     setQuickUpdateBalances(balances);
     setShowQuickUpdateModal(true);
   };
@@ -442,11 +445,11 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
 
 
   const getSectorStatus = (diffTargetVsCurrent: number) => {
-     if (diffTargetVsCurrent < -0.05) return { label: 'Excesso Crítico', color: 'text-red-500' };
-     if (diffTargetVsCurrent < -0.02) return { label: 'Excesso', color: 'text-orange-500' };
-     if (diffTargetVsCurrent > 0.05) return { label: 'Prioridade de Aporte', color: 'text-[#10b981]' };
-     if (diffTargetVsCurrent > 0.02) return { label: 'Aporte Secundário', color: 'text-blue-500' };
-     return { label: 'Enquadrado', color: 'text-gray-400' };
+     if (diffTargetVsCurrent < -0.05) return { label: 'Excesso Crítico', color: 'text-expense' };
+     if (diffTargetVsCurrent < -0.02) return { label: 'Excesso', color: 'text-warning' };
+     if (diffTargetVsCurrent > 0.05) return { label: 'Prioridade de Aporte', color: 'text-income' };
+     if (diffTargetVsCurrent > 0.02) return { label: 'Aporte Secundário', color: 'text-balance' };
+     return { label: 'Enquadrado', color: 'text-secondary' };
   };
 
   const allocationSuggestions = useMemo(() => {
@@ -659,80 +662,91 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
   if (!client) return <div>Cliente não encontrado</div>;
 
   return (
-    <div>
-      <div className="space-y-6 animate-page-enter">
-         {/* Top Stats */}
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
-                 <span className="text-xs text-secondary mb-2">Patrimônio Gerido</span>
-                 <p className="text-2xl font-bold text-primary tracking-tight">{formatCurrency(totalInWallet)}</p>
-             </Card>
-             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
-                 <span className="text-xs text-secondary mb-2">Aporte em Aberto (Caixa)</span>
-                 <div className="flex items-center gap-2">
-                    <span className="text-primary font-semibold text-lg">R$</span>
-                    <input 
-                       value={cashBalance} onChange={e => setCashBalance(e.target.value)}
-                       onBlur={() => { const p = parseMoneyInput(cashBalance); if(!Number.isNaN(p)) setCashBalance(formatMoneyInput(p)) }}
-                       placeholder="0,00" inputMode="decimal"
-                       className="bg-transparent border-none outline-none text-2xl font-bold text-[#10b981] w-full tracking-tight"
-                    />
-                 </div>
-             </Card>
-             <Card className="flex flex-col justify-between p-5 bg-secondary/5 border-white/5 transition-all hover:border-white/10">
-                 <span className="text-xs text-secondary mb-2">Patrimônio Futuro Total</span>
-                 <p className="text-2xl font-bold text-primary tracking-tight">{formatCurrency(futureTotal)}</p>
-             </Card>
-         </div>
-
-         <div className="flex flex-wrap gap-3">
-            <Button onClick={() => openSectorModal()} variant="outline" className="flex items-center gap-2">
-               <FolderPlus size={16} /> Novo Grupo/Setor
+    <div className="min-h-screen bg-secondary/30">
+      <PageHeader 
+        title="Gestão de Carteira"
+        subtitle={`Cliente: ${client?.name || '...'}`}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="flex items-center gap-2">
+               <ChevronLeft size={16} /> Voltar
             </Button>
-            <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" className="flex items-center gap-2">
-               <Plus size={16} /> Novo Ativo
+            <Button onClick={() => openSectorModal()} variant="outline" size="sm" className="flex items-center gap-2">
+               <FolderPlus size={16} /> <span className="hidden sm:inline">Novo Grupo</span>
             </Button>
-            <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" className="flex items-center gap-2 border-white/10 hover:bg-white/5">
-               <Settings size={16} /> Gerenciar Classes
+            <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" size="sm" className="flex items-center gap-2">
+               <Plus size={16} /> <span className="hidden sm:inline">Novo Ativo</span>
+            </Button>
+            <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+               <Settings size={16} /> <span className="hidden sm:inline">Classes</span>
             </Button>
             
             {selectedMonth === 'live' ? (
-               <Button onClick={openQuickUpdate} variant="primary" className="flex items-center gap-2 font-bold ml-auto">
+               <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold ml-2">
                   <Edit2 size={16} /> Atualização Rápida
                </Button>
             ) : (
-               <div className="ml-auto flex items-center gap-2">
-                  <div className="flex items-center gap-2 p-2 px-3 rounded-xl bg-orange-500/10 text-orange-500 text-xs font-bold border border-orange-500/20">
+               <div className="flex items-center gap-2 ml-2">
+                  <div className="flex items-center gap-2 p-1.5 px-3 rounded-xl bg-warning/10 text-warning text-[10px] font-black border border-warning/20 uppercase tracking-widest">
                      ⚠️ Histórico
                   </div>
-                  <Button onClick={openQuickUpdate} variant="primary" className="flex items-center gap-2 font-bold">
+                  <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold">
                      <Edit2 size={16} /> Atualização Rápida
                   </Button>
                </div>
             )}
+          </div>
+        }
+      />
+
+      <div className="p-4 lg:p-8 space-y-6 animate-page-enter">
+         {/* Top Stats */}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <Card className="flex flex-col justify-between p-5 bg-primary border-primary shadow-sm">
+                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 mb-2">Patrimônio Gerido</span>
+                 <p className="text-2xl font-black text-primary tracking-tighter">{formatCurrency(totalInWallet)}</p>
+             </Card>
+             <Card className="flex flex-col justify-between p-5 bg-primary border-primary shadow-sm">
+                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 mb-2">Aporte em Aberto (Caixa)</span>
+                 <div className="flex items-center gap-2">
+                    <span className="text-primary font-black text-lg">R$</span>
+                    <input 
+                       value={cashBalance} onChange={e => setCashBalance(e.target.value)}
+                       onBlur={() => { const p = parseMoneyInput(cashBalance); if(!Number.isNaN(p)) setCashBalance(formatMoneyInput(p)) }}
+                       placeholder="0,00" inputMode="decimal"
+                       className="bg-tertiary/30 px-2 py-1 rounded-lg border-none outline-none text-2xl font-black text-income w-full tracking-tighter focus:bg-tertiary transition-all"
+                    />
+                 </div>
+             </Card>
+             <Card className="flex flex-col justify-between p-5 bg-primary border-primary shadow-sm">
+                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 mb-2">Patrimônio Futuro Total</span>
+                 <p className="text-2xl font-black text-primary tracking-tighter">{formatCurrency(futureTotal)}</p>
+             </Card>
          </div>
 
          {!isMacroTargetValid && (
             <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-sm font-semibold flex items-center justify-between">
-               <span>Aviso: A soma dos alvos das Classes (Macros) é {(macroTargetSum * 100).toFixed(2)}% (deveria ser 100%).</span>
+               <span>Aviso: A soma dos alvos das Classes (Macros) é {formatNumberWithTwoDecimalsBR(macroTargetSum * 100)}% (deveria ser 100%).</span>
             </div>
          )}
 
-         <div className="bg-secondary/5 rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
-            <div className="overflow-x-auto">
+         <div className="space-y-4">
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-primary rounded-2xl border border-primary overflow-hidden shadow-lg">
+               <div className="overflow-x-auto">
                <table className="w-full text-left bg-transparent min-w-[800px]">
                   <thead>
-                     <tr className="text-[10px] text-secondary border-b border-white/5 uppercase font-black tracking-widest bg-black/40">
+                     <tr className="text-[10px] text-secondary border-b border-primary uppercase font-black tracking-widest bg-secondary/50">
                         <th className="p-4 pl-6">Ativo</th>
                         <th className="p-4 text-center">Setor</th>
                         <th className="p-4 text-center">Alvo(%)</th>
                         <th className="p-4 text-center">Exp. Atual(%)</th>
                         <th className="p-4 text-right">Saldo Atual (R$)</th>
-                        <th className="p-4 text-right text-[#10b981]">Sugestão (R$)</th>
+                        <th className="p-4 text-right text-income">Sugestão (R$)</th>
                         <th className="p-4 text-center">Ações</th>
                      </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-primary/10">
                      {groupedData.map(group => {
                         const { macroKey, macro } = group;
                         const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
@@ -741,19 +755,19 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
 
                         return (
                            <Fragment key={macroKey}>
-                              <tr className="bg-white/5 border-b border-white/10">
+                              <tr className="bg-secondary/20 border-b border-primary">
                                  <td colSpan={7} className="p-3 pl-6">
                                     <div className="flex items-center gap-3">
                                        <h3 className="font-bold text-primary tracking-tight uppercase text-sm">
                                           {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
                                        </h3>
                                        {macroStatus && (
-                                          <span className={`text-[9px] px-2 py-0.5 rounded-full bg-black/40 border border-white/10 ${macroStatus.color} tracking-widest font-black whitespace-nowrap`}>
+                                          <span className={`text-[9px] px-2 py-0.5 rounded-full bg-tertiary border border-primary ${macroStatus.color} tracking-widest font-black whitespace-nowrap`}>
                                              {macroStatus.label}
                                           </span>
                                        )}
                                        <span className="text-[10px] text-secondary ml-auto pr-4 font-semibold uppercase tracking-wider">
-                                          Total da Classe: <span className="text-primary">{formatCurrency(macroTotalBal)}</span> ({(macroCurrentPercent*100).toFixed(2)}%)
+                                          Total da Classe: <span className="text-primary">{formatCurrency(macroTotalBal)}</span> ({formatNumberWithTwoDecimalsBR(macroCurrentPercent*100)}%)
                                        </span>
                                     </div>
                                  </td>
@@ -767,7 +781,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                     const assetStatus = getSectorStatus(assetGap);
                                     
                                     return (
-                                       <tr key={asset.id} className="hover:bg-white/5 transition-colors group">
+                                       <tr key={asset.id} className="hover:bg-tertiary transition-colors group">
                                           <td className="p-4 pl-6">
                                              <div className="font-semibold text-primary">{asset.asset_name}</div>
                                              <div className="text-[10px] text-secondary/40 font-bold uppercase mt-0.5">
@@ -775,14 +789,14 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                              </div>
                                           </td>
                                           <td className="p-4 text-center">
-                                             <span className="text-xs text-secondary font-medium bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                             <span className="text-xs text-secondary font-medium bg-tertiary px-2 py-1 rounded-md border border-primary">
                                                 {sector.sector_name}
                                              </span>
                                           </td>
                                           <td className="p-4 w-28 text-center">
                                              <div className="flex items-center justify-center gap-1">
                                                 <input 
-                                                   value={(asset.target_percentage * 100).toFixed(2).replace('.', ',')}
+                                                   value={formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}
                                                    onChange={(e) => handleUpdateAssetTarget(asset.id, e.target.value)}
                                                    className="w-10 bg-transparent border-none text-right font-bold text-xs text-primary focus:ring-0 p-0"
                                                    inputMode="decimal"
@@ -791,13 +805,13 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                              </div>
                                           </td>
                                           <td className="p-4 text-center">
-                                             <span className={`text-xs font-bold ${assetStatus.color}`}>{(assetCurrentPercent * 100).toFixed(2)}%</span>
+                                             <span className={`text-xs font-bold ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
                                           </td>
                                           <td className="p-3 w-48 text-right">
                                              <Input 
-                                               value={asset.current_balance.toString().replace('.', ',')}
+                                               value={formatNumberWithTwoDecimalsBR(asset.current_balance)}
                                                onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
-                                               className="text-right font-bold h-9 bg-[#111] border-white/5 focus:border-primary/40 text-primary w-full"
+                                               className="text-right font-bold h-9 bg-tertiary border-primary focus:border-primary text-primary w-full"
                                                inputMode="decimal"
                                              />
                                           </td>
@@ -832,7 +846,105 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                </table>
             </div>
          </div>
-            
+
+         {/* Mobile Card View */}
+            <div className="md:hidden space-y-6">
+               {groupedData.map(group => {
+                  const { macroKey, macro } = group;
+                  const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
+                  const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
+                  const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
+
+                  return (
+                     <div key={macroKey} className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                           <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-primary uppercase text-xs tracking-tight">
+                                 {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
+                              </h3>
+                              {macroStatus && (
+                                 <span className={`text-[8px] px-1.5 py-0.5 rounded-full bg-tertiary border border-primary ${macroStatus.color} font-black`}>
+                                    {macroStatus.label}
+                                 </span>
+                              )}
+                           </div>
+                           <span className="text-[10px] text-secondary font-bold">
+                              {formatCurrency(macroTotalBal)}
+                           </span>
+                        </div>
+
+                        <div className="space-y-3">
+                           {group.items.map(({sector, assets: sectorAssets}) => (
+                              <div key={sector.id} className="space-y-2">
+                                 <div className="pl-1">
+                                    <span className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">{sector.sector_name}</span>
+                                 </div>
+                                 <div className="space-y-3">
+                                    {sectorAssets.map(asset => {
+                                       const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
+                                       const assetGap = asset.target_percentage - assetCurrentPercent;
+                                       const assetStatus = getSectorStatus(assetGap);
+                                       
+                                       return (
+                                          <Card key={asset.id} className="p-4 bg-secondary border-primary space-y-3">
+                                             <div className="flex justify-between items-start">
+                                                <div className="min-w-0">
+                                                   <div className="font-bold text-primary text-sm truncate">{asset.asset_name}</div>
+                                                   <div className="text-[10px] text-secondary/60 font-medium">
+                                                      {macro?.name === 'Renda Fixa' ? (asset.custom_rate || 'Renda Fixa') : (asset.variation_month || 'Variável')}
+                                                   </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                   <button onClick={() => openAssetModal(asset)} className="p-2 bg-tertiary rounded-lg text-secondary">
+                                                      <Edit2 size={14}/>
+                                                   </button>
+                                                   <button onClick={() => handleDeleteAsset(asset.id)} className="p-2 bg-tertiary rounded-lg text-danger">
+                                                      <Trash2 size={14}/>
+                                                   </button>
+                                                </div>
+                                             </div>
+
+                                             <div className="grid grid-cols-2 gap-4 pt-1">
+                                                <div>
+                                                   <p className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40 mb-1">Saldo Atual</p>
+                                                   <p className="text-sm font-bold text-primary">{formatCurrency(asset.current_balance)}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                   <p className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40 mb-1">Sugestão</p>
+                                                   <p className="text-sm font-bold text-income">
+                                                      {allocationSuggestions[asset.id] > 0 ? formatCurrency(allocationSuggestions[asset.id]) : '--'}
+                                                   </p>
+                                                </div>
+                                             </div>
+
+                                             <div className="flex items-center justify-between pt-2 border-t border-primary/10">
+                                                <div className="flex items-center gap-1">
+                                                   <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">Alvo:</span>
+                                                   <span className="text-xs font-bold text-primary">{formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}%</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                   <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">Atual:</span>
+                                                   <span className={`text-xs font-bold ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
+                                                </div>
+                                             </div>
+                                          </Card>
+                                       );
+                                    })}
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+                  );
+               })}
+               {assets.length === 0 && (
+                  <Card className="p-8 text-center bg-secondary border-dashed border-2 border-primary">
+                     <p className="text-secondary text-sm">Nenhum ativo cadastrado.</p>
+                  </Card>
+               )}
+            </div>
+         </div>
+             
             {groupedData.length === 0 && (
                <div className="text-center py-10 opacity-60">
                   <FolderPlus className="mx-auto h-12 w-12 mb-3"/>
@@ -906,7 +1018,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
       {/* Modal Macro Manager */}
       <Modal isOpen={showMacroManagerModal} onClose={() => setShowMacroManagerModal(false)} title="Gerenciar Macro Classes">
          <div className="space-y-6">
-            <div className="bg-secondary/10 p-4 rounded-2xl border border-white/5">
+            <div className="bg-primary p-4 rounded-2xl border border-primary shadow-sm">
                <h4 className="text-xs font-black text-secondary uppercase tracking-widest mb-4">{editingMacro ? 'Editar Classe' : 'Nova Classe de Ativo'}</h4>
                <form onSubmit={handleSaveMacro} className="space-y-4">
                   <Input label="Nome da Classe" value={macroForm.name} onChange={e => setMacroForm({...macroForm, name: e.target.value})} required placeholder="Ex: Renda Fixa, Ações..." />
@@ -928,16 +1040,16 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                <h4 className="text-xs font-black text-secondary uppercase tracking-widest pl-1">Classes Cadastradas</h4>
                <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                   {macroSectors.map(m => (
-                     <div key={m.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 group">
+                     <div key={m.id} className="flex justify-between items-center p-3 bg-primary rounded-xl border border-primary shadow-sm group">
                         <div>
                            <p className="text-sm font-bold text-primary">{m.name}</p>
-                           <p className="text-[10px] text-secondary font-black">ALVO: {(m.target_percentage*100).toFixed(2)}%</p>
+                           <p className="text-[10px] text-secondary font-black uppercase">Alvo: {formatNumberWithTwoDecimalsBR(m.target_percentage*100)}%</p>
                         </div>
                         <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                           <button onClick={() => openMacroManager(m)} className="p-2 hover:bg-white/10 rounded-lg text-secondary hover:text-primary transition-colors">
+                           <button onClick={() => openMacroManager(m)} className="p-2 hover:bg-tertiary rounded-lg text-secondary hover:text-primary transition-colors">
                               <Edit2 size={14} />
                            </button>
-                           <button onClick={() => handleDeleteMacro(m.id)} className="p-2 hover:bg-red-500/10 rounded-lg text-secondary hover:text-red-500 transition-colors">
+                           <button onClick={() => handleDeleteMacro(m.id)} className="p-2 hover:bg-danger/10 rounded-lg text-secondary hover:text-danger transition-colors">
                               <Trash2 size={14} />
                            </button>
                         </div>
@@ -961,24 +1073,24 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                placeholder="🔍 Pesquisar ativo..."
                value={quickUpdateSearch}
                onChange={e => setQuickUpdateSearch(e.target.value)}
-               className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-sm text-primary outline-none focus:border-primary/50 transition-all placeholder:text-secondary/40"
+               className="w-full bg-primary border border-primary rounded-xl px-4 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-secondary/40 shadow-sm"
             />
-            <div className="max-h-[55vh] overflow-y-auto custom-scrollbar pr-2">
+            <div className="max-h-[55vh] overflow-y-auto custom-scrollbar pr-2 bg-primary/30 rounded-xl border border-primary/10 p-1">
                <table className="w-full text-left">
-                  <thead className="sticky top-0 bg-[#161616] z-10">
-                     <tr className="text-[10px] text-secondary border-b border-white/5 uppercase font-black tracking-widest">
+                  <thead className="sticky top-0 bg-primary z-10 shadow-sm">
+                     <tr className="text-[10px] text-secondary border-b border-primary uppercase font-black tracking-widest bg-secondary/50">
                         <th className="p-3">Ativo</th>
                         <th className="p-3">Setor / Classe</th>
                         <th className="p-3 text-right">Saldo Atual (R$)</th>
                      </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-primary/10">
                      {assets
                        .filter(a => !quickUpdateSearch || a.asset_name.toLowerCase().includes(quickUpdateSearch.toLowerCase()))
                        .sort((a,b) => a.asset_name.localeCompare(b.asset_name)).map(asset => {
                         const s = sectors.find(sec => sec.id === asset.sector_id);
                         return (
-                           <tr key={asset.id} className="hover:bg-white/5">
+                           <tr key={asset.id} className="hover:bg-tertiary">
                               <td className="p-3 font-bold text-primary">{asset.asset_name}</td>
                               <td className="p-3 text-xs text-secondary">{s?.sector_name || '-'} <span className="opacity-50">({s?.macro_category || '-'})</span></td>
                               <td className="p-3 w-48">
@@ -989,7 +1101,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live' }
                                        const p = parseMoneyInput(quickUpdateBalances[asset.id]);
                                        if (!Number.isNaN(p)) setQuickUpdateBalances({...quickUpdateBalances, [asset.id]: formatMoneyInput(p)});
                                     }}
-                                    className="text-right font-bold h-9 bg-black/40 border-white/10"
+                                    className="text-right font-black h-9 bg-primary border-primary shadow-sm"
                                     inputMode="decimal"
                                  />
                               </td>

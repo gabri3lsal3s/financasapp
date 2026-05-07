@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Download, Loader2, BarChart2, Save, Calculator, Trash2, ArrowRight, TrendingUp, Edit2, FileText } from 'lucide-react';
+import ReportCharts from '@/components/ReportCharts';
+import PageHeader from '@/components/PageHeader';
+import { ChevronLeft, Download, Loader2, BarChart2, Save, Calculator, Trash2, ArrowRight, TrendingUp, Edit2, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '@/components/Button';
 import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import html2canvas from 'html2canvas';
@@ -9,9 +12,8 @@ import Card from '@/components/Card';
 import Input from '@/components/Input';
 import Loader from '@/components/Loader';
 import MonthPickerModal from '@/components/MonthPickerModal';
-import { formatCurrency, formatMonthShort } from '@/utils/format';
+import { formatCurrency, formatMonthShort, formatNumberWithTwoDecimalsBR } from '@/utils/format';
 import { toast } from 'react-hot-toast';
-import ReportCharts from '@/components/ReportCharts';
 
 interface PortfolioMacroSector {
   id: string; client_id: string; name: string; target_percentage: number;
@@ -66,7 +68,8 @@ interface PlanningRow {
 }
 
 export default function ConsultingReports({ clientId, selectedMonth: _selectedMonth, onReportArchived: _onReportArchived }: { clientId: string, selectedMonth?: string, onReportArchived?: () => Promise<void> }) {
-  const [clientName, setClientName] = useState<string>('');
+   const navigate = useNavigate();
+   const [clientName, setClientName] = useState<string>('');
   const [liveMacroSectors, setLiveMacroSectors] = useState<PortfolioMacroSector[]>([]);
   const [liveSectors, setLiveSectors] = useState<PortfolioSector[]>([]);
   const [liveAssets, setLiveAssets] = useState<PortfolioAsset[]>([]);
@@ -502,119 +505,125 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
   if (loading && !clientId) return <div className="flex justify-center p-20"><Loader text="Sincronizando dados..." /></div>;
 
   return (
-    <div>
-      <div className="space-y-6 animate-page-enter">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-             <Card className="p-6 flex flex-col justify-between bg-secondary/10 hover:border-primary/20 transition-all border-white/5 md:col-span-1">
-                <div>
-                   <h3 className="text-sm font-semibold text-secondary flex items-center gap-2 mb-4">
-                      Ações do Mês
-                   </h3>
-                   <p className="text-xs text-secondary/60 mb-6">Gere os relatórios em PDF ou arquive o mês para manter o histórico patrimonial seguro.</p>
-                </div>
-                <div className="flex flex-col gap-3">
-                   <Button onClick={handleSaveMonth} disabled={savingMonth || !clientId} variant="outline" className="w-full flex items-center justify-center gap-2 border-primary/20 hover:bg-primary/10 transition-all font-black text-xs">
-                      {savingMonth ? <Loader2 size={14} className="animate-spin" /> : <Save size={14}/>}
-                      Arquivar Mês Atual
-                   </Button>
-                </div>
-             </Card>
+    <div className="min-h-screen bg-secondary/30">
+      <PageHeader 
+        title="Relatórios de Consultoria"
+        subtitle={`Cliente: ${clientName}`}
+        action={
+          <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="flex items-center gap-2">
+             <ChevronLeft size={16} /> Voltar
+          </Button>
+        }
+      />
+      
+      <div className="p-4 lg:p-8 space-y-6 animate-page-enter">
+          {/* Evolution Chart - Full Width */}
+          <Card className="p-6 bg-primary relative overflow-hidden group border-primary shadow-sm w-full">
+             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <TrendingUp size={100} className="text-primary"/>
+             </div>
+             <h3 className="text-sm font-semibold text-secondary flex items-center gap-2 mb-4">
+                <BarChart2 size={16} className="text-primary"/> Evolução do Patrimônio Gerido
+             </h3>
+             <div className="h-44 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                   <AreaChart data={evolutionData}>
+                      <defs>
+                        <linearGradient id="colorPat" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: 'var(--color-text-secondary)', fontSize: 10}} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--color-text-secondary)', fontSize: 10}} dx={-10}/>
+                      <Tooltip 
+                         contentStyle={{backgroundColor: 'var(--color-primary)', borderRadius: '12px', border: '1px solid var(--color-border)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)'}}
+                         itemStyle={{color: 'var(--color-primary)', fontWeight: 'bold'}}
+                         formatter={(v: number) => formatCurrency(v)} 
+                      />
+                      <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorPat)" />
+                   </AreaChart>
+                </ResponsiveContainer>
+             </div>
+          </Card>
 
-             <Card className="p-6 bg-secondary/10 relative overflow-hidden group border-white/5 md:col-span-1 lg:col-span-3">
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                   <TrendingUp size={100} className="text-primary"/>
-                </div>
-                <h3 className="text-sm font-semibold text-secondary flex items-center gap-2 mb-4">
-                   <BarChart2 size={16} className="text-primary"/> Evolução do Patrimônio Gerido
+          {/* History Management - Full Width & Compact */}
+          <div className="space-y-4">
+             <div className="flex justify-between items-end px-1">
+                <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest pl-1 opacity-60 flex items-center gap-2">
+                   <FileText size={14} /> Histórico de Fechamentos
                 </h3>
-                <div className="h-44 w-full">
-                   <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={evolutionData}>
-                         <defs>
-                           <linearGradient id="colorPat" x1="0" y1="0" x2="0" y2="1">
-                             <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.4}/>
-                             <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
-                           </linearGradient>
-                         </defs>
-                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
-                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: 'var(--color-text-secondary)', fontSize: 10}} dy={10} />
-                         <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--color-text-secondary)', fontSize: 10}} dx={-10}/>
-                         <Tooltip 
-                            contentStyle={{backgroundColor: 'var(--color-primary)', borderRadius: '12px', border: '1px solid var(--color-border)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)'}}
-                            itemStyle={{color: 'var(--color-primary)', fontWeight: 'bold'}}
-                            formatter={(v: number) => formatCurrency(v)} 
-                         />
-                         <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorPat)" />
-                      </AreaChart>
-                   </ResponsiveContainer>
-                </div>
-             </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-             <div className="lg:col-span-1 space-y-4">
-                <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest pl-1 opacity-60">Histórico de Fechamentos</h3>
-                <div className="space-y-3 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
-                     <div 
-                        onClick={() => loadPdfEngineFor('live')}
-                        className={`p-4 rounded-xl border transition-all cursor-pointer group relative ${activeReportMode === 'live' ? 'border-primary/50 bg-primary/5 scale-[1.02]' : 'border-white/5 bg-secondary/5 hover:border-white/10 hover:lift-subtle'}`}
-                     >
-                        <div className="flex justify-between items-center mb-1">
-                           <span className={`text-[10px] font-semibold uppercase tracking-wider ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary opacity-50'}`}>Situação Atual</span>
-                           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#10b981]/10 border border-[#10b981]/20">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></div>
-                              <span className="text-[10px] font-semibold text-[#10b981] uppercase">Live</span>
-                           </div>
-                        </div>
-                        <p className={`font-semibold text-lg tracking-tight transition-colors ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary/80'}`}>Posição em Aberto</p>
-                        <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
-                           <p className="text-sm font-bold text-primary">{formatCurrency(liveTotal)}</p>
-                           <ArrowRight size={14} className={`transition-all ${activeReportMode === 'live' ? 'translate-x-1 text-primary' : 'text-secondary opacity-20'}`} />
+                <Button 
+                   onClick={handleSaveMonth} 
+                   disabled={savingMonth || !clientId} 
+                   variant="outline" 
+                   size="sm"
+                   className="flex items-center gap-2 border-primary/20 hover:bg-primary/5 transition-all font-black text-[10px] uppercase tracking-widest px-4"
+                >
+                   {savingMonth ? <Loader2 size={14} className="animate-spin" /> : <Save size={14}/>}
+                   Arquivar Mês Atual
+                </Button>
+             </div>
+             
+             <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar -mx-1">
+                  <div 
+                     onClick={() => loadPdfEngineFor('live')}
+                     className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-sm ${activeReportMode === 'live' ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
+                  >
+                     <div className="flex justify-between items-center mb-1">
+                        <span className={`text-[9px] font-black uppercase tracking-wider ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary opacity-40'}`}>Atual</span>
+                        <div className="flex items-center gap-1">
+                           <div className="w-1 h-1 rounded-full bg-[#10b981] animate-pulse"></div>
+                           <span className="text-[8px] font-black text-[#10b981] uppercase">Live</span>
                         </div>
                      </div>
+                     <p className={`font-bold text-sm tracking-tight transition-colors ${activeReportMode === 'live' ? 'text-primary' : 'text-secondary'}`}>Posição em Aberto</p>
+                     <p className="mt-2 text-xs font-black text-primary/70">{formatCurrency(liveTotal)}</p>
+                  </div>
 
-                     {historyReports.map(r => (
-                        <div 
-                           key={r.id} onClick={() => loadPdfEngineFor(r.id)}
-                           className={`p-4 rounded-xl border transition-all cursor-pointer group relative ${activeReportMode === r.id ? 'border-primary/50 bg-primary/5 scale-[1.02]' : 'border-white/5 bg-secondary/5 hover:border-white/10 hover:lift-subtle'}`}
-                        >
-                           <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                 onClick={(e) => { e.stopPropagation(); handleOpenEditModal(r); }}
-                                 className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-secondary hover:text-primary transition-all"
-                                 title="Editar data"
-                              >
-                                 <Edit2 size={12} />
-                              </button>
-                              <button 
-                                 onClick={(e) => { e.stopPropagation(); handleDeleteReport(r.id); }}
-                                 className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-secondary hover:text-red-500 transition-all"
-                                 title="Excluir fechamento"
-                              >
-                                 <Trash2 size={12} />
-                              </button>
-                           </div>
-
-                           <div className="flex justify-between items-center mb-1">
-                              <span className={`text-[10px] font-semibold uppercase tracking-wider ${activeReportMode === r.id ? 'text-primary' : 'text-secondary opacity-50'}`}>Relatório Mensal</span>
-                           </div>
-                           <p className={`font-semibold text-lg tracking-tight transition-colors ${activeReportMode === r.id ? 'text-primary' : 'text-secondary/80'}`}>{r.month}</p>
-                           <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
-                              <p className="text-sm font-bold text-primary">{formatCurrency(r.total_balance)}</p>
-                              <ArrowRight size={14} className={`transition-all ${activeReportMode === r.id ? 'translate-x-1 text-primary' : 'text-secondary opacity-20'}`} />
-                           </div>
+                  {historyReports.map(r => (
+                     <div 
+                        key={r.id} onClick={() => loadPdfEngineFor(r.id)}
+                        className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-sm ${activeReportMode === r.id ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
+                     >
+                        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                           <button 
+                              onClick={(e) => { e.stopPropagation(); handleOpenEditModal(r); }}
+                              className="p-1 rounded-md bg-primary/50 hover:bg-primary text-secondary hover:text-primary border border-primary/20 transition-all"
+                              title="Editar data"
+                           >
+                              <Edit2 size={10} />
+                           </button>
+                           <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteReport(r.id); }}
+                              className="p-1 rounded-md bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 transition-all"
+                              title="Excluir"
+                           >
+                              <Trash2 size={10} />
+                           </button>
                         </div>
-                     ))}
+                        <div className="mb-1">
+                           <span className={`text-[9px] font-black uppercase tracking-wider ${activeReportMode === r.id ? 'text-primary' : 'text-secondary opacity-40'}`}>
+                              {r.month.split('-').reverse().join('/')}
+                           </span>
+                        </div>
+                        <p className={`font-bold text-sm tracking-tight transition-colors truncate ${activeReportMode === r.id ? 'text-primary' : 'text-secondary'}`}>
+                           Fechamento Mensal
+                        </p>
+                        <p className="mt-2 text-xs font-black text-primary/70">{formatCurrency(r.total_balance)}</p>
+                     </div>
+                  ))}
 
-                    {historyReports.length === 0 && (
-                       <div className="text-center py-10 opacity-40">
-                          <p className="text-xs font-black text-secondary uppercase italic">Nenhum registro</p>
-                       </div>
-                    )}
-                </div>
+                  {historyReports.length === 0 && (
+                     <div className="flex-1 text-center py-6 border border-dashed border-primary rounded-xl opacity-40">
+                        <p className="text-xs font-black text-secondary uppercase italic">Nenhum registro anterior</p>
+                     </div>
+                  )}
              </div>
+          </div>
 
-             <div className="lg:col-span-3 space-y-6">
+          <div className="w-full">
                 {activeReportMode && activeReportData ? (
                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -639,37 +648,39 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
                       {comparisonData && (
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in zoom-in duration-500">
-                            <Card className="p-4 bg-primary/5 border-primary/20">
+                            <Card className="p-4 bg-primary border-primary shadow-sm">
                                <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Patrimônio Anterior ({comparisonData.prevMonth})</p>
                                <p className="text-lg font-black text-primary/80">{formatCurrency(comparisonData.prevBalance)}</p>
                             </Card>
-                            <Card className="p-4 bg-primary/5 border-primary/20">
+                            <Card className="p-4 bg-primary border-primary shadow-sm">
                                <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Variação Nominal</p>
                                <div className="flex items-center gap-2">
-                                  <p className={`text-lg font-black ${comparisonData.diff >= 0 ? 'text-[#10b981]' : 'text-red-500'}`}>
+                                  <p className={`text-lg font-black ${comparisonData.diff >= 0 ? 'text-income' : 'text-danger'}`}>
                                      {comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)}
                                   </p>
-                                  {comparisonData.diff >= 0 ? <TrendingUp size={16} className="text-[#10b981]"/> : <TrendingUp size={16} className="text-red-500 rotate-180"/>}
+                                  {comparisonData.diff >= 0 ? <TrendingUp size={16} className="text-income"/> : <TrendingUp size={16} className="text-danger rotate-180"/>}
                                </div>
                             </Card>
-                            <Card className="p-4 bg-primary/5 border-primary/20">
+                            <Card className="p-4 bg-primary border-primary shadow-sm">
                                <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Rentabilidade Estimada</p>
-                               <p className={`text-lg font-black ${comparisonData.percent >= 0 ? 'text-[#10b981]' : 'text-red-500'}`}>
-                                  {comparisonData.percent >= 0 ? '+' : ''}{comparisonData.percent.toFixed(2)}%
+                               <p className={`text-lg font-black ${comparisonData.percent >= 0 ? 'text-income' : 'text-danger'}`}>
+                                  {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
                                </p>
                             </Card>
                          </div>
                       )}
 
                       <div className="space-y-6">
-                         <Card className="p-0 overflow-hidden bg-secondary/10 border-white/5">
-                            <div className="bg-white/5 p-4 border-b border-white/5">
+                         <div className="space-y-4">
+                             {/* Desktop Table View */}
+                             <Card className="hidden md:block p-0 overflow-hidden bg-primary border-primary shadow-sm">
+                            <div className="bg-tertiary p-4 border-b border-primary">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Balanço de Performance Consolidado (Tabela A)</h4>
                             </div>
                             <div className="overflow-x-auto custom-scrollbar">
                                <table className="w-full text-left border-collapse min-w-[700px]">
                                   <thead>
-                                     <tr className="text-[10px] text-secondary uppercase font-semibold border-b border-white/5 bg-black/20">
+                                     <tr className="text-[10px] text-secondary uppercase font-semibold border-b border-primary bg-secondary">
                                         <th className="p-4">Carteira / Classe</th>
                                         <th className="p-4 text-center">Referência (%)</th>
                                         <th className="p-4 text-center">Índice (Bench)</th>
@@ -677,28 +688,28 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                         <th className="p-4 text-center">Yield Esperado (%)</th>
                                      </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-white/5">
+                                  <tbody className="divide-y divide-[var(--color-border)]">
                                      {sortedTableAData.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                                        <tr key={idx} className="hover:bg-tertiary transition-colors group">
                                            <td className="p-4">
                                               <span className={`text-sm font-bold tracking-tight ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
                                                  {row.label}
                                               </span>
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
                                            </td>
                                            <td className="p-4">
                                               <div className="flex flex-col items-center gap-1">
-                                                 <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} placeholder="0,00" />
+                                                 <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} placeholder="0,00" />
                                                  {row.benchName && <span className="text-[9px] text-secondary font-black uppercase opacity-60">{row.benchName}</span>}
                                               </div>
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
                                            </td>
                                            <td className="p-4">
-                                              <input className="w-full bg-secondary border border-white/10 rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
+                                              <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
                                            </td>
                                         </tr>
                                      ))}
@@ -707,16 +718,58 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                             </div>
                          </Card>
 
+                         {/* Mobile Card View */}
+                         <div className="md:hidden space-y-4">
+                            <div className="px-1">
+                               <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60">Balanço de Performance (Tabela A)</h4>
+                            </div>
+                            {sortedTableAData.map((row, idx) => (
+                               <Card key={idx} className="p-4 bg-primary border-primary shadow-sm space-y-4">
+                                  <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                                     <span className={`text-sm font-black tracking-tight ${row.label === 'Consolidada' ? 'text-primary' : 'text-secondary'}`}>
+                                        {row.label}
+                                     </span>
+                                     <span className="text-[10px] font-black text-secondary/40 uppercase tracking-widest">
+                                        {formatCurrency(row.balance)}
+                                     </span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-3">
+                                     <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Rent. Mês (%)</label>
+                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Rent. Total (%)</label>
+                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <div className="flex justify-between items-center">
+                                           <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Bench. Mês (%)</label>
+                                           {row.benchName && <span className="text-[8px] text-secondary font-black uppercase opacity-60">{row.benchName}</span>}
+                                        </div>
+                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} placeholder="0,00" />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Yield (%)</label>
+                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
+                                     </div>
+                                  </div>
+                               </Card>
+                            ))}
+                         </div>
+                      </div>
+
                          {/* Top Movers - Mês */}
                          {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
                             <div className="grid grid-cols-2 gap-4">
                                {([{t:'Top Altas M\u00eas',l:topMoversMonth.gainers,c:'text-emerald-400'},{t:'Top Baixas M\u00eas',l:topMoversMonth.losers,c:'text-red-400'}] as {t:string,l:typeof topMoversMonth.gainers,c:string}[]).map(({t,l,c})=>(
-                                  <Card key={t} className="p-4 bg-secondary/10 border-white/5">
+                                  <Card key={t} className="p-4 bg-primary border-primary shadow-sm">
                                      <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
                                      {l.map((m,i)=>(
                                         <div key={i} className="flex justify-between text-xs py-0.5">
                                            <span className="text-secondary truncate max-w-[55%]">{m.asset_name}</span>
-                                           <span className={'font-black ' + c}>{m.changePercent>0?'+':''}{m.changePercent.toFixed(2)}%</span>
+                                           <span className={'font-black ' + c}>{m.changePercent>0?'+':''}{formatNumberWithTwoDecimalsBR(m.changePercent)}%</span>
                                         </div>
                                      ))}
                                   </Card>
@@ -727,12 +780,12 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                          {(topMoversYtd.gainers.length > 0 || topMoversYtd.losers.length > 0) && (
                             <div className="grid grid-cols-2 gap-4">
                                {([{t:'Top Altas Ano (YTD)',l:topMoversYtd.gainers,c:'text-blue-400'},{t:'Top Baixas Ano (YTD)',l:topMoversYtd.losers,c:'text-orange-400'}] as {t:string,l:typeof topMoversYtd.gainers,c:string}[]).map(({t,l,c})=>(
-                                  <Card key={t} className="p-4 bg-secondary/10 border-white/5">
+                                  <Card key={t} className="p-4 bg-primary border-primary shadow-sm">
                                      <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
                                      {l.map((m,i)=>(
                                         <div key={i} className="flex justify-between text-xs py-0.5">
                                            <span className="text-secondary truncate max-w-[55%]">{m.asset_name}</span>
-                                           <span className={'font-black ' + c}>{m.changePercent>0?'+':''}{m.changePercent.toFixed(2)}%</span>
+                                           <span className={'font-black ' + c}>{m.changePercent>0?'+':''}{formatNumberWithTwoDecimalsBR(m.changePercent)}%</span>
                                         </div>
                                      ))}
                                   </Card>
@@ -741,47 +794,49 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                          )}
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card className="p-6 bg-secondary/10 border-white/5 col-span-2">
+                            <Card className="p-6 bg-primary border-primary shadow-sm col-span-2">
                                <div className="flex justify-between items-center mb-3">
                                   <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Sumário Executivo</h4>
                                   <button onClick={() => setNotes(generateAutoSuggestions(activePdfAssets, comparisonData))} className="text-[10px] text-primary border border-primary/20 px-3 py-1 rounded-lg hover:bg-primary/10 transition-all font-bold">✨ Auto-sugerir</button>
                                </div>
-                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Sumário executivo e análise técnica..." />
+                               <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Sumário executivo e análise técnica..." />
                             </Card>
-                            <Card className="p-6 bg-secondary/10 border-white/5">
+                            <Card className="p-6 bg-primary border-primary shadow-sm">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Cenário Econômico</h4>
-                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={scenarioNotes} onChange={e=>setScenarioNotes(e.target.value)} placeholder="Análise macro: juros, inflação, câmbio..." />
+                               <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={scenarioNotes} onChange={e=>setScenarioNotes(e.target.value)} placeholder="Análise macro: juros, inflação, câmbio..." />
                             </Card>
-                            <Card className="p-6 bg-secondary/10 border-white/5">
+                            <Card className="p-6 bg-primary border-primary shadow-sm">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Próximos Passos</h4>
-                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={nextSteps} onChange={e=>setNextSteps(e.target.value)} placeholder="Diretrizes para o próximo ciclo..." />
+                               <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={nextSteps} onChange={e=>setNextSteps(e.target.value)} placeholder="Diretrizes para o próximo ciclo..." />
                             </Card>
-                            <Card className="p-6 bg-secondary/10 border-white/5 col-span-2">
+                            <Card className="p-6 bg-primary border-primary shadow-sm col-span-2">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-3">Descrição da Composição Alvo</h4>
-                               <textarea className="w-full bg-black/20 border border-white/10 text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={compositionNotes} onChange={e=>setCompositionNotes(e.target.value)} placeholder="Comentários sobre a alocação atual vs alvo..." />
+                               <textarea className="w-full bg-tertiary border border-primary text-primary rounded-2xl p-4 min-h-[80px] outline-none focus:border-primary transition-all text-sm leading-relaxed scrollbar-hide" value={compositionNotes} onChange={e=>setCompositionNotes(e.target.value)} placeholder="Comentários sobre a alocação atual vs alvo..." />
                             </Card>
                          </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card className="p-6 bg-secondary/10 border-white/5 flex flex-col justify-between">
-                               <div>
-                                  <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Cálculo de Fee Baseado em Patrimônio</h4>
-                                  <Input label="Comissão Mensal (%)" value={feeRate} onChange={e=>setFeeRate(e.target.value)} />
-                               </div>
-                               <div className="p-5 bg-primary/10 rounded-2xl border border-primary/20 text-center mt-6">
-                                  <p className="text-[9px] font-black text-secondary uppercase tracking-widest mb-1 opacity-60">Valor Estimado do Fee</p>
-                                  <p className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(activeReportData.total_balance * (parseFloat(feeRate.replace(',','.')) / 100))}</p>
-                               </div>
-                            </Card>
-                         </div>
+                         <div className="w-full">
+                             <Card className="p-6 bg-primary border-primary shadow-sm">
+                                <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+                                   <div className="flex-1 w-full">
+                                      <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest mb-4">Cálculo de Fee Baseado em Patrimônio</h4>
+                                      <Input label="Comissão Mensal (%)" value={feeRate} onChange={e=>setFeeRate(e.target.value)} />
+                                   </div>
+                                   <div className="p-6 bg-tertiary border border-primary shadow-inner rounded-2xl text-center min-w-[280px] w-full md:w-auto">
+                                      <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1 opacity-60">Valor Estimado do Fee</p>
+                                      <p className="text-4xl font-black text-primary tracking-tighter">{formatCurrency(activeReportData.total_balance * (parseFloat(feeRate.replace(',','.')) / 100))}</p>
+                                   </div>
+                                </div>
+                             </Card>
+                          </div>
 
-                         <Card className="p-6 bg-secondary/10 border-white/5 relative overflow-hidden">
+                         <Card className="p-6 bg-primary border-primary shadow-sm relative overflow-hidden">
                             <div className="flex justify-between items-center mb-6 relative z-10">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Diretriz de Ações Para o Próximo Ciclo</h4>
                                <Button size="sm" variant="ghost" onClick={() => setPlanning([...planning, { acao: '', ativo: '', justificativa: '' }])} className="text-[9px] font-black uppercase text-primary border border-primary/20 hover:bg-primary/20 h-8 px-4">Nova Diretriz</Button>
                             </div>
                             <div className="space-y-3 relative z-10">
                                {planning.map((p, i) => (
-                                  <div key={i} className="group flex flex-col md:flex-row gap-4 p-4 bg-black/30 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                                  <div key={i} className="group flex flex-col md:flex-row gap-4 p-4 bg-primary border-primary shadow-sm hover:border-primary transition-all">
                                      <div className="md:w-1/4">
                                         <label className="text-[9px] font-black text-secondary uppercase block mb-1 opacity-40">Ação</label>
                                         <input className="w-full bg-transparent border-none text-primary font-black text-sm p-0 focus:ring-0" placeholder="Ex: Manter" value={p.acao} onChange={e => {
@@ -809,12 +864,12 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                          </Card>
 
                          <div className="flex items-center gap-6 py-10 opacity-20">
-                            <div className="h-px flex-1 bg-white"></div>
-                            <FileText size={24} className="text-white"/>
-                            <div className="h-px flex-1 bg-white"></div>
+                            <div className="h-px flex-1 bg-secondary"></div>
+                            <FileText size={24} className="text-secondary"/>
+                            <div className="h-px flex-1 bg-secondary"></div>
                          </div>
 
-                         <div className="bg-[#f0f0f0] p-4 md:p-12 overflow-x-auto rounded-3xl border-4 border-white/5">
+                         <div className="bg-secondary p-4 md:p-12 overflow-x-auto rounded-3xl border-4 border-primary">
                             <div className="bg-white shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] mx-auto rounded-sm overflow-hidden" style={{ width: '840px', minWidth: '840px' }}>
                                <div ref={reportRef} className="p-20 text-[12px]" style={{ backgroundColor: '#fff', color: '#111', fontFamily: 'Arial, Helvetica, sans-serif', lineHeight: '1.6' }}>
                                   
@@ -982,7 +1037,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                            <div className="p-4 bg-[#f9f9f9] border border-[#eee]">
                                               <p style={{fontSize: '9px', fontWeight: 'bold', color: '#888', textTransform: 'uppercase'}}>Rentabilidade Líquida</p>
                                               <p style={{fontSize: '18px', fontWeight: '900', color: comparisonData.diff >= 0 ? '#000' : '#d00'}}>
-                                                 {comparisonData.percent >= 0 ? '+' : ''}{comparisonData.percent.toFixed(2)}%
+                                                 {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
                                               </p>
                                            </div>
                                            <div className="p-4 bg-[#f9f9f9] border border-[#eee]">
@@ -1124,7 +1179,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                 )}
              </div>
           </div>
-       </div>
+       
 
 
        <MonthPickerModal 

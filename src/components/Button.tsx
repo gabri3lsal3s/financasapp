@@ -21,7 +21,7 @@ export default function Button({
     primary: 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90',
     secondary: 'border-primary bg-tertiary text-primary hover:bg-primary',
     danger: 'border-[var(--color-danger)] bg-[var(--color-danger)] text-white hover:opacity-90',
-    outline: 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary',
+    outline: 'border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary',
     ghost: 'border-transparent bg-transparent text-secondary hover:text-primary hover:bg-tertiary',
     'ghost-success': 'border-transparent bg-transparent text-secondary hover:text-income hover:bg-[color-mix(in_srgb,var(--color-income)_10%,transparent)]',
     'ghost-danger': 'border-transparent bg-transparent text-secondary hover:text-expense hover:bg-[color-mix(in_srgb,var(--color-expense)_10%,transparent)]',

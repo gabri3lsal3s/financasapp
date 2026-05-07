@@ -19,7 +19,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
-import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Scale, Loader2 } from 'lucide-react'
 import {
@@ -1442,7 +1442,7 @@ export default function Reports() {
                   <Card className="h-full animate-stagger-item delay-200">
                     <p className="text-sm text-secondary">Taxa de saldo do mês</p>
                     <p className={`text-2xl font-bold mt-2 ${savingsRate >= 0 ? 'text-income' : 'text-expense'}`}>
-                      {`${savingsRate.toFixed(1)}%`}
+                      {`${formatNumberWithTwoDecimalsBR(savingsRate)}%`}
                     </p>
                   </Card>
                 </div>
@@ -1604,7 +1604,7 @@ export default function Reports() {
                                 <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
                               </div>
 
-                              <p className="text-[11px] text-secondary mt-1.5">{pct.toFixed(1)}% do total</p>
+                              <p className="text-[11px] text-secondary mt-1.5">{formatNumberWithTwoDecimalsBR(pct)}% do total</p>
                             </button>
                           )
                         })}
@@ -1646,7 +1646,7 @@ export default function Reports() {
                 {' • '}
                 <span style={{ color: detailDifference >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
                   {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
-                  {detailDifferencePct !== null ? ` (${detailDifferencePct >= 0 ? '+' : ''}${detailDifferencePct.toFixed(1)}%)` : ''}
+                  {detailDifferencePct !== null ? ` (${detailDifferencePct >= 0 ? '+' : ''}${formatNumberWithTwoDecimalsBR(detailDifferencePct)}%)` : ''}
                 </span>
               </p>
             </div>

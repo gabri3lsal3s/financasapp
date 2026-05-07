@@ -103,7 +103,7 @@ export default function InvestmentConsulting() {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-secondary/30">
       <PageHeader
         title="Consultoria de Investimentos"
         subtitle="Gerencie a carteira de seus clientes"
@@ -122,8 +122,8 @@ export default function InvestmentConsulting() {
         {loading ? (
            <Loader text="Carregando lista de clientes..." className="py-12" />
         ) : clients.length === 0 ? (
-          <Card className="text-center py-16 space-y-4 bg-secondary/20 border-dashed border-2">
-             <div className="bg-primary/10 p-4 rounded-full w-fit mx-auto">
+          <Card className="text-center py-16 space-y-4 border-dashed border-2 border-primary bg-primary shadow-sm">
+             <div className="bg-tertiary p-4 rounded-full w-fit mx-auto">
                 <Users className="h-10 w-10 text-primary opacity-60" />
              </div>
              <div className="space-y-1">
@@ -143,24 +143,24 @@ export default function InvestmentConsulting() {
               return (
                 <div key={client.id} className={`animate-stagger-item ${staggerClass}`}>
                   <Card 
-                    className="group relative overflow-hidden p-5 hover:border-white/10 transition-all duration-300 cursor-pointer bg-secondary/5 border-white/5 w-full"
+                    className="group relative overflow-hidden p-5 transition-all duration-300 cursor-pointer w-full bg-primary shadow-sm border-primary hover:border-primary/50"
                     onClick={() => navigate(`/admin/consulting/${client.id}`)}
                   >
                     <div className="flex flex-col gap-4">
                       <div className="flex justify-between items-start">
-                        <div className="bg-primary/5 p-2 rounded-xl group-hover:bg-primary/10 transition-colors">
+                        <div className="bg-secondary/50 p-2 rounded-xl group-hover:bg-primary transition-colors border border-primary/20">
                           <Users className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'active' ? 'bg-[#10b981]' : 'bg-gray-500'}`} />
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary border border-primary">
+                            <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'active' ? 'bg-income' : 'bg-secondary'}`} />
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
                               {client.status === 'active' ? 'Ativo' : 'Inativo'}
                             </span>
                           </div>
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleOpenModal(client); }} 
-                            className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-secondary hover:text-primary transition-all active:scale-95"
+                            className="p-1 rounded-lg bg-secondary/50 hover:bg-primary text-secondary hover:text-primary transition-all active:scale-95 border border-primary/20"
                           >
                               <Settings size={14} />
                           </button>
@@ -169,16 +169,16 @@ export default function InvestmentConsulting() {
 
                       <div className="flex items-center justify-between gap-4">
                         <div className="space-y-0.5 min-w-0">
-                          <h3 className="text-lg font-semibold text-primary tracking-tight truncate">
+                          <h3 className="text-lg font-black text-primary tracking-tight truncate uppercase text-[15px]">
                             {client.name}
                           </h3>
                           {client.email ? (
                             <p className="text-sm text-secondary truncate opacity-60 font-medium">{client.email}</p>
                           ) : (
-                            <p className="text-xs text-secondary/30 italic">Sem e-mail</p>
+                            <p className="text-xs text-secondary/50 italic">Sem e-mail</p>
                           )}
                         </div>
-                        <ArrowRight size={20} className="text-secondary/20 group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+                        <ArrowRight size={20} className="text-secondary opacity-30 group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
                       </div>
                     </div>
                   </Card>

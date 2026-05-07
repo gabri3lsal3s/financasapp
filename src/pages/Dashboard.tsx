@@ -15,7 +15,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, formatNumberBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
@@ -765,7 +765,7 @@ export default function Dashboard() {
                                         </span>
                                       )}
                                       <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">
-                                        {formatNumberBR(percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                                        {formatNumberWithTwoDecimalsBR(percentage)}%
                                       </span>
                                     </div>
                                   </div>
