@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
 import ReportCharts from '@/components/ReportCharts';
 import PageHeader from '@/components/PageHeader';
-import { ChevronLeft, Download, Loader2, BarChart2, Save, Calculator, Trash2, ArrowRight, TrendingUp, Edit2, FileText } from 'lucide-react';
+import { ChevronLeft, Download, Loader2, BarChart2, Save, Trash2, TrendingUp, Edit2, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '@/components/Button';
 import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';

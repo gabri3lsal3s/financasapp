@@ -12,13 +12,13 @@ interface SelectProps {
   className?: string
   disabled?: boolean
   required?: boolean
+  onClick?: (e: React.MouseEvent) => void
 }
 
 const Select = forwardRef<HTMLDivElement, SelectProps>(
-  ({ label, error, options, value, onChange, placeholder = 'Selecione...', name, className = '', disabled, required }, ref) => {
+  ({ label, error, options, value, onChange, placeholder = 'Selecione...', name, className = '', disabled, required, onClick }, ref) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
-    const generatedId = useId()
 
     const selectedOption = options.find(opt => opt.value === value)
 
@@ -50,7 +50,10 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
           <button
             type="button"
             disabled={disabled}
-            onClick={() => !disabled && setIsOpen(!isOpen)}
+            onClick={(e) => {
+              onClick?.(e)
+              if (!disabled) setIsOpen(!isOpen)
+            }}
             className={`
               w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium
               ${isOpen 

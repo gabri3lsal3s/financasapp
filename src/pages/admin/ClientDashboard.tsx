@@ -14,11 +14,6 @@ interface Client {
   email: string;
 }
 
-interface Report {
-  id: string;
-  month: string;
-}
-
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();

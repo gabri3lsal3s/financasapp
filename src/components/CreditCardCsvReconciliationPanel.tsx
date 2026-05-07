@@ -913,8 +913,8 @@ export default function CreditCardCsvReconciliationPanel({
                         label="Data"
                         type="date"
                         value={draft.date}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => setMissingDrafts((previous) => previous.map((item) =>
+                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
                           item.id === draft.id ? { ...item, date: event.target.value } : item,
                         ))}
                       />
@@ -924,8 +924,8 @@ export default function CreditCardCsvReconciliationPanel({
                         type="text"
                         inputMode="decimal"
                         value={draft.amount}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => setMissingDrafts((previous) => previous.map((item) =>
+                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
                           item.id === draft.id ? { ...item, amount: event.target.value } : item,
                         ))}
                       />
@@ -933,8 +933,8 @@ export default function CreditCardCsvReconciliationPanel({
                       <Input
                         label="Descrição"
                         value={draft.description}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => setMissingDrafts((previous) => previous.map((item) =>
+                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
                           item.id === draft.id ? { ...item, description: event.target.value } : item,
                         ))}
                       />
@@ -942,8 +942,8 @@ export default function CreditCardCsvReconciliationPanel({
                       <Select
                         label="Categoria"
                         value={draft.category_id}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => setMissingDrafts((previous) => previous.map((item) =>
+                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                        onChange={(event: { target: { value: string; name?: string } }) => setMissingDrafts((previous) => previous.map((item) =>
                           item.id === draft.id ? { ...item, category_id: event.target.value } : item,
                         ))}
                         options={categories.map((category) => ({
@@ -1055,8 +1055,8 @@ export default function CreditCardCsvReconciliationPanel({
                           type="date"
                           value={draft.date}
                           disabled={draft.applied}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => {
+                          onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                             setConflictDrafts((previous) => previous.map((item) =>
                               item.key === draft.key ? { ...item, date: event.target.value } : item,
                             ))
@@ -1069,8 +1069,8 @@ export default function CreditCardCsvReconciliationPanel({
                           inputMode="decimal"
                           value={draft.amount}
                           disabled={draft.applied}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => {
+                          onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                             setConflictDrafts((previous) => previous.map((item) =>
                               item.key === draft.key ? { ...item, amount: event.target.value } : item,
                             ))

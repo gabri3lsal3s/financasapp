@@ -4,10 +4,11 @@ import { Calendar } from 'lucide-react'
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
+  helperText?: string
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, className = '', id, ...props }, ref) => {
+  ({ label, error, helperText, className = '', id, ...props }, ref) => {
     const generatedId = useId()
     const inputId = id ?? generatedId
 
@@ -32,7 +33,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
         </div>
-        {error && <p className="mt-1 text-sm text-[var(--color-danger)]">{error}</p>}
+        {error ? (
+          <p className="mt-1 text-sm text-[var(--color-danger)]">{error}</p>
+        ) : helperText ? (
+          <p className="mt-1 text-xs text-secondary opacity-60">{helperText}</p>
+        ) : null}
       </div>
     )
   }
