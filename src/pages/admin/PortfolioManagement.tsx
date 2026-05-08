@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ChevronLeft, FolderPlus, Edit2, Trash2, Plus, Settings, Loader2, Pencil } from 'lucide-react';
+import { ChevronLeft, FolderPlus, Edit2, Trash2, Plus, Settings, Loader2, Pencil, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -53,10 +53,11 @@ interface Client {
 interface PortfolioManagementProps {
   clientId: string;
   selectedMonth?: string;
+  onReportArchived?: () => Promise<void> | void;
   hideHeader?: boolean;
 }
 
-export default function PortfolioManagement({ clientId, selectedMonth = 'live', hideHeader = false }: PortfolioManagementProps) {
+export default function PortfolioManagement({ clientId, selectedMonth = 'live', onReportArchived, hideHeader = false }: PortfolioManagementProps) {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   
@@ -90,6 +91,10 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
 
   // Movement States
   const [showMovementModal, setShowMovementModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [allHistoricalAssets, setAllHistoricalAssets] = useState<any[]>([]);
+  const [importSearch, setImportSearch] = useState('');
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [movementForm, setMovementForm] = useState({
      asset_id: '',
      contribution: '',
@@ -110,6 +115,51 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
   useEffect(() => {
     if (clientId) fetchPortfolio();
   }, [clientId, selectedMonth]);
+
+   const openImportModal = async () => {
+      setLoadingHistory(true);
+      setShowImportModal(true);
+      try {
+         const { data: reports } = await supabase.from('consulting_reports').select('id, month').eq('client_id', clientId).order('month', { ascending: false });
+         if (reports && reports.length > 0) {
+            const reportIds = reports.map(r => r.id);
+            const { data: histAssets } = await supabase.from('consulting_report_assets').select('*').in('report_id', reportIds);
+            const sortedAssets = (histAssets || []).map(a => {
+               const r = reports.find(rep => rep.id === a.report_id);
+               return { ...a, month: r?.month || '' };
+            }).sort((a,b) => b.month.localeCompare(a.month));
+
+            const unique: any[] = [];
+            const seen = new Set();
+            for (const a of sortedAssets) {
+               if (!seen.has(a.asset_name)) {
+                  unique.push(a);
+                  seen.add(a.asset_name);
+               }
+            }
+            setAllHistoricalAssets(unique);
+         }
+      } catch (e) {
+         console.error(e);
+      } finally {
+         setLoadingHistory(false);
+      }
+   };
+
+   const handleImportAsset = (asset: any) => {
+      setAssetForm({
+         sector_id: asset.sector_id || '',
+         asset_name: asset.asset_name,
+         current_balance: '0,00',
+         applied_amount: asset.applied_amount ? formatMoneyInput(asset.applied_amount) : '',
+         custom_rate: asset.custom_rate || '',
+         maturity_date: asset.maturity_date || '',
+         monthly_contribution: '',
+         monthly_dividends: ''
+      });
+      setShowImportModal(false);
+      setShowAssetModal(true);
+   };
 
   const fetchPortfolio = async () => {
     setLoading(true);
@@ -261,6 +311,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
       if (selectedMonth !== 'live') {
          const newTotal = assets.reduce((sum, a) => sum + (a.id === id ? bal : a.current_balance), 0);
          await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+         if (onReportArchived) onReportArchived();
       }
     } catch(e) {
       console.error(e);
@@ -441,11 +492,11 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
        }
 
        if (selectedMonth !== 'live') {
-          const currentAssets = editingAsset 
+          const newTotal = (editingAsset 
              ? assets.map(a => a.id === editingAsset.id ? { ...a, current_balance: payload.current_balance } : a)
-             : [...assets, { current_balance: payload.current_balance }];
-          const newTotal = currentAssets.reduce((sum, a) => sum + (a.current_balance || 0), 0);
+             : [...assets, { current_balance: payload.current_balance }]).reduce((sum, a) => sum + a.current_balance, 0);
           await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+          if (onReportArchived) onReportArchived();
        }
 
        setShowAssetModal(false);
@@ -489,9 +540,9 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
          setAssets(assets.map(a => a.id === asset.id ? data : a));
          
          if (selectedMonth !== 'live') {
-            const updatedAssets = assets.map(a => a.id === asset.id ? newBalance : a.current_balance);
-            const newTotal = updatedAssets.reduce((acc, curr) => acc + curr, 0);
+            const newTotal = assets.map(a => a.id === asset.id ? { ...a, current_balance: newBalance } : a).reduce((sum, a) => sum + a.current_balance, 0);
             await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+            if (onReportArchived) onReportArchived();
          }
 
          setShowMovementModal(false);
@@ -515,6 +566,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
            const updatedAssets = assets.map(a => a.id === id ? num : a.current_balance);
            const newTotal = updatedAssets.reduce((acc, curr) => acc + curr, 0);
            await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+           if (onReportArchived) onReportArchived();
         }
      } catch(e) {}
   };
@@ -538,7 +590,10 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
      if (selectedMonth !== 'live') {
         const newTotal = assets.filter(a => a.id !== id).reduce((sum, a) => sum + a.current_balance, 0);
         await supabase.from('consulting_reports').update({ total_balance: newTotal }).eq('id', selectedMonth);
+        if (onReportArchived) onReportArchived();
      }
+     
+     setShowAssetModal(false);
   };
 
 
@@ -706,7 +761,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
          });
 
          const orphanSectors = sectors.filter(s => !s.macro_sector_id);
-         const orphanAssets = assets.filter(a => !a.sector_id);
+         const orphanAssets = assets.filter(a => !a.sector_id || !sectors.some(s => s.id === a.sector_id));
          
          type GroupItem = { macroKey: string; macro: PortfolioMacroSector | null; gapPercent: number; items: { sector: PortfolioSector; gapPercent: number; assets: (PortfolioAsset & { gapPercent: number })[] }[] };
 
@@ -782,10 +837,13 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
               
               {selectedMonth === 'live' ? (
                   <div className="flex items-center gap-2 ml-2">
-                     <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
-                        <Plus size={16} /> Movimentação / Proventos
+                     <Button onClick={openImportModal} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                        <Search size={16} /> <span className="hidden sm:inline">Importar</span>
                      </Button>
-                     <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold">
+                     <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                        <Plus size={16} /> Movimentação
+                     </Button>
+                     <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold shadow-lg shadow-primary/20">
                         <Edit2 size={16} /> Atualização Rápida
                      </Button>
                   </div>
@@ -794,10 +852,13 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                      <div className="flex items-center gap-2 p-1.5 px-3 rounded-xl bg-warning/10 text-warning text-[10px] font-black border border-warning/20 uppercase tracking-widest">
                         ⚠️ Histórico
                      </div>
-                     <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
-                        <Plus size={16} /> Movimentação / Proventos
+                     <Button onClick={openImportModal} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                        <Search size={16} /> <span className="hidden sm:inline">Importar</span>
                      </Button>
-                     <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold">
+                     <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="flex items-center gap-2 border-primary/30">
+                        <Plus size={16} /> Movimentação
+                     </Button>
+                     <Button onClick={openQuickUpdate} variant="primary" size="sm" className="flex items-center gap-2 font-bold shadow-lg shadow-primary/20">
                         <Edit2 size={16} /> Atualização Rápida
                      </Button>
                   </div>
@@ -823,6 +884,10 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                 <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Classes">
                    <Settings size={16} />
                    <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Classes</span>
+                </Button>
+                <Button onClick={openImportModal} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Importar do Histórico">
+                   <Search size={16} />
+                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Importar</span>
                 </Button>
                 <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Movimentação / Proventos">
                   <Plus size={16} />
@@ -1335,6 +1400,46 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
 
             <ModalActionFooter onCancel={() => setShowMovementModal(false)} submitLabel="Salvar Movimentação" submitDisabled={saving} />
          </form>
+      </Modal>
+
+      <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Importar Ativo do Histórico">
+         <div className="space-y-4">
+            <p className="text-sm text-secondary">Selecione um ativo que já foi cadastrado em meses anteriores para adicioná-lo ao mês atual.</p>
+            <input
+               autoFocus
+               type="text"
+               placeholder="🔍 Pesquisar no histórico..."
+               value={importSearch}
+               onChange={e => setImportSearch(e.target.value)}
+               className="w-full bg-primary border border-primary rounded-xl px-4 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-secondary/40 shadow-none"
+            />
+            
+            <div className="max-h-[50vh] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+               {loadingHistory ? (
+                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" /></div>
+               ) : allHistoricalAssets.filter(a => !importSearch || a.asset_name.toLowerCase().includes(importSearch.toLowerCase())).map(a => (
+                  <div 
+                     key={a.id} 
+                     onClick={() => handleImportAsset(a)}
+                     className="p-3 bg-secondary/20 hover:bg-tertiary rounded-xl border border-primary/10 cursor-pointer transition-all group flex justify-between items-center"
+                  >
+                     <div>
+                        <div className="font-bold text-primary group-hover:text-primary">{a.asset_name}</div>
+                        <div className="text-[10px] text-secondary/40 font-black uppercase tracking-widest">
+                           Última vez visto em {a.month.split('-').reverse().join('/')}
+                        </div>
+                     </div>
+                     <Plus size={16} className="text-secondary group-hover:text-primary" />
+                  </div>
+               ))}
+               {!loadingHistory && allHistoricalAssets.length === 0 && (
+                  <p className="text-center py-10 text-secondary text-sm italic">Nenhum histórico encontrado.</p>
+               )}
+            </div>
+            <div className="pt-2 flex justify-end">
+               <Button onClick={() => setShowImportModal(false)} variant="outline" size="sm">Fechar</Button>
+            </div>
+         </div>
       </Modal>
    </div>
   );

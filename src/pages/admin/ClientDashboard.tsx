@@ -184,11 +184,22 @@ export default function ClientDashboard() {
       {/* Área de Renderização das Abas */}
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {activeTab === 'portfolio' && clientId && (
-          <PortfolioManagement clientId={clientId} selectedMonth={selectedMonth} hideHeader={true} />
+          <PortfolioManagement 
+            clientId={clientId} 
+            selectedMonth={selectedMonth} 
+            onReportArchived={fetchHistoryReports}
+            hideHeader={true} 
+          />
         )}
         
         {activeTab === 'reports' && clientId && (
-          <ConsultingReports clientId={clientId} selectedMonth={selectedMonth} onReportArchived={fetchHistoryReports} hideHeader={true} />
+          <ConsultingReports 
+            clientId={clientId} 
+            selectedMonth={selectedMonth} 
+            onReportArchived={fetchHistoryReports} 
+            onMonthChange={(month) => setSelectedMonth(month)}
+            hideHeader={true} 
+          />
         )}
       </div>
     </div>

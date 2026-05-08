@@ -8,9 +8,10 @@ interface MonthPickerModalProps {
   value: string; // YYYY-MM
   onChange: (value: string) => void;
   title?: string;
+  showLiveOption?: boolean;
 }
 
-export default function MonthPickerModal({ isOpen, onClose, value, onChange, title = "Selecionar Mês" }: MonthPickerModalProps) {
+export default function MonthPickerModal({ isOpen, onClose, value, onChange, title = "Selecionar Mês", showLiveOption = false }: MonthPickerModalProps) {
   const [year, month] = value ? value.split('-').map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
   const [viewYear, setViewYear] = useState(year);
 
@@ -69,7 +70,15 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
           })}
         </div>
 
-        <div className="pt-2 flex justify-center">
+        <div className="pt-2 flex flex-col items-center gap-3">
+            {showLiveOption && (
+                <button 
+                    onClick={() => { onChange('live'); onClose(); }}
+                    className="w-full py-3 rounded-2xl border border-primary/30 bg-primary/5 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-primary/10 transition-all"
+                >
+                    Copiar para Posição Atual (Live)
+                </button>
+            )}
             <button 
                 onClick={onClose}
                 className="text-xs text-secondary opacity-50 hover:opacity-100 transition-opacity"

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { supabase } from '@/lib/supabase';
 import ReportCharts from '@/components/ReportCharts';
 import PageHeader from '@/components/PageHeader';
-import { ChevronLeft, Download, Loader2, BarChart2, Save, Trash2, TrendingUp, Edit2, FileText } from 'lucide-react';
+import { ChevronLeft, Download, Loader2, BarChart2, Save, Trash2, TrendingUp, Edit2, FileText, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '@/components/Button';
 import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -69,7 +69,19 @@ interface PlanningRow {
   justificativa: string;
 }
 
-export default function ConsultingReports({ clientId, selectedMonth: _selectedMonth, onReportArchived: _onReportArchived, hideHeader = false }: { clientId: string, selectedMonth?: string, onReportArchived?: () => Promise<void>, hideHeader?: boolean }) {
+export default function ConsultingReports({ 
+  clientId, 
+  selectedMonth, 
+  onReportArchived, 
+  onMonthChange,
+  hideHeader = false 
+}: { 
+  clientId: string, 
+  selectedMonth?: string, 
+  onReportArchived?: () => Promise<void> | void, 
+  onMonthChange?: (month: string) => void,
+  hideHeader?: boolean 
+}) {
    const navigate = useNavigate();
    const [clientName, setClientName] = useState<string>('');
   const [liveMacroSectors, setLiveMacroSectors] = useState<PortfolioMacroSector[]>([]);
@@ -107,13 +119,26 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
   const [showEditDateModal, setShowEditDateModal] = useState(false);
   const [reportToEdit, setReportToEdit] = useState<ConsultingReport | null>(null);
   const [newReportMonth, setNewReportMonth] = useState('');
+  const [duplicatingReport, setDuplicatingReport] = useState<ConsultingReport | null>(null);
+  const [showDuplicationMonthModal, setShowDuplicationMonthModal] = useState(false);
+  const [targetDuplicationMonth, setTargetDuplicationMonth] = useState(new Date().toISOString().slice(0, 7));
 
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (clientId) { fetchClientData(clientId); setActiveReportMode(null); }
+    if (clientId) { 
+      fetchClientData(clientId).then(() => {
+        // Se houver um mês selecionado externamente, carrega ele
+        if (selectedMonth) {
+          loadPdfEngineFor(selectedMonth);
+        } else {
+          setActiveReportMode('live');
+          loadPdfEngineFor('live');
+        }
+      }); 
+    }
     else { setLiveAssets([]); setHistoryReports([]); setLiveSectors([]); }
-  }, [clientId]);
+  }, [clientId, selectedMonth]);
 
   const fetchClientData = async (id: string) => {
     setLoading(true);
@@ -196,7 +221,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
       const totalContrib = currentAssets.reduce((s, a) => s + (a.monthly_contribution || 0), 0);
       const totalDivs = currentAssets.reduce((s, a) => s + (a.monthly_dividends || 0), 0);
       const consolidatedRent = totalPrev > 0 
-        ? (((totalCurr - totalPrev - totalContrib) + totalDivs) / totalPrev * 100).toFixed(2)
+        ? ((totalCurr - totalPrev - totalContrib) / totalPrev * 100).toFixed(2)
         : '-';
       const consolidatedYield = totalCurr > 0
         ? (totalDivs / totalCurr * 100).toFixed(2)
@@ -223,7 +248,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
           const divs = curr.reduce((s, a) => s + (a.monthly_dividends || 0), 0);
 
           const rent = prevBal > 0
-            ? (((currBal - prevBal - contribs) + divs) / prevBal * 100).toFixed(2)
+            ? ((currBal - prevBal - contribs) / prevBal * 100).toFixed(2)
             : '-';
           const yld = currBal > 0
             ? (divs / currBal * 100).toFixed(2)
@@ -353,9 +378,9 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
            month: monthStr, 
            total_balance: liveTotal, 
            notes: notes,
-            scenario_notes: scenarioNotes,
-            next_steps: nextSteps,
-            composition_notes: compositionNotes,
+            // scenario_notes: scenarioNotes,
+            // next_steps: nextSteps,
+            // composition_notes: compositionNotes,
             performance_table: tableA,
            planning_actions: planning
         }]).select().single();
@@ -368,8 +393,14 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
         }));
         await supabase.from('consulting_report_assets').insert(frozenAssets);
         alert('Mês arquivado com sucesso!');
+        if (onReportArchived) await onReportArchived();
         fetchClientData(clientId);
-     } catch (err) {} finally { setSavingMonth(false); }
+        // Após arquivar, muda para o novo relatório arquivado
+        if (onMonthChange) onMonthChange(newReport.id);
+     } catch (err) {
+        console.error(err);
+        alert('Erro ao arquivar mês');
+     } finally { setSavingMonth(false); }
   };
 
    const handleUpdateHistoricalReport = async () => {
@@ -378,14 +409,15 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
       try {
          await supabase.from('consulting_reports').update({ 
             notes: notes,
-            scenario_notes: scenarioNotes,
-            next_steps: nextSteps,
-            composition_notes: compositionNotes,
+            // scenario_notes: scenarioNotes,
+            // next_steps: nextSteps,
+            // composition_notes: compositionNotes,
             performance_table: tableA,
             planning_actions: planning
          }).eq('id', activeReportData.id);
  
          toast.success("Histórico atualizado com sucesso");
+         if (onReportArchived) await onReportArchived();
          fetchClientData(clientId);
       } catch (err) {
          toast.error("Erro ao atualizar histórico");
@@ -400,7 +432,9 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
           const { error } = await supabase.from('consulting_reports').delete().eq('id', reportId);
           if (error) throw error;
           toast.success("Fechamento removido");
-          if (activeReportMode === reportId) setActiveReportMode(null);
+          if (activeReportMode === reportId) {
+             if (onMonthChange) onMonthChange('live');
+          }
           fetchClientData(clientId);
       } catch (e) {
           toast.error("Erro ao excluir");
@@ -411,6 +445,97 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
       setReportToEdit(report);
       setNewReportMonth(report.month);
       setShowEditDateModal(true);
+   };
+
+   const handleDuplicateReport = async (report: ConsultingReport) => {
+      setDuplicatingReport(report);
+      setTargetDuplicationMonth(report.month);
+      setShowDuplicationMonthModal(true);
+   };
+
+   const confirmDuplication = async () => {
+      if (!duplicatingReport || !clientId) return;
+      
+      const isTargetLive = targetDuplicationMonth === 'live';
+
+      if (isTargetLive) {
+         if (!window.confirm("Isso irá substituir todos os ativos da Posição Atual (Live) pelos dados deste fechamento. Deseja continuar?")) return;
+      } else if (historyReports.some(r => r.month === targetDuplicationMonth)) {
+         if(!window.confirm(`Deseja substituir os dados de ${targetDuplicationMonth}?`)) return;
+      }
+
+      setSavingMonth(true);
+      try {
+         // 1. Fetch assets to clone BEFORE any deletion
+         const { data: assetsToClone } = await supabase.from('consulting_report_assets').select('*').eq('report_id', duplicatingReport.id);
+         
+         if (isTargetLive) {
+            // DUPLICATE TO LIVE
+            // Delete all current live assets
+            await supabase.from('portfolio_assets').delete().eq('client_id', clientId);
+            
+            // Insert cloned assets into live
+            if (assetsToClone && assetsToClone.length > 0) {
+               const liveAssets = assetsToClone.map(a => ({
+                  client_id: clientId,
+                  asset_name: a.asset_name,
+                  category: a.category,
+                  current_balance: a.current_balance,
+                  target_percentage: a.target_percentage || 0,
+                  sector_id: a.sector_id,
+                  applied_amount: a.applied_amount,
+                  custom_rate: a.custom_rate,
+                  maturity_date: a.maturity_date,
+                  monthly_contribution: a.monthly_contribution || 0,
+                  monthly_dividends: a.monthly_dividends || 0
+               }));
+               await supabase.from('portfolio_assets').insert(liveAssets);
+            }
+            toast.success('Posição Live atualizada com sucesso!');
+         } else {
+            // DUPLICATE TO ANOTHER MONTH
+            const existing = historyReports.find(r => r.month === targetDuplicationMonth);
+            if (existing) {
+               await supabase.from('consulting_reports').delete().eq('id', existing.id);
+            }
+
+            const { data: newReport, error: repErr } = await supabase.from('consulting_reports').insert([{ 
+               client_id: clientId, 
+               month: targetDuplicationMonth, 
+               total_balance: duplicatingReport.total_balance, 
+               notes: duplicatingReport.notes,
+               performance_table: duplicatingReport.performance_table,
+               planning_actions: duplicatingReport.planning_actions
+            }]).select().single();
+            
+            if (repErr) throw repErr;
+
+            if (assetsToClone && assetsToClone.length > 0) {
+               const frozenAssets = assetsToClone.map(a => ({
+                  report_id: newReport.id, 
+                  asset_name: a.asset_name, 
+                  category: a.category, 
+                  current_balance: a.current_balance,
+                  target_percentage: a.target_percentage || 0,
+                  sector_id: a.sector_id, 
+                  applied_amount: a.applied_amount, 
+                  custom_rate: a.custom_rate, 
+                  maturity_date: a.maturity_date,
+                  monthly_contribution: a.monthly_contribution || 0,
+                  monthly_dividends: a.monthly_dividends || 0
+               }));
+               await supabase.from('consulting_report_assets').insert(frozenAssets);
+            }
+            toast.success('Relatório duplicado com sucesso!');
+         }
+
+         if (onReportArchived) await onReportArchived();
+         setShowDuplicationMonthModal(false);
+         fetchClientData(clientId);
+      } catch (err) {
+         console.error(err);
+         toast.error('Erro na duplicação');
+      } finally { setSavingMonth(false); }
    };
 
   const loadPdfEngineFor = async (mode: 'live' | string) => {
@@ -433,6 +558,16 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
            const { data } = await supabase.from('consulting_report_assets').select('*').eq('report_id', rep.id);
            const assetsFromSnapshot = (data || []) as PortfolioAsset[];
            setActivePdfAssets(assetsFromSnapshot);
+
+           // SYNC total_balance if mismatched
+           const calculatedTotal = assetsFromSnapshot.reduce((acc, a) => acc + (a.current_balance || 0), 0);
+           if (Math.abs(calculatedTotal - rep.total_balance) > 0.1) {
+              console.log("Syncing total_balance for", rep.month);
+              await supabase.from('consulting_reports').update({ total_balance: calculatedTotal }).eq('id', rep.id);
+              // Update local state to match
+              setHistoryReports(prev => prev.map(r => r.id === rep.id ? { ...r, total_balance: calculatedTotal } : r));
+              setActiveReportData({ ...rep, total_balance: calculatedTotal });
+           }
            
            if (rep.performance_table && Object.keys(rep.performance_table).length > 0) {
               const backfilled = { ...rep.performance_table };
@@ -464,9 +599,13 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
    const comparisonData = useMemo(() => {
      if (!activeReportData) return null;
-     const currentIndex = historyReports.findIndex(r => r.id === activeReportData.id);
-     const prevReport = currentIndex > 0 ? historyReports[currentIndex - 1] : 
-                        (activeReportMode === 'live' && historyReports.length > 0 ? historyReports[historyReports.length - 1] : null);
+     // historyReports is sorted descending (newest first) by default. 
+     // We sort ascending to find the true previous month correctly.
+     const sorted = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
+     const currentIndex = sorted.findIndex(r => r.id === activeReportData.id);
+     
+     const prevReport = currentIndex > 0 ? sorted[currentIndex - 1] : 
+                        (activeReportMode === 'live' && sorted.length > 0 ? sorted[sorted.length - 1] : null);
      
      if (!prevReport) return null;
      
@@ -474,13 +613,15 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
      const totalDividends = activePdfAssets.reduce((sum, a) => sum + (a.monthly_dividends || 0), 0);
 
      const nominalChange = activeReportData.total_balance - prevReport.total_balance;
-     const realGain = nominalChange - totalContributions; // Capital gain (excluding new money)
-     const totalReturn = realGain + totalDividends; // Total performance (capital gain + income)
-     const percent = (totalReturn / prevReport.total_balance) * 100;
+     const netGain = nominalChange - totalContributions;
+     
+     const percent = prevReport.total_balance > 0 ? (netGain / prevReport.total_balance) * 100 : 0;
+      const yieldPercent = prevReport.total_balance > 0 ? (totalDividends / prevReport.total_balance) * 100 : 0;
      
      return {
         prevBalance: prevReport.total_balance,
-        diff: totalReturn,
+        diff: netGain,
+         yieldPercent,
         percent,
         nominalChange,
         totalContributions,
@@ -561,7 +702,8 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
   };
 
   const evolutionData = useMemo(() => {
-     let data = historyReports.map(r => ({ month: formatMonthShort(r.month), Patrimônio: r.total_balance }));
+     const sorted = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
+     let data = sorted.map(r => ({ month: formatMonthShort(r.month), Patrimônio: r.total_balance }));
      data.push({ month: 'Atual', Patrimônio: liveTotal });
      return data;
   }, [historyReports, liveTotal]);
@@ -659,7 +801,7 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
              
              <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 custom-scrollbar -mx-1">
                   <div 
-                     onClick={() => loadPdfEngineFor('live')}
+                     onClick={() => onMonthChange ? onMonthChange('live') : loadPdfEngineFor('live')}
                      className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-none ${activeReportMode === 'live' ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
                   >
                      <div className="flex justify-between items-center mb-1">
@@ -675,10 +817,17 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
 
                   {historyReports.map(r => (
                      <div 
-                        key={r.id} onClick={() => loadPdfEngineFor(r.id)}
+                        key={r.id} onClick={() => onMonthChange ? onMonthChange(r.id) : loadPdfEngineFor(r.id)}
                         className={`flex-shrink-0 w-48 p-4 rounded-xl border transition-all cursor-pointer group relative shadow-none ${activeReportMode === r.id ? 'border-primary bg-primary/10 ring-2 ring-primary/20' : 'border-primary bg-primary hover:bg-tertiary'}`}
                      >
                         <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                           <button 
+                              onClick={(e) => { e.stopPropagation(); handleDuplicateReport(r); }}
+                              className="p-1 rounded-md bg-primary/50 hover:bg-primary text-secondary hover:text-primary border border-primary/20 transition-all"
+                              title="Duplicar fechamento"
+                           >
+                              <Copy size={10} />
+                           </button>
                            <button 
                               onClick={(e) => { e.stopPropagation(); handleOpenEditModal(r); }}
                               className="p-1 rounded-md bg-primary/50 hover:bg-primary text-secondary hover:text-primary border border-primary/20 transition-all"
@@ -1134,14 +1283,14 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                   {/* 3. MOVIMENTAÇÕES DO MÊS */}
                                   {comparisonData && (
                                      <>
-                                        <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>3. MOVIMENTAÇÕES DO MÊS ({comparisonData.prevMonth})</h3>
+                                        <h3 className="font-black uppercase mb-6 text-[18px] border-b-[3px] pb-2" style={{ borderColor: "#000", color: "#000" }}>3. MOVIMENTAÇÕES DO MÊS ({comparisonData.prevMonth.split('-').reverse().join('/')})</h3>
                                         <div className="grid grid-cols-4 gap-4 mb-6">
                                            <div className="p-4 border border-[#eee]">
-                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Evolução Patrimonial</p>
-                                              <p style={{fontSize: '16px', fontWeight: '900', color: comparisonData.nominalChange >= 0 ? '#000' : '#d00'}}>
-                                                 {comparisonData.nominalChange >= 0 ? '+' : ''}{formatCurrency(comparisonData.nominalChange)}
+                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Rentabilidade Nominal</p>
+                                              <p style={{fontSize: '16px', fontWeight: '900', color: comparisonData.diff >= 0 ? '#000' : '#d00'}}>
+                                                 {comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)}
                                               </p>
-                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Saldo Final vs Inicial</p>
+                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>({comparisonData.percent >= 0 ? '+' : ''}{comparisonData.percent.toFixed(2)}%)</p>
                                            </div>
                                            <div className="p-4 border border-[#eee]">
                                               <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Aporte Líquido</p>
@@ -1152,19 +1301,17 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
                                            </div>
                                            <div className="p-4 border border-[#eee]">
                                               <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Proventos Recebidos</p>
-                                              <p style={{fontSize: '16px', fontWeight: '900', color: '#10b981'}}>
-                                                 +{formatCurrency(comparisonData.totalDividends)}
+                                              <p style={{fontSize: '16px', fontWeight: '900', color: '#000'}}>
+                                                 {formatCurrency(comparisonData.totalDividends)}
                                               </p>
-                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Dividendos e Rendimentos</p>
+                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Dividend Yield: {comparisonData.yieldPercent.toFixed(2)}%</p>
                                            </div>
                                            <div className="p-4 border border-[#eee]">
-                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#555', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Rentabilidade Real (Gain)</p>
-                                              <p style={{fontSize: '18px', fontWeight: '900', color: comparisonData.percent >= 0 ? '#000' : '#d00'}}>
-                                                 {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
+                                              <p style={{fontSize: '8px', fontWeight: '900', color: '#888', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px'}}>Rentabilidade do Período</p>
+                                              <p style={{fontSize: '16px', fontWeight: '900', color: comparisonData.percent >= 0 ? '#000' : '#d00'}}>
+                                                 {comparisonData.percent >= 0 ? '+' : ''}{comparisonData.percent.toFixed(2)}%
                                               </p>
-                                              <p style={{fontSize: '8px', color: '#888', fontWeight: 'bold', marginTop: '4px'}}>
-                                                 {comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)} • Performance (Ganho + Proventos)
-                                              </p>
+                                              <p style={{fontSize: '8px', color: '#bbb', fontWeight: 'bold', marginTop: '4px', textTransform: 'uppercase'}}>Ganho Real: {formatCurrency(comparisonData.diff)}</p>
                                            </div>
                                         </div>
 
@@ -1334,6 +1481,17 @@ export default function ConsultingReports({ clientId, selectedMonth: _selectedMo
           </div>
        
 
+
+       <MonthPickerModal
+          isOpen={showDuplicationMonthModal}
+          onClose={() => setShowDuplicationMonthModal(false)}
+          value={targetDuplicationMonth}
+          onChange={(val) => {
+             setTargetDuplicationMonth(val);
+             setTimeout(() => confirmDuplication(), 100);
+          }}
+          title="Duplicar para qual mês?"
+       />
 
        <MonthPickerModal 
           isOpen={showEditDateModal} 
