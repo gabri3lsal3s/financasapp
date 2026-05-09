@@ -150,15 +150,15 @@ export default function ConsultingReports({
       const { data: macData } = await supabase.from('portfolio_macro_sectors').select('*').eq('client_id', id);
       setLiveMacroSectors(macData || []);
 
-      const { data: secData } = await supabase.from('portfolio_sectors').select('*').eq('client_id', clientId);
+      const { data: secData } = await supabase.from('portfolio_sectors').select('*').eq('client_id', id);
       setLiveSectors(secData || []);
 
-      const { data: assetsData } = await supabase.from('portfolio_assets').select('*').eq('client_id', clientId);
+      const { data: assetsData } = await supabase.from('portfolio_assets').select('*').eq('client_id', id);
       const live = assetsData || [];
       setLiveAssets(live);
       setLiveTotal(live.reduce((acc, a) => acc + a.current_balance, 0));
 
-      const { data: reportsData } = await supabase.from('consulting_reports').select('*').eq('client_id', clientId).order('month', { ascending: false });
+      const { data: reportsData } = await supabase.from('consulting_reports').select('*').eq('client_id', id).order('month', { ascending: false });
       const history = (reportsData || []) as ConsultingReport[];
       setHistoryReports(history);
       
@@ -181,8 +181,16 @@ export default function ConsultingReports({
       let baseStart = start;
       let effectiveContrib = contrib;
       if (start === 0) {
-         if (contrib !== 0) baseStart = 0;
-         else if (applied > 0) baseStart = applied;
+         if (contrib !== 0) {
+            baseStart = 0;
+         } else if (applied > 0) {
+            baseStart = applied;
+         } else {
+            // If we have a balance but no previous balance, no contribution and no applied amount,
+            // assume the current balance was added this month (0% profit) rather than 100% gain.
+            effectiveContrib = curr;
+            baseStart = 0;
+         }
       }
       const isFixedIncome = assetName.toUpperCase().includes('CDB') || 
                           assetName.toUpperCase().includes('TESOURO') || 
@@ -209,14 +217,25 @@ export default function ConsultingReports({
   };
 
   const getMacroName = (assetName: string, refAssets: PortfolioAsset[]) => {
-    const a = refAssets.find(x => x.asset_name === assetName);
-    if (!a) return 'Outros';
-    const s = liveSectors.find(ls => ls.id === a.sector_id);
-    const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
-    return m?.name || s?.macro_category || a.category || 'Outros';
-  };
+     // Search for the asset in the reference list (could be current or past assets)
+     const a = refAssets.find(x => x.asset_name.trim().toLowerCase() === assetName.trim().toLowerCase());
+     if (!a) return 'Outros';
+     
+     // Normalize the category name
+     const category = (a.category || '').trim();
+     if (category && category !== 'Outros') return category;
+
+     const s = liveSectors.find(ls => ls.id === a.sector_id);
+     const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
+     return m?.name || s?.macro_category || 'Outros';
+   };
 
   const computeTopMovers = async (currentAssets: PortfolioAsset[], currentReportId: string) => {
+    const getBenchmarkForMacro = (_macroName: string) => {
+       // Return existing benchmark from state if available, otherwise return '-'
+       // We stop automatic mapping to follow the user's manual organization
+       return '-';
+    };
     const currentMonthMovements = currentAssets.map(a => ({
       asset_name: a.asset_name,
       monthly_contribution: a.monthly_contribution,
@@ -228,27 +247,39 @@ export default function ConsultingReports({
     const prevReport = currentIdx > 0 ? sortedHistory[currentIdx - 1] : null;
 
 
-    const getMacroMetricsForPeriod = (startAssets: PortfolioAsset[], endAssets: PortfolioAsset[], periodMovements: any[]) => {
+    const getMacroMetricsForPeriod = (startAssets: PortfolioAsset[], endAssets: PortfolioAsset[], periodMovements: any[], useApplied: boolean = true) => {
       const periodMap: Record<string, { profit: number, basis: number, dividends: number, currBal: number }> = {};
+      
+      const startMap = new Map(startAssets.map(a => [a.asset_name.trim().toLowerCase(), a]));
+      const endMap = new Map(endAssets.map(a => [a.asset_name.trim().toLowerCase(), a]));
+      
+      const movMap = new Map<string, any[]>();
+      periodMovements.forEach(m => {
+        const name = m.asset_name.trim().toLowerCase();
+        if (!movMap.has(name)) movMap.set(name, []);
+        movMap.get(name)!.push(m);
+      });
+
       const allAssetNames = Array.from(new Set([
-        ...startAssets.map(a => a.asset_name),
-        ...endAssets.map(a => a.asset_name)
+        ...startMap.keys(),
+        ...endMap.keys()
       ]));
 
       allAssetNames.forEach(name => {
-        const start = startAssets.find(sa => sa.asset_name === name);
-        const end = endAssets.find(ea => ea.asset_name === name);
-        const movements = periodMovements.filter(pm => pm.asset_name === name);
+        const start = startMap.get(name);
+        const end = endMap.get(name);
+        const movements = movMap.get(name) || [];
         
         const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
         const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
         const endBal = end ? end.current_balance : 0;
         const startBal = start ? start.current_balance : 0;
         
-        const { profit, basis } = calcPerformance(endBal, startBal, totalContrib, totalDivs, end?.applied_amount, name);
+        const { profit, basis } = calcPerformance(endBal, startBal, totalContrib, totalDivs, useApplied ? end?.applied_amount : 0, name);
         
         const key = getMacroName(name, end ? [end] : [start!]);
         if (!periodMap[key]) periodMap[key] = { profit: 0, basis: 0, dividends: 0, currBal: 0 };
+        
         periodMap[key].profit += profit;
         periodMap[key].basis += basis;
         periodMap[key].dividends += totalDivs;
@@ -262,40 +293,53 @@ export default function ConsultingReports({
     if (prevReport) {
       const { data: prevAssetsData } = await supabase.from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
       const prevAssets = (prevAssetsData || []) as PortfolioAsset[];
-
-      const monthlyMetrics = getMacroMetricsForPeriod(prevAssets, currentAssets, currentAssets.map(a => ({
-        asset_name: a.asset_name,
-        monthly_contribution: a.monthly_contribution,
-        monthly_dividends: a.monthly_dividends
-      })));
+      const monthlyMetrics = getMacroMetricsForPeriod(prevAssets, currentAssets, currentMonthMovements, false);
 
       setTableA(prevTable => {
         const updated = { ...prevTable };
         Object.entries(monthlyMetrics).forEach(([key, m]) => {
-           if (updated[key]) {
-              const rent = m.basis > 0 ? (m.profit / m.basis * 100).toFixed(2) : '-';
-              const yld = m.basis > 0 ? (m.dividends / m.basis * 100).toFixed(2) : '-';
-              const yldCurr = m.currBal > 0 ? (m.dividends / m.currBal * 100).toFixed(2) : '-';
-              updated[key] = { ...updated[key], rentMês: rent, yield: yld, yieldCurrent: yldCurr, balance: m.currBal };
+           // Aggressive matching: exact -> startsWith -> includes -> substring
+           const keyLow = key.toLowerCase().trim();
+           const targetKey = Object.keys(updated).find(k => {
+              const kLow = k.toLowerCase().trim();
+              return kLow === keyLow || kLow.includes(keyLow) || keyLow.includes(kLow);
+           });
+           
+           if (targetKey) {
+              const rent = m.basis > 1 ? (m.profit / m.basis * 100).toFixed(2) : '-';
+              const yld = m.basis > 1 ? (m.dividends / m.basis * 100).toFixed(2) : '-';
+              
+              updated[targetKey] = { 
+                 ...updated[targetKey], 
+                 rentMês: rent,
+                 yield: yld, 
+                 yieldCurrent: yld, 
+                 balance: m.currBal
+              };
            }
         });
+        
         const totalProfit = Object.values(monthlyMetrics).reduce((s, x) => s + x.profit, 0);
         const totalBasis = Object.values(monthlyMetrics).reduce((s, x) => s + x.basis, 0);
         const totalDivs = Object.values(monthlyMetrics).reduce((s, x) => s + x.dividends, 0);
         const totalCurrBal = Object.values(monthlyMetrics).reduce((s, x) => s + x.currBal, 0);
+        
         if (updated['Consolidada']) {
-           updated['Consolidada'].rentMês = totalBasis > 10 ? (totalProfit / totalBasis * 100).toFixed(2) : '-';
-           updated['Consolidada'].yield = totalBasis > 10 ? (totalDivs / totalBasis * 100).toFixed(2) : '-';
-           updated['Consolidada'].yieldCurrent = totalCurrBal > 10 ? (totalDivs / totalCurrBal * 100).toFixed(2) : '-';
-           updated['Consolidada'].balance = totalCurrBal;
+           updated['Consolidada'] = {
+              ...updated['Consolidada'],
+              rentMês: totalBasis > 10 ? (totalProfit / totalBasis * 100).toFixed(2) : '-',
+              yield: totalBasis > 10 ? (totalDivs / totalBasis * 100).toFixed(2) : '-',
+              yieldCurrent: totalBasis > 10 ? (totalDivs / totalBasis * 100).toFixed(2) : '-',
+              balance: totalCurrBal
+           };
         }
         return updated;
       });
 
       // Individual Movers
       const movers: AssetMover[] = currentAssets.map(a => {
-        const prev = prevAssets.find(p => p.asset_name === a.asset_name);
-        const { profit, percent, basis } = calcPerformance(a.current_balance, prev?.current_balance || 0, a.monthly_contribution || 0, a.monthly_dividends || 0, a.applied_amount);
+        const prev = prevAssets.find(p => p.asset_name.trim().toLowerCase() === a.asset_name.trim().toLowerCase());
+        const { profit, percent, basis } = calcPerformance(a.current_balance, prev?.current_balance || 0, a.monthly_contribution || 0, a.monthly_dividends || 0, 0);
         
         if (basis <= 10) return null; // Avoid noise for tiny positions
         return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: basis, changePercent: percent, changeValue: profit };
@@ -327,55 +371,73 @@ export default function ConsultingReports({
         ? [...(yearMovements || []), ...currentMonthMovements]
         : (yearMovements || []);
 
-      // If janReport is the same as current report, YTD performance is the same as Monthly
-      // But Monthly is already '-' if it's the first report.
+      // If janReport is the same as current report, YTD performance is not applicable
       if (janReport.id !== currentReportId) {
-        const ytdMacroMetrics = getMacroMetricsForPeriod(janAssets, currentAssets, ytdMovements);
+        const ytdMacroMetrics = getMacroMetricsForPeriod(janAssets, currentAssets, ytdMovements, false);
         setTableA(prev => {
           const u = { ...prev };
           Object.entries(ytdMacroMetrics).forEach(([key, m]) => {
-             if (u[key]) u[key].rentYtd = m.basis > 10 ? (m.profit / m.basis * 100).toFixed(2) : '-';
+             const keyLow = key.toLowerCase().trim();
+             const targetKey = Object.keys(u).find(k => {
+                const kLow = k.toLowerCase().trim();
+                return kLow === keyLow || kLow.includes(keyLow) || keyLow.includes(kLow);
+             });
+             if (targetKey) {
+                u[targetKey] = {
+                   ...u[targetKey],
+                   rentYtd: m.basis > 10 ? (m.profit / m.basis * 100).toFixed(2) : '-'
+                };
+             }
           });
           const totalProfitYtd = Object.values(ytdMacroMetrics).reduce((s, x) => s + x.profit, 0);
           const totalBasisYtd = Object.values(ytdMacroMetrics).reduce((s, x) => s + x.basis, 0);
-          if (u['Consolidada']) u['Consolidada'].rentYtd = totalBasisYtd > 10 ? (totalProfitYtd / totalBasisYtd * 100).toFixed(2) : '-';
+          if (u['Consolidada']) {
+             u['Consolidada'] = {
+                ...u['Consolidada'],
+                rentYtd: totalBasisYtd > 10 ? (totalProfitYtd / totalBasisYtd * 100).toFixed(2) : '-'
+             };
+          }
           return u;
+        });
+
+        // Individual YTD Movers
+        const moversYtd: AssetMover[] = currentAssets.map(a => {
+          const jan = janAssets.find(j => j.asset_name.trim().toLowerCase() === a.asset_name.trim().toLowerCase());
+          const movements = (yearMovements || []).filter(m => m.asset_name.trim().toLowerCase() === a.asset_name.trim().toLowerCase());
+          const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
+          const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
+          
+          const { profit, percent, basis } = calcPerformance(a.current_balance, jan?.current_balance || 0, totalContrib, totalDivs, 0, a.asset_name);
+          if (basis <= 10) return null;
+          return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: basis, changePercent: percent, changeValue: profit };
+        }).filter(Boolean) as AssetMover[];
+
+        const soldMovers: AssetMover[] = janAssets.filter(ja => !currentAssets.some(a => a.asset_name.trim().toLowerCase() === ja.asset_name.trim().toLowerCase())).map(ja => {
+           const movements = (yearMovements || []).filter(m => m.asset_name.trim().toLowerCase() === ja.asset_name.trim().toLowerCase());
+           const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
+           const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
+           const { profit, percent, basis } = calcPerformance(0, ja.current_balance, totalContrib, totalDivs, 0, ja.asset_name);
+           if (basis <= 10) return null;
+           return { asset_name: ja.asset_name, category: ja.category, currentBalance: 0, prevBalance: basis, changePercent: percent, changeValue: profit };
+        }).filter(Boolean) as AssetMover[];
+
+        const allMoversYtd = [...moversYtd, ...soldMovers].sort((a, b) => b.changePercent - a.changePercent);
+        setTopMoversYtd({
+          gainers: allMoversYtd.filter(m => m.changePercent > 0.01).slice(0, 5),
+          losers: allMoversYtd.filter(m => m.changePercent < -0.01).slice(-5).reverse()
         });
       } else {
         // First month/report: YTD is not applicable
         setTableA(prev => {
           const u = { ...prev };
-          Object.keys(u).forEach(k => { u[k].rentYtd = '-'; });
+          Object.keys(u).forEach(k => { 
+             u[k].rentYtd = '-'; 
+             if (!u[k].benchName) u[k].benchName = getBenchmarkForMacro(k);
+          });
           return u;
         });
+        setTopMoversYtd({ gainers: [], losers: [] });
       }
-
-      // Individual YTD Movers
-      const moversYtd: AssetMover[] = currentAssets.map(a => {
-        const jan = janAssets.find(j => j.asset_name === a.asset_name);
-        const movements = (yearMovements || []).filter(m => m.asset_name === a.asset_name);
-        const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
-        const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
-        
-        const { profit, percent, basis } = calcPerformance(a.current_balance, jan?.current_balance || 0, totalContrib, totalDivs, a.applied_amount, a.asset_name);
-        if (basis <= 10) return null;
-        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: basis, changePercent: percent, changeValue: profit };
-      }).filter(Boolean) as AssetMover[];
-
-      const soldMovers: AssetMover[] = janAssets.filter(ja => !currentAssets.some(a => a.asset_name === ja.asset_name)).map(ja => {
-         const movements = (yearMovements || []).filter(m => m.asset_name === ja.asset_name);
-         const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
-         const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
-         const { profit, percent, basis } = calcPerformance(0, ja.current_balance, totalContrib, totalDivs, 0, ja.asset_name);
-         if (basis <= 10) return null;
-         return { asset_name: ja.asset_name, category: ja.category, currentBalance: 0, prevBalance: basis, changePercent: percent, changeValue: profit };
-      }).filter(Boolean) as AssetMover[];
-
-      const allMoversYtd = [...moversYtd, ...soldMovers].sort((a, b) => b.changePercent - a.changePercent);
-      setTopMoversYtd({
-        gainers: allMoversYtd.filter(m => m.changePercent > 0.01).slice(0, 5),
-        losers: allMoversYtd.filter(m => m.changePercent < -0.01).slice(-5).reverse()
-      });
     } else {
       setTopMoversYtd({ gainers: [], losers: [] });
     }
@@ -396,18 +458,29 @@ export default function ConsultingReports({
       setTableA(prev => {
          const u = { ...prev };
          Object.entries(totalMacroMetrics).forEach(([key, m]) => {
-            if (u[key]) u[key].rentTotal = m.basis > 10 ? (m.profit / m.basis * 100).toFixed(2) : '-';
+            if (u[key]) {
+               u[key] = { ...u[key], rentTotal: m.basis > 10 ? (m.profit / m.basis * 100).toFixed(2) : '-' };
+               u[key] = { ...u[key], yieldCurrent: m.basis > 10 ? (m.dividends / m.basis * 100).toFixed(2) : '-' };
+            }
          });
          const totalProfitAll = Object.values(totalMacroMetrics).reduce((s, x) => s + x.profit, 0);
          const totalBasisAll = Object.values(totalMacroMetrics).reduce((s, x) => s + x.basis, 0);
-         if (u['Consolidada']) u['Consolidada'].rentTotal = totalBasisAll > 10 ? (totalProfitAll / totalBasisAll * 100).toFixed(2) : '-';
+         const totalDivsAll = Object.values(totalMacroMetrics).reduce((s, x) => s + x.dividends, 0);
+         if (u['Consolidada']) {
+            u['Consolidada'].rentTotal = totalBasisAll > 10 ? (totalProfitAll / totalBasisAll * 100).toFixed(2) : '-';
+            u['Consolidada'].yieldCurrent = totalBasisAll > 10 ? (totalDivsAll / totalBasisAll * 100).toFixed(2) : '-';
+         }
          return u;
       });
     } else {
       // First month/report: Total is not applicable
       setTableA(prev => {
         const u = { ...prev };
-        Object.keys(u).forEach(k => { u[k].rentTotal = '-'; });
+        Object.keys(u).forEach(k => { 
+          u[k].rentTotal = '-'; 
+          // For the first month, Total Yield is same as Monthly Yield
+          u[k].yieldCurrent = u[k].yield;
+        });
         return u;
       });
     }
@@ -656,8 +729,8 @@ export default function ConsultingReports({
                   applied_amount: a.applied_amount, 
                   custom_rate: a.custom_rate, 
                   maturity_date: a.maturity_date,
-                  monthly_contribution: a.monthly_contribution || 0,
-                  monthly_dividends: a.monthly_dividends || 0
+                  monthly_contribution: 0,
+                  monthly_dividends: 0
                }));
                await supabase.from('consulting_report_assets').insert(frozenAssets);
             }
@@ -716,6 +789,11 @@ export default function ConsultingReports({
            if (rep.performance_table && Object.keys(rep.performance_table).length > 0) {
               const backfilled = { ...rep.performance_table };
               Object.keys(backfilled).forEach(k => {
+                 const row = backfilled[k];
+                 if (row.rentYtd === undefined || row.rentYtd === null) row.rentYtd = '-';
+                 if (row.rentTotal === undefined || row.rentTotal === null) row.rentTotal = '-';
+                 if (row.yieldCurrent === undefined || row.yieldCurrent === null) row.yieldCurrent = '-';
+                 
                  if (!backfilled[k].benchName || backfilled[k].benchName === '-') {
                     backfilled[k].benchName = getDefaultBenchName(backfilled[k].label);
                  }
@@ -758,33 +836,28 @@ export default function ConsultingReports({
 
 
       activePdfAssets.forEach(a => {
-         const p = prevAssets.find(pa => pa.asset_name === a.asset_name);
          const contrib = a.monthly_contribution || 0;
          const divs = a.monthly_dividends || 0;
+         totalContributions += contrib;
+         totalDividends += divs;
 
+         const p = prevAssets.find(pa => pa.asset_name.trim().toLowerCase() === a.asset_name.trim().toLowerCase());
          if (p) {
-            totalContributions += contrib;
-            totalDividends += divs;
-            totalProfit += (a.current_balance - p.current_balance - contrib + divs);
-            totalBasis += p.current_balance;
+            totalBasis += p.current_balance + (contrib / 2);
          } else {
-            const initial = a.applied_amount || a.current_balance;
-            totalContributions += (initial + contrib);
-            totalDividends += divs;
-            totalProfit += (a.current_balance - initial - contrib + divs);
-            totalBasis += initial;
+            totalBasis += Math.abs(contrib || a.current_balance);
          }
       });
 
       prevAssets.forEach(p => {
-         if (!activePdfAssets.some(a => a.asset_name === p.asset_name)) {
-            totalContributions -= p.current_balance;
+         if (!activePdfAssets.some(a => a.asset_name.trim().toLowerCase() === p.asset_name.trim().toLowerCase())) {
             totalBasis += p.current_balance;
          }
       });
 
       const currentTotal = activeReportMode === 'live' ? liveTotal : activeReportData.total_balance;
-      const nominalChange = currentTotal - prevReport.total_balance;
+      const nominalChange = currentTotal - (prevReport.total_balance || 0);
+      totalProfit = nominalChange - totalContributions + totalDividends;
       const yieldPercent = totalBasis > 0 ? (totalDividends / totalBasis * 100) : 0;
       const rentPercent = totalBasis > 0 ? (totalProfit / totalBasis * 100) : 0;
      
@@ -1103,12 +1176,12 @@ export default function ConsultingReports({
                                   <thead>
                                      <tr className="text-[10px] text-secondary uppercase font-semibold border-b border-primary bg-secondary">
                                         <th className="p-4">Carteira / Classe</th>
-                                        <th className="p-4 text-center">Mês de Referência (%)</th>
-                                        <th className="p-4 text-center">Year to Date (YTD)</th>
-                                        <th className="p-4 text-center">Rentabilidade Total (%)</th>
+                                        <th className="p-4 text-center">Rent. Mês (%)</th>
+                                        <th className="p-4 text-center">Rent. Ano (YTD)</th>
+                                        <th className="p-4 text-center">Rent. Total (%)</th>
                                         <th className="p-4 text-center">Índice (Bench)</th>
-                                        <th className="p-4 text-center text-income">Yield Cost (%)</th>
-                                        <th className="p-4 text-center text-primary">Yield Current (%)</th>
+                                        <th className="p-4 text-center text-income">Yield Mês (%)</th>
+                                        <th className="p-4 text-center text-primary">Yield Total (%)</th>
                                      </tr>
                                   </thead>
                                   <tbody className="divide-y divide-[var(--color-border)]">
@@ -1196,11 +1269,11 @@ export default function ConsultingReports({
                                         </div>
                                      </div>
                                      <div className="space-y-1">
-                                        <div className="text-[10px] text-secondary/40 uppercase font-black">Yield Cost</div>
+                                        <div className="text-[10px] text-secondary/40 uppercase font-black">Yield Mês</div>
                                         <div className="text-xs font-black text-income">{row.yield !== '-' ? `${row.yield}%` : '-'}</div>
                                      </div>
                                      <div className="space-y-1">
-                                        <div className="text-[10px] text-secondary/40 uppercase font-black">Yield Curr.</div>
+                                        <div className="text-[10px] text-secondary/40 uppercase font-black">Yield Total</div>
                                         <div className="text-xs font-black text-primary">{row.yieldCurrent !== '-' ? `${row.yieldCurrent}%` : '-'}</div>
                                      </div>
                                   </div>
@@ -1434,12 +1507,12 @@ export default function ConsultingReports({
                                      <thead>
                                         <tr style={{ borderBottom: '1px solid #eee', fontSize: '8pt', color: '#666', textTransform: 'uppercase' }}>
                                          <th style={{ padding: '8pt', textAlign: 'left' }}>Carteira / Classe</th>
-                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Mês Ref. (%)</th>
-                                         <th style={{ padding: '8pt', textAlign: 'center' }}>YTD (%)</th>
-                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Total (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Rent. Mês (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Rent. Ano (YTD)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Rent. Total (%)</th>
                                          <th style={{ padding: '8pt', textAlign: 'center' }}>Bench (%)</th>
-                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Yield Cost</th>
-                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Yield Current</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Yield Mês (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Yield Total (%)</th>
                                          <th style={{ padding: '8pt', textAlign: 'right' }}>Valor Consolidado</th>
                                       </tr>
                                      </thead>
