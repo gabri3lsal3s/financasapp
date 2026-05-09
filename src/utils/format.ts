@@ -80,8 +80,11 @@ export function formatCurrencyCompactBR(value: number): string {
   return `R$${formatNumberWithTwoDecimalsBR(value)}`
 }
 
-export function parseMoneyInput(value: string): number {
-  const cleaned = value
+export function parseMoneyInput(value: string | number | undefined | null): number {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === 'number') return value;
+  
+  const cleaned = String(value)
     .trim()
     .replace(/\s/g, '')
     .replace(/R\$/g, '')

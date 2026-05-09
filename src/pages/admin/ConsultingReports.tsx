@@ -50,17 +50,17 @@ interface ConsultingReport {
   planning_actions?: PlanningRow[];
 }
 
-// Constants moved or no longer needed in this scope
-
-
 interface TableARow {
   label: string;
   rentMês: string;
-  benchMês: string; // This will now store the percentage value
-  benchName?: string; // This will store the index name (CDI, IBOV...)
-  rentInício: string;
-  benchInício: string;
-  yield: string;
+  benchMês: string; 
+  benchName?: string; 
+  rentYtd: string;
+  rentTotal: string;
+  rentInício: string; // legacy field used as Rent Total in some parts
+  benchInício?: string;
+  yield: string; // Yield on Cost
+  yieldCurrent: string; // Current Yield
 }
 
 interface PlanningRow {
@@ -90,6 +90,7 @@ export default function ConsultingReports({
   const [liveTotal, setLiveTotal] = useState(0);
 
   const [historyReports, setHistoryReports] = useState<ConsultingReport[]>([]);
+  const [prevAssets, setPrevAssets] = useState<PortfolioAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingMonth, setSavingMonth] = useState(false);
 
@@ -128,7 +129,6 @@ export default function ConsultingReports({
   useEffect(() => {
     if (clientId) { 
       fetchClientData(clientId).then(() => {
-        // Se houver um mês selecionado externamente, carrega ele
         if (selectedMonth) {
           loadPdfEngineFor(selectedMonth);
         } else {
@@ -161,130 +161,275 @@ export default function ConsultingReports({
       const history = (reportsData || []) as ConsultingReport[];
       setHistoryReports(history);
       
+      if (activeReportMode !== 'none') {
+          const sorted = [...history].sort((a, b) => a.month.localeCompare(b.month));
+          const currentIdx = activeReportMode === 'live' ? sorted.length : sorted.findIndex(r => r.id === activeReportMode);
+          const prevReport = currentIdx > 0 ? sorted[currentIdx - 1] : null;
+          if (prevReport) {
+             const { data: pa } = await supabase.from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
+             setPrevAssets(pa || []);
+          } else {
+             setPrevAssets([]);
+          }
+      }
 
     } catch (err) {} finally { setLoading(false); }
   };
 
-  // ─── Top Movers helpers ───────────────────────────────────────────────────
   const computeTopMovers = async (currentAssets: PortfolioAsset[], currentReportId: string) => {
-    // Month-over-month: get prev report assets
     const currentReport = historyReports.find(r => r.id === currentReportId);
     const sortedHistory = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
     const currentIdx = sortedHistory.findIndex(r => r.id === currentReportId);
     const prevReport = currentIdx > 0 ? sortedHistory[currentIdx - 1] : null;
 
-    let monthMovers = { gainers: [] as AssetMover[], losers: [] as AssetMover[] };
-    if (prevReport) {
-      const { data: prevAssets } = await supabase.from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
-      const prev = (prevAssets || []) as PortfolioAsset[];
-      const movers: AssetMover[] = currentAssets.map(a => {
-        const p = prev.find(pa => pa.asset_name === a.asset_name);
-        if (!p || p.current_balance === 0) return null;
-        const changeValue = a.current_balance - p.current_balance;
-        const changePercent = (changeValue / p.current_balance) * 100;
-        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: p.current_balance, changePercent, changeValue };
-      }).filter(Boolean) as AssetMover[];
-      movers.sort((a, b) => b.changePercent - a.changePercent);
-      monthMovers = { gainers: movers.filter(m => m.changePercent > 0).slice(0, 5), losers: movers.filter(m => m.changePercent < 0).slice(-5).reverse() };
-    }
-    setTopMoversMonth(monthMovers);
+    // Core Calculation Logic
+    const calcPerformance = (curr: number, start: number, contrib: number, divs: number, applied: number = 0, assetName: string = '') => {
+       // 1. Determine the actual baseline (Start)
+       // If no previous month balance, we use the Applied Amount (Cost Basis) ONLY IF no contribution was recorded.
+       // If a contribution exists for a new asset, the contribution IS the start-of-month baseline flow.
+       let baseStart = start;
+       let effectiveContrib = contrib;
 
-    // ── Auto-fill Table A performance per macro group ─────────────────────
-    if (prevReport) {
-      const { data: prevAssetsForTable } = await supabase
-        .from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
-      const prev = (prevAssetsForTable || []) as PortfolioAsset[];
+       if (start === 0) {
+          if (contrib !== 0) {
+             // New purchase this month: Start is 0, Basis will be the contribution.
+             baseStart = 0;
+          } else if (applied > 0) {
+             // Existing asset newly added to tracking: Use cost basis as starting point.
+             baseStart = applied;
+          }
+       }
+       
+       const isFixedIncome = assetName.toUpperCase().includes('CDB') || 
+                           assetName.toUpperCase().includes('TESOURO') || 
+                           assetName.toUpperCase().includes('SELIC') || 
+                           assetName.toUpperCase().includes('IPCA') || 
+                           assetName.toUpperCase().includes('LCI') || 
+                           assetName.toUpperCase().includes('LCA') ||
+                           assetName.toUpperCase().includes('POUPANÇA') ||
+                           assetName.toUpperCase().includes('RENDA FIXA');
 
-      const getMacroName = (asset: PortfolioAsset) => {
-        const s = liveSectors.find(ls => ls.id === asset.sector_id);
-        const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
-        return m?.name || s?.macro_category || asset.category || 'Outros';
-      };
+       // 2. Heuristics for missing records (Aportes/Vendas esquecidos)
+       // Only apply if the user didn't record ANY movement (contrib === 0)
+       if (baseStart > 0 && contrib === 0) {
+          const ratio = curr / baseStart;
+          const upThreshold = isFixedIncome ? 1.05 : 1.5;
+          if (ratio > upThreshold) effectiveContrib = curr - baseStart;
+          
+          const downThreshold = isFixedIncome ? 0.98 : 0.5;
+          if (ratio < downThreshold) effectiveContrib = curr - baseStart;
+       }
 
-      // Group current assets by macro
-      const macroGroups: Record<string, { curr: PortfolioAsset[], prev: PortfolioAsset[] }> = {};
-      currentAssets.forEach(a => {
-        const key = getMacroName(a);
-        if (!macroGroups[key]) macroGroups[key] = { curr: [], prev: [] };
-        macroGroups[key].curr.push(a);
+       // 3. Profit Calculation: Organic Gain = End - Start - Net_Flows + Dividends
+       const profit = curr - baseStart - effectiveContrib + divs;
+       
+       // 4. Basis for percentage (Average Capital)
+       let basis = baseStart;
+       if (baseStart === 0) {
+          // New asset: Basis is the contribution or balance.
+          basis = Math.abs(effectiveContrib || curr);
+       } else {
+          // Simple Dietz: Basis = Start + (Net Contribution / 2)
+          basis = baseStart + effectiveContrib / 2;
+       }
+       
+       const safeBasis = Math.max(basis, 0.1);
+       const percent = (profit / safeBasis) * 100;
+       
+       return { profit, percent, basis: safeBasis };
+    };
+
+    const getMacroName = (assetName: string, refAssets: PortfolioAsset[]) => {
+      const a = refAssets.find(x => x.asset_name === assetName);
+      if (!a) return 'Outros';
+      const s = liveSectors.find(ls => ls.id === a.sector_id);
+      const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
+      return m?.name || s?.macro_category || a.category || 'Outros';
+    };
+
+    const getMacroMetricsForPeriod = (startAssets: PortfolioAsset[], endAssets: PortfolioAsset[], periodMovements: any[]) => {
+      const periodMap: Record<string, { profit: number, basis: number, dividends: number, currBal: number }> = {};
+      const allAssetNames = Array.from(new Set([
+        ...startAssets.map(a => a.asset_name),
+        ...endAssets.map(a => a.asset_name)
+      ]));
+
+      allAssetNames.forEach(name => {
+        const start = startAssets.find(sa => sa.asset_name === name);
+        const end = endAssets.find(ea => ea.asset_name === name);
+        const movements = periodMovements.filter(pm => pm.asset_name === name);
+        
+        const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
+        const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
+        const endBal = end ? end.current_balance : 0;
+        const startBal = start ? start.current_balance : 0;
+        
+        const { profit, basis } = calcPerformance(endBal, startBal, totalContrib, totalDivs, end?.applied_amount, name);
+        
+        const key = getMacroName(name, end ? [end] : [start!]);
+        if (!periodMap[key]) periodMap[key] = { profit: 0, basis: 0, dividends: 0, currBal: 0 };
+        periodMap[key].profit += profit;
+        periodMap[key].basis += basis;
+        periodMap[key].dividends += totalDivs;
+        periodMap[key].currBal += endBal;
       });
-      // Add prev assets to their groups
-      prev.forEach(a => {
-        const key = getMacroName(a);
-        if (!macroGroups[key]) macroGroups[key] = { curr: [], prev: [] };
-        macroGroups[key].prev.push(a);
-      });
+      
+      return periodMap;
+    };
 
-      // Totals for consolidated
-      const totalCurr = currentAssets.reduce((s, a) => s + a.current_balance, 0);
-      const totalPrev = prev.reduce((s, a) => s + a.current_balance, 0);
-      const totalContrib = currentAssets.reduce((s, a) => s + (a.monthly_contribution || 0), 0);
-      const totalDivs = currentAssets.reduce((s, a) => s + (a.monthly_dividends || 0), 0);
-      const consolidatedRent = totalPrev > 0 
-        ? ((totalCurr - totalPrev - totalContrib) / totalPrev * 100).toFixed(2)
-        : '-';
-      const consolidatedYield = totalCurr > 0
-        ? (totalDivs / totalCurr * 100).toFixed(2)
-        : '-';
+    // 1. Monthly Metrics
+    if (prevReport) {
+      const { data: prevAssetsData } = await supabase.from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
+      const prevAssets = (prevAssetsData || []) as PortfolioAsset[];
 
-      setTableA(prev => {
-        const updated = { ...prev };
+      const monthlyMetrics = getMacroMetricsForPeriod(prevAssets, currentAssets, currentAssets.map(a => ({
+        asset_name: a.asset_name,
+        monthly_contribution: a.monthly_contribution,
+        monthly_dividends: a.monthly_dividends
+      })));
 
-        // Update Consolidada
-        if (updated['Consolidada']) {
-          updated['Consolidada'] = {
-            ...updated['Consolidada'],
-            rentMês: consolidatedRent !== '-' ? consolidatedRent : updated['Consolidada'].rentMês,
-            yield: consolidatedYield !== '-' ? consolidatedYield : updated['Consolidada'].yield,
-          };
-        }
-
-        // Update each macro group
-        Object.entries(macroGroups).forEach(([macroKey, { curr, prev: prevG }]) => {
-          if (!updated[macroKey]) return;
-          const currBal = curr.reduce((s, a) => s + a.current_balance, 0);
-          const prevBal = prevG.reduce((s, a) => s + a.current_balance, 0);
-          const contribs = curr.reduce((s, a) => s + (a.monthly_contribution || 0), 0);
-          const divs = curr.reduce((s, a) => s + (a.monthly_dividends || 0), 0);
-
-          const rent = prevBal > 0
-            ? ((currBal - prevBal - contribs) / prevBal * 100).toFixed(2)
-            : '-';
-          const yld = currBal > 0
-            ? (divs / currBal * 100).toFixed(2)
-            : '-';
-
-          updated[macroKey] = {
-            ...updated[macroKey],
-            rentMês: rent !== '-' ? rent : updated[macroKey].rentMês,
-            yield: yld !== '-' ? yld : updated[macroKey].yield,
-          };
+      setTableA(prevTable => {
+        const updated = { ...prevTable };
+        Object.entries(monthlyMetrics).forEach(([key, m]) => {
+           if (updated[key]) {
+              const rent = m.basis > 0 ? (m.profit / m.basis * 100).toFixed(2) : '-';
+              const yld = m.basis > 0 ? (m.dividends / m.basis * 100).toFixed(2) : '-';
+              const yldCurr = m.currBal > 0 ? (m.dividends / m.currBal * 100).toFixed(2) : '-';
+              updated[key] = { ...updated[key], rentMês: rent, yield: yld, yieldCurrent: yldCurr, balance: m.currBal };
+           }
         });
-
+        const totalProfit = Object.values(monthlyMetrics).reduce((s, x) => s + x.profit, 0);
+        const totalBasis = Object.values(monthlyMetrics).reduce((s, x) => s + x.basis, 0);
+        const totalDivs = Object.values(monthlyMetrics).reduce((s, x) => s + x.dividends, 0);
+        const totalCurrBal = Object.values(monthlyMetrics).reduce((s, x) => s + x.currBal, 0);
+        if (updated['Consolidada']) {
+           updated['Consolidada'].rentMês = totalBasis > 10 ? (totalProfit / totalBasis * 100).toFixed(2) : '-';
+           updated['Consolidada'].yield = totalBasis > 10 ? (totalDivs / totalBasis * 100).toFixed(2) : '-';
+           updated['Consolidada'].yieldCurrent = totalCurrBal > 10 ? (totalDivs / totalCurrBal * 100).toFixed(2) : '-';
+           updated['Consolidada'].balance = totalCurrBal;
+        }
         return updated;
       });
-    }
-    // ─────────────────────────────────────────────────────────────────────
 
-    // YTD: find Jan of current year
-    const currentYear = currentReport?.month?.slice(0, 4) || new Date().getFullYear().toString();
-    const janReport = sortedHistory.find(r => r.month.startsWith(`${currentYear}-01`) || r.month.startsWith(`${currentYear}-02`)) ||
-                      sortedHistory.find(r => r.month.startsWith(currentYear));
-    let ytdMovers = { gainers: [] as AssetMover[], losers: [] as AssetMover[] };
-    if (janReport && janReport.id !== currentReportId) {
-      const { data: janAssets } = await supabase.from('consulting_report_assets').select('*').eq('report_id', janReport.id);
-      const jan = (janAssets || []) as PortfolioAsset[];
+      // Individual Movers
       const movers: AssetMover[] = currentAssets.map(a => {
-        const j = jan.find(ja => ja.asset_name === a.asset_name);
-        if (!j || j.current_balance === 0) return null;
-        const changeValue = a.current_balance - j.current_balance;
-        const changePercent = (changeValue / j.current_balance) * 100;
-        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: j.current_balance, changePercent, changeValue };
+        const prev = prevAssets.find(p => p.asset_name === a.asset_name);
+        const { profit, percent, basis } = calcPerformance(a.current_balance, prev?.current_balance || 0, a.monthly_contribution || 0, a.monthly_dividends || 0, a.applied_amount);
+        
+        if (basis <= 10) return null; // Avoid noise for tiny positions
+        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: basis, changePercent: percent, changeValue: profit };
       }).filter(Boolean) as AssetMover[];
+
       movers.sort((a, b) => b.changePercent - a.changePercent);
-      ytdMovers = { gainers: movers.filter(m => m.changePercent > 0).slice(0, 5), losers: movers.filter(m => m.changePercent < 0).slice(-5).reverse() };
+      setTopMoversMonth({
+         gainers: movers.filter(m => m.changePercent > 0.01).slice(0, 5),
+         losers: movers.filter(m => m.changePercent < -0.01).slice(-5).reverse()
+      });
+    } else {
+      setTopMoversMonth({ gainers: [], losers: [] });
     }
-    setTopMoversYtd(ytdMovers);
+
+    // 2. YTD Metrics
+    const currentYear = currentReport?.month?.slice(0, 4) || new Date().getFullYear().toString();
+    const janReport = sortedHistory.find(r => r.month.startsWith(`${currentYear}-01`)) || sortedHistory.find(r => r.month.startsWith(currentYear));
+    
+    if (janReport) {
+      const { data: janAssetsData } = await supabase.from('consulting_report_assets').select('*').eq('report_id', janReport.id);
+      const janAssets = (janAssetsData || []) as PortfolioAsset[];
+      const yearReports = sortedHistory.filter(r => r.month >= janReport.month && r.month <= (currentReport?.month || ''));
+      const reportIds = yearReports.map(r => r.id);
+      const { data: yearMovements } = await supabase.from('consulting_report_assets').select('asset_name, monthly_contribution, monthly_dividends').in('report_id', reportIds);
+      
+      // Only add current live movements if we're in live mode. 
+      // If we're viewing an archived report, the movements are already in yearMovements.
+      const ytdMovements = activeReportMode === 'live' 
+        ? [...(yearMovements || []), ...currentMonthMovements]
+        : (yearMovements || []);
+
+      // If janReport is the same as current report, YTD performance is the same as Monthly
+      // But Monthly is already '-' if it's the first report.
+      if (janReport.id !== currentReportId) {
+        const ytdMacroMetrics = getMacroMetricsForPeriod(janAssets, currentAssets, ytdMovements);
+        setTableA(prev => {
+          const u = { ...prev };
+          Object.entries(ytdMacroMetrics).forEach(([key, m]) => {
+             if (u[key]) u[key].rentYtd = m.basis > 10 ? (m.profit / m.basis * 100).toFixed(2) : '-';
+          });
+          const totalProfitYtd = Object.values(ytdMacroMetrics).reduce((s, x) => s + x.profit, 0);
+          const totalBasisYtd = Object.values(ytdMacroMetrics).reduce((s, x) => s + x.basis, 0);
+          if (u['Consolidada']) u['Consolidada'].rentYtd = totalBasisYtd > 10 ? (totalProfitYtd / totalBasisYtd * 100).toFixed(2) : '-';
+          return u;
+        });
+      } else {
+        // First month/report: YTD is not applicable
+        setTableA(prev => {
+          const u = { ...prev };
+          Object.keys(u).forEach(k => { u[k].rentYtd = '-'; });
+          return u;
+        });
+      }
+
+      // Individual YTD Movers
+      const moversYtd: AssetMover[] = currentAssets.map(a => {
+        const jan = janAssets.find(j => j.asset_name === a.asset_name);
+        const movements = (yearMovements || []).filter(m => m.asset_name === a.asset_name);
+        const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
+        const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
+        
+        const { profit, percent, basis } = calcPerformance(a.current_balance, jan?.current_balance || 0, totalContrib, totalDivs, a.applied_amount, a.asset_name);
+        if (basis <= 10) return null;
+        return { asset_name: a.asset_name, category: a.category, currentBalance: a.current_balance, prevBalance: basis, changePercent: percent, changeValue: profit };
+      }).filter(Boolean) as AssetMover[];
+
+      const soldMovers: AssetMover[] = janAssets.filter(ja => !currentAssets.some(a => a.asset_name === ja.asset_name)).map(ja => {
+         const movements = (yearMovements || []).filter(m => m.asset_name === ja.asset_name);
+         const totalContrib = movements.reduce((s, x) => s + (x.monthly_contribution || 0), 0);
+         const totalDivs = movements.reduce((s, x) => s + (x.monthly_dividends || 0), 0);
+         const { profit, percent, basis } = calcPerformance(0, ja.current_balance, totalContrib, totalDivs, 0, ja.asset_name);
+         if (basis <= 10) return null;
+         return { asset_name: ja.asset_name, category: ja.category, currentBalance: 0, prevBalance: basis, changePercent: percent, changeValue: profit };
+      }).filter(Boolean) as AssetMover[];
+
+      const allMoversYtd = [...moversYtd, ...soldMovers].sort((a, b) => b.changePercent - a.changePercent);
+      setTopMoversYtd({
+        gainers: allMoversYtd.filter(m => m.changePercent > 0.01).slice(0, 5),
+        losers: allMoversYtd.filter(m => m.changePercent < -0.01).slice(-5).reverse()
+      });
+    } else {
+      setTopMoversYtd({ gainers: [], losers: [] });
+    }
+
+    // 3. Total Metrics (since first closure)
+    const firstReport = sortedHistory[0];
+    const allMovementsIds = sortedHistory.filter(r => r.month <= (currentReport?.month || '')).map(r => r.id);
+    const { data: firstAssetsData } = await supabase.from('consulting_report_assets').select('*').eq('report_id', firstReport.id);
+    const firstAssets = (firstAssetsData || []) as PortfolioAsset[];
+    const { data: allMovements } = await supabase.from('consulting_report_assets').select('asset_name, monthly_contribution, monthly_dividends').in('report_id', allMovementsIds);
+    
+    const totalMovements = activeReportMode === 'live'
+      ? [...(allMovements || []), ...currentMonthMovements]
+      : (allMovements || []);
+
+    if (firstReport.id !== currentReportId) {
+      const totalMacroMetrics = getMacroMetricsForPeriod(firstAssets, currentAssets, totalMovements);
+      setTableA(prev => {
+         const u = { ...prev };
+         Object.entries(totalMacroMetrics).forEach(([key, m]) => {
+            if (u[key]) u[key].rentTotal = m.basis > 10 ? (m.profit / m.basis * 100).toFixed(2) : '-';
+         });
+         const totalProfitAll = Object.values(totalMacroMetrics).reduce((s, x) => s + x.profit, 0);
+         const totalBasisAll = Object.values(totalMacroMetrics).reduce((s, x) => s + x.basis, 0);
+         if (u['Consolidada']) u['Consolidada'].rentTotal = totalBasisAll > 10 ? (totalProfitAll / totalBasisAll * 100).toFixed(2) : '-';
+         return u;
+      });
+    } else {
+      // First month/report: Total is not applicable
+      setTableA(prev => {
+        const u = { ...prev };
+        Object.keys(u).forEach(k => { u[k].rentTotal = '-'; });
+        return u;
+      });
+    }
   };
 
   const generateAutoSuggestions = (assets: PortfolioAsset[], compData: typeof comparisonData) => {
@@ -318,14 +463,12 @@ export default function ConsultingReports({
     if (!prevReport) { toast('Não há relatório anterior para copiar.'); return; }
     if (prevReport.notes) setNotes(prevReport.notes);
     if (prevReport.performance_table) setTableA(prev => ({
-      ...Object.fromEntries(Object.entries(prevReport.performance_table!).map(([k, v]) => [k, { ...v, rentMês: '-' }])),
+      ...Object.fromEntries(Object.entries(prevReport.performance_table!).map(([k, v]) => [k, { ...v, rentMês: '-', rentInício: '-', yield: '-', yieldCurrent: '-' }])),
       ...Object.fromEntries(Object.keys(prev).filter(k => !prevReport.performance_table![k]).map(k => [k, prev[k]]))
     }));
     if (prevReport.planning_actions?.length) setPlanning(prevReport.planning_actions);
     toast.success('Dados copiados do mês anterior!');
   };
-
-
 
   const getDefaultBenchName = (macroName: string) => {
       const mn = macroName.toLowerCase();
@@ -338,26 +481,35 @@ export default function ConsultingReports({
    };
 
   const initTableA = (assetsArray: PortfolioAsset[]) => {
-     const macroNames = liveMacroSectors.length > 0 ? liveMacroSectors.map(m => m.name) : [...new Set(assetsArray.map(a => {
-        const s = liveSectors.find(ls => ls.id === a.sector_id);
-        return s ? s.macro_category : a.category;
-     }))];
+     // Ensure we include all keys that assets actually map to
+     const dynamicKeys = [...new Set(assetsArray.map(a => getMacroName(a.asset_name, [a])))];
+     const macroNames = liveMacroSectors.length > 0 ? liveMacroSectors.map(m => m.name) : [];
      
-     const macros = ['Consolidada', ...macroNames];
+     // Merge both: explicit macros + any other keys found in assets
+     const macros = [...new Set(['Consolidada', ...macroNames, ...dynamicKeys])];
      
      const newTable: Record<string, TableARow> = {};
      const lastReport = historyReports.length > 0 ? historyReports[historyReports.length - 1] : null;
 
      macros.forEach(m => {
           const pastRow = lastReport?.performance_table?.[m];
+          const curAssets = assetsArray.filter(a => getMacroName(a.asset_name, [a]) === m);
+          const curBal = m === 'Consolidada' 
+             ? assetsArray.reduce((s, a) => s + a.current_balance, 0)
+             : curAssets.reduce((s, a) => s + a.current_balance, 0);
+
           newTable[m] = {
              label: m,
-             rentMês: '-', // Rentabilidade do mês atual deve ser preenchida
+             rentMês: '-', 
              benchMês: pastRow?.benchMês || '-',
              benchName: pastRow?.benchName || getDefaultBenchName(m),
-             rentInício: pastRow?.rentInício || '-', // Carrega o acumulado
+             rentYtd: '-',
+             rentTotal: '-',
+             rentInício: '-', 
              benchInício: pastRow?.benchInício || '-',
-             yield: pastRow?.yield || '-'
+             yield: '-',
+             yieldCurrent: '-',
+             balance: curBal
           }
        });
        setTableA(newTable);
@@ -378,24 +530,29 @@ export default function ConsultingReports({
            month: monthStr, 
            total_balance: liveTotal, 
            notes: notes,
-            // scenario_notes: scenarioNotes,
-            // next_steps: nextSteps,
-            // composition_notes: compositionNotes,
-            performance_table: tableA,
+           scenario_notes: scenarioNotes,
+           next_steps: nextSteps,
+           composition_notes: compositionNotes,
+           performance_table: tableA,
            planning_actions: planning
         }]).select().single();
-        const frozenAssets = liveAssets.map(a => ({
-           report_id: newReport.id, asset_name: a.asset_name, category: a.category, current_balance: a.current_balance,
-           target_percentage: a.target_percentage || 0,
-           sector_id: a.sector_id, applied_amount: a.applied_amount, custom_rate: a.custom_rate, maturity_date: a.maturity_date,
-           monthly_contribution: a.monthly_contribution || 0,
-           monthly_dividends: a.monthly_dividends || 0
-        }));
+         const frozenAssets = liveAssets.map(a => ({
+            report_id: newReport.id, 
+            asset_name: a.asset_name, 
+            category: a.category, 
+            current_balance: Math.round(a.current_balance * 100) / 100,
+            target_percentage: Math.round((a.target_percentage || 0) * 10000) / 10000,
+            sector_id: a.sector_id, 
+            applied_amount: a.applied_amount ? Math.round(a.applied_amount * 100) / 100 : null, 
+            custom_rate: a.custom_rate, 
+            maturity_date: a.maturity_date,
+            monthly_contribution: Math.round((a.monthly_contribution || 0) * 100) / 100,
+            monthly_dividends: Math.round((a.monthly_dividends || 0) * 100) / 100
+         }));
         await supabase.from('consulting_report_assets').insert(frozenAssets);
         alert('Mês arquivado com sucesso!');
         if (onReportArchived) await onReportArchived();
         fetchClientData(clientId);
-        // Após arquivar, muda para o novo relatório arquivado
         if (onMonthChange) onMonthChange(newReport.id);
      } catch (err) {
         console.error(err);
@@ -409,9 +566,9 @@ export default function ConsultingReports({
       try {
          await supabase.from('consulting_reports').update({ 
             notes: notes,
-            // scenario_notes: scenarioNotes,
-            // next_steps: nextSteps,
-            // composition_notes: compositionNotes,
+            scenario_notes: scenarioNotes,
+            next_steps: nextSteps,
+            composition_notes: compositionNotes,
             performance_table: tableA,
             planning_actions: planning
          }).eq('id', activeReportData.id);
@@ -453,28 +610,26 @@ export default function ConsultingReports({
       setShowDuplicationMonthModal(true);
    };
 
-   const confirmDuplication = async () => {
+   const confirmDuplication = async (targetMonth: string) => {
       if (!duplicatingReport || !clientId) return;
       
-      const isTargetLive = targetDuplicationMonth === 'live';
+      const isTargetLive = targetMonth === 'live';
 
       if (isTargetLive) {
-         if (!window.confirm("Isso irá substituir todos os ativos da Posição Atual (Live) pelos dados deste fechamento. Deseja continuar?")) return;
-      } else if (historyReports.some(r => r.month === targetDuplicationMonth)) {
-         if(!window.confirm(`Deseja substituir os dados de ${targetDuplicationMonth}?`)) return;
+         if (!window.confirm(`Isso irá substituir todos os ativos da Posição Atual (Live) pelos dados do fechamento de ${duplicatingReport.month}. Deseja continuar?`)) return;
+      } else if (historyReports.some(r => r.month === targetMonth)) {
+         if(!window.confirm(`Já existe um fechamento em ${targetMonth}. Deseja substituí-lo pelos dados de ${duplicatingReport.month}?`)) return;
+      } else {
+         if(!window.confirm(`Deseja duplicar o fechamento de ${duplicatingReport.month} para ${targetMonth}?`)) return;
       }
 
       setSavingMonth(true);
       try {
-         // 1. Fetch assets to clone BEFORE any deletion
          const { data: assetsToClone } = await supabase.from('consulting_report_assets').select('*').eq('report_id', duplicatingReport.id);
          
          if (isTargetLive) {
-            // DUPLICATE TO LIVE
-            // Delete all current live assets
             await supabase.from('portfolio_assets').delete().eq('client_id', clientId);
             
-            // Insert cloned assets into live
             if (assetsToClone && assetsToClone.length > 0) {
                const liveAssets = assetsToClone.map(a => ({
                   client_id: clientId,
@@ -493,15 +648,14 @@ export default function ConsultingReports({
             }
             toast.success('Posição Live atualizada com sucesso!');
          } else {
-            // DUPLICATE TO ANOTHER MONTH
-            const existing = historyReports.find(r => r.month === targetDuplicationMonth);
+            const existing = historyReports.find(r => r.month === targetMonth);
             if (existing) {
                await supabase.from('consulting_reports').delete().eq('id', existing.id);
             }
 
             const { data: newReport, error: repErr } = await supabase.from('consulting_reports').insert([{ 
                client_id: clientId, 
-               month: targetDuplicationMonth, 
+               month: targetMonth, 
                total_balance: duplicatingReport.total_balance, 
                notes: duplicatingReport.notes,
                performance_table: duplicatingReport.performance_table,
@@ -538,10 +692,22 @@ export default function ConsultingReports({
       } finally { setSavingMonth(false); }
    };
 
+
   const loadPdfEngineFor = async (mode: 'live' | string) => {
      setActiveReportMode(mode); setNotes(''); setScenarioNotes(''); setNextSteps('');
      setTopMoversMonth({ gainers: [], losers: [] });
      setTopMoversYtd({ gainers: [], losers: [] });
+     
+     const sorted = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
+     const currentIdx = mode === 'live' ? sorted.length : sorted.findIndex(r => r.id === mode);
+     const prevReport = currentIdx > 0 ? sorted[currentIdx - 1] : null;
+     if (prevReport) {
+        const { data: pa } = await supabase.from('consulting_report_assets').select('*').eq('report_id', prevReport.id);
+        setPrevAssets(pa || []);
+     } else {
+        setPrevAssets([]);
+     }
+
      if (mode === 'live') {
         const data = { id: 'live', month: new Date().toISOString().slice(0,7), total_balance: liveTotal, notes: '', created_at: new Date().toISOString() };
         setActiveReportData(data);
@@ -550,21 +716,18 @@ export default function ConsultingReports({
      } else {
         const rep = historyReports.find(r => r.id === mode);
         if (rep) {
-           setActiveReportData(rep); 
-           setNotes(rep.notes || '');
-           setScenarioNotes((rep as any).scenario_notes || '');
-           setNextSteps((rep as any).next_steps || '');
-           setCompositionNotes((rep as any).composition_notes || '');
+            setActiveReportData(rep); 
+            setNotes(rep.notes || '');
+            setScenarioNotes((rep as any).scenario_notes || '');
+            setNextSteps((rep as any).next_steps || '');
+            setCompositionNotes((rep as any).composition_notes || '');
            const { data } = await supabase.from('consulting_report_assets').select('*').eq('report_id', rep.id);
            const assetsFromSnapshot = (data || []) as PortfolioAsset[];
            setActivePdfAssets(assetsFromSnapshot);
 
-           // SYNC total_balance if mismatched
            const calculatedTotal = assetsFromSnapshot.reduce((acc, a) => acc + (a.current_balance || 0), 0);
            if (Math.abs(calculatedTotal - rep.total_balance) > 0.1) {
-              console.log("Syncing total_balance for", rep.month);
               await supabase.from('consulting_reports').update({ total_balance: calculatedTotal }).eq('id', rep.id);
-              // Update local state to match
               setHistoryReports(prev => prev.map(r => r.id === rep.id ? { ...r, total_balance: calculatedTotal } : r));
               setActiveReportData({ ...rep, total_balance: calculatedTotal });
            }
@@ -590,7 +753,6 @@ export default function ConsultingReports({
               ]);
            }
 
-           // Trigger top movers computation asynchronously
            computeTopMovers(assetsFromSnapshot, rep.id);
         }
      }
@@ -599,8 +761,7 @@ export default function ConsultingReports({
 
    const comparisonData = useMemo(() => {
      if (!activeReportData) return null;
-     // historyReports is sorted descending (newest first) by default. 
-     // We sort ascending to find the true previous month correctly.
+     
      const sorted = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
      const currentIndex = sorted.findIndex(r => r.id === activeReportData.id);
      
@@ -609,20 +770,48 @@ export default function ConsultingReports({
      
      if (!prevReport) return null;
      
-     const totalContributions = activePdfAssets.reduce((sum, a) => sum + (a.monthly_contribution || 0), 0);
-     const totalDividends = activePdfAssets.reduce((sum, a) => sum + (a.monthly_dividends || 0), 0);
+     let totalContributions = 0;
+     let totalDividends = 0;
+     let totalProfit = 0;
+     let totalBasis = 0;
 
-     const nominalChange = activeReportData.total_balance - prevReport.total_balance;
-     const netGain = nominalChange - totalContributions;
-     
-     const percent = prevReport.total_balance > 0 ? (netGain / prevReport.total_balance) * 100 : 0;
-      const yieldPercent = prevReport.total_balance > 0 ? (totalDividends / prevReport.total_balance) * 100 : 0;
+
+      activePdfAssets.forEach(a => {
+         const p = prevAssets.find(pa => pa.asset_name === a.asset_name);
+         const contrib = a.monthly_contribution || 0;
+         const divs = a.monthly_dividends || 0;
+
+         if (p) {
+            totalContributions += contrib;
+            totalDividends += divs;
+            totalProfit += (a.current_balance - p.current_balance - contrib + divs);
+            totalBasis += p.current_balance;
+         } else {
+            const initial = a.applied_amount || a.current_balance;
+            totalContributions += (initial + contrib);
+            totalDividends += divs;
+            totalProfit += (a.current_balance - initial - contrib + divs);
+            totalBasis += initial;
+         }
+      });
+
+      prevAssets.forEach(p => {
+         if (!activePdfAssets.some(a => a.asset_name === p.asset_name)) {
+            totalContributions -= p.current_balance;
+            totalBasis += p.current_balance;
+         }
+      });
+
+      const currentTotal = activeReportMode === 'live' ? liveTotal : activeReportData.total_balance;
+      const nominalChange = currentTotal - prevReport.total_balance;
+      const yieldPercent = totalBasis > 0 ? (totalDividends / totalBasis * 100) : 0;
+      const rentPercent = totalBasis > 0 ? (totalProfit / totalBasis * 100) : 0;
      
      return {
         prevBalance: prevReport.total_balance,
-        diff: netGain,
-         yieldPercent,
-        percent,
+        diff: totalProfit,
+        yieldPercent,
+        percent: rentPercent,
         nominalChange,
         totalContributions,
         totalDividends,
@@ -634,7 +823,7 @@ export default function ConsultingReports({
            { label: 'IFIX', value: '—' }
         ]
      };
-   }, [activeReportData, historyReports, activeReportMode, activePdfAssets]);
+   }, [activeReportData, historyReports, activeReportMode, activePdfAssets, prevAssets, liveTotal]);
 
   const pdfRebalanceData = useMemo(() => {
      const res: Record<string, { sectorName: string, macro: string, currentBal: number, targetP: number, status: string, statusColor: string, assetsArr: any[] }> = {};
@@ -685,11 +874,9 @@ export default function ConsultingReports({
       let heightLeft = imgHeight;
       let position = 0;
 
-      // Add first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Add subsequent pages if content exceeds A4 height
       while (heightLeft > 0) {
         position -= pageHeight;
         pdf.addPage();
@@ -750,7 +937,6 @@ export default function ConsultingReports({
       )}
       
       <div className={`${hideHeader ? 'p-0' : 'p-4 lg:p-8'} space-y-6 animate-page-enter`}>
-          {/* Evolution Chart - Full Width */}
           <Card className="p-6 bg-primary relative overflow-hidden group border-primary shadow-none w-full">
              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 <TrendingUp size={100} className="text-primary"/>
@@ -781,7 +967,6 @@ export default function ConsultingReports({
              </div>
           </Card>
 
-          {/* History Management - Full Width & Compact */}
           <div className="space-y-4">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
                 <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest pl-1 opacity-60 flex items-center gap-2">
@@ -889,36 +1074,36 @@ export default function ConsultingReports({
                       {comparisonData && (
                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in zoom-in duration-500">
                             <Card className="p-4 bg-primary border-primary shadow-none">
-                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Evolução Patrimonial</p>
+                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Evolução Nominal</p>
                                <div className="flex items-center gap-2">
                                   <p className={`text-ui-value ${comparisonData.nominalChange >= 0 ? 'text-primary' : 'text-danger'}`}>
                                      {comparisonData.nominalChange >= 0 ? '+' : ''}{formatCurrency(comparisonData.nominalChange)}
                                   </p>
                                </div>
-                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Saldo Final vs Inicial</p>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Saldo Final vs Mês Anterior</p>
                             </Card>
                             
                             <Card className="p-4 bg-primary border-primary shadow-none">
-                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Aporte Líquido</p>
+                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Movimentação Líquida</p>
                                <p className={`text-ui-value ${comparisonData.totalContributions >= 0 ? 'text-income' : 'text-danger'}`}>
                                   {comparisonData.totalContributions >= 0 ? '+' : ''}{formatCurrency(comparisonData.totalContributions)}
                                </p>
-                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Total Aportes - Vendas</p>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Total Aportes e Vendas</p>
                             </Card>
 
                             <Card className="p-4 bg-primary border-primary shadow-none">
-                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Proventos Recebidos</p>
+                               <p className="text-fluid-xs font-black text-secondary uppercase tracking-widest mb-1">Rendimentos</p>
                                <div className="flex items-center gap-2">
                                   <p className="text-ui-value text-income">
                                      +{formatCurrency(comparisonData.totalDividends)}
                                   </p>
                                   <TrendingUp size={16} className="text-income"/>
                                </div>
-                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Dividendos e Rendimentos</p>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Proventos do Período</p>
                             </Card>
 
                             <Card className="p-4 bg-primary border-primary shadow-none">
-                               <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Rentabilidade Real (Gain)</p>
+                               <p className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">Rentabilidade Real (Orgânica)</p>
                                <div className="flex items-center gap-2">
                                   <p className={`text-ui-value ${comparisonData.percent >= 0 ? 'text-income' : 'text-danger'}`}>
                                      {comparisonData.percent >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(comparisonData.percent)}%
@@ -927,14 +1112,13 @@ export default function ConsultingReports({
                                      ({comparisonData.diff >= 0 ? '+' : ''}{formatCurrency(comparisonData.diff)})
                                   </p>
                                </div>
-                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Performance (Ganho + Proventos)</p>
+                               <p className="text-[9px] text-secondary/40 font-bold uppercase mt-1">Ganhos de Capital + Dividendos</p>
                             </Card>
                          </div>
                       )}
 
                       <div className="space-y-6">
                          <div className="space-y-4">
-                             {/* Desktop Table View */}
                              <Card className="hidden md:block p-0 overflow-hidden bg-primary border-primary shadow-none">
                             <div className="bg-tertiary p-4 border-b border-primary">
                                <h4 className="text-xs font-semibold text-secondary uppercase tracking-widest">Balanço de Performance Consolidado (Tabela A)</h4>
@@ -944,34 +1128,50 @@ export default function ConsultingReports({
                                   <thead>
                                      <tr className="text-[10px] text-secondary uppercase font-semibold border-b border-primary bg-secondary">
                                         <th className="p-4">Carteira / Classe</th>
-                                        <th className="p-4 text-center">Referência (%)</th>
-                                        <th className="p-4 text-center">Índice (Bench)</th>
+                                        <th className="p-4 text-center">Mês de Referência (%)</th>
+                                        <th className="p-4 text-center">Year to Date (YTD)</th>
                                         <th className="p-4 text-center">Rentabilidade Total (%)</th>
-                                        <th className="p-4 text-center">Yield Esperado (%)</th>
+                                        <th className="p-4 text-center">Índice (Bench)</th>
+                                        <th className="p-4 text-center text-income">Yield Cost (%)</th>
+                                        <th className="p-4 text-center text-primary">Yield Current (%)</th>
                                      </tr>
                                   </thead>
                                   <tbody className="divide-y divide-[var(--color-border)]">
                                      {sortedTableAData.map((row, idx) => (
                                         <tr key={idx} className="hover:bg-tertiary transition-colors group">
                                            <td className="p-4">
-                                              <span className={`text-sm font-bold tracking-tight ${row.label === 'Consolidada' ? 'text-primary underline decoration-primary/30' : 'text-secondary group-hover:text-primary transition-colors'}`}>
-                                                 {row.label}
+                                              <span className={`text-sm font-bold ${row.label === 'Consolidada' ? 'text-primary' : 'text-primary/70'}`}>{row.label}</span>
+                                           </td>
+                                           <td className="p-4 text-center">
+                                              <span className={`text-sm font-black ${parseFloat(row.rentMês) >= 0 ? 'text-income' : 'text-danger'}`}>
+                                                 {row.rentMês !== '-' && row.rentMês !== '' ? (parseFloat(row.rentMês) >= 0 ? `+${row.rentMês}%` : `${row.rentMês}%`) : '-'}
                                               </span>
                                            </td>
-                                           <td className="p-4">
-                                              <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
+                                           <td className="p-4 text-center">
+                                              <span className={`text-sm font-black ${parseFloat(row.rentYtd) >= 0 ? 'text-income' : 'text-danger'}`}>
+                                                 {row.rentYtd !== '-' && row.rentYtd !== '' ? (parseFloat(row.rentYtd) >= 0 ? `+${row.rentYtd}%` : `${row.rentYtd}%`) : '-'}
+                                              </span>
                                            </td>
-                                           <td className="p-4">
-                                              <div className="flex flex-col items-center gap-1">
-                                                 <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} placeholder="0,00" />
-                                                 {row.benchName && <span className="text-[9px] text-secondary font-black uppercase opacity-60">{row.benchName}</span>}
+                                           <td className="p-4 text-center">
+                                              <span className={`text-sm font-black ${parseFloat(row.rentTotal) >= 0 ? 'text-income' : 'text-danger'}`}>
+                                                 {row.rentTotal !== '-' && row.rentTotal !== '' ? (parseFloat(row.rentTotal) >= 0 ? `+${row.rentTotal}%` : `${row.rentTotal}%`) : '-'}
+                                              </span>
+                                           </td>
+                                           <td className="p-4 text-center">
+                                              <div className="flex flex-col items-center">
+                                                 <span className="text-xs font-bold text-secondary">{row.benchMês !== '-' ? row.benchMês + '%' : '-'}</span>
+                                                 <span className="text-[9px] text-secondary/40 font-bold uppercase">{row.benchName}</span>
                                               </div>
                                            </td>
-                                           <td className="p-4">
-                                              <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
+                                           <td className="p-4 text-center">
+                                              <span className="text-xs font-black text-income">
+                                                 {row.yield !== '-' && row.yield !== '' ? `${row.yield}%` : '-'}
+                                              </span>
                                            </td>
-                                           <td className="p-4">
-                                              <input className="w-full bg-secondary border border-primary rounded-lg px-2 py-1.5 text-center text-primary font-medium outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
+                                           <td className="p-4 text-center">
+                                              <span className="text-xs font-black text-primary">
+                                                 {row.yieldCurrent !== '-' && row.yieldCurrent !== '' ? `${row.yieldCurrent}%` : '-'}
+                                              </span>
                                            </td>
                                         </tr>
                                      ))}
@@ -980,7 +1180,6 @@ export default function ConsultingReports({
                             </div>
                          </Card>
 
-                         {/* Mobile Card View */}
                          <div className="md:hidden space-y-4">
                             <div className="px-1">
                                <h4 className="text-[10px] font-black text-secondary uppercase tracking-widest opacity-60">Balanço de Performance (Tabela A)</h4>
@@ -998,23 +1197,36 @@ export default function ConsultingReports({
                                   
                                   <div className="grid grid-cols-2 gap-3">
                                      <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Rent. Mês (%)</label>
-                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.rentMês} onChange={e => updateTableA(row.label, 'rentMês', e.target.value)} />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Rent. Total (%)</label>
-                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.rentInício} onChange={e => updateTableA(row.label, 'rentInício', e.target.value)} />
-                                     </div>
-                                     <div className="space-y-1">
-                                        <div className="flex justify-between items-center">
-                                           <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Bench. Mês (%)</label>
-                                           {row.benchName && <span className="text-[8px] text-secondary font-black uppercase opacity-60">{row.benchName}</span>}
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Mês Ref. (%)</label>
+                                        <div className={`text-sm font-black ${parseFloat(row.rentMês) >= 0 ? 'text-income' : 'text-danger'}`}>
+                                           {row.rentMês !== '-' ? (parseFloat(row.rentMês) >= 0 ? `+${row.rentMês}%` : `${row.rentMês}%`) : '-'}
                                         </div>
-                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.benchMês} onChange={e => updateTableA(row.label, 'benchMês', e.target.value)} placeholder="0,00" />
                                      </div>
                                      <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Yield (%)</label>
-                                        <input className="w-full bg-tertiary border border-primary rounded-lg px-2 py-2 text-center text-primary font-bold outline-none focus:border-primary transition-all text-xs" value={row.yield} onChange={e => updateTableA(row.label, 'yield', e.target.value)} />
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">YTD (%)</label>
+                                        <div className={`text-sm font-black ${parseFloat(row.rentYtd) >= 0 ? 'text-income' : 'text-danger'}`}>
+                                           {row.rentYtd !== '-' ? (parseFloat(row.rentYtd) >= 0 ? `+${row.rentYtd}%` : `${row.rentYtd}%`) : '-'}
+                                        </div>
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Total (%)</label>
+                                        <div className={`text-sm font-black ${parseFloat(row.rentTotal) >= 0 ? 'text-income' : 'text-danger'}`}>
+                                           {row.rentTotal !== '-' ? (parseFloat(row.rentTotal) >= 0 ? `+${row.rentTotal}%` : `${row.rentTotal}%`) : '-'}
+                                        </div>
+                                     </div>
+                                     <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">Bench (%)</label>
+                                        <div className="text-xs font-bold text-secondary">
+                                           {row.benchMês}% <span className="text-[8px] opacity-40">({row.benchName})</span>
+                                        </div>
+                                     </div>
+                                     <div className="space-y-1">
+                                        <div className="text-[10px] text-secondary/40 uppercase font-black">Yield Cost</div>
+                                        <div className="text-xs font-black text-income">{row.yield !== '-' ? `${row.yield}%` : '-'}</div>
+                                     </div>
+                                     <div className="space-y-1">
+                                        <div className="text-[10px] text-secondary/40 uppercase font-black">Yield Curr.</div>
+                                        <div className="text-xs font-black text-primary">{row.yieldCurrent !== '-' ? `${row.yieldCurrent}%` : '-'}</div>
                                      </div>
                                   </div>
                                </Card>
@@ -1022,10 +1234,9 @@ export default function ConsultingReports({
                          </div>
                       </div>
 
-                         {/* Top Movers - Mês */}
                          {(topMoversMonth.gainers.length > 0 || topMoversMonth.losers.length > 0) && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               {([{t:'Top Altas M\u00eas',l:topMoversMonth.gainers,c:'text-emerald-400'},{t:'Top Baixas M\u00eas',l:topMoversMonth.losers,c:'text-red-400'}] as {t:string,l:typeof topMoversMonth.gainers,c:string}[]).map(({t,l,c})=>(
+                               {([{t:'Top Altas Mês',l:topMoversMonth.gainers,c:'text-emerald-400'},{t:'Top Baixas Mês',l:topMoversMonth.losers,c:'text-red-400'}] as {t:string,l:typeof topMoversMonth.gainers,c:string}[]).map(({t,l,c})=>(
                                   <Card key={t} className="p-4 bg-primary border-primary shadow-none">
                                      <h4 className={'text-[10px] font-black uppercase tracking-widest mb-2 ' + c}>{t}</h4>
                                      {l.map((m,i)=>(
@@ -1038,7 +1249,6 @@ export default function ConsultingReports({
                                ))}
                             </div>
                          )}
-                         {/* Top Movers - YTD */}
                          {(topMoversYtd.gainers.length > 0 || topMoversYtd.losers.length > 0) && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                {([{t:'Top Altas Ano (YTD)',l:topMoversYtd.gainers,c:'text-blue-400'},{t:'Top Baixas Ano (YTD)',l:topMoversYtd.losers,c:'text-orange-400'}] as {t:string,l:typeof topMoversYtd.gainers,c:string}[]).map(({t,l,c})=>(
@@ -1247,13 +1457,16 @@ export default function ConsultingReports({
                                   
                                   <table className="w-full text-left mb-12 border-collapse" style={{fontSize: '11px'}}>
                                      <thead>
-                                        <tr style={{ backgroundColor: '#000', color: '#fff' }}>
-                                           <th className="p-4 border border-[#eee]">CLASSE PATRIMONIAL</th>
-                                           <th className="p-4 border border-[#eee] text-center">RENT. MÊS (%)</th>
-                                           <th className="p-4 border border-[#eee] text-center">RENT. TOTAL (%)</th>
-                                           <th className="p-4 border border-[#eee] text-center">YIELD ESTIMADO</th>
-                                           <th className="p-4 border border-[#eee] text-right">VALOR CONSOLIDADO</th>
-                                        </tr>
+                                        <tr style={{ borderBottom: '1px solid #eee', fontSize: '8pt', color: '#666', textTransform: 'uppercase' }}>
+                                         <th style={{ padding: '8pt', textAlign: 'left' }}>Carteira / Classe</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Mês Ref. (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>YTD (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Total (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Bench (%)</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Yield Cost</th>
+                                         <th style={{ padding: '8pt', textAlign: 'center' }}>Yield Current</th>
+                                         <th style={{ padding: '8pt', textAlign: 'right' }}>Valor Consolidado</th>
+                                      </tr>
                                      </thead>
                                      <tbody>
                                         {sortedTableAData.map((row, idx) => {
@@ -1262,18 +1475,25 @@ export default function ConsultingReports({
 
                                            return (
                                               <tr key={idx} style={{ backgroundColor: row.label === 'Consolidada' ? '#fafafa' : 'transparent', fontWeight: row.label==='Consolidada'?'900':'normal' }}>
-                                                 <td className="p-4 border border-[#eee] font-black">{row.label}</td>
-                                                 <td className="p-4 border border-[#eee] text-center">
-                                                    <div className="flex flex-col items-center">
-                                                       <span className="font-black" style={{fontSize: '13px'}}>{row.rentMês}%</span>
-                                                       <span style={{fontSize: '9px', color: '#999', fontWeight: 'bold'}}>{row.benchName || getDefaultBenchName(row.label)}: {row.benchMês}%</span>
-                                                    </div>
-                                                 </td>
-                                                 <td className="p-4 border border-[#eee] text-center">
-                                                    <span className="font-black" style={{fontSize: '13px'}}>{row.rentInício}%</span>
-                                                 </td>
-                                                 <td className="p-4 border border-[#eee] text-center font-black">{row.yield}%</td>
-                                                 <td className="p-4 border border-[#eee] text-right font-black" style={{fontSize: '12px'}}>{formatCurrency(bal)}</td>
+                                                 <td style={{ padding: '8pt', fontWeight: 'bold' }}>{row.label}</td>
+                                                 <td style={{ padding: '8pt', textAlign: 'center', fontWeight: 'bold', color: parseFloat(row.rentMês) >= 0 ? '#10b981' : '#ef4444' }}>
+                                                   {row.rentMês !== '-' ? (parseFloat(row.rentMês) >= 0 ? `+${row.rentMês}%` : `${row.rentMês}%`) : '-'}
+                                                </td>
+                                                <td style={{ padding: '8pt', textAlign: 'center', fontWeight: 'bold', color: parseFloat(row.rentYtd) >= 0 ? '#10b981' : '#ef4444' }}>
+                                                   {row.rentYtd !== '-' ? (parseFloat(row.rentYtd) >= 0 ? `+${row.rentYtd}%` : `${row.rentYtd}%`) : '-'}
+                                                </td>
+                                                <td style={{ padding: '8pt', textAlign: 'center', fontWeight: 'bold', color: parseFloat(row.rentTotal) >= 0 ? '#10b981' : '#ef4444' }}>
+                                                   {row.rentTotal !== '-' ? (parseFloat(row.rentTotal) >= 0 ? `+${row.rentTotal}%` : `${row.rentTotal}%`) : '-'}
+                                                </td>
+                                                <td style={{ padding: '8pt', textAlign: 'center' }}>
+                                                   <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                      <span style={{ fontWeight: 'bold', color: '#333' }}>{row.benchMês !== '-' ? row.benchMês + '%' : '-'}</span>
+                                                      <span style={{ fontSize: '6pt', color: '#999' }}>{row.benchName}</span>
+                                                   </div>
+                                                </td>
+                                                <td style={{ padding: '8pt', textAlign: 'center', fontWeight: 'bold', color: '#10b981' }}>{row.yield !== '-' ? `${row.yield}%` : '-'}</td>
+                                                <td style={{ padding: '8pt', textAlign: 'center', fontWeight: 'bold', color: '#2563eb' }}>{row.yieldCurrent !== '-' ? `${row.yieldCurrent}%` : '-'}</td>
+                                                 <td style={{ padding: '8pt', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(bal)}</td>
                                               </tr>
                                            );
                                         })}
@@ -1488,8 +1708,9 @@ export default function ConsultingReports({
           value={targetDuplicationMonth}
           onChange={(val) => {
              setTargetDuplicationMonth(val);
-             setTimeout(() => confirmDuplication(), 100);
+             confirmDuplication(val);
           }}
+          showLiveOption={true}
           title="Duplicar para qual mês?"
        />
 

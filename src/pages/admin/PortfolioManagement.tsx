@@ -48,8 +48,6 @@ interface Client {
   name: string;
 }
 
-
-
 interface PortfolioManagementProps {
   clientId: string;
   selectedMonth?: string;
@@ -111,6 +109,13 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
   const [savingRowIds, setSavingRowIds] = useState<Set<string>>(new Set());
   const [dirtyAssetIds, setDirtyAssetIds] = useState<Set<string>>(new Set());
   const [quickUpdateSearch, setQuickUpdateSearch] = useState('');
+  
+  const [tableBalances, setTableBalances] = useState<Record<string, string>>({});
+  const [tableContributions, setTableContributions] = useState<Record<string, string>>({});
+  const [tableDividends, setTableDividends] = useState<Record<string, string>>({});
+  const [macroTargets, setMacroTargets] = useState<Record<string, string>>({});
+  const [sectorTargets, setSectorTargets] = useState<Record<string, string>>({});
+  const [tableTargets, setTableTargets] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (clientId) fetchPortfolio();
@@ -333,7 +338,14 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
   const macroTargetSum = useMemo(() => macroSectors.reduce((sum, m) => sum + m.target_percentage, 0), [macroSectors]);
   const isMacroTargetValid = Math.abs(macroTargetSum - 1) < 0.001 || macroSectors.length === 0;
 
-
+  const persistAssetData = async (id: string, payload: any) => {
+     try {
+        const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+        await supabase.from(tableName).update(payload).eq('id', id);
+     } catch (e) {
+        console.error(e);
+     }
+  };
 
 
   // Handle Sector Save
@@ -429,19 +441,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
      }
   };
 
-  /*
-  const toggleMacroCollapse = (macroKey: string) => {
-     const newCollapsed = new Set(collapsedMacros);
-     if (newCollapsed.has(macroKey)) {
-        newCollapsed.delete(macroKey);
-     } else {
-        newCollapsed.add(macroKey);
-     }
-     setCollapsedMacros(newCollapsed);
-  };
-  */
-
-  // Handle Asset Save
   const handleSaveAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assetForm.asset_name || !clientId || !assetForm.sector_id) {
@@ -571,15 +570,126 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
      } catch(e) {}
   };
 
-  /** Saves the asset's target_percentage to DB (called onBlur to allow free typing). */
-  const handleUpdateAssetTarget = async (id: string, rawValue: string) => {
-     let num = parseMoneyInput(rawValue);
-     if (Number.isNaN(num)) num = 0;
-     const finalVal = num / 100;
-     setAssets(assets.map(a => a.id === id ? { ...a, target_percentage: finalVal } : a));
-     const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
-     await supabase.from(tableName).update({ target_percentage: finalVal }).eq('id', id);
-  };
+   const handleUpdateMacroTargetLocal = (id: string, value: string) => {
+      setMacroTargets(prev => ({ ...prev, [id]: value }));
+      const num = parseMoneyInput(value);
+      if (Number.isNaN(num)) return;
+      const newTarget = num / 100;
+
+      setMacroSectors(prev => {
+         const targetItem = prev.find(m => m.id === id);
+         if (!targetItem) return prev;
+         const oldTarget = targetItem.target_percentage;
+         const delta = newTarget - oldTarget;
+         const otherItems = prev.filter(m => m.id !== id);
+         if (otherItems.length === 0) return prev.map(m => m.id === id ? { ...m, target_percentage: newTarget } : m);
+         const totalOthers = otherItems.reduce((sum, m) => sum + m.target_percentage, 0);
+         return prev.map(m => {
+            if (m.id === id) return { ...m, target_percentage: newTarget };
+            let adjustment = 0;
+            if (totalOthers > 0) adjustment = delta * (m.target_percentage / totalOthers);
+            else adjustment = delta / otherItems.length;
+            return { ...m, target_percentage: Math.max(0, m.target_percentage - adjustment) };
+         });
+      });
+   };
+
+   const syncMacroTarget = async (id: string) => {
+      try {
+         await Promise.all(macroSectors.map(m => 
+            supabase.from('portfolio_macro_sectors').update({ target_percentage: m.target_percentage }).eq('id', m.id)
+         ));
+         setMacroTargets({});
+      } catch (err) { console.error(err); }
+   };
+
+   const handleUpdateAssetContribution = (id: string, value: string) => {
+      setTableContributions(prev => ({ ...prev, [id]: value }));
+      const contr = parseMoneyInput(value) || 0;
+      setAssets(prev => prev.map(a => {
+         if (a.id === id) {
+            const baseBalance = a.current_balance - (a.monthly_contribution || 0);
+            return { ...a, monthly_contribution: contr, current_balance: baseBalance + contr };
+         }
+         return a;
+      }));
+   };
+
+   const syncAssetContribution = async (id: string) => {
+      const asset = assets.find(a => a.id === id);
+      if (!asset) return;
+      try {
+         const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+         await supabase.from(tableName).update({ 
+            monthly_contribution: asset.monthly_contribution,
+            current_balance: asset.current_balance
+         }).eq('id', id);
+         setTableContributions(prev => { const next = { ...prev }; delete next[id]; return next; });
+      } catch (err) { console.error(err); }
+   };
+
+   const handleUpdateAssetDividends = (id: string, value: string) => {
+      setTableDividends(prev => ({ ...prev, [id]: value }));
+      const div = parseMoneyInput(value) || 0;
+      setAssets(prev => prev.map(a => a.id === id ? { ...a, monthly_dividends: div } : a));
+   };
+
+   const syncAssetDividends = async (id: string) => {
+      const asset = assets.find(a => a.id === id);
+      if (!asset) return;
+      try {
+         const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+         await supabase.from(tableName).update({ 
+            monthly_dividends: asset.monthly_dividends
+         }).eq('id', id);
+         setTableDividends(prev => { const next = { ...prev }; delete next[id]; return next; });
+      } catch (err) { console.error(err); }
+   };
+
+   const handleUpdateAssetTargetLocal = (id: string, value: string) => {
+      setTableTargets(prev => ({ ...prev, [id]: value }));
+      const num = parseMoneyInput(value);
+      if (Number.isNaN(num)) return;
+      const newTarget = num / 100;
+      setAssets(prev => {
+         const targetAsset = prev.find(a => a.id === id);
+         if (!targetAsset) return prev;
+         const oldTarget = targetAsset.target_percentage;
+         const delta = newTarget - oldTarget;
+         const siblingAssets = prev.filter(a => a.id !== id && a.sector_id === targetAsset.sector_id);
+         if (siblingAssets.length === 0) return prev.map(a => a.id === id ? { ...a, target_percentage: newTarget } : a);
+         const totalOthers = siblingAssets.reduce((sum, a) => sum + a.target_percentage, 0);
+         return prev.map(a => {
+            if (a.id === id) return { ...a, target_percentage: newTarget };
+            if (a.sector_id !== targetAsset.sector_id) return a;
+            let adjustment = 0;
+            if (totalOthers > 0) adjustment = delta * (a.target_percentage / totalOthers);
+            else adjustment = delta / siblingAssets.length;
+            return { ...a, target_percentage: Math.max(0, a.target_percentage - adjustment) };
+         });
+      });
+   };
+
+   const syncAssetTarget = async (id: string) => {
+      const asset = assets.find(a => a.id === id);
+      if (!asset) return;
+      try {
+         const affected = assets.filter(a => a.sector_id === asset.sector_id);
+         await Promise.all(affected.map(a => persistAssetData(a.id, { target_percentage: a.target_percentage })));
+         setTableTargets({});
+      } catch (err) { console.error(err); }
+   };
+
+   const handleUpdateAssetBalanceSync = async (id: string) => {
+      const asset = assets.find(a => a.id === id);
+      if (!asset) return;
+      try {
+         const tableName = selectedMonth === 'live' ? 'portfolio_assets' : 'consulting_report_assets';
+         await supabase.from(tableName).update({ current_balance: asset.current_balance }).eq('id', id);
+         setTableBalances(prev => { const next = { ...prev }; delete next[id]; return next; });
+      } catch (err) { console.error(err); }
+   };
+
 
   const handleDeleteAsset = async (id: string) => {
     if (!window.confirm('Excluir ativo?')) return;
@@ -649,8 +759,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
             // What the macro CLASS should have in absolute value after aporte
             const macroSectorsList = sectors.filter(s => s.macro_sector_id === m.id);
             const macroAssets = assets.filter(a => macroSectorsList.some(s => s.id === a.sector_id));
-            const macroCurrentBal = macroAssets.reduce((sum, a) => sum + a.current_balance, 0);
-            // Target absolute balance for this macro class after aporte
             const macroTargetBal = futureTotal * m.target_percentage;
 
             let totalSectorGaps = 0;
@@ -659,7 +767,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
             macroSectorsList.forEach(s => {
                 const sectorAssets = assets.filter(a => a.sector_id === s.id);
                 const currentBal = sectorAssets.reduce((sum, a) => sum + a.current_balance, 0);
-                // sector.target_percentage is relative to the macro class
                 const targetVal = macroTargetBal * s.target_percentage;
                 const gap = Math.max(0, targetVal - currentBal);
                 if (gap > 0) {
@@ -672,22 +779,14 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                 if (totalSectorGaps > 0 && sectorGaps[s.id]) {
                     suggest[s.id] = (sectorGaps[s.id] / totalSectorGaps) * macroAlloc;
                 } else if (totalSectorGaps === 0) {
-                    // Fallback: distribute by target % or equally
                     const targetSum = macroSectorsList.reduce((sum, sec) => sum + sec.target_percentage, 0);
                     if (targetSum > 0) {
                         suggest[s.id] = (s.target_percentage / targetSum) * macroAlloc;
                     } else if (macroSectorsList.length > 0) {
                         suggest[s.id] = macroAlloc / macroSectorsList.length;
-                    } else {
-                        suggest[s.id] = 0;
                     }
-                } else {
-                    suggest[s.id] = 0;
                 }
             });
-
-            // Suppress unused var warning
-            void macroCurrentBal;
         });
 
         // 3. Distribute from Sector down to its Assets
@@ -698,7 +797,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
             const sectorAssets = assets.filter(a => a.sector_id === s.id);
             if (sectorAssets.length === 0) return;
 
-            // Find the parent macro to get its target balance
             const parentMacro = macroSectors.find(m => m.id === s.macro_sector_id);
             const macroTargetBal = parentMacro ? futureTotal * parentMacro.target_percentage : 0;
 
@@ -706,7 +804,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
             const assetGaps: Record<string, number> = {};
 
             sectorAssets.forEach(a => {
-                // asset.target_percentage is relative to the macro class
                 const targetVal = macroTargetBal > 0 ? macroTargetBal * a.target_percentage : 0;
                 const gap = Math.max(0, targetVal - a.current_balance);
                 if (gap > 0) {
@@ -719,15 +816,11 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                 if (totalAssetGaps > 0 && assetGaps[a.id]) {
                     suggest[a.id] = (assetGaps[a.id] / totalAssetGaps) * sectorAlloc;
                 } else if (totalAssetGaps === 0) {
-                    // Distribute equally among assets
                     suggest[a.id] = sectorAlloc / sectorAssets.length;
-                } else {
-                    suggest[a.id] = 0;
                 }
             });
         });
 
-        // Return the composed suggestions object mapping id -> suggested value
         return suggest;
    }, [cashBalance, assets, sectors, macroSectors, totalInWallet]);
 
@@ -736,19 +829,16 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
             const macroSectorsList = sectors.filter(s => s.macro_sector_id === macro.id);
             const macroAssets = assets.filter(a => macroSectorsList.some(s => s.id === a.sector_id));
             const currentBal = macroAssets.reduce((sum, a) => sum + a.current_balance, 0);
-            // Macro class gapPercent is relative to TOTAL WALLET (for sorting macros against each other)
             const currentPercent = totalInWallet > 0 ? (currentBal / totalInWallet) : 0;
             const gapPercent = macro.target_percentage - currentPercent;
 
             const items = macroSectorsList.map(sector => {
                const sectorAssets = assets.filter(a => a.sector_id === sector.id);
                const sCurrentBal = sectorAssets.reduce((sum, a) => sum + a.current_balance, 0);
-               // Sector exposure relative to its MACRO CLASS balance
                const sCurrentPercent = currentBal > 0 ? (sCurrentBal / currentBal) : 0;
                const sGapPercent = sector.target_percentage - sCurrentPercent;
 
                const mappedAssets = sectorAssets.map(asset => {
-                  // Asset exposure relative to its MACRO CLASS balance
                   const aCurrentPercent = currentBal > 0 ? (asset.current_balance / currentBal) : 0;
                   const aGapPercent = asset.target_percentage - aCurrentPercent;
                   return { ...asset, gapPercent: aGapPercent };
@@ -769,46 +859,46 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
 
          if (orphanSectors.length > 0 || orphanAssets.length > 0) {
              const orphanItems = orphanSectors.map(sector => {
-               const sectorAssets = assets.filter(a => a.sector_id === sector.id);
-               const sCurrentBal = sectorAssets.reduce((sum, a) => sum + a.current_balance, 0);
-               const sCurrentPercent = totalInWallet > 0 ? (sCurrentBal / totalInWallet) : 0;
-               const sGapPercent = sector.target_percentage - sCurrentPercent;
+                const sectorAssets = assets.filter(a => a.sector_id === sector.id);
+                const sCurrentBal = sectorAssets.reduce((sum, a) => sum + a.current_balance, 0);
+                const sCurrentPercent = totalInWallet > 0 ? (sCurrentBal / totalInWallet) : 0;
+                const sGapPercent = sector.target_percentage - sCurrentPercent;
 
-               const mappedAssets = sectorAssets.map(asset => {
-                  const aCurrentPercent = totalInWallet > 0 ? (asset.current_balance / totalInWallet) : 0;
-                  const aGapPercent = asset.target_percentage - aCurrentPercent;
-                  return { ...asset, gapPercent: aGapPercent };
-               }).sort((a, b) => b.gapPercent - a.gapPercent);
-
-               return { sector, gapPercent: sGapPercent, assets: mappedAssets };
-            });
-
-            if (orphanAssets.length > 0) {
-                const mappedOrphans = orphanAssets.map(asset => {
+                const mappedAssets = sectorAssets.map(asset => {
                    const aCurrentPercent = totalInWallet > 0 ? (asset.current_balance / totalInWallet) : 0;
                    const aGapPercent = asset.target_percentage - aCurrentPercent;
                    return { ...asset, gapPercent: aGapPercent };
                 }).sort((a, b) => b.gapPercent - a.gapPercent);
 
-                orphanItems.push({
-                   sector: { id: 'orphan', client_id: '', macro_sector_id: null, macro_category: 'Sem Setor', sector_name: 'Antigos Ativos', target_percentage: 0 } as PortfolioSector,
-                   gapPercent: -999,
-                   assets: mappedOrphans
-                });
-            }
-            
-            orphanItems.sort((a, b) => b.gapPercent - a.gapPercent);
+                return { sector, gapPercent: sGapPercent, assets: mappedAssets };
+             });
 
-            sortedMacros.push({
-                macroKey: 'orphans',
-                macro: null,
-                gapPercent: -999, 
-                items: orphanItems
-            });
-         }
-         
-         return sortedMacros;
-      }, [sectors, assets, macroSectors, totalInWallet]);
+             if (orphanAssets.length > 0) {
+                 const mappedOrphans = orphanAssets.map(asset => {
+                    const aCurrentPercent = totalInWallet > 0 ? (asset.current_balance / totalInWallet) : 0;
+                    const aGapPercent = asset.target_percentage - aCurrentPercent;
+                    return { ...asset, gapPercent: aGapPercent };
+                 }).sort((a, b) => b.gapPercent - a.gapPercent);
+
+                 orphanItems.push({
+                    sector: { id: 'orphan', client_id: '', macro_sector_id: null, macro_category: 'Sem Setor', sector_name: 'Antigos Ativos', target_percentage: 0 } as PortfolioSector,
+                    gapPercent: -999,
+                    assets: mappedOrphans
+                 });
+             }
+             
+             orphanItems.sort((a, b) => b.gapPercent - a.gapPercent);
+
+             sortedMacros.push({
+                 macroKey: 'orphans',
+                 macro: null,
+                 gapPercent: -999, 
+                 items: orphanItems
+             });
+          }
+          
+          return sortedMacros;
+       }, [sectors, assets, macroSectors, totalInWallet]);
 
 
   if (loading) return <div className="flex justify-center py-20"><Loader text="Carregando..." /></div>;
@@ -871,34 +961,34 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
       <div className={`${hideHeader ? 'p-0' : 'p-4 lg:p-8'} space-y-6 animate-page-enter`}>
          {/* Top Actions when header is hidden */}
          {hideHeader && (
-           <div className="flex items-center justify-between gap-2 mb-2 w-full">
-              <div className="flex items-center gap-2">
-                <Button onClick={() => openSectorModal()} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2" title="Novo Grupo">
-                   <FolderPlus size={16} />
-                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Grupo</span>
-                </Button>
-                <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2" title="Novo Ativo">
+            <div className="flex items-center justify-between gap-2 mb-2 w-full">
+               <div className="flex items-center gap-2">
+                 <Button onClick={() => openSectorModal()} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2" title="Novo Grupo">
+                    <FolderPlus size={16} />
+                    <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Grupo</span>
+                 </Button>
+                 <Button onClick={() => { if(sectors.length===0){ alert('Crie um Setor antes!'); return; } openAssetModal() }} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2" title="Novo Ativo">
+                    <Plus size={16} />
+                    <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Ativo</span>
+                 </Button>
+                 <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Classes">
+                    <Settings size={16} />
+                    <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Classes</span>
+                 </Button>
+                 <Button onClick={openImportModal} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Importar do Histórico">
+                    <Search size={16} />
+                    <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Importar</span>
+                 </Button>
+                 <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Movimentação / Proventos">
                    <Plus size={16} />
-                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Ativo</span>
+                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Movim.</span>
                 </Button>
-                <Button onClick={() => setShowMacroManagerModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Classes">
-                   <Settings size={16} />
-                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Classes</span>
+               </div>
+                <Button onClick={openQuickUpdate} variant="primary" size="sm" className="h-9 px-3 flex items-center gap-2 font-bold shadow-lg shadow-primary/20" title="Atualização Rápida">
+                   <Edit2 size={16} />
+                   <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-widest whitespace-nowrap">Atualiz. Rápida</span>
                 </Button>
-                <Button onClick={openImportModal} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Importar do Histórico">
-                   <Search size={16} />
-                   <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Importar</span>
-                </Button>
-                <Button onClick={() => setShowMovementModal(true)} variant="outline" size="sm" className="h-9 px-3 flex items-center gap-2 border-primary/30" title="Movimentação / Proventos">
-                  <Plus size={16} />
-                  <span className="hidden sm:inline text-[10px] uppercase font-black tracking-widest">Movim.</span>
-               </Button>
-              </div>
-               <Button onClick={openQuickUpdate} variant="primary" size="sm" className="h-9 px-3 flex items-center gap-2 font-bold shadow-lg shadow-primary/20" title="Atualização Rápida">
-                  <Edit2 size={16} />
-                  <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-widest whitespace-nowrap">Atualiz. Rápida</span>
-               </Button>
-           </div>
+            </div>
          )}
 
          {/* Top Stats */}
@@ -936,214 +1026,277 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
          )}
 
          <div className="space-y-4">
-            {/* Desktop Table View */}
-            <div className="hidden md:block bg-primary rounded-2xl border border-primary overflow-hidden shadow-lg">
-               <div className="overflow-x-auto">
-               <table className="w-full text-left bg-transparent min-w-[800px]">
-                  <thead>
-                     <tr className="text-ui-label border-b border-primary bg-secondary/50">
-                        <th className="p-4 pl-6">Ativo</th>
-                        <th className="p-4 text-center">Setor</th>
-                        <th className="p-4 text-center">Alvo(%)</th>
-                        <th className="p-4 text-center">Exp. Atual(%)</th>
-                        <th className="p-4 text-right">Saldo Atual (R$)</th>
-                        <th className="p-4 text-right text-income">Sugestão (R$)</th>
-                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-primary/10">
-                     {groupedData.map(group => {
-                        const { macroKey, macro } = group;
-                        const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
-                        const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
-                        const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
+             <div className="hidden md:block bg-primary rounded-2xl border border-primary overflow-hidden shadow-lg">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left bg-transparent min-w-[1000px]">
+                   <thead>
+                      <tr className="text-[10px] uppercase font-black tracking-widest text-secondary/40 border-b border-primary bg-secondary/30">
+                         <th className="p-4 pl-6">Ativo</th>
+                         <th className="p-4 text-center w-24">Alvo(%)</th>
+                         <th className="p-4 text-center w-24">Atual(%)</th>
+                         <th className="p-4 text-right w-40">Aporte/Venda</th>
+                         <th className="p-4 text-right w-32">Proventos</th>
+                         <th className="p-4 text-right w-40">Saldo Atual</th>
+                         <th className="p-4 text-right w-32">Sugestão</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y divide-primary/10">
+                      {groupedData.map(group => {
+                         const { macroKey, macro } = group;
+                         const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
+                         const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
+                         const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
 
-                        return (
-                           <Fragment key={macroKey}>
-                              <tr className="bg-secondary/20 border-b border-primary">
-                                 <td colSpan={6} className="p-3 pl-6">
-                                    <div className="flex items-center gap-3">
-                                       <h3 className="font-bold text-primary tracking-tight uppercase text-sm">
-                                          {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
-                                       </h3>
-                                       {macroStatus && (
-                                          <span className={`text-[9px] px-2 py-0.5 rounded-full bg-tertiary border border-primary ${macroStatus.color} tracking-widest font-black whitespace-nowrap`}>
-                                             {macroStatus.label}
-                                          </span>
-                                       )}
-                                       <span className="text-[10px] text-secondary ml-auto pr-4 font-semibold uppercase tracking-wider">
-                                          Total da Classe: <span className="text-primary">{formatCurrency(macroTotalBal)}</span> ({formatNumberWithTwoDecimalsBR(macroCurrentPercent*100)}%)
-                                       </span>
-                                    </div>
-                                 </td>
-                              </tr>
-                              
-                              {group.items.map(({sector, assets: sectorAssets}) => {
-                                 
-                                 return sectorAssets.map(asset => {
-                                    const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
-                                    const assetGap = asset.target_percentage - assetCurrentPercent;
-                                    const assetStatus = getSectorStatus(assetGap);
-                                    
-                                    return (
-                                       <tr 
-                                          key={asset.id} 
-                                          onClick={() => openAssetModal(asset)}
-                                          className="hover:bg-tertiary transition-colors group cursor-pointer"
-                                       >
-                                          <td className="p-4 pl-6 group/name">
-                                             <div className="font-semibold text-primary group-hover/name:text-primary transition-colors">{asset.asset_name}</div>
-                                             <div className="text-[10px] text-secondary/40 font-bold uppercase mt-0.5 group-hover/name:text-secondary/60">
-                                                {asset.custom_rate || 'Variável'} {asset.maturity_date ? `| Venc: ${asset.maturity_date}` : ''}
-                                             </div>
-                                          </td>
-                                          <td className="p-4 text-center">
-                                             <span className="text-xs text-secondary font-medium bg-tertiary px-2 py-1 rounded-md border border-primary">
-                                                {sector.sector_name}
-                                             </span>
-                                          </td>
-                                          <td className="p-4 w-28 text-center">
-                                             <div className="flex items-center justify-center gap-1">
-                                                <input 
-                                                   value={formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}
-                                                   onClick={e => e.stopPropagation()}
-                                                   onChange={(e) => handleUpdateAssetTarget(asset.id, e.target.value)}
-                                                   className="w-10 bg-transparent border-none text-right font-bold text-xs text-primary focus:ring-0 p-0"
+                         return (
+                            <Fragment key={macroKey}>
+                               {/* Macro Group Header */}
+                               <tr className="bg-primary border-b border-primary/40">
+                                  <td colSpan={7} className="p-4 pl-6 bg-secondary/10">
+                                     <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <h3 className="font-black text-primary tracking-tighter uppercase text-sm">
+                                               {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Classe' : macroKey)}
+                                            </h3>
+                                            {macro && (
+                                               <div className="flex items-center gap-1 bg-primary px-2 py-1 rounded-lg border border-primary/40 shadow-inner">
+                                                  <span className="text-[8px] font-black text-secondary/40 uppercase">Alvo Classe:</span>
+                                                  <input 
+                                                     value={macroTargets[macro.id] !== undefined ? macroTargets[macro.id] : formatNumberWithTwoDecimalsBR(macro.target_percentage * 100)}
+                                                     onChange={e => handleUpdateMacroTargetLocal(macro.id, e.target.value)}
+                                                     onBlur={() => syncMacroTarget(macro.id)}
+                                                     onClick={e => e.stopPropagation()}
+                                                     className="w-10 bg-transparent border-none text-right font-black text-[11px] text-primary focus:ring-0 p-0"
+                                                  />
+                                                  <span className="text-[9px] font-bold text-secondary">%</span>
+                                               </div>
+                                            )}
+                                         </div>
+                                        {macroStatus && (
+                                           <span className={`text-[8px] px-2 py-1 rounded-full border ${macroStatus.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-10 bg-')} tracking-widest font-black uppercase`}>
+                                              {macroStatus.label}
+                                           </span>
+                                        )}
+                                        <div className="ml-auto flex items-center gap-6">
+                                           <div className="flex flex-col items-end">
+                                              <span className="text-[8px] text-secondary/40 font-black uppercase">Patrimônio na Classe</span>
+                                              <span className="text-xs font-black text-primary">{formatCurrency(macroTotalBal)}</span>
+                                           </div>
+                                           <div className="flex flex-col items-end">
+                                              <span className="text-[8px] text-secondary/40 font-black uppercase">Exposição Real</span>
+                                              <span className="text-xs font-black text-primary">{formatNumberWithTwoDecimalsBR(macroCurrentPercent*100)}%</span>
+                                           </div>
+                                        </div>
+                                     </div>
+                                  </td>
+                               </tr>
+                               
+                               {group.items.map(({sector, assets: sectorAssets}) => (
+                                  <Fragment key={sector.id}>
+                                     {/* Sector Sub-header */}
+                                     {sector.sector_name !== 'default' && (
+                                        <tr className="bg-secondary/5 border-b border-primary/10">
+                                           <td colSpan={7} className="p-2 pl-10">
+                                              <div className="flex items-center gap-2">
+                                                 <span className="text-[10px] font-black text-secondary/60 uppercase tracking-widest">{sector.sector_name}</span>
+                                                 <div className="h-[1px] flex-grow bg-primary/10"></div>
+                                              </div>
+                                           </td>
+                                        </tr>
+                                     )}
+                                     
+                                     {sectorAssets.map(asset => {
+                                        const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
+                                        const assetGap = asset.target_percentage - assetCurrentPercent;
+                                        const assetStatus = getSectorStatus(assetGap);
+                                        
+                                        return (
+                                           <tr 
+                                              key={asset.id} 
+                                              onClick={() => openAssetModal(asset)}
+                                              className="hover:bg-tertiary/30 active:bg-primary/5 active:scale-[0.998] transition-all group border-b border-primary/5 cursor-pointer"
+                                           >
+                                              <td className="p-4 pl-10 group/name">
+                                                 <div className="font-bold text-primary group-hover/name:text-primary transition-colors text-xs">{asset.asset_name}</div>
+                                                 <div className="text-[9px] text-secondary/40 font-black uppercase mt-0.5 group-hover/name:text-secondary/60">
+                                                    {asset.custom_rate || 'Variável'} {asset.maturity_date ? `| Venc: ${asset.maturity_date}` : ''}
+                                                 </div>
+                                              </td>
+                                              <td className="p-2 w-24 text-center" onClick={e => e.stopPropagation()}>
+                                                 <div className="flex items-center justify-center gap-1 bg-secondary/10 px-2 py-1 rounded-lg border border-primary/20">
+                                                    <input 
+                                                       value={tableTargets[asset.id] !== undefined ? tableTargets[asset.id] : formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}
+                                                       onChange={e => handleUpdateAssetTargetLocal(asset.id, e.target.value)}
+                                                       onBlur={() => syncAssetTarget(asset.id)}
+                                                       className="w-10 bg-transparent border-none text-right font-black text-[11px] text-primary focus:ring-0 p-0"
+                                                    />
+                                                    <span className="text-[9px] font-bold text-secondary">%</span>
+                                                 </div>
+                                              </td>
+                                              <td className="p-4 text-center">
+                                                  <span className={`text-xs font-black ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
+                                              </td>
+                                              <td className="p-2 w-40 text-right" onClick={e => e.stopPropagation()}>
+                                                 {(() => {
+                                                    const rawVal = tableContributions[asset.id] !== undefined ? tableContributions[asset.id] : (asset.monthly_contribution && Math.abs(asset.monthly_contribution) > 0.001 ? formatNumberWithTwoDecimalsBR(asset.monthly_contribution) : '');
+                                                    const isNegative = parseMoneyInput(rawVal) < 0;
+                                                    return (
+                                                      <Input 
+                                                        value={rawVal}
+                                                        onChange={(e) => handleUpdateAssetContribution(asset.id, e.target.value)}
+                                                        onBlur={() => syncAssetContribution(asset.id)}
+                                                        placeholder="0,00"
+                                                        className={`text-right font-bold h-9 w-full shadow-none ${isNegative ? 'bg-danger/5 border-danger/30 focus:border-danger text-danger' : 'bg-income/5 border-income/30 focus:border-income text-income'}`}
+                                                        inputMode="decimal"
+                                                      />
+                                                    );
+                                                 })()}
+                                              </td>
+                                              <td className="p-2 w-32 text-right" onClick={e => e.stopPropagation()}>
+                                                  <Input 
+                                                     value={tableDividends[asset.id] !== undefined ? tableDividends[asset.id] : (asset.monthly_dividends && Math.abs(asset.monthly_dividends) > 0.001 ? formatNumberWithTwoDecimalsBR(asset.monthly_dividends) : '')}
+                                                     onChange={(e) => handleUpdateAssetDividends(asset.id, e.target.value)}
+                                                     onBlur={() => syncAssetDividends(asset.id)}
+                                                     placeholder="0,00"
+                                                     className="text-right font-bold h-9 w-full bg-income/5 border-income/30 focus:border-income text-income shadow-none"
+                                                     inputMode="decimal"
+                                                  />
+                                               </td>
+                                              <td className="p-2 w-40 text-right" onClick={e => e.stopPropagation()}>
+                                                 <Input 
+                                                   value={tableBalances[asset.id] !== undefined ? tableBalances[asset.id] : formatNumberWithTwoDecimalsBR(asset.current_balance)}
+                                                   onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
+                                                   onBlur={() => handleUpdateAssetBalanceSync(asset.id)}
+                                                   className="text-right font-black h-9 bg-tertiary border-primary focus:border-primary text-primary w-full shadow-none"
                                                    inputMode="decimal"
-                                                />
-                                                <span className="text-[9px] font-bold text-secondary">%</span>
-                                             </div>
-                                          </td>
-                                          <td className="p-4 text-center">
-                                             <span className={`text-xs font-bold ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
-                                          </td>
-                                          <td className="p-3 w-48 text-right" onClick={e => e.stopPropagation()}>
-                                             <Input 
-                                               value={formatNumberWithTwoDecimalsBR(asset.current_balance)}
-                                               onChange={(e) => handleUpdateAssetBalance(asset.id, e.target.value)}
-                                               className="text-right font-bold h-9 bg-tertiary border-primary focus:border-primary text-primary w-full"
-                                               inputMode="decimal"
-                                             />
-                                          </td>
-                                          <td className="p-4 text-right">
-                                             {allocationSuggestions[asset.id] > 0 ? (
-                                                <span className="text-xs font-black text-income">{formatCurrency(allocationSuggestions[asset.id])}</span>
-                                             ) : (
-                                                <span className="text-xs text-secondary/20">--</span>
-                                             )}
-                                          </td>
-                                       </tr>
-                                    );
-                                 });
-                              })}
-                           </Fragment>
-                        );
-                     })}
-                     {assets.length === 0 && (
-                        <tr><td colSpan={6} className="p-8 text-center text-secondary text-sm">Nenhum ativo cadastrado neste mês.</td></tr>
-                     )}
-                  </tbody>
-               </table>
-            </div>
-         </div>
+                                                 />
+                                              </td>
+                                              <td className="p-4 text-right">
+                                                 {allocationSuggestions[asset.id] > 0 ? (
+                                                    <span className="text-[11px] font-black text-income">{formatCurrency(allocationSuggestions[asset.id])}</span>
+                                                 ) : (
+                                                    <span className="text-[10px] text-secondary/20 font-black">--</span>
+                                                 )}
+                                              </td>
+                                           </tr>
+                                        );
+                                     })}
+                                  </Fragment>
+                               ))}
+                            </Fragment>
+                         );
+                      })}
+                      {assets.length === 0 && (
+                         <tr><td colSpan={7} className="p-12 text-center text-secondary/40 text-xs font-black uppercase tracking-widest">Nenhum ativo cadastrado neste mês.</td></tr>
+                      )}
+                   </tbody>
+                </table>
+                </div>
+             </div>
 
-         {/* Mobile Card View */}
-            <div className="md:hidden space-y-6">
-               {groupedData.map(group => {
-                  const { macroKey, macro } = group;
-                  const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
-                  const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
-                  const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
+          {/* Mobile Card View */}
+             <div className="md:hidden space-y-6">
+                {groupedData.map(group => {
+                   const { macroKey, macro } = group;
+                   const macroTotalBal = group.items.reduce((sum, item) => sum + item.assets.reduce((s, a) => s + a.current_balance, 0), 0);
+                   const macroCurrentPercent = totalInWallet > 0 ? (macroTotalBal / totalInWallet) : 0;
+                   const macroStatus = macro ? getSectorStatus(macro.target_percentage - macroCurrentPercent) : null;
 
-                  return (
-                     <div key={macroKey} className="space-y-3">
-                        <div className="flex items-center justify-between px-1">
-                           <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-primary uppercase text-xs tracking-tight">
-                                 {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
-                              </h3>
-                              {macroStatus && (
-                                 <span className={`text-[8px] px-1.5 py-0.5 rounded-full bg-tertiary border border-primary ${macroStatus.color} font-black`}>
-                                    {macroStatus.label}
-                                 </span>
-                              )}
-                           </div>
-                           <span className="text-[10px] text-secondary font-bold">
-                              {formatCurrency(macroTotalBal)}
-                           </span>
-                        </div>
+                   return (
+                      <div key={macroKey} className="space-y-3">
+                         <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-2">
+                               <h3 className="font-bold text-primary uppercase text-xs tracking-tight">
+                                  {macro ? macro.name : (macroKey === 'orphans' ? 'Sem Setor' : macroKey)}
+                               </h3>
+                               {macroStatus && (
+                                  <span className={`text-[8px] px-1.5 py-0.5 rounded-full bg-tertiary border border-primary ${macroStatus.color} font-black`}>
+                                     {macroStatus.label}
+                                  </span>
+                               )}
+                            </div>
+                            <span className="text-[10px] text-secondary font-bold">
+                               {formatCurrency(macroTotalBal)}
+                            </span>
+                         </div>
 
-                        <div className="space-y-3">
-                           {group.items.map(({sector, assets: sectorAssets}) => (
-                              <div key={sector.id} className="space-y-2">
-                                 <div className="pl-1">
-                                    <span className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">{sector.sector_name}</span>
-                                 </div>
-                                 <div className="space-y-3">
-                                    {sectorAssets.map(asset => {
-                                       const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
-                                       const assetGap = asset.target_percentage - assetCurrentPercent;
-                                       const assetStatus = getSectorStatus(assetGap);
-                                       
-                                       return (
-                                          <Card key={asset.id} onClick={() => openAssetModal(asset)} className="p-3 bg-primary border-primary shadow-none active:scale-[0.98] transition-transform cursor-pointer hover:border-primary/40">
-                                             <div className="flex justify-between items-start gap-2">
-                                                <div className="min-w-0 flex-1">
-                                                   <div className="font-bold text-primary text-sm truncate leading-tight">{asset.asset_name}</div>
-                                                   <div className="text-[9px] text-secondary/60 font-black uppercase tracking-wider mt-0.5">
-                                                      {asset.custom_rate || 'Variável'} {asset.maturity_date ? `| Venc: ${asset.maturity_date}` : ''}
-                                                   </div>
-                                                </div>
-                                             </div>
+                         <div className="space-y-3">
+                            {group.items.map(({sector, assets: sectorAssets}) => (
+                               <div key={sector.id} className="space-y-2">
+                                  <div className="pl-1">
+                                     <span className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-40">{sector.sector_name}</span>
+                                  </div>
+                                  <div className="space-y-3">
+                                     {sectorAssets.map(asset => {
+                                        const assetCurrentPercent = macroTotalBal > 0 ? (asset.current_balance / macroTotalBal) : 0;
+                                        const assetGap = asset.target_percentage - assetCurrentPercent;
+                                        const assetStatus = getSectorStatus(assetGap);
+                                        
+                                        return (
+                                           <Card key={asset.id} onClick={() => openAssetModal(asset)} className="p-3 bg-primary border-primary shadow-none active:scale-[0.98] transition-transform cursor-pointer hover:border-primary/40">
+                                              <div className="flex justify-between items-start gap-2">
+                                                 <div className="min-w-0 flex-1">
+                                                    <div className="font-bold text-primary text-sm truncate leading-tight">{asset.asset_name}</div>
+                                                    <div className="text-[9px] text-secondary/60 font-black uppercase tracking-wider mt-0.5">
+                                                       {asset.custom_rate || 'Variável'} {asset.maturity_date ? `| Venc: ${asset.maturity_date}` : ''}
+                                                    </div>
+                                                 </div>
+                                              </div>
 
-                                             <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-primary/5">
-                                                <div>
-                                                   <p className="text-[8px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Saldo</p>
-                                                   <p className="text-xs font-black text-primary">{formatCurrency(asset.current_balance)}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                   <p className="text-[8px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Sugestão</p>
-                                                   <p className="text-xs font-black text-income">
-                                                      {allocationSuggestions[asset.id] > 0 ? formatCurrency(allocationSuggestions[asset.id]) : '--'}
-                                                   </p>
-                                                </div>
-                                             </div>
+                                              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-primary/5">
+                                                 <div>
+                                                    <p className="text-[7px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Saldo</p>
+                                                    <p className="text-[10px] font-black text-primary">{formatCurrency(asset.current_balance)}</p>
+                                                 </div>
+                                                 <div className="text-center">
+                                                    <p className="text-[7px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Proventos</p>
+                                                    <p className="text-[10px] font-black text-income">
+                                                       {asset.monthly_dividends > 0 ? formatCurrency(asset.monthly_dividends) : '--'}
+                                                    </p>
+                                                 </div>
+                                                 <div className="text-right">
+                                                    <p className="text-[7px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Sugestão</p>
+                                                    <p className="text-[10px] font-black text-income">
+                                                       {allocationSuggestions[asset.id] > 0 ? formatCurrency(allocationSuggestions[asset.id]) : '--'}
+                                                    </p>
+                                                 </div>
+                                              </div>
 
-                                             <div className="flex items-center justify-between mt-2 px-2 py-1.5 bg-secondary/30 rounded-lg">
-                                                <div className="flex items-center gap-1.5">
-                                                   <span className="text-[8px] text-secondary font-black uppercase tracking-widest">Alvo</span>
-                                                   <span className="text-[10px] font-black text-primary">{formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}%</span>
-                                                </div>
-                                                <div className="w-px h-3 bg-primary/10"></div>
-                                                <div className="flex items-center gap-1.5">
-                                                   <span className="text-[8px] text-secondary font-black uppercase tracking-widest">Atual</span>
-                                                   <span className={`text-[10px] font-black ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
-                                                </div>
-                                             </div>
-                                          </Card>
-                                       );
-                                    })}
-                                 </div>
-                              </div>
-                           ))}
-                        </div>
-                     </div>
-                  );
-               })}
-               {assets.length === 0 && (
-                  <Card className="p-8 text-center bg-secondary border-dashed border-2 border-primary">
-                     <p className="text-secondary text-sm">Nenhum ativo cadastrado.</p>
-                  </Card>
-               )}
-            </div>
-         </div>
-             
-            {groupedData.length === 0 && (
-               <div className="text-center py-10 opacity-60">
-                  <FolderPlus className="mx-auto h-12 w-12 mb-3"/>
-                  <p>Inicie adicionando seus primeiros Setores e Ativos.</p>
-               </div>
-            )}
-         </div>
+                                              <div className="flex items-center justify-between mt-2 px-2 py-1.5 bg-secondary/30 rounded-lg">
+                                                 <div className="flex items-center gap-1.5">
+                                                    <span className="text-[8px] text-secondary font-black uppercase tracking-widest">Alvo</span>
+                                                    <span className="text-[10px] font-black text-primary">{formatNumberWithTwoDecimalsBR(asset.target_percentage * 100)}%</span>
+                                                 </div>
+                                                 <div className="w-px h-3 bg-primary/10"></div>
+                                                 <div className="flex items-center gap-1.5">
+                                                    <span className="text-[8px] text-secondary font-black uppercase tracking-widest">Atual</span>
+                                                    <span className={`text-[10px] font-black ${assetStatus.color}`}>{formatNumberWithTwoDecimalsBR(assetCurrentPercent * 100)}%</span>
+                                                 </div>
+                                              </div>
+                                           </Card>
+                                        );
+                                     })}
+                                  </div>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+                   );
+                })}
+                {assets.length === 0 && (
+                   <Card className="p-8 text-center bg-secondary border-dashed border-2 border-primary">
+                      <p className="text-secondary text-sm">Nenhum ativo cadastrado.</p>
+                   </Card>
+                )}
+             </div>
+          </div>
+              
+             {groupedData.length === 0 && (
+                <div className="text-center py-10 opacity-60">
+                   <FolderPlus className="mx-auto h-12 w-12 mb-3"/>
+                   <p>Inicie adicionando seus primeiros Setores e Ativos.</p>
+                </div>
+             )}
+          </div>
       {/* Modal Sector */}
       <Modal isOpen={showSectorModal} onClose={() => setShowSectorModal(false)} title={editingSector ? "Editar Grupo/Setor" : "Criar Grupo/Setor"}>
          <form onSubmit={handleSaveSector} className="space-y-4">
@@ -1314,7 +1467,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                                </td>
                                <td className="p-3">
                                   <Input 
-                                     value={quickUpdateContributions[asset.id] || ''}
+                                     value={quickUpdateContributions[asset.id] !== undefined ? quickUpdateContributions[asset.id] : (asset.monthly_contribution && Math.abs(asset.monthly_contribution) > 0.001 ? formatNumberWithTwoDecimalsBR(asset.monthly_contribution) : '')}
                                      onChange={(e) => {
                                         setQuickUpdateContributions({...quickUpdateContributions, [asset.id]: e.target.value});
                                         setDirtyAssetIds(prev => new Set(prev).add(asset.id));
@@ -1326,7 +1479,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                                </td>
                                <td className="p-3">
                                   <Input 
-                                     value={quickUpdateDividends[asset.id] || ''}
+                                     value={quickUpdateDividends[asset.id] !== undefined ? quickUpdateDividends[asset.id] : (asset.monthly_dividends && Math.abs(asset.monthly_dividends) > 0.001 ? formatNumberWithTwoDecimalsBR(asset.monthly_dividends) : '')}
                                      onChange={(e) => {
                                         setQuickUpdateDividends({...quickUpdateDividends, [asset.id]: e.target.value});
                                         setDirtyAssetIds(prev => new Set(prev).add(asset.id));
@@ -1395,13 +1548,14 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
             </div>
 
             <div className="p-3 bg-secondary/50 rounded-xl border border-primary/10 text-[10px] text-secondary/60 italic leading-relaxed">
-               Nota: Esta ação atualiza o saldo atual do ativo somando o aporte. Proventos não alteram o saldo, mas são contabilizados na rentabilidade do relatório.
+               Nota: Esta ação atualiza o saldo atual do ativo somando o aporte. Registre o aporte inicial de novos ativos para garantir a precisão da rentabilidade orgânica (ganho real).
             </div>
 
             <ModalActionFooter onCancel={() => setShowMovementModal(false)} submitLabel="Salvar Movimentação" submitDisabled={saving} />
          </form>
       </Modal>
 
+      {/* Modal Import */}
       <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Importar Ativo do Histórico">
          <div className="space-y-4">
             <p className="text-sm text-secondary">Selecione um ativo que já foi cadastrado em meses anteriores para adicioná-lo ao mês atual.</p>
@@ -1444,4 +1598,3 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
    </div>
   );
 }
-
