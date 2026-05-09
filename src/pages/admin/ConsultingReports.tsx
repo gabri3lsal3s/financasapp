@@ -894,12 +894,6 @@ export default function ConsultingReports({
       });
    }, [tableA, activeReportData, activePdfAssets, liveSectors, liveMacroSectors]);
 
-  const updateTableA = (label: string, field: keyof TableARow, value: string) => {
-     setTableA(prev => ({
-        ...prev,
-        [label]: { ...prev[label], [field]: value }
-     }));
-  };
 
   if (loading && !clientId) return <div className="flex justify-center p-20"><Loader text="Sincronizando dados..." /></div>;
 

@@ -757,7 +757,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
 
             // What the macro CLASS should have in absolute value after aporte
             const macroSectorsList = sectors.filter(s => s.macro_sector_id === m.id);
-            const macroAssets = assets.filter(a => macroSectorsList.some(s => s.id === a.sector_id));
             const macroTargetBal = futureTotal * m.target_percentage;
 
             let totalSectorGaps = 0;
@@ -1062,7 +1061,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                                                   <input 
                                                      value={macroTargets[macro.id] !== undefined ? macroTargets[macro.id] : formatNumberWithTwoDecimalsBR(macro.target_percentage * 100)}
                                                      onChange={e => handleUpdateMacroTargetLocal(macro.id, e.target.value)}
-                                                     onBlur={() => syncMacroTarget(macro.id)}
+                                                     onBlur={() => syncMacroTarget()}
                                                      onClick={e => e.stopPropagation()}
                                                      className="w-10 bg-transparent border-none text-right font-black text-[11px] text-primary focus:ring-0 p-0"
                                                   />
