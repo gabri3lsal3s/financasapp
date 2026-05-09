@@ -61,6 +61,7 @@ interface TableARow {
   benchInício?: string;
   yield: string; // Yield on Cost
   yieldCurrent: string; // Current Yield
+  balance: number;
 }
 
 interface PlanningRow {
@@ -176,76 +177,56 @@ export default function ConsultingReports({
     } catch (err) {} finally { setLoading(false); }
   };
 
+  const calcPerformance = (curr: number, start: number, contrib: number, divs: number, applied: number = 0, assetName: string = '') => {
+      let baseStart = start;
+      let effectiveContrib = contrib;
+      if (start === 0) {
+         if (contrib !== 0) baseStart = 0;
+         else if (applied > 0) baseStart = applied;
+      }
+      const isFixedIncome = assetName.toUpperCase().includes('CDB') || 
+                          assetName.toUpperCase().includes('TESOURO') || 
+                          assetName.toUpperCase().includes('SELIC') || 
+                          assetName.toUpperCase().includes('IPCA') || 
+                          assetName.toUpperCase().includes('LCI') || 
+                          assetName.toUpperCase().includes('LCA') ||
+                          assetName.toUpperCase().includes('POUPANÇA') ||
+                          assetName.toUpperCase().includes('RENDA FIXA');
+      if (baseStart > 0 && contrib === 0) {
+         const ratio = curr / baseStart;
+         const upThreshold = isFixedIncome ? 1.05 : 1.5;
+         if (ratio > upThreshold) effectiveContrib = curr - baseStart;
+         const downThreshold = isFixedIncome ? 0.98 : 0.5;
+         if (ratio < downThreshold) effectiveContrib = curr - baseStart;
+      }
+      const profit = curr - baseStart - effectiveContrib + divs;
+      let basis = baseStart;
+      if (baseStart === 0) basis = Math.abs(effectiveContrib || curr);
+      else basis = baseStart + effectiveContrib / 2;
+      const safeBasis = Math.max(basis, 0.1);
+      const percent = (profit / safeBasis) * 100;
+      return { profit, percent, basis: safeBasis };
+  };
+
+  const getMacroName = (assetName: string, refAssets: PortfolioAsset[]) => {
+    const a = refAssets.find(x => x.asset_name === assetName);
+    if (!a) return 'Outros';
+    const s = liveSectors.find(ls => ls.id === a.sector_id);
+    const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
+    return m?.name || s?.macro_category || a.category || 'Outros';
+  };
+
   const computeTopMovers = async (currentAssets: PortfolioAsset[], currentReportId: string) => {
+    const currentMonthMovements = currentAssets.map(a => ({
+      asset_name: a.asset_name,
+      monthly_contribution: a.monthly_contribution,
+      monthly_dividends: a.monthly_dividends
+    }));
     const currentReport = historyReports.find(r => r.id === currentReportId);
     const sortedHistory = [...historyReports].sort((a, b) => a.month.localeCompare(b.month));
     const currentIdx = sortedHistory.findIndex(r => r.id === currentReportId);
     const prevReport = currentIdx > 0 ? sortedHistory[currentIdx - 1] : null;
 
-    // Core Calculation Logic
-    const calcPerformance = (curr: number, start: number, contrib: number, divs: number, applied: number = 0, assetName: string = '') => {
-       // 1. Determine the actual baseline (Start)
-       // If no previous month balance, we use the Applied Amount (Cost Basis) ONLY IF no contribution was recorded.
-       // If a contribution exists for a new asset, the contribution IS the start-of-month baseline flow.
-       let baseStart = start;
-       let effectiveContrib = contrib;
-
-       if (start === 0) {
-          if (contrib !== 0) {
-             // New purchase this month: Start is 0, Basis will be the contribution.
-             baseStart = 0;
-          } else if (applied > 0) {
-             // Existing asset newly added to tracking: Use cost basis as starting point.
-             baseStart = applied;
-          }
-       }
-       
-       const isFixedIncome = assetName.toUpperCase().includes('CDB') || 
-                           assetName.toUpperCase().includes('TESOURO') || 
-                           assetName.toUpperCase().includes('SELIC') || 
-                           assetName.toUpperCase().includes('IPCA') || 
-                           assetName.toUpperCase().includes('LCI') || 
-                           assetName.toUpperCase().includes('LCA') ||
-                           assetName.toUpperCase().includes('POUPANÇA') ||
-                           assetName.toUpperCase().includes('RENDA FIXA');
-
-       // 2. Heuristics for missing records (Aportes/Vendas esquecidos)
-       // Only apply if the user didn't record ANY movement (contrib === 0)
-       if (baseStart > 0 && contrib === 0) {
-          const ratio = curr / baseStart;
-          const upThreshold = isFixedIncome ? 1.05 : 1.5;
-          if (ratio > upThreshold) effectiveContrib = curr - baseStart;
-          
-          const downThreshold = isFixedIncome ? 0.98 : 0.5;
-          if (ratio < downThreshold) effectiveContrib = curr - baseStart;
-       }
-
-       // 3. Profit Calculation: Organic Gain = End - Start - Net_Flows + Dividends
-       const profit = curr - baseStart - effectiveContrib + divs;
-       
-       // 4. Basis for percentage (Average Capital)
-       let basis = baseStart;
-       if (baseStart === 0) {
-          // New asset: Basis is the contribution or balance.
-          basis = Math.abs(effectiveContrib || curr);
-       } else {
-          // Simple Dietz: Basis = Start + (Net Contribution / 2)
-          basis = baseStart + effectiveContrib / 2;
-       }
-       
-       const safeBasis = Math.max(basis, 0.1);
-       const percent = (profit / safeBasis) * 100;
-       
-       return { profit, percent, basis: safeBasis };
-    };
-
-    const getMacroName = (assetName: string, refAssets: PortfolioAsset[]) => {
-      const a = refAssets.find(x => x.asset_name === assetName);
-      if (!a) return 'Outros';
-      const s = liveSectors.find(ls => ls.id === a.sector_id);
-      const m = s ? liveMacroSectors.find(mc => mc.id === s.macro_sector_id) : null;
-      return m?.name || s?.macro_category || a.category || 'Outros';
-    };
 
     const getMacroMetricsForPeriod = (startAssets: PortfolioAsset[], endAssets: PortfolioAsset[], periodMovements: any[]) => {
       const periodMap: Record<string, { profit: number, basis: number, dividends: number, currBal: number }> = {};

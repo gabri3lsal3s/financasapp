@@ -114,7 +114,6 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
   const [tableContributions, setTableContributions] = useState<Record<string, string>>({});
   const [tableDividends, setTableDividends] = useState<Record<string, string>>({});
   const [macroTargets, setMacroTargets] = useState<Record<string, string>>({});
-  const [sectorTargets, setSectorTargets] = useState<Record<string, string>>({});
   const [tableTargets, setTableTargets] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -594,7 +593,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
       });
    };
 
-   const syncMacroTarget = async (id: string) => {
+   const syncMacroTarget = async () => {
       try {
          await Promise.all(macroSectors.map(m => 
             supabase.from('portfolio_macro_sectors').update({ target_percentage: m.target_percentage }).eq('id', m.id)
@@ -1250,7 +1249,7 @@ export default function PortfolioManagement({ clientId, selectedMonth = 'live', 
                                                  <div className="text-center">
                                                     <p className="text-[7px] font-black text-secondary uppercase tracking-widest opacity-40 mb-0.5">Proventos</p>
                                                     <p className="text-[10px] font-black text-income">
-                                                       {asset.monthly_dividends > 0 ? formatCurrency(asset.monthly_dividends) : '--'}
+                                                       {(asset.monthly_dividends || 0) > 0 ? formatCurrency(asset.monthly_dividends || 0) : '--'}
                                                     </p>
                                                  </div>
                                                  <div className="text-right">
