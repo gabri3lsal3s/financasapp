@@ -81,7 +81,7 @@ Tabelas principais:
 - `categories`, `income_categories`
 - `expenses`, `incomes`, `investments`
 - `expense_category_month_limits`, `income_category_month_expectations`
-- estruturas auxiliares de cartões e assistente já contempladas no script base.
+- estruturas auxiliares de cartões já contempladas no script base.
 
 Observações:
 
@@ -93,12 +93,6 @@ Observações:
 - Service Worker ativo para assets do app.
 - Operações de escrita offline entram em fila local e sincronizam ao reconectar.
 - Prompt de atualização aparece quando existe nova versão publicada.
-
-## Assistente (resumo)
-
-- Suporta adição de despesa, renda e investimento por voz/texto.
-- Mantém confirmação explícita para ações sensíveis.
-- Armazena telemetria e memória local com retenção configurável em Configurações.
 
 ## Segurança
 

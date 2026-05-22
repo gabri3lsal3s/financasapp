@@ -9,7 +9,24 @@ import {
 
 describe('creditCardCsvReconciliation', () => {
   beforeEach(() => {
-    localStorage.clear()
+    if (typeof localStorage === 'undefined' || !localStorage.clear) {
+      const store = new Map<string, string>()
+      const mock = {
+        getItem: (key: string) => store.get(key) || null,
+        setItem: (key: string, value: string) => store.set(key, value),
+        removeItem: (key: string) => store.delete(key),
+        clear: () => store.clear(),
+        length: 0,
+        key: () => null,
+      }
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: mock,
+        writable: true,
+        configurable: true,
+      })
+    } else {
+      localStorage.clear()
+    }
   })
 
   it('rejeita CSV fora do contexto de fatura de cartão', () => {

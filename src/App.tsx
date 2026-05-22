@@ -23,11 +23,6 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 
-// Admin Routes
-import AdminRoute from './components/AdminRoute'
-import InvestmentConsulting from './pages/admin/InvestmentConsulting'
-import ClientDashboard from './pages/admin/ClientDashboard'
-
 function App() {
   return (
     <AuthProvider>
@@ -60,14 +55,6 @@ function App() {
                     <Route path="/credit-cards" element={<CreditCards />} />
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/settings" element={<Settings />} />
-                    
-                    {/* Rotas de Administração */}
-                    <Route path="/admin/consulting" element={
-                       <AdminRoute><InvestmentConsulting /></AdminRoute>
-                    } />
-                    <Route path="/admin/consulting/:clientId" element={
-                       <AdminRoute><ClientDashboard /></AdminRoute>
-                    } />
                   </Routes>
                 </Layout>
               </ProtectedRoute>

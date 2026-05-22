@@ -33,14 +33,14 @@ describe('offlineQueue idempotency', () => {
       entity: 'expenses',
       action: 'create',
       payload: { amount: 120 },
-      idempotencyKey: 'assistant:cmd-1:expense:0',
+      idempotencyKey: 'offline:cmd-1:expense:0',
     })
 
     const second = enqueueOfflineOperation({
       entity: 'expenses',
       action: 'create',
       payload: { amount: 120 },
-      idempotencyKey: 'assistant:cmd-1:expense:0',
+      idempotencyKey: 'offline:cmd-1:expense:0',
     })
 
     expect(getOfflineQueueSize()).toBe(1)

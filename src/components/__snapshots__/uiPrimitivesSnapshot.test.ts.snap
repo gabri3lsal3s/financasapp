@@ -10,7 +10,7 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
     Primário
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary px-4 py-2 text-base min-h-10  "
+    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary px-4 py-2 text-base min-h-10  "
   >
     Outline
   </button>
@@ -44,11 +44,15 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
   >
     Valor
   </label>
-  <input
-    class="w-full px-4 py-2 border rounded-lg bg-primary text-primary placeholder-[var(--color-text-secondary)] hover:border-[var(--color-focus)] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all duration-[var(--transition-fast)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] border-[var(--color-danger)] "
-    id=":r0:"
-    value="1.000,00"
-  />
+  <div
+    class="relative"
+  >
+    <input
+      class="w-full px-4 py-2 border rounded-lg bg-primary text-primary placeholder-[var(--color-text-secondary)] hover:border-[var(--color-focus)] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all duration-[var(--transition-fast)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] border-[var(--color-danger)] "
+      id=":r0:"
+      value="1.000,00"
+    />
+  </div>
   <p
     class="mt-1 text-sm text-[var(--color-danger)]"
   >
@@ -67,7 +71,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
     role="presentation"
   >
     <div
-      aria-labelledby=":r2:"
+      aria-labelledby=":r1:"
       aria-modal="true"
       class="bg-primary w-full max-w-md max-h-[calc(100vh-2rem)] rounded-2xl shadow-xl border border-primary overflow-hidden animate-slide-up motion-emphasis"
       role="dialog"
@@ -77,7 +81,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
       >
         <h2
           class="text-xl font-bold text-primary"
-          id=":r2:"
+          id=":r1:"
         >
           Editar lançamento
         </h2>
@@ -123,54 +127,98 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
 exports[`UI primitives snapshots > ModalActionFooter renders with delete action consistently 1`] = `
 <form>
   <div
-    class="flex gap-3 pt-4"
+    class="flex pt-4 justify-center items-center gap-4"
   >
     <button
-      class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary px-4 py-2 text-base min-h-10 w-full "
+      class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-transparent bg-transparent text-secondary hover:text-expense hover:bg-[color-mix(in_srgb,var(--color-expense)_10%,transparent)] px-4 py-2 text-base min-h-10  px-3 flex-shrink-0"
+      title="Excluir item"
       type="button"
     >
-      Cancelar
+      <svg
+        class="lucide lucide-trash2 "
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M3 6h18"
+        />
+        <path
+          d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+        />
+        <path
+          d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+        />
+        <line
+          x1="10"
+          x2="10"
+          y1="11"
+          y2="17"
+        />
+        <line
+          x1="14"
+          x2="14"
+          y1="11"
+          y2="17"
+        />
+      </svg>
     </button>
     <button
-      class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90 px-4 py-2 text-base min-h-10 w-full "
+      class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-transparent bg-transparent text-secondary hover:text-income hover:bg-[color-mix(in_srgb,var(--color-income)_10%,transparent)] px-4 py-2 text-base min-h-10  px-3 flex-shrink-0"
       disabled=""
+      title="Salvar alterações"
       type="submit"
     >
-      Salvar alterações
+      <svg
+        class="lucide lucide-check "
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M20 6 9 17l-5-5"
+        />
+      </svg>
     </button>
   </div>
-  <button
-    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-danger)] bg-[var(--color-danger)] text-white hover:opacity-90 px-4 py-2 text-base min-h-10 w-full "
-    type="button"
-  >
-    Excluir item
-  </button>
 </form>
 `;
 
 exports[`UI primitives snapshots > PageHeader renders title, subtitle and action consistently 1`] = `
 <header
-  class="bg-secondary border-b border-primary safe-area-top motion-standard"
+  class="bg-secondary border-b border-primary safe-area-top motion-standard relative z-10"
 >
   <div
-    class="px-4 py-4 lg:px-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between motion-standard"
+    class="px-4 py-3 lg:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 motion-standard"
   >
     <div
-      class="flex-1"
+      class="flex-1 min-w-0 w-full"
     >
       <h1
-        class="text-2xl font-bold text-primary"
+        class="text-xl sm:text-2xl font-bold text-primary truncate"
       >
         Relatórios
       </h1>
       <p
-        class="text-sm text-secondary mt-1"
+        class="text-xs sm:text-sm text-secondary mt-0.5 sm:mt-1 truncate"
       >
         Resumo anual e mensal
       </p>
     </div>
     <div
-      class="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4 flex items-center motion-standard [&>*]:min-h-9"
+      class="flex-shrink-0 flex items-center w-full sm:w-auto motion-standard [&>*]:min-h-8 sm:[&>*]:min-h-9"
     >
       <button
         class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90 px-3 py-1.5 text-sm min-h-9  "
@@ -184,31 +232,51 @@ exports[`UI primitives snapshots > PageHeader renders title, subtitle and action
 
 exports[`UI primitives snapshots > Select renders options and error state consistently 1`] = `
 <div
-  class="w-full"
+  class="w-full "
 >
   <label
-    class="block text-sm font-medium text-primary mb-1"
-    for=":r1:"
+    class="block text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 opacity-60 ml-1"
   >
     Categoria
+     
   </label>
-  <select
-    class="w-full px-4 py-2 border rounded-lg bg-primary text-primary hover:border-[var(--color-focus)] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all duration-[var(--transition-fast)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] border-[var(--color-danger)] "
-    id=":r1:"
+  <div
+    class="relative"
   >
-    <option
-      value="alimentacao"
+    <button
+      class="
+              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium
+              border-primary/20 bg-primary hover:bg-tertiary shadow-none
+              cursor-pointer
+              border-danger/50
+            "
+      type="button"
     >
-      Alimentação
-    </option>
-    <option
-      value="transporte"
-    >
-      Transporte
-    </option>
-  </select>
+      <span
+        class="truncate text-primary"
+      >
+        Alimentação
+      </span>
+      <svg
+        class="lucide lucide-chevron-down text-secondary transition-transform duration-300 "
+        fill="none"
+        height="18"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="18"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="m6 9 6 6 6-6"
+        />
+      </svg>
+    </button>
+  </div>
   <p
-    class="mt-1 text-sm text-[var(--color-danger)]"
+    class="mt-1.5 text-[10px] font-bold text-danger ml-1"
   >
     Selecione uma categoria
   </p>
