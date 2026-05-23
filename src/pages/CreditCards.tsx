@@ -611,7 +611,7 @@ export default function CreditCards() {
       })),
     )
 
-    let totalRefundByCard: Record<string, number> = {}
+    const totalRefundByCard: Record<string, number> = {}
 
     // Pós-processamento para garantir que estornos (registrados na tabela de pagamentos)
     // reduzam o valor previsto da fatura em vez de aumentar o "total pago".

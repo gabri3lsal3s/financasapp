@@ -59,7 +59,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const root = document.documentElement
     
     // Determinar o modo real (se for system, checar preferência)
-    let actualTheme: 'light' | 'dark' | 'midnight' = newTheme === 'system' 
+    const actualTheme: 'light' | 'dark' | 'midnight' = newTheme === 'system' 
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : (newTheme as 'light' | 'dark' | 'midnight')
 

@@ -681,7 +681,7 @@ export default function Reports() {
     }
 
     return []
-  }, [detailModal, monthExpenses, monthIncomes, yearExpenseItems, yearIncomeItems, getAmountByMode])
+  }, [detailModal, monthExpenses, monthIncomes, yearExpenseItems, yearIncomeItems, annualExpenses, getAmountByMode])
 
   const detailCurrentTotal = useMemo(
     () => detailItems.reduce((sum, item) => sum + item.amount, 0),

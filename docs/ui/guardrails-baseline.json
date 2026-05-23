@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-07T17:49:33.447Z",
+  "generatedAt": "2026-05-22T19:50:36.977Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -17,766 +17,1039 @@
   ],
   "violations": [
     {
-      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|670|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/components/CreditCardCsvReconciliationPanel.tsx|416|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/FloatingCalculator.tsx",
-      "line": 670,
+      "file": "src/components/CreditCardCsvReconciliationPanel.tsx",
+      "line": 416,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|722|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/components/CreditCardCsvReconciliationPanel.tsx|438|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/CreditCardCsvReconciliationPanel.tsx",
+      "line": 438,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/CreditCardCsvReconciliationPanel.tsx|443|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/CreditCardCsvReconciliationPanel.tsx",
+      "line": 443,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ExpenseFormModal.tsx|124|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ExpenseFormModal.tsx",
+      "line": 124,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|669|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/FloatingCalculator.tsx",
+      "line": 669,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|721|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/FloatingCalculator.tsx",
+      "line": 721,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/IncomeFormModal.tsx|209|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/IncomeFormModal.tsx",
+      "line": 209,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|127|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 127,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|216|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 216,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|233|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 233,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|42|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 42,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|43|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 43,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|56|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 56,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ReportCharts.tsx|70|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 70,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Categories.tsx|180|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Categories.tsx",
+      "line": 180,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Categories.tsx|206|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Categories.tsx",
+      "line": 206,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1039|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1039,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1295|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1295,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1385|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1385,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1665|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1665,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|556|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 556,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|628|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 628,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|639|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 639,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|645|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 645,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|650|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 650,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|722|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/CreditCards.tsx",
       "line": 722,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CategoriesHome.tsx|179|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CategoriesHome.tsx",
-      "line": 179,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CategoriesHome.tsx|205|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CategoriesHome.tsx",
-      "line": 205,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1060|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 1060,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1146|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 1146,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1398|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 1398,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|469|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 469,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|527|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 527,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|826|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 826,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|787|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Dashboard.tsx",
-      "line": 787,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Expenses.tsx|200|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Expenses.tsx",
-      "line": 200,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Incomes.tsx|224|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Incomes.tsx",
-      "line": 224,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1248|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1399|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Reports.tsx",
-      "line": 1248,
+      "line": 1399,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1282|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1469|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Reports.tsx",
-      "line": 1282,
+      "line": 1469,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1323|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1502|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Reports.tsx",
-      "line": 1323,
+      "line": 1502,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1347|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Reports.tsx",
-      "line": 1347,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1380|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Reports.tsx",
-      "line": 1380,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1458|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Reports.tsx",
-      "line": 1458,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1498|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Reports.tsx",
-      "line": 1498,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Reports.tsx|1535|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Reports.tsx",
-      "line": 1535,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Settings.tsx|513|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Settings.tsx",
-      "line": 513,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Settings.tsx|735|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Settings.tsx",
-      "line": 735,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Settings.tsx|827|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Settings.tsx",
-      "line": 827,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|1255|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 1255,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|1642|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 1642,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3087|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3087,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3088|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3088,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3103|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3103,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3135|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3135,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3136|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3136,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3150|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3150,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3238|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3238,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3239|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3239,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3245|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3245,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3246|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3246,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3255|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3255,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3256|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3256,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3262|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3262,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3263|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3263,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3313|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3313,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|3315|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 3315,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|733|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 733,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/services/assistantService.ts|745|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/services/assistantService.ts",
-      "line": 745,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/CategoriesHome.tsx|307|<input",
+      "key": "ui-no-native-control-in-pages|src/pages/Categories.tsx|309|<input",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/CategoriesHome.tsx",
-      "line": 307,
+      "file": "src/pages/Categories.tsx",
+      "line": 309,
       "match": "<input"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/CategoriesHome.tsx|382|<input",
+      "key": "ui-no-native-control-in-pages|src/pages/Categories.tsx|389|<input",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/CategoriesHome.tsx",
-      "line": 382,
+      "file": "src/pages/Categories.tsx",
+      "line": 389,
       "match": "<input"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1373|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1633|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1373,
+      "line": 1633,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1428|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1695|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1428,
+      "line": 1695,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1060|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|398|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1060,
+      "line": 398,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|515|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|555|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 515,
+      "line": 555,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1052|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|603|<button",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Reports.tsx",
-      "line": 1052,
+      "file": "src/pages/Dashboard.tsx",
+      "line": 603,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1438|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|616|<button",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Reports.tsx",
-      "line": 1438,
+      "file": "src/pages/Dashboard.tsx",
+      "line": 616,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1478|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|629|<button",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Reports.tsx",
-      "line": 1478,
+      "file": "src/pages/Dashboard.tsx",
+      "line": 629,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1564|<input",
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1172|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Reports.tsx",
-      "line": 1564,
+      "line": 1172,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1587|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1587,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1678|<input",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Reports.tsx",
+      "line": 1678,
       "match": "<input"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1597|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|1720|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Reports.tsx",
-      "line": 1597,
+      "line": 1720,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|862|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Reports.tsx|983|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Reports.tsx",
-      "line": 862,
+      "line": 983,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|315|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|234|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Settings.tsx",
-      "line": 315,
+      "line": 234,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|340|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Settings.tsx",
-      "line": 340,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/Settings.tsx|369|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Settings.tsx",
-      "line": 369,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|39|#d0d0d0",
+      "key": "ui-no-raw-hex-color|src/App.tsx|34|#333",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 39,
-      "match": "#d0d0d0"
+      "file": "src/App.tsx",
+      "line": 34,
+      "match": "#333"
     },
     {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|39|#ffffff",
+      "key": "ui-no-raw-hex-color|src/App.tsx|34|#fff",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 39,
-      "match": "#ffffff"
+      "file": "src/App.tsx",
+      "line": 34,
+      "match": "#fff"
     },
     {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|40|#f8f8f8",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|101|#000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 40,
-      "match": "#f8f8f8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|41|#808080",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 41,
-      "match": "#808080"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|46|#101010",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 46,
-      "match": "#101010"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|46|#3b3b3b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 46,
-      "match": "#3b3b3b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|47|#181818",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 47,
-      "match": "#181818"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|48|#b3b3b3",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/ThemeSwitcher.tsx",
-      "line": 48,
-      "match": "#b3b3b3"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|100|#555555",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 100,
-      "match": "#555555"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|101|#d0d0d0",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
+      "file": "src/components/ReportCharts.tsx",
       "line": 101,
-      "match": "#d0d0d0"
+      "match": "#000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|102|#6b7280",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|115|#eee",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 102,
-      "match": "#6b7280"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 115,
+      "match": "#eee"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|103|#1a1a1a",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|118|#333",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 103,
-      "match": "#1a1a1a"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|104|#808080",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 104,
-      "match": "#808080"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|105|#ffffff",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 105,
-      "match": "#ffffff"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|106|#2d5016",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 106,
-      "match": "#2d5016"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|107|#5a4a00",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 107,
-      "match": "#5a4a00"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|108|#8b0000",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 108,
-      "match": "#8b0000"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|109|#f0f0f0",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 109,
-      "match": "#f0f0f0"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|110|#b0b0b0",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 110,
-      "match": "#b0b0b0"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|111|#d8d8d8",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 111,
-      "match": "#d8d8d8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|112|#e0e0e0",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 112,
-      "match": "#e0e0e0"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|117|#101010",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 117,
-      "match": "#101010"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|118|#181818",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
+      "file": "src/components/ReportCharts.tsx",
       "line": 118,
-      "match": "#181818"
+      "match": "#333"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|119|#262626",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|126|#888",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 119,
-      "match": "#262626"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|120|#eef2f7",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 120,
-      "match": "#eef2f7"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|121|#b3b3b3",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 121,
-      "match": "#b3b3b3"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|122|#3b3b3b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 122,
-      "match": "#3b3b3b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|123|#e5e7eb",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 123,
-      "match": "#e5e7eb"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|124|#9ca3af",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 124,
-      "match": "#9ca3af"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|125|#f9fafb",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 125,
-      "match": "#f9fafb"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|126|#101010",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
+      "file": "src/components/ReportCharts.tsx",
       "line": 126,
-      "match": "#101010"
+      "match": "#888"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|127|#86efac",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|128|#000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 127,
-      "match": "#86efac"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|128|#facc15",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
+      "file": "src/components/ReportCharts.tsx",
       "line": 128,
-      "match": "#facc15"
+      "match": "#000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|129|#f87171",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|129|#bbb",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
+      "file": "src/components/ReportCharts.tsx",
       "line": 129,
-      "match": "#f87171"
+      "match": "#bbb"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|130|#2d2d2d",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|137|#111",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 130,
-      "match": "#2d2d2d"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 137,
+      "match": "#111"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|131|#5f5f5f",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|210|#000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 131,
-      "match": "#5f5f5f"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 210,
+      "match": "#000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|132|#4e4e4e",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|211|#000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 132,
-      "match": "#4e4e4e"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 211,
+      "match": "#000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|133|#353535",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|214|#eee",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 133,
-      "match": "#353535"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 214,
+      "match": "#eee"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|82|#10b981",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|215|#888",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 82,
-      "match": "#10b981"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 215,
+      "match": "#888"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|83|#ef4444",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|216|#888",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 83,
-      "match": "#ef4444"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 216,
+      "match": "#888"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|84|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|218|#000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 84,
-      "match": "#3b82f6"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 218,
+      "match": "#000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|87|#e5e7eb",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|218|#000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 87,
-      "match": "#e5e7eb"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 218,
+      "match": "#000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|88|#9ca3af",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|232|#eee",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 88,
-      "match": "#9ca3af"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 232,
+      "match": "#eee"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|89|#6b7280",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|233|#888",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 89,
-      "match": "#6b7280"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 233,
+      "match": "#888"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|96|#ffffff",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|234|#555",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 96,
-      "match": "#ffffff"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 234,
+      "match": "#555"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|97|#f8f8f8",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|236|#333",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 97,
-      "match": "#f8f8f8"
+      "file": "src/components/ReportCharts.tsx",
+      "line": 236,
+      "match": "#333"
     },
     {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|98|#e8e8e8",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#000000",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 98,
-      "match": "#e8e8e8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|99|#000000",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/contexts/ThemeContext.tsx",
-      "line": 99,
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
       "match": "#000000"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/useCategories.ts|6|#9ca3af",
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#2a2a2a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#2a2a2a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#444444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#444444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#666666",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#666666"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#888888",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#888888"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#aaaaaa",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#aaaaaa"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#bbbbbb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#bbbbbb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|29|#cccccc",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 29,
+      "match": "#cccccc"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|88|#111",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 88,
+      "match": "#111"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|97|#000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ReportCharts.tsx",
+      "line": 97,
+      "match": "#000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|40|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 40,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|41|#f8f8f8",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 41,
+      "match": "#f8f8f8"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|42|#101010",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 42,
+      "match": "#101010"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|47|#09090b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 47,
+      "match": "#09090b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|48|#18181b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 48,
+      "match": "#18181b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|49|#fafafa",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 49,
+      "match": "#fafafa"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|54|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 54,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|55|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 55,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|60|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 60,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|62|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 62,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/components/ThemeSwitcher.tsx|62|#27272a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/components/ThemeSwitcher.tsx",
+      "line": 62,
+      "match": "#27272a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|100|#d1d5db",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 100,
+      "match": "#d1d5db"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|101|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 101,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|102|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 102,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|103|#1f2937",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 103,
+      "match": "#1f2937"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|104|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 104,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|105|#064e3b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 105,
+      "match": "#064e3b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|106|#713f12",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 106,
+      "match": "#713f12"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|107|#7f1d1d",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 107,
+      "match": "#7f1d1d"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|108|#f9fafb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 108,
+      "match": "#f9fafb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|109|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 109,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|110|#f3f4f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 110,
+      "match": "#f3f4f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|111|#f0f0f0",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 111,
+      "match": "#f0f0f0"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|116|#09090b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 116,
+      "match": "#09090b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|117|#121216",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 117,
+      "match": "#121216"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|118|#1e1e24",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 118,
+      "match": "#1e1e24"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|119|#fafafa",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 119,
+      "match": "#fafafa"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|120|#a1a1aa",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 120,
+      "match": "#a1a1aa"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|121|#27272a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 121,
+      "match": "#27272a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|122|#e4e4e7",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 122,
+      "match": "#e4e4e7"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|123|#d4d4d8",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 123,
+      "match": "#d4d4d8"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|124|#3f3f46",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 124,
+      "match": "#3f3f46"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|125|#09090b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 125,
+      "match": "#09090b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|126|#4ade80",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 126,
+      "match": "#4ade80"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|127|#fde047",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 127,
+      "match": "#fde047"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|128|#f87171",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 128,
+      "match": "#f87171"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|129|#18181b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 129,
+      "match": "#18181b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|130|#52525b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 130,
+      "match": "#52525b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|131|#27272a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 131,
+      "match": "#27272a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|132|#2a2a30",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 132,
+      "match": "#2a2a30"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|137|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 137,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|138|#09090b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 138,
+      "match": "#09090b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|139|#121216",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 139,
+      "match": "#121216"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|140|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 140,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|141|#a1a1aa",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 141,
+      "match": "#a1a1aa"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|142|#27272a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 142,
+      "match": "#27272a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|143|#f4f4f5",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 143,
+      "match": "#f4f4f5"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|144|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 144,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|145|#27272a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 145,
+      "match": "#27272a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|146|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 146,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|147|#22c55e",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 147,
+      "match": "#22c55e"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|148|#facc15",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 148,
+      "match": "#facc15"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|149|#f43f5e",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 149,
+      "match": "#f43f5e"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|150|#0a0a0a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 150,
+      "match": "#0a0a0a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|151|#71717a",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 151,
+      "match": "#71717a"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|152|#18181b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 152,
+      "match": "#18181b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|153|#0f0f0f",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 153,
+      "match": "#0f0f0f"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|81|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 81,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|81|#22c55e",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 81,
+      "match": "#22c55e"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|82|#ef4444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 82,
+      "match": "#ef4444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|82|#f43f5e",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 82,
+      "match": "#f43f5e"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|83|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 83,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|83|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 83,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|86|#e5e5e5",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 86,
+      "match": "#e5e5e5"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|87|#a3a3a3",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 87,
+      "match": "#a3a3a3"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|88|#737373",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 88,
+      "match": "#737373"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|95|#ffffff",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 95,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|96|#f9fafb",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 96,
+      "match": "#f9fafb"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|97|#f3f4f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 97,
+      "match": "#f3f4f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|98|#000000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 98,
+      "match": "#000000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/contexts/ThemeContext.tsx|99|#111827",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/contexts/ThemeContext.tsx",
+      "line": 99,
+      "match": "#111827"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useCategories.ts|10|#9ca3af",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/useCategories.ts",
-      "line": 6,
+      "line": 10,
       "match": "#9ca3af"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/useIncomeCategories.ts|6|#9ca3af",
+      "key": "ui-no-raw-hex-color|src/hooks/useExpenses.ts|353|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useExpenses.ts",
+      "line": 353,
+      "match": "#9ca3af"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useIncomeCategories.ts|10|#9ca3af",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/useIncomeCategories.ts",
-      "line": 6,
+      "line": 10,
       "match": "#9ca3af"
     },
     {
@@ -785,6 +1058,13 @@
       "file": "src/hooks/useIncomeReports.ts",
       "line": 70,
       "match": "#808080"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/hooks/useIncomes.ts|210|#9ca3af",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/hooks/useIncomes.ts",
+      "line": 210,
+      "match": "#9ca3af"
     },
     {
       "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|13|#10b981",
@@ -808,67 +1088,123 @@
       "match": "#ef4444"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#6b7280",
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#737373",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/usePaletteColors.ts",
       "line": 17,
-      "match": "#6b7280"
+      "match": "#737373"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#9ca3af",
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#a3a3a3",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/usePaletteColors.ts",
       "line": 17,
-      "match": "#9ca3af"
+      "match": "#a3a3a3"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#e5e7eb",
+      "key": "ui-no-raw-hex-color|src/hooks/usePaletteColors.ts|17|#e5e5e5",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/usePaletteColors.ts",
       "line": 17,
-      "match": "#e5e7eb"
+      "match": "#e5e5e5"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/useReports.ts|144|#6b7280",
+      "key": "ui-no-raw-hex-color|src/hooks/useReports.ts|162|#6b7280",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/useReports.ts",
-      "line": 144,
+      "line": 162,
       "match": "#6b7280"
     },
     {
-      "key": "ui-no-raw-hex-color|src/hooks/useReports.ts|164|#6b7280",
+      "key": "ui-no-raw-hex-color|src/hooks/useReports.ts|182|#6b7280",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/hooks/useReports.ts",
-      "line": 164,
+      "line": 182,
       "match": "#6b7280"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|138|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|140|#3b82f6",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/CreditCards.tsx",
-      "line": 138,
+      "line": 140,
       "match": "#3b82f6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|213|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|221|#3b82f6",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/CreditCards.tsx",
-      "line": 213,
+      "line": 221,
       "match": "#3b82f6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|312|#16a34a",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|393|#16a34a",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/CreditCards.tsx",
-      "line": 312,
+      "line": 393,
       "match": "#16a34a"
     },
     {
-      "key": "ui-no-raw-hex-color|src/services/assistantService.confirmation.test.ts|52|#000000",
+      "key": "ui-no-raw-hex-color|src/pages/Investments.tsx|123|#10b981",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/services/assistantService.confirmation.test.ts",
-      "line": 52,
-      "match": "#000000"
+      "file": "src/pages/Investments.tsx",
+      "line": 123,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|105|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 105,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|106|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 106,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|107|#8b5cf6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 107,
+      "match": "#8b5cf6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|108|#06b6d4",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 108,
+      "match": "#06b6d4"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|109|#f59e0b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 109,
+      "match": "#f59e0b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|110|#6b7280",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 110,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|415|#8b5cf6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 415,
+      "match": "#8b5cf6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/Reports.tsx|600|#8b5cf6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/Reports.tsx",
+      "line": 600,
+      "match": "#8b5cf6"
     },
     {
       "key": "ui-no-raw-hex-color|src/utils/categoryColors.ts|10|#f59e0b",

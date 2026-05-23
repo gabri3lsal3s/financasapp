@@ -83,7 +83,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       autoUnlockAttempted.current = true;
       handleUnlock();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLocked, user, isLoading]);
 
   const handleUnlock = async () => {

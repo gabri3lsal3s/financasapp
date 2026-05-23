@@ -1,246 +1,426 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { TrendingDown, TrendingUp, ArrowRight, Check } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import Modal from '@/components/Modal'
-import ModalActionFooter from '@/components/ModalActionFooter'
-import Input from '@/components/Input'
-import Select from '@/components/Select'
 import Loader from '@/components/Loader'
-import { useCategories } from '@/hooks/useCategories'
-import { usePaletteColors } from '@/hooks/usePaletteColors'
-import { Category } from '@/types'
-import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import MonthSelector from '@/components/MonthSelector'
+import { useCategories } from '@/hooks/useCategories'
+import { useIncomeCategories } from '@/hooks/useIncomeCategories'
+import { useExpenses } from '@/hooks/useExpenses'
+import { useIncomes } from '@/hooks/useIncomes'
+import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
+import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
+import { usePaletteColors } from '@/hooks/usePaletteColors'
+import { assignUniquePaletteColors, getCategoryColorForPalette } from '@/utils/categoryColors'
+import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
 
 export default function Categories() {
-  const { categories, loading, createCategory, updateCategory, deleteCategory, getCategoryUsageCount } = useCategories()
+  const navigate = useNavigate()
+  const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [savingExpenseLimitIds, setSavingExpenseLimitIds] = useState<string[]>([])
+  const [savingIncomeExpectationIds, setSavingIncomeExpectationIds] = useState<string[]>([])
+  const [expenseLimitInputs, setExpenseLimitInputs] = useState<Record<string, string>>({})
+  const [incomeExpectationInputs, setIncomeExpectationInputs] = useState<Record<string, string>>({})
   const { colorPalette } = usePaletteColors()
 
-  // Edit/Add Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [formData, setFormData] = useState({ name: '' })
+  const { categories, loading: loadingCategories } = useCategories()
+  const { incomeCategories, loading: loadingIncomeCategories } = useIncomeCategories()
+  const { expenses, loading: loadingExpenses } = useExpenses(currentMonth)
+  const { incomes, loading: loadingIncomes } = useIncomes(currentMonth)
+  const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
+  const { limits: currentMonthLimits, loading: loadingLimits, setCategoryLimit } = useExpenseCategoryLimits(currentMonth)
+  const { limits: previousMonthLimits, loading: loadingPreviousLimits } = useExpenseCategoryLimits(previousMonth)
+  const { expectations: currentMonthExpectations, loading: loadingExpectations, setIncomeCategoryExpectation } = useIncomeCategoryExpectations(currentMonth)
+  const { expectations: previousMonthExpectations, loading: loadingPreviousExpectations } = useIncomeCategoryExpectations(previousMonth)
 
-  // Delete Modal states
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
-  const [deleteUsageCount, setDeleteUsageCount] = useState(0)
-  const [targetCategoryId, setTargetCategoryId] = useState('')
-  const [isDeleting, setIsDeleting] = useState(false)
+  const expenseSpentByCategory = useMemo(() => {
+    const totals = new Map<string, number>()
+    expenses.forEach((item) => {
+      totals.set(item.category_id, (totals.get(item.category_id) || 0) + item.amount)
+    })
+    return totals
+  }, [expenses])
 
+  const incomeByCategory = useMemo(() => {
+    const totals = new Map<string, number>()
+    incomes.forEach((item) => {
+      totals.set(item.income_category_id, (totals.get(item.income_category_id) || 0) + item.amount)
+    })
+    return totals
+  }, [incomes])
 
-  const handleOpenModal = (category?: Category) => {
-    if (category) {
-      setEditingCategory(category)
-      setFormData({ name: category.name })
-    } else {
-      setEditingCategory(null)
-      setFormData({ name: '' })
-    }
-    setIsModalOpen(true)
-  }
+  const expenseCategoryColorMap = useMemo(() => {
+    const assignedColors = assignUniquePaletteColors(categories, colorPalette)
+    const map: Record<string, string> = {}
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false)
-    setEditingCategory(null)
-    setFormData({ name: '' })
-  }
+    categories.forEach((category, index) => {
+      map[category.id] = assignedColors[index] || getCategoryColorForPalette(category.color, colorPalette)
+    })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    return map
+  }, [categories, colorPalette])
 
-    if (!formData.name.trim()) return
+  const incomeCategoryColorMap = useMemo(() => {
+    const assignedColors = assignUniquePaletteColors(incomeCategories, colorPalette)
+    const map: Record<string, string> = {}
 
-    if (editingCategory) {
-      const { error } = await updateCategory(editingCategory.id, formData)
-      if (!error) {
-        handleCloseModal()
-      } else {
-        alert('Erro ao atualizar categoria: ' + error)
+    incomeCategories.forEach((category, index) => {
+      map[category.id] = assignedColors[index] || getCategoryColorForPalette(category.color, colorPalette)
+    })
+
+    return map
+  }, [incomeCategories, colorPalette])
+
+  const currentMonthExpenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    currentMonthLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
+    return map
+  }, [currentMonthLimits])
+
+  const previousMonthExpenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    previousMonthLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
+    return map
+  }, [previousMonthLimits])
+
+  const expenseLimitMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+
+    categories.forEach((category) => {
+      const currentValue = currentMonthExpenseLimitMap.get(category.id)
+      if (currentValue !== undefined) {
+        map.set(category.id, currentValue)
+        return
       }
-    } else {
-      // Usa função de fallback determinística (hash do nome) p/ cor única vívida
-      const randomColor = generateCategoryColor(formData.name, 'vivid')
-      const categoryData = { ...formData, color: randomColor }
-      const { error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
-      if (!error) {
-        handleCloseModal()
-      } else {
-        alert('Erro ao criar categoria: ' + error)
+
+      const previousValue = previousMonthExpenseLimitMap.get(category.id)
+      if (previousValue !== undefined) {
+        map.set(category.id, previousValue)
       }
-    }
-  }
+    })
 
-  const handleDeleteClick = async (category: Category) => {
-    // Busca uso real da categoria
-    const usageCount = await getCategoryUsageCount(category.id)
-    setCategoryToDelete(category)
-    setDeleteUsageCount(usageCount)
-    setTargetCategoryId('')
-    setIsDeleteModalOpen(true)
-  }
+    return map
+  }, [categories, currentMonthExpenseLimitMap, previousMonthExpenseLimitMap])
 
-  const confirmDelete = async () => {
-    if (!categoryToDelete) return
+  const currentMonthIncomeExpectationMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    currentMonthExpectations.forEach((item) => map.set(item.income_category_id, item.expectation_amount))
+    return map
+  }, [currentMonthExpectations])
 
-    setIsDeleting(true)
-    const { error } = await deleteCategory(categoryToDelete.id, targetCategoryId || undefined)
-    setIsDeleting(false)
+  const previousMonthIncomeExpectationMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+    previousMonthExpectations.forEach((item) => map.set(item.income_category_id, item.expectation_amount))
+    return map
+  }, [previousMonthExpectations])
 
-    if (error) {
-      alert('Erro ao excluir categoria: ' + error)
+  const incomeExpectationMap = useMemo(() => {
+    const map = new Map<string, number | null>()
+
+    incomeCategories.forEach((category) => {
+      const currentValue = currentMonthIncomeExpectationMap.get(category.id)
+      if (currentValue !== undefined) {
+        map.set(category.id, currentValue)
+        return
+      }
+
+      const previousValue = previousMonthIncomeExpectationMap.get(category.id)
+      if (previousValue !== undefined) {
+        map.set(category.id, previousValue)
+      }
+    })
+
+    return map
+  }, [incomeCategories, currentMonthIncomeExpectationMap, previousMonthIncomeExpectationMap])
+
+  useEffect(() => {
+    const nextInputs: Record<string, string> = {}
+    categories.forEach((category) => {
+      const limitAmount = expenseLimitMap.get(category.id)
+      nextInputs[category.id] = limitAmount !== null && limitAmount !== undefined
+        ? formatMoneyInput(limitAmount)
+        : ''
+    })
+    setExpenseLimitInputs(nextInputs)
+  }, [categories, expenseLimitMap])
+
+  useEffect(() => {
+    const nextInputs: Record<string, string> = {}
+    incomeCategories.forEach((category) => {
+      const expectedAmount = incomeExpectationMap.get(category.id)
+      nextInputs[category.id] = expectedAmount !== null && expectedAmount !== undefined
+        ? formatMoneyInput(expectedAmount)
+        : ''
+    })
+    setIncomeExpectationInputs(nextInputs)
+  }, [incomeCategories, incomeExpectationMap])
+
+  const loadingData =
+    loadingCategories ||
+    loadingIncomeCategories ||
+    loadingExpenses ||
+    loadingIncomes ||
+    loadingLimits ||
+    loadingPreviousLimits ||
+    loadingExpectations ||
+    loadingPreviousExpectations
+
+  const saveExpenseLimit = async (categoryId: string) => {
+    const rawValue = (expenseLimitInputs[categoryId] || '').trim()
+    const parsed = rawValue ? parseMoneyInput(rawValue) : Number.NaN
+
+    if (rawValue && (Number.isNaN(parsed) || parsed < 0)) {
+      alert('Informe um valor válido para o limite da categoria.')
       return
     }
 
-    setIsDeleteModalOpen(false)
-    setCategoryToDelete(null)
+    const amount = rawValue ? Number(parsed.toFixed(2)) : null
 
-    // Se está editando a categoria que acabou de apagar, fecha o modal de edição
-    if (editingCategory?.id === categoryToDelete.id) {
-      handleCloseModal()
+    setSavingExpenseLimitIds((prev) => [...prev, categoryId])
+    const { error } = await setCategoryLimit(categoryId, amount)
+
+    if (error) {
+      alert(`Erro ao salvar limite: ${error}`)
+    } else {
+      setExpenseLimitInputs((prev) => ({
+        ...prev,
+        [categoryId]: amount === null ? '' : formatMoneyInput(amount),
+      }))
     }
+
+    setSavingExpenseLimitIds((prev) => prev.filter((id) => id !== categoryId))
+  }
+
+  const saveIncomeExpectation = async (incomeCategoryId: string) => {
+    const rawValue = (incomeExpectationInputs[incomeCategoryId] || '').trim()
+    const parsed = rawValue ? parseMoneyInput(rawValue) : Number.NaN
+
+    if (rawValue && (Number.isNaN(parsed) || parsed < 0)) {
+      alert('Informe um valor válido para a expectativa da categoria de renda.')
+      return
+    }
+
+    const amount = rawValue ? Number(parsed.toFixed(2)) : null
+
+    setSavingIncomeExpectationIds((prev) => [...prev, incomeCategoryId])
+    const { error } = await setIncomeCategoryExpectation(incomeCategoryId, amount)
+
+    if (error) {
+      alert(`Erro ao salvar expectativa: ${error}`)
+    } else {
+      setIncomeExpectationInputs((prev) => ({
+        ...prev,
+        [incomeCategoryId]: amount === null ? '' : formatMoneyInput(amount),
+      }))
+    }
+
+    setSavingIncomeExpectationIds((prev) => prev.filter((id) => id !== incomeCategoryId))
   }
 
   return (
     <div className="animate-page-enter">
-      <PageHeader
-        title={PAGE_HEADERS.categories.title}
-        subtitle={PAGE_HEADERS.categories.description}
-        action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2"
-            disabled={categories.length >= 15}
-            title={categories.length >= 15 ? 'Limite de 15 categorias atingido' : ''}
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Adicionar</span>
-          </Button>
-        }
-      />
+      <PageHeader title={PAGE_HEADERS.categories.title} subtitle={PAGE_HEADERS.categories.description} />
 
-      <div className="p-4 lg:p-6">
-        {loading && categories.length === 0 ? (
-          <Loader text="Carregando categorias..." className="py-12" />
-        ) : categories.length === 0 ? (
-          <Card className="text-center py-10 space-y-3">
-            <p className="text-secondary">Nenhuma categoria cadastrada.</p>
-            <Button onClick={() => handleOpenModal()}>Adicionar categoria</Button>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {categories.length >= 15 && (
-              <div className="p-3 bg-tertiary border border-warning text-warning rounded-lg text-sm text-center">
-                Você atingiu o limite máximo de 15 categorias. Para criar uma nova, exclua alguma existente.
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+        <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+          <Card className="h-full" onClick={() => navigate('/expense-categories')}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingDown size={18} className="text-expense" />
+                  <h3 className="text-base font-semibold text-primary">Categorias de despesas</h3>
+                </div>
+                <p className="text-sm text-secondary">Gerencie os nomes e organização das categorias.</p>
               </div>
-            )}
-            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-              {categories.map((category, index) => {
-                const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-                const staggerClass = index < 5 ? staggerClasses[index] : ''
-                return (
-                  <Card
-                    key={category.id}
-                    className={`py-3 hover:border-primary transition-colors cursor-pointer animate-stagger-item ${staggerClass}`}
-                    onClick={() => handleOpenModal(category)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded-full flex-shrink-0 border shadow-sm"
-                        style={{ backgroundColor: getCategoryColorForPalette(category.color, colorPalette) }}
-                      />
-                      <span className="font-medium text-primary flex-1 truncate">{category.name}</span>
-                      {category.id.startsWith('offline-') && (
-                        <span title="Pendente de sincronização">
-                          <RefreshCw size={14} className="text-accent animate-spin" />
-                        </span>
-                      )}
-                    </div>
-                  </Card>
-                )
-              })}
+              <ArrowRight size={18} className="text-secondary flex-shrink-0" />
             </div>
-          </div>
+          </Card>
+
+          <Card className="h-full" onClick={() => navigate('/income-categories')}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp size={18} className="text-income" />
+                  <h3 className="text-base font-semibold text-primary">Categorias de rendas</h3>
+                </div>
+                <p className="text-sm text-secondary">Gerencie as categorias das suas fontes de entrada.</p>
+              </div>
+              <ArrowRight size={18} className="text-secondary flex-shrink-0" />
+            </div>
+          </Card>
+        </div>
+
+        {loadingData ? (
+          <Loader text="Carregando dados das categorias..." className="py-12" />
+        ) : (
+          <>
+            <Card>
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">Limites por mês (despesas)</h3>
+                  <p className="text-sm text-secondary">Defina valores por categoria com campos de inserção.</p>
+                </div>
+
+                {categories.length === 0 ? (
+                  <p className="text-sm text-secondary">Nenhuma categoria de despesa cadastrada.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {categories.map((category, index) => {
+                      const spent = expenseSpentByCategory.get(category.id) || 0
+                      const limitAmount = expenseLimitMap.get(category.id)
+                      const categoryColor = expenseCategoryColorMap[category.id] || category.color
+                      const hasLimit = limitAmount !== null && limitAmount !== undefined
+                      const exceeded = hasLimit && spent > (limitAmount || 0)
+                      const isSaving = savingExpenseLimitIds.includes(category.id)
+
+                      return (
+                        <div
+                          key={category.id}
+                          className={`rounded-lg border border-primary p-2.5 bg-primary space-y-2 h-full animate-stagger-item ${index < 6 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300'][index] : ''
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-3 h-3 rounded-full border border-primary flex-shrink-0" style={{ backgroundColor: categoryColor }} />
+                              <p className="font-medium text-primary truncate">{category.name}</p>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded-full border border-primary ${!hasLimit
+                              ? 'text-secondary bg-secondary'
+                              : exceeded
+                                ? 'text-expense bg-secondary'
+                                : 'text-income bg-secondary'
+                              }`}>
+                              {!hasLimit ? 'Sem limite' : exceeded ? 'Ultrapassou' : 'Dentro do limite'}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-secondary">
+                            Gasto: <span className="text-primary font-medium">{formatCurrency(spent)}</span>
+                            {' • '}
+                            Limite: <span className="text-primary font-medium">{hasLimit ? formatCurrency(limitAmount || 0) : 'Não definido'}</span>
+                          </p>
+
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={expenseLimitInputs[category.id] || ''}
+                              onChange={(event) =>
+                                setExpenseLimitInputs((prev) => ({
+                                  ...prev,
+                                  [category.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Ex: 1200,00"
+                              className="w-full sm:max-w-[220px] px-3 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost-success"
+                              onClick={() => saveExpenseLimit(category.id)}
+                              disabled={isSaving}
+                              className=""
+                              title={isSaving ? 'Salvando...' : 'Salvar'}
+                            >
+                              <Check size={20} />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">Expectativas por mês (rendas)</h3>
+                  <p className="text-sm text-secondary">Defina valores por categoria com campos de inserção.</p>
+                </div>
+
+                {incomeCategories.length === 0 ? (
+                  <p className="text-sm text-secondary">Nenhuma categoria de renda cadastrada.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {incomeCategories.map((category, index) => {
+                      const received = incomeByCategory.get(category.id) || 0
+                      const expectationAmount = incomeExpectationMap.get(category.id)
+                      const categoryColor = incomeCategoryColorMap[category.id] || category.color
+                      const hasExpectation = expectationAmount !== null && expectationAmount !== undefined
+                      const exceeded = hasExpectation && received > (expectationAmount || 0)
+                      const isSaving = savingIncomeExpectationIds.includes(category.id)
+
+                      return (
+                        <div
+                          key={category.id}
+                          className={`rounded-lg border border-primary p-2.5 bg-primary space-y-2 h-full animate-stagger-item ${index < 6 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300'][index] : ''
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-3 h-3 rounded-full border border-primary flex-shrink-0" style={{ backgroundColor: categoryColor }} />
+                              <p className="font-medium text-primary truncate">{category.name}</p>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded-full border border-primary ${!hasExpectation
+                              ? 'text-secondary bg-secondary'
+                              : exceeded
+                                ? 'text-income bg-secondary'
+                                : 'text-secondary bg-secondary'
+                              }`}>
+                              {!hasExpectation ? 'Sem expectativa' : exceeded ? 'Superou expectativa' : 'Acompanhar'}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-secondary">
+                            Recebido: <span className="text-primary font-medium">{formatCurrency(received)}</span>
+                            {' • '}
+                            Expectativa: <span className="text-primary font-medium">{hasExpectation ? formatCurrency(expectationAmount || 0) : 'Não definida'}</span>
+                          </p>
+
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={incomeExpectationInputs[category.id] || ''}
+                              onChange={(event) =>
+                                setIncomeExpectationInputs((prev) => ({
+                                  ...prev,
+                                  [category.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Ex: 2000,00"
+                              className="w-full sm:max-w-[220px] px-3 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => saveIncomeExpectation(category.id)}
+                              disabled={isSaving}
+                              className="btn-discrete-save"
+                              title={isSaving ? 'Salvando...' : 'Salvar'}
+                            >
+                              <Check size={20} />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </Card>
+          </>
         )}
       </div>
-
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        title={editingCategory ? 'Editar categoria' : 'Adicionar categoria'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Nome da Categoria"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Ex: Alimentação, Transporte..."
-            required
-          />
-
-          <ModalActionFooter
-            onCancel={handleCloseModal}
-            submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
-            deleteLabel={editingCategory ? 'Excluir categoria' : undefined}
-            onDelete={editingCategory ? () => handleDeleteClick(editingCategory) : undefined}
-          />
-        </form>
-      </Modal>
-
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
-        title="Excluir Categoria"
-      >
-        <div className="space-y-4 text-primary">
-          {deleteUsageCount > 0 ? (
-            <>
-              <p>
-                A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
-                <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
-              </p>
-              <p>
-                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>"Sem categoria"</em>.
-              </p>
-              <Select
-                value={targetCategoryId}
-                onChange={(e) => setTargetCategoryId(e.target.value)}
-                options={[
-                  { value: '', label: 'Sem categoria (Padrão)' },
-                  ...categories
-                    .filter((c) => c.id !== categoryToDelete?.id && c.name !== 'Sem categoria')
-                    .map((c) => ({ value: c.id, label: c.name })),
-                ]}
-              />
-            </>
-          ) : (
-            <p>
-              Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
-            </p>
-          )}
-
-          <div className="pt-4 flex justify-center">
-            <Button
-              variant="ghost"
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="btn-discrete-delete px-4"
-              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
-            >
-              <Trash2 size={24} />
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }
-
-
-
-
-

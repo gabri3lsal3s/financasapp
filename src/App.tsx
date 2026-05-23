@@ -14,8 +14,8 @@ import Reports from './pages/Reports'
 import Investments from './pages/Investments'
 import CreditCards from './pages/CreditCards'
 import Settings from './pages/Settings'
-import CategoriesHome from './pages/CategoriesHome'
 import Categories from './pages/Categories'
+import ExpenseCategories from './pages/ExpenseCategories'
 import IncomeCategories from './pages/IncomeCategories'
 import OnboardingCategories from './pages/OnboardingCategories'
 import Login from './pages/Login'
@@ -46,8 +46,8 @@ function App() {
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/expenses" element={<Expenses />} />
-                    <Route path="/categories" element={<CategoriesHome />} />
-                    <Route path="/expense-categories" element={<Categories />} />
+                    <Route path="/categories" element={<Categories />} />
+                    <Route path="/expense-categories" element={<ExpenseCategories />} />
                     <Route path="/incomes" element={<Incomes />} />
                     <Route path="/income-categories" element={<IncomeCategories />} />
                     <Route path="/onboarding" element={<OnboardingCategories />} />

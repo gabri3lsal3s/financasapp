@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react'
-import { format, addMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import Modal from '@/components/Modal'
-import ModalActionFooter from '@/components/ModalActionFooter'
-import Input from '@/components/Input'
-import Select from '@/components/Select'
 import Loader from '@/components/Loader'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
@@ -16,13 +10,15 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Expense } from '@/types'
-import { APP_START_DATE, clampMonthToAppStart, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { clampMonthToAppStart, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { resolveBillCompetence } from '@/utils/creditCardBilling'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import TransactionCard from '@/components/TransactionCard'
+import ExpenseFormModal from '@/components/ExpenseFormModal'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -67,29 +63,23 @@ export default function Expenses() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
+  
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
   const { categories, loading: categoriesLoading } = useCategories()
   const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
   const { creditCards } = useCreditCards()
   const { colorPalette } = usePaletteColors()
+  
   const assignedCategories = assignUniquePaletteColors(categories, colorPalette)
   const categoryColorMap: Record<string, string> = {}
   categories.forEach((c, i) => {
-    if (c && c.id) categoryColorMap[c.id] = assignedCategories[i] || getCategoryColorForPalette(c.color, colorPalette)
+    if (c && c.id) {
+      categoryColorMap[c.id] = assignedCategories[i] || getCategoryColorForPalette(c.color, colorPalette)
+    }
   })
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
-  const [formData, setFormData] = useState({
-    amount: '',
-    report_amount: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    installment_total: '1',
-    payment_method: 'other',
-    credit_card_id: '',
-    category_id: '',
-    description: '',
-    bill_competence: '', // Novo: para override manual
-  })
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
 
@@ -121,69 +111,14 @@ export default function Expenses() {
     }, 150)
   }
 
-  const handleAmountChange = (nextAmount: string) => {
-    setFormData((prev) => {
-      const prevAmount = parseMoneyInput(prev.amount)
-      const prevReportAmount = parseMoneyInput(prev.report_amount)
-      const shouldSyncReportAmount =
-        !prev.report_amount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
-
-      return {
-        ...prev,
-        amount: nextAmount,
-        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
-      }
-    })
-  }
-
   const handleOpenModal = (expense?: Expense) => {
-    if (expense) {
-      setEditingExpense(expense)
-      setFormData({
-        amount: formatMoneyInput(expense.amount),
-        report_amount: formatMoneyInput(expense.amount * (expense.report_weight ?? 1)),
-        date: expense.date,
-        installment_total: String(expense.installment_total || 1),
-        payment_method: expense.payment_method || 'other',
-        credit_card_id: expense.credit_card_id || '',
-        category_id: expense.category_id,
-        description: expense.description || '',
-        bill_competence: expense.bill_competence || '',
-      })
-    } else {
-      setEditingExpense(null)
-      setFormData({
-        amount: '',
-        report_amount: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        installment_total: '1',
-        payment_method: 'other',
-        credit_card_id: '',
-        category_id: categories[0]?.id || '',
-        description: '',
-        bill_competence: '',
-      })
-    }
+    setEditingExpense(expense || null)
     setIsModalOpen(true)
   }
 
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setEditingExpense(null)
-    setFormData({
-      amount: '',
-      report_amount: '',
-      date: format(new Date(), 'yyyy-MM-dd'),
-      installment_total: '1',
-      payment_method: 'other',
-      credit_card_id: '',
-      category_id: categories[0]?.id || '',
-      description: '',
-      bill_competence: '',
-    })
   }
 
   useEffect(() => {
@@ -200,17 +135,6 @@ export default function Expenses() {
 
     if (quickAdd === '1') {
       setEditingExpense(null)
-      setFormData({
-        amount: '',
-        report_amount: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        installment_total: '1',
-        payment_method: 'other',
-        credit_card_id: '',
-        category_id: categories[0]?.id || '',
-        description: '',
-        bill_competence: '',
-      })
       setIsModalOpen(true)
 
       const next = new URLSearchParams(searchParams)
@@ -219,79 +143,6 @@ export default function Expenses() {
       setSearchParams(next, { replace: true })
     }
   }, [searchParams, setSearchParams, categories, currentMonth])
-
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!formData.amount || !formData.category_id) return
-
-    const amount = parseMoneyInput(formData.amount)
-    if (isNaN(amount) || amount <= 0) {
-      alert('Por favor, insira um valor válido maior que zero')
-      return
-    }
-
-    const reportAmount = formData.report_amount ? parseMoneyInput(formData.report_amount) : amount
-    if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
-      alert('O valor no relatório deve estar entre 0 e o valor da despesa')
-      return
-    }
-
-    const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
-    const installmentTotal = Math.max(1, Math.min(60, Number(formData.installment_total || '1')))
-
-    if (!Number.isInteger(installmentTotal) || installmentTotal < 1) {
-      alert('Informe um número válido de parcelas (mínimo 1).')
-      return
-    }
-
-    if (formData.payment_method === 'credit_card' && !formData.credit_card_id) {
-      alert('Selecione um cartão de crédito para compras no crédito.')
-      return
-    }
-
-    const expenseData: Omit<Expense, 'id' | 'created_at' | 'category'> = {
-      amount,
-      report_weight: reportWeight,
-      date: formData.date,
-      installment_total: installmentTotal,
-      payment_method: formData.payment_method as Expense['payment_method'],
-      credit_card_id: formData.payment_method === 'credit_card' ? formData.credit_card_id : null,
-      category_id: formData.category_id,
-      bill_competence: formData.bill_competence || null,
-      ...(formData.description && { description: formData.description }),
-    }
-
-    if (editingExpense) {
-      const { error } = await updateExpense(editingExpense.id, expenseData)
-      if (!error) {
-        handleCloseModal()
-      } else {
-        alert('Erro ao atualizar despesa: ' + error)
-      }
-    } else {
-      const { error } = await createExpense(expenseData)
-      if (!error) {
-        handleCloseModal()
-      } else {
-        alert('Erro ao criar despesa: ' + error)
-      }
-    }
-  }
-
-  const handleDeleteFromModal = async () => {
-    if (!editingExpense) return
-    if (!confirm('Tem certeza que deseja excluir esta despesa?')) return
-
-    const { error } = await deleteExpense(editingExpense.id)
-    if (error) {
-      alert('Erro ao excluir despesa: ' + error)
-      return
-    }
-
-    handleCloseModal()
-  }
 
   const sortExpensesByDateDesc = (a: Expense, b: Expense) => {
     const dateDiff = b.date.localeCompare(a.date)
@@ -307,102 +158,35 @@ export default function Expenses() {
     .filter((expense) => Number(expense.installment_total || 1) <= 1)
     .sort(sortExpensesByDateDesc)
 
-  const renderExpenseCard = (expense: Expense, staggerClass: string = '') => {
-    const category = categories.find((c) => c.id === expense.category_id)
-    const categoryColor = category?.color
-      ? getCategoryColorForPalette(category.color, colorPalette)
-      : (expense.category?.id
-        ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
-        : 'var(--color-expense)')
-    const isInstallment = Number(expense.installment_total || 1) > 1
-    const paymentLabel = getPaymentMethodLabel(expense)
+  const getCardDateAndCompetence = (expense: Expense) => {
+    const competence = expense.bill_competence || (() => {
+      const card = creditCards.find(c => c.id === expense.credit_card_id)
+      const closingDay = card?.closing_day || 7
+      return resolveBillCompetence(expense.date, closingDay)
+    })()
+    
+    const isSameMonth = !competence || competence === expense.date.substring(0, 7)
+    const [y, m, d] = expense.date.split('-')
 
-    return (
-      <Card
-        key={expense.id}
-        onClick={() => handleOpenModal(expense)}
-        className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col ${staggerClass}`}
-      >
-        <div className="flex bg-primary flex-1 h-full">
-          <div
-            className="w-1 flex-shrink-0"
-            style={{ backgroundColor: categoryColor }}
-          />
-          <div className="flex-1 p-3.5 flex flex-col justify-center min-w-0">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-primary truncate flex items-center gap-2">
-                  {expense.description || expense.category?.name || 'Despesa'}
-                  {expense.id.startsWith('offline-') && (
-                    <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                      <RefreshCw size={12} className="text-accent animate-spin" />
-                    </span>
-                  )}
-                </p>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[12px] text-secondary leading-tight">
-                  <span className="font-medium">{expense.category?.name || 'Sem categoria'}</span>
-                  {paymentLabel && paymentLabel !== 'Outros' && (
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="opacity-30 flex-shrink-0">•</span>
-                      <span className="truncate" style={{ color: getPaymentMethodColor(expense) }}>{paymentLabel}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col items-end flex-shrink-0">
-                {Math.abs(expense.amount - (expense.amount * (expense.report_weight ?? 1))) > 0.009 && (
-                  <p className="text-[10px] text-secondary line-through opacity-70 mb-0.5">
-                    {formatCurrency(expense.amount)}
-                  </p>
-                )}
-                <div className="flex items-center gap-2">
-                  {isInstallment && (
-                    <span className="text-[9px] font-bold text-secondary opacity-60 bg-secondary px-1 py-0.5 rounded border border-primary/10 tracking-tighter whitespace-nowrap">
-                      {expense.installment_number || 1}/{expense.installment_total}
-                    </span>
-                  )}
-                  <p className="text-base font-bold text-primary leading-tight">
-                    {formatCurrency(expense.amount * (expense.report_weight ?? 1))}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-1 text-[11px] text-secondary font-medium tracking-tight">
-                  {(() => {
-                    const competence = expense.bill_competence || (() => {
-                      const card = creditCards.find(c => c.id === expense.credit_card_id)
-                      const closingDay = card?.closing_day || 7
-                      return resolveBillCompetence(expense.date, closingDay)
-                    })()
-                    
-                    const isSameMonth = !competence || competence === expense.date.substring(0, 7)
+    if (isSameMonth) {
+      return {
+        dateLabel: `${d}/${m}/${y}`,
+        billCompetenceLabel: undefined
+      }
+    }
 
-                    if (isSameMonth) {
-                      const [y, m, d] = expense.date.split('-')
-                      return <span className="opacity-80 whitespace-nowrap">{`${d}/${m}/${y}`}</span>
-                    }
+    const monthMap: Record<string, string> = {
+      '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+      '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+      '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+    }
+    const m_comp = competence.split('-')[1]
+    const monthName = monthMap[m_comp] || competence
 
-                    const monthMap: Record<string, string> = {
-                      '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
-                      '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
-                      '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
-                    }
-                    const [_, m_comp] = competence.split('-')
-                    const monthName = monthMap[m_comp] || competence
-                    
-                    return (
-                      <>
-                        <span className="opacity-80 whitespace-nowrap">{format(new Date(expense.date + 'T12:00:00'), 'dd/MM')}</span>
-                        <span className="opacity-30 flex-shrink-0">•</span>
-                        <span className="text-accent whitespace-nowrap">Fatura de {monthName}</span>
-                      </>
-                    )
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    )
+    return {
+      dateLabel: `${d}/${m}`,
+      billCompetenceLabel: `Fatura de ${monthName}`
+    }
   }
 
   return (
@@ -449,9 +233,37 @@ export default function Expenses() {
                 <div className="space-y-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-secondary">Parceladas</p>
                   <div className="flex flex-wrap gap-3 lg:gap-4">
-                    {installmentExpenses.map((expense, index) =>
-                      renderExpenseCard(expense, index < 5 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250'][index] : '')
-                    )}
+                    {installmentExpenses.map((expense, index) => {
+                      const category = categories.find((c) => c.id === expense.category_id)
+                      const categoryColor = category?.color
+                        ? getCategoryColorForPalette(category.color, colorPalette)
+                        : (expense.category?.id
+                          ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
+                          : 'var(--color-expense)')
+                      const paymentLabel = getPaymentMethodLabel(expense)
+                      const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
+                      const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
+                      const staggerClass = index < 5 ? staggerClasses[index] : ''
+
+                      return (
+                        <TransactionCard
+                          key={expense.id}
+                          title={expense.description || expense.category?.name || 'Despesa'}
+                          subtitle={expense.category?.name || 'Sem categoria'}
+                          amount={expense.amount * (expense.report_weight ?? 1)}
+                          originalAmount={expense.amount}
+                          dateLabel={dateLabel}
+                          categoryColor={categoryColor}
+                          isOffline={expense.id.startsWith('offline-')}
+                          onClick={() => handleOpenModal(expense)}
+                          staggerClass={staggerClass}
+                          installmentInfo={`${expense.installment_number || 1}/${expense.installment_total}`}
+                          paymentLabel={paymentLabel}
+                          paymentColor={getPaymentMethodColor(expense)}
+                          billCompetenceLabel={billCompetenceLabel}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -462,9 +274,36 @@ export default function Expenses() {
                     <p className="text-xs font-medium uppercase tracking-wide text-secondary">Despesas do mês</p>
                   )}
                   <div className="flex flex-wrap gap-3 lg:gap-4">
-                    {monthExpenses.map((expense, index) =>
-                      renderExpenseCard(expense, index < 5 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250'][index] : '')
-                    )}
+                    {monthExpenses.map((expense, index) => {
+                      const category = categories.find((c) => c.id === expense.category_id)
+                      const categoryColor = category?.color
+                        ? getCategoryColorForPalette(category.color, colorPalette)
+                        : (expense.category?.id
+                          ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
+                          : 'var(--color-expense)')
+                      const paymentLabel = getPaymentMethodLabel(expense)
+                      const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
+                      const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
+                      const staggerClass = index < 5 ? staggerClasses[index] : ''
+
+                      return (
+                        <TransactionCard
+                          key={expense.id}
+                          title={expense.description || expense.category?.name || 'Despesa'}
+                          subtitle={expense.category?.name || 'Sem categoria'}
+                          amount={expense.amount * (expense.report_weight ?? 1)}
+                          originalAmount={expense.amount}
+                          dateLabel={dateLabel}
+                          categoryColor={categoryColor}
+                          isOffline={expense.id.startsWith('offline-')}
+                          onClick={() => handleOpenModal(expense)}
+                          staggerClass={staggerClass}
+                          paymentLabel={paymentLabel}
+                          paymentColor={getPaymentMethodColor(expense)}
+                          billCompetenceLabel={billCompetenceLabel}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -473,166 +312,16 @@ export default function Expenses() {
         </div>
       </div>
 
-      <Modal
+      <ExpenseFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingExpense ? 'Editar despesa' : 'Adicionar despesa'}
-      >
-        <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
-          <Input
-            label="Valor"
-            type="text"
-            inputMode="decimal"
-            value={formData.amount}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(formData.amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                handleAmountChange(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
-            required
-          />
-
-          <Input
-            label="Valor no relatório (opcional)"
-            type="text"
-            inputMode="decimal"
-            value={formData.report_amount}
-            onChange={(e) => setFormData({ ...formData, report_amount: e.target.value })}
-            onBlur={() => {
-              if (!formData.report_amount) return
-              const parsed = parseMoneyInput(formData.report_amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setFormData({ ...formData, report_amount: formatMoneyInput(parsed) })
-              }
-            }}
-            placeholder="Se vazio, usa o valor total"
-          />
-
-          <Input
-            label="Data"
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            min={APP_START_DATE}
-            required
-          />
-
-          <Select
-            label="Forma de pagamento"
-            value={formData.payment_method}
-            onChange={(e) => setFormData({
-              ...formData,
-              payment_method: e.target.value,
-              credit_card_id: e.target.value === 'credit_card' ? formData.credit_card_id : '',
-            })}
-            options={[
-              { value: 'other', label: 'Outros' },
-              { value: 'cash', label: 'Dinheiro' },
-              { value: 'debit', label: 'Débito' },
-              { value: 'credit_card', label: 'Cartão de crédito' },
-              { value: 'pix', label: 'PIX' },
-              { value: 'transfer', label: 'Transferência' },
-            ]}
-          />
-
-          {formData.payment_method === 'credit_card' && (
-            <>
-              <Select
-                label="Cartão"
-                value={formData.credit_card_id}
-                onChange={(e) => setFormData({ ...formData, credit_card_id: e.target.value })}
-                options={[
-                  { value: '', label: 'Selecionar cartão' },
-                  ...creditCards
-                    .filter((card) => card.is_active !== false || card.id === formData.credit_card_id)
-                    .map((card) => ({ value: card.id, label: card.name })),
-                ]}
-                required
-              />
-
-              {formData.credit_card_id && (
-                <div className="space-y-2">
-                  <Select
-                    label="Fatura (opcional)"
-                    value={formData.bill_competence}
-                    onChange={(e) => setFormData({ ...formData, bill_competence: e.target.value })}
-                    options={[
-                      { value: '', label: 'Cálculo automático' },
-                      ...(() => {
-                    const baseDate = formData.date ? new Date(formData.date + 'T12:00:00') : null
-                    const options = []
-                    
-                    if (baseDate && !isNaN(baseDate.getTime())) {
-                      for (let i = -1; i <= 1; i++) {
-                        const d = addMonths(baseDate, i)
-                        const competence = format(d, 'yyyy-MM')
-                        const monthName = format(d, 'MMMM', { locale: ptBR })
-                        const label = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} (${format(d, 'MM')})`
-                        options.push({ value: competence, label })
-                      }
-                    }
-                    return options
-                      })()
-                    ]}
-                  />
-
-                </div>
-              )}
-            </>
-          )}
-
-          {!editingExpense && (
-            <Input
-              label="Parcelas"
-              type="number"
-              min="1"
-              max="60"
-              value={formData.installment_total}
-              onChange={(e) => setFormData({ ...formData, installment_total: e.target.value })}
-              placeholder="1"
-            />
-          )}
-
-
-
-          <Select
-            label="Categoria"
-            value={formData.category_id}
-            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-            options={categories.map((cat) => ({
-              value: cat.id,
-              label: cat.name,
-            }))}
-            required
-          />
-
-          <Input
-            label="Descrição (opcional)"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Ex: Almoço, Uber..."
-          />
-
-
-          {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
-            <p className="text-xs text-secondary italic bg-secondary/50 p-2 rounded-lg border border-primary/5 mb-4">
-              Esta despesa pertence ao parcelamento {editingExpense.installment_number || 1}/{editingExpense.installment_total}. A edição afeta apenas esta parcela.
-            </p>
-          )}
-
-          <ModalActionFooter
-            onCancel={handleCloseModal}
-            submitLabel={editingExpense ? 'Salvar alterações' : 'Salvar'}
-            submitDisabled={!formData.category_id}
-            deleteLabel={editingExpense ? 'Excluir despesa' : undefined}
-            onDelete={editingExpense ? handleDeleteFromModal : undefined}
-          />
-        </form>
-      </Modal>
+        editingExpense={editingExpense}
+        categories={categories}
+        creditCards={creditCards}
+        onCreate={createExpense}
+        onUpdate={updateExpense}
+        onDelete={deleteExpense}
+      />
     </div>
   )
 }
-

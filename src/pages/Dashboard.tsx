@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { format } from 'date-fns'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
@@ -15,13 +14,10 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { APP_START_DATE, addMonths, formatCurrency, formatDate, formatMoneyInput, formatMonth, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
-import ModalActionFooter from '@/components/ModalActionFooter'
-import Input from '@/components/Input'
-import Select from '@/components/Select'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import {
   Bar,
@@ -38,29 +34,23 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import DashboardKpis from '@/components/DashboardKpis'
+import ExpenseFormModal from '@/components/ExpenseFormModal'
+import IncomeFormModal from '@/components/IncomeFormModal'
+import InvestmentFormModal from '@/components/InvestmentFormModal'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false)
+  const [isIncomeOpen, setIsIncomeOpen] = useState(false)
+  const [isInvestmentOpen, setIsInvestmentOpen] = useState(false)
   const { isOnline } = useNetworkStatus()
-  const [quickAddType, setQuickAddType] = useState<QuickAddType>('expense')
-  type QuickAddType = 'expense' | 'income' | 'investment';
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
-  const [formData, setFormData] = useState({
-    amount: '',
-    report_amount: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    installment_total: '1',
-    payment_method: 'other',
-    credit_card_id: '',
-    month: getCurrentMonthString(),
-    category_id: '',
-    income_category_id: '',
-    description: '',
-  })
+  
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const isDataChangingRef = useRef(false)
@@ -73,23 +63,6 @@ export default function Dashboard() {
     return `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`
   }
 
-  const handleAmountChange = (nextAmount: string) => {
-    setFormData((prev) => {
-      const prevAmount = parseMoneyInput(prev.amount)
-      const prevReportAmount = parseMoneyInput(prev.report_amount)
-      const shouldSyncReportAmount =
-        !prev.report_amount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
-
-      return {
-        ...prev,
-        amount: nextAmount,
-        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
-      }
-    })
-  }
   const { colorPalette } = usePaletteColors()
   const { categories, loading: categoriesLoading } = useCategories()
   const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
@@ -267,7 +240,6 @@ export default function Dashboard() {
     }
   }, [currentMonth, loading])
 
-  // Secondary effect to resolve transition if data finishes after insights or if insights are disabled
   useEffect(() => {
     if (isMonthTransitioning && !loading) {
       const timer = setTimeout(() => {
@@ -277,8 +249,6 @@ export default function Dashboard() {
       return () => clearTimeout(timer)
     }
   }, [loading, isMonthTransitioning])
-
-
 
   const prioritizedExpenseCategoryItems = useMemo(() => {
     return expenseByCategory
@@ -442,125 +412,6 @@ export default function Dashboard() {
     )
   }
 
-  const openQuickAdd = (type: QuickAddType) => {
-    setQuickAddType(type)
-    setFormData({
-      amount: '',
-      report_amount: '',
-      date: format(new Date(), 'yyyy-MM-dd'),
-      installment_total: '1',
-      payment_method: 'other',
-      credit_card_id: '',
-      month: currentMonth,
-      category_id: categories[0]?.id || '',
-      income_category_id: incomeCategories[0]?.id || '',
-      description: '',
-    })
-    setIsQuickAddOpen(true)
-  }
-
-  const closeQuickAdd = () => {
-    setIsQuickAddOpen(false)
-  }
-
-  const quickAddTitle = quickAddType === 'expense'
-    ? 'Nova despesa'
-    : quickAddType === 'income'
-      ? 'Nova renda'
-      : 'Novo investimento'
-
-  const handleQuickAddSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-
-    const amount = parseMoneyInput(formData.amount)
-    if (!amount || amount <= 0) {
-      alert('Insira um valor válido maior que zero.')
-      return
-    }
-
-    const reportAmount = formData.report_amount ? parseMoneyInput(formData.report_amount) : amount
-    if (quickAddType !== 'investment' && (Number.isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount)) {
-      alert('O valor no relatório deve estar entre 0 e o valor total.')
-      return
-    }
-
-    const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
-    const rawInstallments = Number(formData.installment_total || '1')
-    const installmentTotal = Math.max(1, Math.min(60, rawInstallments))
-
-    if (quickAddType === 'expense' && (!Number.isInteger(rawInstallments) || rawInstallments < 1)) {
-      alert('Informe um número válido de parcelas (mínimo 1).')
-      return
-    }
-
-    if (quickAddType === 'expense' && formData.payment_method === 'credit_card' && !formData.credit_card_id) {
-      alert('Selecione um cartão de crédito para compras no crédito.')
-      return
-    }
-
-    if (quickAddType === 'expense') {
-      if (!formData.category_id) {
-        alert('Selecione uma categoria de despesa.')
-        return
-      }
-
-      const { error } = await createExpense({
-        amount,
-        report_weight: reportWeight,
-        date: formData.date,
-        installment_total: installmentTotal,
-        payment_method: formData.payment_method as 'cash' | 'debit' | 'credit_card' | 'pix' | 'transfer' | 'other',
-        credit_card_id: formData.payment_method === 'credit_card' ? formData.credit_card_id : null,
-        category_id: formData.category_id,
-        ...(formData.description && { description: formData.description }),
-      })
-
-      if (error) {
-        alert(`Erro ao criar despesa: ${error}`)
-        return
-      }
-    }
-
-    if (quickAddType === 'income') {
-      if (!formData.income_category_id) {
-        alert('Selecione uma categoria de renda.')
-        return
-      }
-
-      const { error } = await createIncome({
-        amount,
-        report_weight: reportWeight,
-        date: formData.date,
-        income_category_id: formData.income_category_id,
-        ...(formData.description && { description: formData.description }),
-      })
-
-      if (error) {
-        alert(`Erro ao criar renda: ${error}`)
-        return
-      }
-    }
-
-    if (quickAddType === 'investment') {
-      const selectedDate = formData.date || format(new Date(), 'yyyy-MM-dd')
-      const { error } = await createInvestment({
-        amount,
-        month: selectedDate.substring(0, 7),
-        ...(formData.description && { description: formData.description }),
-      })
-
-      if (error) {
-        alert(`Erro ao criar investimento: ${error}`)
-        return
-      }
-    }
-
-    closeQuickAdd()
-    refreshExpenses()
-    refreshIncomes()
-    refreshInvestments()
-  }
-
   return (
     <div>
       <PageHeader
@@ -571,7 +422,7 @@ export default function Dashboard() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => openQuickAdd('expense')}
+              onClick={() => setIsSelectorOpen(true)}
               className="flex items-center gap-2"
               disabled={categories.length === 0 && incomeCategories.length === 0}
             >
@@ -602,63 +453,17 @@ export default function Dashboard() {
               <Card>
                 <div className="text-center py-8">
                   <p className="text-base text-primary font-medium">Adicione o primeiro lançamento do mês.</p>
+                  <Button className="mt-4" onClick={() => setIsSelectorOpen(true)}>Novo lançamento</Button>
                 </div>
               </Card>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
-                  <Card className="h-full animate-stagger-item delay-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm text-secondary">Rendas</p>
-                        <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-income)' }}>
-                          {formatCurrency(totalIncomes)}
-                        </p>
-                      </div>
-                      <TrendingUp className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-income)' }} />
-                    </div>
-                  </Card>
-
-                  <Card className="h-full animate-stagger-item delay-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm text-secondary">Despesas</p>
-                        <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-expense)' }}>
-                          {formatCurrency(totalExpenses)}
-                        </p>
-                      </div>
-                      <TrendingDown className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-expense)' }} />
-                    </div>
-                  </Card>
-
-                  <Card className="h-full animate-stagger-item delay-150">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm text-secondary">Investimentos</p>
-                        <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-balance)' }}>
-                          {formatCurrency(totalInvestments)}
-                        </p>
-                      </div>
-                      <PiggyBank className="flex-shrink-0 ml-2" size={24} style={{ color: 'var(--color-balance)' }} />
-                    </div>
-                  </Card>
-
-                  <Card className="h-full animate-stagger-item delay-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm text-secondary">Saldo</p>
-                        <p
-                          className="text-2xl font-bold mt-1"
-                          style={{
-                            color: balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                          }}
-                        >
-                          {formatCurrency(balance)}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
+                <DashboardKpis
+                  totalIncomes={totalIncomes}
+                  totalExpenses={totalExpenses}
+                  totalInvestments={totalInvestments}
+                  balance={balance}
+                />
 
                 <div className="mt-4 space-y-4">
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
@@ -786,163 +591,105 @@ export default function Dashboard() {
                 </div>
               </>
             )}
-          </div>{/* end inner content area */}
-        </div>{/* end month-transition opacity wrapper */}
-      </div>{/* end p-4 lg:p-6 container */}
-
-      <Modal isOpen={isQuickAddOpen} onClose={closeQuickAdd} title={quickAddTitle}>
-        <form onSubmit={handleQuickAddSubmit} className="w-full max-w-md mx-auto space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-primary mb-2">Tipo de lançamento</label>
-            <div className="grid grid-cols-3 gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={quickAddType === 'expense' ? 'primary' : 'outline'}
-                onClick={() => setQuickAddType('expense')}
-                disabled={categories.length === 0}
-              >
-                Despesa
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={quickAddType === 'income' ? 'primary' : 'outline'}
-                onClick={() => setQuickAddType('income')}
-                disabled={incomeCategories.length === 0}
-              >
-                Renda
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={quickAddType === 'investment' ? 'primary' : 'outline'}
-                onClick={() => setQuickAddType('investment')}
-              >
-                Invest.
-              </Button>
-            </div>
           </div>
-          <Input
-            label="Valor"
-            type="text"
-            inputMode="decimal"
-            value={formData.amount}
-            onChange={(event) => handleAmountChange(event.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(formData.amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                handleAmountChange(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
-            required
-          />
+        </div>
+      </div>
 
-          {quickAddType !== 'investment' && (
-            <Input
-              label="Valor no relatório (opcional)"
-              type="text"
-              inputMode="decimal"
-              value={formData.report_amount}
-              onChange={(event) => setFormData((prev) => ({ ...prev, report_amount: event.target.value }))}
-              onBlur={() => {
-                if (!formData.report_amount) return
-                const parsed = parseMoneyInput(formData.report_amount)
-                if (!Number.isNaN(parsed) && parsed >= 0) {
-                  setFormData((prev) => ({ ...prev, report_amount: formatMoneyInput(parsed) }))
-                }
+      {/* Selector Modal for Quick Add */}
+      <Modal isOpen={isSelectorOpen} onClose={() => setIsSelectorOpen(false)} title="Novo lançamento">
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-secondary text-center mb-4">Escolha o tipo de lançamento que deseja adicionar:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              onClick={() => {
+                setIsSelectorOpen(false)
+                setIsIncomeOpen(true)
               }}
-              placeholder="Se vazio, usa o valor total"
-            />
-          )}
+              className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-income rounded-2xl hover:shadow-lg transition-all group duration-150"
+            >
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-income/10 text-income mb-3 group-hover:scale-110 transition-transform">
+                <TrendingUp size={24} />
+              </div>
+              <span className="font-semibold text-primary">Renda</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                setIsSelectorOpen(false)
+                setIsExpenseOpen(true)
+              }}
+              className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-expense rounded-2xl hover:shadow-lg transition-all group duration-150"
+            >
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-expense/10 text-expense mb-3 group-hover:scale-110 transition-transform">
+                <TrendingDown size={24} />
+              </div>
+              <span className="font-semibold text-primary">Despesa</span>
+            </button>
 
-          <Input
-            label="Data"
-            type="date"
-            value={formData.date}
-            onChange={(event) => setFormData((prev) => ({ ...prev, date: event.target.value }))}
-            min={APP_START_DATE}
-            required
-          />
-
-          {quickAddType === 'expense' && (
-            <Input
-              label="Parcelas"
-              type="number"
-              min="1"
-              max="60"
-              value={formData.installment_total}
-              onChange={(event) => setFormData((prev) => ({ ...prev, installment_total: event.target.value }))}
-              placeholder="1"
-            />
-          )}
-
-          {quickAddType === 'expense' && (
-            <Select
-              label="Forma de pagamento"
-              value={formData.payment_method}
-              onChange={(event) => setFormData((prev) => ({
-                ...prev,
-                payment_method: event.target.value,
-                credit_card_id: event.target.value === 'credit_card' ? prev.credit_card_id : '',
-              }))}
-              options={[
-                { value: 'other', label: 'Outros' },
-                { value: 'cash', label: 'Dinheiro' },
-                { value: 'debit', label: 'Débito' },
-                { value: 'credit_card', label: 'Cartão de crédito' },
-                { value: 'pix', label: 'PIX' },
-                { value: 'transfer', label: 'Transferência' },
-              ]}
-            />
-          )}
-
-          {quickAddType === 'expense' && formData.payment_method === 'credit_card' && (
-            <Select
-              label="Cartão"
-              value={formData.credit_card_id}
-              onChange={(event) => setFormData((prev) => ({ ...prev, credit_card_id: event.target.value }))}
-              options={[
-                { value: '', label: 'Selecionar cartão' },
-                ...creditCards
-                  .filter((card) => card.is_active !== false || card.id === formData.credit_card_id)
-                  .map((card) => ({ value: card.id, label: card.name })),
-              ]}
-              required
-            />
-          )}
-
-          {quickAddType === 'expense' && (
-            <Select
-              label="Categoria"
-              value={formData.category_id}
-              onChange={(event) => setFormData((prev) => ({ ...prev, category_id: event.target.value }))}
-              options={categories.map((category) => ({ value: category.id, label: category.name }))}
-              required
-            />
-          )}
-
-          {quickAddType === 'income' && (
-            <Select
-              label="Categoria de renda"
-              value={formData.income_category_id}
-              onChange={(event) => setFormData((prev) => ({ ...prev, income_category_id: event.target.value }))}
-              options={incomeCategories.map((category) => ({ value: category.id, label: category.name }))}
-              required
-            />
-          )}
-
-          <Input
-            label="Descrição (opcional)"
-            value={formData.description}
-            onChange={(event) => setFormData((prev) => ({ ...prev, description: event.target.value }))}
-            placeholder="Ex: mercado, salário, reserva..."
-          />
-
-          <ModalActionFooter onCancel={closeQuickAdd} submitLabel="Salvar" />
-        </form>
+            <button
+              onClick={() => {
+                setIsSelectorOpen(false)
+                setIsInvestmentOpen(true)
+              }}
+              className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-balance rounded-2xl hover:shadow-lg transition-all group duration-150"
+            >
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-balance/10 text-balance mb-3 group-hover:scale-110 transition-transform">
+                <PiggyBank size={24} />
+              </div>
+              <span className="font-semibold text-primary">Investimento</span>
+            </button>
+          </div>
+        </div>
       </Modal>
+
+      <ExpenseFormModal
+        isOpen={isExpenseOpen}
+        onClose={() => setIsExpenseOpen(false)}
+        editingExpense={null}
+        categories={categories}
+        creditCards={creditCards}
+        onCreate={async (data) => {
+          const res = await createExpense(data)
+          if (!res.error) {
+            refreshExpenses()
+          }
+          return res
+        }}
+        onUpdate={async () => ({ data: null, error: 'Não aplicável' })}
+        onDelete={async () => ({ error: 'Não aplicável' })}
+      />
+
+      <IncomeFormModal
+        isOpen={isIncomeOpen}
+        onClose={() => setIsIncomeOpen(false)}
+        editingIncome={null}
+        incomeCategories={incomeCategories}
+        onCreate={async (data) => {
+          const res = await createIncome(data)
+          if (!res.error) {
+            refreshIncomes()
+          }
+          return res
+        }}
+        onUpdate={async () => ({ data: null, error: 'Não aplicável' })}
+        onDelete={async () => ({ error: 'Não aplicável' })}
+      />
+
+      <InvestmentFormModal
+        isOpen={isInvestmentOpen}
+        onClose={() => setIsInvestmentOpen(false)}
+        editingInvestment={null}
+        defaultMonth={currentMonth}
+        onCreate={async (data) => {
+          const res = await createInvestment(data)
+          if (!res.error) {
+            refreshInvestments()
+          }
+          return res
+        }}
+        onUpdate={async () => ({ data: null, error: 'Não aplicável' })}
+        onDelete={async () => ({ error: 'Não aplicável' })}
+      />
 
       <Modal
         isOpen={Boolean(selectedExpenseCategory)}
@@ -1015,4 +762,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

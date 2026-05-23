@@ -24,12 +24,16 @@ export const PAGE_HEADERS = {
     description: 'Controle de faturas',
   },
   categories: {
-    title: 'Categorias',
-    description: 'Categorias de despesas',
+    title: 'Planejamento de Categorias',
+    description: 'Metas e limites mensais',
+  },
+  expenseCategories: {
+    title: 'Categorias de Despesas',
+    description: 'Gestão de categorias de despesas',
   },
   incomeCategories: {
     title: 'Categorias de Rendas',
-    description: 'Categorias de rendas',
+    description: 'Gestão de categorias de rendas',
   },
   reports: {
     title: 'Relatórios',

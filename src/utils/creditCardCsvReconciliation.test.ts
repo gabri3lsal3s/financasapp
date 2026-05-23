@@ -185,7 +185,7 @@ describe('creditCardCsvReconciliation', () => {
   })
 
   it('mantém total líquido esperado para a fatura exemplo (ignora pagamento e considera estorno)', () => {
-    const filePath = join(process.cwd(), 'Fatura2026-03-15.csv')
+    const filePath = join(process.cwd(), 'database', 'samples', 'Fatura2026-03-15.csv')
     const csv = readFileSync(filePath, 'utf-8')
 
     const parsed = parseCreditCardInvoiceCsv(csv, 'auto')

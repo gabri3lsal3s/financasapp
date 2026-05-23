@@ -37,21 +37,30 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, profile, isLoading } = useAuth()
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[400px] items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-primary" />
-      </div>
-    )
-  }
-
   const isAdmin = profile?.is_admin ?? false
-
   const activeSettingsView = parseSettingsView(searchParams.get('view'), isAdmin)
 
   // Admin state
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [adminLoading, setAdminLoading] = useState(false)
+
+  // Biometric state
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricRegistered, setBiometricRegistered] = useState(false)
+  const [biometricStatus, setBiometricStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [biometricLoading, setBiometricLoading] = useState(false)
+
+  // Account deletion state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+
+  const {
+    floatingCalculatorEnabled,
+    setFloatingCalculatorEnabled,
+    biometricLockTimeout,
+    setBiometricLockTimeout,
+  } = useAppSettings()
 
   const fetchUsers = async () => {
     if (!isAdmin) return
@@ -78,6 +87,18 @@ export default function Settings() {
     }
   }, [activeSettingsView])
 
+  useEffect(() => {
+    setBiometricAvailable(isBiometricAvailable())
+    setBiometricRegistered(isBiometricRegistered())
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleUpdateUserStatus = async (userId: string, isApproved: boolean, isBlocked: boolean) => {
     try {
@@ -141,32 +162,6 @@ export default function Settings() {
       alert('Erro ao recusar usuário.')
     }
   }
-
-
-
-
-  // Biometric state
-  const [biometricAvailable, setBiometricAvailable] = useState(false)
-  const [biometricRegistered, setBiometricRegistered] = useState(false)
-  const [biometricStatus, setBiometricStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const [biometricLoading, setBiometricLoading] = useState(false)
-
-  useEffect(() => {
-    setBiometricAvailable(isBiometricAvailable())
-    setBiometricRegistered(isBiometricRegistered())
-  }, [])
-
-  // Account deletion state
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
-  const [deletingAccount, setDeletingAccount] = useState(false)
-
-  const {
-    floatingCalculatorEnabled,
-    setFloatingCalculatorEnabled,
-    biometricLockTimeout,
-    setBiometricLockTimeout,
-  } = useAppSettings()
 
   const updateSettingsView = (view: SettingsView) => {
     const nextParams = new URLSearchParams(searchParams)

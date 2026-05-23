@@ -1,108 +1,99 @@
 # Minhas Finanças
 
-Aplicação web para controle financeiro pessoal, com foco em simplicidade de uso, visão mensal/anual e operação offline.
+Aplicação web premium de controle financeiro pessoal, projetada com foco em simplicidade, operação offline-first contínua e consistência estética moderna.
 
-## O que o app oferece
+---
 
-- Dashboard com KPIs de rendas, despesas, investimentos e saldo.
-- CRUD completo de despesas, rendas, investimentos e categorias.
-- Página de categorias unificada (`/categories`) com limites de despesa e expectativas de renda por mês.
-- Relatórios mensais/anuais com detalhamento por categoria e inclusão parcial por item (`report_weight`).
-- Fluxo de cartão de crédito com competência de fatura e suporte a estorno como renda.
-- PWA instalável com atualização de versão e fila offline para mutações.
+## 🚀 O que o app oferece
 
-## Stack
+- **Dashboard Unificado**: Visão instantânea de KPIs de Rendas, Despesas, Investimentos e Saldo Geral.
+- **Componentes Padronizados**: Formulários de transações encapsulados em modais reutilizáveis (`ExpenseFormModal`, `IncomeFormModal`, `InvestmentFormModal`) e exibição unificada via `TransactionCard`.
+- **Planejamento de Categorias**: Interface centralizada em `/categories` para planejar metas de limites de despesa e expectativas de renda mensal.
+- **Detalhamento de Cartões e Faturas**: Lógica avançada de competência de faturas de cartão de crédito e suporte a estornos vinculados como renda de forma automatizada.
+- **Relatórios Mensais e Anuais**: Gráficos analíticos interativos por categoria, com peso de relevância de lançamentos (`report_weight`).
+- **Arquitetura Offline-First**: PWA instalável com sincronização inteligente de ações offline organizadas em fila cronológica.
 
-- React 18 + TypeScript
-- Vite
-- Tailwind CSS
-- Supabase
-- Recharts
-- React Router
+---
 
-## Setup rápido
+## 🛠️ Stack Tecnológica
 
-1. Instale dependências:
+- **Core**: React 18 + TypeScript + Vite
+- **Estilização**: Tailwind CSS (integrado ao sistema de temas de cores HSL)
+- **Backend**: Supabase (Database, Auth)
+- **Gráficos**: Recharts
+- **Testes**: Vitest
+
+---
+
+## 🔧 Configuração e Setup Rápido
+
+### 1. Instalar as Dependências
 
 ```bash
 npm install
 ```
 
-2. Configure variáveis de ambiente no `.env`:
+### 2. Configurar Variáveis de Ambiente (`.env`)
+
+Crie um arquivo `.env` na raiz com as chaves do seu projeto Supabase:
 
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-anon
+VITE_SUPABASE_ANON_KEY=sua-chave-anonima-supabase
 ```
 
-3. No Supabase SQL Editor, execute:
+### 3. Setup do Banco de Dados
 
-- [database.sql](database.sql) para estrutura base completa.
-- [MIGRATION_RENAME_EXTORNO_TO_ESTORNO.sql](MIGRATION_RENAME_EXTORNO_TO_ESTORNO.sql) para padronizar categorias antigas (`Extorno` -> `Estorno`).
+Abra o painel do Supabase, acesse o **SQL Editor** e execute:
 
-4. Rode o app em desenvolvimento:
+1. O script de estrutura e tabelas base: [database/database.sql](database/database.sql)
+2. (Opcional) A evolução de dados de relatórios: [database/migrations/migration_v3_report_data.sql](database/migrations/migration_v3_report_data.sql)
+
+### 4. Executar em Desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-## Scripts principais
+---
 
-- `npm run dev`: ambiente local com recarga automática.
-- `npm run build`: valida TypeScript e gera build de produção.
-- `npm run preview`: sobe build local para validação final.
-- `npm run guardrails:ui`: valida regressões de padronização visual contra baseline.
-- `npm run guardrails:ui:baseline`: atualiza baseline de guardrails (uso consciente em PR).
-- `npm run lint`: executa guardrails de UI + ESLint.
+## 📖 Guias e Documentação Técnica
 
-## Governança de padronização UI/UX
+- **Guia de Arquitetura e Fluxo de Dados**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (Diagrama Mermaid, ciclo Offline-First e componentes modulares).
+- **Manual de Governança Estética (HSL)**: [docs/ui/GOVERNANCA_UI.md](docs/ui/GOVERNANCA_UI.md) (Detalhamento do sistema de cores e regras visuais).
+- **Lista de Ocorrências e Guardrails**: [docs/ui/guardrails-baseline.json](docs/ui/guardrails-baseline.json).
 
-- Regras e fluxo de baseline: [docs/ui/GOVERNANCA_UI.md](docs/ui/GOVERNANCA_UI.md).
-- Baseline atual de ocorrências legadas: [docs/ui/guardrails-baseline.json](docs/ui/guardrails-baseline.json).
+---
 
-## Estrutura do projeto
+## 📁 Estrutura do Projeto Organizada
 
 ```text
-src/
-  components/   componentes reutilizáveis de UI
-  contexts/     contexto de tema/paleta
-  hooks/        regras de dados e integração com Supabase
-  lib/          clientes/configurações de infraestrutura
-  pages/        telas principais
-  services/     regras de domínio e serviços auxiliares
-  types/        contratos TypeScript
-  utils/        helpers utilitários
+├── database/                   # Modelagem do Banco e Migrations
+│   ├── database.sql            # Estrutura base completa (Tabelas, Triggers, RLS)
+│   ├── schema.sql              # Apenas o schema DDL limpo
+│   ├── migrations/             # Migrations de evolução de banco
+│   └── samples/                # Dados e CSVs de amostra para testes
+│
+├── docs/                       # Guias e Governança Técnica
+│   ├── ui/                     # Manual de estilos visuais e Guardrails
+│   └── ARCHITECTURE.md         # Documentação completa da arquitetura do app
+│
+├── src/
+│   ├── components/             # Componentes modulares reutilizáveis (Kpis, Card, Modais)
+│   ├── constants/              # Constantes globais e chaves de cabeçalho
+│   ├── contexts/               # Provedores globais (Tema, Paleta de Cores e Auth)
+│   ├── hooks/                  # Chamadas de dados e integração (useExpenses, useIncomes)
+│   ├── pages/                  # Telas do app limpas e simplificadas
+│   ├── services/               # Regras de negócios (Integração AI, Conciliação)
+│   ├── types/                  # Definições de tipagem TypeScript
+│   └── utils/                  # Auxiliares de formatação matemática, moeda e datas
 ```
 
-## Banco de dados (resumo)
+---
 
-Tabelas principais:
+## 🧪 Scripts de Verificação
 
-- `categories`, `income_categories`
-- `expenses`, `incomes`, `investments`
-- `expense_category_month_limits`, `income_category_month_expectations`
-- estruturas auxiliares de cartões já contempladas no script base.
-
-Observações:
-
-- `report_weight` permite considerar parcial/totalmente itens nos relatórios.
-- Estornos são tratados como renda na categoria `Estorno`.
-
-## PWA e modo offline
-
-- Service Worker ativo para assets do app.
-- Operações de escrita offline entram em fila local e sincronizam ao reconectar.
-- Prompt de atualização aparece quando existe nova versão publicada.
-
-## Segurança
-
-- O setup atual é voltado para ambiente sem autenticação estrita.
-- Para produção multiusuário, habilite RLS e políticas por `user_id` no Supabase.
-
-## Checklist de validação
-
-1. Execute `npm run build` sem erros.
-2. Rode `npm run preview` e valide fluxo principal.
-3. Teste modo offline (criar lançamento sem internet e sincronizar ao reconectar).
-4. Valide estornos em cartões e visualização correta em rendas.
-
+- `npm run dev`: Ambiente de desenvolvimento local.
+- `npm run build`: Valida tipagem do TypeScript e compila o bundle para produção.
+- `npm run test:run`: Roda a suíte completa de testes unitários com o Vitest.
+- `npm run lint`: Executa simultaneamente a verificação de guardrails visuais de UI e o ESLint.
