@@ -107,6 +107,10 @@ export interface Investment {
   description?: string
   created_at: string
   user_id?: string
+  ticker?: string
+  quantity?: number
+  price?: number
+  transaction_id?: string
 }
 
 export interface MonthlySummary {
@@ -145,6 +149,7 @@ export interface Portfolio {
   created_at: string
   client?: Profile
   consultant?: Profile
+  notes?: string
 }
 
 export type PortfolioOperationType = 'buy' | 'sell' | 'dividend' | 'split' | 'subscription'

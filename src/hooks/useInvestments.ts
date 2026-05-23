@@ -128,39 +128,81 @@ export function useInvestments(month?: string) {
         throw new Error('Offline (bypass)')
       }
 
-      const investmentData = {
+      const investmentData: any = {
         ...investment,
         month: investment.month || format(new Date(), 'yyyy-MM'),
       }
 
+      // 1. Se for um aporte em ativo, cria a transação de compra primeiro
+      let linkedTx = null
+      let portfolioRecord = null
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: portfolio } = await supabase
+          .from('portfolios')
+          .select('id, cash_balance')
+          .eq('client_id', user.id)
+          .maybeSingle()
+        portfolioRecord = portfolio
+      }
+
+      if (investment.ticker && portfolioRecord) {
+        const tickerUpper = investment.ticker.toUpperCase().trim()
+        const qty = Number(investment.quantity)
+        const price = Number(investment.price)
+        const dateVal = investmentData.month ? `${investmentData.month}-01` : format(new Date(), 'yyyy-MM-dd')
+
+        const { data: tx, error: txError } = await supabase
+          .from('portfolio_transactions')
+          .insert({
+            portfolio_id: portfolioRecord.id,
+            ticker: tickerUpper,
+            operation_type: 'buy',
+            quantity: qty,
+            price: price,
+            date: dateVal
+          })
+          .select()
+          .single()
+
+        if (txError) throw txError
+        linkedTx = tx
+        investmentData.transaction_id = tx.id
+      }
+
+      // 2. Insere o registro de investimento
       const { data, error: insertError } = await supabase
         .from('investments')
         .insert([investmentData])
         .select()
         .single()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        // Se falhar ao criar o investimento e criamos uma transação, tenta estornar para manter integridade
+        if (linkedTx) {
+          await supabase.from('portfolio_transactions').delete().eq('id', linkedTx.id)
+        }
+        throw insertError
+      }
 
-      // Sincroniza o saldo em caixa da consultoria (portfolios) se houver
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: portfolio } = await supabase
-            .from('portfolios')
-            .select('id, cash_balance')
-            .eq('client_id', user.id)
-            .maybeSingle()
-
-          if (portfolio) {
-            const newCash = Number(portfolio.cash_balance) + Number(investmentData.amount)
+      // 3. Sincroniza o saldo em caixa da consultoria (portfolios)
+      if (portfolioRecord) {
+        try {
+          // Impacto líquido no caixa: + aporte - custo de compra (se houver ticker)
+          const cost = investment.ticker ? (Number(investment.quantity) * Number(investment.price)) : 0
+          const netChange = Number(investmentData.amount) - cost
+          
+          if (netChange !== 0 || !investment.ticker) {
+            const newCash = Math.max(0, Number(portfolioRecord.cash_balance) + netChange)
             await supabase
               .from('portfolios')
               .update({ cash_balance: newCash })
-              .eq('id', portfolio.id)
+              .eq('id', portfolioRecord.id)
           }
+        } catch (err) {
+          console.warn('Erro ao sincronizar caixa do portfolio ao criar investimento:', err)
         }
-      } catch (err) {
-        console.warn('Erro ao sincronizar caixa do portfolio ao criar investimento:', err)
       }
 
       setInvestments((prev) => sortInvestmentsByMonth([data, ...prev]))
@@ -209,18 +251,38 @@ export function useInvestments(month?: string) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
-      let diff = 0
-      if (updates.amount !== undefined) {
-        try {
-          const { data: oldInv } = await supabase.from('investments').select('amount').eq('id', id).maybeSingle()
-          if (oldInv) {
-            diff = Number(updates.amount) - Number(oldInv.amount)
-          }
-        } catch (e) {
-          console.warn('Erro ao buscar valor antigo do investimento para atualização de caixa:', e)
-        }
+      // 1. Busca os dados antigos para calcular o estorno e obter o transaction_id
+      const { data: oldInv, error: fetchOldError } = await supabase
+        .from('investments')
+        .select('amount, ticker, quantity, price, transaction_id, month')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (fetchOldError) throw fetchOldError
+      if (!oldInv) throw new Error('Investimento não encontrado')
+
+      // 2. Se houver transação vinculada, atualiza a transação também
+      if (oldInv.transaction_id) {
+        const nextTicker = (updates.ticker !== undefined ? updates.ticker : oldInv.ticker || '').toUpperCase().trim()
+        const nextQty = updates.quantity !== undefined ? updates.quantity : oldInv.quantity
+        const nextPrice = updates.price !== undefined ? updates.price : oldInv.price
+        const nextMonth = updates.month !== undefined ? updates.month : oldInv.month
+        const nextDate = nextMonth ? `${nextMonth}-01` : format(new Date(), 'yyyy-MM-dd')
+
+        const { error: txUpdateError } = await supabase
+          .from('portfolio_transactions')
+          .update({
+            ticker: nextTicker,
+            quantity: Number(nextQty),
+            price: Number(nextPrice),
+            date: nextDate
+          })
+          .eq('id', oldInv.transaction_id)
+
+        if (txUpdateError) throw txUpdateError
       }
 
+      // 3. Atualiza o investimento no banco
       const { data, error: updateError } = await supabase
         .from('investments')
         .update(updates)
@@ -230,17 +292,32 @@ export function useInvestments(month?: string) {
 
       if (updateError) throw updateError
 
-      if (diff !== 0) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const { data: portfolio } = await supabase
-              .from('portfolios')
-              .select('id, cash_balance')
-              .eq('client_id', user.id)
-              .maybeSingle()
+      // 4. Sincroniza o saldo em caixa da consultoria
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: portfolio } = await supabase
+            .from('portfolios')
+            .select('id, cash_balance')
+            .eq('client_id', user.id)
+            .maybeSingle()
 
-            if (portfolio) {
+          if (portfolio) {
+            // Calcula contribuição líquida antiga do aporte ao caixa
+            const oldCost = oldInv.ticker ? (Number(oldInv.quantity) * Number(oldInv.price)) : 0
+            const oldNetContribution = Number(oldInv.amount) - oldCost
+
+            // Calcula contribuição líquida nova do aporte ao caixa
+            const newAmount = updates.amount !== undefined ? Number(updates.amount) : Number(oldInv.amount)
+            const newTicker = updates.ticker !== undefined ? updates.ticker : oldInv.ticker
+            const newQty = updates.quantity !== undefined ? Number(updates.quantity) : Number(oldInv.quantity)
+            const newPrice = updates.price !== undefined ? Number(updates.price) : Number(oldInv.price)
+            const newCost = newTicker ? (newQty * newPrice) : 0
+            const newNetContribution = newAmount - newCost
+
+            const diff = newNetContribution - oldNetContribution
+
+            if (diff !== 0 || updates.amount !== undefined) {
               const newCash = Math.max(0, Number(portfolio.cash_balance) + diff)
               await supabase
                 .from('portfolios')
@@ -248,9 +325,9 @@ export function useInvestments(month?: string) {
                 .eq('id', portfolio.id)
             }
           }
-        } catch (err) {
-          console.warn('Erro ao sincronizar caixa do portfolio ao atualizar investimento:', err)
         }
+      } catch (err) {
+        console.warn('Erro ao sincronizar caixa do portfolio ao atualizar investimento:', err)
       }
 
       setInvestments((prev) => sortInvestmentsByMonth(prev.map((inv) => (inv.id === id ? data : inv))))
@@ -290,14 +367,29 @@ export function useInvestments(month?: string) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
-      let oldAmount = 0
-      try {
-        const { data: oldInv } = await supabase.from('investments').select('amount').eq('id', id).maybeSingle()
-        if (oldInv) oldAmount = Number(oldInv.amount)
-      } catch (e) {
-        console.warn('Erro ao obter valor antigo do investimento para deleção:', e)
+      // 1. Busca os dados do investimento antes de deletar
+      const { data: oldInv, error: fetchOldError } = await supabase
+        .from('investments')
+        .select('amount, ticker, quantity, price, transaction_id')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (fetchOldError) throw fetchOldError
+      if (!oldInv) throw new Error('Investimento não encontrado')
+
+      // 2. Se houver transação vinculada, deleta primeiro
+      if (oldInv.transaction_id) {
+        const { error: txDelError } = await supabase
+          .from('portfolio_transactions')
+          .delete()
+          .eq('id', oldInv.transaction_id)
+
+        if (txDelError) {
+          console.warn('Erro ao deletar transação vinculada ao excluir investimento:', txDelError)
+        }
       }
 
+      // 3. Deleta o investimento
       const { error: deleteError } = await supabase
         .from('investments')
         .delete()
@@ -305,27 +397,29 @@ export function useInvestments(month?: string) {
 
       if (deleteError) throw deleteError
 
-      if (oldAmount > 0) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const { data: portfolio } = await supabase
-              .from('portfolios')
-              .select('id, cash_balance')
-              .eq('client_id', user.id)
-              .maybeSingle()
+      // 4. Sincroniza o caixa do portfólio
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: portfolio } = await supabase
+            .from('portfolios')
+            .select('id, cash_balance')
+            .eq('client_id', user.id)
+            .maybeSingle()
 
-            if (portfolio) {
-              const newCash = Math.max(0, Number(portfolio.cash_balance) - oldAmount)
-              await supabase
-                .from('portfolios')
-                .update({ cash_balance: newCash })
-                .eq('id', portfolio.id)
-            }
+          if (portfolio) {
+            const oldCost = oldInv.ticker ? (Number(oldInv.quantity) * Number(oldInv.price)) : 0
+            const oldNetContribution = Number(oldInv.amount) - oldCost
+
+            const newCash = Math.max(0, Number(portfolio.cash_balance) - oldNetContribution)
+            await supabase
+              .from('portfolios')
+              .update({ cash_balance: newCash })
+              .eq('id', portfolio.id)
           }
-        } catch (err) {
-          console.warn('Erro ao sincronizar caixa do portfolio ao deletar investimento:', err)
         }
+      } catch (err) {
+        console.warn('Erro ao sincronizar caixa do portfolio ao deletar investimento:', err)
       }
 
       setInvestments((prev) => prev.filter((inv) => inv.id !== id))

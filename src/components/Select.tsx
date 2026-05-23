@@ -89,7 +89,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
                         className={`
                           w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all mb-0.5 last:mb-0
                           ${isSelected 
-                            ? 'bg-primary text-black font-bold' 
+                            ? 'bg-primary/10 text-primary font-bold' 
                             : 'text-secondary hover:bg-tertiary hover:text-primary'
                           }
                         `}

@@ -24,6 +24,21 @@ const FALLBACK_PRICES: Record<string, number> = {
 }
 
 /**
+ * Auxiliar para mitigar erros de CORS em navegadores utilizando o proxy gratuito AllOrigins.
+ * Se o proxy falhar ou estiver indisponível, faz o fetch direto como fallback.
+ */
+async function fetchWithCorsProxy(url: string): Promise<Response> {
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl);
+    if (response.ok) return response;
+  } catch (err) {
+    console.warn('Falha no proxy CORS, tentando fetch direto como fallback:', err);
+  }
+  return fetch(url);
+}
+
+/**
  * Busca cotações de uma lista de tickers de forma resiliente.
  * Lê o cache do Supabase e, se ausente ou desatualizado (> 4 horas), 
  * busca em tempo real da API pública e estável do Yahoo Finance B3 com fallback.
@@ -98,8 +113,8 @@ export async function getAssetPrices(tickers: string[]): Promise<Record<string, 
       })
 
       const symbolsStr = yahooSymbols.join(',')
-      // Endpoint aberto e veloz do Yahoo Finance sem bloqueio de CORS
-      const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
+      // Busca cotações através do proxy CORS para evitar bloqueios no navegador
+      const response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -225,7 +240,7 @@ export async function searchB3Assets(query: string): Promise<SearchedAsset[]> {
   if (q.length < 2) return []
 
   try {
-    const response = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`)
+    const response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`)
     if (response.ok) {
       const data = await response.json()
       if (data && data.quotes) {
@@ -277,7 +292,7 @@ export async function getAssetRichData(ticker: string): Promise<AssetRichData | 
   try {
     const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(normTicker)
     const symbol = isB3 ? `${normTicker}.SA` : normTicker
-    const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
+    const response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
     
     if (response.ok) {
       const data = await response.json()

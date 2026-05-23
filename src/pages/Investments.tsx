@@ -622,17 +622,23 @@ export default function Investments() {
                     const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
                     const staggerClass = index < 5 ? staggerClasses[index] : ''
 
+                    const isAsset = !!inv.ticker
+                    const displayTitle = isAsset ? `Aporte: ${inv.ticker}` : (inv.description || 'Investimento')
+                    const displaySubtitle = isAsset 
+                      ? `${Number(inv.quantity).toLocaleString('pt-BR')} cotas a R$ ${Number(inv.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+                      : 'Caixa Livre'
+
                     return (
                       <TransactionCard
                         key={inv.id}
-                        title={inv.description || 'Investimento'}
-                        subtitle="Investimento"
+                        title={displayTitle}
+                        subtitle={displaySubtitle}
                         amount={inv.amount}
                         dateLabel={(() => {
                           const formatted = formatMonth(inv.month)
                           return formatted.charAt(0).toUpperCase() + formatted.slice(1)
                         })()}
-                        categoryColor="#10b981"
+                        categoryColor={isAsset ? '#6366f1' : '#10b981'}
                         isOffline={inv.id.startsWith('offline-')}
                         onClick={() => handleOpenModal(inv)}
                         staggerClass={staggerClass}

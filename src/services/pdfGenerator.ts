@@ -3,7 +3,7 @@ import { Portfolio, PortfolioGroupTarget } from '@/types'
 import { AssetPosition, PerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector } from '@/services/investmentEngine'
 
 interface PDFData {
-  clientName: string
+  clientName: string          // nome para exibição (display name)
   portfolio: Portfolio
   positions: AssetPosition[]
   shareHistory: { date: string; shareValue: number }[]
@@ -13,13 +13,17 @@ interface PDFData {
   groupTargets?: PortfolioGroupTarget[]
   executiveSummary?: string
   nextMonthPlan?: string
+  billingFeeRate?: number
 }
 
 /**
  * Gera um relatório institucional em PDF vetorial de altíssima nitidez usando jsPDF.
  */
 export async function generateConsultingPDF(data: PDFData): Promise<void> {
-  const { clientName, positions, shareHistory, metrics, theses, cashBalance, groupTargets, executiveSummary, nextMonthPlan } = data
+  const { clientName, positions, shareHistory, metrics, theses, cashBalance, groupTargets, executiveSummary, nextMonthPlan, billingFeeRate = 0.1 } = data
+
+  // Atenção: ativos com drift > 5% em relação à meta
+  const attentionAssets = positions.filter(p => Math.abs(p.current_percentage - p.target_percentage) > 5)
   
   // Cria o documento PDF (formato A4, unidade em milímetros)
   const doc = new jsPDF({
@@ -41,6 +45,12 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   const portfolioValue = positions.reduce((sum, p) => sum + p.total_value, 0) + cashBalance
   const totalYieldPct = shareHistory.length > 0 ? (shareHistory[shareHistory.length - 1].shareValue - 1) * 100 : 0
   const competenceMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()
+
+  // Calcula número total de páginas dinamicamente
+  const thesesForPageCount = positions.filter(pos => theses[pos.ticker])
+  const thesisPages = thesesForPageCount.length > 0 ? Math.ceil(thesesForPageCount.length / 5) : 1
+  const hasAttentionSection = attentionAssets.length > 0
+  const totalPages = 4 + thesisPages + (hasAttentionSection ? 1 : 0)
 
   // ==========================================
   // PÁGINA 1: CAPA INSTITUCIONAL E ELEGANTE
@@ -87,7 +97,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(14)
   doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
   doc.setFont('Helvetica', 'bold')
-  doc.text(clientName, 45, 147)
+  doc.text(clientName.toUpperCase(), 45, 147)
 
   doc.setFontSize(10)
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
@@ -140,8 +150,16 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(8)
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
   doc.setFont('Helvetica', 'normal')
-  doc.text('Este relatório contém informações confidenciais destinadas exclusivamente ao cliente.', 45, pageHeight - 30)
+  doc.text('Este relatório contém informações confidenciais destinadas exclusivamente ao cliente identificado acima.', 45, pageHeight - 30)
   doc.text('Cerrado Asset Management Ltda. Todos os direitos reservados 2026.', 45, pageHeight - 25)
+
+  // Aviso de pontos de atenção na capa (se houver)
+  if (attentionAssets.length > 0) {
+    doc.setFontSize(8)
+    doc.setTextColor(COLOR_ACCENT[0], COLOR_ACCENT[1], COLOR_ACCENT[2])
+    doc.setFont('Helvetica', 'bold')
+    doc.text(`⚠  ${attentionAssets.length} ativo(s) com desvio > 5% da meta — ver Pontos de Atenção.`, 45, pageHeight - 40)
+  }
 
   // ==========================================
   // PÁGINA 2: COMPOSIÇÃO E METODOLOGIA CERRADO
@@ -282,7 +300,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.text('-', 175, currentY + 5)
 
   // Rodapé da página
-  drawPageFooter(doc, 2)
+  drawPageFooter(doc, 2, totalPages)
 
   // ==========================================
   // PÁGINA 3: ALOCAÇÃO CONSOLIDADA E SETORIAL
@@ -391,10 +409,80 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
     currentY += 7
   })
 
-  drawPageFooter(doc, 3)
+  drawPageFooter(doc, 3, totalPages)
 
   // ==========================================
-  // PÁGINA 4: ANÁLISE QUALITATIVA & TESES
+  // PÁGINA 4: PONTOS DE ATENÇÃO (se houver)
+  // ==========================================
+  if (hasAttentionSection) {
+    doc.addPage()
+    drawPageHeader(doc, 'PONTOS DE ATENÇÃO — DESVIOS SIGNIFICATIVOS', competenceMonth)
+
+    currentY = 40
+    doc.setFontSize(10)
+    doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
+    doc.setFont('Helvetica', 'bold')
+    doc.text('Ativos com Desvio Superior a 5% da Meta Estratégica', 20, currentY)
+
+    currentY += 6
+    doc.setFillColor(COLOR_ACCENT[0], COLOR_ACCENT[1], COLOR_ACCENT[2])
+    doc.rect(20, currentY, pageWidth - 40, 7.5, 'F')
+    doc.setFontSize(8)
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('Helvetica', 'bold')
+    doc.text('ATIVO', 24, currentY + 5)
+    doc.text('ALOCAÇÃO ATUAL', 65, currentY + 5)
+    doc.text('META CERRADO', 110, currentY + 5)
+    doc.text('DESVIO', 150, currentY + 5)
+    doc.text('AÇÃO SUGERIDA', 170, currentY + 5)
+
+    currentY += 7.5
+    doc.setFontSize(8)
+    doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
+
+    attentionAssets.forEach((pos, idx) => {
+      if (idx % 2 === 1) {
+        doc.setFillColor(255, 251, 235) // Fundo amarelo claro
+        doc.rect(20, currentY, pageWidth - 40, 7, 'F')
+      }
+      const drift = pos.current_percentage - pos.target_percentage
+      const action = drift > 0 ? 'REDUZIR EXPOSIÇÃO' : 'AUMENTAR POSIÇÃO'
+
+      doc.setFont('Helvetica', 'bold')
+      doc.text(pos.ticker, 24, currentY + 4.5)
+      doc.setFont('Helvetica', 'normal')
+      doc.text(`${pos.current_percentage.toFixed(2)}%`, 65, currentY + 4.5)
+      doc.text(`${pos.target_percentage.toFixed(2)}%`, 110, currentY + 4.5)
+
+      doc.setFont('Helvetica', 'bold')
+      if (drift > 0) {
+        doc.setTextColor(185, 28, 28)
+        doc.text(`+${drift.toFixed(2)}%`, 150, currentY + 4.5)
+      } else {
+        doc.setTextColor(COLOR_PRIMARY[0], COLOR_PRIMARY[1], COLOR_PRIMARY[2])
+        doc.text(`${drift.toFixed(2)}%`, 150, currentY + 4.5)
+      }
+      doc.setTextColor(COLOR_ACCENT[0], COLOR_ACCENT[1], COLOR_ACCENT[2])
+      doc.text(action, 170, currentY + 4.5)
+      doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
+
+      currentY += 7
+    })
+
+    // Nota metodológica
+    currentY += 8
+    doc.setFontSize(8)
+    doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
+    doc.setFont('Helvetica', 'normal')
+    const noteText = 'Nota: O desvio é calculado como a diferença entre a alocação atual e a meta estratégica definida pela Metodologia do Cerrado. Desvios superiores a 5% indicam necessidade de rebalanceamento prioritário.'
+    const splitNote = doc.splitTextToSize(noteText, pageWidth - 40)
+    doc.text(splitNote, 20, currentY)
+
+    drawPageFooter(doc, 4, totalPages)
+  }
+
+  // ==========================================
+  // PÁGINA DE ANÁLISE QUALITATIVA & TESES
   // ==========================================
   doc.addPage()
   drawPageHeader(doc, 'ANÁLISE QUALITATIVA (TESES DE INVESTIMENTO)', competenceMonth)
@@ -503,10 +591,10 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
     })
   }
 
-  drawPageFooter(doc, 4)
+  drawPageFooter(doc, hasAttentionSection ? 5 : 4, totalPages)
 
   // ==========================================
-  // PÁGINA 4: INDICADORES & DEMONSTRATIVO FEE
+  // PÁGINA FINAL: INDICADORES & DEMONSTRATIVO FEE
   // ==========================================
   doc.addPage()
   drawPageHeader(doc, 'INDICADORES INSTITUCIONAIS & FATURAMENTO', competenceMonth)
@@ -565,7 +653,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFont('Helvetica', 'bold')
   doc.setTextColor(255, 255, 255)
   doc.text(`R$ ${portfolioValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 120, currentY + 10)
-  doc.text('0,10% ao mês (1,20% ao ano)', 120, currentY + 18)
+  doc.text(`${billingFeeRate.toFixed(2)}% ao mês (${(billingFeeRate * 12).toFixed(2)}% ao ano)`, 120, currentY + 18)
   doc.text(new Date().toLocaleDateString('pt-BR'), 120, currentY + 26)
 
   // Divisor dentro do faturamento
@@ -577,7 +665,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setTextColor(COLOR_ACCENT[0], COLOR_ACCENT[1], COLOR_ACCENT[2])
   doc.text('VALOR DE CONSULTORIA A SER LIQUIDADO:', 26, currentY + 42)
   doc.setFontSize(13)
-  doc.text(`R$ ${(portfolioValue * 0.001).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 120, currentY + 42)
+  doc.text(`R$ ${(portfolioValue * (billingFeeRate / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 120, currentY + 42)
 
   // Bloco de Assinatura do Consultor
   currentY += 80
@@ -590,12 +678,13 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.text('ASSESSORIA E PLANEJAMENTO FINANCEIRO CERRADO', pageWidth / 2, currentY + 5, { align: 'center' })
   doc.text('RELATÓRIO EMITIDO PELO SISTEMA DE GESTÃO DE ATIVOS', pageWidth / 2, currentY + 9, { align: 'center' })
 
-  drawPageFooter(doc, 5)
+  drawPageFooter(doc, totalPages, totalPages)
 
   // ==========================================
   // DISPARA O DOWNLOAD DO PDF NO NAVEGADOR
   // ==========================================
-  doc.save(`relatorio-cerrado-${clientName.toLowerCase()}-${new Date().toISOString().substring(0, 7)}.pdf`)
+  const safeFileName = clientName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+  doc.save(`relatorio-cerrado-${safeFileName}-${new Date().toISOString().substring(0, 7)}.pdf`)
 }
 
 // Funções Auxiliares de Desenho de Layout do Relatório
@@ -622,7 +711,7 @@ function drawPageHeader(doc: jsPDF, title: string, competence: string) {
   doc.text(`COMPETÊNCIA: ${competence}`, pageWidth - 20, 13, { align: 'right' })
 }
 
-function drawPageFooter(doc: jsPDF, pageNum: number) {
+function drawPageFooter(doc: jsPDF, pageNum: number, totalPages: number) {
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
 
@@ -635,5 +724,5 @@ function drawPageFooter(doc: jsPDF, pageNum: number) {
   doc.setFontSize(7.5)
   doc.setTextColor(148, 163, 184)
   doc.text('Cerrado Asset Management • Relatório Exclusivo do Cliente', 20, pageHeight - 11)
-  doc.text(`Página ${pageNum} de 5`, pageWidth - 20, pageHeight - 11, { align: 'right' })
+  doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - 20, pageHeight - 11, { align: 'right' })
 }

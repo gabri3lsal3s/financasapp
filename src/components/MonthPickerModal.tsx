@@ -59,7 +59,7 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
                 className={`
                   py-4 rounded-2xl border transition-all font-bold text-sm
                   ${isSelected 
-                    ? 'bg-primary border-primary text-black shadow-lg shadow-primary/20 scale-[1.02]' 
+                    ? 'bg-primary/10 border-primary-500/30 text-primary shadow-lg shadow-primary/10 scale-[1.02]' 
                     : 'bg-secondary/5 border-white/5 text-secondary hover:border-primary/30 hover:text-primary'
                   }
                 `}

@@ -6,21 +6,58 @@ import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics,
 import { getAssetPrices, searchB3Assets, getAssetRichData, AssetRichData } from '@/services/priceService'
 import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
 import Loader from '@/components/Loader'
+import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Modal from '@/components/Modal'
 import PageHeader from '@/components/PageHeader'
-import { Plus, Wallet, TrendingUp, DollarSign, Percent, FileText, Trash2, UserPlus, Edit, Layers } from 'lucide-react'
+import { UserPlus, Trash2, ShieldCheck, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
+
+// Componentes Modulares
+import AdvisorOverview from '@/components/consulting/AdvisorOverview'
+import ClientOverviewHeader from '@/components/consulting/ClientOverviewHeader'
+import ClientKpiCards from '@/components/consulting/ClientKpiCards'
+import ClientAllocationCharts from '@/components/consulting/ClientAllocationCharts'
+import RebalancingChecklist from '@/components/consulting/RebalancingChecklist'
+import PositionsTable from '@/components/consulting/PositionsTable'
+import AdvisorNotes from '@/components/consulting/AdvisorNotes'
+import BillingReportCard from '@/components/consulting/BillingReportCard'
+import LedgerBook from '@/components/consulting/LedgerBook'
+import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
 
 export default function ConsultantDashboard() {
   const { user } = useAuth()
   const [clients, setClients] = useState<Profile[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [loadingClients, setLoadingClients] = useState<boolean>(true)
+  
+  // Estado para Personalização de Layout & Billing
+  const [viewMode, setViewMode] = useState<'tabs' | 'grid'>('tabs')
+  const [activeTab, setActiveTab] = useState<'overview' | 'composition' | 'ledger' | 'qualitative'>('overview')
+  const [billingFeeRate, setBillingFeeRate] = useState<number>(0.1)
+
+  // Estado para Visão Geral de AUM Consolidado do Consultor
+  const [globalAumData, setGlobalAumData] = useState<{
+    totalAum: number
+    totalCash: number
+    clientCount: number
+    clientRows: Array<{
+      id: string
+      name: string
+      email: string
+      aum: number
+      cash: number
+      assetsCount: number
+      deviationPct: number
+    }>
+  } | null>(null)
+
+  // Anotações qualitativas do portfólio
+  const [clientNotes, setClientNotes] = useState<string>('')
+  const [savingSettings, setSavingSettings] = useState<boolean>(false)
   
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
   const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
@@ -33,11 +70,17 @@ export default function ConsultantDashboard() {
   const [portfolioValue, setPortfolioValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
   
-  // Estado para cadastrar novo cliente (Opção A)
+  // Estado para cadastrar novo cliente
   const [isClientModalOpen, setIsClientModalOpen] = useState<boolean>(false)
   const [newClientName, setNewClientName] = useState<string>('')
   const [newClientEmail, setNewClientEmail] = useState<string>('')
   const [creatingClient, setCreatingClient] = useState<boolean>(false)
+
+  // Estado para exclusão de cliente (2 etapas)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false)
+  const [clientToDelete, setClientToDelete] = useState<Profile | null>(null)
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState<string>('')
+  const [deletingClientState, setDeletingClientState] = useState<boolean>(false)
 
   // Estado para vinculação de carteira provisória a e-mail real
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false)
@@ -59,7 +102,6 @@ export default function ConsultantDashboard() {
   const [showTargetForm, setShowTargetForm] = useState<boolean>(false)
   const [targetTicker, setTargetTicker] = useState<string>('')
   const [targetPct, setTargetPct] = useState<string>('')
-  const [savingTarget, setSavingTarget] = useState<boolean>(false)
   const [isCustomTicker, setIsCustomTicker] = useState<boolean>(false)
 
   // Estado para gerenciar teses qualitativas
@@ -97,7 +139,6 @@ export default function ConsultantDashboard() {
   const [groupTargetType, setGroupTargetType] = useState<'class' | 'sector'>('class')
   const [groupTargetName, setGroupTargetName] = useState<string>('Ações Nacionais')
   const [groupTargetPct, setGroupTargetPct] = useState<string>('')
-  const [savingGroupTarget, setSavingGroupTarget] = useState<boolean>(false)
   const [groupTargets, setGroupTargets] = useState<PortfolioGroupTarget[]>([])
 
   useEffect(() => {
@@ -113,6 +154,7 @@ export default function ConsultantDashboard() {
       setTargetAllocations([])
       setPositions([])
       setPortfolioValue(0)
+      loadGlobalOverview()
     }
   }, [selectedClientId])
 
@@ -198,18 +240,22 @@ export default function ConsultantDashboard() {
   }, [txTicker])
 
   const getClientDisplayName = (email: string) => {
+    if (!email) return 'Sem Nome'
+    
     if (email.startsWith('temp_') && email.endsWith('@cerrado.internal')) {
       const parts = email.replace('temp_', '').split('@')[0].split('_')
       parts.pop() // remove o random id
       return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') + ' (Provisório)'
     }
-    return email
+    
+    const localPart = email.split('@')[0]
+    const parts = localPart.split(/[._-]/)
+    return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
   }
 
   const loadEligibleClients = async () => {
     try {
       setLoadingEligible(true)
-      // 1. Busca perfis client reais
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -219,7 +265,6 @@ export default function ConsultantDashboard() {
 
       if (profilesError) throw profilesError
 
-      // 2. Busca todos os portfolios existentes
       const { data: portfoliosData, error: portfoliosError } = await supabase
         .from('portfolios')
         .select('client_id')
@@ -227,8 +272,6 @@ export default function ConsultantDashboard() {
       if (portfoliosError) throw portfoliosError
 
       const takenIds = new Set(portfoliosData?.map(p => p.client_id) || [])
-
-      // 3. Filtra os perfis reais elegíveis (que não possuem portfolios)
       const eligible = (profilesData || []).filter(p => !takenIds.has(p.id))
       setEligibleClients(eligible)
       
@@ -250,7 +293,6 @@ export default function ConsultantDashboard() {
     if (!portfolio || !selectedClientId || !selectedRealClientId) return
     setLinking(true)
     try {
-      // 1. Transfere a carteira provisória para o cliente real
       const { error: updateError } = await supabase
         .from('portfolios')
         .update({ client_id: selectedRealClientId })
@@ -258,7 +300,6 @@ export default function ConsultantDashboard() {
 
       if (updateError) throw updateError
 
-      // 2. Deleta o perfil provisório antigo
       const { error: deleteError } = await supabase
         .from('profiles')
         .delete()
@@ -271,7 +312,6 @@ export default function ConsultantDashboard() {
       toast.success('Carteira vinculada com sucesso!')
       setIsLinkModalOpen(false)
       
-      // Recarrega a lista de clientes
       const { data: clientsData } = await supabase
         .from('profiles')
         .select('*')
@@ -291,18 +331,26 @@ export default function ConsultantDashboard() {
   const loadClients = async () => {
     try {
       setLoadingClients(true)
-      // Carrega perfis que são clientes
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'client')
-        .order('email')
+      const { data: ports, error } = await supabase
+        .from('portfolios')
+        .select('client:profiles!client_id(*)')
+        .eq('consultant_id', user?.id)
 
       if (error) throw error
-      setClients(data || [])
-      if (data && data.length > 0) {
-        setSelectedClientId(data[0].id)
+
+      const clientList: Profile[] = []
+      if (ports) {
+        for (const p of ports) {
+          const rawClient = p.client as any
+          const clientObj = Array.isArray(rawClient) ? rawClient[0] : rawClient
+          if (clientObj && clientObj.role === 'client') {
+            clientList.push(clientObj as Profile)
+          }
+        }
       }
+
+      clientList.sort((a, b) => (a.email || '').localeCompare(b.email || ''))
+      setClients(clientList)
     } catch (err) {
       console.error('Erro ao carregar clientes:', err)
       toast.error('Erro ao buscar lista de clientes')
@@ -311,11 +359,191 @@ export default function ConsultantDashboard() {
     }
   }
 
+  const loadGlobalOverview = async () => {
+    try {
+      setLoadingPortfolio(true)
+      const { data: ports, error: portsErr } = await supabase
+        .from('portfolios')
+        .select('*, client:profiles!client_id(*)')
+        .eq('consultant_id', user?.id)
+
+      if (portsErr) throw portsErr
+      const portfoliosList = (ports || []).filter(port => port.client?.role === 'client')
+
+      const { data: allTxs, error: txsErr } = await supabase
+        .from('portfolio_transactions')
+        .select('*')
+
+      if (txsErr) throw txsErr
+      const transactionsList = allTxs || []
+
+      const { data: allTargets, error: targetsErr } = await supabase
+        .from('target_allocations')
+        .select('*')
+
+      if (targetsErr) throw targetsErr
+      const targetsList = allTargets || []
+
+      const tickers = Array.from(new Set([
+        ...transactionsList.map(t => t.ticker.toUpperCase()),
+        ...targetsList.map(t => t.ticker.toUpperCase())
+      ]))
+
+      const prices = tickers.length > 0 ? await getAssetPrices(tickers) : {}
+      setAssetPrices(prices)
+
+      let overallAum = 0
+      let overallCash = 0
+      
+      const rows = portfoliosList.map(port => {
+        const clientProfile = port.client
+        const clientName = getClientDisplayName(clientProfile?.email || 'Sem E-mail')
+        const clientTxs = transactionsList.filter(t => t.portfolio_id === port.id)
+        const clientTargets = targetsList.filter(t => t.portfolio_id === port.id)
+        const cash = Number(port.cash_balance)
+
+        const { positions: calcPositions, totalValue } = calculatePositions(
+          clientTxs,
+          clientTargets,
+          prices,
+          cash
+        )
+
+        overallAum += totalValue
+        overallCash += cash
+
+        let deviationPct = 0
+        if (totalValue > 0) {
+          let sumDiff = 0
+          calcPositions.forEach(pos => {
+            sumDiff += Math.abs(pos.current_percentage - pos.target_percentage)
+          })
+          deviationPct = sumDiff
+        }
+
+        return {
+          id: port.client_id,
+          name: clientName,
+          email: clientProfile?.email || '',
+          aum: totalValue,
+          cash: cash,
+          assetsCount: calcPositions.length,
+          deviationPct: Math.round(deviationPct * 10) / 10
+        }
+      })
+
+      rows.sort((a, b) => b.deviationPct - a.deviationPct)
+
+      setGlobalAumData({
+        totalAum: overallAum,
+        totalCash: overallCash,
+        clientCount: portfoliosList.length,
+        clientRows: rows
+      })
+
+    } catch (e) {
+      console.error('Erro ao processar visão consolidada do consultor:', e)
+    } finally {
+      setLoadingPortfolio(false)
+    }
+  }
+
+  const rebalancingTrades = React.useMemo(() => {
+    if (positions.length === 0 || portfolioValue === 0) return []
+
+    const trades: Array<{
+      ticker: string
+      action: 'buy' | 'sell' | 'hold'
+      amount: number
+      shares: number
+      currentPct: number
+      targetPct: number
+    }> = []
+
+    positions.forEach(pos => {
+      const diffPct = pos.target_percentage - pos.current_percentage
+      const diffAmount = (diffPct / 100) * portfolioValue
+      const action = diffPct > 1.0 ? 'buy' : diffPct < -1.0 ? 'sell' : 'hold'
+      const price = pos.current_price || 50.00
+      const shares = Math.round(diffAmount / price)
+
+      if (action !== 'hold' && Math.abs(shares) > 0) {
+        trades.push({
+          ticker: pos.ticker,
+          action,
+          amount: Math.abs(diffAmount),
+          shares: Math.abs(shares),
+          currentPct: pos.current_percentage,
+          targetPct: pos.target_percentage
+        })
+      }
+    })
+
+    return trades.sort((a, b) => {
+      if (a.action !== b.action) {
+        return a.action === 'buy' ? -1 : 1
+      }
+      return b.amount - a.amount
+    })
+  }, [positions, portfolioValue])
+
+  const classChartData = React.useMemo(() => {
+    const dataMap: Record<string, { name: string; value: number; color: string }> = {}
+    positions.forEach(pos => {
+      const cls = pos.asset_class || 'Renda Fixa'
+      if (!dataMap[cls]) {
+        let color = '#3b82f6'
+        if (cls.includes('Ações Nacionais')) color = '#6366f1'
+        else if (cls.includes('Fundos')) color = '#10b981'
+        else if (cls.includes('Cripto')) color = '#f59e0b'
+        else if (cls.includes('Renda Fixa')) color = '#ec4899'
+        else if (cls.includes('Internacionais')) color = '#06b6d4'
+        else if (cls.includes('ETFs')) color = '#8b5cf6'
+        
+        dataMap[cls] = { name: cls, value: 0, color }
+      }
+      dataMap[cls].value += pos.total_value
+    })
+    
+    if (portfolio && Number(portfolio.cash_balance) > 0) {
+      dataMap['Saldo em Caixa'] = {
+        name: 'Saldo em Caixa',
+        value: Number(portfolio.cash_balance),
+        color: '#64748b'
+      }
+    }
+
+    return Object.values(dataMap)
+  }, [positions, portfolio])
+
+  const handleSavePortfolioSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!portfolio) return
+    setSavingSettings(true)
+    try {
+      const { error } = await supabase
+        .from('portfolios')
+        .update({
+          notes: clientNotes
+        })
+        .eq('id', portfolio.id)
+
+      if (error) throw error
+      toast.success('Anotações salvas com sucesso!')
+      
+      setPortfolio(prev => prev ? { ...prev, notes: clientNotes } : null)
+      loadPortfolioData(selectedClientId)
+    } catch (err) {
+      toast.error('Erro ao salvar anotações')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   const loadPortfolioData = async (clientId: string) => {
     try {
       setLoadingPortfolio(true)
       
-      // 1. Carrega ou cria o portfolio
       let { data: portData, error: portError } = await supabase
         .from('portfolios')
         .select('*')
@@ -325,20 +553,45 @@ export default function ConsultantDashboard() {
       if (portError) throw portError
 
       if (!portData) {
-        // Cria portfolio padrão em caso de ausência
         const { data: newPort, error: createError } = await supabase
           .from('portfolios')
           .insert({ client_id: clientId, consultant_id: user?.id, cash_balance: 0.00 })
           .select()
           .single()
 
-        if (createError) throw createError
-        portData = newPort
+        if (createError) {
+          if (createError.code === '23505') {
+            const { data: retryData, error: retryError } = await supabase
+              .from('portfolios')
+              .select('*')
+              .eq('client_id', clientId)
+              .maybeSingle()
+            if (retryError) throw retryError
+            portData = retryData
+          } else {
+            throw createError
+          }
+        } else {
+          portData = newPort
+        }
+      }
+
+      if (portData && !portData.consultant_id && user?.id) {
+        const { data: updatedPort, error: updateError } = await supabase
+          .from('portfolios')
+          .update({ consultant_id: user.id })
+          .eq('id', portData.id)
+          .select()
+          .single()
+        
+        if (!updateError && updatedPort) {
+          portData = updatedPort
+        }
       }
 
       setPortfolio(portData)
+      setClientNotes(portData ? portData.notes || '' : '')
 
-      // 2. Carrega as transações
       const { data: txsData, error: txsError } = await supabase
         .from('portfolio_transactions')
         .select('*')
@@ -349,7 +602,6 @@ export default function ConsultantDashboard() {
       const txs = txsData || []
       setTransactions(txs)
 
-      // 3. Carrega metas de alocação
       const { data: targetsData, error: targetsError } = await supabase
         .from('target_allocations')
         .select('*')
@@ -358,7 +610,6 @@ export default function ConsultantDashboard() {
       if (targetsError) throw targetsError
       setTargetAllocations(targetsData || [])
 
-      // 3.1 Carrega limites agregados (classe/setor)
       const { data: groupTargetsData } = await supabase
         .from('portfolio_group_targets')
         .select('*')
@@ -366,7 +617,6 @@ export default function ConsultantDashboard() {
       
       setGroupTargets(groupTargetsData || [])
 
-      // 4. Carrega teses fundamentalistas do consultor
       const { data: thesesData, error: thesesError } = await supabase
         .from('asset_theses')
         .select('*')
@@ -382,7 +632,6 @@ export default function ConsultantDashboard() {
         setNextMonthPlan(mappedTheses['__NEXT_MONTH_PLAN__'] || '')
       }
 
-      // 5. Busca cotações dos ativos da carteira
       const tickers = Array.from(new Set([
         ...txs.map(t => t.ticker.toUpperCase()),
         ...(targetsData || []).map(t => t.ticker.toUpperCase())
@@ -392,7 +641,6 @@ export default function ConsultantDashboard() {
         const prices = await getAssetPrices(tickers)
         setAssetPrices(prices)
         
-        // Roda o motor de investimentos para calcular posições
         const { positions: calcPositions, totalValue } = calculatePositions(
           txs,
           targetsData || [],
@@ -402,7 +650,6 @@ export default function ConsultantDashboard() {
         setPositions(calcPositions)
         setPortfolioValue(totalValue)
 
-        // Calcula a cota
         const { currentShareValue } = calculateShareHistory(txs, prices, Number(portData.cash_balance))
         setShareValue(currentShareValue)
       } else {
@@ -456,6 +703,53 @@ export default function ConsultantDashboard() {
     }
   }
 
+  const handleDeleteClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!clientToDelete) return
+    if (deleteConfirmEmail.trim() !== clientToDelete.email) {
+      toast.error('O e-mail digitado não corresponde ao e-mail do cliente.')
+      return
+    }
+
+    setDeletingClientState(true)
+    try {
+      const isProvisional = clientToDelete.email.startsWith('temp_') && clientToDelete.email.endsWith('@cerrado.internal')
+
+      if (isProvisional) {
+        const { error } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', clientToDelete.id)
+
+        if (error) throw error
+        toast.success('Cliente provisório e sua respectiva carteira excluídos com sucesso!')
+      } else {
+        const { error } = await supabase
+          .from('portfolios')
+          .update({ consultant_id: null })
+          .eq('client_id', clientToDelete.id)
+
+        if (error) throw error
+        toast.success('Cliente real desvinculado com sucesso! Os investimentos continuam intactos.')
+      }
+
+      setIsDeleteModalOpen(false)
+      setClientToDelete(null)
+      setDeleteConfirmEmail('')
+      
+      if (selectedClientId === clientToDelete.id) {
+        setSelectedClientId('')
+      }
+      
+      await loadClients()
+    } catch (err) {
+      console.error('Erro ao excluir/desvincular cliente:', err)
+      toast.error(err instanceof Error ? err.message : 'Falha ao processar exclusão')
+    } finally {
+      setDeletingClientState(false)
+    }
+  }
+
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault()
     setCreatingClient(true)
@@ -463,50 +757,144 @@ export default function ConsultantDashboard() {
       const tempId = crypto.randomUUID()
       let clientEmail = newClientEmail.trim()
       
-      // Se não informou e-mail, gera um temporário
       if (!clientEmail) {
         const cleanName = newClientName
           .toLowerCase()
           .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // remove acentos
-          .replace(/[^a-z0-9]/g, '_') // remove caracteres especiais
-          .replace(/_+/g, '_') // remove duplicados
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]/g, '_')
+          .replace(/_+/g, '_')
         const randId = Math.random().toString(36).substring(2, 8)
         clientEmail = `temp_${cleanName}_${randId}@cerrado.internal`
       }
 
-      const { error: profileError } = await supabase
+      let targetClientId = tempId;
+
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .insert({
-          id: tempId,
-          email: clientEmail,
-          role: 'client',
-          is_approved: true
-        })
+        .select('*')
+        .eq('email', clientEmail)
+        .maybeSingle()
 
-      if (profileError) throw profileError
+      if (existingProfile) {
+        targetClientId = existingProfile.id
+        
+        if (existingProfile.role !== 'client') {
+          const { error: updateRoleError } = await supabase
+            .from('profiles')
+            .update({ role: 'client' })
+            .eq('id', existingProfile.id)
+          if (updateRoleError) throw updateRoleError
+        }
 
-      // O trigger do banco cria o portfolio automaticamente!
-      // Associamos o consultor ao portfolio recém-criado
-      await supabase
-        .from('portfolios')
-        .update({ consultant_id: user?.id })
-        .eq('client_id', tempId)
+        let { data: portData } = await supabase
+          .from('portfolios')
+          .select('*')
+          .eq('client_id', existingProfile.id)
+          .maybeSingle()
 
-      toast.success('Cliente cadastrado com sucesso!')
+        if (!portData) {
+          const { data: newPort, error: createError } = await supabase
+            .from('portfolios')
+            .insert({ client_id: existingProfile.id, consultant_id: user?.id, cash_balance: 0.00 })
+            .select()
+            .single()
+          if (createError) throw createError
+          portData = newPort
+        } else {
+          const { data: updatedPort, error: updateError } = await supabase
+            .from('portfolios')
+            .update({ consultant_id: user?.id })
+            .eq('id', portData.id)
+            .select()
+            .single()
+          if (updateError) throw updateError
+          portData = updatedPort
+        }
+
+        const { data: userInvestments } = await supabase
+          .from('investments')
+          .select('*')
+          .eq('user_id', existingProfile.id)
+
+        if (userInvestments && userInvestments.length > 0) {
+          let extraCash = 0
+          const txsToInsert: any[] = []
+          const investmentsToUpdate: { id: string; transaction_id: string }[] = []
+
+          for (const inv of userInvestments) {
+            if (inv.ticker && inv.quantity && inv.price && !inv.transaction_id) {
+              const dateStr = inv.month ? `${inv.month}-01` : new Date(inv.created_at).toISOString().split('T')[0]
+              const txId = crypto.randomUUID()
+              txsToInsert.push({
+                id: txId,
+                portfolio_id: portData.id,
+                ticker: inv.ticker.toUpperCase().trim(),
+                operation_type: 'buy',
+                quantity: Number(inv.quantity),
+                price: Number(inv.price),
+                date: dateStr
+              })
+              investmentsToUpdate.push({
+                id: inv.id,
+                transaction_id: txId
+              })
+            } else if (!inv.ticker && !inv.transaction_id) {
+              extraCash += Number(inv.amount)
+            }
+          }
+
+          if (txsToInsert.length > 0) {
+            const { error: txsInsertError } = await supabase
+              .from('portfolio_transactions')
+              .insert(txsToInsert)
+            if (txsInsertError) throw txsInsertError
+
+            for (const item of investmentsToUpdate) {
+              await supabase
+                .from('investments')
+                .update({ transaction_id: item.transaction_id })
+                .eq('id', item.id)
+            }
+          }
+
+          if (extraCash > 0) {
+            const newCash = Number(portData.cash_balance) + extraCash
+            const { error: cashError } = await supabase
+              .from('portfolios')
+              .update({ cash_balance: newCash })
+              .eq('id', portData.id)
+            if (cashError) throw cashError
+          }
+        }
+
+        toast.success('E-mail cadastrado encontrado! Ativos importados e conta vinculada.')
+      } else {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: tempId,
+            email: clientEmail,
+            role: 'client',
+            is_approved: true
+          })
+
+        if (profileError) throw profileError
+
+        await supabase
+          .from('portfolios')
+          .update({ consultant_id: user?.id })
+          .eq('client_id', tempId)
+
+        toast.success('Cliente cadastrado com sucesso!')
+      }
+
       setIsClientModalOpen(false)
       setNewClientName('')
       setNewClientEmail('')
       
-      // Recarrega clientes e seleciona o recém-criado
-      const { data: clientsData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'client')
-        .order('email')
-        
-      setClients(clientsData || [])
-      setSelectedClientId(tempId)
+      await loadClients()
+      setSelectedClientId(targetClientId)
     } catch (err) {
       console.error('Erro ao criar perfil de cliente:', err)
       toast.error(err instanceof Error ? err.message : 'Falha ao cadastrar cliente')
@@ -529,7 +917,6 @@ export default function ConsultantDashboard() {
       if (isNaN(price) || price <= 0) throw new Error('Preço inválido')
       if (!ticker) throw new Error('Insira o ticker')
 
-      // Registra a transação no banco
       const { error: txError } = await supabase
         .from('portfolio_transactions')
         .insert({
@@ -543,7 +930,6 @@ export default function ConsultantDashboard() {
 
       if (txError) throw txError
 
-      // Ajusta o saldo de caixa do portfolio
       const totalCost = qty * price
       let newCash = Number(portfolio.cash_balance)
       
@@ -585,7 +971,6 @@ export default function ConsultantDashboard() {
 
       if (delError) throw delError
 
-      // Ajusta o caixa estornando a operação
       const totalCost = Number(tx.quantity) * Number(tx.price)
       let newCash = Number(portfolio.cash_balance)
 
@@ -610,7 +995,6 @@ export default function ConsultantDashboard() {
   const handleSaveTarget = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!portfolio) return
-    setSavingTarget(true)
 
     try {
       const ticker = targetTicker.toUpperCase().trim()
@@ -619,13 +1003,12 @@ export default function ConsultantDashboard() {
       if (!ticker) throw new Error('Insira o ticker do ativo')
       if (isNaN(pct) || pct < 0 || pct > 100) throw new Error('Percentual de alocação inválido (0 a 100)')
 
-      // Verifica se a soma total não passa de 100% (o banco também impedirá via trigger)
       const currentSum = targetAllocations
         .filter(t => t.ticker.toUpperCase() !== ticker)
         .reduce((sum, t) => sum + Number(t.target_percentage), 0)
 
       if (currentSum + pct > 100.00) {
-        throw new Error(`A soma das alocações passaria de 100% (Atual: ${currentSum}%, Tentativa de adicionar: ${pct}%)`)
+        throw new Error(`A soma das alocações passaria de 100% (Atual: ${currentSum}%, Tentativa: ${pct}%)`)
       }
 
       const { error: upsertError } = await supabase
@@ -638,7 +1021,6 @@ export default function ConsultantDashboard() {
 
       if (upsertError) throw upsertError
 
-      // Força a gravação de classe e setor em asset_prices caso preenchidos
       if (targetAssetClass || targetSector) {
         const { data: existingPrice } = await supabase
           .from('asset_prices')
@@ -669,8 +1051,6 @@ export default function ConsultantDashboard() {
       loadPortfolioData(selectedClientId)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar meta')
-    } finally {
-      setSavingTarget(false)
     }
   }
 
@@ -693,7 +1073,6 @@ export default function ConsultantDashboard() {
   const handleSaveGroupTarget = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!portfolio) return
-    setSavingGroupTarget(true)
 
     try {
       const pct = parseFloat(groupTargetPct)
@@ -719,8 +1098,6 @@ export default function ConsultantDashboard() {
       loadPortfolioData(selectedClientId)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar limite')
-    } finally {
-      setSavingGroupTarget(false)
     }
   }
 
@@ -809,12 +1186,11 @@ export default function ConsultantDashboard() {
 
     toast.loading('Gerando relatório PDF de alta qualidade...', { id: 'pdf-toast' })
     try {
-      // Puxa o histórico de cotas
       const { shareHistory } = calculateShareHistory(transactions, assetPrices, Number(portfolio.cash_balance))
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
-        clientName: client.email.split('@')[0].toUpperCase(),
+        clientName: getClientDisplayName(client.email),
         portfolio,
         positions,
         shareHistory,
@@ -823,7 +1199,8 @@ export default function ConsultantDashboard() {
         cashBalance: Number(portfolio.cash_balance),
         groupTargets: groupTargets,
         executiveSummary: executiveSummary || undefined,
-        nextMonthPlan: nextMonthPlan || undefined
+        nextMonthPlan: nextMonthPlan || undefined,
+        billingFeeRate
       })
       toast.success('Relatório PDF exportado com sucesso!', { id: 'pdf-toast' })
     } catch (err) {
@@ -832,20 +1209,21 @@ export default function ConsultantDashboard() {
     }
   }
 
-  const sumTargetPercentages = targetAllocations.reduce((sum, t) => sum + Number(t.target_percentage), 0)
-
   const headerAction = (
     <div className="flex items-center gap-3 w-full sm:w-auto">
       {loadingClients ? (
-        <span className="text-xs text-secondary">Carregando clientes...</span>
+        <span className="text-xs text-secondary font-semibold uppercase font-sans">Carregando clientes...</span>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-secondary uppercase tracking-wider hidden md:inline">Cliente:</span>
+          <span className="text-xs font-semibold text-secondary uppercase tracking-wider hidden md:inline font-sans">Cliente:</span>
           <div className="w-48 sm:w-56">
             <Select
               value={selectedClientId}
               onChange={e => setSelectedClientId(e.target.value)}
-              options={clients.map(c => ({ value: c.id, label: getClientDisplayName(c.email) }))}
+              options={[
+                { value: '', label: 'Visão Geral' },
+                ...clients.map(c => ({ value: c.id, label: getClientDisplayName(c.email) }))
+              ]}
               placeholder="Selecionar Cliente"
             />
           </div>
@@ -855,7 +1233,7 @@ export default function ConsultantDashboard() {
         size="sm"
         onClick={() => setIsClientModalOpen(true)}
         variant="primary"
-        className="flex items-center gap-1 text-xs shrink-0"
+        className="flex items-center gap-1 text-xs shrink-0 font-bold"
       >
         <UserPlus size={14} />
         <span>Novo</span>
@@ -870,809 +1248,395 @@ export default function ConsultantDashboard() {
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
       <PageHeader
         title="Consultoria de Investimentos"
-        subtitle="Gestão patrimonial institucional e Metodologia do Cerrado"
+        subtitle={selectedClient ? `Assessoria ativa para o cliente: ${getClientDisplayName(selectedClient.email)}` : "Gestão patrimonial institucional e Metodologia do Cerrado"}
         action={headerAction}
       />
 
-      {isTempClient && (
-        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-page-enter">
+      {/* Cabeçalho do Cliente Selecionado */}
+      {selectedClient && (
+        <ClientOverviewHeader
+          selectedClient={selectedClient}
+          isTempClient={!!isTempClient}
+          getClientDisplayName={getClientDisplayName}
+          onDeleteClick={() => {
+            setClientToDelete(selectedClient)
+            setIsDeleteModalOpen(true)
+          }}
+          onLinkClick={() => setIsLinkModalOpen(true)}
+        />
+      )}
+
+      {/* Menu de Personalização de Visualização (Abas vs Grid) */}
+      {portfolio && selectedClient && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border/40 px-5 py-3 rounded-2xl shadow-sm text-left animate-page-enter">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-            <span>Este é um cliente provisório sem e-mail real cadastrado. Você pode vincular esta carteira patrimonial a um e-mail de acesso cadastrado a qualquer momento.</span>
+            <span className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block font-sans">Visualização do Painel:</span>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setViewMode('tabs')}
+                className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
+                  viewMode === 'tabs'
+                    ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/30'
+                    : 'bg-transparent text-secondary border border-transparent hover:bg-muted/10'
+                }`}
+              >
+                Abas Focadas
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/30'
+                    : 'bg-transparent text-secondary border border-transparent hover:bg-muted/10'
+                }`}
+              >
+                Painel Completo (Grid)
+              </button>
+            </div>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setIsLinkModalOpen(true)}
-            variant="outline"
-            className="border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300 font-bold text-xs self-start sm:self-center py-1 px-3 shrink-0"
-          >
-            Vincular Conta Real
-          </Button>
+
+          {/* Abas de Navegação Dinâmica */}
+          {viewMode === 'tabs' && (
+            <div className="flex flex-wrap gap-1">
+              {[
+                { id: 'overview', label: 'Visão Geral & Caixa' },
+                { id: 'composition', label: 'Metas & Composição' },
+                { id: 'ledger', label: 'Livro-Razão' },
+                { id: 'qualitative', label: 'Planejamento & PDF' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-primary text-primary border border-indigo-500/30 shadow-sm'
+                      : 'bg-transparent text-secondary border border-transparent hover:text-primary'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {loadingPortfolio ? (
-        <Loader text="Compilando matemática da carteira..." className="py-20" />
-      ) : portfolio ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* Coluna da Esquerda: Resumo e Simulador */}
-          <div className="lg:col-span-2 space-y-6 lg:space-y-8">
-            {/* Cards de KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-emerald-500 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">Patrimônio Líquido</span>
-                  <strong className="text-xl font-black text-primary mt-1 block">
-                    R$ {portfolioValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </strong>
-                </div>
-                <div className="p-2.5 bg-emerald-500/10 text-emerald-500 rounded-lg">
-                  <Wallet size={20} />
-                </div>
-              </Card>
-
-              <Card className="p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-sky-500 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">Saldo em Caixa</span>
-                  <strong className="text-xl font-black text-primary mt-1 block">
-                    R$ {Number(portfolio.cash_balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </strong>
-                </div>
-                <div className="p-2.5 bg-sky-500/10 text-sky-500 rounded-lg">
-                  <DollarSign size={20} />
-                </div>
-              </Card>
-
-              <Card className="p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-purple-500 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">Valor da Cota (Rentabilidade)</span>
-                  <strong className="text-xl font-black text-primary mt-1 block">
-                    R$ {shareValue.toFixed(4)}
-                    <span className="text-xs text-emerald-500 font-bold ml-1.5">
-                      +{((shareValue - 1) * 100).toFixed(2)}%
-                    </span>
-                  </strong>
-                </div>
-                <div className="p-2.5 bg-purple-500/10 text-purple-500 rounded-lg">
-                  <TrendingUp size={20} />
-                </div>
-              </Card>
-            </div>
-
-            {/* Simulador de Aportes Cerrado */}
-            <ContributionSimulator
-              portfolio={portfolio}
-              positions={positions}
-              onContributionExecuted={() => loadPortfolioData(selectedClientId)}
-            />
-
-            {/* Tabela de Posições Atuais do Cliente */}
-            <Card className="p-5 lg:p-6" style={{ isolation: 'isolate' }}>
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4.5">
-                <h3 className="font-bold text-base text-primary">Composição Atual e Alvos</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const nextShow = !showTargetForm
-                      setShowTargetForm(nextShow)
-                      setShowGroupTargetForm(false)
-                      if (nextShow) {
-                        const registered = Array.from(new Set([
-                          ...transactions.map(t => t.ticker.toUpperCase()),
-                          ...targetAllocations.map(t => t.ticker.toUpperCase())
-                        ]))
-                        setIsCustomTicker(registered.length === 0)
-                      }
-                    }}
-                    className="flex items-center gap-1 text-xs"
-                  >
-                    <Percent size={14} />
-                    Ajustar Metas ({sumTargetPercentages}%)
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setShowGroupTargetForm(!showGroupTargetForm)
-                      setShowTargetForm(false)
-                    }}
-                    className="flex items-center gap-1 text-xs border-purple-500/20 text-purple-600 hover:bg-purple-500/10 dark:hover:text-purple-300"
-                  >
-                    <Layers size={14} className="text-purple-500" />
-                    Limites de Exposição
-                  </Button>
-                </div>
-              </div>
-
-              {showGroupTargetForm && (
-                <form onSubmit={handleSaveGroupTarget} className="p-4 bg-muted/20 border border-border/40 rounded-xl mb-4.5 space-y-4 animate-page-enter">
-                  <div className="flex flex-wrap md:flex-nowrap gap-3 items-end text-left">
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Tipo de Limite</label>
-                      <select
-                        value={groupTargetType}
-                        onChange={e => {
-                          const val = e.target.value as 'class' | 'sector'
-                          setGroupTargetType(val)
-                          setGroupTargetName(val === 'class' ? 'Ações Nacionais' : '')
-                        }}
-                        className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                      >
-                        <option value="class">Por Classe de Ativos</option>
-                        <option value="sector">Por Setor Econômico</option>
-                      </select>
-                    </div>
-
-                    <div className="flex-1 min-w-[200px]">
-                      {groupTargetType === 'class' ? (
-                        <div>
-                          <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Classe de Ativo</label>
-                          <select
-                            value={groupTargetName}
-                            onChange={e => setGroupTargetName(e.target.value)}
-                            className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                            required
-                          >
-                            <option value="Ações Nacionais">Ações Nacionais</option>
-                            <option value="Ações Internacionais">Ações Internacionais</option>
-                            <option value="Fundos Imobiliários">Fundos Imobiliários</option>
-                            <option value="ETFs Nacionais">ETFs Nacionais</option>
-                            <option value="ETFs Internacionais">ETFs Internacionais</option>
-                            <option value="Criptoativos">Criptoativos</option>
-                            <option value="Renda Fixa">Renda Fixa</option>
-                          </select>
-                        </div>
-                      ) : (
-                        <Input
-                          label="Setor Econômico"
-                          type="text"
-                          required
-                          placeholder="Ex: Petróleo e Gás"
-                          value={groupTargetName}
-                          onChange={e => setGroupTargetName(e.target.value)}
-                          className="text-sm font-semibold"
-                        />
-                      )}
-                    </div>
-
-                    <div className="w-[120px]">
-                      <Input
-                        label="Limite Alvo (%)"
-                        type="number"
-                        required
-                        placeholder="Ex: 30"
-                        value={groupTargetPct}
-                        onChange={e => setGroupTargetPct(e.target.value)}
-                        className="text-sm font-semibold"
-                      />
-                    </div>
-
-                    <Button type="submit" disabled={savingGroupTarget} variant="primary" className="text-xs h-[42px] shrink-0">
-                      Salvar Limite
-                    </Button>
-                  </div>
-
-                  {/* Listagem de Limites já Cadastrados */}
-                  {groupTargets.length > 0 && (
-                    <div className="pt-3 border-t border-primary/20 space-y-2 text-left">
-                      <p className="text-[10px] uppercase font-extrabold text-secondary tracking-wider">Limites Ativos:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {groupTargets.map(gt => (
-                          <span key={gt.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary border border-primary rounded-lg text-xs font-semibold text-primary">
-                            <span className="text-secondary uppercase text-[9px] font-extrabold">
-                              {gt.group_type === 'class' ? 'Classe' : 'Setor'}:
-                            </span>
-                            {gt.group_name} ({gt.target_percentage}%)
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteGroupTarget(gt.id)}
-                              className="text-secondary hover:text-red-500 transition-colors ml-1 font-bold"
-                              title="Remover limite"
-                            >
-                              &times;
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </form>
-              )}
-
-              {showTargetForm && (() => {
-                const registeredTickers = Array.from(new Set([
-                  ...transactions.map(t => t.ticker.toUpperCase()),
-                  ...targetAllocations.map(t => t.ticker.toUpperCase())
-                ])).sort()
-
-                return (
-                  <form onSubmit={handleSaveTarget} className="p-4 bg-muted/20 border border-border/40 rounded-xl mb-4.5 space-y-3 animate-page-enter">
-                    {/* Linha 1: Seletor de ticker + digitação livre */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="text-left">
-                        <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Selecionar Ticker</label>
-                        <select
-                          value={isCustomTicker ? 'custom' : targetTicker}
-                          onChange={e => handleSelectRegisteredTicker(e.target.value)}
-                          className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                        >
-                          <option value="">Selecione um ativo...</option>
-                          {registeredTickers.map(ticker => (
-                            <option key={ticker} value={ticker}>{ticker}</option>
-                          ))}
-                          <option value="custom">➕ Outro Ativo (Digitar...)</option>
-                        </select>
-                      </div>
-
-                      {isCustomTicker && (
-                        <div className="relative text-left animate-page-enter">
-                          <Input
-                            label="Digitar Ticker"
-                            type="text"
-                            required
-                            placeholder="Ex: WEGE3"
-                            value={targetTicker}
-                            onChange={e => handleCustomTickerChange(e.target.value)}
-                            onBlur={() => setTimeout(() => setShowTargetSuggestions(false), 200)}
-                            onFocus={() => targetTicker.length >= 2 && setShowTargetSuggestions(true)}
-                            className="uppercase text-sm font-semibold text-primary bg-primary"
-                          />
-                          {showTargetSuggestions && targetSuggestions.length > 0 && (
-                            <div className="absolute z-50 w-full mt-1 bg-primary border border-primary rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto" style={{ top: '100%' }}>
-                              {targetSuggestions.map(s => (
-                                <button
-                                  key={s.ticker}
-                                  type="button"
-                                  onClick={() => {
-                                    setTargetTicker(s.ticker)
-                                    const existing = assetPrices[s.ticker.toUpperCase()]
-                                    if (existing) {
-                                      setTargetAssetClass(existing.asset_class || '')
-                                      setTargetSector(existing.sector || '')
-                                    }
-                                    setShowTargetSuggestions(false)
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-tertiary text-primary flex items-center justify-between border-b border-primary/10 last:border-0"
-                                >
-                                  <span className="font-bold">{s.ticker}</span>
-                                  <span className="text-[10px] text-secondary truncate max-w-[150px]">{s.name}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Linha 2: % Alvo, Classe, Setor */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="text-left">
-                        <Input
-                          label="% Alvo Ideal"
-                          type="number"
-                          required
-                          step="0.1"
-                          placeholder="Ex: 15"
-                          value={targetPct}
-                          onChange={e => setTargetPct(e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div className="text-left">
-                        <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Classe (Opcional)</label>
-                        <select
-                          value={targetAssetClass}
-                          onChange={e => setTargetAssetClass(e.target.value)}
-                          className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                        >
-                          <option value="">Inferir Auto</option>
-                          <option value="Ações Nacionais">Ações Nacionais</option>
-                          <option value="Ações Internacionais">Ações Internacionais</option>
-                          <option value="Fundos Imobiliários">Fundos Imobiliários</option>
-                          <option value="ETFs Nacionais">ETFs Nacionais</option>
-                          <option value="ETFs Internacionais">ETFs Internacionais</option>
-                          <option value="Criptoativos">Criptoativos</option>
-                          <option value="Renda Fixa">Renda Fixa</option>
-                        </select>
-                      </div>
-                      <div className="text-left">
-                        <Input
-                          label="Setor (Opcional)"
-                          type="text"
-                          placeholder="Ex: Energia"
-                          value={targetSector}
-                          onChange={e => setTargetSector(e.target.value)}
-                          className="text-sm font-semibold"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Linha 3: Botão submit */}
-                    <div className="flex justify-end pt-1">
-                      <Button type="submit" disabled={savingTarget} variant="primary" className="text-xs h-[42px] px-6 font-extrabold shadow-sm">
-                        Salvar Meta
-                      </Button>
-                    </div>
-                  </form>
-                )
-              })()}
-
-              {positions.length === 0 ? (
-                <p className="text-center py-6 text-sm text-secondary">Nenhum ativo em carteira. Cadastre metas ou compras para começar.</p>
-              ) : (
-                <div className="overflow-x-auto border border-border/30 rounded-xl bg-background/30">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border/30 bg-muted/20">
-                        <th className="p-3 font-semibold text-secondary">Ativo</th>
-                        <th className="p-3 font-semibold text-secondary text-right">Qtd</th>
-                        <th className="p-3 font-semibold text-secondary text-right">Custo Médio</th>
-                        <th className="p-3 font-semibold text-secondary text-right">Cotação</th>
-                        <th className="p-3 font-semibold text-secondary text-right">Total Atual</th>
-                        <th className="p-3 font-semibold text-secondary text-center">Peso Real</th>
-                        <th className="p-3 font-semibold text-secondary text-center">Meta Alvo</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
-                      {(() => {
-                        const positionsByClass: Record<string, AssetPosition[]> = {}
-                        positions.forEach(pos => {
-                          const cls = pos.asset_class || 'Renda Fixa'
-                          if (!positionsByClass[cls]) positionsByClass[cls] = []
-                          positionsByClass[cls].push(pos)
-                        })
-                        return Object.entries(positionsByClass).map(([className, classPositions]) => (
-                          <div key={className} style={{ display: 'contents' }}>
-                            {/* Linha de cabeçalho do grupo de classe */}
-                            <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
-                              <td colSpan={7} className="p-3 text-secondary uppercase font-extrabold">
-                                {className}
-                              </td>
-                            </tr>
-                            {classPositions.map(pos => (
-                              <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
-                                <td className="p-3 pl-6 font-bold text-primary flex items-center gap-1.5 flex-wrap">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                  {pos.ticker}
-                                  <span className="text-[10px] text-secondary font-normal">({pos.sector || 'Outros'})</span>
-                                  <button
-                                    onClick={() => {
-                                      setEditingAssetTicker(pos.ticker)
-                                      setEditingAssetClass(pos.asset_class || 'Renda Fixa')
-                                      setEditingAssetSector(pos.sector || 'Outros')
-                                      setIsEditAssetModalOpen(true)
-                                    }}
-                                    className="text-secondary hover:text-emerald-500 transition-colors p-0.5 ml-1"
-                                    title="Editar classificação"
-                                  >
-                                    <Edit size={11} />
-                                  </button>
-                                  {assetTheses[pos.ticker] && (
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 ml-1" title="Tese cadastrada" />
-                                  )}
-                                </td>
-                                <td className="p-3 text-right font-medium text-secondary">{pos.quantity.toLocaleString('pt-BR')}</td>
-                                <td className="p-3 text-right text-secondary">R$ {pos.average_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                <td className="p-3 text-right text-secondary font-semibold">R$ {pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                <td className="p-3 text-right font-bold text-primary">R$ {pos.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                <td className="p-3 text-center">
-                                  <span className="px-2 py-0.5 bg-muted rounded text-xs font-semibold text-secondary">{pos.current_percentage}%</span>
-                                </td>
-                                <td className="p-3 text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold">{pos.target_percentage}%</span>
-                                    {pos.target_percentage > 0 && (
-                                      <button
-                                        onClick={() => {
-                                          const targetObj = targetAllocations.find(t => t.ticker.toUpperCase() === pos.ticker);
-                                          if (targetObj) handleDeleteTarget(targetObj.id);
-                                        }}
-                                        className="text-secondary hover:text-red-500 transition-colors"
-                                        title="Remover meta"
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </div>
-                        ))
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Coluna da Direita: Transações e Ações Administrativas */}
-          <div className="space-y-6 lg:space-y-8">
-            {/* Card de Faturamento e Relatório */}
-            <Card className="p-5 lg:p-6 relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-              
-              <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-3">
-                <FileText size={18} className="text-emerald-500" />
-                Faturamento & Relatórios
-              </h3>
-              
-              <div className="p-4 bg-muted/20 rounded-xl border border-border/40 mb-5">
-                <div className="flex items-center justify-between text-xs text-secondary uppercase tracking-wider mb-1">
-                  <span>Taxa de Gestão Mensal (0,1%)</span>
-                  <span>Fee-Based</span>
-                </div>
-                <strong className="text-2xl font-black text-primary block">
-                  R$ {(portfolioValue * 0.001).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </strong>
-                <span className="text-[10px] text-emerald-500 font-medium block mt-1">
-                  1,2% ao ano sobre o patrimônio sob gestão
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <Button
-                  onClick={handleExportPDF}
-                  variant="primary"
-                  fullWidth
-                  className="font-extrabold shadow-md flex items-center justify-center gap-2 py-2.5"
-                >
-                  <FileText size={16} />
-                  Exportar Relatório PDF
-                </Button>
-              </div>
-            </Card>
-
-            {/* Lançamentos no Livro-Razão */}
-            <Card className="p-5 lg:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                  <Wallet size={18} className="text-emerald-500" />
-                  Livro-Razão (Transações)
-                </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowTxForm(!showTxForm)}
-                  className="flex items-center gap-1"
-                >
-                  <Plus size={12} />
-                  Lançar
-                </Button>
-              </div>
-
-              {showTxForm && (
-                <form onSubmit={handleAddTransaction} className="p-3.5 border border-border/40 bg-muted/10 rounded-xl mb-4 space-y-3 animate-page-enter">
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="relative flex-1">
-                      <Input
-                        label="Ticker"
-                        type="text"
-                        required
-                        placeholder="PETR4"
-                        value={txTicker}
-                        onChange={e => handleTxTickerChange(e.target.value)}
-                        onBlur={() => setTimeout(() => setShowTxSuggestions(false), 200)}
-                        onFocus={() => txTicker.length >= 2 && setShowTxSuggestions(true)}
-                        className="uppercase text-xs"
-                      />
-                      {showTxSuggestions && txSuggestions.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 bg-primary border border-primary rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto" style={{ top: '100%' }}>
-                          {txSuggestions.map(s => (
-                            <button
-                              key={s.ticker}
-                              type="button"
-                              onClick={() => {
-                                setTxTicker(s.ticker)
-                                setShowTxSuggestions(false)
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-tertiary text-primary flex items-center justify-between border-b border-primary/10 last:border-0"
-                            >
-                              <span className="font-bold">{s.ticker}</span>
-                              <span className="text-[10px] text-secondary truncate max-w-[150px]">{s.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <Select
-                      label="Operação"
-                      value={txType}
-                      onChange={e => setTxType(e.target.value as any)}
-                      options={[
-                        { value: 'buy', label: 'Compra' },
-                        { value: 'sell', label: 'Venda' },
-                        { value: 'dividend', label: 'Provento/Div' },
-                        { value: 'split', label: 'Desdobrar' },
-                        { value: 'subscription', label: 'Subscrição' }
-                      ]}
-                      className="flex-1"
-                    />
-                  </div>
-
-                  {loadingRichData && (
-                    <div className="text-[10px] text-secondary animate-pulse pl-1">Carregando dados da B3/Yahoo...</div>
-                  )}
-
-                  {txAssetRichData && (
-                    <div className="p-2.5 bg-background border border-border/30 rounded-lg text-[10px] space-y-1 text-secondary animate-page-enter mx-1">
-                      <div className="flex justify-between items-center">
-                        <strong className="text-primary font-bold">{txAssetRichData.name}</strong>
-                        <span className="text-emerald-500 font-extrabold">R$ {txAssetRichData.price.toFixed(2)}</span>
-                      </div>
-                      {txAssetRichData.dividendYield !== undefined && (
-                        <div className="flex justify-between items-center text-[9px] opacity-80 pt-0.5 border-t border-primary/5">
-                          <span>Dividend Yield Anual (DY):</span>
-                          <span className="text-indigo-500 font-bold">{txAssetRichData.dividendYield.toFixed(2)}%</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <Input
-                      label="Qtd"
-                      type="number"
-                      required
-                      step="any"
-                      placeholder="10"
-                      value={txQty}
-                      onChange={e => setTxQty(e.target.value)}
-                      className="text-xs"
-                    />
-                    <Input
-                      label="Preço Execução"
-                      type="number"
-                      required
-                      step="any"
-                      placeholder="35.50"
-                      value={txPrice}
-                      onChange={e => setTxPrice(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-
-                  <Input
-                    label="Data"
-                    type="date"
-                    required
-                    value={txDate}
-                    onChange={e => setTxDate(e.target.value)}
-                    className="text-xs"
+      {portfolio ? (
+        <div className={`transition-all duration-300 ${loadingPortfolio ? 'opacity-60 pointer-events-none' : ''}`}>
+          {viewMode === 'tabs' ? (
+            /* =======================================================
+               A) RENDER EM ABAS DE GESTÃO (MINIMALISTA E CONCENTRADO)
+               ======================================================= */
+            <div className="space-y-6 animate-page-enter">
+              {activeTab === 'overview' && (
+                <div className="space-y-6">
+                  {/* Cards KPIs principais */}
+                  <ClientKpiCards
+                    portfolioValue={portfolioValue}
+                    cashBalance={Number(portfolio.cash_balance)}
+                    shareValue={shareValue}
                   />
 
-                  <Button type="submit" disabled={savingTx} variant="primary" fullWidth className="text-xs py-1.5 mt-1.5">
-                    {savingTx ? 'Processando Lançamento...' : 'Registrar Lançamento'}
-                  </Button>
-                </form>
+                  {/* Simulador integrado */}
+                  <ContributionSimulator
+                    portfolio={portfolio}
+                    positions={positions}
+                    onContributionExecuted={() => loadPortfolioData(selectedClientId)}
+                  />
+
+                  {/* Distribuição Gráfica e Diretrizes de Rebalanceamento */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                    <ClientAllocationCharts classChartData={classChartData} />
+                    <RebalancingChecklist rebalancingTrades={rebalancingTrades} />
+                  </div>
+                </div>
               )}
 
-              {/* Lista recente de transações */}
-              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                {transactions.length === 0 ? (
-                  <p className="text-center py-4 text-xs text-secondary">Nenhuma transação registrada no livro-razão.</p>
-                ) : (
-                  [...transactions].reverse().map(tx => (
-                    <div key={tx.id} className="p-2.5 bg-background border border-border/30 rounded-lg flex items-center justify-between text-xs">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <strong className="text-primary">{tx.ticker}</strong>
-                          <span
-                            className={`px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider ${
-                              tx.operation_type === 'buy' || tx.operation_type === 'subscription'
-                                ? 'bg-emerald-500/10 text-emerald-500'
-                                : tx.operation_type === 'dividend'
-                                ? 'bg-indigo-500/10 text-indigo-500'
-                                : 'bg-red-500/10 text-red-500'
-                            }`}
-                          >
-                            {tx.operation_type === 'buy' ? 'Compra' : tx.operation_type === 'sell' ? 'Venda' : tx.operation_type === 'dividend' ? 'Provento' : 'Desdobro'}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-secondary mt-0.5 flex items-center gap-1.5">
-                          <span>{tx.quantity.toLocaleString('pt-BR')} un</span>
-                          <span>•</span>
-                          <span>R$ {tx.price.toLocaleString('pt-BR')}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-secondary font-medium">{tx.date}</span>
-                        <button
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                          className="p-1 text-secondary hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
+              {activeTab === 'composition' && (
+                <PositionsTable
+                  positions={positions}
+                  targetAllocations={targetAllocations}
+                  groupTargets={groupTargets}
+                  assetPrices={assetPrices}
+                  assetTheses={assetTheses}
+                  showTargetForm={showTargetForm}
+                  setShowTargetForm={setShowTargetForm}
+                  showGroupTargetForm={showGroupTargetForm}
+                  setShowGroupTargetForm={setShowGroupTargetForm}
+                  targetTicker={targetTicker}
+                  setTargetTicker={setTargetTicker}
+                  targetPct={targetPct}
+                  setTargetPct={setTargetPct}
+                  targetAssetClass={targetAssetClass}
+                  setTargetAssetClass={setTargetAssetClass}
+                  targetSector={targetSector}
+                  setTargetSector={setTargetSector}
+                  isCustomTicker={isCustomTicker}
+                  setIsCustomTicker={setIsCustomTicker}
+                  groupTargetType={groupTargetType}
+                  setGroupTargetType={setGroupTargetType}
+                  groupTargetName={groupTargetName}
+                  setGroupTargetName={setGroupTargetName}
+                  groupTargetPct={groupTargetPct}
+                  setGroupTargetPct={setGroupTargetPct}
+                  onSaveTarget={handleSaveTarget}
+                  onDeleteTarget={handleDeleteTarget}
+                  onSaveGroupTarget={handleSaveGroupTarget}
+                  onDeleteGroupTarget={handleDeleteGroupTarget}
+                  targetSuggestions={targetSuggestions}
+                  showTargetSuggestions={showTargetSuggestions}
+                  setShowTargetSuggestions={setShowTargetSuggestions}
+                  handleCustomTickerChange={handleCustomTickerChange}
+                  handleSelectRegisteredTicker={handleSelectRegisteredTicker}
+                  onEditAssetClassification={(ticker, clClass, clSector) => {
+                    setEditingAssetTicker(ticker)
+                    setEditingAssetClass(clClass)
+                    setEditingAssetSector(clSector)
+                    setIsEditAssetModalOpen(true)
+                  }}
+                  transactions={transactions}
+                />
+              )}
 
+              {activeTab === 'ledger' && (
+                <LedgerBook
+                  transactions={transactions}
+                  showTxForm={showTxForm}
+                  setShowTxForm={setShowTxForm}
+                  txTicker={txTicker}
+                  onTxTickerChange={handleTxTickerChange}
+                  txSuggestions={txSuggestions}
+                  showTxSuggestions={showTxSuggestions}
+                  setShowTxSuggestions={setShowTxSuggestions}
+                  txType={txType}
+                  setTxType={setTxType}
+                  txQty={txQty}
+                  setTxQty={setTxQty}
+                  txPrice={txPrice}
+                  setTxPrice={setTxPrice}
+                  txDate={txDate}
+                  setTxDate={setTxDate}
+                  loadingRichData={loadingRichData}
+                  txAssetRichData={txAssetRichData}
+                  savingTx={savingTx}
+                  onAddTransaction={handleAddTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+              )}
+
+
+              {activeTab === 'qualitative' && (
+                <div className="space-y-6">
+                  {/* Anotações privadas da assessoria */}
+                  <AdvisorNotes
+                    clientNotes={clientNotes}
+                    setClientNotes={setClientNotes}
+                    onSaveNotes={handleSavePortfolioSettings}
+                    savingSettings={savingSettings}
+                  />
+
+                  {/* Formulários qualitativos para o PDF */}
+                  <QualitativeAnalysis
+                    positions={positions}
+                    assetTheses={assetTheses}
+                    editingThesisTicker={editingThesisTicker}
+                    setEditingThesisTicker={setEditingThesisTicker}
+                    thesisText={thesisText}
+                    setThesisText={setThesisText}
+                    savingThesis={savingThesis}
+                    onSaveThesis={handleSaveThesis}
+                    onDeleteThesis={handleDeleteThesis}
+                    executiveSummary={executiveSummary}
+                    setExecutiveSummary={setExecutiveSummary}
+                    nextMonthPlan={nextMonthPlan}
+                    setNextMonthPlan={setNextMonthPlan}
+                    savingReport={savingReport}
+                    onSaveReport={handleSaveReport}
+                    portfolioValue={portfolioValue}
+                    billingFeeRate={billingFeeRate}
+                    setBillingFeeRate={setBillingFeeRate}
+                    onExportPDF={handleExportPDF}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            /* =======================================================
+               B) RENDER EM GRIDE / PAINEL COMPLETO (ACOMPANHAMENTO GERAL)
+               ======================================================= */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-page-enter">
+              {/* Coluna da Esquerda e Meio */}
+              <div className="lg:col-span-2 space-y-6 lg:space-y-8 text-left">
+                <ClientKpiCards
+                  portfolioValue={portfolioValue}
+                  cashBalance={Number(portfolio.cash_balance)}
+                  shareValue={shareValue}
+                />
+
+                <ContributionSimulator
+                  portfolio={portfolio}
+                  positions={positions}
+                  onContributionExecuted={() => loadPortfolioData(selectedClientId)}
+                />
+
+                {positions.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <ClientAllocationCharts classChartData={classChartData} />
+                    <RebalancingChecklist rebalancingTrades={rebalancingTrades} />
+                  </div>
+                )}
+
+                <PositionsTable
+                  positions={positions}
+                  targetAllocations={targetAllocations}
+                  groupTargets={groupTargets}
+                  assetPrices={assetPrices}
+                  assetTheses={assetTheses}
+                  showTargetForm={showTargetForm}
+                  setShowTargetForm={setShowTargetForm}
+                  showGroupTargetForm={showGroupTargetForm}
+                  setShowGroupTargetForm={setShowGroupTargetForm}
+                  targetTicker={targetTicker}
+                  setTargetTicker={setTargetTicker}
+                  targetPct={targetPct}
+                  setTargetPct={setTargetPct}
+                  targetAssetClass={targetAssetClass}
+                  setTargetAssetClass={setTargetAssetClass}
+                  targetSector={targetSector}
+                  setTargetSector={setTargetSector}
+                  isCustomTicker={isCustomTicker}
+                  setIsCustomTicker={setIsCustomTicker}
+                  groupTargetType={groupTargetType}
+                  setGroupTargetType={setGroupTargetType}
+                  groupTargetName={groupTargetName}
+                  setGroupTargetName={setGroupTargetName}
+                  groupTargetPct={groupTargetPct}
+                  setGroupTargetPct={setGroupTargetPct}
+                  onSaveTarget={handleSaveTarget}
+                  onDeleteTarget={handleDeleteTarget}
+                  onSaveGroupTarget={handleSaveGroupTarget}
+                  onDeleteGroupTarget={handleDeleteGroupTarget}
+                  targetSuggestions={targetSuggestions}
+                  showTargetSuggestions={showTargetSuggestions}
+                  setShowTargetSuggestions={setShowTargetSuggestions}
+                  handleCustomTickerChange={handleCustomTickerChange}
+                  handleSelectRegisteredTicker={handleSelectRegisteredTicker}
+                  onEditAssetClassification={(ticker, clClass, clSector) => {
+                    setEditingAssetTicker(ticker)
+                    setEditingAssetClass(clClass)
+                    setEditingAssetSector(clSector)
+                    setIsEditAssetModalOpen(true)
+                  }}
+                  transactions={transactions}
+                />
+
+                {/* Qualitativo renderizado abaixo da tabela no modo completo */}
+                <QualitativeAnalysis
+                  positions={positions}
+                  assetTheses={assetTheses}
+                  editingThesisTicker={editingThesisTicker}
+                  setEditingThesisTicker={setEditingThesisTicker}
+                  thesisText={thesisText}
+                  setThesisText={setThesisText}
+                  savingThesis={savingThesis}
+                  onSaveThesis={handleSaveThesis}
+                  onDeleteThesis={handleDeleteThesis}
+                  executiveSummary={executiveSummary}
+                  setExecutiveSummary={setExecutiveSummary}
+                  nextMonthPlan={nextMonthPlan}
+                  setNextMonthPlan={setNextMonthPlan}
+                  savingReport={savingReport}
+                  onSaveReport={handleSaveReport}
+                  portfolioValue={portfolioValue}
+                  billingFeeRate={billingFeeRate}
+                  setBillingFeeRate={setBillingFeeRate}
+                  onExportPDF={handleExportPDF}
+                />
+              </div>
+
+              {/* Coluna da Direita */}
+              <div className="space-y-6 lg:space-y-8">
+                <AdvisorNotes
+                  clientNotes={clientNotes}
+                  setClientNotes={setClientNotes}
+                  onSaveNotes={handleSavePortfolioSettings}
+                  savingSettings={savingSettings}
+                />
+
+                <BillingReportCard
+                  portfolioValue={portfolioValue}
+                  billingFeeRate={billingFeeRate}
+                  setBillingFeeRate={setBillingFeeRate}
+                />
+
+                <LedgerBook
+                  transactions={transactions}
+                  showTxForm={showTxForm}
+                  setShowTxForm={setShowTxForm}
+                  txTicker={txTicker}
+                  onTxTickerChange={handleTxTickerChange}
+                  txSuggestions={txSuggestions}
+                  showTxSuggestions={showTxSuggestions}
+                  setShowTxSuggestions={setShowTxSuggestions}
+                  txType={txType}
+                  setTxType={setTxType}
+                  txQty={txQty}
+                  setTxQty={setTxQty}
+                  txPrice={txPrice}
+                  setTxPrice={setTxPrice}
+                  txDate={txDate}
+                  setTxDate={setTxDate}
+                  loadingRichData={loadingRichData}
+                  txAssetRichData={txAssetRichData}
+                  savingTx={savingTx}
+                  onAddTransaction={handleAddTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      ) : selectedClientId === '' ? (
+        /* =======================================================
+           C) VISÃO GERAL DE AUM (SEM CLIENTE SELECIONADO)
+           ======================================================= */
+        <AdvisorOverview
+          globalAumData={globalAumData}
+          clients={clients}
+          onSelectClient={setSelectedClientId}
+          onDeleteClient={(cl) => {
+            setClientToDelete(cl)
+            setIsDeleteModalOpen(true)
+          }}
+        />
       ) : (
+        /* =======================================================
+           D) CARTEIRA VAZIA / CARREGANDO
+           ======================================================= */
         <Card className="p-10 text-center space-y-3">
-          <p className="text-secondary text-sm">Este cliente não possui uma carteira ativa configurada.</p>
-          <Button onClick={() => loadPortfolioData(selectedClientId)}>Inicializar Carteira</Button>
+          {loadingPortfolio ? (
+            <Loader text="Carregando..." className="py-10" />
+          ) : (
+            <>
+              <p className="text-secondary text-sm">Este cliente não possui uma carteira ativa configurada.</p>
+              <Button onClick={() => loadPortfolioData(selectedClientId)}>Inicializar Carteira</Button>
+            </>
+          )}
         </Card>
       )}
 
-      {/* Card de Análise Qualitativa — Linha Completa (só quando há portfolio ativo) */}
-      {portfolio && (
-        <Card className="p-5 lg:p-7" style={{ isolation: 'isolate' }}>
-          <div className="flex items-center gap-2 mb-6">
-            <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
-              <Percent size={18} />
-            </div>
-            <div>
-              <h3 className="font-bold text-base text-primary">Análise Qualitativa &amp; Relatório</h3>
-              <p className="text-[11px] text-secondary">Teses por ativo, sumário executivo e planejamento mensal — todos exportados no PDF</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Coluna 1: Teses por Ativo */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-secondary">Tese por Ativo</p>
-                {editingThesisTicker && (
-                  <button
-                    type="button"
-                    onClick={() => { setEditingThesisTicker(''); setThesisText('') }}
-                    className="text-[10px] text-secondary hover:text-primary transition-colors font-semibold"
-                  >
-                    ✕ Cancelar
-                  </button>
-                )}
-              </div>
-              <Select
-                value={editingThesisTicker}
-                onChange={e => {
-                  const val = e.target.value
-                  setEditingThesisTicker(val)
-                  setThesisText(assetTheses[val.toUpperCase()] || '')
-                }}
-                options={positions.map(p => ({ value: p.ticker, label: `${p.ticker}${assetTheses[p.ticker] ? ' ✓' : ''}` }))}
-                placeholder="Selecione um ativo para editar..."
-                className="text-xs w-full"
-              />
-              {editingThesisTicker && (
-                <div className="space-y-2 animate-page-enter">
-                  <textarea
-                    rows={5}
-                    value={thesisText}
-                    onChange={e => setThesisText(e.target.value)}
-                    placeholder={`Análise qualitativa de ${editingThesisTicker} para o relatório PDF...`}
-                    className="w-full p-3 border rounded-xl bg-primary text-primary placeholder-[var(--color-text-secondary)] hover:border-[var(--color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all border-[var(--color-border)] text-xs resize-none"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleSaveThesis}
-                      disabled={savingThesis}
-                      variant="secondary"
-                      className="text-xs font-semibold flex-1"
-                    >
-                      {savingThesis ? 'Salvando...' : `Salvar Tese de ${editingThesisTicker}`}
-                    </Button>
-                    {assetTheses[editingThesisTicker.toUpperCase()] && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleDeleteThesis(editingThesisTicker)}
-                        variant="outline"
-                        className="text-xs text-red-500 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/60 shrink-0"
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Lista de teses já cadastradas */}
-              {Object.keys(assetTheses).filter(t => !t.startsWith('__') && assetTheses[t]?.trim()).length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-border/20">
-                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-secondary">Teses Cadastradas</p>
-                  {Object.keys(assetTheses)
-                    .filter(t => !t.startsWith('__') && assetTheses[t]?.trim())
-                    .map(ticker => (
-                      <div
-                        key={ticker}
-                        className={`p-3 rounded-xl border transition-all ${
-                          editingThesisTicker === ticker
-                            ? 'border-indigo-500/40 bg-indigo-500/5'
-                            : 'border-border/30 bg-muted/10 hover:border-indigo-500/20'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                            <span className="text-xs font-extrabold text-primary">{ticker}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingThesisTicker(ticker)
-                                setThesisText(assetTheses[ticker] || '')
-                              }}
-                              className="p-1 text-secondary hover:text-indigo-500 transition-colors rounded"
-                              title="Editar tese"
-                            >
-                              <Edit size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteThesis(ticker)}
-                              className="p-1 text-secondary hover:text-red-500 transition-colors rounded"
-                              title="Excluir tese"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-secondary line-clamp-2 leading-relaxed">{assetTheses[ticker]}</p>
-                      </div>
-                    ))
-                  }
-                </div>
-              )}
-              {!editingThesisTicker && Object.keys(assetTheses).filter(t => !t.startsWith('__') && assetTheses[t]?.trim()).length === 0 && (
-                <p className="text-[11px] text-secondary italic pt-2">Nenhuma tese cadastrada. Selecione um ativo para adicionar.</p>
-              )}
-            </div>
-
-            {/* Coluna 2: Sumário Executivo */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-secondary">Sumário Executivo</p>
-              <textarea
-                rows={10}
-                value={executiveSummary}
-                onChange={e => setExecutiveSummary(e.target.value)}
-                placeholder="Descreva a visão geral da carteira, desempenho do período, principais movimentos e contexto macroeconômico. Aparecerá na capa do relatório PDF..."
-                className="w-full p-3 border rounded-xl bg-primary text-primary placeholder-[var(--color-text-secondary)] hover:border-[var(--color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all border-[var(--color-border)] text-xs resize-none"
-              />
-            </div>
-
-            {/* Coluna 3: Planejamento Próximo Mês */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-secondary">Planejamento para o Próximo Mês</p>
-              <textarea
-                rows={10}
-                value={nextMonthPlan}
-                onChange={e => setNextMonthPlan(e.target.value)}
-                placeholder="Descreva os aportes previstos, rebalanceamentos planejados, ativos em observação e estratégia para o próximo ciclo mensal..."
-                className="w-full p-3 border rounded-xl bg-primary text-primary placeholder-[var(--color-text-secondary)] hover:border-[var(--color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all border-[var(--color-border)] text-xs resize-none"
-              />
-            </div>
-          </div>
-
-          {/* Botão salvar sumário e planejamento */}
-          <div className="flex justify-end pt-5 mt-2 border-t border-border/20">
-            <Button
-              onClick={handleSaveReport}
-              disabled={savingReport}
-              variant="primary"
-              className="text-xs font-extrabold px-8 h-[40px] shadow flex items-center gap-2"
-            >
-              <FileText size={14} />
-              {savingReport ? 'Salvando...' : 'Salvar Sumário & Planejamento'}
-            </Button>
-          </div>
-        </Card>
-      )}
+      {/* =======================================================
+         E) MODAIS ADMINISTRATIVOS E DE PERSONALIZAÇÃO
+         ======================================================= */}
+      
+      {/* Modal: Novo Cliente */}
       <Modal
         isOpen={isClientModalOpen}
         onClose={() => setIsClientModalOpen(false)}
         title="Cadastrar Novo Cliente"
       >
         <div className="space-y-4 text-left">
-          <p className="text-xs text-secondary mb-4">
+          <p className="text-xs text-secondary mb-4 font-sans">
             O perfil do cliente será criado diretamente no banco. Quando ele se registrar no app com o mesmo e-mail, terá acesso instantâneo.
           </p>
 
@@ -1684,6 +1648,7 @@ export default function ConsultantDashboard() {
               placeholder="Nome do cliente"
               value={newClientName}
               onChange={e => setNewClientName(e.target.value)}
+              className="text-sm font-semibold"
             />
 
             <Input
@@ -1693,6 +1658,7 @@ export default function ConsultantDashboard() {
               value={newClientEmail}
               onChange={e => setNewClientEmail(e.target.value)}
               helperText="Deixe em branco se deseja criar um perfil provisório e associar a um e-mail posteriormente."
+              className="text-sm font-semibold font-mono"
             />
 
             <div className="flex gap-2 justify-end pt-4 border-t border-primary/20">
@@ -1717,14 +1683,14 @@ export default function ConsultantDashboard() {
         </div>
       </Modal>
 
-      {/* Modal de Vinculação de Conta Real */}
+      {/* Modal: Vincular Provisório a Usuário Real */}
       <Modal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
         title="Vincular Carteira a Usuário Real"
       >
         <div className="space-y-4 text-left">
-          <p className="text-xs text-secondary mb-4">
+          <p className="text-xs text-secondary mb-4 font-sans">
             Selecione uma conta de cliente real cadastrada no aplicativo para transferir a gestão desta carteira patrimonial de forma definitiva. O perfil provisório antigo será removido.
           </p>
 
@@ -1732,8 +1698,8 @@ export default function ConsultantDashboard() {
             <div className="text-center py-6 text-xs text-secondary">Carregando e-mails disponíveis...</div>
           ) : eligibleClients.length === 0 ? (
             <div className="text-center py-6 space-y-2 animate-page-enter">
-              <p className="text-xs text-secondary italic">Nenhuma conta de cliente real sem carteira foi encontrada no banco.</p>
-              <p className="text-[10px] text-secondary opacity-60">Para vincular, o cliente precisa primeiro se cadastrar no aplicativo com o e-mail real dele.</p>
+              <p className="text-xs text-secondary italic font-sans">Nenhuma conta de cliente real sem carteira foi encontrada no banco.</p>
+              <p className="text-[10px] text-secondary opacity-60 font-sans">Para vincular, o cliente precisa primeiro se cadastrar no aplicativo com o e-mail real dele.</p>
               <div className="pt-4 border-t border-primary/20 flex justify-end">
                 <Button variant="outline" size="sm" onClick={() => setIsLinkModalOpen(false)}>Fechar</Button>
               </div>
@@ -1762,7 +1728,7 @@ export default function ConsultantDashboard() {
                   type="submit"
                   disabled={linking}
                   variant="primary"
-                  className="font-bold text-xs px-5 shadow-md"
+                  className="font-bold text-xs px-5 shadow-md shadow-indigo-500/10"
                 >
                   {linking ? 'Vinculando...' : 'Vincular Carteira'}
                 </Button>
@@ -1772,19 +1738,19 @@ export default function ConsultantDashboard() {
         </div>
       </Modal>
 
-      {/* Modal de Edição de Classificação do Ativo */}
+      {/* Modal: Edição Direta de Classificação do Ativo */}
       <Modal
         isOpen={isEditAssetModalOpen}
         onClose={() => setIsEditAssetModalOpen(false)}
         title={`Editar Classificação: ${editingAssetTicker}`}
       >
         <form onSubmit={handleSaveAssetClassification} className="space-y-4 text-left">
-          <p className="text-xs text-secondary mb-4">
+          <p className="text-xs text-secondary mb-4 font-sans">
             Altere manualmente a classe e o setor econômico do ativo **{editingAssetTicker}** no banco de dados. Essas configurações serão aplicadas imediatamente a todos os relatórios e carteiras que contêm este ativo.
           </p>
 
           <div>
-            <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Classe de Ativo</label>
+            <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1 font-sans">Classe de Ativo</label>
             <select
               value={editingAssetClass}
               onChange={e => setEditingAssetClass(e.target.value)}
@@ -1830,6 +1796,90 @@ export default function ConsultantDashboard() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Exclusão e Desvinculação de Cliente (Duas Etapas) */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false)
+          setClientToDelete(null)
+          setDeleteConfirmEmail('')
+        }}
+        title={clientToDelete ? (clientToDelete.email.startsWith('temp_') && clientToDelete.email.endsWith('@cerrado.internal') ? "Excluir Conta Provisória" : "Desvincular Carteira de Cliente Real") : "Gerenciar Cliente"}
+      >
+        {clientToDelete && (() => {
+          const isProvisional = clientToDelete.email.startsWith('temp_') && clientToDelete.email.endsWith('@cerrado.internal')
+          return (
+            <form onSubmit={handleDeleteClient} className="space-y-4 text-left">
+              {isProvisional ? (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
+                  <div>
+                    <strong className="font-bold block mb-1">Atenção! Esta ação é irreversível.</strong>
+                    Ao confirmar, todos os dados da carteira provisória, metas e transações do e-mail provisório **{clientToDelete.email}** serão excluídos permanentemente do banco de dados.
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
+                  <ShieldCheck size={16} className="shrink-0 mt-0.5 text-amber-500" />
+                  <div>
+                    <strong className="font-bold block mb-1">Desvinculação de Assessoria (Seguro)</strong>
+                    Esta é uma conta de cliente real. Ao confirmar, o sistema **apenas removerá o seu acesso como consultor** a esta carteira patrimonial.
+                    Os dados cadastrados, investimentos pessoais e a conta do cliente **não serão apagados** e continuarão intactos para acesso pessoal dele.
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block font-sans">
+                  Para prosseguir, digite o e-mail do cliente abaixo:
+                </label>
+                <p className="text-xs text-primary font-mono select-all bg-muted/30 p-2 rounded-lg border border-border/30 inline-block">
+                  {clientToDelete.email}
+                </p>
+                <Input
+                  type="email"
+                  required
+                  placeholder="Digite o e-mail exato para confirmar"
+                  value={deleteConfirmEmail}
+                  onChange={e => setDeleteConfirmEmail(e.target.value)}
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t border-primary/20">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsDeleteModalOpen(false)
+                    setClientToDelete(null)
+                    setDeleteConfirmEmail('')
+                  }}
+                  className="text-xs font-semibold"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={deletingClientState || deleteConfirmEmail.trim() !== clientToDelete.email}
+                  variant={isProvisional ? "danger" : "primary"}
+                  className={`font-bold text-xs px-5 shadow-md flex items-center gap-1.5 ${
+                    isProvisional 
+                      ? 'bg-red-600 hover:bg-red-700 text-white disabled:opacity-40 disabled:hover:bg-red-600' 
+                      : 'shadow-md shadow-indigo-500/10'
+                  }`}
+                >
+                  <Trash2 size={13} />
+                  {deletingClientState 
+                    ? (isProvisional ? 'Excluindo...' : 'Desvinculando...') 
+                    : (isProvisional ? 'Sim, Excluir Definitivamente' : 'Sim, Desvincular Assessoria')}
+                </Button>
+              </div>
+            </form>
+          )
+        })()}
       </Modal>
     </div>
   )
