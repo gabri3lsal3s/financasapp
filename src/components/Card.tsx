@@ -1,12 +1,13 @@
-import { ReactNode } from 'react'
+import { CSSProperties, ReactNode } from 'react'
 
 interface CardProps {
   children: ReactNode
   className?: string
   onClick?: () => void
+  style?: CSSProperties
 }
 
-export default function Card({ children, className = '', onClick }: CardProps) {
+export default function Card({ children, className = '', onClick, style }: CardProps) {
   const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!onClick) return
     if (event.key === 'Enter' || event.key === ' ') {
@@ -21,6 +22,7 @@ export default function Card({ children, className = '', onClick }: CardProps) {
           ? 'cursor-pointer hover:shadow-md hover-lift-subtle press-subtle hover:bg-tertiary active:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
           : ''
         } ${className}`}
+      style={style}
       onClick={onClick}
       onKeyDown={handleCardKeyDown}
       role={onClick ? 'button' : undefined}
@@ -30,8 +32,3 @@ export default function Card({ children, className = '', onClick }: CardProps) {
     </div>
   )
 }
-
-
-
-
-

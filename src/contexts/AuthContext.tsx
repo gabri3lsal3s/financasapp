@@ -10,6 +10,7 @@ interface Profile {
   is_rejected: boolean;
   rejection_count: number;
   is_admin: boolean;
+  role?: 'consultant' | 'client';
 }
 
 
@@ -47,6 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
+
+      // Garante resiliência: se o e-mail for o do administrador e não tiver a role correta, força 'consultant'
+      if (data && data.email === 'gabrielisaacsales@gmail.com' && data.role !== 'consultant') {
+        data.role = 'consultant';
+        // Atualiza silenciosamente no Supabase para sincronizar
+        supabase.from('profiles').update({ role: 'consultant' }).eq('id', userId).then(() => {});
+      }
+
       setProfile(data);
       return data;
     } catch (err) {

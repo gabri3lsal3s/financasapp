@@ -124,3 +124,71 @@ export interface CategoryExpense {
   color: string
 }
 
+export interface Profile {
+  id: string
+  email: string
+  is_approved: boolean
+  is_blocked: boolean
+  is_rejected: boolean
+  rejection_count: number
+  is_admin: boolean
+  role: 'consultant' | 'client'
+  created_at: string
+  updated_at: string
+}
+
+export interface Portfolio {
+  id: string
+  client_id: string
+  consultant_id: string | null
+  cash_balance: number
+  created_at: string
+  client?: Profile
+  consultant?: Profile
+}
+
+export type PortfolioOperationType = 'buy' | 'sell' | 'dividend' | 'split' | 'subscription'
+
+export interface PortfolioTransaction {
+  id: string
+  portfolio_id: string
+  ticker: string
+  operation_type: PortfolioOperationType
+  quantity: number
+  price: number
+  date: string
+  created_at: string
+}
+
+export interface TargetAllocation {
+  id: string
+  portfolio_id: string
+  ticker: string
+  target_percentage: number
+  created_at: string
+}
+
+export interface AssetThesis {
+  id: string
+  consultant_id: string
+  ticker: string
+  thesis: string
+  created_at: string
+}
+
+export interface AssetPrice {
+  ticker: string
+  current_price: number
+  last_updated: string
+  asset_class?: string
+  sector?: string
+}
+
+export interface PortfolioGroupTarget {
+  id: string
+  portfolio_id: string
+  group_type: 'class' | 'sector'
+  group_name: string
+  target_percentage: number
+  created_at: string
+}

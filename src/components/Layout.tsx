@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut, Users } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
@@ -41,7 +41,7 @@ function OfflinePlaceholder() {
 
 export default function Layout({ children }: LayoutProps) {
   const { floatingCalculatorEnabled } = useAppSettings()
-  const { signOut } = useAuth()
+  const { signOut, profile } = useAuth()
   useBackgroundCache()
   const navigate = useNavigate()
   const location = useLocation()
@@ -66,18 +66,36 @@ export default function Layout({ children }: LayoutProps) {
 
   const { isOnline } = useNetworkStatus()
 
-  const navItems = [
-    { path: '/', icon: Home, label: 'Início', onlineOnly: false },
-    { path: '/expenses', icon: TrendingDown, label: 'Despesas', onlineOnly: false },
-    { path: '/incomes', icon: TrendingUp, label: 'Rendas', onlineOnly: false },
-    { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
-    { path: '/credit-cards', icon: CreditCard, label: 'Cartões', onlineOnly: true },
-    { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
-    { path: '/categories', icon: Tags, label: 'Categorias', onlineOnly: true },
-    { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false },
-  ]
+  const navItems = (() => {
+    if (profile?.role === 'client') {
+      return [
+        { path: '/', icon: PiggyBank, label: 'Minha Consultoria', onlineOnly: false },
+      ]
+    }
 
-  const totalMainItems = 6
+    const items = [
+      { path: '/', icon: Home, label: 'Início', onlineOnly: false },
+      { path: '/expenses', icon: TrendingDown, label: 'Despesas', onlineOnly: false },
+      { path: '/incomes', icon: TrendingUp, label: 'Rendas', onlineOnly: false },
+      { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
+    ]
+
+    // Injeta a aba de Consultoria de Investimentos para assessores
+    if (profile?.role === 'consultant') {
+      items.push({ path: '/consulting', icon: Users, label: 'Consultoria', onlineOnly: false })
+    }
+
+    items.push(
+      { path: '/credit-cards', icon: CreditCard, label: 'Cartões', onlineOnly: true },
+      { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
+      { path: '/categories', icon: Tags, label: 'Categorias', onlineOnly: true },
+      { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false }
+    )
+
+    return items
+  })()
+
+  const totalMainItems = profile?.role === 'client' ? 1 : navItems.length - 1
   const mainItemsList = navItems.slice(0, totalMainItems)
   const settingsItemsList = navItems.slice(totalMainItems)
 

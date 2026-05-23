@@ -141,6 +141,28 @@ export function useInvestments(month?: string) {
 
       if (insertError) throw insertError
 
+      // Sincroniza o saldo em caixa da consultoria (portfolios) se houver
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: portfolio } = await supabase
+            .from('portfolios')
+            .select('id, cash_balance')
+            .eq('client_id', user.id)
+            .maybeSingle()
+
+          if (portfolio) {
+            const newCash = Number(portfolio.cash_balance) + Number(investmentData.amount)
+            await supabase
+              .from('portfolios')
+              .update({ cash_balance: newCash })
+              .eq('id', portfolio.id)
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar caixa do portfolio ao criar investimento:', err)
+      }
+
       setInvestments((prev) => sortInvestmentsByMonth([data, ...prev]))
       return { data, error: null }
     } catch (err) {
@@ -187,6 +209,18 @@ export function useInvestments(month?: string) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
+      let diff = 0
+      if (updates.amount !== undefined) {
+        try {
+          const { data: oldInv } = await supabase.from('investments').select('amount').eq('id', id).maybeSingle()
+          if (oldInv) {
+            diff = Number(updates.amount) - Number(oldInv.amount)
+          }
+        } catch (e) {
+          console.warn('Erro ao buscar valor antigo do investimento para atualização de caixa:', e)
+        }
+      }
+
       const { data, error: updateError } = await supabase
         .from('investments')
         .update(updates)
@@ -195,6 +229,29 @@ export function useInvestments(month?: string) {
         .single()
 
       if (updateError) throw updateError
+
+      if (diff !== 0) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: portfolio } = await supabase
+              .from('portfolios')
+              .select('id, cash_balance')
+              .eq('client_id', user.id)
+              .maybeSingle()
+
+            if (portfolio) {
+              const newCash = Math.max(0, Number(portfolio.cash_balance) + diff)
+              await supabase
+                .from('portfolios')
+                .update({ cash_balance: newCash })
+                .eq('id', portfolio.id)
+            }
+          }
+        } catch (err) {
+          console.warn('Erro ao sincronizar caixa do portfolio ao atualizar investimento:', err)
+        }
+      }
 
       setInvestments((prev) => sortInvestmentsByMonth(prev.map((inv) => (inv.id === id ? data : inv))))
       return { data, error: null }
@@ -233,12 +290,43 @@ export function useInvestments(month?: string) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
+      let oldAmount = 0
+      try {
+        const { data: oldInv } = await supabase.from('investments').select('amount').eq('id', id).maybeSingle()
+        if (oldInv) oldAmount = Number(oldInv.amount)
+      } catch (e) {
+        console.warn('Erro ao obter valor antigo do investimento para deleção:', e)
+      }
+
       const { error: deleteError } = await supabase
         .from('investments')
         .delete()
         .eq('id', id)
 
       if (deleteError) throw deleteError
+
+      if (oldAmount > 0) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: portfolio } = await supabase
+              .from('portfolios')
+              .select('id, cash_balance')
+              .eq('client_id', user.id)
+              .maybeSingle()
+
+            if (portfolio) {
+              const newCash = Math.max(0, Number(portfolio.cash_balance) - oldAmount)
+              await supabase
+                .from('portfolios')
+                .update({ cash_balance: newCash })
+                .eq('id', portfolio.id)
+            }
+          }
+        } catch (err) {
+          console.warn('Erro ao sincronizar caixa do portfolio ao deletar investimento:', err)
+        }
+      }
 
       setInvestments((prev) => prev.filter((inv) => inv.id !== id))
       return { error: null }

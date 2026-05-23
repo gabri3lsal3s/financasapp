@@ -8,7 +8,7 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
-    <header className="bg-secondary border-b border-primary safe-area-top motion-standard relative z-10">
+    <header className="bg-secondary border-b border-primary safe-area-top motion-standard relative z-30">
       <div className="px-4 py-3 lg:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 motion-standard">
         <div className="flex-1 min-w-0 w-full">
           <h1 className="text-xl sm:text-2xl font-bold text-primary truncate">{title}</h1>

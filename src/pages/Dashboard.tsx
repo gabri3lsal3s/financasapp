@@ -19,6 +19,7 @@ import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { supabase } from '@/lib/supabase'
 import {
   Bar,
   BarChart,
@@ -51,6 +52,64 @@ export default function Dashboard() {
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
   
+  const [consultingPortfolioValue, setConsultingPortfolioValue] = useState<number | null>(null)
+  const { investments, loading: investmentsLoading, refreshInvestments, createInvestment } = useInvestments(currentMonth)
+  
+  useEffect(() => {
+    async function loadConsultingPortfolio() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: portfolio } = await supabase
+          .from('portfolios')
+          .select('id, cash_balance')
+          .eq('client_id', user.id)
+          .maybeSingle()
+
+        if (!portfolio) return
+
+        const { data: transactions } = await supabase
+          .from('portfolio_transactions')
+          .select('*')
+          .eq('portfolio_id', portfolio.id)
+
+        const { data: targets } = await supabase
+          .from('target_allocations')
+          .select('*')
+          .eq('portfolio_id', portfolio.id)
+
+        if (!transactions || transactions.length === 0) {
+          setConsultingPortfolioValue(Number(portfolio.cash_balance))
+          return
+        }
+
+        const tickers = Array.from(new Set(transactions.map(t => t.ticker)))
+        
+        const { getAssetPrices } = await import('@/services/priceService')
+        const prices = await getAssetPrices(tickers)
+
+        const { calculatePositions } = await import('@/services/investmentEngine')
+        const { totalValue } = calculatePositions(
+          transactions,
+          targets || [],
+          prices,
+          Number(portfolio.cash_balance)
+        )
+
+        setConsultingPortfolioValue(totalValue)
+      } catch (err) {
+        console.error('Erro ao integrar carteira de consultoria no dashboard:', err)
+      }
+    }
+
+    if (isOnline) {
+      loadConsultingPortfolio()
+    } else {
+      setConsultingPortfolioValue(null)
+    }
+  }, [isOnline, investments])
+  
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const isDataChangingRef = useRef(false)
@@ -71,7 +130,6 @@ export default function Dashboard() {
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
-  const { investments, loading: investmentsLoading, refreshInvestments, createInvestment } = useInvestments(currentMonth)
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
   
@@ -92,7 +150,7 @@ export default function Dashboard() {
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0)
   const totalIncomes = incomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0)
-  const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0)
+  const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0) + (consultingPortfolioValue || 0)
   const balance = totalIncomes - totalExpenses - totalInvestments
   const hasMonthlyData = expenses.length > 0 || incomes.length > 0 || investments.length > 0
   const loading =
