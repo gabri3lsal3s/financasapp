@@ -4,6 +4,7 @@ import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
 import { isB3TickerPattern, searchB3Assets } from '@/services/priceService'
 import type { PortfolioAssetDefinition, PortfolioPricingMode, PortfolioAssetIndexer } from '@/types'
@@ -185,22 +186,20 @@ export default function AssetDefinitionFormModal({
                 ))}
               </div>
             )}
-            <label className="flex items-center gap-2 text-sm text-primary">
-              <input
-                type="checkbox"
+            <div className="flex flex-col gap-2.5 p-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl">
+              <Checkbox
+                label="Vinculado à B3"
+                description="Cotação atualizada automaticamente pelo mercado"
                 checked={isB3Linked}
                 onChange={(e) => setIsB3Linked(e.target.checked)}
               />
-              Vinculado à B3 (cotação automática)
-            </label>
-            <label className="flex items-center gap-2 text-sm text-primary">
-              <input
-                type="checkbox"
+              <Checkbox
+                label="Tesouro Direto (híbrido)"
+                description="Cotação por mercado ou taxa contratada"
                 checked={isTreasury}
                 onChange={(e) => setIsTreasury(e.target.checked)}
               />
-              Tesouro Direto (híbrido: cotação ou taxa)
-            </label>
+            </div>
           </>
         )}
 
@@ -269,14 +268,12 @@ export default function AssetDefinitionFormModal({
               value={maturityDate}
               onChange={(e) => setMaturityDate(e.target.value)}
             />
-            <label className="flex items-center gap-2 text-sm text-primary">
-              <input
-                type="checkbox"
-                checked={taxExempt}
-                onChange={(e) => setTaxExempt(e.target.checked)}
-              />
-              Isento de IR (LCI/LCA)
-            </label>
+            <Checkbox
+              label="Isento de IR (LCI/LCA)"
+              description="Não aplica tabela regressiva de imposto de renda"
+              checked={taxExempt}
+              onChange={(e) => setTaxExempt(e.target.checked)}
+            />
           </>
         )}
 

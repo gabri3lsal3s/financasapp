@@ -17,6 +17,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 
 interface QualitativeAnalysisProps {
   // Teses
@@ -545,7 +546,7 @@ export default function QualitativeAnalysis({
                   ok: thesesFilledCount > 0,
                 },
                 {
-                  label: `Demonstrativo de fee (R$ ${monthlyFeeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês)`,
+                  label: `Demonstrativo de fee (${formatCurrency(monthlyFeeAmount)}/mês)`,
                   ok: portfolioValue > 0,
                 },
               ].map((item, i) => (
@@ -573,7 +574,7 @@ export default function QualitativeAnalysis({
                   Taxa de Gestão Mensal
                 </label>
                 <span className="text-sm font-black text-indigo-500 font-mono">
-                  {billingFeeRate.toFixed(2)}%
+                  {formatNumberBR(billingFeeRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                 </span>
               </div>
               <input
@@ -594,13 +595,13 @@ export default function QualitativeAnalysis({
                 <div className="p-2.5 bg-primary rounded-lg border border-border/30 text-center">
                   <p className="text-[9px] text-secondary uppercase font-semibold font-sans">Mensal</p>
                   <p className="text-sm font-black text-primary font-mono">
-                    R$ {monthlyFeeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatCurrency(monthlyFeeAmount)}
                   </p>
                 </div>
                 <div className="p-2.5 bg-primary rounded-lg border border-border/30 text-center">
-                  <p className="text-[9px] text-secondary uppercase font-semibold font-sans">Anual ({annualFeeRate.toFixed(1)}%)</p>
+                  <p className="text-[9px] text-secondary uppercase font-semibold font-sans">Anual ({formatNumberBR(annualFeeRate, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)</p>
                   <p className="text-sm font-black text-primary font-mono">
-                    R$ {(monthlyFeeAmount * 12).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatCurrency(monthlyFeeAmount * 12)}
                   </p>
                 </div>
               </div>

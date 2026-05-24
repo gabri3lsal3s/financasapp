@@ -151,6 +151,7 @@ export interface Portfolio {
   client?: Profile
   consultant?: Profile
   notes?: string
+  billing_fee_rate?: number
 }
 
 export type PortfolioOperationType = 'buy' | 'sell' | 'dividend' | 'split' | 'subscription'

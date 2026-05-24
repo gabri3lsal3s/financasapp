@@ -58,7 +58,7 @@ export default function BenchmarkComparisonTable({
       <div>
         <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
           <Award size={16} className="text-indigo-500" />
-          Rentabilidade vs Benchmarks de Referência
+          Rentabilidade Consolidada Ponderada vs Benchmarks
         </h3>
 
         <div className="overflow-x-auto">
@@ -68,7 +68,7 @@ export default function BenchmarkComparisonTable({
                 <th className="py-2.5 px-3">Classe</th>
                 <th className="py-2.5 px-3 text-right">Patrimônio</th>
                 <th className="py-2.5 px-3 text-right">% Carteira</th>
-                <th className="py-2.5 px-3 text-right">Rentabilidade (Real)</th>
+                <th className="py-2.5 px-3 text-right">Rentabilidade Ponderada (Real)</th>
                 <th className="py-2.5 px-3 text-left">Benchmark (Ref)</th>
                 <th className="py-2.5 px-3 text-right">Diferença (Alpha)</th>
               </tr>
@@ -135,7 +135,7 @@ export default function BenchmarkComparisonTable({
       </div>
       
       <div className="mt-4 pt-3 border-t border-border/40 text-[10px] text-secondary/70 font-sans italic">
-        * A rentabilidade real é baseada no custo médio de aquisição. O benchmark de referência (Ref) é ajustado e capitalizado dinamicamente de forma composta proporcional aos dias decorridos desde o primeiro aporte de cada classe de ativo.
+        * A rentabilidade real é calculada de forma consolidada e ponderada pelo custo de aquisição, consolidando o ganho específico de cada ativo (cotação de mercado para B3, valor teórico acumulado por indexador para renda fixa e valores manuais declarados). O benchmark de referência (Ref) é ajustado e capitalizado dinamicamente de forma composta proporcional aos dias decorridos desde o primeiro aporte de cada classe de ativo.
       </div>
     </Card>
   )

@@ -11,6 +11,7 @@ interface ClientKpiCardsProps {
   totalShares?: number
   /** `share`: valor da cota (consultor). `accumulated`: ganho acumulado em R$ + % (cliente) */
   yieldVariant?: ClientKpiYieldVariant
+  overallYieldPct?: number
 }
 
 function formatSignedYieldPct(yieldsPercentage: number): string {
@@ -22,33 +23,22 @@ export default function ClientKpiCards({
   portfolioValue,
   shareValue,
   totalShares = 0,
-  yieldVariant = 'share',
+  overallYieldPct,
 }: ClientKpiCardsProps) {
-  const yieldsPercentage = (shareValue - 1) * 100
+  const yieldsPercentage = overallYieldPct !== undefined ? overallYieldPct : (shareValue - 1) * 100
   const hasYieldBasis = totalShares > 0
   const accumulatedAmount = hasYieldBasis ? portfolioValue - totalShares : 0
   const yieldPctClass = yieldsPercentage >= 0 ? 'text-emerald-500' : 'text-expense'
 
-  const yieldLabel =
-    yieldVariant === 'accumulated' ? 'Rentabilidade Acumulada' : 'Valor da Cota (Rentabilidade)'
+  const yieldLabel = 'Rentabilidade Total'
 
-  const yieldPrimary =
-    yieldVariant === 'accumulated' ? (
-      hasYieldBasis ? (
-        formatCurrency(accumulatedAmount)
-      ) : (
-        <span className="text-secondary">—</span>
-      )
-    ) : (
-      formatNumberBR(shareValue, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
-    )
+  const yieldPrimary = formatSignedYieldPct(yieldsPercentage)
 
-  const yieldSecondary =
-    hasYieldBasis || yieldVariant === 'share' ? (
-      <span className={`text-xs font-bold ml-1.5 ${yieldPctClass}`}>
-        {formatSignedYieldPct(yieldsPercentage)}
-      </span>
-    ) : null
+  const yieldSecondary = hasYieldBasis ? (
+    <span className="text-xs text-secondary font-medium ml-1.5 font-sans">
+      ({accumulatedAmount >= 0 ? '+' : ''}{formatCurrency(accumulatedAmount)})
+    </span>
+  ) : null
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -63,12 +53,12 @@ export default function ClientKpiCards({
           <Wallet size={20} />
         </div>
       </Card>
-
+ 
       <Card className="p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-purple-500 flex items-center justify-between shadow-sm transition-all hover:border-l-purple-400">
         <div className="text-left">
           <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">{yieldLabel}</span>
           <strong className="text-xl font-black text-primary mt-1 block">
-            {yieldPrimary}
+            <span className={yieldPctClass}>{yieldPrimary}</span>
             {yieldSecondary}
           </strong>
         </div>

@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Portfolio, PortfolioTransaction, AssetPrice } from '@/types'
+import { Portfolio, PortfolioTransaction, AssetPrice, PortfolioAssetDefinition } from '@/types'
 import { calculateShareHistory, calculatePerformanceMetrics, AssetPosition } from '@/services/investmentEngine'
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
+import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
@@ -23,6 +24,8 @@ export default function ClientDashboard() {
   const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
   const [assetPrices, setAssetPrices] = useState<Record<string, AssetPrice>>({})
   const [assetTheses, setAssetTheses] = useState<Record<string, string>>({})
+  const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
+  const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
   const [loading, setLoading] = useState<boolean>(true)
 
   // Estados calculados
@@ -104,10 +107,14 @@ export default function ClientDashboard() {
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
         setPortfolioValue(valuation.totalValue)
+        setAssetDefinitions(valuation.definitions)
+        setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
         const { currentShareValue, totalShares: sharesOutstanding } = calculateShareHistory(
           txs,
-          valuation.prices
+          valuation.prices,
+          valuation.definitions,
+          valuation.indexRatesByIndexer
         )
         setShareValue(currentShareValue)
         setTotalShares(sharesOutstanding)
@@ -116,6 +123,8 @@ export default function ClientDashboard() {
         setPortfolioValue(0)
         setShareValue(1.0)
         setTotalShares(0)
+        setAssetDefinitions([])
+        setIndexRatesByIndexer({})
       }
 
     } catch (err) {
@@ -130,7 +139,7 @@ export default function ClientDashboard() {
     if (!portfolio) return
     toast.loading('Compilando seu relatório premium...', { id: 'client-report' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices)
+      const { shareHistory } = calculateShareHistory(transactions, assetPrices, assetDefinitions, indexRatesByIndexer)
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
@@ -140,7 +149,7 @@ export default function ClientDashboard() {
         shareHistory,
         metrics,
         theses: assetTheses,
-        cashBalance: 0
+        cashBalance: Number(portfolio.cash_balance) || 0
       })
     } catch (err) {
       console.error(err)
@@ -188,6 +197,13 @@ export default function ClientDashboard() {
       return b.amount - a.amount
     })
   }, [positions, portfolioValue])
+
+  // Rentabilidade consolidada ponderada dos ativos em carteira
+  const overallYieldPct = useMemo(() => {
+    const totalCostBasis = positions.reduce((sum, p) => sum + p.cost_basis, 0)
+    const totalGrossGain = positions.reduce((sum, p) => sum + p.cost_basis * (p.gross_yield_pct / 100), 0)
+    return totalCostBasis > 0 ? (totalGrossGain / totalCostBasis) * 100 : 0
+  }, [positions])
 
   // Processar dados de exposição por classe para gráfico
   const classChartData = useMemo(() => {
@@ -262,6 +278,7 @@ export default function ClientDashboard() {
             shareValue={shareValue}
             totalShares={totalShares}
             yieldVariant="accumulated"
+            overallYieldPct={overallYieldPct}
           />
 
           {/* Seção Gráfica e Rebalanceamento */}

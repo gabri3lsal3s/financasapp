@@ -3,6 +3,7 @@ import { isPrimaryAdminEmail, isPrimaryAdminProfile } from '@/constants/adminPro
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import { Wallet, UserPlus, Star, Eye, Trash2 } from 'lucide-react'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 
 interface ClientRow {
   id: string
@@ -56,7 +57,7 @@ export default function AdvisorOverview({
             <div>
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">AUM Total Sob Gestão</span>
               <strong className="text-2xl font-black text-primary mt-1.5 block">
-                R$ {globalAumData.totalAum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {formatCurrency(globalAumData.totalAum)}
               </strong>
             </div>
             <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
@@ -109,14 +110,14 @@ export default function AdvisorOverview({
                         <span className="text-[10px] text-secondary font-normal font-mono">{row.email}</span>
                       </td>
                       <td className="p-3.5 text-right font-medium text-secondary">{row.assetsCount} ativos</td>
-                      <td className="p-3.5 text-right font-bold text-primary">R$ {row.aum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="p-3.5 text-right font-bold text-primary">{formatCurrency(row.aum)}</td>
                       <td className="p-3.5 text-center">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                           isHighDev 
                             ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
                             : 'bg-emerald-500/10 text-emerald-600'
                         }`}>
-                          {row.deviationPct}% {isHighDev && '⚠️'}
+                          {formatNumberBR(row.deviationPct)}% {isHighDev && '⚠️'}
                         </span>
                       </td>
                       <td className="p-3.5 text-center">

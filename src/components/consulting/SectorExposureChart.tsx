@@ -3,6 +3,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ChartTooltip, Lege
 import { PieChart as PieIcon } from 'lucide-react'
 import { ConsolidatedGroup } from '@/services/investmentEngine'
 import { pickConsultingChartColor } from '@/utils/consultingChartPalette'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 
 interface SectorExposureChartProps {
   consolidatedSector: ConsolidatedGroup[]
@@ -50,15 +51,15 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
               </Pie>
               <ChartTooltip
                 formatter={(value: any, _name: any, props: any) => {
-                  const formattedVal = `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                  const pctVal = `(${props.payload.percentage.toFixed(2)}%)`
+                  const formattedVal = formatCurrency(Number(value))
+                  const pctVal = `(${formatNumberBR(props.payload.percentage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)`
                   return [`${formattedVal} ${pctVal}`, 'Alocação']
                 }}
                 contentStyle={{
-                  backgroundColor: 'var(--color-bg-card, #1e293b)',
-                  borderColor: 'var(--color-border, #334155)',
+                  backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
+                  borderColor: 'var(--color-border, rgb(51, 65, 85))',
                   borderRadius: '12px',
-                  color: 'var(--color-text-primary, #f8fafc)'
+                  color: 'var(--color-text-primary, rgb(248, 250, 252))'
                 }}
               />
               <ChartLegend

@@ -1,6 +1,7 @@
 import Card from '@/components/Card'
 import { Shield, TrendingUp, Percent, Gauge } from 'lucide-react'
 import { PerformanceMetrics } from '@/services/investmentEngine'
+import { formatNumberBR } from '@/utils/format'
 
 interface PerformanceMetricsCardProps {
   metrics: PerformanceMetrics
@@ -12,23 +13,23 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
   // Sharpe interpretation
   let sharpeInterpretation = 'Neutro'
   let sharpeColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-  let sharpeGaugeColor = '#f59e0b'
+  let sharpeGaugeColor = 'rgb(245, 158, 11)'
   if (sharpe_ratio >= 2.0) {
     sharpeInterpretation = 'Excelente'
     sharpeColor = 'text-teal-500 bg-teal-500/10 border-teal-500/20'
-    sharpeGaugeColor = '#14b8a6'
+    sharpeGaugeColor = 'rgb(20, 184, 166)'
   } else if (sharpe_ratio >= 1.0) {
     sharpeInterpretation = 'Muito Atrativo'
     sharpeColor = 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20'
-    sharpeGaugeColor = '#6366f1'
+    sharpeGaugeColor = 'rgb(99, 102, 241)'
   } else if (sharpe_ratio > 0) {
     sharpeInterpretation = 'Moderado'
     sharpeColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-    sharpeGaugeColor = '#10b981'
+    sharpeGaugeColor = 'rgb(16, 185, 129)'
   } else {
     sharpeInterpretation = 'Subtítulo/Abaixo CDI'
     sharpeColor = 'text-red-500 bg-red-500/10 border-red-500/20'
-    sharpeGaugeColor = '#ef4444'
+    sharpeGaugeColor = 'rgb(239, 68, 68)'
   }
 
   // Calculate SVG gauge stroke dashoffset
@@ -65,7 +66,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
                   cx="40"
                   cy="40"
                   r={radius}
-                  stroke="var(--color-border, #334155)"
+                  stroke="var(--color-border, rgb(51, 65, 85))"
                   strokeWidth={strokeWidth}
                   fill="transparent"
                   opacity={0.3}
@@ -86,7 +87,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
               </svg>
               <div className="absolute text-center">
                 <span className="text-lg font-bold text-primary font-mono block leading-none">
-                  {sharpe_ratio.toFixed(2)}
+                  {formatNumberBR(sharpe_ratio, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span className="text-[9px] text-secondary font-sans">Sharpe</span>
               </div>
@@ -104,7 +105,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
                 <span className="text-xs font-semibold font-sans">Volatilidade Mensal</span>
               </div>
               <span className="text-xs font-bold text-primary font-mono">
-                {volatility_monthly.toFixed(2)}%
+                {formatNumberBR(volatility_monthly, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
               </span>
             </div>
 
@@ -114,7 +115,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
                 <span className="text-xs font-semibold font-sans">Retorno Médio Mensal</span>
               </div>
               <span className="text-xs font-bold text-primary font-mono">
-                {return_monthly_avg.toFixed(2)}%
+                {formatNumberBR(return_monthly_avg, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
               </span>
             </div>
           </div>
@@ -127,7 +128,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
               Beta vs IBOV
             </span>
             <span className="text-sm font-bold text-primary font-mono">
-              {beta_ibov.toFixed(2)}
+              {formatNumberBR(beta_ibov, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-[8px] text-secondary block font-sans mt-0.5">
               {beta_ibov > 1 ? 'Mais volátil que IBOV' : 'Mais defensivo que IBOV'}
@@ -139,7 +140,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
               Beta vs S&P 500
             </span>
             <span className="text-sm font-bold text-primary font-mono">
-              {beta_sp500.toFixed(2)}
+              {formatNumberBR(beta_sp500, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-[8px] text-secondary block font-sans mt-0.5">
               {beta_sp500 > 1 ? 'Mais volátil que S&P 500' : 'Mais defensivo que S&P'}

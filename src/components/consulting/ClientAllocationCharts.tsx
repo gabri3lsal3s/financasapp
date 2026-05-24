@@ -2,6 +2,7 @@ import Card from '@/components/Card'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ChartTooltip } from 'recharts'
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
 import { ConsolidatedGroup } from '@/services/investmentEngine'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 
 interface ClassChartItem {
   name: string
@@ -62,12 +63,12 @@ export default function ClientAllocationCharts({
                   ))}
                 </Pie>
                 <ChartTooltip 
-                  formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Patrimônio']} 
+                  formatter={(value: any) => [formatCurrency(Number(value)), 'Patrimônio']} 
                   contentStyle={{
-                    backgroundColor: 'var(--color-bg-card, #1e293b)',
-                    borderColor: 'var(--color-border, #334155)',
+                    backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
+                    borderColor: 'var(--color-border, rgb(51, 65, 85))',
                     borderRadius: '12px',
-                    color: 'var(--color-text-primary, #f8fafc)'
+                    color: 'var(--color-text-primary, rgb(248, 250, 252))'
                   }}
                 />
               </PieChart>
@@ -85,7 +86,7 @@ export default function ClientAllocationCharts({
             <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
               {displayGroups.map(group => {
                 const chartItem = classChartData.find(c => c.name === group.name)
-                const color = chartItem ? chartItem.color : '#64748b'
+                const color = chartItem ? chartItem.color : 'rgb(100, 116, 139)'
                 const deviation = group.current_percentage - group.target_percentage
                 
                 let devIcon = <Minus size={11} className="text-secondary/50" />
@@ -111,11 +112,11 @@ export default function ClientAllocationCharts({
                     {/* Valores e % meta */}
                     <div className="col-span-4 text-right">
                       <span className="font-mono font-bold text-primary block leading-none">
-                        R$ {group.total_value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                        {formatCurrency(group.total_value)}
                       </span>
                       {group.current_percentage > 0 && (
                         <span className="text-[10px] text-secondary font-mono leading-none">
-                          {group.current_percentage.toFixed(1)}% <span className="text-secondary/40">/ {group.target_percentage.toFixed(1)}%</span>
+                          {formatNumberBR(group.current_percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% <span className="text-secondary/40">/ {formatNumberBR(group.target_percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span>
                         </span>
                       )}
                     </div>
@@ -125,7 +126,7 @@ export default function ClientAllocationCharts({
                       {group.current_percentage > 0 ? (
                         <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold font-mono rounded border ${devColor}`}>
                           {devIcon}
-                          <span>{deviation > 0 ? '+' : ''}{deviation.toFixed(1)}%</span>
+                          <span>{deviation > 0 ? '+' : ''}{formatNumberBR(deviation, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span>
                         </span>
                       ) : (
                         <span className="text-[10px] text-secondary/40 font-mono">-</span>

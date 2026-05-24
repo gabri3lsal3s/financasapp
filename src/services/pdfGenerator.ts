@@ -394,7 +394,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(9.5)
   doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
   doc.setFont('Helvetica', 'bold')
-  doc.text('Demonstrativo de Rentabilidade vs Benchmarks Equivalentes', 20, currentY)
+  doc.text('Demonstrativo de Rentabilidade Consolidada Ponderada vs Benchmarks', 20, currentY)
 
   currentY += 5
   doc.setFillColor(COLOR_PRIMARY[0], COLOR_PRIMARY[1], COLOR_PRIMARY[2])
@@ -534,7 +534,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(9.5)
   doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
   doc.setFont('Helvetica', 'bold')
-  doc.text('Demonstrativo de Rentabilidade Consolidada por Setor', 20, currentY)
+  doc.text('Demonstrativo de Rentabilidade Consolidada Ponderada por Setor', 20, currentY)
 
   currentY += 5
   doc.setFillColor(COLOR_PRIMARY[0], COLOR_PRIMARY[1], COLOR_PRIMARY[2])

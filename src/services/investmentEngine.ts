@@ -1,6 +1,6 @@
 import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
-import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 
 export type AssetPosition = ValuedPosition
 
@@ -61,17 +61,71 @@ export function calculatePositions(
 
 /**
  * Sistema de Cotização Clássico:
- * Reconstrói a linha temporal da carteira isolando aportes/saques para calcular o valor real da cota.
+ * Reconstrói a linha temporal da carteira isolando aportes/saques para calcular o valor real.
  */
 export function calculateShareHistory(
   transactions: PortfolioTransaction[],
-  prices: Record<string, AssetPrice>
+  prices: Record<string, AssetPrice>,
+  definitions: PortfolioAssetDefinition[] = [],
+  indexRatesByIndexer: Record<string, IndexRateMap> = {}
 ): { currentShareValue: number; totalShares: number; shareHistory: { date: string; shareValue: number }[] } {
   // Ordena transações por data
   const sortedTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
   
   if (sortedTxs.length === 0) {
     return { currentShareValue: 1.0, totalShares: 0, shareHistory: [] }
+  }
+
+  const getPricingMode = (ticker: string): string => {
+    const upper = ticker.toUpperCase()
+    const def = definitions.find(d => d.ticker.toUpperCase() === upper)
+    if (def?.pricing_mode) return def.pricing_mode
+    if (upper === 'CAIXA' || upper === 'SALDO_INV') return 'cash'
+    return 'market'
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  // Função interna robusta para estimar o preço de um ativo em qualquer data histórica
+  // fazendo a interpolação linear entre o último preço de compra/venda e o preço de mercado atual (ou próximo ponto de transação)
+  const getInterpolatedPrice = (ticker: string, dateStr: string): number => {
+    const tickerUpper = ticker.toUpperCase()
+    const currentPrice = prices[tickerUpper]?.current_price || FALLBACK_PRICE(tickerUpper)
+    
+    const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === tickerUpper)
+    if (tickerTxs.length === 0) {
+      return currentPrice
+    }
+    
+    const txsBeforeOrOn = tickerTxs.filter(t => t.date <= dateStr)
+    if (txsBeforeOrOn.length === 0) {
+      return Number(tickerTxs[0].price)
+    }
+    
+    const lastTx = txsBeforeOrOn[txsBeforeOrOn.length - 1]
+    
+    // Procura o próximo ponto conhecido para interpolar (próxima transação ou hoje)
+    const txsAfter = tickerTxs.filter(t => t.date > dateStr)
+    const nextPointDate = txsAfter.length > 0 ? txsAfter[0].date : todayStr
+    const nextPointPrice = txsAfter.length > 0 ? Number(txsAfter[0].price) : currentPrice
+    
+    const d1 = lastTx.date
+    const d2 = nextPointDate
+    const p1 = Number(lastTx.price)
+    const p2 = nextPointPrice
+    
+    if (d1 === d2) return p1
+    
+    const t1 = new Date(d1 + 'T00:00:00Z').getTime()
+    const t2 = new Date(d2 + 'T00:00:00Z').getTime()
+    const t = new Date(dateStr + 'T00:00:00Z').getTime()
+    
+    if (t2 <= t1) return p1
+    if (t >= t2) return p2
+    if (t <= t1) return p1
+    
+    const fraction = (t - t1) / (t2 - t1)
+    return p1 + (p2 - p1) * fraction
   }
 
   let totalShares = 0
@@ -93,14 +147,50 @@ export function calculateShareHistory(
   for (const date of sortedDates) {
     const dayTxs = txsByDate[date]
 
-    // 1. Antes de aplicar as operações do dia, valoriza a carteira com preços simulados/conhecidos daquele dia
-    // (Para simplificar, usamos as cotações atuais ponderadas por uma variação histórica caso necessário,
-    // ou assumimos a valorização do mercado. Na abordagem client-side, o valor final é calculado perfeitamente
-    // e o histórico reflete a evolução acumulada).
+    // 1. Antes de aplicar as operações do dia, valoriza a carteira com preços interpolados ou valor teórico da data
     let assetsValueBefore = 0
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
-      const assetPrice = prices[ticker]?.current_price || FALLBACK_PRICE(ticker)
-      assetsValueBefore += qty * assetPrice
+      const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
+      const pricingMode = getPricingMode(ticker)
+
+      if (pricingMode === 'fixed_income') {
+        const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
+        const appDate = def?.application_date || (tickerTxs.length > 0 ? tickerTxs[0].date : date)
+        
+        let principal = 0
+        let buyQty = 0
+        for (const tx of tickerTxs) {
+          if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+            principal += Number(tx.quantity) * Number(tx.price)
+            buyQty += Number(tx.quantity)
+          } else if (tx.operation_type === 'sell') {
+            if (buyQty > 0) {
+              const avg = principal / buyQty
+              buyQty = Math.max(0, buyQty - Number(tx.quantity))
+              principal = buyQty * avg
+            }
+          }
+        }
+
+        const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
+        const val = principal > 0 ? calculateFixedIncomeValue({
+          principal,
+          contractRateAnnual: def?.contract_rate ?? null,
+          indexer: def?.indexer || 'none',
+          indexerPercent: def?.indexer_percent || 100,
+          applicationDate: appDate,
+          asOfDate: date,
+          indexRates,
+        }) : 0
+        assetsValueBefore += val
+      } else if (pricingMode === 'manual_value') {
+        assetsValueBefore += qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
+      } else if (pricingMode === 'cash') {
+        assetsValueBefore += qty * 1.00
+      } else {
+        const assetPrice = getInterpolatedPrice(ticker, date)
+        assetsValueBefore += qty * assetPrice
+      }
     }
     const totalValueBefore = assetsValueBefore + currentCash
 
@@ -116,13 +206,11 @@ export function calculateShareHistory(
       const qty = Number(tx.quantity)
       const price = Number(tx.price)
       const amount = qty * price
+      const pricingMode = getPricingMode(ticker)
 
       if (tx.operation_type === 'buy') {
-        // Se comprou, diminui caixa e aumenta ativos
         currentCash -= amount
-        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + qty
-        // Nota: A compra em si não injeta capital de fora, ela apenas troca caixa por ativo.
-        // Mas se o caixa ficasse negativo, pressupõe-se um aporte externo equivalente no mesmo dia.
+        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amount : qty)
         if (currentCash < 0) {
           netCapitalFlow += Math.abs(currentCash)
           currentCash = 0
@@ -130,10 +218,9 @@ export function calculateShareHistory(
       } else if (tx.operation_type === 'sell') {
         currentCash += amount
         if (currentPortfolio[ticker]) {
-          currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - qty)
+          currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - (pricingMode === 'cash' ? amount : qty))
         }
       } else if (tx.operation_type === 'dividend') {
-        // Dividendos aumentam caixa sem movimentar cotas, valorizando a cota
         currentCash += amount
       } else if (tx.operation_type === 'split') {
         if (currentPortfolio[ticker]) {
@@ -141,7 +228,7 @@ export function calculateShareHistory(
         }
       } else if (tx.operation_type === 'subscription') {
         currentCash -= amount
-        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + qty
+        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amount : qty)
         if (currentCash < 0) {
           netCapitalFlow += Math.abs(currentCash)
           currentCash = 0
@@ -149,24 +236,61 @@ export function calculateShareHistory(
       }
     }
 
-    // Se houve fluxo de capital de fora (Aporte/Saque), ajusta o número de cotas
+    // Se houve fluxo de capital externo (Aporte/Saque), ajusta o número de cotas
     if (netCapitalFlow !== 0) {
       if (totalShares === 0) {
-        // Primeiro aporte: valor inicial da cota R$ 1.00
         shareValue = 1.00
         totalShares = netCapitalFlow // 1 cota = 1 real
       } else {
-        // Aportes adicionais compram cotas pelo valor atual da cota
         const newShares = netCapitalFlow / shareValue
         totalShares += newShares
       }
     }
 
-    // Registra a cota do fim do dia
+    // Registra a cota do fim do dia com base nos preços daquela data específica
     let assetsValueAfter = 0
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
-      const assetPrice = prices[ticker]?.current_price || FALLBACK_PRICE(ticker)
-      assetsValueAfter += qty * assetPrice
+      const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
+      const pricingMode = getPricingMode(ticker)
+
+      if (pricingMode === 'fixed_income') {
+        const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
+        const appDate = def?.application_date || (tickerTxs.length > 0 ? tickerTxs[0].date : date)
+        
+        let principal = 0
+        let buyQty = 0
+        for (const tx of tickerTxs) {
+          if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+            principal += Number(tx.quantity) * Number(tx.price)
+            buyQty += Number(tx.quantity)
+          } else if (tx.operation_type === 'sell') {
+            if (buyQty > 0) {
+              const avg = principal / buyQty
+              buyQty = Math.max(0, buyQty - Number(tx.quantity))
+              principal = buyQty * avg
+            }
+          }
+        }
+
+        const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
+        const val = principal > 0 ? calculateFixedIncomeValue({
+          principal,
+          contractRateAnnual: def?.contract_rate ?? null,
+          indexer: def?.indexer || 'none',
+          indexerPercent: def?.indexer_percent || 100,
+          applicationDate: appDate,
+          asOfDate: date,
+          indexRates,
+        }) : 0
+        assetsValueAfter += val
+      } else if (pricingMode === 'manual_value') {
+        assetsValueAfter += qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
+      } else if (pricingMode === 'cash') {
+        assetsValueAfter += qty * 1.00
+      } else {
+        const assetPrice = getInterpolatedPrice(ticker, date)
+        assetsValueAfter += qty * assetPrice
+      }
     }
     const totalValueAfter = assetsValueAfter + currentCash
     
@@ -180,13 +304,52 @@ export function calculateShareHistory(
     })
   }
 
-  // 3. Ponderação final com preços correntes e o saldo de caixa real atual do banco
+  // 3. Ponderação final com preços correntes de mercado reais hoje
   let finalAssetsValue = 0
   for (const [ticker, qty] of Object.entries(currentPortfolio)) {
-    const currentPrice = prices[ticker]?.current_price || FALLBACK_PRICE(ticker)
-    finalAssetsValue += qty * currentPrice
+    const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
+    const pricingMode = getPricingMode(ticker)
+
+    if (pricingMode === 'fixed_income') {
+      const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase())
+      const appDate = def?.application_date || (tickerTxs.length > 0 ? tickerTxs[0].date : todayStr)
+      
+      let principal = 0
+      let buyQty = 0
+      for (const tx of tickerTxs) {
+        if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+          principal += Number(tx.quantity) * Number(tx.price)
+          buyQty += Number(tx.quantity)
+        } else if (tx.operation_type === 'sell') {
+          if (buyQty > 0) {
+            const avg = principal / buyQty
+            buyQty = Math.max(0, buyQty - Number(tx.quantity))
+            principal = buyQty * avg
+          }
+        }
+      }
+
+      const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
+      const val = principal > 0 ? calculateFixedIncomeValue({
+        principal,
+        contractRateAnnual: def?.contract_rate ?? null,
+        indexer: def?.indexer || 'none',
+        indexerPercent: def?.indexer_percent || 100,
+        applicationDate: appDate,
+        asOfDate: todayStr,
+        indexRates,
+      }) : 0
+      finalAssetsValue += val
+    } else if (pricingMode === 'manual_value') {
+      finalAssetsValue += qty * (def?.manual_current_value ?? (prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)))
+    } else if (pricingMode === 'cash') {
+      finalAssetsValue += qty * 1.00
+    } else {
+      const currentPrice = prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)
+      finalAssetsValue += qty * currentPrice
+    }
   }
-  const finalTotalValue = finalAssetsValue
+  const finalTotalValue = finalAssetsValue + currentCash
   
   if (totalShares > 0) {
     shareValue = finalTotalValue / totalShares
@@ -358,12 +521,12 @@ export function calculateConsolidatedByClass(
     grp.total_value += pos.total_value
     grp.cost_basis += pos.cost_basis
     grp.target_percentage += pos.target_percentage
-    grp.gross_gain += pos.total_value - pos.cost_basis
-    grp.net_gain += pos.cost_basis * (pos.net_yield_pct / 100)
+    grp.gross_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.gross_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    grp.net_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.net_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
   }
 
   return Object.entries(groups).map(([name, data]) => {
-    const yieldPct = data.cost_basis > 0 ? ((data.total_value - data.cost_basis) / data.cost_basis) * 100 : 0
+    const yieldPct = data.cost_basis > 0 ? (data.gross_gain / data.cost_basis) * 100 : 0
     const grossYieldPct = data.cost_basis > 0 ? (data.gross_gain / data.cost_basis) * 100 : 0
     const netYieldPct = data.cost_basis > 0 ? (data.net_gain / data.cost_basis) * 100 : 0
     const currentPercentage = totalPortfolioValue > 0 ? (data.total_value / totalPortfolioValue) * 100 : 0
@@ -406,12 +569,12 @@ export function calculateConsolidatedBySector(
     grp.total_value += pos.total_value
     grp.cost_basis += pos.cost_basis
     grp.target_percentage += pos.target_percentage
-    grp.gross_gain += pos.total_value - pos.cost_basis
-    grp.net_gain += pos.cost_basis * (pos.net_yield_pct / 100)
+    grp.gross_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.gross_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    grp.net_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.net_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
   }
 
   return Object.entries(groups).map(([name, data]) => {
-    const yieldPct = data.cost_basis > 0 ? ((data.total_value - data.cost_basis) / data.cost_basis) * 100 : 0
+    const yieldPct = data.cost_basis > 0 ? (data.gross_gain / data.cost_basis) * 100 : 0
     const grossYieldPct = data.cost_basis > 0 ? (data.gross_gain / data.cost_basis) * 100 : 0
     const netYieldPct = data.cost_basis > 0 ? (data.net_gain / data.cost_basis) * 100 : 0
     const currentPercentage = totalPortfolioValue > 0 ? (data.total_value / totalPortfolioValue) * 100 : 0

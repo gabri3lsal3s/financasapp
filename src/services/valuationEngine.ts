@@ -119,6 +119,9 @@ function resolveCostBasis(
   if (definition.pricing_mode === 'cash') {
     return netInvestedFromLedger(ledger)
   }
+  if (ledger.quantity <= 0) {
+    return 0
+  }
   if (definition.applied_amount !== null && definition.applied_amount > 0) {
     return definition.applied_amount
   }
@@ -254,7 +257,7 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     let quotationStatus = priceObj?.quotation_status
 
     if (definition.pricing_mode === 'fixed_income') {
-      currentValue = calculateFixedIncomeValue({
+      currentValue = ledger.quantity > 0 ? calculateFixedIncomeValue({
         principal: costBasis,
         contractRateAnnual: definition.contract_rate,
         indexer: definition.indexer,
@@ -262,13 +265,13 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
         applicationDate,
         asOfDate,
         indexRates,
-      })
-      unitPrice = ledger.quantity > 0 ? currentValue / ledger.quantity : currentValue
+      }) : 0
+      unitPrice = ledger.quantity > 0 ? currentValue / ledger.quantity : 0
       valuationSource = 'fixed_income'
       quotationStatus = 'manual'
     } else if (definition.pricing_mode === 'manual_value') {
-      currentValue = definition.manual_current_value ?? costBasis
-      unitPrice = ledger.quantity > 0 ? currentValue / ledger.quantity : currentValue
+      currentValue = ledger.quantity > 0 ? (definition.manual_current_value ?? costBasis) : 0
+      unitPrice = ledger.quantity > 0 ? currentValue / ledger.quantity : 0
       valuationSource = 'manual'
       quotationStatus = 'manual'
     } else if (definition.pricing_mode === 'cash') {

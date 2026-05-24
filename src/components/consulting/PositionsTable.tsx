@@ -5,6 +5,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import { Percent, Layers, Trash2, Edit } from 'lucide-react'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 
 interface PositionsTableProps {
   positions: AssetPosition[]
@@ -394,19 +395,21 @@ export default function PositionsTable({
                         )}
                       </td>
                       <td className="p-3 text-right font-medium text-secondary font-mono">
-                        {pos.pricing_mode === 'cash' ? '—' : pos.quantity.toLocaleString('pt-BR')}
+                        {pos.pricing_mode === 'cash' ? '—' : formatNumberBR(pos.quantity)}
                       </td>
                       <td className="p-3 text-right text-secondary font-mono">
                         {pos.pricing_mode === 'cash'
                           ? '—'
-                          : `R$ ${pos.average_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          : formatCurrency(pos.average_price)}
                       </td>
                       <td className="p-3 text-right text-secondary font-semibold font-mono">
                         {pos.pricing_mode === 'cash'
                           ? '—'
-                          : `R$ ${pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          : formatCurrency(pos.current_price)}
                       </td>
-                      <td className="p-3 text-right font-bold text-primary font-mono">R$ {pos.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="p-3 text-right font-bold text-primary font-mono">
+                        {pos.pricing_mode === 'cash' ? '—' : formatCurrency(pos.total_value)}
+                      </td>
                       <td className="p-3 text-center">
                         <span className="px-2 py-0.5 bg-muted rounded text-xs font-semibold text-secondary font-mono">{pos.current_percentage}%</span>
                       </td>

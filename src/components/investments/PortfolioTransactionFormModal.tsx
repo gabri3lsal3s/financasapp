@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
+import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
 import Select from '@/components/Select'
 import { searchB3Assets, getAssetRichData, isB3TickerPattern } from '@/services/priceService'
@@ -13,7 +14,7 @@ import type {
   PortfolioAssetDefinition,
 } from '@/types'
 import { deleteLegacyInvestmentsForTransaction } from '@/utils/legacyInvestmentMigration'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { ASSET_DEFINITION_SELECT, PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
 import { computeCashOffsetPreview, excludeCashOffsetSells } from '@/utils/cashBalanceApplication'
 import {
@@ -433,6 +434,28 @@ export default function PortfolioTransactionFormModal({
 
       if (error) throw error
 
+      // Limpeza de definições e metas órfãs
+      const tickerUpper = editingTransaction.ticker.toUpperCase()
+      const { data: remaining } = await supabase
+        .from('portfolio_transactions')
+        .select('id')
+        .eq('portfolio_id', portfolioId)
+        .eq('ticker', tickerUpper)
+
+      if (!remaining || remaining.length === 0) {
+        await supabase
+          .from('portfolio_asset_definitions')
+          .delete()
+          .eq('portfolio_id', portfolioId)
+          .eq('ticker', tickerUpper)
+
+        await supabase
+          .from('target_allocations')
+          .delete()
+          .eq('portfolio_id', portfolioId)
+          .eq('ticker', tickerUpper)
+      }
+
       window.dispatchEvent(
         new CustomEvent('local-data-changed', { detail: { entity: 'investments' } })
       )
@@ -542,31 +565,27 @@ export default function PortfolioTransactionFormModal({
             {richData.dividendYield !== undefined && (
               <div className="flex justify-between items-center text-[10px] opacity-80 pt-0.5 border-t border-primary/10">
                 <span>Dividend Yield Anual (DY):</span>
-                <span className="text-indigo-500 font-bold">{richData.dividendYield.toFixed(2)}%</span>
+                <span className="text-indigo-500 font-bold">{formatNumberBR(richData.dividendYield, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
               </div>
             )}
           </div>
         )}
 
         {pricingMode === 'market' && (
-          <>
-            <label className="flex items-center gap-2 text-sm text-primary">
-              <input
-                type="checkbox"
-                checked={isB3Linked}
-                onChange={(e) => setIsB3Linked(e.target.checked)}
-              />
-              Vinculado à B3
-            </label>
-            <label className="flex items-center gap-2 text-sm text-primary">
-              <input
-                type="checkbox"
-                checked={isTreasury}
-                onChange={(e) => setIsTreasury(e.target.checked)}
-              />
-              Tesouro Direto (híbrido)
-            </label>
-          </>
+          <div className="flex flex-col gap-2.5 p-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl">
+            <Checkbox
+              label="Vinculado à B3"
+              description="Cotação atualizada automaticamente pelo mercado"
+              checked={isB3Linked}
+              onChange={(e) => setIsB3Linked(e.target.checked)}
+            />
+            <Checkbox
+              label="Tesouro Direto (híbrido)"
+              description="Aplica indexador ao preço de mercado do Tesouro"
+              checked={isTreasury}
+              onChange={(e) => setIsTreasury(e.target.checked)}
+            />
+          </div>
         )}
 
         {pricingMode === 'fixed_income' && (
@@ -589,14 +608,12 @@ export default function PortfolioTransactionFormModal({
                 { value: 'ipca', label: 'IPCA' },
               ]}
             />
-            <label className="flex items-center gap-2 text-sm text-primary">
-              <input
-                type="checkbox"
-                checked={taxExempt}
-                onChange={(e) => setTaxExempt(e.target.checked)}
-              />
-              Isento de IR (LCI/LCA)
-            </label>
+            <Checkbox
+              label="Isento de IR (LCI/LCA)"
+              description="Não aplica tabela regressiva de imposto de renda"
+              checked={taxExempt}
+              onChange={(e) => setTaxExempt(e.target.checked)}
+            />
           </>
         )}
 

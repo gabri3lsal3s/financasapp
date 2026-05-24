@@ -333,6 +333,12 @@ export function useInvestments(month?: string) {
 
       // 2. Se houver transação vinculada, deleta primeiro
       if (oldInv.transaction_id) {
+        const { data: txToDelete } = await supabase
+          .from('portfolio_transactions')
+          .select('portfolio_id, ticker')
+          .eq('id', oldInv.transaction_id)
+          .maybeSingle()
+
         const { error: txDelError } = await supabase
           .from('portfolio_transactions')
           .delete()
@@ -340,6 +346,30 @@ export function useInvestments(month?: string) {
 
         if (txDelError) {
           console.warn('Erro ao deletar transação vinculada ao excluir investimento:', txDelError)
+        }
+
+        if (txToDelete) {
+          const { portfolio_id, ticker } = txToDelete
+          const tickerUpper = ticker.toUpperCase()
+          const { data: remaining } = await supabase
+            .from('portfolio_transactions')
+            .select('id')
+            .eq('portfolio_id', portfolio_id)
+            .eq('ticker', tickerUpper)
+
+          if (!remaining || remaining.length === 0) {
+            await supabase
+              .from('portfolio_asset_definitions')
+              .delete()
+              .eq('portfolio_id', portfolio_id)
+              .eq('ticker', tickerUpper)
+
+            await supabase
+              .from('target_allocations')
+              .delete()
+              .eq('portfolio_id', portfolio_id)
+              .eq('ticker', tickerUpper)
+          }
         }
       }
 

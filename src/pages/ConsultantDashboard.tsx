@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
-import { Profile, Portfolio, PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget } from '@/types'
+import { Profile, Portfolio, PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
 import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
-import { getAssetPrices, searchB3Assets, getAssetRichData, AssetRichData } from '@/services/priceService'
+import { getAssetPrices, searchB3Assets } from '@/services/priceService'
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
+import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
 import Loader from '@/components/Loader'
@@ -14,7 +15,7 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Modal from '@/components/Modal'
 import PageHeader from '@/components/PageHeader'
-import { UserPlus, Trash2, ShieldCheck, AlertCircle } from 'lucide-react'
+import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
 
@@ -28,13 +29,13 @@ import PositionsTable from '@/components/consulting/PositionsTable'
 import AdvisorNotes from '@/components/consulting/AdvisorNotes'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
+import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 
 // Novos Componentes de Monitoramento Analítico (Grid Mode)
 import SectorExposureChart from '@/components/consulting/SectorExposureChart'
 import ExposureVsLimitsChart from '@/components/consulting/ExposureVsLimitsChart'
 import WeeklyVariationChart from '@/components/consulting/WeeklyVariationChart'
 import PerformanceMetricsCard from '@/components/consulting/PerformanceMetricsCard'
-import BenchmarkComparisonTable from '@/components/consulting/BenchmarkComparisonTable'
 import { isPrimaryAdminProfile } from '@/constants/adminProfile'
 import {
   buildProvisionalClientEmail,
@@ -73,9 +74,8 @@ export default function ConsultantDashboard() {
   const [loadingClients, setLoadingClients] = useState<boolean>(true)
   
   // Estado para Personalização de Layout & Billing
-  const [viewMode, setViewMode] = useState<'tabs' | 'grid'>('grid')
-  const [activeTab, setActiveTab] = useState<'overview' | 'composition' | 'ledger' | 'qualitative'>('overview')
-  const [billingFeeRate, setBillingFeeRate] = useState<number>(0.1)
+  const [activeTab, setActiveTab] = useState<'overview' | 'allocation' | 'rebalancing' | 'positions' | 'ledger' | 'qualitative'>('overview')
+  const [billingFeeRate, setBillingFeeRate] = useState<number>(0.10)
 
   // Estado para Visão Geral de AUM Consolidado do Consultor
   const [globalAumData, setGlobalAumData] = useState<{
@@ -102,11 +102,14 @@ export default function ConsultantDashboard() {
   const [targetAllocations, setTargetAllocations] = useState<TargetAllocation[]>([])
   const [assetPrices, setAssetPrices] = useState<Record<string, AssetPrice>>({})
   const [loadingPortfolio, setLoadingPortfolio] = useState<boolean>(false)
+  const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
+  const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
 
   // Estados de cálculo
   const [positions, setPositions] = useState<AssetPosition[]>([])
   const [portfolioValue, setPortfolioValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
+  const [totalShares, setTotalShares] = useState<number>(0)
   
   // Estado para cadastrar novo cliente
   const [isClientModalOpen, setIsClientModalOpen] = useState<boolean>(false)
@@ -127,14 +130,9 @@ export default function ConsultantDashboard() {
   const [linking, setLinking] = useState<boolean>(false)
   const [loadingEligible, setLoadingEligible] = useState<boolean>(false)
 
-  // Estado para lançar transações
-  const [showTxForm, setShowTxForm] = useState<boolean>(false)
-  const [txTicker, setTxTicker] = useState<string>('')
-  const [txType, setTxType] = useState<'buy' | 'sell' | 'dividend' | 'split' | 'subscription'>('buy')
-  const [txQty, setTxQty] = useState<string>('')
-  const [txPrice, setTxPrice] = useState<string>('')
-  const [txDate, setTxDate] = useState<string>(new Date().toISOString().split('T')[0])
-  const [savingTx, setSavingTx] = useState<boolean>(false)
+  // Estado para modal de transações
+  const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false)
+  const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
 
   // Estado para gerenciar Metas de Alocação
   const [showTargetForm, setShowTargetForm] = useState<boolean>(false)
@@ -153,13 +151,9 @@ export default function ConsultantDashboard() {
   const [nextMonthPlan, setNextMonthPlan] = useState<string>('')
   const [savingReport, setSavingReport] = useState<boolean>(false)
 
-  // Autocomplete B3 & Dados Ricos Yahoo Finance
-  const [txSuggestions, setTxSuggestions] = useState<{ ticker: string, name: string }[]>([])
-  const [showTxSuggestions, setShowTxSuggestions] = useState<boolean>(false)
+  // Autocomplete B3 para metas de alocação
   const [targetSuggestions, setTargetSuggestions] = useState<{ ticker: string, name: string }[]>([])
   const [showTargetSuggestions, setShowTargetSuggestions] = useState<boolean>(false)
-  const [txAssetRichData, setTxAssetRichData] = useState<AssetRichData | null>(null)
-  const [loadingRichData, setLoadingRichData] = useState<boolean>(false)
 
   // Estado para cadastrar novo ativo/meta com classe e setor forçados
   const [targetAssetClass, setTargetAssetClass] = useState<string>('')
@@ -202,18 +196,6 @@ export default function ConsultantDashboard() {
     }
   }, [isLinkModalOpen])
 
-  const handleTxTickerChange = async (val: string) => {
-    setTxTicker(val)
-    if (val.length >= 2) {
-      const suggestions = await searchB3Assets(val)
-      setTxSuggestions(suggestions)
-      setShowTxSuggestions(true)
-    } else {
-      setTxSuggestions([])
-      setShowTxSuggestions(false)
-      setTxAssetRichData(null)
-    }
-  }
 
   const handleSelectRegisteredTicker = (val: string) => {
     if (val === 'custom') {
@@ -253,29 +235,7 @@ export default function ConsultantDashboard() {
     }
   }
 
-  useEffect(() => {
-    const fetchRichData = async () => {
-      if (txTicker.length >= 3) {
-        setLoadingRichData(true)
-        try {
-          const data = await getAssetRichData(txTicker)
-          setTxAssetRichData(data)
-          if (data && (!txPrice || txPrice === '0' || txPrice === '')) {
-            setTxPrice(data.price.toFixed(2))
-          }
-        } catch (err) {
-          console.warn('Erro ao carregar dados ricos da cotação:', err)
-        } finally {
-          setLoadingRichData(false)
-        }
-      } else {
-        setTxAssetRichData(null)
-      }
-    }
 
-    const timer = setTimeout(fetchRichData, 500)
-    return () => clearTimeout(timer)
-  }, [txTicker])
 
   const loadEligibleClients = async () => {
     try {
@@ -444,7 +404,7 @@ export default function ConsultantDashboard() {
       setAssetPrices(prices)
 
       let overallAum = 0
-      const overallCash = 0
+      let overallCash = 0
       
       const rows = portfoliosList.map(port => {
         const clientProfile = parseJoinedProfile(port.client)
@@ -453,15 +413,17 @@ export default function ConsultantDashboard() {
           : 'Sem nome'
         const clientTxs = transactionsList.filter(t => t.portfolio_id === port.id)
         const clientTargets = targetsList.filter(t => t.portfolio_id === port.id)
+        const cashVal = Number(port.cash_balance) || 0
 
         const { positions: calcPositions, totalValue } = calculatePositions(
           clientTxs,
           clientTargets,
           prices,
-          0
+          cashVal
         )
 
         overallAum += totalValue
+        overallCash += cashVal
 
         let deviationPct = 0
         if (totalValue > 0) {
@@ -477,7 +439,7 @@ export default function ConsultantDashboard() {
           name: clientName,
           email: clientProfile?.email || '',
           aum: totalValue,
-          cash: 0,
+          cash: cashVal,
           assetsCount: calcPositions.length,
           deviationPct: Math.round(deviationPct * 10) / 10
         }
@@ -543,13 +505,13 @@ export default function ConsultantDashboard() {
     positions.forEach(pos => {
       const cls = pos.asset_class || 'Renda Fixa'
       if (!dataMap[cls]) {
-        let color = '#3b82f6'
-        if (cls.includes('Ações Nacionais')) color = '#6366f1'
-        else if (cls.includes('Fundos')) color = '#10b981'
-        else if (cls.includes('Cripto')) color = '#f59e0b'
-        else if (cls.includes('Renda Fixa')) color = '#ec4899'
-        else if (cls.includes('Internacionais')) color = '#06b6d4'
-        else if (cls.includes('ETFs')) color = '#8b5cf6'
+        let color = 'rgb(59, 130, 246)'
+        if (cls.includes('Ações Nacionais')) color = 'rgb(99, 102, 241)'
+        else if (cls.includes('Fundos')) color = 'rgb(16, 185, 129)'
+        else if (cls.includes('Cripto')) color = 'rgb(245, 158, 11)'
+        else if (cls.includes('Renda Fixa')) color = 'rgb(236, 72, 153)'
+        else if (cls.includes('Internacionais')) color = 'rgb(6, 182, 212)'
+        else if (cls.includes('ETFs')) color = 'rgb(139, 92, 246)'
         
         dataMap[cls] = { name: cls, value: 0, color }
       }
@@ -561,14 +523,21 @@ export default function ConsultantDashboard() {
 
   const shareHistoryData = React.useMemo(() => {
     if (!portfolio) return []
-    const { shareHistory } = calculateShareHistory(transactions, assetPrices)
+    const { shareHistory } = calculateShareHistory(transactions, assetPrices, assetDefinitions, indexRatesByIndexer)
     return shareHistory
-  }, [transactions, assetPrices, portfolio])
+  }, [transactions, assetPrices, portfolio, assetDefinitions, indexRatesByIndexer])
 
   // Métricas de performance (metrics)
   const performanceMetrics = React.useMemo(() => {
     return calculatePerformanceMetrics(shareHistoryData)
   }, [shareHistoryData])
+
+  // Rentabilidade real consolidada da carteira com base nos ativos
+  const overallYieldPct = React.useMemo(() => {
+    const totalCostBasis = positions.reduce((sum, p) => sum + p.cost_basis, 0)
+    const totalGrossGain = positions.reduce((sum, p) => sum + p.cost_basis * (p.gross_yield_pct / 100), 0)
+    return totalCostBasis > 0 ? (totalGrossGain / totalCostBasis) * 100 : 0
+  }, [positions])
 
   // Consolidado por classe de ativos (consolidatedClass)
   const consolidatedClassData = React.useMemo(() => {
@@ -658,6 +627,7 @@ export default function ConsultantDashboard() {
 
       setPortfolio(portData)
       setClientNotes(portData ? portData.notes || '' : '')
+      setBillingFeeRate(portData && portData.billing_fee_rate !== undefined && portData.billing_fee_rate !== null ? Number(portData.billing_fee_rate) : 0.85)
 
       const { data: txsData, error: txsError } = await supabase
         .from('portfolio_transactions')
@@ -709,16 +679,24 @@ export default function ConsultantDashboard() {
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
         setPortfolioValue(valuation.totalValue)
+        setAssetDefinitions(valuation.definitions)
+        setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
-        const { currentShareValue } = calculateShareHistory(
+        const { currentShareValue, totalShares: sharesOutstanding } = calculateShareHistory(
           txs,
-          valuation.prices
+          valuation.prices,
+          valuation.definitions,
+          valuation.indexRatesByIndexer
         )
         setShareValue(currentShareValue)
+        setTotalShares(sharesOutstanding)
       } else {
         setPositions([])
         setPortfolioValue(0)
         setShareValue(1.0)
+        setTotalShares(0)
+        setAssetDefinitions([])
+        setIndexRatesByIndexer({})
       }
     } catch (err) {
       console.error('Erro ao carregar dados do portfolio:', err)
@@ -967,62 +945,14 @@ export default function ConsultantDashboard() {
     }
   }
 
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!portfolio) return
-    setSavingTx(true)
-
-    try {
-      const qty = parseFloat(txQty)
-      const price = parseFloat(txPrice)
-      const ticker = txTicker.toUpperCase().trim()
-
-      if (isNaN(qty) || qty <= 0) throw new Error('Quantidade inválida')
-      if (isNaN(price) || price <= 0) throw new Error('Preço inválido')
-      if (!ticker) throw new Error('Insira o ticker')
-
-      const { error: txError } = await supabase
-        .from('portfolio_transactions')
-        .insert({
-          portfolio_id: portfolio.id,
-          ticker,
-          operation_type: txType,
-          quantity: qty,
-          price,
-          date: txDate
-        })
-
-      if (txError) throw txError
-
-      toast.success('Transação registrada!')
-      setShowTxForm(false)
-      setTxTicker('')
-      setTxQty('')
-      setTxPrice('')
-      loadPortfolioData(selectedClientId)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar transação')
-    } finally {
-      setSavingTx(false)
-    }
+  const handleOpenTxModal = (tx?: PortfolioTransaction) => {
+    setEditingTransaction(tx ?? null)
+    setIsTxModalOpen(true)
   }
 
-  const handleDeleteTransaction = async (txId: string) => {
-    if (!window.confirm('Tem certeza que deseja remover esta transação do livro-razão?')) return
-
-    try {
-      const { error: delError } = await supabase
-        .from('portfolio_transactions')
-        .delete()
-        .eq('id', txId)
-
-      if (delError) throw delError
-
-      toast.success('Transação excluída!')
-      loadPortfolioData(selectedClientId)
-    } catch (err) {
-      toast.error('Erro ao deletar transação')
-    }
+  const handleCloseTxModal = () => {
+    setIsTxModalOpen(false)
+    setEditingTransaction(null)
   }
 
   const handleSaveTarget = async (e: React.FormEvent) => {
@@ -1212,6 +1142,20 @@ export default function ConsultantDashboard() {
     }
   }
 
+  const handleSaveFeeRate = async (rate: number) => {
+    setBillingFeeRate(rate)
+    if (!portfolio) return
+    try {
+      const { error } = await supabase
+        .from('portfolios')
+        .update({ billing_fee_rate: rate })
+        .eq('id', portfolio.id)
+      if (error) throw error
+    } catch (err) {
+      console.error('Erro ao salvar taxa de fee no banco:', err)
+    }
+  }
+
   const handleExportPDF = async () => {
     if (!portfolio || !selectedClientId) return
     const client = clients.find(c => c.id === selectedClientId)
@@ -1219,7 +1163,7 @@ export default function ConsultantDashboard() {
 
     toast.loading('Gerando relatório PDF de alta qualidade...', { id: 'pdf-toast' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices)
+      const { shareHistory } = calculateShareHistory(transactions, assetPrices, assetDefinitions, indexRatesByIndexer)
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
@@ -1229,7 +1173,7 @@ export default function ConsultantDashboard() {
         shareHistory,
         metrics,
         theses: assetTheses,
-        cashBalance: 0,
+        cashBalance: Number(portfolio.cash_balance) || 0,
         groupTargets: groupTargets,
         executiveSummary: executiveSummary || undefined,
         nextMonthPlan: nextMonthPlan || undefined,
@@ -1306,291 +1250,179 @@ export default function ConsultantDashboard() {
         />
       )}
 
-      {/* Menu de Personalização de Visualização (Abas vs Grid) */}
+      {/* Menu de Personalização de Visualização (Abas Premium) */}
       {portfolio && selectedClient && (
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border/40 px-5 py-3 rounded-2xl shadow-sm text-left animate-page-enter">
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-card border border-border/40 p-4 rounded-3xl shadow-sm text-left animate-page-enter">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block font-sans">Visualização do Painel:</span>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setViewMode('tabs')}
-                className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
-                  viewMode === 'tabs'
-                    ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/30'
-                    : 'bg-transparent text-secondary border border-transparent hover:bg-muted/10'
-                }`}
-              >
-                Abas Focadas
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-1 text-xs font-bold rounded-xl transition-all ${
-                  viewMode === 'grid'
-                    ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/30'
-                    : 'bg-transparent text-secondary border border-transparent hover:bg-muted/10'
-                }`}
-              >
-                Painel Completo (Grid)
-              </button>
-            </div>
+            <span className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block font-sans">
+              Painel de Assessoria:
+            </span>
           </div>
 
-          {/* Abas de Navegação Dinâmica */}
-          {viewMode === 'tabs' && (
-            <div className="flex flex-wrap gap-1">
-              {[
-                { id: 'overview', label: 'Visão Geral & Caixa' },
-                { id: 'composition', label: 'Metas & Composição' },
-                { id: 'ledger', label: 'Livro-Razão' },
-                { id: 'qualitative', label: 'Planejamento & PDF' }
-              ].map(tab => (
-                <button
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'overview', label: 'Resumo & Risco', icon: LayoutDashboard },
+              { id: 'allocation', label: 'Distribuição & Limites', icon: PieChart },
+              { id: 'rebalancing', label: 'Rebalanceamento', icon: RefreshCw },
+              { id: 'positions', label: 'Posições', icon: Briefcase },
+              { id: 'ledger', label: 'Livro-Razão', icon: History },
+              { id: 'qualitative', label: 'Relatório & PDF', icon: FileText }
+            ].map(tab => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <Button
                   key={tab.id}
+                  variant={isActive ? 'primary' : 'outline'}
+                  size="sm"
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-primary text-primary border border-indigo-500/30 shadow-sm'
-                      : 'bg-transparent text-secondary border border-transparent hover:text-primary'
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all ${
+                    isActive 
+                      ? 'shadow-md shadow-indigo-500/10' 
+                      : 'hover:bg-muted/10'
                   }`}
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          )}
+                  <Icon size={14} />
+                  <span>{tab.label}</span>
+                </Button>
+              )
+            })}
+          </div>
         </div>
       )}
 
       {portfolio ? (
         <div className={`transition-all duration-300 ${loadingPortfolio ? 'opacity-60 pointer-events-none' : ''}`}>
-          {viewMode === 'tabs' ? (
-            /* =======================================================
-               A) RENDER EM ABAS DE GESTÃO (MINIMALISTA E CONCENTRADO)
-               ======================================================= */
-            <div className="space-y-6 animate-page-enter">
-              {activeTab === 'overview' && (
-                <div className="space-y-6">
-                  <ClientKpiCards
-                    portfolioValue={portfolioValue}
-                    shareValue={shareValue}
-                  />
-                  {/* Simulador integrado */}
-                  <ContributionSimulator
-                    portfolio={portfolio}
-                    positions={positions}
-                    onContributionExecuted={() => loadPortfolioData(selectedClientId)}
-                  />
-
-                  {/* Distribuição Gráfica e Diretrizes de Rebalanceamento */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                    <ClientAllocationCharts classChartData={classChartData} consolidatedClass={consolidatedClassData} />
-                    <RebalancingChecklist rebalancingTrades={rebalancingTrades} />
-                  </div>
+          <div className="space-y-6 animate-page-enter">
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <ClientKpiCards
+                  portfolioValue={portfolioValue}
+                  shareValue={shareValue}
+                  totalShares={totalShares}
+                  overallYieldPct={overallYieldPct}
+                />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+                  <WeeklyVariationChart shareHistory={shareHistoryData} />
+                  <PerformanceMetricsCard metrics={performanceMetrics} />
                 </div>
-              )}
+                <AdvisorNotes
+                  clientNotes={clientNotes}
+                  setClientNotes={setClientNotes}
+                  onSaveNotes={handleSavePortfolioSettings}
+                  savingSettings={savingSettings}
+                />
+              </div>
+            )}
 
-              {activeTab === 'composition' && (
-                <PositionsTable
+            {activeTab === 'allocation' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+                  <ClientAllocationCharts
+                    classChartData={classChartData}
+                    consolidatedClass={consolidatedClassData}
+                  />
+                  <SectorExposureChart
+                    consolidatedSector={consolidatedSectorData}
+                  />
+                </div>
+                <div className="text-left">
+                  <ExposureVsLimitsChart positions={positions} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'rebalancing' && (
+              <div className="space-y-6">
+                <ContributionSimulator
+                  portfolio={portfolio}
                   positions={positions}
-                  targetAllocations={targetAllocations}
-                  groupTargets={groupTargets}
-                  assetPrices={assetPrices}
-                  assetTheses={assetTheses}
-                  showTargetForm={showTargetForm}
-                  setShowTargetForm={setShowTargetForm}
-                  showGroupTargetForm={showGroupTargetForm}
-                  setShowGroupTargetForm={setShowGroupTargetForm}
-                  targetTicker={targetTicker}
-                  setTargetTicker={setTargetTicker}
-                  targetPct={targetPct}
-                  setTargetPct={setTargetPct}
-                  targetAssetClass={targetAssetClass}
-                  setTargetAssetClass={setTargetAssetClass}
-                  targetSector={targetSector}
-                  setTargetSector={setTargetSector}
-                  isCustomTicker={isCustomTicker}
-                  setIsCustomTicker={setIsCustomTicker}
-                  groupTargetType={groupTargetType}
-                  setGroupTargetType={setGroupTargetType}
-                  groupTargetName={groupTargetName}
-                  setGroupTargetName={setGroupTargetName}
-                  groupTargetPct={groupTargetPct}
-                  setGroupTargetPct={setGroupTargetPct}
-                  onSaveTarget={handleSaveTarget}
-                  onDeleteTarget={handleDeleteTarget}
-                  onSaveGroupTarget={handleSaveGroupTarget}
-                  onDeleteGroupTarget={handleDeleteGroupTarget}
-                  targetSuggestions={targetSuggestions}
-                  showTargetSuggestions={showTargetSuggestions}
-                  setShowTargetSuggestions={setShowTargetSuggestions}
-                  handleCustomTickerChange={handleCustomTickerChange}
-                  handleSelectRegisteredTicker={handleSelectRegisteredTicker}
-                  onEditAssetClassification={(ticker, clClass, clSector) => {
-                    setEditingAssetTicker(ticker)
-                    setEditingAssetClass(clClass)
-                    setEditingAssetSector(clSector)
-                    setIsEditAssetModalOpen(true)
-                  }}
-                  transactions={transactions}
+                  onContributionExecuted={() => loadPortfolioData(selectedClientId)}
                 />
-              )}
-
-              {activeTab === 'ledger' && (
-                <LedgerBook
-                  transactions={transactions}
-                  showTxForm={showTxForm}
-                  setShowTxForm={setShowTxForm}
-                  txTicker={txTicker}
-                  onTxTickerChange={handleTxTickerChange}
-                  txSuggestions={txSuggestions}
-                  showTxSuggestions={showTxSuggestions}
-                  setShowTxSuggestions={setShowTxSuggestions}
-                  txType={txType}
-                  setTxType={setTxType}
-                  txQty={txQty}
-                  setTxQty={setTxQty}
-                  txPrice={txPrice}
-                  setTxPrice={setTxPrice}
-                  txDate={txDate}
-                  setTxDate={setTxDate}
-                  loadingRichData={loadingRichData}
-                  txAssetRichData={txAssetRichData}
-                  savingTx={savingTx}
-                  onAddTransaction={handleAddTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
-                />
-              )}
-
-
-              {activeTab === 'qualitative' && (
-                <div className="space-y-6">
-                  {/* Anotações privadas da assessoria */}
-                  <AdvisorNotes
-                    clientNotes={clientNotes}
-                    setClientNotes={setClientNotes}
-                    onSaveNotes={handleSavePortfolioSettings}
-                    savingSettings={savingSettings}
-                  />
-
-                  {/* Formulários qualitativos para o PDF */}
-                  <QualitativeAnalysis
-                    positions={positions}
-                    assetTheses={assetTheses}
-                    editingThesisTicker={editingThesisTicker}
-                    setEditingThesisTicker={setEditingThesisTicker}
-                    thesisText={thesisText}
-                    setThesisText={setThesisText}
-                    savingThesis={savingThesis}
-                    onSaveThesis={handleSaveThesis}
-                    onDeleteThesis={handleDeleteThesis}
-                    executiveSummary={executiveSummary}
-                    setExecutiveSummary={setExecutiveSummary}
-                    nextMonthPlan={nextMonthPlan}
-                    setNextMonthPlan={setNextMonthPlan}
-                    savingReport={savingReport}
-                    onSaveReport={handleSaveReport}
-                    portfolioValue={portfolioValue}
-                    billingFeeRate={billingFeeRate}
-                    setBillingFeeRate={setBillingFeeRate}
-                    onExportPDF={handleExportPDF}
-                  />
+                <div className="grid grid-cols-1 gap-6 text-left">
+                  <RebalancingChecklist rebalancingTrades={rebalancingTrades} />
                 </div>
-              )}
-            </div>
-          ) : (
-            /* =======================================================
-               B) RENDER EM GRIDE / PAINEL COMPLETO (MONITORAMENTO ANALÍTICO EXCLUSIVO)
-               ======================================================= */
-            <div className="space-y-6 lg:space-y-8 animate-page-enter">
-              <ClientKpiCards
-                portfolioValue={portfolioValue}
-                shareValue={shareValue}
+              </div>
+            )}
+
+            {activeTab === 'positions' && (
+              <PositionsTable
+                positions={positions}
+                targetAllocations={targetAllocations}
+                groupTargets={groupTargets}
+                assetPrices={assetPrices}
+                assetTheses={assetTheses}
+                showTargetForm={showTargetForm}
+                setShowTargetForm={setShowTargetForm}
+                showGroupTargetForm={showGroupTargetForm}
+                setShowGroupTargetForm={setShowGroupTargetForm}
+                targetTicker={targetTicker}
+                setTargetTicker={setTargetTicker}
+                targetPct={targetPct}
+                setTargetPct={setTargetPct}
+                targetAssetClass={targetAssetClass}
+                setTargetAssetClass={setTargetAssetClass}
+                targetSector={targetSector}
+                setTargetSector={setTargetSector}
+                isCustomTicker={isCustomTicker}
+                setIsCustomTicker={setIsCustomTicker}
+                groupTargetType={groupTargetType}
+                setGroupTargetType={setGroupTargetType}
+                groupTargetName={groupTargetName}
+                setGroupTargetName={setGroupTargetName}
+                groupTargetPct={groupTargetPct}
+                setGroupTargetPct={setGroupTargetPct}
+                onSaveTarget={handleSaveTarget}
+                onDeleteTarget={handleDeleteTarget}
+                onSaveGroupTarget={handleSaveGroupTarget}
+                onDeleteGroupTarget={handleDeleteGroupTarget}
+                targetSuggestions={targetSuggestions}
+                showTargetSuggestions={showTargetSuggestions}
+                setShowTargetSuggestions={setShowTargetSuggestions}
+                handleCustomTickerChange={handleCustomTickerChange}
+                handleSelectRegisteredTicker={handleSelectRegisteredTicker}
+                onEditAssetClassification={(ticker, clClass, clSector) => {
+                  setEditingAssetTicker(ticker)
+                  setEditingAssetClass(clClass)
+                  setEditingAssetSector(clSector)
+                  setIsEditAssetModalOpen(true)
+                }}
+                transactions={transactions}
               />
-              {/* 2. Distribuição de Classes & Setores (50% / 50%) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 text-left">
-                <ClientAllocationCharts
-                  classChartData={classChartData}
-                  consolidatedClass={consolidatedClassData}
-                />
-                <SectorExposureChart
-                  consolidatedSector={consolidatedSectorData}
-                />
-              </div>
+            )}
 
-              {/* 3. Limites de Alocação por Ativo (largura total) */}
-              <div className="text-left">
-                <ExposureVsLimitsChart
-                  positions={positions}
-                />
-              </div>
+            {activeTab === 'ledger' && (
+              <LedgerBook
+                transactions={transactions}
+                onOpenTxModal={handleOpenTxModal}
+              />
+            )}
 
-              {/* 4. Histórico da Cota & Principais Métricas de Risco (50% / 50%) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 text-left">
-                <WeeklyVariationChart
-                  shareHistory={shareHistoryData}
-                />
-                <PerformanceMetricsCard
-                  metrics={performanceMetrics}
-                />
-              </div>
 
-              {/* 5. Tabela Comparativa de Benchmarks (largura total) */}
-              <div className="text-left">
-                <BenchmarkComparisonTable
-                  consolidatedClass={consolidatedClassData}
-                  transactions={transactions}
-                  assetPrices={assetPrices}
-                />
-              </div>
-
-              {/* 6. Tabela de Posições (largura total) */}
-              <div className="text-left">
-                <PositionsTable
-                  positions={positions}
-                  targetAllocations={targetAllocations}
-                  groupTargets={groupTargets}
-                  assetPrices={assetPrices}
-                  assetTheses={assetTheses}
-                  showTargetForm={showTargetForm}
-                  setShowTargetForm={setShowTargetForm}
-                  showGroupTargetForm={showGroupTargetForm}
-                  setShowGroupTargetForm={setShowGroupTargetForm}
-                  targetTicker={targetTicker}
-                  setTargetTicker={setTargetTicker}
-                  targetPct={targetPct}
-                  setTargetPct={setTargetPct}
-                  targetAssetClass={targetAssetClass}
-                  setTargetAssetClass={setTargetAssetClass}
-                  targetSector={targetSector}
-                  setTargetSector={setTargetSector}
-                  isCustomTicker={isCustomTicker}
-                  setIsCustomTicker={setIsCustomTicker}
-                  groupTargetType={groupTargetType}
-                  setGroupTargetType={setGroupTargetType}
-                  groupTargetName={groupTargetName}
-                  setGroupTargetName={setGroupTargetName}
-                  groupTargetPct={groupTargetPct}
-                  setGroupTargetPct={setGroupTargetPct}
-                  onSaveTarget={handleSaveTarget}
-                  onDeleteTarget={handleDeleteTarget}
-                  onSaveGroupTarget={handleSaveGroupTarget}
-                  onDeleteGroupTarget={handleDeleteGroupTarget}
-                  targetSuggestions={targetSuggestions}
-                  showTargetSuggestions={showTargetSuggestions}
-                  setShowTargetSuggestions={setShowTargetSuggestions}
-                  handleCustomTickerChange={handleCustomTickerChange}
-                  handleSelectRegisteredTicker={handleSelectRegisteredTicker}
-                  onEditAssetClassification={(ticker, clClass, clSector) => {
-                    setEditingAssetTicker(ticker)
-                    setEditingAssetClass(clClass)
-                    setEditingAssetSector(clSector)
-                    setIsEditAssetModalOpen(true)
-                  }}
-                  transactions={transactions}
-                />
-              </div>
-            </div>
-          )}
+            {activeTab === 'qualitative' && (
+              <QualitativeAnalysis
+                positions={positions}
+                assetTheses={assetTheses}
+                editingThesisTicker={editingThesisTicker}
+                setEditingThesisTicker={setEditingThesisTicker}
+                thesisText={thesisText}
+                setThesisText={setThesisText}
+                savingThesis={savingThesis}
+                onSaveThesis={handleSaveThesis}
+                onDeleteThesis={handleDeleteThesis}
+                executiveSummary={executiveSummary}
+                setExecutiveSummary={setExecutiveSummary}
+                nextMonthPlan={nextMonthPlan}
+                setNextMonthPlan={setNextMonthPlan}
+                savingReport={savingReport}
+                onSaveReport={handleSaveReport}
+                portfolioValue={portfolioValue}
+                billingFeeRate={billingFeeRate}
+                setBillingFeeRate={handleSaveFeeRate}
+                onExportPDF={handleExportPDF}
+              />
+            )}
+          </div>
         </div>
       ) : selectedClientId === '' ? (
         /* =======================================================
@@ -1749,23 +1581,21 @@ export default function ConsultantDashboard() {
             Altere manualmente a classe e o setor econômico do ativo **{editingAssetTicker}** no banco de dados. Essas configurações serão aplicadas imediatamente a todos os relatórios e carteiras que contêm este ativo.
           </p>
 
-          <div>
-            <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1 font-sans">Classe de Ativo</label>
-            <select
-              value={editingAssetClass}
-              onChange={e => setEditingAssetClass(e.target.value)}
-              className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-              required
-            >
-              <option value="Ações Nacionais">Ações Nacionais</option>
-              <option value="Ações Internacionais">Ações Internacionais</option>
-              <option value="Fundos Imobiliários">Fundos Imobiliários</option>
-              <option value="ETFs Nacionais">ETFs Nacionais</option>
-              <option value="ETFs Internacionais">ETFs Internacionais</option>
-              <option value="Criptoativos">Criptoativos</option>
-              <option value="Renda Fixa">Renda Fixa</option>
-            </select>
-          </div>
+          <Select
+            label="Classe de Ativo"
+            value={editingAssetClass}
+            onChange={e => setEditingAssetClass(e.target.value)}
+            options={[
+              { value: 'Ações Nacionais', label: 'Ações Nacionais' },
+              { value: 'Ações Internacionais', label: 'Ações Internacionais' },
+              { value: 'Fundos Imobiliários', label: 'Fundos Imobiliários' },
+              { value: 'ETFs Nacionais', label: 'ETFs Nacionais' },
+              { value: 'ETFs Internacionais', label: 'ETFs Internacionais' },
+              { value: 'Criptoativos', label: 'Criptoativos' },
+              { value: 'Renda Fixa', label: 'Renda Fixa' }
+            ]}
+            required
+          />
 
           <Input
             label="Setor Econômico"
@@ -1881,6 +1711,17 @@ export default function ConsultantDashboard() {
           )
         })()}
       </Modal>
+
+      {/* Modal: Lançamento e Edição de Transações (Premium) */}
+      {portfolio && (
+        <PortfolioTransactionFormModal
+          isOpen={isTxModalOpen}
+          onClose={handleCloseTxModal}
+          portfolioId={portfolio.id}
+          editingTransaction={editingTransaction}
+          onSaved={() => loadPortfolioData(selectedClientId)}
+        />
+      )}
     </div>
   )
 }
