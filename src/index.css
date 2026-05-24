@@ -465,6 +465,17 @@
     will-change: transform;
   }
 
+  .chart-interactive-layer {
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+  }
+
+  .chart-interactive-layer:hover,
+  .chart-interactive-layer:focus-within {
+    z-index: 10;
+  }
+
   .hover-lift-subtle {
     transition: transform 0.15s var(--easing-standard), box-shadow 0.15s var(--easing-standard), background-color 0.1s ease;
   }
@@ -658,6 +669,18 @@
     animation: scale-fade-in 0.38s var(--ds-motion-easing-emphasis) forwards;
   }
 }
+
+/* Recharts: tooltips acima de cards/gráficos adjacentes */
+.recharts-responsive-container,
+.recharts-wrapper {
+  overflow: visible !important;
+}
+
+.recharts-tooltip-wrapper {
+  z-index: 1000 !important;
+  pointer-events: none;
+}
+
 @media print {
   body {
     background: white !important;

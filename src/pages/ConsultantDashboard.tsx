@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
 import { Profile, Portfolio, PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget } from '@/types'
 import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
 import { getAssetPrices, searchB3Assets, getAssetRichData, AssetRichData } from '@/services/priceService'
+import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
 import Loader from '@/components/Loader'
@@ -33,6 +35,35 @@ import ExposureVsLimitsChart from '@/components/consulting/ExposureVsLimitsChart
 import WeeklyVariationChart from '@/components/consulting/WeeklyVariationChart'
 import PerformanceMetricsCard from '@/components/consulting/PerformanceMetricsCard'
 import BenchmarkComparisonTable from '@/components/consulting/BenchmarkComparisonTable'
+import { isPrimaryAdminProfile } from '@/constants/adminProfile'
+import {
+  buildProvisionalClientEmail,
+  isProvisionalClientEmail,
+} from '@/constants/provisionalClient'
+import { profileSelectSublabel, resolveProfileDisplayName } from '@/utils/profileDisplayName'
+
+function parseJoinedProfile(raw: unknown): Profile | null {
+  if (!raw) return null
+  const obj = Array.isArray(raw) ? raw[0] : raw
+  if (!obj || typeof obj !== 'object' || !('id' in obj)) return null
+  return obj as Profile
+}
+
+async function ensurePersonalPortfolio(userId: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('portfolios')
+    .select('id')
+    .eq('client_id', userId)
+    .maybeSingle()
+
+  if (existing) return
+
+  const { error } = await supabase
+    .from('portfolios')
+    .insert({ client_id: userId, cash_balance: 0.0 })
+
+  if (error && error.code !== '23505') throw error
+}
 
 
 export default function ConsultantDashboard() {
@@ -246,26 +277,12 @@ export default function ConsultantDashboard() {
     return () => clearTimeout(timer)
   }, [txTicker])
 
-  const getClientDisplayName = (email: string) => {
-    if (!email) return 'Sem Nome'
-    
-    if (email.startsWith('temp_') && email.endsWith('@cerrado.internal')) {
-      const parts = email.replace('temp_', '').split('@')[0].split('_')
-      parts.pop() // remove o random id
-      return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') + ' (Provisório)'
-    }
-    
-    const localPart = email.split('@')[0]
-    const parts = localPart.split(/[._-]/)
-    return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ')
-  }
-
   const loadEligibleClients = async () => {
     try {
       setLoadingEligible(true)
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PROFILE_SELECT_COLUMNS)
         .eq('role', 'client')
         .not('email', 'like', 'temp_%')
         .order('email')
@@ -321,7 +338,7 @@ export default function ConsultantDashboard() {
       
       const { data: clientsData } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PROFILE_SELECT_COLUMNS)
         .eq('role', 'client')
         .order('email')
         
@@ -336,27 +353,51 @@ export default function ConsultantDashboard() {
   }
 
   const loadClients = async () => {
+    if (!user?.id) return
+
     try {
       setLoadingClients(true)
-      const { data: ports, error } = await supabase
-        .from('portfolios')
-        .select('client:profiles!client_id(*)')
-        .eq('consultant_id', user?.id)
 
-      if (error) throw error
+      const [{ data: managedPorts, error: managedError }, { data: selfProfile, error: selfError }] =
+        await Promise.all([
+          supabase
+            .from('portfolios')
+            .select('client:profiles!client_id(*)')
+            .eq('consultant_id', user.id),
+          supabase
+            .from('profiles')
+            .select(PROFILE_SELECT_COLUMNS)
+            .eq('id', user.id)
+            .maybeSingle(),
+        ])
+
+      if (managedError) throw managedError
+      if (selfError) throw selfError
+
+      await ensurePersonalPortfolio(user.id)
 
       const clientList: Profile[] = []
-      if (ports) {
-        for (const p of ports) {
-          const rawClient = p.client as any
-          const clientObj = Array.isArray(rawClient) ? rawClient[0] : rawClient
-          if (clientObj && clientObj.role === 'client') {
-            clientList.push(clientObj as Profile)
-          }
+      const seenIds = new Set<string>()
+
+      if (selfProfile && !seenIds.has(selfProfile.id)) {
+        clientList.push(selfProfile)
+        seenIds.add(selfProfile.id)
+      }
+
+      for (const port of managedPorts || []) {
+        const clientObj = parseJoinedProfile(port.client)
+        if (clientObj && clientObj.role === 'client' && !seenIds.has(clientObj.id)) {
+          clientList.push(clientObj)
+          seenIds.add(clientObj.id)
         }
       }
 
-      clientList.sort((a, b) => (a.email || '').localeCompare(b.email || ''))
+      clientList.sort((a, b) => {
+        if (a.id === user.id) return -1
+        if (b.id === user.id) return 1
+        return (a.email || '').localeCompare(b.email || '')
+      })
+
       setClients(clientList)
     } catch (err) {
       console.error('Erro ao carregar clientes:', err)
@@ -372,10 +413,13 @@ export default function ConsultantDashboard() {
       const { data: ports, error: portsErr } = await supabase
         .from('portfolios')
         .select('*, client:profiles!client_id(*)')
-        .eq('consultant_id', user?.id)
+        .or(`consultant_id.eq.${user?.id},client_id.eq.${user?.id}`)
 
       if (portsErr) throw portsErr
-      const portfoliosList = (ports || []).filter(port => port.client?.role === 'client')
+      const portfoliosList = (ports || []).filter((port) => {
+        const clientProfile = parseJoinedProfile(port.client)
+        return clientProfile && (clientProfile.role === 'client' || clientProfile.id === user?.id)
+      })
 
       const { data: allTxs, error: txsErr } = await supabase
         .from('portfolio_transactions')
@@ -400,11 +444,13 @@ export default function ConsultantDashboard() {
       setAssetPrices(prices)
 
       let overallAum = 0
-      let overallCash = 0
+      const overallCash = 0
       
       const rows = portfoliosList.map(port => {
-        const clientProfile = port.client
-        const clientName = getClientDisplayName(clientProfile?.email || 'Sem E-mail')
+        const clientProfile = parseJoinedProfile(port.client)
+        const clientName = clientProfile
+          ? resolveProfileDisplayName(clientProfile)
+          : 'Sem nome'
         const clientTxs = transactionsList.filter(t => t.portfolio_id === port.id)
         const clientTargets = targetsList.filter(t => t.portfolio_id === port.id)
 
@@ -515,7 +561,7 @@ export default function ConsultantDashboard() {
 
   const shareHistoryData = React.useMemo(() => {
     if (!portfolio) return []
-    const { shareHistory } = calculateShareHistory(transactions, assetPrices, 0)
+    const { shareHistory } = calculateShareHistory(transactions, assetPrices)
     return shareHistory
   }, [transactions, assetPrices, portfolio])
 
@@ -562,11 +608,14 @@ export default function ConsultantDashboard() {
     try {
       setLoadingPortfolio(true)
       
-      let { data: portData, error: portError } = await supabase
+      const portLookup = await supabase
         .from('portfolios')
         .select('*')
         .eq('client_id', clientId)
         .maybeSingle()
+
+      let portData = portLookup.data
+      const portError = portLookup.error
 
       if (portError) throw portError
 
@@ -650,25 +699,21 @@ export default function ConsultantDashboard() {
         setNextMonthPlan(mappedTheses['__NEXT_MONTH_PLAN__'] || '')
       }
 
-      const tickers = Array.from(new Set([
-        ...txs.map(t => t.ticker.toUpperCase()),
-        ...(targetsData || []).map(t => t.ticker.toUpperCase())
-      ]))
-
-      if (tickers.length > 0) {
-        const prices = await getAssetPrices(tickers)
-        setAssetPrices(prices)
-
-        const { positions: calcPositions, totalValue } = calculatePositions(
+      if (txs.length > 0) {
+        const valuation = await loadPortfolioValuation(
+          portData.id,
           txs,
           targetsData || [],
-          prices,
-          0
+          Number(portData.cash_balance) || 0
         )
-        setPositions(calcPositions)
-        setPortfolioValue(totalValue)
+        setAssetPrices(valuation.prices)
+        setPositions(valuation.positions)
+        setPortfolioValue(valuation.totalValue)
 
-        const { currentShareValue } = calculateShareHistory(txs, prices, 0)
+        const { currentShareValue } = calculateShareHistory(
+          txs,
+          valuation.prices
+        )
         setShareValue(currentShareValue)
       } else {
         setPositions([])
@@ -730,7 +775,7 @@ export default function ConsultantDashboard() {
 
     setDeletingClientState(true)
     try {
-      const isProvisional = clientToDelete.email.startsWith('temp_') && clientToDelete.email.endsWith('@cerrado.internal')
+      const isProvisional = isProvisionalClientEmail(clientToDelete.email)
 
       if (isProvisional) {
         const { error } = await supabase
@@ -782,21 +827,21 @@ export default function ConsultantDashboard() {
           .replace(/[^a-z0-9]/g, '_')
           .replace(/_+/g, '_')
         const randId = Math.random().toString(36).substring(2, 8)
-        clientEmail = `temp_${cleanName}_${randId}@cerrado.internal`
+        clientEmail = buildProvisionalClientEmail(cleanName, randId)
       }
 
       let targetClientId = tempId;
 
       const { data: existingProfile } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PROFILE_SELECT_COLUMNS)
         .eq('email', clientEmail)
         .maybeSingle()
 
       if (existingProfile) {
         targetClientId = existingProfile.id
         
-        if (existingProfile.role !== 'client') {
+        if (existingProfile.role !== 'client' && existingProfile.id !== user?.id && !isPrimaryAdminProfile(existingProfile)) {
           const { error: updateRoleError } = await supabase
             .from('profiles')
             .update({ role: 'client' })
@@ -887,11 +932,13 @@ export default function ConsultantDashboard() {
 
         toast.success('E-mail cadastrado encontrado! Ativos importados e conta vinculada.')
       } else {
+        const trimmedName = newClientName.trim()
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: tempId,
             email: clientEmail,
+            full_name: trimmedName || null,
             role: 'client',
             is_approved: true
           })
@@ -1172,11 +1219,11 @@ export default function ConsultantDashboard() {
 
     toast.loading('Gerando relatório PDF de alta qualidade...', { id: 'pdf-toast' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices, 0)
+      const { shareHistory } = calculateShareHistory(transactions, assetPrices)
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
-        clientName: getClientDisplayName(client.email),
+        clientName: resolveProfileDisplayName(client),
         portfolio,
         positions,
         shareHistory,
@@ -1210,7 +1257,11 @@ export default function ConsultantDashboard() {
               onChange={e => setSelectedClientId(e.target.value)}
               options={[
                 { value: '', label: 'Visão Geral' },
-                ...clients.map(c => ({ value: c.id, label: getClientDisplayName(c.email) }))
+                ...clients.map(c => ({
+                  value: c.id,
+                  label: resolveProfileDisplayName(c),
+                  sublabel: profileSelectSublabel(c, { selfUserId: user?.id }),
+                }))
               ]}
               placeholder="Selecionar Cliente"
             />
@@ -1230,13 +1281,14 @@ export default function ConsultantDashboard() {
   )
 
   const selectedClient = clients.find(c => c.id === selectedClientId)
-  const isTempClient = selectedClient?.email?.startsWith('temp_') && selectedClient?.email?.endsWith('@cerrado.internal')
+  const isSelfPortfolio = selectedClientId !== '' && selectedClientId === user?.id
+  const isTempClient = selectedClient?.email ? isProvisionalClientEmail(selectedClient.email) : false
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
       <PageHeader
         title="Consultoria de Investimentos"
-        subtitle={selectedClient ? `Assessoria ativa para o cliente: ${getClientDisplayName(selectedClient.email)}` : "Gestão patrimonial institucional e Metodologia do Cerrado"}
+        subtitle={selectedClient ? `Assessoria ativa para o cliente: ${resolveProfileDisplayName(selectedClient)}` : 'Gestão patrimonial institucional e metodologia de alocação'}
         action={headerAction}
       />
 
@@ -1245,7 +1297,7 @@ export default function ConsultantDashboard() {
         <ClientOverviewHeader
           selectedClient={selectedClient}
           isTempClient={!!isTempClient}
-          getClientDisplayName={getClientDisplayName}
+          isSelfPortfolio={isSelfPortfolio}
           onDeleteClick={() => {
             setClientToDelete(selectedClient)
             setIsDeleteModalOpen(true)
@@ -1654,7 +1706,11 @@ export default function ConsultantDashboard() {
                 label="Selecionar E-mail Real"
                 value={selectedRealClientId}
                 onChange={e => setSelectedRealClientId(e.target.value)}
-                options={eligibleClients.map(c => ({ value: c.id, label: c.email }))}
+                options={eligibleClients.map(c => ({
+                  value: c.id,
+                  label: resolveProfileDisplayName(c),
+                  sublabel: c.email,
+                }))}
                 placeholder="Selecione um e-mail real..."
                 required
               />
@@ -1750,10 +1806,10 @@ export default function ConsultantDashboard() {
           setClientToDelete(null)
           setDeleteConfirmEmail('')
         }}
-        title={clientToDelete ? (clientToDelete.email.startsWith('temp_') && clientToDelete.email.endsWith('@cerrado.internal') ? "Excluir Conta Provisória" : "Desvincular Carteira de Cliente Real") : "Gerenciar Cliente"}
+        title={clientToDelete ? (isProvisionalClientEmail(clientToDelete.email) ? 'Excluir Conta Provisória' : 'Desvincular Carteira de Cliente Real') : 'Gerenciar Cliente'}
       >
         {clientToDelete && (() => {
-          const isProvisional = clientToDelete.email.startsWith('temp_') && clientToDelete.email.endsWith('@cerrado.internal')
+          const isProvisional = isProvisionalClientEmail(clientToDelete.email)
           return (
             <form onSubmit={handleDeleteClient} className="space-y-4 text-left">
               {isProvisional ? (

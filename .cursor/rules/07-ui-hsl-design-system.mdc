@@ -1,0 +1,51 @@
+---
+name: UI HSL e Design System
+description: Tokens CSS, primitivos compartilhados, layout de páginas e guardrails visuais.
+alwaysApply: true
+---
+
+# UI e design system (HSL + Tailwind 3)
+
+- Stack: **Tailwind CSS 3**, tokens em `src/index.css` (`--ds-*`, `--color-*`), ícones **lucide-react**.
+- Manual completo: [docs/ui/GOVERNANCA_UI.md](docs/ui/GOVERNANCA_UI.md).
+- Guardrails automatizados: `npm run guardrails:ui` (`scripts/ui-guardrails.mjs`).
+
+## Primitivos obrigatórios
+
+Usar componentes compartilhados em vez de HTML nativo estilizado em `src/pages/**`:
+
+- `Button`, `Input`, `Select`, `Modal`, `IconButton`, `Card`
+- Cabeçalho de página: `PageHeader`
+- Shell autenticado: `Layout`
+
+Exceções em páginas exigem comentário **WHY** (ex.: `type="file"`).
+
+## Cores e tokens
+
+- **Proibido** cor HEX hardcoded em `src/**` (`#fff`, `#0ea5e9`) — usar `var(--color-*)` ou classes semânticas (`text-primary`, `bg-secondary`, `text-income`, `text-expense`).
+- Intents financeiros: `--color-income`, `--color-expense`, `--color-balance`.
+- Tema claro/escuro e paletas: `ThemeContext` + `ColorPaletteSwitcher` — não adicionar `next-themes`.
+
+## Componentes de domínio reutilizáveis
+
+Antes de criar UI nova para transações:
+
+- Listagem: `TransactionCard`
+- KPIs: `DashboardKpis`
+- Formulários: `ExpenseFormModal`, `IncomeFormModal`, `InvestmentFormModal`
+- Consultoria: `src/components/consulting/**`
+
+## Layout mobile-first
+
+- Base: `flex flex-col gap-3` / `gap-4`, padding `px-4`, `safe-area-top` no header.
+- CTA principal: altura mínima confortável (`min-h-12` em botões `lg`).
+- Um único `h1` por página via `PageHeader` — não duplicar título em modais/cards.
+
+## Formatação
+
+- Valores monetários e números: utilitários em `src/utils/format.ts` — não usar `.toFixed()` / `.toLocaleString()` direto em páginas ou componentes (regra do guardrail).
+
+## Manutenção
+
+- Novas violações conhecidas do guardrail: corrigir código ou atualizar baseline com `npm run guardrails:ui:baseline` de forma consciente.
+- Skill operacional: `.cursor/skills/ui-hsl-primitives/SKILL.md`.

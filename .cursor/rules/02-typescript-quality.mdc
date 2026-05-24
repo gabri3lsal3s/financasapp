@@ -1,0 +1,25 @@
+---
+name: TypeScript e Qualidade de Código
+description: Regras de tipagem, dependências e estratégia de testes.
+alwaysApply: true
+---
+
+# TypeScript e qualidade
+
+- `tsconfig.json` com `"strict": true`.
+- Proibido `any`; use `unknown` com type guards.
+- Defina tipos de entrada/retorno explicitamente em APIs públicas (hooks exportados, funções em `src/services/**`, utilitários em `src/utils/**`).
+- Tipos de domínio centralizados em `src/types/index.ts`; estender lá antes de duplicar interfaces locais.
+- Validação em runtime nas bordas críticas (parsing CSV, payloads de fila offline) com funções tipadas — não introduzir Zod sem decisão explícita do time.
+
+## Dependências
+
+- Alterando dependências, commitar `package.json` e `package-lock.json` juntos.
+- Não introduzir biblioteca nova sem justificativa (ex.: TanStack Query não está no projeto — cache via hooks + `offlineCache`).
+- Não commitar pasta `env/` nem arquivos `.env` com segredos.
+
+## Testes pragmáticos
+
+- Priorizar testes em `src/utils/**` e `src/services/**` (lógica pura, billing, reconciliação CSV, fila offline).
+- Testes de componente apenas quando guardrails ou regressão visual exigirem (`uiPrimitivesSnapshot.test.ts`).
+- Evitar testes frágeis acoplados a detalhe cosmético de UI.

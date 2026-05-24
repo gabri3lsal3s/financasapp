@@ -1,0 +1,61 @@
+---
+name: Domínio Financeiro
+description: Regras de negócio para despesas, rendas, cartões, investimentos, relatórios e consultoria.
+alwaysApply: true
+---
+
+# Domínio financeiro — Minhas Finanças
+
+Regras de negócio que agentes devem respeitar ao alterar fluxos monetários, cartões ou consultoria.
+
+## Despesas e rendas
+
+- Formulários padronizados: `ExpenseFormModal`, `IncomeFormModal`; listagem unificada: `TransactionCard`.
+- Parcelamento: até 60x; datas geradas com `date-fns` (`addMonths`); valores com `splitAmountIntoInstallments` quando aplicável.
+- `report_weight` em despesas: controla peso em relatórios — não recalcular histórico ao mudar categoria sem regra explícita de migração.
+- Estorno de cartão vinculado a despesa: tratar como renda automática em `IncomeFormModal` (bloqueio de edição manual quando aplicável).
+
+## Cartão de crédito
+
+- Competência de fatura: `src/utils/creditCardBilling.ts` (`resolveBillCompetence`, ciclos em `credit_card_monthly_cycles`).
+- Fechamento padrão do cartão + override mensal por competência.
+- Página `CreditCards` e hooks `useCreditCards` — manter consistência com fila offline.
+- Reconciliação CSV: `creditCardCsvReconciliation`, `creditCardCsvLearning` — **testes obrigatórios** ao alterar parsing ou matching.
+- Seleção de mês de fatura: `creditCardMonthSelection.ts`.
+
+## Investimentos
+
+- Engine: `src/services/investmentEngine.ts`.
+- Formulário: `InvestmentFormModal`; página `Investments`.
+- Vincular a transações quando migration/schema exigir (`supabase/migrations/*investments*`).
+
+## Relatórios
+
+- `Reports`, `useReports`, `useIncomeReports`, `ReportCharts` (Recharts).
+- Respeitar `report_weight` e competência de cartão nos agregados mensais/anuais.
+
+## Consultoria (assessor)
+
+- Consultor: rota `/consulting`, `ConsultantDashboard`, componentes em `src/components/consulting/**`.
+- Cliente (`role === 'client'`): apenas `ClientDashboard`, interface somente leitura — não expor mutações de lançamentos.
+- Portfolios e RLS: seguir migrations recentes em `supabase/migrations/` (não assumir só `user_id` pessoal).
+
+## Planejamento de categorias
+
+- `/categories`, limites de despesa e expectativas de renda (`useExpenseCategoryLimits`, `useIncomeCategoryExpectations`).
+- Onboarding: `OnboardingCategories`.
+
+## Papéis e aprovação
+
+- `profiles`: `is_approved`, `is_blocked`, `is_rejected`, `is_admin`, `role`.
+- `ProtectedRoute` deve permanecer alinhado a novos papéis.
+
+## Skill operacional
+
+- `.cursor/skills/financial-domain/SKILL.md`
+
+## Anti-padrões
+
+- Calcular competência de fatura inline na página em vez de `creditCardBilling`.
+- Ignorar fila offline ao criar fluxo de escrita novo.
+- Quebrar snapshot de valor/comissão em relatórios passados ao editar catálogo atual.

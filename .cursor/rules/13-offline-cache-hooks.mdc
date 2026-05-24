@@ -1,0 +1,55 @@
+---
+name: Cache Offline e Hooks de Dados
+description: Padroniza stale-while-revalidate local, invalidação e proibição de TanStack Query sem decisão.
+alwaysApply: true
+---
+
+# Objetivo
+
+Padronizar estratégia **cache-then-revalidate** com `localStorage` e hooks customizados, sem introduzir biblioteca paralela de cache de servidor.
+
+# Regras obrigatórias
+
+- **Não** instalar `@tanstack/react-query` ou `swr` sem decisão explícita documentada no PR.
+- Chaves de cache: centralizar padrão por domínio em `offlineCache` (prefixo por entidade/usuário/mês quando aplicável).
+- Fluxo de leitura:
+  1. Hidratar UI do cache se existir.
+  2. Fetch Supabase em background.
+  3. Atualizar cache + estado do hook.
+- Após mutação bem-sucedida (online ou após sync): `setCache` + evento `local-data-changed`.
+- Hooks devem escutar `local-data-changed` e `online` para refetch/reconcile quando já existir no padrão do hook (ex.: `useExpenses`).
+
+## Optimistic UI
+
+- Permitir atualização imediata da lista com registro provisório `offline-*`.
+- Em falha de sync, reverter ou mover item para fila de conflito — não deixar UI e servidor divergirem silenciosamente.
+
+## Background cache
+
+- `useBackgroundCache` e utilitários relacionados: não duplicar política de TTL sem necessidade.
+
+# Escopo
+
+- Aplica em: `src/hooks/**`, `src/services/offlineCache.ts`, `src/utils/offlineQueue.ts`.
+- Não aplica em: páginas que apenas consomem props sem fetch.
+
+# Exemplos
+
+## Correto
+
+```ts
+const cached = getCache<Expense[]>(cacheKey)
+if (cached) setExpenses(cached)
+const { data, error } = await supabase.from('expenses').select('...')
+if (data) setCache(cacheKey, data)
+```
+
+## Incorreto
+
+- Instalar React Query só para uma lista nova.
+- Refetch completo sem atualizar cache após sucesso.
+
+# Notas de manutenção
+
+- Skill: `.cursor/skills/offline-hooks-data/SKILL.md`.
+- Dependências: `09-hooks-services-contracts.mdc`, `12-pwa-offline-first.mdc`.

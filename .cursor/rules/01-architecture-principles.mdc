@@ -1,0 +1,37 @@
+---
+name: Princípios de Arquitetura e Escopo
+description: KISS, DRY, YAGNI, anti-overengineering e aplicação pragmática de SOLID.
+alwaysApply: true
+---
+
+# KISS, DRY, YAGNI e anti-overengineering
+
+Estes princípios prevalecem sobre arquitetura "bonita no papel". Sem requisito explícito de PRD, escolha a solução mais simples que resolva o caso.
+
+## SOLID pragmático
+
+SOLID neste projeto significa:
+- responsabilidade clara por função/módulo;
+- contratos e tipos enxutos;
+- composição e reaproveitamento do stack atual.
+
+Não criar classes/camadas/interfaces genéricas por formalismo.
+
+## Regras operacionais
+
+- KISS: menor mudança possível, sem indireção desnecessária.
+- DRY: consolidar duplicação real (lógica/validação/UI).
+- YAGNI: não antecipar requisitos não pedidos (ex.: não introduzir multi-tenant por garantia).
+- Sem novos padrões/bibliotecas/camadas enquanto o stack atual atender.
+- Sem refatoração colateral fora do escopo do pedido.
+- Sem "flexibilidade infinita" em APIs internas.
+
+## Duplicação vs abstração
+
+- 1 ocorrência: não abstrair.
+- 2 ocorrências idênticas: considerar extração.
+- 3 ocorrências: extrair, salvo divergência real de domínio.
+
+## Diretriz para agentes
+
+Preferir sempre código curto, local, tipado e aderente ao stack já adotado (React + Vite + Supabase + hooks offline-first + primitivos UI HSL).

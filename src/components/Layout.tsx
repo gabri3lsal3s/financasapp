@@ -6,6 +6,7 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useAdvisoryPortfolioLink } from '@/hooks/useAdvisoryPortfolioLink'
 import { useBackgroundCache } from '@/hooks/useBackgroundCache'
 import { useNavigate } from 'react-router-dom'
 
@@ -42,6 +43,7 @@ function OfflinePlaceholder() {
 export default function Layout({ children }: LayoutProps) {
   const { floatingCalculatorEnabled } = useAppSettings()
   const { signOut, profile } = useAuth()
+  const { hasAdvisoryLink } = useAdvisoryPortfolioLink()
   useBackgroundCache()
   const navigate = useNavigate()
   const location = useLocation()
@@ -67,12 +69,6 @@ export default function Layout({ children }: LayoutProps) {
   const { isOnline } = useNetworkStatus()
 
   const navItems = (() => {
-    if (profile?.role === 'client') {
-      return [
-        { path: '/', icon: PiggyBank, label: 'Minha Consultoria', onlineOnly: false },
-      ]
-    }
-
     const items = [
       { path: '/', icon: Home, label: 'Início', onlineOnly: false },
       { path: '/expenses', icon: TrendingDown, label: 'Despesas', onlineOnly: false },
@@ -80,7 +76,10 @@ export default function Layout({ children }: LayoutProps) {
       { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
     ]
 
-    // Injeta a aba de Consultoria de Investimentos para assessores
+    if (hasAdvisoryLink) {
+      items.push({ path: '/my-consulting', icon: Users, label: 'Minha Consultoria', onlineOnly: false })
+    }
+
     if (profile?.role === 'consultant') {
       items.push({ path: '/consulting', icon: Users, label: 'Consultoria', onlineOnly: false })
     }
@@ -95,7 +94,7 @@ export default function Layout({ children }: LayoutProps) {
     return items
   })()
 
-  const totalMainItems = profile?.role === 'client' ? 1 : navItems.length - 1
+  const totalMainItems = navItems.length - 1
   const mainItemsList = navItems.slice(0, totalMainItems)
   const settingsItemsList = navItems.slice(totalMainItems)
 

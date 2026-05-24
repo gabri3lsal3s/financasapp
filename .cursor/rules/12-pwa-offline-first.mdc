@@ -1,0 +1,47 @@
+---
+name: PWA e Offline-First
+description: Configuração vite-plugin-pwa, manifest e paradigma offline-first do app.
+alwaysApply: true
+---
+
+# Objetivo
+
+Garantir app instalável (PWA), boa experiência em rede móvel fraca e operação contínua offline conforme [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+# Regras obrigatórias — PWA
+
+- Plugin: `vite-plugin-pwa` em `vite.config.ts` (`registerType: 'autoUpdate'`).
+- Manifest: `public/manifest.json` (ícones `pwa-192x192.svg`, `pwa-512x512.svg`, `apple-touch-icon.svg`).
+- `manifest: false` no plugin quando o manifest é arquivo estático em `public/`.
+- Atualização de SW: `PwaUpdatePrompt` para informar o usuário.
+- `devOptions.enabled: true` no Vite PWA — estar consciente ao debugar cache em dev.
+
+# Regras obrigatórias — Offline-first
+
+- **Leitura:** `getCache` / `setCache` (`src/services/offlineCache.ts`) antes ou em paralelo ao fetch Supabase.
+- **Escrita offline:** `enqueueOfflineOperation` em `src/utils/offlineQueue.ts` com ordem cronológica.
+- IDs temporários: `offline-<timestamp>` até persistência remota.
+- Após mutação local: `window.dispatchEvent(new Event('local-data-changed'))`.
+- Reconexão: listener `online` sincroniza fila; conflitos → `ConflictResolutionModal`.
+- Entidades na fila: `expenses`, `incomes`, `investments`, `credit_cards`, `categories`, etc. — estender tipo `QueueEntity` ao adicionar domínio.
+
+# Mobile-first
+
+- Projetar primeiro para telemóvel; desktop via breakpoints `sm:` / `lg:`.
+- `PageHeader` com `safe-area-top`; área de toque mínima em CTAs principais.
+- Feedback offline: `NetworkStatusToast`, `OfflineSyncManager`.
+
+# Escopo
+
+- Aplica em: `vite.config.ts`, `public/manifest.json`, hooks de dados, `offlineQueue`, `offlineCache`.
+- Skill: `.cursor/skills/pwa-offline-vite/SKILL.md`.
+
+# Anti-padrões
+
+- Mutação que só funciona online sem enfileirar fallback.
+- Ignorar conflito de versão no servidor após sync.
+- Cachear credenciais ou tokens além do que o Supabase SDK já persiste.
+
+# Notas de manutenção
+
+- Dependências: `13-offline-cache-hooks.mdc`, `05-observability-resilience.mdc`.

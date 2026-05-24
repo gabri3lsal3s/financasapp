@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { ADMIN_EMAIL } from '@/constants/adminProfile';
 
 import { isBiometricRegistered, verifyBiometric } from '@/utils/biometric';
 import { useAppSettings } from '@/hooks/useAppSettings';
@@ -231,7 +232,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
             Aguardando Aprovação
           </h2>
           <p className="text-secondary text-sm">
-            Sua conta foi criada com sucesso, mas o administrador (gabrielisaacsales@gmail.com) precisa autorizar seu primeiro acesso.
+            Sua conta foi criada com sucesso, mas o administrador ({ADMIN_EMAIL}) precisa autorizar seu primeiro acesso.
           </p>
 
           <div className="p-4 bg-[var(--color-tertiary)]/30 rounded-lg text-sm text-secondary">

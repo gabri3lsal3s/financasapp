@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
@@ -20,6 +20,11 @@ import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { supabase } from '@/lib/supabase'
+import type { PortfolioTransaction } from '@/types'
+import {
+  portfolioInvestmentByDay,
+  sumPortfolioTransactionsForMonth,
+} from '@/utils/portfolioMonthlyFlow'
 import {
   Bar,
   BarChart,
@@ -38,7 +43,7 @@ import {
 import DashboardKpis from '@/components/DashboardKpis'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import IncomeFormModal from '@/components/IncomeFormModal'
-import InvestmentFormModal from '@/components/InvestmentFormModal'
+import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
@@ -52,63 +57,62 @@ export default function Dashboard() {
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
   
-  const [consultingPortfolioValue, setConsultingPortfolioValue] = useState<number | null>(null)
-  const { investments, loading: investmentsLoading, refreshInvestments, createInvestment } = useInvestments(currentMonth)
-  
-  useEffect(() => {
-    async function loadConsultingPortfolio() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+  const [portfolioId, setPortfolioId] = useState('')
+  const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
+  const { investments, loading: investmentsLoading } = useInvestments(currentMonth)
 
-        const { data: portfolio } = await supabase
+  const loadPortfolioTransactions = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      let { data: portfolio } = await supabase
+        .from('portfolios')
+        .select('id')
+        .eq('client_id', user.id)
+        .maybeSingle()
+
+      if (!portfolio) {
+        const { data: newPort, error: createError } = await supabase
           .from('portfolios')
-          .select('id, cash_balance')
-          .eq('client_id', user.id)
-          .maybeSingle()
+          .insert({ client_id: user.id, cash_balance: 0 })
+          .select('id')
+          .single()
 
-        if (!portfolio) return
-
-        const { data: transactions } = await supabase
-          .from('portfolio_transactions')
-          .select('*')
-          .eq('portfolio_id', portfolio.id)
-
-        const { data: targets } = await supabase
-          .from('target_allocations')
-          .select('*')
-          .eq('portfolio_id', portfolio.id)
-
-        if (!transactions || transactions.length === 0) {
-          setConsultingPortfolioValue(0)
-          return
-        }
-
-        const tickers = Array.from(new Set(transactions.map(t => t.ticker)))
-        
-        const { getAssetPrices } = await import('@/services/priceService')
-        const prices = await getAssetPrices(tickers)
-
-        const { calculatePositions } = await import('@/services/investmentEngine')
-        const { totalValue } = calculatePositions(
-          transactions,
-          targets || [],
-          prices,
-          0
-        )
-
-        setConsultingPortfolioValue(totalValue)
-      } catch (err) {
-        console.error('Erro ao integrar carteira de consultoria no dashboard:', err)
+        if (createError) throw createError
+        portfolio = newPort
       }
+
+      setPortfolioId(portfolio.id)
+
+      const { data: transactions } = await supabase
+        .from('portfolio_transactions')
+        .select('id, portfolio_id, ticker, operation_type, quantity, price, date, created_at')
+        .eq('portfolio_id', portfolio.id)
+
+      setPortfolioTransactions((transactions as PortfolioTransaction[]) || [])
+    } catch (err) {
+      console.error('Erro ao carregar livro-razão no dashboard:', err)
+      setPortfolioId('')
+      setPortfolioTransactions([])
+    }
+  }, [])
+
+  useEffect(() => {
+    const onDataChanged = () => {
+      if (isOnline) void loadPortfolioTransactions()
     }
 
     if (isOnline) {
-      loadConsultingPortfolio()
+      void loadPortfolioTransactions()
     } else {
-      setConsultingPortfolioValue(null)
+      setPortfolioId('')
+      setPortfolioTransactions([])
     }
-  }, [isOnline, investments])
+
+    window.addEventListener('local-data-changed', onDataChanged)
+    return () => window.removeEventListener('local-data-changed', onDataChanged)
+  }, [isOnline, currentMonth, loadPortfolioTransactions])
   
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
@@ -150,9 +154,28 @@ export default function Dashboard() {
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0)
   const totalIncomes = incomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0)
-  const totalInvestments = investments.reduce((sum, inv) => sum + inv.amount, 0) + (consultingPortfolioValue || 0)
+
+  const cashOnlyInvestments = useMemo(
+    () => investments.filter((inv) => !inv.transaction_id && !inv.ticker),
+    [investments]
+  )
+
+  const portfolioMonthFlow = useMemo(
+    () => sumPortfolioTransactionsForMonth(portfolioTransactions, currentMonth),
+    [portfolioTransactions, currentMonth]
+  )
+
+  const totalInvestments = useMemo(() => {
+    const cash = cashOnlyInvestments.reduce((sum, inv) => sum + inv.amount, 0)
+    return cash + portfolioMonthFlow
+  }, [cashOnlyInvestments, portfolioMonthFlow])
+
   const balance = totalIncomes - totalExpenses - totalInvestments
-  const hasMonthlyData = expenses.length > 0 || incomes.length > 0 || investments.length > 0
+  const hasMonthlyData =
+    expenses.length > 0 ||
+    incomes.length > 0 ||
+    cashOnlyInvestments.length > 0 ||
+    portfolioMonthFlow !== 0
   const loading =
     expensesLoading ||
     incomesLoading ||
@@ -364,15 +387,22 @@ export default function Dashboard() {
       if (day >= 1 && day <= daysInMonth) series[day - 1].Despesas += expenseAmountForDashboard(expense.amount, expense.report_weight)
     })
 
-    investments.forEach((investment) => {
-      const investmentDay = 1
-      if (investmentDay >= 1 && investmentDay <= daysInMonth) {
-        series[investmentDay - 1].Investimentos += investment.amount
+    const portfolioByDay = portfolioInvestmentByDay(portfolioTransactions, currentMonth, daysInMonth)
+    portfolioByDay.forEach((value, index) => {
+      series[index].Investimentos += value
+    })
+
+    cashOnlyInvestments.forEach((investment) => {
+      const day = investment.created_at
+        ? new Date(investment.created_at).getDate()
+        : 1
+      if (day >= 1 && day <= daysInMonth) {
+        series[day - 1].Investimentos += investment.amount
       }
     })
 
     return series
-  }, [currentMonth, incomes, expenses, investments])
+  }, [currentMonth, incomes, expenses, cashOnlyInvestments, portfolioTransactions])
 
   const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) return null
@@ -687,6 +717,9 @@ export default function Dashboard() {
             <button
               onClick={() => {
                 setIsSelectorOpen(false)
+                if (isOnline && !portfolioId) {
+                  void loadPortfolioTransactions()
+                }
                 setIsInvestmentOpen(true)
               }}
               className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-balance rounded-2xl hover:shadow-lg transition-all group duration-150"
@@ -733,20 +766,14 @@ export default function Dashboard() {
         onDelete={async () => ({ error: 'Não aplicável' })}
       />
 
-      <InvestmentFormModal
+      <PortfolioTransactionFormModal
         isOpen={isInvestmentOpen}
         onClose={() => setIsInvestmentOpen(false)}
-        editingInvestment={null}
-        defaultMonth={currentMonth}
-        onCreate={async (data) => {
-          const res = await createInvestment(data)
-          if (!res.error) {
-            refreshInvestments()
-          }
-          return res
+        portfolioId={portfolioId}
+        editingTransaction={null}
+        onSaved={() => {
+          void loadPortfolioTransactions()
         }}
-        onUpdate={async () => ({ data: null, error: 'Não aplicável' })}
-        onDelete={async () => ({ error: 'Não aplicável' })}
       />
 
       <Modal

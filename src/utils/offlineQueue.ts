@@ -143,7 +143,7 @@ export function shouldQueueOffline(error?: unknown) {
   return isLikelyConnectionError(error)
 }
 
-function sanitizePayload(payload: Record<string, unknown> | undefined): Record<string, unknown> {
+export function sanitizeOfflinePayload(payload: Record<string, unknown> | undefined): Record<string, unknown> {
   if (!payload) return {}
   const sanitized = { ...payload }
   const keysToRemove = ['_uiId', 'category', 'credit_card', 'income_category', 'installment_items']
@@ -155,7 +155,7 @@ function sanitizePayload(payload: Record<string, unknown> | undefined): Record<s
 
 async function processOne(item: OfflineQueueItem) {
   if (item.action === 'create') {
-    const payloadToInsert = sanitizePayload(item.payload)
+    const payloadToInsert = sanitizeOfflinePayload(item.payload)
     const { error } = await supabase.from(item.entity).insert([payloadToInsert])
     if (error) {
       console.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
@@ -191,7 +191,7 @@ async function processOne(item: OfflineQueueItem) {
       }
     }
 
-    const payloadToUpdate = sanitizePayload(item.payload)
+    const payloadToUpdate = sanitizeOfflinePayload(item.payload)
     let query = supabase.from(item.entity).update(payloadToUpdate)
 
     if (item.entity === 'expense_category_month_limits') {

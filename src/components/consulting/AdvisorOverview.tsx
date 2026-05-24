@@ -1,4 +1,5 @@
 import { Profile } from '@/types'
+import { isPrimaryAdminEmail, isPrimaryAdminProfile } from '@/constants/adminProfile'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import { Wallet, UserPlus, Star, Eye, Trash2 } from 'lucide-react'
@@ -131,7 +132,7 @@ export default function AdvisorOverview({
                           </Button>
                           {(() => {
                             const cl = clients.find(c => c.id === row.id)
-                            const isClientAdmin = cl?.is_admin || row.email === 'admin@admin.com'
+                            const isClientAdmin = cl ? isPrimaryAdminProfile(cl) : isPrimaryAdminEmail(row.email)
                             if (isClientAdmin) return null
                             return (
                               <Button

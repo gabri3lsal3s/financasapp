@@ -19,6 +19,9 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
+import type { PortfolioTransaction } from '@/types'
+import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Scale, Loader2 } from 'lucide-react'
@@ -302,6 +305,68 @@ export default function Reports() {
   const { expenses: previousMonthExpenses, loading: loadingPreviousMonthExpenses } = useExpenses(previousMonth)
   const { incomes: previousMonthIncomes, loading: loadingPreviousMonthIncomes } = useIncomes(previousMonth)
   const { investments: monthInvestments, loading: loadingMonthInvestments } = useInvestments(selectedMonth)
+  const { isOnline } = useNetworkStatus()
+  const [portfolioTransactions, setPortfolioTransactions] = useState<
+    Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
+  >([])
+
+  useEffect(() => {
+    let canceled = false
+
+    const loadPortfolioTransactions = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        if (!canceled) setPortfolioTransactions([])
+        return
+      }
+
+      const { data: portfolio } = await supabase
+        .from('portfolios')
+        .select('id')
+        .eq('client_id', user.id)
+        .maybeSingle()
+
+      if (!portfolio) {
+        if (!canceled) setPortfolioTransactions([])
+        return
+      }
+
+      const [year, month] = selectedMonth.split('-').map(Number)
+      const daysInMonth = new Date(year, month, 0).getDate()
+      const rangeEnd = `${selectedMonth}-${String(daysInMonth).padStart(2, '0')}`
+
+      const { data } = await supabase
+        .from('portfolio_transactions')
+        .select('date, operation_type, quantity, price')
+        .eq('portfolio_id', portfolio.id)
+        .gte('date', `${selectedMonth}-01`)
+        .lte('date', rangeEnd)
+
+      if (!canceled) {
+        setPortfolioTransactions(data || [])
+      }
+    }
+
+    if (isOnline) {
+      void loadPortfolioTransactions()
+    } else {
+      setPortfolioTransactions([])
+    }
+
+    const onDataChanged = () => {
+      if (isOnline) void loadPortfolioTransactions()
+    }
+    window.addEventListener('local-data-changed', onDataChanged)
+    return () => {
+      canceled = true
+      window.removeEventListener('local-data-changed', onDataChanged)
+    }
+  }, [selectedMonth, isOnline])
+
+  const cashMonthInvestments = useMemo(
+    () => monthInvestments.filter((inv) => !inv.transaction_id && !inv.ticker),
+    [monthInvestments]
+  )
   const { limits: monthExpenseLimits } = useExpenseCategoryLimits(selectedMonth)
   const { limits: previousMonthExpenseLimits } = useExpenseCategoryLimits(previousMonth)
   const { expectations: monthIncomeExpectations } = useIncomeCategoryExpectations(selectedMonth)
@@ -1035,7 +1100,16 @@ export default function Reports() {
       }
     })
 
-    monthInvestments.forEach((investment) => {
+    const portfolioByDay = portfolioInvestmentByDay(
+      portfolioTransactions,
+      selectedMonth,
+      daysInMonth
+    )
+    portfolioByDay.forEach((value, index) => {
+      totalsByDay[index].Investimentos += value
+    })
+
+    cashMonthInvestments.forEach((investment) => {
       if (!investment.created_at) {
         return
       }
@@ -1059,7 +1133,14 @@ export default function Reports() {
     })
 
     return totalsByDay
-  }, [monthExpenses, monthIncomes, monthInvestments, selectedMonth, getAmountByMode])
+  }, [
+    monthExpenses,
+    monthIncomes,
+    cashMonthInvestments,
+    portfolioTransactions,
+    selectedMonth,
+    getAmountByMode,
+  ])
 
   const weekdayExpenseData = useMemo(() => {
     const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -1125,7 +1206,7 @@ export default function Reports() {
     'w-full rounded-lg border border-primary bg-secondary text-primary px-3 py-3 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
 
   const renderPieCard = (title: string, data: PieDatum[]) => (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col chart-interactive-layer">
       <h3 className="text-lg font-semibold text-primary mb-4">{title}</h3>
       {data.length === 0 ? (
         <p className="text-sm text-secondary">Sem dados para exibir.</p>
@@ -1198,7 +1279,7 @@ export default function Reports() {
       <PageHeader title={PAGE_HEADERS.reports.title} subtitle={PAGE_HEADERS.reports.description} />
 
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
-        <Card>
+        <Card className="relative z-20 overflow-visible">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
             <div>
               <label className="block text-sm font-medium text-primary mb-2">Visualização</label>
@@ -1313,7 +1394,7 @@ export default function Reports() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 items-stretch">
-                  <Card className="h-full flex flex-col">
+                  <Card className="h-full flex flex-col chart-interactive-layer">
                     <h3 className="text-lg font-semibold text-primary mb-4">Fluxo mensal ({selectedYear})</h3>
                     <ResponsiveContainer width="100%" height={280}>
                       <LineChart data={monthlyData}>
@@ -1334,7 +1415,7 @@ export default function Reports() {
                     </ResponsiveContainer>
                   </Card>
 
-                  <Card className="h-full flex flex-col">
+                  <Card className="h-full flex flex-col chart-interactive-layer">
                     <h3 className="text-lg font-semibold text-primary mb-4">Saldo acumulado ({selectedYear})</h3>
                     <ResponsiveContainer width="100%" height={280}>
                       <AreaChart data={cumulativeBalanceData}>
@@ -1360,7 +1441,7 @@ export default function Reports() {
                 </div>
 
                 <div className="space-y-4">
-                  <Card className="h-full flex flex-col">
+                  <Card className="h-full flex flex-col chart-interactive-layer">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                       <h3 className="text-lg font-semibold text-primary">
                         Evolução mensal por categoria ({evolutionType === 'expense' ? 'despesas' : 'rendas'})
@@ -1447,7 +1528,7 @@ export default function Reports() {
                   </Card>
                 </div>
 
-                <Card>
+                <Card className="chart-interactive-layer">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                     <h3 className="text-lg font-semibold text-primary">Fluxo diário consolidado ({formatMonth(selectedMonth)})</h3>
                     <span className="text-sm text-secondary">Rendas, despesas e investimentos por dia</span>
@@ -1478,7 +1559,7 @@ export default function Reports() {
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-                  <Card className="h-full flex flex-col">
+                  <Card className="h-full flex flex-col chart-interactive-layer">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                       <h3 className="text-lg font-semibold text-primary lg:whitespace-nowrap">Composição do mês</h3>
                       <div className="text-sm text-secondary">
@@ -1510,7 +1591,7 @@ export default function Reports() {
                     </ResponsiveContainer>
                   </Card>
 
-                  <Card className="h-full flex flex-col">
+                  <Card className="h-full flex flex-col chart-interactive-layer">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                       <h3 className="text-lg font-semibold text-primary lg:whitespace-nowrap">Gastos por dia da semana</h3>
                       <div className="text-sm text-secondary">

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildClosingDayResolver,
+  filterBillExpensesForMonth,
+  prepareBillExpenseRows,
   resolveExpenseBillCompetence,
   resolveBillCompetence,
   splitAmountIntoInstallments,
@@ -105,5 +108,50 @@ describe('creditCardBilling', () => {
     )
 
     expect(competence).toBe('2026-03')
+  })
+
+  it('filterBillExpensesForMonth mantém lançamentos com bill_competence manual', () => {
+    const resolveClosingDay = buildClosingDayResolver({}, { 'card-1': 10 })
+    const rows = filterBillExpensesForMonth(
+      [
+        {
+          id: 'e-1',
+          credit_card_id: 'card-1',
+          amount: 50,
+          date: '2026-01-15',
+          bill_competence: '2026-03',
+        },
+        {
+          id: 'e-2',
+          credit_card_id: 'card-1',
+          amount: 30,
+          date: '2026-01-20',
+          bill_competence: '2026-02',
+        },
+      ],
+      '2026-03',
+      resolveClosingDay,
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.id).toBe('e-1')
+  })
+
+  it('prepareBillExpenseRows aplica report_weight quando habilitado', () => {
+    const rows = prepareBillExpenseRows(
+      [
+        {
+          id: 'e-1',
+          credit_card_id: 'card-1',
+          amount: 100,
+          report_weight: 0.5,
+          date: '2026-03-01',
+        },
+      ],
+      true,
+    )
+
+    expect(rows[0]?.amount).toBe(50)
+    expect(rows[0]?.base_amount).toBe(100)
   })
 })

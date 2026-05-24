@@ -14,7 +14,6 @@
     "lint": "npm run guardrails:ui && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "@google/genai": "^1.44.0",
     "@supabase/supabase-js": "^2.38.4",
     "date-fns": "^2.30.0",
     "html2canvas": "^1.4.1",

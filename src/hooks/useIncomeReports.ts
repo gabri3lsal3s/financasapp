@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getWeightedReportAmount } from '@/utils/reportWeight'
 
 export interface IncomeByCategory {
   income_category_id: string
@@ -70,7 +71,7 @@ export function useIncomeReports(year: number, includeReportWeights = true) {
         const categoryColor = cat?.color ?? '#808080'
         const monthStr = income.date.substring(0, 7)
         const weightedAmount = includeReportWeights
-          ? income.amount * (income.report_weight ?? 1)
+          ? getWeightedReportAmount(income.amount, income.report_weight)
           : income.amount
 
         if (!annual[categoryId]) {

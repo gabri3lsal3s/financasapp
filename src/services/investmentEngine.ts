@@ -1,18 +1,8 @@
-import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget } from '@/types'
+import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
+import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
+import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 
-export interface AssetPosition {
-  ticker: string
-  quantity: number
-  average_price: number
-  current_price: number
-  total_value: number
-  target_percentage: number
-  current_percentage: number
-  gap_financial: number
-  gap_percentage: number
-  asset_class?: string
-  sector?: string
-}
+export type AssetPosition = ValuedPosition
 
 export interface PortfolioSummary {
   portfolio_id: string
@@ -47,87 +37,26 @@ export function calculatePositions(
   transactions: PortfolioTransaction[],
   targets: TargetAllocation[],
   prices: Record<string, AssetPrice>,
-  _cashBalance: number
-): { positions: AssetPosition[]; assetsValue: number; totalValue: number } {
-  const positionsMap: Record<string, { quantity: number; totalCost: number }> = {}
-
-  // Processa o livro-razão de transações de forma cronológica
-  const sortedTransactions = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
-
-  for (const tx of sortedTransactions) {
-    const ticker = tx.ticker.toUpperCase()
-    if (!positionsMap[ticker]) {
-      positionsMap[ticker] = { quantity: 0, totalCost: 0 }
-    }
-
-    const pos = positionsMap[ticker]
-
-    if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-      const newQty = pos.quantity + Number(tx.quantity)
-      const newCost = pos.totalCost + (Number(tx.quantity) * Number(tx.price))
-      pos.quantity = newQty
-      pos.totalCost = newCost
-    } else if (tx.operation_type === 'sell') {
-      const sellQty = Number(tx.quantity)
-      if (pos.quantity > 0) {
-        // Reduz o custo médio proporcionalmente à quantidade vendida
-        const avgPrice = pos.totalCost / pos.quantity
-        pos.quantity = Math.max(0, pos.quantity - sellQty)
-        pos.totalCost = pos.quantity * avgPrice
-      }
-    } else if (tx.operation_type === 'split') {
-      // No desdobramento, tx.quantity é o fator multiplicador (ex: 2 para desdobramento de 1 para 2)
-      // E tx.price é o novo preço ajustado (opcional)
-      pos.quantity = pos.quantity * Number(tx.quantity)
-      // O custo total permanece o mesmo, mudando o preço médio
-    }
-  }
-
-  // Monta as posições calculando valores de mercado e metas
-  let assetsValue = 0
-  const tempPositions: Omit<AssetPosition, 'current_percentage' | 'gap_financial' | 'gap_percentage'>[] = []
-
-  for (const [ticker, data] of Object.entries(positionsMap)) {
-    if (data.quantity <= 0) continue
-
-    const currentPrice = prices[ticker]?.current_price || FALLBACK_PRICE(ticker)
-    const totalValue = data.quantity * currentPrice
-    assetsValue += totalValue
-
-    const avgPrice = data.quantity > 0 ? data.totalCost / data.quantity : 0
-    const target = targets.find(t => t.ticker.toUpperCase() === ticker)
-    const targetPct = target ? Number(target.target_percentage) : 0
-
-    const priceObj = prices[ticker]
-    tempPositions.push({
-      ticker,
-      quantity: data.quantity,
-      average_price: Math.round(avgPrice * 100) / 100,
-      current_price: currentPrice,
-      total_value: Math.round(totalValue * 100) / 100,
-      target_percentage: targetPct,
-      asset_class: priceObj?.asset_class,
-      sector: priceObj?.sector,
-    })
-  }
-
-  const totalValue = assetsValue
-
-  // Adiciona os percentuais reais e desvios (gaps) com base no total do portfólio
-  const positions: AssetPosition[] = tempPositions.map(pos => {
-    const currentPercentage = totalValue > 0 ? (pos.total_value / totalValue) * 100 : 0
-    const targetValue = (pos.target_percentage / 100) * totalValue
-    const gapFinancial = targetValue - pos.total_value
-
-    return {
-      ...pos,
-      current_percentage: Math.round(currentPercentage * 100) / 100,
-      gap_financial: Math.round(gapFinancial * 100) / 100,
-      gap_percentage: Math.round((pos.target_percentage - currentPercentage) * 100) / 100,
-    }
+  cashBalance: number,
+  definitions: PortfolioAssetDefinition[] = [],
+  indexRatesByIndexer: Record<string, IndexRateMap> = {}
+): { positions: AssetPosition[]; assetsValue: number; totalValue: number; cashBalance: number } {
+  const result = calculatePortfolioValuation({
+    transactions,
+    definitions,
+    targets,
+    prices,
+    cashBalance,
+    indexRatesByIndexer,
+    fallbackPrice: FALLBACK_PRICE,
   })
 
-  return { positions, assetsValue, totalValue }
+  return {
+    positions: result.positions,
+    assetsValue: result.assetsValue,
+    totalValue: result.totalValue,
+    cashBalance: result.cashBalance,
+  }
 }
 
 /**
@@ -136,8 +65,7 @@ export function calculatePositions(
  */
 export function calculateShareHistory(
   transactions: PortfolioTransaction[],
-  prices: Record<string, AssetPrice>,
-  _finalCashBalance: number
+  prices: Record<string, AssetPrice>
 ): { currentShareValue: number; totalShares: number; shareHistory: { date: string; shareValue: number }[] } {
   // Ordena transações por data
   const sortedTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
@@ -148,7 +76,7 @@ export function calculateShareHistory(
 
   let totalShares = 0
   let shareValue = 1.00 // Cota inicial é sempre R$ 1,00
-  let currentPortfolio: Record<string, number> = {} // ticker -> quantidade
+  const currentPortfolio: Record<string, number> = {} // ticker -> quantidade
   let currentCash = 0
   
   const shareHistory: { date: string; shareValue: number }[] = []
@@ -174,7 +102,7 @@ export function calculateShareHistory(
       const assetPrice = prices[ticker]?.current_price || FALLBACK_PRICE(ticker)
       assetsValueBefore += qty * assetPrice
     }
-    let totalValueBefore = assetsValueBefore + currentCash
+    const totalValueBefore = assetsValueBefore + currentCash
 
     if (totalShares > 0 && totalValueBefore > 0) {
       shareValue = totalValueBefore / totalShares
@@ -406,6 +334,8 @@ export interface ConsolidatedGroup {
   current_percentage: number
   target_percentage: number
   yield_pct: number
+  gross_yield_pct: number
+  net_yield_pct: number
 }
 
 /**
@@ -416,22 +346,26 @@ export function calculateConsolidatedByClass(
   totalPortfolioValue: number,
   groupTargets?: PortfolioGroupTarget[]
 ): ConsolidatedGroup[] {
-  const groups: Record<string, { total_value: number; cost_basis: number; target_percentage: number }> = {}
+  const groups: Record<string, { total_value: number; cost_basis: number; target_percentage: number; gross_gain: number; net_gain: number }> = {}
 
   for (const pos of positions) {
-    const className = pos.asset_class || 'Renda Fixa'
+    const className = pos.asset_class || 'Não classificado'
     if (!groups[className]) {
-      groups[className] = { total_value: 0, cost_basis: 0, target_percentage: 0 }
+      groups[className] = { total_value: 0, cost_basis: 0, target_percentage: 0, gross_gain: 0, net_gain: 0 }
     }
-    
+
     const grp = groups[className]
     grp.total_value += pos.total_value
-    grp.cost_basis += pos.quantity * pos.average_price
+    grp.cost_basis += pos.cost_basis
     grp.target_percentage += pos.target_percentage
+    grp.gross_gain += pos.total_value - pos.cost_basis
+    grp.net_gain += pos.cost_basis * (pos.net_yield_pct / 100)
   }
 
   return Object.entries(groups).map(([name, data]) => {
     const yieldPct = data.cost_basis > 0 ? ((data.total_value - data.cost_basis) / data.cost_basis) * 100 : 0
+    const grossYieldPct = data.cost_basis > 0 ? (data.gross_gain / data.cost_basis) * 100 : 0
+    const netYieldPct = data.cost_basis > 0 ? (data.net_gain / data.cost_basis) * 100 : 0
     const currentPercentage = totalPortfolioValue > 0 ? (data.total_value / totalPortfolioValue) * 100 : 0
     
     const explicitTarget = groupTargets?.find(
@@ -446,6 +380,8 @@ export function calculateConsolidatedByClass(
       current_percentage: Math.round(currentPercentage * 100) / 100,
       target_percentage: Math.round(targetPct * 100) / 100,
       yield_pct: Math.round(yieldPct * 100) / 100,
+      gross_yield_pct: Math.round(grossYieldPct * 100) / 100,
+      net_yield_pct: Math.round(netYieldPct * 100) / 100,
     }
   }).sort((a, b) => b.total_value - a.total_value)
 }
@@ -458,22 +394,26 @@ export function calculateConsolidatedBySector(
   totalPortfolioValue: number,
   groupTargets?: PortfolioGroupTarget[]
 ): ConsolidatedGroup[] {
-  const groups: Record<string, { total_value: number; cost_basis: number; target_percentage: number }> = {}
+  const groups: Record<string, { total_value: number; cost_basis: number; target_percentage: number; gross_gain: number; net_gain: number }> = {}
 
   for (const pos of positions) {
     const sectorName = pos.sector || 'Outros'
     if (!groups[sectorName]) {
-      groups[sectorName] = { total_value: 0, cost_basis: 0, target_percentage: 0 }
+      groups[sectorName] = { total_value: 0, cost_basis: 0, target_percentage: 0, gross_gain: 0, net_gain: 0 }
     }
-    
+
     const grp = groups[sectorName]
     grp.total_value += pos.total_value
-    grp.cost_basis += pos.quantity * pos.average_price
+    grp.cost_basis += pos.cost_basis
     grp.target_percentage += pos.target_percentage
+    grp.gross_gain += pos.total_value - pos.cost_basis
+    grp.net_gain += pos.cost_basis * (pos.net_yield_pct / 100)
   }
 
   return Object.entries(groups).map(([name, data]) => {
     const yieldPct = data.cost_basis > 0 ? ((data.total_value - data.cost_basis) / data.cost_basis) * 100 : 0
+    const grossYieldPct = data.cost_basis > 0 ? (data.gross_gain / data.cost_basis) * 100 : 0
+    const netYieldPct = data.cost_basis > 0 ? (data.net_gain / data.cost_basis) * 100 : 0
     const currentPercentage = totalPortfolioValue > 0 ? (data.total_value / totalPortfolioValue) * 100 : 0
     
     const explicitTarget = groupTargets?.find(
@@ -488,6 +428,8 @@ export function calculateConsolidatedBySector(
       current_percentage: Math.round(currentPercentage * 100) / 100,
       target_percentage: Math.round(targetPct * 100) / 100,
       yield_pct: Math.round(yieldPct * 100) / 100,
+      gross_yield_pct: Math.round(grossYieldPct * 100) / 100,
+      net_yield_pct: Math.round(netYieldPct * 100) / 100,
     }
   }).sort((a, b) => b.total_value - a.total_value)
 }

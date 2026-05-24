@@ -52,7 +52,7 @@ export default function ContributionSimulator({
 
     setIsSimulating(true)
 
-    // Lógica da Metodologia do Cerrado:
+    // Direciona o aporte para ativos abaixo da meta de alocação:
     // Novo patrimônio projetado = Patrimônio atual + Aporte
     const projectedValue = portfolioCurrentValue + amount
 
@@ -163,7 +163,7 @@ export default function ContributionSimulator({
         </div>
         <div>
           <h3 className="font-semibold text-lg text-primary">Simulador de Aportes Inteligente</h3>
-          <p className="text-sm text-secondary">Metodologia do Cerrado: Direcionamento automático para ativos na baixa</p>
+          <p className="text-sm text-secondary">Direcionamento automático para ativos abaixo da meta de alocação</p>
         </div>
       </div>
 
@@ -213,7 +213,7 @@ export default function ContributionSimulator({
                 <tr className="border-b border-border/40 bg-muted/30">
                   <th className="p-3.5 font-semibold text-secondary">Ticker</th>
                   <th className="p-3.5 font-semibold text-secondary text-center">% Atual</th>
-                  <th className="p-3.5 font-semibold text-secondary text-center">% Alvo (Cerrado)</th>
+                  <th className="p-3.5 font-semibold text-secondary text-center">% Alvo</th>
                   <th className="p-3.5 font-semibold text-secondary text-right">Déficit (Gap)</th>
                   <th className="p-3.5 font-semibold text-secondary text-right">Valor Sugerido</th>
                   <th className="p-3.5 font-semibold text-secondary text-center">Operação</th>

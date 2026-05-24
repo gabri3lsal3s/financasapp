@@ -1,0 +1,34 @@
+---
+name: Banco Supabase e RLS
+description: Regras de schema SQL, migrações, RLS por user_id e integridade no PostgreSQL.
+alwaysApply: true
+---
+
+# Banco (Supabase + PostgreSQL)
+
+- Schema base: `database/database.sql` e evoluções em `supabase/migrations/**`.
+- Cliente no app: `src/lib/supabase.ts` (anon key + sessão do usuário).
+- **Não** usar Drizzle nem ORM server-side neste repositório.
+
+## Modelagem e isolamento
+
+- Tabelas financeiras pessoais: coluna `user_id UUID DEFAULT auth.uid()` com índice em `user_id`.
+- **RLS obrigatório:** políticas `auth.uid() = user_id` para SELECT/INSERT/UPDATE/DELETE nas tabelas do usuário.
+- Módulo consultoria/investimentos: seguir políticas das migrations em `supabase/migrations/` (portfolios, consultant_profiles, etc.).
+- Não introduzir `tenant_id` multi-tenant sem migration e regra dedicadas.
+
+## Migrações
+
+- Alterações de schema: novo arquivo SQL em `supabase/migrations/` com data descritiva no nome.
+- Manter `database/database.sql` alinhado quando for bootstrap de ambiente novo (documentar no PR).
+- Testar políticas RLS no SQL Editor antes de depender só do cliente.
+
+## Integridade e performance
+
+- Constraints no banco: `NOT NULL`, `UNIQUE`, `FK`, `CHECK` quando a regra for invariante.
+- Índices em FKs e colunas de filtro frequente (`user_id`, `date`, `credit_card_id`).
+- Operações multi-tabela críticas: usar RPC ou transação no Supabase quando o cliente não garantir atomicidade.
+
+## Dados históricos
+
+- Campos usados em relatórios passados (`report_weight`, competência de fatura, valores no lançamento) devem ser gravados no registro no momento do fato — não depender só de join com catálogo atual para reconstruir histórico (`17-financial-domain.mdc`).

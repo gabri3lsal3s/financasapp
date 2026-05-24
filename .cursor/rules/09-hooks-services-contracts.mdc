@@ -1,0 +1,53 @@
+---
+name: Hooks e Contratos de Serviços
+description: Padroniza retornos de hooks, erros e separação entre orquestração e regra de negócio.
+alwaysApply: true
+---
+
+# Objetivo
+
+Padronizar hooks de dados (`useExpenses`, `useIncomes`, etc.) e serviços como camada de orquestração, com regra de negócio testável fora do hook.
+
+# Regras obrigatórias
+
+## Retorno de hooks
+
+- Expor de forma consistente: dados (`expenses` / `data`), `loading`, `error`, e funções de mutação (`add`, `update`, `remove`, `refresh` — conforme o hook).
+- Estados de loading não devem bloquear exibição de cache local quando existir dado em `offlineCache`.
+- IDs provisórios offline: prefixo `offline-` até confirmação do servidor.
+
+## Erros
+
+- Mapear falhas Supabase para mensagens em **pt-BR** no hook ou na página.
+- Não renderizar `error.message` cru do PostgREST se contiver detalhe técnico.
+- Toast de sucesso/erro: `react-hot-toast` com mensagens curtas e consistentes.
+
+## Separação de responsabilidades
+
+- **Hook:** fetch/cache/fila offline/disparo de eventos.
+- **`src/utils/**`:** cálculos puros (billing, parcelas, CSV, seleção de mês).
+- **`src/services/**`:** integrações (PDF, preços, AI, `investmentEngine`, `offlineCache`).
+
+Regra de negócio pesada **não** deve ficar só dentro de `useEffect` longo sem extração testável.
+
+## Mutações
+
+- Online: Supabase direto + atualizar cache + `local-data-changed`.
+- Offline: `shouldQueueOffline` → `enqueueOfflineOperation` com `entity`, `action`, `payload`.
+- Após create offline, permitir `updateOfflineCreatePayload` / `removeOfflineCreateOperation` quando o usuário edita antes do sync.
+
+# Escopo
+
+- Aplica em: `src/hooks/**`, `src/services/**` (orquestração).
+- Não aplica em: componentes puramente visuais sem fetch.
+
+# Anti-padrões
+
+- Duplicar lógica de competência de cartão em página e hook.
+- Hook com 400+ linhas sem extrair funções para `utils/`.
+- Retornar `any` ou objeto sem tipo exportado.
+
+# Notas de manutenção
+
+- Skill: `.cursor/skills/supabase-hooks-mutations/SKILL.md`, `.cursor/skills/offline-hooks-data/SKILL.md`.
+- Dependências: `12-pwa-offline-first.mdc`, `13-offline-cache-hooks.mdc`.

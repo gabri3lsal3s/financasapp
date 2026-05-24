@@ -1,0 +1,37 @@
+---
+name: React Vite SPA
+description: Diretrizes de roteamento, estrutura de páginas, alias e variáveis de ambiente no cliente.
+alwaysApply: true
+---
+
+# React 18 + Vite 5 — SPA
+
+- Entry: `src/main.tsx` → `App.tsx` com `BrowserRouter`.
+- Rotas públicas: `/login`, `/register`, `/forgot-password`, `/reset-password`.
+- Rotas autenticadas: envolvidas em `ProtectedRoute` + `Layout` (exceto fluxo `client`).
+- Alias `@/` aponta para `src/` (`vite.config.ts`).
+
+## Roteamento e papéis
+
+- Definição central em `src/App.tsx` (`AppRoutes`).
+- Se `profile.role === 'client'`, interface restrita a `ClientDashboard` (somente leitura).
+- Consultor: rota adicional `/consulting` quando `profile.role === 'consultant'`.
+- Novas páginas: criar em `src/pages/<Nome>.tsx` e registrar em `App.tsx`.
+
+## Estado e dados
+
+- Auth global: `AuthContext` (`src/contexts/AuthContext.tsx`).
+- Tema e paleta: `ThemeContext` — não criar provider paralelo de tema.
+- Dados remotos: hooks em `src/hooks/use*.ts` (Supabase + cache offline).
+- Preferir estado na URL quando for filtro/compartilhável; evitar `useEffect` só para bootstrap já coberto por contexto.
+
+## Variáveis de ambiente
+
+- Apenas prefixo `VITE_*` é exposto ao bundle do cliente.
+- Obrigatórias: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+- Chaves de IA ou segredos de backend **nunca** em `VITE_*` sem revisão de segurança (`06-security-supabase.mdc`).
+
+## Build
+
+- `npm run build` executa `tsc` + `vite build`.
+- Chunks manuais: `react`, `supabase`, `charts` em `vite.config.ts` — manter ao adicionar dependências pesadas.

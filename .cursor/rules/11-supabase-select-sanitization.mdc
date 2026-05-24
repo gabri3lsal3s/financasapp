@@ -1,0 +1,40 @@
+---
+name: Sanitização de Select Supabase
+description: Define critérios de projeção de colunas e cache local para evitar excesso de exposição.
+alwaysApply: true
+---
+
+# Objetivo
+
+Garantir que queries Supabase e cache local exponham somente o necessário, evitando vazamento de campos internos e payloads inflados.
+
+# Regras obrigatórias
+
+- Preferir `.select('id, name, amount, ...')` com lista explícita de colunas.
+- Evitar `.select('*')` em `profiles` e tabelas com flags administrativas (`is_admin`, `is_blocked`, etc.) quando a tela não precisar.
+- Joins: selecionar apenas colunas usadas na UI (ex.: `category:categories(id, name, color)`).
+- Não gravar em `offlineCache` estruturas maiores que o necessário para a listagem.
+- Não logar nem toastar corpo completo de erro com PII.
+
+# Escopo
+
+- Aplica em: `src/hooks/**`, `src/contexts/AuthContext.tsx`, `src/services/**` que chamam Supabase.
+- Não aplica em: scripts SQL de migration (podem usar `SELECT *` em manutenção interna).
+
+# Exemplos
+
+## Correto
+
+```ts
+.select('id, email, is_approved, is_blocked, role')
+```
+
+## Incorreto
+
+```ts
+.select('*') // em perfil só para exibir nome na navbar
+```
+
+# Notas de manutenção
+
+- Dependências: `06-security-supabase.mdc`, `04-supabase-database-rls.mdc`.

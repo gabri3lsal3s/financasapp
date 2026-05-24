@@ -6,19 +6,29 @@ import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { formatCurrency } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Percent } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Percent, Settings2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import Input from '@/components/Input'
+import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
+import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
+import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 import toast from 'react-hot-toast'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
-  calculatePositions, 
   calculateConsolidatedByClass, 
   calculateConsolidatedBySector 
 } from '@/services/investmentEngine'
-import { getAssetPrices, searchB3Assets, getAssetRichData } from '@/services/priceService'
+import { searchB3Assets } from '@/services/priceService'
+import { loadPortfolioValuation, getAssetPricingBadgeLabel } from '@/utils/portfolioValuationLoader'
+import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
+
+import {
+  buildLegacyTransactionPayload,
+  findMatchingLegacyTransaction,
+  type LegacyInvestmentRow,
+} from '@/utils/legacyInvestmentMigration'
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -48,15 +58,10 @@ export default function Investments() {
   const [savingGroupTarget, setSavingGroupTarget] = useState<boolean>(false)
 
   // Estados adicionais para integração e sincronização de ativos e metas
-  const [transactions, setTransactions] = useState<any[]>([])
+  const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
   const [targetAllocations, setTargetAllocations] = useState<any[]>([])
-  const [showTxForm, setShowTxForm] = useState<boolean>(false)
-  const [txTicker, setTxTicker] = useState<string>('')
-  const [txType, setTxType] = useState<'buy' | 'sell' | 'dividend' | 'split' | 'subscription'>('buy')
-  const [txQty, setTxQty] = useState<string>('')
-  const [txPrice, setTxPrice] = useState<string>('')
-  const [txDate, setTxDate] = useState<string>(new Date().toISOString().split('T')[0])
-  const [savingTx, setSavingTx] = useState<boolean>(false)
+  const [isTxModalOpen, setIsTxModalOpen] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
 
   const [showTargetForm, setShowTargetForm] = useState<boolean>(false)
   const [targetTicker, setTargetTicker] = useState<string>('')
@@ -66,14 +71,12 @@ export default function Investments() {
   const [targetSector, setTargetSector] = useState<string>('')
   const [isCustomTicker, setIsCustomTicker] = useState<boolean>(false)
 
-  // Autocomplete
-  const [txSuggestions, setTxSuggestions] = useState<{ ticker: string, name: string }[]>([])
-  const [showTxSuggestions, setShowTxSuggestions] = useState<boolean>(false)
   const [targetSuggestions, setTargetSuggestions] = useState<{ ticker: string, name: string }[]>([])
   const [showTargetSuggestions, setShowTargetSuggestions] = useState<boolean>(false)
-  const [txAssetRichData, setTxAssetRichData] = useState<any>(null)
-  const [loadingRichData, setLoadingRichData] = useState<boolean>(false)
   const [assetPrices, setAssetPrices] = useState<Record<string, any>>({})
+  const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
+  const [assetDefModalOpen, setAssetDefModalOpen] = useState(false)
+  const [assetDefTicker, setAssetDefTicker] = useState('')
 
   // Estados para limites de exposição por classe e setor
   const [portfolioId, setPortfolioId] = useState<string>('')
@@ -85,11 +88,23 @@ export default function Investments() {
 
 
 
+  const handleOpenTxModal = (tx?: PortfolioTransaction) => {
+    setEditingTransaction(tx ?? null)
+    setShowTargetForm(false)
+    setIsTxModalOpen(true)
+  }
+
+  const handleCloseTxModal = () => {
+    setIsTxModalOpen(false)
+    setEditingTransaction(null)
+  }
+
   useEffect(() => {
     const quickAdd = searchParams.get('quickAdd')
     if (quickAdd === '1') {
-      setShowTxForm(true)
+      setEditingTransaction(null)
       setShowTargetForm(false)
+      setIsTxModalOpen(true)
 
       const next = new URLSearchParams(searchParams)
       next.delete('quickAdd')
@@ -124,36 +139,45 @@ export default function Investments() {
 
       setPortfolioId(portfolio.id)
 
-      // 2. Executar a Migração única dos dados legados (se houver)
+      const { data: existingTransactions } = await supabase
+        .from('portfolio_transactions')
+        .select('id, portfolio_id, ticker, operation_type, quantity, price, date, created_at')
+        .eq('portfolio_id', portfolio.id)
+
+      const knownTransactions = (existingTransactions as PortfolioTransaction[]) || []
+
+      // 2. Migração idempotente dos dados legados (evita recriar SALDO_INV após exclusão)
       const { data: userInvestments } = await supabase
         .from('investments')
-        .select('*')
+        .select('id, month, amount, ticker, quantity, price, created_at, transaction_id')
         .eq('user_id', user.id)
 
-      const unconverted = userInvestments?.filter(inv => !inv.transaction_id) || []
+      const unconverted = (userInvestments as LegacyInvestmentRow[] | null)?.filter((inv) => !inv.transaction_id) || []
 
       if (unconverted.length > 0) {
-        const txsToInsert: any[] = []
+        const txsToInsert: Omit<PortfolioTransaction, 'created_at'>[] = []
         const investmentsToUpdate: { id: string; transaction_id: string }[] = []
+        let migratedCount = 0
 
         for (const inv of unconverted) {
-          // Todo e qualquer investimento legando cadastrado pelo usuário até agora é convertido em transações
-          // no livro-razão como "Saldo para Investimento", com data original para manter precisão de registro mensal.
-          const dateStr = inv.month ? `${inv.month}-01` : new Date(inv.created_at).toISOString().split('T')[0]
+          const existingMatch = findMatchingLegacyTransaction(inv, knownTransactions)
+
+          if (existingMatch) {
+            investmentsToUpdate.push({
+              id: inv.id,
+              transaction_id: existingMatch.id,
+            })
+            migratedCount += 1
+            continue
+          }
+
           const txId = generateUUID()
-          txsToInsert.push({
-            id: txId,
-            portfolio_id: portfolio.id,
-            ticker: 'SALDO_INV',
-            operation_type: 'buy',
-            quantity: 1,
-            price: Number(inv.amount),
-            date: dateStr
-          })
+          txsToInsert.push(buildLegacyTransactionPayload(inv, portfolio.id, txId))
           investmentsToUpdate.push({
             id: inv.id,
-            transaction_id: txId
+            transaction_id: txId,
           })
+          migratedCount += 1
         }
 
         if (txsToInsert.length > 0) {
@@ -161,16 +185,20 @@ export default function Investments() {
             .from('portfolio_transactions')
             .insert(txsToInsert)
           if (txsInsertError) throw txsInsertError
-
-          for (const item of investmentsToUpdate) {
-            await supabase
-              .from('investments')
-              .update({ transaction_id: item.transaction_id })
-              .eq('id', item.id)
-          }
         }
 
-        toast.success('Seus dados legados foram importados com sucesso para a Carteira Cerrado!')
+        for (const item of investmentsToUpdate) {
+          const { error: linkError } = await supabase
+            .from('investments')
+            .update({ transaction_id: item.transaction_id })
+            .eq('id', item.id)
+
+          if (linkError) throw linkError
+        }
+
+        if (migratedCount > 0 && txsToInsert.length > 0) {
+          toast.success('Seus dados legados foram importados com sucesso para a carteira de consultoria!')
+        }
       }
 
       // 3. Carregar os dados atualizados do portfolio
@@ -204,22 +232,22 @@ export default function Investments() {
         return
       }
 
-      const tickers = Array.from(new Set(transactionsData.map(t => t.ticker)))
-      const prices = await getAssetPrices(tickers)
-      setAssetPrices(prices || {})
-
-      const { positions, totalValue } = calculatePositions(
-        transactionsData,
+      const valuation = await loadPortfolioValuation(
+        portfolio.id,
+        transactionsData || [],
         targets || [],
-        prices,
-        0
+        Number(portfolio.cash_balance) || 0
       )
 
+      setAssetPrices(valuation.prices || {})
+      setAssetDefinitions(valuation.definitions)
+
+      const { positions, totalValue } = valuation
       const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, groupTargetsData || [])
       const consolidatedSector = calculateConsolidatedBySector(positions, totalValue, groupTargetsData || [])
 
       setPortfolioData({
-        cashBalance: 0,
+        cashBalance: valuation.cashBalance,
         totalValue,
         positions,
         consolidatedClass,
@@ -237,19 +265,6 @@ export default function Investments() {
       loadPortfolio()
     }
   }, [isOnline])
-
-  const handleTxTickerChange = async (val: string) => {
-    setTxTicker(val)
-    if (val.length >= 2) {
-      const suggestions = await searchB3Assets(val)
-      setTxSuggestions(suggestions)
-      setShowTxSuggestions(true)
-    } else {
-      setTxSuggestions([])
-      setShowTxSuggestions(false)
-      setTxAssetRichData(null)
-    }
-  }
 
   const handleSelectRegisteredTicker = (val: string) => {
     if (val === 'custom') {
@@ -286,121 +301,6 @@ export default function Investments() {
     } else {
       setTargetSuggestions([])
       setShowTargetSuggestions(false)
-    }
-  }
-
-  useEffect(() => {
-    const fetchRichData = async () => {
-      if (txTicker.length >= 3) {
-        setLoadingRichData(true)
-        try {
-          const data = await getAssetRichData(txTicker)
-          setTxAssetRichData(data)
-          if (data && (!txPrice || txPrice === '0' || txPrice === '')) {
-            setTxPrice(data.price.toFixed(2))
-          }
-        } catch (err) {
-          console.warn('Erro ao carregar dados ricos da cotação:', err)
-        } finally {
-          setLoadingRichData(false)
-        }
-      } else {
-        setTxAssetRichData(null)
-      }
-    }
-
-    const timer = setTimeout(fetchRichData, 500)
-    return () => clearTimeout(timer)
-  }, [txTicker])
-
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!portfolioId) return
-    setSavingTx(true)
-
-    try {
-      const qty = parseFloat(txQty)
-      const price = parseFloat(txPrice)
-      const ticker = txTicker.toUpperCase().trim()
-
-      if (isNaN(qty) || qty <= 0) throw new Error('Quantidade inválida')
-      if (isNaN(price) || price <= 0) throw new Error('Preço inválido')
-      if (!ticker) throw new Error('Insira o ticker')
-
-      const { error: txError } = await supabase
-        .from('portfolio_transactions')
-        .insert({
-          portfolio_id: portfolioId,
-          ticker,
-          operation_type: txType,
-          quantity: qty,
-          price,
-          date: txDate
-        })
-
-      if (txError) throw txError
-
-      // Salva em investments para histórico consolidado de caixa (rastreabilidade nos relatórios)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const totalCost = qty * price
-        const netChange = (txType === 'buy' || txType === 'subscription') ? -totalCost : totalCost
-        await supabase
-          .from('investments')
-          .insert({
-            user_id: user.id,
-            amount: netChange,
-            month: txDate.substring(0, 7),
-            description: `${txType === 'buy' ? 'Compra' : txType === 'sell' ? 'Venda' : txType === 'dividend' ? 'Provento' : txType === 'subscription' ? 'Subscrição' : 'Desdobro'}: ${qty} ${ticker}`,
-            ticker,
-            quantity: qty,
-            price,
-            transaction_id: `cerrado_tx_${generateUUID()}`
-          })
-      }
-
-      toast.success('Transação registrada com sucesso!')
-      setTxTicker('')
-      setTxQty('')
-      setTxPrice('')
-      setShowTxForm(false)
-      loadPortfolio()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao registrar transação')
-    } finally {
-      setSavingTx(false)
-    }
-  }
-
-  const handleDeleteTransaction = async (txId: string) => {
-    try {
-      const { data: tx } = await supabase
-        .from('portfolio_transactions')
-        .select('*')
-        .eq('id', txId)
-        .single()
-
-      if (!tx) throw new Error('Transação não encontrada')
-
-      const { error: delError } = await supabase
-        .from('portfolio_transactions')
-        .delete()
-        .eq('id', txId)
-
-      if (delError) throw delError
-
-      // Deleta o registro correspondente no histórico (investments)
-      await supabase
-        .from('investments')
-        .delete()
-        .eq('ticker', tx.ticker)
-        .eq('quantity', tx.quantity)
-        .eq('price', tx.price)
-
-      toast.success('Transação excluída!')
-      loadPortfolio()
-    } catch (err) {
-      toast.error('Erro ao deletar transação')
     }
   }
 
@@ -547,10 +447,7 @@ export default function Investments() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                setShowTxForm(prev => !prev)
-                setShowTargetForm(false)
-              }}
+              onClick={() => handleOpenTxModal()}
               className="flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold"
             >
               <Plus size={16} className="text-indigo-500" />
@@ -562,7 +459,7 @@ export default function Investments() {
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 animate-page-enter">
         {portfolioLoading ? (
-          <Loader text="Carregando sua Carteira Cerrado..." className="py-12" />
+          <Loader text="Carregando sua carteira de consultoria..." className="py-12" />
         ) : portfolioData && (
           <div className="space-y-6 animate-fade-in">
             {/* Cards de KPIs da Consultoria */}
@@ -603,73 +500,19 @@ export default function Investments() {
               </div>
 
               {showGroupTargetForm && (
-                <form onSubmit={handleSaveGroupTarget} className="p-4 bg-primary/40 border border-primary rounded-xl space-y-4 animate-page-enter">
-                  <div className="flex flex-wrap gap-3 items-end text-left">
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Tipo de Limite</label>
-                      <select
-                        value={groupTargetType}
-                        onChange={e => {
-                          const val = e.target.value as 'class' | 'sector'
-                          setGroupTargetType(val)
-                          setGroupTargetName(val === 'class' ? 'Ações Nacionais' : '')
-                        }}
-                        className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                      >
-                        <option value="class">Por Classe de Ativos</option>
-                        <option value="sector">Por Setor Econômico</option>
-                      </select>
-                    </div>
-
-                    <div className="flex-1 min-w-[200px]">
-                      {groupTargetType === 'class' ? (
-                        <div>
-                          <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Classe de Ativo</label>
-                          <select
-                            value={groupTargetName}
-                            onChange={e => setGroupTargetName(e.target.value)}
-                            className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                            required
-                          >
-                            <option value="Ações Nacionais">Ações Nacionais</option>
-                            <option value="Ações Internacionais">Ações Internacionais</option>
-                            <option value="Fundos Imobiliários">Fundos Imobiliários</option>
-                            <option value="ETFs Nacionais">ETFs Nacionais</option>
-                            <option value="ETFs Internacionais">ETFs Internacionais</option>
-                            <option value="Criptoativos">Criptoativos</option>
-                            <option value="Renda Fixa">Renda Fixa</option>
-                          </select>
-                        </div>
-                      ) : (
-                        <Input
-                          label="Setor Econômico"
-                          type="text"
-                          required
-                          placeholder="Ex: Petróleo e Gás"
-                          value={groupTargetName}
-                          onChange={e => setGroupTargetName(e.target.value)}
-                          className="text-sm font-semibold text-primary bg-primary"
-                        />
-                      )}
-                    </div>
-
-                    <div className="w-[120px]">
-                      <Input
-                        label="Limite Alvo (%)"
-                        type="number"
-                        required
-                        placeholder="Ex: 30"
-                        value={groupTargetPct}
-                        onChange={e => setGroupTargetPct(e.target.value)}
-                        className="text-sm font-semibold text-primary bg-primary"
-                      />
-                    </div>
-
-                    <Button type="submit" disabled={savingGroupTarget} variant="primary" className="text-xs h-[42px] shrink-0 font-extrabold px-5 shadow-sm">
-                      {savingGroupTarget ? 'Salvando...' : 'Salvar Limite'}
-                    </Button>
-                  </div>
-                </form>
+                <InvestmentsGroupTargetForm
+                  groupTargetType={groupTargetType}
+                  groupTargetName={groupTargetName}
+                  groupTargetPct={groupTargetPct}
+                  savingGroupTarget={savingGroupTarget}
+                  onTypeChange={(type) => {
+                    setGroupTargetType(type)
+                    setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
+                  }}
+                  onNameChange={setGroupTargetName}
+                  onPctChange={setGroupTargetPct}
+                  onSubmit={handleSaveGroupTarget}
+                />
               )}
 
               {/* Listagem de Limites Cadastrados */}
@@ -717,7 +560,10 @@ export default function Investments() {
                               isPositive ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
                             }`}>
                               {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                              {isPositive ? '+' : ''}{cls.yield_pct.toFixed(2)}%
+                              Bruta {isPositive ? '+' : ''}{cls.gross_yield_pct.toFixed(2)}%
+                            </span>
+                            <span className="text-[10px] text-secondary">
+                              Líq. {cls.net_yield_pct >= 0 ? '+' : ''}{cls.net_yield_pct.toFixed(2)}%
                             </span>
                             <span className="text-xs text-secondary font-medium">
                               {cls.current_percentage.toFixed(1)}%
@@ -763,7 +609,10 @@ export default function Investments() {
                               isPositive ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
                             }`}>
                               {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                              {isPositive ? '+' : ''}{sec.yield_pct.toFixed(2)}%
+                              Bruta {isPositive ? '+' : ''}{sec.gross_yield_pct.toFixed(2)}%
+                            </span>
+                            <span className="text-[10px] text-secondary">
+                              Líq. {sec.net_yield_pct >= 0 ? '+' : ''}{sec.net_yield_pct.toFixed(2)}%
                             </span>
                             <span className="text-xs text-secondary font-medium">
                               {sec.current_percentage.toFixed(1)}%
@@ -801,7 +650,6 @@ export default function Investments() {
                     variant="outline"
                     onClick={() => {
                       setShowTargetForm(!showTargetForm)
-                      setShowTxForm(false)
                       const registered = Array.from(new Set([
                         ...transactions.map(t => t.ticker.toUpperCase()),
                         ...targetAllocations.map(t => t.ticker.toUpperCase())
@@ -813,133 +661,8 @@ export default function Investments() {
                     <Percent size={13} className="text-emerald-500" />
                     Ajustar Metas
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setShowTxForm(!showTxForm)
-                      setShowTargetForm(false)
-                    }}
-                    className="flex items-center gap-1.5 text-xs border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 py-1 px-2.5 rounded-lg"
-                  >
-                    <Plus size={13} className="text-indigo-500" />
-                    Lançar Transação
-                  </Button>
                 </div>
               </div>
-
-              {showTxForm && (
-                <form onSubmit={handleAddTransaction} className="p-4 bg-muted/20 border border-border/40 rounded-xl mb-4.5 space-y-3 animate-page-enter">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
-                    <div className="relative">
-                      <Input
-                        label="Ticker"
-                        type="text"
-                        required
-                        placeholder="Ex: PETR4"
-                        value={txTicker}
-                        onChange={e => handleTxTickerChange(e.target.value)}
-                        onBlur={() => setTimeout(() => setShowTxSuggestions(false), 200)}
-                        onFocus={() => txTicker.length >= 2 && setShowTxSuggestions(true)}
-                        className="uppercase text-sm font-semibold text-primary bg-primary"
-                      />
-                      {showTxSuggestions && txSuggestions.length > 0 && (
-                        <div className="absolute z-[1001] w-full mt-1 bg-primary border border-primary rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto">
-                          {txSuggestions.map(s => (
-                            <button
-                              key={s.ticker}
-                              type="button"
-                              onClick={() => {
-                                setTxTicker(s.ticker)
-                                setShowTxSuggestions(false)
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-tertiary text-primary flex items-center justify-between border-b border-primary/10 last:border-0"
-                            >
-                              <span className="font-bold">{s.ticker}</span>
-                              <span className="text-[10px] text-secondary truncate max-w-[150px]">{s.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Operação</label>
-                      <select
-                        value={txType}
-                        onChange={e => setTxType(e.target.value as any)}
-                        className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                      >
-                        <option value="buy">Compra</option>
-                        <option value="sell">Venda</option>
-                        <option value="dividend">Provento/Div</option>
-                        <option value="split">Desdobrar</option>
-                        <option value="subscription">Subscrição</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Input
-                        label="Data"
-                        type="date"
-                        required
-                        value={txDate}
-                        onChange={e => setTxDate(e.target.value)}
-                        className="text-sm font-semibold text-primary bg-primary"
-                      />
-                    </div>
-                  </div>
-
-                  {loadingRichData && (
-                    <div className="text-[10px] text-secondary animate-pulse pl-1 text-left">Carregando dados da B3/Yahoo...</div>
-                  )}
-
-                  {txAssetRichData && (
-                    <div className="p-3 bg-primary border border-primary rounded-xl text-xs space-y-1 text-secondary animate-page-enter mx-1 max-w-md text-left">
-                      <div className="flex justify-between items-center">
-                        <strong className="text-primary font-bold">{txAssetRichData.name}</strong>
-                        <span className="text-emerald-500 font-extrabold">R$ {txAssetRichData.price.toFixed(2)}</span>
-                      </div>
-                      {txAssetRichData.dividendYield !== undefined && (
-                        <div className="flex justify-between items-center text-[10px] opacity-80 pt-0.5 border-t border-primary/10">
-                          <span>Dividend Yield Anual (DY):</span>
-                          <span className="text-indigo-500 font-bold">{txAssetRichData.dividendYield.toFixed(2)}%</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left items-end">
-                    <div>
-                      <Input
-                        label="Quantidade"
-                        type="number"
-                        required
-                        step="any"
-                        placeholder="Ex: 10"
-                        value={txQty}
-                        onChange={e => setTxQty(e.target.value)}
-                        className="text-sm font-semibold text-primary bg-primary"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        label="Preço de Execução"
-                        type="number"
-                        required
-                        step="any"
-                        placeholder="Ex: 35.50"
-                        value={txPrice}
-                        onChange={e => setTxPrice(e.target.value)}
-                        className="text-sm font-semibold text-primary bg-primary"
-                      />
-                    </div>
-                    <Button type="submit" disabled={savingTx} variant="primary" className="text-xs h-[42px] shrink-0 font-extrabold shadow-sm w-full">
-                      {savingTx ? 'Registrando...' : 'Registrar Transação'}
-                    </Button>
-                  </div>
-                </form>
-              )}
 
               {showTargetForm && (() => {
                 const registeredTickers = Array.from(new Set([
@@ -1059,15 +782,18 @@ export default function Investments() {
                       <th className="p-3 text-right">Custo Médio</th>
                       <th className="p-3 text-right">Preço Atual</th>
                       <th className="p-3 text-right">Valor Total</th>
+                      <th className="p-3 text-right">Rent. bruta</th>
+                      <th className="p-3 text-right">Rent. líq.</th>
                       <th className="p-3 text-center">Part. Real</th>
                       <th className="p-3 text-center">Part. Alvo</th>
+                      <th className="p-3 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-primary">
                     {(() => {
                       const positionsByClass: Record<string, AssetPosition[]> = {}
                       portfolioData.positions.forEach(pos => {
-                        const cls = pos.asset_class || 'Renda Fixa'
+                        const cls = pos.asset_class || 'Não classificado'
                         if (!positionsByClass[cls]) positionsByClass[cls] = []
                         positionsByClass[cls].push(pos)
                       })
@@ -1075,22 +801,43 @@ export default function Investments() {
                         <div key={className} style={{ display: 'contents' }}>
                           {/* Linha de cabeçalho do grupo de classe */}
                           <tr className="bg-secondary/60 font-bold border-l-4 border-l-[var(--color-income)] text-primary text-xs tracking-wider">
-                            <td colSpan={9} className="p-3.5 uppercase font-extrabold text-secondary">
+                            <td colSpan={12} className="p-3.5 uppercase font-extrabold text-secondary">
                               {className}
                             </td>
                           </tr>
                           {classPositions.map((pos) => (
                             <tr key={pos.ticker} className="hover:bg-secondary/40 transition-colors">
-                              <td className="p-3 pl-6 font-bold text-primary flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-income"></span>
-                                {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
+                              <td className="p-3 pl-6 font-bold text-primary">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-income shrink-0" />
+                                  {pos.ticker === 'SALDO_INV' || pos.ticker === 'CAIXA'
+                                    ? 'Saldo em caixa'
+                                    : pos.ticker}
+                                  {getAssetPricingBadgeLabel(pos) && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">
+                                      {getAssetPricingBadgeLabel(pos)}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
-                              <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Renda Fixa'}</td>
+                              <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
                               <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
-                              <td className="p-3 text-right text-primary font-medium">{pos.quantity.toLocaleString('pt-BR')}</td>
-                              <td className="p-3 text-right text-secondary">{formatCurrency(pos.average_price)}</td>
-                              <td className="p-3 text-right text-secondary">{formatCurrency(pos.current_price)}</td>
+                              <td className="p-3 text-right text-primary font-medium">
+                                {pos.pricing_mode === 'cash' ? '—' : pos.quantity.toLocaleString('pt-BR')}
+                              </td>
+                              <td className="p-3 text-right text-secondary">
+                                {pos.pricing_mode === 'cash' ? '—' : formatCurrency(pos.average_price)}
+                              </td>
+                              <td className="p-3 text-right text-secondary">
+                                {pos.pricing_mode === 'cash' ? '—' : formatCurrency(pos.current_price)}
+                              </td>
                               <td className="p-3 text-right text-primary font-semibold">{formatCurrency(pos.total_value)}</td>
+                              <td className={`p-3 text-right font-semibold ${pos.pricing_mode === 'cash' ? 'text-secondary' : pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
+                                {pos.pricing_mode === 'cash' ? '—' : `${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
+                              </td>
+                              <td className={`p-3 text-right font-semibold ${pos.pricing_mode === 'cash' ? 'text-secondary' : pos.net_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
+                                {pos.pricing_mode === 'cash' ? '—' : `${pos.net_yield_pct >= 0 ? '+' : ''}${pos.net_yield_pct.toFixed(2)}%`}
+                              </td>
                               <td className="p-3 text-center font-bold text-primary">{pos.current_percentage.toFixed(1)}%</td>
                               <td className="p-3 text-center">
                                   <div className="flex items-center justify-center gap-2">
@@ -1109,6 +856,19 @@ export default function Investments() {
                                     )}
                                   </div>
                                 </td>
+                              <td className="p-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAssetDefTicker(pos.ticker)
+                                    setAssetDefModalOpen(true)
+                                  }}
+                                  className="text-secondary hover:text-primary transition-colors"
+                                  title="Configurar precificação"
+                                >
+                                  <Settings2 size={14} />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </div>
@@ -1129,13 +889,24 @@ export default function Investments() {
 
               <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
                 {transactions.length === 0 ? (
-                  <p className="text-center py-6 text-xs text-secondary italic text-left">Nenhuma transação de ativo registrada.</p>
+                  <p className="text-center py-6 text-xs text-secondary italic">
+                    Nenhuma transação de ativo registrada.
+                  </p>
                 ) : (
                   [...transactions].reverse().map(tx => (
-                    <div key={tx.id} className="p-3 bg-secondary/30 border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-indigo-500/20 text-left">
+                    <button
+                      key={tx.id}
+                      type="button"
+                      onClick={() => handleOpenTxModal(tx)}
+                      className="w-full p-3 bg-secondary/30 border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-indigo-500/20 hover:bg-secondary/50 text-left cursor-pointer"
+                    >
                       <div>
                         <div className="flex items-center gap-2">
-                          <strong className="text-primary font-bold">{tx.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : tx.ticker}</strong>
+                          <strong className="text-primary font-bold">
+                            {tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA'
+                              ? 'Saldo em caixa'
+                              : tx.ticker}
+                          </strong>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
                               tx.operation_type === 'buy' || tx.operation_type === 'subscription'
@@ -1151,22 +922,13 @@ export default function Investments() {
                         <div className="text-[10px] text-secondary mt-1 flex flex-wrap items-center gap-2">
                           <span>Quantidade: <strong>{Number(tx.quantity).toLocaleString('pt-BR')}</strong></span>
                           <span>•</span>
-                          <span>Preço: <strong>R$ {Number(tx.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                          <span>Preço: <strong>{formatCurrency(Number(tx.price))}</strong></span>
                           <span>•</span>
-                          <span>Total: <strong>R$ {(Number(tx.quantity) * Number(tx.price)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                          <span>Total: <strong>{formatCurrency(Number(tx.quantity) * Number(tx.price))}</strong></span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-secondary font-medium">{tx.date}</span>
-                        <button
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                          className="p-1 text-secondary hover:text-red-500 transition-colors"
-                          title="Excluir transação e estornar caixa"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
+                      <span className="text-[10px] text-secondary font-medium shrink-0">{tx.date}</span>
+                    </button>
                   ))
                 )}
               </div>
@@ -1174,6 +936,26 @@ export default function Investments() {
           </div>
         )}
       </div>
+
+      {portfolioId && (
+        <>
+          <PortfolioTransactionFormModal
+            isOpen={isTxModalOpen}
+            onClose={handleCloseTxModal}
+            portfolioId={portfolioId}
+            editingTransaction={editingTransaction}
+            onSaved={loadPortfolio}
+          />
+          <AssetDefinitionFormModal
+            isOpen={assetDefModalOpen}
+            onClose={() => setAssetDefModalOpen(false)}
+            portfolioId={portfolioId}
+            ticker={assetDefTicker}
+            existing={assetDefinitions.find((d) => d.ticker.toUpperCase() === assetDefTicker.toUpperCase()) ?? null}
+            onSaved={loadPortfolio}
+          />
+        </>
+      )}
     </div>
   )
 }

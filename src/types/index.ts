@@ -131,12 +131,13 @@ export interface CategoryExpense {
 export interface Profile {
   id: string
   email: string
+  full_name?: string | null
   is_approved: boolean
   is_blocked: boolean
   is_rejected: boolean
   rejection_count: number
   is_admin: boolean
-  role: 'consultant' | 'client'
+  role: 'consultant' | 'client' | null
   created_at: string
   updated_at: string
 }
@@ -163,6 +164,8 @@ export interface PortfolioTransaction {
   price: number
   date: string
   created_at: string
+  /** Compra/subscrição que originou venda automática de caixa. */
+  cash_offset_source_id?: string | null
 }
 
 export interface TargetAllocation {
@@ -187,6 +190,37 @@ export interface AssetPrice {
   last_updated: string
   asset_class?: string
   sector?: string
+  quotation_status?: 'live' | 'stale' | 'fallback_static' | 'unavailable' | 'manual'
+}
+
+export type PortfolioPricingMode = 'market' | 'fixed_income' | 'manual_value' | 'cash'
+
+export type PortfolioAssetIndexer = 'none' | 'cdi' | 'selic' | 'ipca'
+
+export interface PortfolioAssetDefinition {
+  id: string
+  portfolio_id: string
+  ticker: string
+  pricing_mode: PortfolioPricingMode
+  is_b3_linked: boolean
+  applied_amount: number | null
+  contract_rate: number | null
+  indexer: PortfolioAssetIndexer
+  indexer_percent: number
+  maturity_date: string | null
+  manual_current_value: number | null
+  manual_value_updated_at: string | null
+  tax_exempt: boolean
+  is_treasury: boolean
+  application_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface IndexRateRow {
+  rate_date: string
+  indexer: PortfolioAssetIndexer
+  daily_rate: number
 }
 
 export interface PortfolioGroupTarget {

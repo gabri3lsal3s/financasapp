@@ -21,10 +21,22 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { supabase } from '@/lib/supabase'
 import type { CreditCard } from '@/types'
 import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
-import { resolveBillCompetence, resolveExpenseBillCompetence, summarizeCreditCardBill, type BillExpenseItem } from '@/utils/creditCardBilling'
+import {
+  buildClosingDayResolver,
+  filterBillExpensesForMonth,
+  filterBillPaymentsForMonth,
+  groupPaymentsByCard,
+  prepareBillExpenseRows,
+  summarizeCreditCardBill,
+  type BillExpenseItem,
+  type BillExpenseRowInput,
+  type BillPaymentDisplayItem,
+  type BillPaymentRowInput,
+} from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
 import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check, Scale } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 
 type CardFormState = {
   name: string
@@ -44,14 +56,7 @@ type MonthlyCycleRow = {
   due_day: number
 }
 
-type PaymentItem = {
-  id: string
-  credit_card_id: string
-  amount: number
-  payment_date: string
-  bill_competence?: string
-  note?: string | null
-}
+type PaymentItem = BillPaymentDisplayItem
 
 type BillDataSnapshot = {
   expensesByCard: Record<string, number>
@@ -100,36 +105,8 @@ const DEFAULT_REFUND_INCOME_FORM = (incomeCategoryId = ''): RefundIncomeFormStat
   description: '',
 })
 
-const REFUND_NOTE_PREFIX = '[REFUND]'
 const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
 const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
-
-const buildRefundNote = (incomeId: string, description: string) =>
-  `${REFUND_NOTE_PREFIX}${JSON.stringify({ incomeId, description })}`
-
-const parseRefundNote = (rawNote?: string | null) => {
-  const note = String(rawNote || '')
-  if (!note.startsWith(REFUND_NOTE_PREFIX)) {
-    return { isRefund: false as const }
-  }
-
-  const payload = note.slice(REFUND_NOTE_PREFIX.length)
-
-  try {
-    const parsed = JSON.parse(payload) as { incomeId?: string; description?: string }
-    if (!parsed?.incomeId) {
-      return { isRefund: false as const }
-    }
-
-    return {
-      isRefund: true as const,
-      incomeId: String(parsed.incomeId),
-      description: String(parsed.description || ''),
-    }
-  } catch {
-    return { isRefund: false as const }
-  }
-}
 
 const DEFAULT_FORM: CardFormState = {
   name: '',
@@ -496,67 +473,14 @@ export default function CreditCards() {
       .not('credit_card_id', 'is', null)
       .or(`bill_competence.eq.${targetMonth},and(date.gte.${searchStartDate},date.lte.${searchEndDate})`)
 
-    const resolveClosingDay = (cardId: string, competence: string) => {
-      const monthlyClosing = cycleClosingByCardAndMonth[`${cardId}:${competence}`]
-      if (Number.isFinite(monthlyClosing)) return monthlyClosing
+    const resolveClosingDay = buildClosingDayResolver(cycleClosingByCardAndMonth, cardClosingDays)
 
-      const defaultClosing = cardClosingDays[cardId]
-      return Number.isFinite(defaultClosing) ? defaultClosing : undefined
-    }
-
-    const expenseRows = (rawExpenseRows || []).map((row) => {
-      return {
-        ...(row as BillExpenseItem),
-        category_name: (row as { category?: { name?: string | null } | null }).category?.name || null,
-      }
-    }).filter((row) => {
-      // Se houver fatura manual ou definida em conciliação prévia, PRIORIZAMOS e respeitamos
-      if (row.bill_competence) {
-        (row as any).competence_source = 'manual'
-        return row.bill_competence === targetMonth
-      }
-
-      const rowDate = String(row.date)
-      const rowCardId = String(row.credit_card_id)
-
-      const competenceByDate = rowDate.slice(0, 7)
-      const closingDay = resolveClosingDay(rowCardId, competenceByDate)
-
-      let resolvedCompetence = null
-      let source = 'auto'
-      
-      // Recálculo dinâmico apenas se não houver fatura fixa definida
-      if (Number.isFinite(closingDay)) {
-        resolvedCompetence = resolveBillCompetence(rowDate, Number(closingDay))
-        source = 'cycle'
-      } else {
-        resolvedCompetence = resolveExpenseBillCompetence(row as any, resolveClosingDay)
-        source = 'date'
-      }
-
-      row.bill_competence = resolvedCompetence
-      ;(row as any).competence_source = source
-      return resolvedCompetence === targetMonth
-    }).map((row) => {
-      const baseAmount = Number(row.amount || 0)
-
-      if (!creditCardsWeightsEnabled) {
-        return {
-          ...row,
-          amount: baseAmount,
-          base_amount: baseAmount,
-        }
-      }
-
-      const weight = Number(row.report_weight ?? 1)
-      const safeWeight = Number.isFinite(weight) ? weight : 1
-
-      return {
-        ...row,
-        amount: Number((baseAmount * safeWeight).toFixed(2)),
-        base_amount: baseAmount,
-      }
-    })
+    const filteredExpenses = filterBillExpensesForMonth(
+      (rawExpenseRows || []) as BillExpenseRowInput[],
+      targetMonth,
+      resolveClosingDay,
+    )
+    const expenseRows = prepareBillExpenseRows(filteredExpenses, creditCardsWeightsEnabled)
 
     const { data: paymentRows } = await supabase
       .from('credit_card_bill_payments')
@@ -564,39 +488,14 @@ export default function CreditCards() {
       .not('credit_card_id', 'is', null)
       .or(`bill_competence.eq.${targetMonth},and(amount.lt.0,payment_date.gte.${searchStartDate},payment_date.lte.${searchEndDate})`)
 
-    const paymentsByCardItems = (paymentRows || []).reduce<Record<string, PaymentItem[]>>((accumulator, row) => {
-      const cardId = String(row.credit_card_id || '')
-      const rawNote = String(row.note || '')
-      const isRefund = rawNote.startsWith('[REFUND]') || Number(row.amount || 0) < 0
-      const paymentDate = String(row.payment_date || '')
-      let finalCompetence = String(row.bill_competence || targetMonth)
-
-      if (isRefund && !row.bill_competence) {
-        const closingDay = resolveClosingDay(cardId, paymentDate.slice(0, 7))
-        if (Number.isFinite(closingDay)) {
-          finalCompetence = resolveBillCompetence(paymentDate, Number(closingDay))
-        }
-      }
-
-      if (finalCompetence !== targetMonth) return accumulator
-
-      if (!cardId) return accumulator
-
-      if (!accumulator[cardId]) {
-        accumulator[cardId] = []
-      }
-
-      accumulator[cardId].push({
-        id: String(row.id || ''),
-        credit_card_id: cardId,
-        amount: Number(row.amount || 0),
-        payment_date: String(row.payment_date || ''),
-        bill_competence: String(row.bill_competence || targetMonth),
-        note: row.note ? String(row.note) : null,
-      })
-
-      return accumulator
-    }, {})
+    const paymentList = filterBillPaymentsForMonth(
+      (paymentRows || []) as BillPaymentRowInput[],
+      targetMonth,
+      searchStartDate,
+      searchEndDate,
+      resolveClosingDay,
+    )
+    const paymentsByCardItems = groupPaymentsByCard(paymentList)
 
     Object.keys(paymentsByCardItems).forEach((cardId) => {
       paymentsByCardItems[cardId] = paymentsByCardItems[cardId]

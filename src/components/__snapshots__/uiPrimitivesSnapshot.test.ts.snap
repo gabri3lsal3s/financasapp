@@ -198,7 +198,7 @@ exports[`UI primitives snapshots > ModalActionFooter renders with delete action 
 
 exports[`UI primitives snapshots > PageHeader renders title, subtitle and action consistently 1`] = `
 <header
-  class="bg-secondary border-b border-primary safe-area-top motion-standard relative z-10"
+  class="bg-secondary border-b border-primary safe-area-top motion-standard relative z-30"
 >
   <div
     class="px-4 py-3 lg:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 motion-standard"
@@ -241,7 +241,7 @@ exports[`UI primitives snapshots > Select renders options and error state consis
      
   </label>
   <div
-    class="relative"
+    class="relative "
   >
     <button
       class="
@@ -253,9 +253,13 @@ exports[`UI primitives snapshots > Select renders options and error state consis
       type="button"
     >
       <span
-        class="truncate text-primary"
+        class="min-w-0 flex-1 text-left text-primary"
       >
-        Alimentação
+        <span
+          class="truncate block"
+        >
+          Alimentação
+        </span>
       </span>
       <svg
         class="lucide lucide-chevron-down text-secondary transition-transform duration-300 "

@@ -1,0 +1,30 @@
+---
+name: Observabilidade e Resiliência
+description: Tratamento de erros, feedback ao usuário e UX de falha no cliente.
+alwaysApply: true
+---
+
+# Observabilidade e resiliência
+
+- Proibido `console.log` / `console.debug` em código de feature que vai para produção.
+- Erros de rede/Supabase: feedback via `react-hot-toast` ou UI inline em pt-BR.
+- Erros não recuperáveis de render: `ErrorBoundary` (`src/components/ErrorBoundary.tsx`).
+- Status de rede: `NetworkStatusToast`, `useNetworkStatus`, `OfflineSyncManager`.
+
+## Tratamento de falhas
+
+- Mensagens visíveis ao usuário em **português**, claras e acionáveis.
+- Não exibir stack trace, SQL ou detalhes internos do PostgREST na UI.
+- Hooks devem expor `error` tipado ou string amigável — páginas tratam loading/empty/error.
+- Conflitos de sincronização offline: fluxo via `ConflictResolutionModal` + fila em `offlineQueue`.
+
+## Resiliência offline
+
+- Leitura: cache em `localStorage` via `offlineCache` antes de refetch remoto.
+- Escrita offline: enfileirar em `offlineQueue` com ID provisório `offline-*`.
+- Após sync bem-sucedido, disparar `local-data-changed` para atualizar hooks.
+
+## Escopo
+
+- Aplica em: `src/pages/**`, `src/hooks/**`, `src/components/**`, `src/utils/offlineQueue.ts`.
+- Não aplica em: scripts de build (`scripts/**`) e testes.

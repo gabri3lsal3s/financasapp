@@ -393,9 +393,19 @@ export default function PositionsTable({
                           <span className="w-2 h-2 rounded-full bg-indigo-500 ml-1 shrink-0" title="Tese cadastrada" />
                         )}
                       </td>
-                      <td className="p-3 text-right font-medium text-secondary font-mono">{pos.quantity.toLocaleString('pt-BR')}</td>
-                      <td className="p-3 text-right text-secondary font-mono">R$ {pos.average_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-right text-secondary font-semibold font-mono">R$ {pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="p-3 text-right font-medium text-secondary font-mono">
+                        {pos.pricing_mode === 'cash' ? '—' : pos.quantity.toLocaleString('pt-BR')}
+                      </td>
+                      <td className="p-3 text-right text-secondary font-mono">
+                        {pos.pricing_mode === 'cash'
+                          ? '—'
+                          : `R$ ${pos.average_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                      </td>
+                      <td className="p-3 text-right text-secondary font-semibold font-mono">
+                        {pos.pricing_mode === 'cash'
+                          ? '—'
+                          : `R$ ${pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                      </td>
                       <td className="p-3 text-right font-bold text-primary font-mono">R$ {pos.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="p-3 text-center">
                         <span className="px-2 py-0.5 bg-muted rounded text-xs font-semibold text-secondary font-mono">{pos.current_percentage}%</span>

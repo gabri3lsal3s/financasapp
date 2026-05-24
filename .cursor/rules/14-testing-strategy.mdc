@@ -1,0 +1,52 @@
+---
+name: Estratégia de Testes
+description: Vitest, escopo de cobertura e organização de testes no financasapp.
+alwaysApply: true
+---
+
+# Objetivo
+
+Padronizar testes para reduzir regressões com feedback rápido, priorizando regra de negócio e utilitários financeiros.
+
+# Stack oficial
+
+- **Vitest** (`vite.config.ts`: `environment: 'node'`, `include: ['src/**/*.test.ts']`).
+- **Testing Library** disponível para testes de componente pontuais (`@testing-library/react`).
+- **Sem** Playwright/MSW no projeto atual — não assumir E2E até existir no `package.json`.
+
+# Regras obrigatórias
+
+- Estrutura **AAA** (Arrange, Act, Assert) em testes novos.
+- Prioridade de cobertura:
+  1. `src/utils/**` (billing, CSV, offline queue, formatação)
+  2. `src/services/**` (engines, reconciliação)
+  3. Snapshots/guardrails UI (`uiPrimitivesSnapshot.test.ts`) quando alterar primitivos
+- Não perseguir meta global cega de cobertura; evitar testes cosméticos.
+- Hook com lógica extraída: testar a função pura, não o hook inteiro, salvo `renderHook` quando indispensável.
+- Alterações em `creditCardBilling`, `creditCardCsvReconciliation`, `offlineQueue`: **obrigatório** estender ou criar testes.
+
+# Comandos
+
+| Alvo | Comando |
+|------|---------|
+| Watch | `npm test` |
+| CI/local gate | `npm run test:run` |
+| Lint + guardrails UI | `npm run lint` |
+| Build | `npm run build` |
+
+# Anti-padrões
+
+- Testes acoplados a classe CSS específica.
+- Mock gigante inline sem factory nomeada.
+- Testar Supabase real em unitário sem ambiente de teste dedicado.
+
+# Critérios mínimos de Done
+
+- Testes relevantes para a superfície alterada.
+- `npm run test:run` verde.
+- `npm run lint` verde quando UI tocada.
+- Sem `console.log` residual em produção.
+
+# Notas de manutenção
+
+- Skills: `.cursor/skills/testing-strategy-financas/SKILL.md`, `.cursor/skills/testing-quality-habit/SKILL.md`.

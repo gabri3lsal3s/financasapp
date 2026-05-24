@@ -1,0 +1,26 @@
+---
+name: Diretrizes para Respostas de IA
+description: Regras de planejamento e geração de código para agentes no projeto.
+alwaysApply: true
+---
+
+# Diretrizes de resposta e planejamento
+
+- Sempre aplicar KISS/DRY/YAGNI/anti-overengineering primeiro (`01-architecture-principles.mdc`).
+- Rejeitar expansão de escopo sem requisito explícito.
+- Autorização de dados: confiar em RLS Supabase + checagens de perfil — não bypass com service role no cliente.
+- Antes de criar UI, verificar reaproveitamento em `src/components/` (primitivos + modais + `TransactionCard`).
+- Lógica financeira pesada: extrair para `src/utils/**` ou `src/services/**` e cobrir com Vitest.
+
+## Estratégia de mudança
+
+- Priorizar diffs pequenos, locais e revisáveis.
+- Evitar novas dependências e novos padrões sem necessidade real.
+- Explicar trade-offs de forma objetiva e orientada ao requisito atual.
+- Quando em dúvida arquitetural, propor 2 alternativas curtas e pedir confirmação antes de codar.
+- Respostas ao usuário em **português**; código e identificadores em **inglês**.
+
+## Offline e dados
+
+- Qualquer mutação nova deve considerar fila offline (`12-pwa-offline-first.mdc`, `13-offline-cache-hooks.mdc`).
+- Alterações em cartão/fatura/relatórios: consultar `17-financial-domain.mdc`.

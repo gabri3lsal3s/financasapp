@@ -137,16 +137,18 @@ export async function getAssetPrices(tickers: string[]): Promise<Record<string, 
     for (const ticker of pricesToFetchFromApi) {
       let price = fetchedPrices[ticker]
       
+      let quotationStatus: AssetPrice['quotation_status'] = 'live'
       if (price === undefined) {
-        // Se já tínhamos no Supabase mas estava desatualizado, mantém o preço antigo como fallback
         const oldPrice = supabasePrices.find(p => p.ticker === ticker)
         if (oldPrice) {
           price = Number(oldPrice.current_price)
+          quotationStatus = 'stale'
+        } else if (FALLBACK_PRICES[ticker] !== undefined) {
+          price = FALLBACK_PRICES[ticker]
+          quotationStatus = 'fallback_static'
         } else {
-          // Se não há histórico, usa fallback estático com variação aleatória de até 1.5%
-          const basePrice = FALLBACK_PRICES[ticker] || 50.00
-          const randomVariation = 1 + (Math.random() * 0.03 - 0.015) // -1.5% a +1.5%
-          price = Math.round(basePrice * randomVariation * 100) / 100
+          price = 0
+          quotationStatus = 'unavailable'
         }
       }
 
@@ -156,17 +158,20 @@ export async function getAssetPrices(tickers: string[]): Promise<Record<string, 
         current_price: price,
         last_updated: now.toISOString(),
         asset_class: meta.asset_class,
-        sector: meta.sector
+        sector: meta.sector,
+        quotation_status: quotationStatus,
       }
 
       result[ticker] = assetPrice
       memoryPriceCache[ticker] = assetPrice
-      updatesToSave.push({ 
-        ticker, 
-        current_price: price,
-        asset_class: meta.asset_class,
-        sector: meta.sector
-      })
+      if (quotationStatus === 'live' && price > 0) {
+        updatesToSave.push({
+          ticker,
+          current_price: price,
+          asset_class: meta.asset_class,
+          sector: meta.sector,
+        })
+      }
     }
 
     // 4. Salvar novas cotações de volta no cache do Supabase em background
@@ -317,7 +322,7 @@ export async function getAssetRichData(ticker: string): Promise<AssetRichData | 
 }
 
 /**
- * Mapeia automaticamente um ticker para sua Classe de Ativos e Setor da Metodologia do Cerrado.
+ * Mapeia automaticamente um ticker para classe de ativos e setor (consultoria / carteira).
  * Suporta Ações B3, FIIs, ETFs Nacionais/Internacionais, Ações US e Criptoativos.
  */
 export function getAssetMetadata(ticker: string): { asset_class: string; sector: string } {
@@ -441,5 +446,10 @@ export function getAssetMetadata(ticker: string): { asset_class: string; sector:
   }
 
   // Fallback geral
-  return { asset_class: 'Renda Fixa', sector: 'Pós-Fixados' }
+  return { asset_class: 'Não classificado', sector: 'Indefinido' }
+}
+
+/** Indica se o ticker segue o padrão de código B3 (4 letras + 1–2 dígitos). */
+export function isB3TickerPattern(ticker: string): boolean {
+  return /^[A-Z]{4}[0-9]{1,2}$/.test(ticker.trim().toUpperCase())
 }

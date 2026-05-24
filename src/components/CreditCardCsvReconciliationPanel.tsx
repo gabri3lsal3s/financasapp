@@ -16,7 +16,6 @@ import {
   type InstallmentAnalysis,
   type InvoiceTotals,
 } from '@/utils/creditCardCsvReconciliation'
-import { classifyCSVTransactions } from '@/services/ai/reconciliation'
 import {
   learnFromCreditCardCsvInsertion,
   suggestFromCreditCardCsvLearning,
@@ -402,69 +401,6 @@ export default function CreditCardCsvReconciliationPanel({
         }
       }))
 
-      setParseStatus('Consultando IA para categorização...')
-
-      // IA Econômica: Agrupar descrições únicas e ignorar o que já foi aprendido com alta confiança
-      const uniqueItemsToClassify = Array.from(
-        result.missing
-          .filter(item => {
-            const suggestion = suggestFromCreditCardCsvLearning(item.description)
-            // Somente enviar para IA se não houver sugestão local FORTE (>80%)
-            return !suggestion || (suggestion.confidence || 0) < 0.8
-          })
-          .reduce((map, item) => {
-            const key = `${item.description}|${Math.abs(item.amount).toFixed(2)}`
-            if (!map.has(key)) {
-              map.set(key, {
-                id: item.id,
-                description: item.description,
-                amount: Math.abs(item.amount)
-              })
-            }
-            return map
-          }, new Map<string, any>())
-          .values()
-      )
-
-      if (uniqueItemsToClassify.length > 0) {
-        classifyCSVTransactions({
-          transactions: uniqueItemsToClassify,
-          categories: categories.map(c => ({ id: c.id, name: c.name } as any))
-        }).then(classifications => {
-          if (classifications.length > 0) {
-            setMissingDrafts(prev => prev.map(draft => {
-              // Encontrar classificação que bate com a descrição e valor do rascunho
-              const aiMatch = classifications.find(c => {
-                const draftKey = `${draft.official.description}|${Math.abs(draft.official.amount).toFixed(2)}`
-                // O cache do serviço já lida com o retorno baseado no ID original se enviamos múltiplos, 
-                // mas aqui garantimos que aplicamos a todos os rascunhos idênticos.
-                const originalIdentified = uniqueItemsToClassify.find(u => u.id === c.id)
-                if (!originalIdentified) return false
-                const aiKey = `${originalIdentified.description}|${originalIdentified.amount.toFixed(2)}`
-                return draftKey === aiKey
-              })
-
-              if (aiMatch && aiMatch.suggestedCategoryId) {
-                if (draft.learnedSuggestion.enabled && (draft.learnedSuggestion.confidence || 0) >= 0.8) {
-                  return draft
-                }
-
-                return {
-                  ...draft,
-                  description: aiMatch.cleanDescription || draft.description,
-                  category_id: aiMatch.suggestedCategoryId,
-                  learnedSuggestion: {
-                    enabled: true,
-                    confidence: aiMatch.confidence
-                  }
-                }
-              }
-              return draft
-            }))
-          }
-        }).catch(err => console.error('AI Classification error:', err))
-      }
-
       setConflictDrafts(result.conflicts.map((conflict) => ({
         key: buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || '')),
         existingId: String(conflict.existing.id || ''),
@@ -706,7 +642,7 @@ export default function CreditCardCsvReconciliationPanel({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-primary">Importação Automática</p>
-            <p className="text-xs text-secondary mt-1">O assistente identifica o formato da fatura e sugere categorias inteligentes.</p>
+            <p className="text-xs text-secondary mt-1">Importa o CSV da fatura e sugere categorias com base no seu histórico de conciliações.</p>
           </div>
         </div>
 

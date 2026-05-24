@@ -2,15 +2,17 @@ import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Portfolio, PortfolioTransaction, AssetPrice } from '@/types'
-import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, AssetPosition } from '@/services/investmentEngine'
-import { getAssetPrices } from '@/services/priceService'
+import { calculateShareHistory, calculatePerformanceMetrics, AssetPosition } from '@/services/investmentEngine'
+import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
-import { 
-  Wallet, TrendingUp, FileText, CheckCircle, HelpCircle,
-  AlertCircle, ArrowUpRight, ArrowDownRight, ShieldCheck 
+import PageHeader from '@/components/PageHeader'
+import ClientKpiCards from '@/components/consulting/ClientKpiCards'
+import {
+  TrendingUp, FileText, CheckCircle,
+  AlertCircle, ArrowUpRight, ArrowDownRight, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
@@ -27,6 +29,7 @@ export default function ClientDashboard() {
   const [positions, setPositions] = useState<AssetPosition[]>([])
   const [portfolioValue, setPortfolioValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
+  const [totalShares, setTotalShares] = useState<number>(0)
 
   useEffect(() => {
     if (user) {
@@ -43,6 +46,7 @@ export default function ClientDashboard() {
         .from('portfolios')
         .select('*')
         .eq('client_id', user?.id)
+        .not('consultant_id', 'is', null)
         .maybeSingle()
 
       if (portError) throw portError
@@ -65,7 +69,7 @@ export default function ClientDashboard() {
       const txs = txsData || []
       setTransactions(txs)
 
-      // 3. Carrega metas de alocação (Cerrado)
+      // 3. Carrega metas de alocação
       const { data: targetsData, error: targetsError } = await supabase
         .from('target_allocations')
         .select('*')
@@ -90,29 +94,28 @@ export default function ClientDashboard() {
       }
 
       // 5. Busca cotações dos ativos para os cálculos
-      const tickers = Array.from(new Set([
-        ...txs.map(t => t.ticker.toUpperCase()),
-        ...(targetsData || []).map(t => t.ticker.toUpperCase())
-      ]))
-
-      if (tickers.length > 0) {
-        const prices = await getAssetPrices(tickers)
-        setAssetPrices(prices)
-        const { positions: calcPositions, totalValue } = calculatePositions(
+      if (txs.length > 0) {
+        const valuation = await loadPortfolioValuation(
+          portData.id,
           txs,
           targetsData || [],
-          prices,
-          0
+          Number(portData.cash_balance) || 0
         )
-        setPositions(calcPositions)
-        setPortfolioValue(totalValue)
+        setAssetPrices(valuation.prices)
+        setPositions(valuation.positions)
+        setPortfolioValue(valuation.totalValue)
 
-        const { currentShareValue } = calculateShareHistory(txs, prices, 0)
+        const { currentShareValue, totalShares: sharesOutstanding } = calculateShareHistory(
+          txs,
+          valuation.prices
+        )
         setShareValue(currentShareValue)
+        setTotalShares(sharesOutstanding)
       } else {
         setPositions([])
         setPortfolioValue(0)
         setShareValue(1.0)
+        setTotalShares(0)
       }
 
     } catch (err) {
@@ -127,11 +130,11 @@ export default function ClientDashboard() {
     if (!portfolio) return
     toast.loading('Compilando seu relatório premium...', { id: 'client-report' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices, 0)
+      const { shareHistory } = calculateShareHistory(transactions, assetPrices)
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
-        clientName: user?.email?.split('@')[0].toUpperCase() || 'CLIENTE CERRADO',
+        clientName: user?.email?.split('@')[0].toUpperCase() || 'CLIENTE',
         portfolio,
         positions,
         shareHistory,
@@ -145,7 +148,7 @@ export default function ClientDashboard() {
     }
   }
 
-  // Lógica de cálculo de Rebalanceamento Cerrado
+  // Lógica de cálculo de rebalanceamento
   const rebalancingTrades = useMemo(() => {
     if (positions.length === 0 || portfolioValue === 0) return []
 
@@ -208,70 +211,58 @@ export default function ClientDashboard() {
     return Object.values(dataMap)
   }, [positions])
 
+  const headerAction = portfolio ? (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleDownloadReport}
+      className="flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold w-full sm:w-auto"
+    >
+      <FileText size={16} />
+      <span className="hidden sm:inline">Baixar Relatório PDF</span>
+      <span className="sm:hidden">Relatório PDF</span>
+    </Button>
+  ) : undefined
+
   if (loading) {
-    return <Loader text="Carregando sua carteira do Cerrado..." className="py-24" />
+    return (
+      <div className="space-y-6 lg:space-y-8 animate-page-enter">
+        <PageHeader title="Minha Consultoria" subtitle="Página de Consultoria de Investimentos" />
+        <Loader text="Carregando sua carteira..." className="py-24" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
-      {/* Banner de Boas-Vindas */}
-      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 rounded-3xl border border-emerald-800/30 text-white shadow-xl">
+      <PageHeader
+        title="Minha Consultoria"
+        subtitle="Página de Consultoria de Investimentos"
+        action={headerAction}
+      />
+
+      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 rounded-3xl border border-emerald-800/30 text-white shadow-xl text-left">
         <div className="absolute right-0 top-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10 text-left">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full uppercase tracking-wider">
-                <CheckCircle size={12} className="text-emerald-400" />
-                Carteira Sob Gestão Cerrado
-              </div>
-            </div>
-            <h2 className="text-2xl lg:text-3xl font-black text-white">Meu Painel de Investimentos</h2>
-            <p className="text-sm text-slate-300 mt-1">Acompanhamento e rebalanceamento em tempo real do seu patrimônio</p>
+        <div className="relative z-10 font-sans">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full uppercase tracking-wider mb-3">
+            <CheckCircle size={12} className="text-emerald-400" />
+            Carteira sob assessoria
           </div>
-          <div>
-            <Button
-              onClick={handleDownloadReport}
-              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-500/10 py-2.5 px-6 rounded-xl"
-            >
-              <FileText size={18} />
-              Baixar Relatório Mensal PDF
-            </Button>
-          </div>
+          <h2 className="text-2xl lg:text-3xl font-black text-white">Meu Painel de Investimentos</h2>
+          <p className="text-sm text-slate-300 mt-1">
+            Acompanhamento e rebalanceamento em tempo real do seu patrimônio
+          </p>
         </div>
       </div>
 
       {portfolio ? (
         <>
-          {/* Grid de Resumo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 text-left">
-            <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-emerald-500 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Patrimônio Líquido</span>
-                <strong className="text-2xl font-black text-primary mt-1.5 block">
-                  R$ {portfolioValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </strong>
-              </div>
-              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
-                <Wallet size={24} />
-              </div>
-            </Card>
-
-            <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-purple-500 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Rentabilidade Acumulada</span>
-                <strong className="text-2xl font-black text-primary mt-1.5 block">
-                  R$ {shareValue.toFixed(4)}
-                  <span className="text-sm text-emerald-500 font-bold ml-2">
-                    +{((shareValue - 1) * 100).toFixed(2)}%
-                  </span>
-                </strong>
-              </div>
-              <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl">
-                <TrendingUp size={24} />
-              </div>
-            </Card>
-          </div>
+          <ClientKpiCards
+            portfolioValue={portfolioValue}
+            shareValue={shareValue}
+            totalShares={totalShares}
+            yieldVariant="accumulated"
+          />
 
           {/* Seção Gráfica e Rebalanceamento */}
           {positions.length > 0 && (
@@ -318,7 +309,7 @@ export default function ClientDashboard() {
                 <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
                   {rebalancingTrades.length === 0 ? (
                     <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-center text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                      Sua carteira está perfeitamente alinhada com as recomendações de alocação do Cerrado! 🎉
+                      Sua carteira está perfeitamente alinhada com as metas de alocação recomendadas! 🎉
                     </div>
                   ) : (
                     rebalancingTrades.map(trade => (
@@ -359,130 +350,108 @@ export default function ClientDashboard() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 text-left">
-            {/* Composição da Carteira Tabela */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="p-5 lg:p-6">
-                <h3 className="font-bold text-lg text-primary mb-4">Composição de Ativos & Exposição</h3>
-                
-                {positions.length === 0 ? (
-                  <p className="text-center py-8 text-sm text-secondary">Aguardando inserção dos lançamentos iniciais pelo seu consultor.</p>
-                ) : (
-                  <div className="overflow-x-auto border border-border/30 rounded-xl bg-background/50">
-                    <table className="w-full border-collapse text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-border/30 bg-muted/20">
-                          <th className="p-3.5 font-bold text-secondary">Ativo</th>
-                          <th className="p-3.5 font-bold text-secondary text-right">Qtd</th>
-                          <th className="p-3.5 font-bold text-secondary text-right">Cotação</th>
-                          <th className="p-3.5 font-bold text-secondary text-right">Total Atual</th>
-                          <th className="p-3.5 font-bold text-secondary text-center">Meu Peso</th>
-                          <th className="p-3.5 font-bold text-secondary text-center">Peso Recomendado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/20">
-                        {(() => {
-                          const positionsByClass: Record<string, AssetPosition[]> = {}
-                          positions.forEach(pos => {
-                            const cls = pos.asset_class || 'Renda Fixa'
-                            if (!positionsByClass[cls]) positionsByClass[cls] = []
-                            positionsByClass[cls].push(pos)
-                          })
-                          return Object.entries(positionsByClass).map(([className, classPositions]) => (
-                            <div key={className} style={{ display: 'contents' }}>
-                              {/* Linha de cabeçalho do grupo de classe */}
-                              <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
-                                <td colSpan={6} className="p-3 text-secondary uppercase font-extrabold">
-                                  {className}
-                                </td>
-                              </tr>
-                              {classPositions.map(pos => (
-                                <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
-                                  <td className="p-3.5 pl-6 font-extrabold text-primary flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                    {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
-                                    <span className="text-[10px] text-secondary font-normal">({pos.sector || 'Outros'})</span>
-                                  </td>
-                                  <td className="p-3.5 text-right text-secondary font-medium">{pos.quantity.toLocaleString('pt-BR')}</td>
-                                  <td className="p-3.5 text-right font-semibold text-secondary">R$ {pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                  <td className="p-3.5 text-right font-bold text-primary">R$ {pos.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                  <td className="p-3.5 text-center">
-                                    <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-secondary">{pos.current_percentage}%</span>
-                                  </td>
-                                  <td className="p-3.5 text-center">
-                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold">{pos.target_percentage}%</span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </div>
-                          ))
-                        })()}
-
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Coluna da Direita: Teses & Notas */}
-            <div className="space-y-6">
-              {/* Notas do Assessor (Customização) */}
-              {portfolio?.notes && (
-                <Card className="p-5 bg-gradient-to-br from-secondary to-background border-l-4 border-l-indigo-500 shadow-sm">
-                  <h4 className="font-bold text-sm text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5 mb-2.5">
-                    <ShieldCheck size={16} />
-                    Notas do Assessor Cerrado
-                  </h4>
-                  <p className="text-[11px] text-primary whitespace-pre-wrap leading-relaxed">
-                    {portfolio.notes}
-                  </p>
-                </Card>
-              )}
-
-              {/* Teses de Investimentos do Consultor */}
-              <Card className="p-5 lg:p-6">
-                <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-4">
-                  <TrendingUp size={18} className="text-emerald-500" />
-                  Por que possuo estes ativos?
-                </h3>
-                <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
-                  {positions.filter(pos => assetTheses[pos.ticker]).length === 0 ? (
-                    <p className="text-xs text-secondary text-center py-4">Seu consultor ainda não anexou teses qualitativas este mês.</p>
-                  ) : (
-                    positions.filter(pos => assetTheses[pos.ticker]).map(pos => (
-                      <div key={pos.ticker} className="p-3 bg-muted/20 border border-border/30 rounded-lg space-y-1">
-                        <div className="flex items-center justify-between text-xs font-bold text-primary">
-                          <span>{pos.ticker}</span>
-                          <span className="text-[10px] text-emerald-500 font-semibold">{pos.target_percentage}% alvo</span>
-                        </div>
-                        <p className="text-[11px] text-secondary leading-relaxed pt-1">
-                          {assetTheses[pos.ticker]}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-
-              {/* Informações de Contato / Transparência */}
-              <Card className="p-5 bg-gradient-to-br from-slate-950 to-slate-900 border border-emerald-900/30 text-white relative overflow-hidden">
-                <div className="absolute right-0 bottom-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-                <h4 className="font-bold text-sm text-emerald-400 flex items-center gap-1.5 mb-2">
-                  <HelpCircle size={15} />
-                  Governança & RLS
+          <div className="space-y-6 lg:gap-8 text-left">
+            {portfolio?.notes && (
+              <Card className="p-5 bg-gradient-to-br from-secondary to-background border-l-4 border-l-indigo-500 shadow-sm">
+                <h4 className="font-bold text-sm text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5 mb-2.5">
+                  <ShieldCheck size={16} />
+                  Notas do assessor
                 </h4>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Sua carteira é gerenciada com isolamento total de inquilinos (Row Level Security) diretamente no banco. Nenhuma alteração financeira ou inserção pode ser disparada deste painel, garantindo governança total sobre seu patrimônio sob gestão.
+                <p className="text-[11px] text-primary whitespace-pre-wrap leading-relaxed">
+                  {portfolio.notes}
                 </p>
               </Card>
-            </div>
+            )}
+
+            <Card className="p-5 lg:p-6">
+              <h3 className="font-bold text-lg text-primary mb-4">Composição de Ativos & Exposição</h3>
+
+              {positions.length === 0 ? (
+                <p className="text-center py-8 text-sm text-secondary">Aguardando inserção dos lançamentos iniciais pelo seu consultor.</p>
+              ) : (
+                <div className="overflow-x-auto border border-border/30 rounded-xl bg-background/50">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border/30 bg-muted/20">
+                        <th className="p-3.5 font-bold text-secondary">Ativo</th>
+                        <th className="p-3.5 font-bold text-secondary text-right">Qtd</th>
+                        <th className="p-3.5 font-bold text-secondary text-right">Cotação</th>
+                        <th className="p-3.5 font-bold text-secondary text-right">Total Atual</th>
+                        <th className="p-3.5 font-bold text-secondary text-center">Meu Peso</th>
+                        <th className="p-3.5 font-bold text-secondary text-center">Peso Recomendado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {(() => {
+                        const positionsByClass: Record<string, AssetPosition[]> = {}
+                        positions.forEach(pos => {
+                          const cls = pos.asset_class || 'Renda Fixa'
+                          if (!positionsByClass[cls]) positionsByClass[cls] = []
+                          positionsByClass[cls].push(pos)
+                        })
+                        return Object.entries(positionsByClass).map(([className, classPositions]) => (
+                          <div key={className} style={{ display: 'contents' }}>
+                            <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
+                              <td colSpan={6} className="p-3 text-secondary uppercase font-extrabold">
+                                {className}
+                              </td>
+                            </tr>
+                            {classPositions.map(pos => (
+                              <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
+                                <td className="p-3.5 pl-6 font-extrabold text-primary flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
+                                  <span className="text-[10px] text-secondary font-normal">({pos.sector || 'Outros'})</span>
+                                </td>
+                                <td className="p-3.5 text-right text-secondary font-medium">{pos.quantity.toLocaleString('pt-BR')}</td>
+                                <td className="p-3.5 text-right font-semibold text-secondary">R$ {pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="p-3.5 text-right font-bold text-primary">R$ {pos.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="p-3.5 text-center">
+                                  <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-secondary">{pos.current_percentage}%</span>
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold">{pos.target_percentage}%</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </div>
+                        ))
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-5 lg:p-6">
+              <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-4">
+                <TrendingUp size={18} className="text-emerald-500" />
+                Por que possuo estes ativos?
+              </h3>
+              <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
+                {positions.filter(pos => assetTheses[pos.ticker]).length === 0 ? (
+                  <p className="text-xs text-secondary text-center py-4">Seu consultor ainda não anexou teses qualitativas este mês.</p>
+                ) : (
+                  positions.filter(pos => assetTheses[pos.ticker]).map(pos => (
+                    <div key={pos.ticker} className="p-3 bg-muted/20 border border-border/30 rounded-lg space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-primary">
+                        <span>{pos.ticker}</span>
+                        <span className="text-[10px] text-emerald-500 font-semibold">{pos.target_percentage}% alvo</span>
+                      </div>
+                      <p className="text-[11px] text-secondary leading-relaxed pt-1">
+                        {assetTheses[pos.ticker]}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
           </div>
         </>
       ) : (
         <Card className="p-10 text-center space-y-3 bg-gradient-to-br from-card to-background">
           <p className="text-secondary text-sm">Nenhuma carteira ativa foi vinculada à sua conta pelo seu consultor.</p>
-          <p className="text-xs text-secondary/70">Entre em contato com sua assessoria do Cerrado para inicializar seus aportes.</p>
+          <p className="text-xs text-secondary/70">Entre em contato com seu consultor para inicializar seus aportes.</p>
         </Card>
       )}
     </div>

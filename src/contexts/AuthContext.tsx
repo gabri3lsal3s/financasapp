@@ -1,17 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-
-interface Profile {
-  id: string;
-  email: string;
-  is_approved: boolean;
-  is_blocked: boolean;
-  is_rejected: boolean;
-  rejection_count: number;
-  is_admin: boolean;
-  role?: 'consultant' | 'client';
-}
+import {
+  isPrimaryAdminEmail,
+  PRIMARY_ADMIN_PROFILE_PATCH,
+} from '@/constants/adminProfile';
+import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect';
+import type { Profile } from '@/types';
 
 
 
@@ -43,17 +38,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PROFILE_SELECT_COLUMNS)
         .eq('id', userId)
         .maybeSingle();
 
       if (error) throw error;
 
-      // Garante resiliência: se o e-mail for o do administrador e não tiver a role correta, força 'consultant'
-      if (data && data.email === 'gabrielisaacsales@gmail.com' && data.role !== 'consultant') {
-        data.role = 'consultant';
-        // Atualiza silenciosamente no Supabase para sincronizar
-        supabase.from('profiles').update({ role: 'consultant' }).eq('id', userId).then(() => {});
+      if (data && isPrimaryAdminEmail(data.email)) {
+        const needsSync =
+          data.role !== PRIMARY_ADMIN_PROFILE_PATCH.role ||
+          !data.is_admin ||
+          !data.is_approved;
+
+        if (needsSync) {
+          const syncedProfile: Profile = {
+            ...data,
+            ...PRIMARY_ADMIN_PROFILE_PATCH,
+          };
+          setProfile(syncedProfile);
+          supabase
+            .from('profiles')
+            .update(PRIMARY_ADMIN_PROFILE_PATCH)
+            .eq('id', userId)
+            .then(() => {});
+          return syncedProfile;
+        }
       }
 
       setProfile(data);

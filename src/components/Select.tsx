@@ -6,7 +6,7 @@ interface SelectProps {
   error?: string
   value: string
   onChange: (e: { target: { value: string, name?: string } }) => void
-  options: { value: string; label: string }[]
+  options: { value: string; label: string; sublabel?: string }[]
   placeholder?: string
   name?: string
   className?: string
@@ -46,7 +46,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
           </label>
         )}
         
-        <div className="relative" ref={ref}>
+        <div className={`relative ${isOpen ? 'z-30' : ''}`} ref={ref}>
           <button
             type="button"
             disabled={disabled}
@@ -64,8 +64,21 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
               ${error ? 'border-danger/50' : ''}
             `}
           >
-            <span className={`truncate ${!selectedOption ? 'text-secondary/40' : 'text-primary'}`}>
-              {selectedOption ? selectedOption.label : placeholder}
+            <span className={`min-w-0 flex-1 text-left ${!selectedOption ? 'text-secondary/40' : 'text-primary'}`}>
+              {selectedOption ? (
+                selectedOption.sublabel ? (
+                  <span className="flex flex-col min-w-0">
+                    <span className="truncate font-medium leading-tight">{selectedOption.label}</span>
+                    <span className="truncate text-[10px] font-normal text-secondary/80 font-mono leading-tight">
+                      {selectedOption.sublabel}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="truncate block">{selectedOption.label}</span>
+                )
+              ) : (
+                placeholder
+              )}
             </span>
             <ChevronDown 
               size={18} 
@@ -94,8 +107,19 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
                           }
                         `}
                       >
-                        <span className="truncate pr-4">{option.label}</span>
-                        {isSelected && <Check size={14} />}
+                        <span className="min-w-0 flex-1 text-left pr-4">
+                          {option.sublabel ? (
+                            <span className="flex flex-col min-w-0">
+                              <span className="truncate font-medium leading-tight">{option.label}</span>
+                              <span className="truncate text-[10px] font-normal text-secondary/70 font-mono leading-tight">
+                                {option.sublabel}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="truncate block">{option.label}</span>
+                          )}
+                        </span>
+                        {isSelected && <Check size={14} className="shrink-0" />}
                       </button>
                     )
                   })

@@ -514,7 +514,7 @@ export default function QualitativeAnalysis({
             <div className="space-y-2">
               {[
                 {
-                  label: 'Capa institucional Cerrado',
+                  label: 'Capa institucional',
                   ok: true,
                 },
                 {

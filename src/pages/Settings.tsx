@@ -9,13 +9,17 @@ import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
+import { ADMIN_EMAIL, isPrimaryAdminEmail, isPrimaryAdminProfile } from '@/constants/adminProfile'
+import type { Profile } from '@/types'
 import {
   isBiometricAvailable,
   isBiometricRegistered,
   registerBiometric,
   removeBiometricCredential,
 } from '@/utils/biometric'
-import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2 } from 'lucide-react'
+import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2, Crown } from 'lucide-react'
+import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -37,11 +41,12 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, profile, isLoading } = useAuth()
 
-  const isAdmin = profile?.is_admin ?? false
+  const isAdmin = profile ? isPrimaryAdminProfile(profile) : false
+  const isCurrentSuperAdmin = profile ? isPrimaryAdminEmail(profile.email) : false
   const activeSettingsView = parseSettingsView(searchParams.get('view'), isAdmin)
 
   // Admin state
-  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [allUsers, setAllUsers] = useState<Profile[]>([])
   const [adminLoading, setAdminLoading] = useState(false)
 
   // Biometric state
@@ -54,6 +59,11 @@ export default function Settings() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
   const [deletingAccount, setDeletingAccount] = useState(false)
+
+  // Admin user deletion state
+  const [userToDelete, setUserToDelete] = useState<Profile | null>(null)
+  const [deleteUserConfirmEmail, setDeleteUserConfirmEmail] = useState('')
+  const [deletingUser, setDeletingUser] = useState(false)
 
   const {
     floatingCalculatorEnabled,
@@ -68,8 +78,9 @@ export default function Settings() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('is_admin', false) // Não listar outros admins para segurança
+        .select(PROFILE_SELECT_COLUMNS)
+        .eq('is_admin', false)
+        .neq('email', ADMIN_EMAIL)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -160,6 +171,51 @@ export default function Settings() {
     } catch (err) {
       console.error('Error rejecting user:', err)
       alert('Erro ao recusar usuário.')
+    }
+  }
+
+  const openDeleteUserModal = (targetUser: Profile) => {
+    if (isPrimaryAdminEmail(targetUser.email)) {
+      toast.error('Não é permitido excluir o super administrador.')
+      return
+    }
+    if (targetUser.id === user?.id) {
+      toast.error('Use a opção em Segurança para excluir sua própria conta.')
+      return
+    }
+    setUserToDelete(targetUser)
+    setDeleteUserConfirmEmail('')
+  }
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+    if (deleteUserConfirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()) {
+      toast.error('O e-mail digitado não corresponde ao usuário selecionado.')
+      return
+    }
+
+    setDeletingUser(true)
+    const deletedEmail = userToDelete.email
+    try {
+      const { error } = await supabase.rpc('delete_user_by_admin', {
+        target_user_id: userToDelete.id,
+      })
+
+      if (error) throw error
+
+      setUserToDelete(null)
+      setDeleteUserConfirmEmail('')
+      await fetchUsers()
+      toast.success(`Usuário ${deletedEmail} excluído permanentemente.`)
+    } catch (err) {
+      console.error('Error deleting user:', err)
+      const message =
+        err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+          ? err.message
+          : 'Erro ao excluir usuário.'
+      toast.error(message)
+    } finally {
+      setDeletingUser(false)
     }
   }
 
@@ -320,6 +376,37 @@ export default function Settings() {
             </div>
 
 
+            <Card className="animate-stagger-item delay-75 border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-tertiary border border-primary">
+                    <Crown size={20} className="text-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-primary">Super Administrador</h3>
+                    <p className="text-sm text-secondary mt-0.5">
+                      Conta principal com acesso total, aprovação de usuários e consultoria.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <p className="font-medium text-primary">{ADMIN_EMAIL}</p>
+                      {isCurrentSuperAdmin && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-success)]/10 text-[var(--color-success)]">
+                          Sessão atual
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <div>
+              <h3 className="text-base font-semibold text-primary mb-1">Usuários do sistema</h3>
+              <p className="text-secondary text-sm mb-3">
+                Solicitações de acesso e contas cadastradas (exceto o super administrador).
+              </p>
+            </div>
+
             <Card className="animate-stagger-item delay-100">
               {adminLoading ? (
                 <div className="flex items-center justify-center py-8">
@@ -327,7 +414,7 @@ export default function Settings() {
                 </div>
               ) : allUsers.length === 0 ? (
                 <div className="text-center py-8 text-secondary">
-                  Nenhum usuário cadastrado além de você.
+                  Nenhum outro usuário cadastrado. O super administrador é {ADMIN_EMAIL}.
                 </div>
               ) : (
                 <div className="divide-y divide-primary">
@@ -389,6 +476,16 @@ export default function Settings() {
                             Recusar
                           </Button>
                         )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 sm:flex-none text-[var(--color-danger)] border-[var(--color-danger)]"
+                          onClick={() => openDeleteUserModal(pUser)}
+                        >
+                          <Trash2 size={14} className="mr-1" />
+                          Excluir
+                        </Button>
                       </div>
 
 
@@ -652,6 +749,74 @@ export default function Settings() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={userToDelete !== null}
+        onClose={() => !deletingUser && setUserToDelete(null)}
+        title="Excluir usuário do sistema"
+      >
+        {userToDelete && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger)]/10 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-[var(--color-danger)] flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-primary">
+                  <p className="font-bold">Ação irreversível</p>
+                  <p className="mt-1">
+                    A conta <strong>{userToDelete.email}</strong> será removida permanentemente,
+                    incluindo lançamentos, categorias, cartões e carteira de investimentos vinculada.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm text-primary leading-relaxed">
+                Digite o e-mail do usuário para confirmar:
+              </p>
+              <Input
+                value={deleteUserConfirmEmail}
+                onChange={(e) => setDeleteUserConfirmEmail(e.target.value)}
+                placeholder={userToDelete.email}
+                autoFocus
+                disabled={deletingUser}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                variant="primary"
+                onClick={handleDeleteUser}
+                disabled={
+                  deleteUserConfirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()
+                  || deletingUser
+                }
+                className="bg-[var(--color-danger)] hover:bg-[var(--color-danger)]/90 text-white w-full py-3 flex items-center justify-center gap-2"
+              >
+                {deletingUser ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Excluindo usuário...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={18} />
+                    <span>Excluir usuário permanentemente</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setUserToDelete(null)}
+                disabled={deletingUser}
+                className="w-full"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

@@ -12,7 +12,8 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Expense } from '@/types'
 import { clampMonthToAppStart, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { resolveBillCompetence } from '@/utils/creditCardBilling'
+import { resolveExpenseBillCompetence } from '@/utils/creditCardBilling'
+import { getWeightedReportAmount } from '@/utils/reportWeight'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
@@ -159,11 +160,20 @@ export default function Expenses() {
     .sort(sortExpensesByDateDesc)
 
   const getCardDateAndCompetence = (expense: Expense) => {
-    const competence = expense.bill_competence || (() => {
-      const card = creditCards.find(c => c.id === expense.credit_card_id)
-      const closingDay = card?.closing_day || 7
-      return resolveBillCompetence(expense.date, closingDay)
-    })()
+    const competence =
+      expense.bill_competence ??
+      resolveExpenseBillCompetence(
+        {
+          date: expense.date,
+          bill_competence: expense.bill_competence,
+          credit_card_id: expense.credit_card_id ?? '',
+        },
+        (cardId) => {
+          const card = creditCards.find((c) => c.id === cardId)
+          return card?.closing_day
+        },
+      ) ??
+      expense.date.substring(0, 7)
     
     const isSameMonth = !competence || competence === expense.date.substring(0, 7)
     const [y, m, d] = expense.date.split('-')
@@ -250,7 +260,7 @@ export default function Expenses() {
                           key={expense.id}
                           title={expense.description || expense.category?.name || 'Despesa'}
                           subtitle={expense.category?.name || 'Sem categoria'}
-                          amount={expense.amount * (expense.report_weight ?? 1)}
+                          amount={getWeightedReportAmount(expense.amount, expense.report_weight)}
                           originalAmount={expense.amount}
                           dateLabel={dateLabel}
                           categoryColor={categoryColor}
@@ -291,7 +301,7 @@ export default function Expenses() {
                           key={expense.id}
                           title={expense.description || expense.category?.name || 'Despesa'}
                           subtitle={expense.category?.name || 'Sem categoria'}
-                          amount={expense.amount * (expense.report_weight ?? 1)}
+                          amount={getWeightedReportAmount(expense.amount, expense.report_weight)}
                           originalAmount={expense.amount}
                           dateLabel={dateLabel}
                           categoryColor={categoryColor}

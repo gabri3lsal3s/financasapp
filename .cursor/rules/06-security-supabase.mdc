@@ -1,0 +1,35 @@
+---
+name: Segurança Supabase
+description: Autenticação, RLS, variáveis de ambiente e superfície de exposição no cliente.
+alwaysApply: true
+---
+
+# Segurança e infraestrutura
+
+- Auth: Supabase Auth + `AuthContext`; sessão gerenciada pelo client SDK.
+- **Nunca** embutir `service_role` ou chaves privadas no frontend ou em `VITE_*`.
+- `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` são publicáveis; segurança de dados vem do **RLS**.
+- Rotas sensíveis: `ProtectedRoute` valida sessão e estado do perfil (`is_approved`, `is_blocked`, `is_rejected`).
+
+## Autorização
+
+- Toda query/mutation Supabase deve respeitar RLS — não confiar só em filtros `.eq('user_id', ...)` no cliente como única barreira (manter filtro + RLS).
+- Papéis (`consultant`, `client`, `is_admin`): checar no UI **e** garantir políticas no banco para consultoria.
+- Não expor dados de outro usuário mesmo que o ID seja adivinhado.
+
+## Dados sensíveis
+
+- `.select()` com lista explícita de colunas em perfis e tabelas sensíveis (`11-supabase-select-sanitization.mdc`).
+- Não persistir no cache local campos desnecessários (tokens, flags internas).
+- Biometria/local: `src/utils/biometric.ts` — não armazenar senha em texto claro.
+
+## IA e integrações
+
+- `src/services/ai/**`: chaves de API não devem ir para o bundle sem proxy seguro.
+- Se integrar Gemini ou similar no browser, documentar risco e limitar escopo; preferir Edge Function no Supabase para produção.
+
+## Deploy (Vercel)
+
+- SPA: `vercel.json` com rewrite para `index.html`.
+- Headers de cache: `index.html` sem cache longo; assets com hash imutável.
+- Não commitar `.env` — usar variáveis no painel Vercel.

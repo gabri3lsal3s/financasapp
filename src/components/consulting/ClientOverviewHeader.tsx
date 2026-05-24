@@ -1,11 +1,13 @@
 import { Profile } from '@/types'
+import { isPrimaryAdminProfile } from '@/constants/adminProfile'
+import { resolveProfileDisplayName } from '@/utils/profileDisplayName'
 import Button from '@/components/Button'
 import { ShieldCheck, Trash2 } from 'lucide-react'
 
 interface ClientOverviewHeaderProps {
   selectedClient: Profile
   isTempClient: boolean
-  getClientDisplayName: (email: string) => string
+  isSelfPortfolio?: boolean
   onDeleteClick: () => void
   onLinkClick: () => void
 }
@@ -13,11 +15,12 @@ interface ClientOverviewHeaderProps {
 export default function ClientOverviewHeader({
   selectedClient,
   isTempClient,
-  getClientDisplayName,
+  isSelfPortfolio = false,
   onDeleteClick,
   onLinkClick,
 }: ClientOverviewHeaderProps) {
-  const isClientAdmin = selectedClient.is_admin || selectedClient.email === 'admin@admin.com'
+  const displayName = resolveProfileDisplayName(selectedClient)
+  const isClientAdmin = isPrimaryAdminProfile(selectedClient)
 
   return (
     <div className="space-y-4">
@@ -25,12 +28,13 @@ export default function ClientOverviewHeader({
         <div>
           <h3 className="font-extrabold text-sm text-primary flex items-center gap-2">
             <ShieldCheck size={16} className="text-indigo-500 animate-pulse" />
-            Cliente Selecionado: {getClientDisplayName(selectedClient.email)}
+            {isSelfPortfolio ? 'Minha carteira pessoal' : 'Cliente selecionado'}
           </h3>
-          <p className="text-xs text-secondary mt-0.5 font-mono">Email da conta: {selectedClient.email}</p>
+          <p className="text-sm font-bold text-primary mt-1">{displayName}</p>
+          <p className="text-xs text-secondary mt-0.5 font-mono">{selectedClient.email}</p>
         </div>
         <div className="flex items-center gap-3">
-          {!isClientAdmin && (
+          {!isClientAdmin && !isSelfPortfolio && (
             <Button
               size="sm"
               variant="outline"

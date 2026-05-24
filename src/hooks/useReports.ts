@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { MonthlySummary, CategoryExpense, Expense } from '@/types'
 import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 'date-fns'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { getWeightedReportAmount } from '@/utils/reportWeight'
+import { sumPortfolioTransactionsForMonth } from '@/utils/portfolioMonthlyFlow'
 
 /** Gastos por categoria em um mês (yyyy-MM -> lista) */
 export type MonthlyCategoryExpenses = Record<string, CategoryExpense[]>
@@ -46,9 +48,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
         if (!includeReportWeights) {
           return entry.amount
         }
-
-        const weight = entry.report_weight ?? 1
-        return entry.amount * weight
+        return getWeightedReportAmount(entry.amount, entry.report_weight)
       }
 
       const startDate = startOfYear(new Date(targetYear, 0, 1))
@@ -115,11 +115,38 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
 
       const { data: investments, error: investmentsError } = await supabase
         .from('investments')
-        .select('amount, month')
+        .select('amount, month, transaction_id, ticker')
         .gte('month', format(startDate, 'yyyy-MM'))
         .lte('month', format(endDate, 'yyyy-MM'))
 
       if (investmentsError) throw investmentsError
+
+      const { data: authData } = await supabase.auth.getUser()
+      let portfolioTransactions: {
+        date: string
+        operation_type: 'buy' | 'sell' | 'dividend' | 'split' | 'subscription'
+        quantity: number
+        price: number
+      }[] = []
+
+      if (authData.user) {
+        const { data: portfolio } = await supabase
+          .from('portfolios')
+          .select('id')
+          .eq('client_id', authData.user.id)
+          .maybeSingle()
+
+        if (portfolio) {
+          const { data: txs } = await supabase
+            .from('portfolio_transactions')
+            .select('date, operation_type, quantity, price')
+            .eq('portfolio_id', portfolio.id)
+            .gte('date', format(startDate, 'yyyy-MM-dd'))
+            .lte('date', format(endDate, 'yyyy-MM-dd'))
+
+          portfolioTransactions = txs || []
+        }
+      }
 
       const months = eachMonthOfInterval({ start: startDate, end: endDate })
       const summaries: MonthlySummary[] = []
@@ -136,11 +163,18 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
         const monthIncomes = (incomes || []).filter(
           (inc) => inc.date >= monthStart && inc.date <= monthEnd
         )
-        const monthInvestments = (investments || []).filter((inv) => inv.month === monthStr)
+        const cashInvestments = (investments || []).filter(
+          (inv) =>
+            inv.month === monthStr &&
+            !inv.transaction_id &&
+            !inv.ticker
+        )
 
         const totalExpenses = monthExpenses.reduce((sum, exp) => sum + getWeightedAmount(exp), 0)
         const totalIncomes = monthIncomes.reduce((sum, inc) => sum + getWeightedAmount(inc), 0)
-        const totalInvestments = monthInvestments.reduce((sum, inv) => sum + inv.amount, 0)
+        const totalInvestments =
+          cashInvestments.reduce((sum, inv) => sum + inv.amount, 0) +
+          sumPortfolioTransactionsForMonth(portfolioTransactions, monthStr)
 
         summaries.push({
           month: monthStr,

@@ -63,8 +63,8 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   const totalYieldPct = shareHistory.length > 0 ? (shareHistory[shareHistory.length - 1].shareValue - 1) * 100 : 0
   const competenceMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()
 
-  // Cores institucionais do Cerrado
-  const COLOR_PRIMARY = [6, 95, 70]     // Verde Cerrado #065f46
+  // Cores institucionais do relatório
+  const COLOR_PRIMARY = [6, 95, 70]     // Verde primário #065f46
   const COLOR_SECONDARY = [30, 41, 59]   // Slate Escuro #1e293b
   const COLOR_ACCENT = [217, 119, 6]    // Dourado/Amber #d97706
   const COLOR_MUTED = [100, 116, 139]    // Slate Muted #64748b
@@ -173,7 +173,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setTextColor(COLOR_PRIMARY[0], COLOR_PRIMARY[1], COLOR_PRIMARY[2])
   doc.setFont('Helvetica', 'bold')
   doc.setFontSize(26)
-  doc.text('CERRADO ASSET MANAGEMENT', 45, 95)
+  doc.text('MINHAS FINANÇAS', 45, 95)
   
   doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
   doc.setFont('Helvetica', 'normal')
@@ -209,7 +209,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(12)
   doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
   doc.setFont('Helvetica', 'bold')
-  doc.text('ASSESSORIA METODOLOGIA DO CERRADO', 45, 197)
+  doc.text('ASSESSORIA PATRIMONIAL', 45, 197)
 
   if (executiveSummary && executiveSummary.trim()) {
     const summaryY = 215
@@ -233,7 +233,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
   doc.setFont('Helvetica', 'normal')
   doc.text('Este relatório contém informações confidenciais destinadas exclusivamente ao cliente.', 45, pageHeight - 30)
-  doc.text('Cerrado Asset Management Ltda. Todos os direitos reservados 2026.', 45, pageHeight - 25)
+  doc.text('Minhas Finanças. Todos os direitos reservados 2026.', 45, pageHeight - 25)
 
   if (attentionAssets.length > 0) {
     doc.setFontSize(8)
@@ -1013,14 +1013,14 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(7.5)
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
   doc.setFont('Helvetica', 'normal')
-  doc.text('ASSESSORIA E PLANEJAMENTO FINANCEIRO CERRADO', pageWidth / 2, currentY + 4.5, { align: 'center' })
-  doc.text('DOCUMENTO EMITIDO AUTOMATICAMENTE PELO SISTEMA DE GESTÃO CERRADO ASSET', pageWidth / 2, currentY + 8.5, { align: 'center' })
+  doc.text('ASSESSORIA E PLANEJAMENTO FINANCEIRO', pageWidth / 2, currentY + 4.5, { align: 'center' })
+  doc.text('DOCUMENTO EMITIDO AUTOMATICAMENTE PELO SISTEMA MINHAS FINANÇAS', pageWidth / 2, currentY + 8.5, { align: 'center' })
 
   drawPageFooter(doc, totalPages, totalPages)
 
   // Salvar PDF
   const safeFileName = clientName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-  doc.save(`relatorio-cerrado-${safeFileName}-${new Date().toISOString().substring(0, 7)}.pdf`)
+  doc.save(`relatorio-consultoria-${safeFileName}-${new Date().toISOString().substring(0, 7)}.pdf`)
 }
 
 // Funções Auxiliares de Desenho de Layout do Relatório
@@ -1029,7 +1029,7 @@ function drawPageHeader(doc: jsPDF, title: string, competence: string) {
   const pageWidth = doc.internal.pageSize.getWidth()
   
   // Faixa do Cabeçalho
-  doc.setFillColor(6, 95, 70) // Verde Cerrado
+  doc.setFillColor(6, 95, 70) // Verde primário
   doc.rect(0, 0, pageWidth, 16, 'F')
   
   // Elemento dourado
@@ -1059,7 +1059,7 @@ function drawPageFooter(doc: jsPDF, pageNum: number, totalPages: number) {
   doc.setFont('Helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(148, 163, 184)
-  doc.text('Cerrado Asset Management • Relatório Exclusivo do Cliente', 20, pageHeight - 9.5)
+  doc.text('Minhas Finanças • Relatório exclusivo do cliente', 20, pageHeight - 9.5)
   doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - 20, pageHeight - 9.5, { align: 'right' })
 }
 

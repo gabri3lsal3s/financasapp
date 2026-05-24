@@ -1,0 +1,43 @@
+---
+name: Release Vercel
+description: Quality gate, build e configuração de deploy SPA na Vercel.
+alwaysApply: true
+---
+
+# Release (Vercel)
+
+## Objetivo
+
+Garantir que cada deploy tenha validação mínima de qualidade e configuração SPA consistente.
+
+## Quality gate (perfil padrão)
+
+1. `npm run lint` (guardrails UI + ESLint)
+2. `npm run test:run`
+3. `npm run build` (`tsc` + `vite build`)
+
+## Quality gate (hotfix mínimo)
+
+1. `npm run test:run`
+2. `npm run build`
+
+## Configuração SPA
+
+- `vercel.json`: rewrite `/(.*)` → `/index.html` para client-side routing.
+- Cache: `index.html` com `no-cache`; `/assets/*` com cache longo imutável.
+- Variáveis de ambiente no painel Vercel: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (e demais `VITE_*` necessárias).
+
+## Build
+
+- Saída em `dist/` após `vite build`.
+- Verificar chunks manuais (`react`, `supabase`, `charts`) após adicionar dependências pesadas.
+
+## O que não fazer
+
+- Deploy sem testes quando a mudança afeta `utils/` de billing ou fila offline.
+- Commitar secrets no repositório.
+- Depender de `latest` sem tag de commit em rollback documentado.
+
+## Notas de manutenção
+
+- Skill: `.cursor/skills/vercel-deploy/SKILL.md`.

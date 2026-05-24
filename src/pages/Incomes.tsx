@@ -10,6 +10,7 @@ import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Income } from '@/types'
 import { clampMonthToAppStart, formatDate, getCurrentMonthString } from '@/utils/format'
+import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
 import { PAGE_HEADERS } from '@/constants/pages'
@@ -145,7 +146,7 @@ export default function Incomes() {
                     key={income.id}
                     title={income.description || category?.name || 'Renda'}
                     subtitle={category?.name || 'Sem categoria'}
-                    amount={income.amount * (income.report_weight ?? 1)}
+                    amount={getWeightedReportAmount(income.amount, income.report_weight)}
                     originalAmount={income.amount}
                     dateLabel={formatDate(income.date)}
                     categoryColor={categoryColor}

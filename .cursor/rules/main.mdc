@@ -1,0 +1,56 @@
+---
+name: Regras Principais do Projeto (Índice)
+description: Índice enxuto das regras do projeto Minhas Finanças (financasapp). Use este arquivo para visão geral e consulte os arquivos temáticos na pasta `.cursor/rules`.
+alwaysApply: true
+---
+
+# Regras do projeto Minhas Finanças (resumo operacional)
+
+SPA **React 18 + Vite 5 + TypeScript** com Supabase (Auth + PostgreSQL + RLS), Tailwind CSS 3 (tokens HSL), React Router 6, PWA (`vite-plugin-pwa`), Vitest. Deploy em Vercel.
+
+## Prioridade máxima (sempre)
+
+- Aplique **KISS, DRY, YAGNI e anti-overengineering** antes de qualquer decisão arquitetural.
+- Em conflito sem requisito explícito, prefira a solução **mais simples e local**.
+- Evite abstração prematura; extraia apenas quando houver repetição real.
+- **Isolamento de dados:** por `user_id` + políticas RLS (`auth.uid()`). Não introduzir `tenant_id` multi-tenant sem requisito explícito.
+- **Papéis:** `profiles.role` (`consultant`, `client`), aprovação/bloqueio admin — ver `17-financial-domain.mdc`.
+
+## Documentação de referência
+
+- Arquitetura e offline-first: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Governança visual (HSL): [docs/ui/GOVERNANCA_UI.md](docs/ui/GOVERNANCA_UI.md)
+
+## Índice temático
+
+- `00-rule-template.mdc` (modelo para novas regras)
+- `01-architecture-principles.mdc`
+- `02-typescript-quality.mdc`
+- `03-react-vite-spa.mdc`
+- `04-supabase-database-rls.mdc`
+- `05-observability-resilience.mdc`
+- `06-security-supabase.mdc`
+- `07-ui-hsl-design-system.mdc`
+- `08-ai-planning-guidelines.mdc`
+- `09-hooks-services-contracts.mdc`
+- `11-supabase-select-sanitization.mdc`
+- `12-pwa-offline-first.mdc`
+- `13-offline-cache-hooks.mdc`
+- `14-testing-strategy.mdc`
+- `16-vercel-release.mdc`
+- `17-financial-domain.mdc`
+
+**Nota:** não há regra `15` — o app é **apenas pt-BR** (sem lib i18n); textos de UI ficam inline em português.
+
+## Convenção de nomenclatura
+
+- Padrão obrigatório: `NN-slug-descritivo.mdc`
+- `NN`: número sequencial com 2 dígitos (`00`, `01`, ..., `99`)
+- `slug-descritivo`: minúsculo, separado por hífen, sem acento e sem espaços
+- Exemplo: `09-hooks-services-contracts.mdc`
+
+## Nota de manutenção
+
+Ao adicionar novas diretrizes, atualize o arquivo temático correspondente e mantenha este `main.mdc` apenas como índice curto.
+
+Os arquivos `01`–`17` (exceto `00` e `15`) usam `alwaysApply: true`. O `00-rule-template.mdc` é só modelo. Para regras futuras só relevantes com certos arquivos abertos, prefira `globs` e `alwaysApply: false`.

@@ -1,4 +1,5 @@
 import { addMonths, format } from 'date-fns'
+import { applyReportWeightToBillRow } from '@/utils/reportWeight'
 
 const clampDay = (day: number) => Math.min(31, Math.max(1, Math.trunc(day || 1)))
 
@@ -36,6 +37,128 @@ export const resolveExpenseBillCompetence = (
 export type BillPaymentItem = {
   credit_card_id: string
   amount: number
+}
+
+export type BillPaymentRowInput = {
+  id: string
+  credit_card_id: string
+  amount: number
+  payment_date: string
+  bill_competence?: string | null
+  note?: string | null
+}
+
+export type BillPaymentDisplayItem = BillPaymentRowInput & {
+  bill_competence: string
+}
+
+export type BillExpenseRowInput = BillExpenseItem & {
+  category?: { name?: string | null } | null
+}
+
+export const buildClosingDayResolver = (
+  cycleClosingByCardAndMonth: Record<string, number>,
+  cardClosingDays: Record<string, number>,
+) => {
+  return (cardId: string, competence: string): number | undefined => {
+    const monthlyClosing = cycleClosingByCardAndMonth[`${cardId}:${competence}`]
+    if (Number.isFinite(monthlyClosing)) return monthlyClosing
+
+    const defaultClosing = cardClosingDays[cardId]
+    return Number.isFinite(defaultClosing) ? defaultClosing : undefined
+  }
+}
+
+export const filterBillExpensesForMonth = (
+  rawRows: BillExpenseRowInput[],
+  targetMonth: string,
+  resolveClosingDay: (cardId: string, competence: string) => number | undefined,
+): BillExpenseItem[] => {
+  return rawRows
+    .map((row) => ({
+      ...row,
+      category_name: row.category_name ?? row.category?.name ?? null,
+    }))
+    .filter((row) => {
+      if (row.bill_competence) {
+        return row.bill_competence === targetMonth
+      }
+
+      const rowDate = String(row.date)
+      const rowCardId = String(row.credit_card_id)
+      const competenceByDate = rowDate.slice(0, 7)
+      const closingDay = resolveClosingDay(rowCardId, competenceByDate)
+
+      let resolvedCompetence: string | undefined
+      if (Number.isFinite(closingDay)) {
+        resolvedCompetence = resolveBillCompetence(rowDate, Number(closingDay))
+      } else {
+        resolvedCompetence = resolveExpenseBillCompetence(row, resolveClosingDay)
+      }
+
+      row.bill_competence = resolvedCompetence
+      return resolvedCompetence === targetMonth
+    })
+    .map((row) => ({ ...row }))
+}
+
+export const filterBillPaymentsForMonth = (
+  paymentRows: BillPaymentRowInput[],
+  targetMonth: string,
+  _searchStartDate: string,
+  _searchEndDate: string,
+  resolveClosingDay: (cardId: string, competence: string) => number | undefined,
+): BillPaymentDisplayItem[] => {
+  const items: BillPaymentDisplayItem[] = []
+
+  paymentRows.forEach((row) => {
+    const cardId = String(row.credit_card_id || '')
+    const rawNote = String(row.note || '')
+    const isRefund = rawNote.startsWith('[REFUND]') || Number(row.amount || 0) < 0
+    const paymentDate = String(row.payment_date || '')
+    let finalCompetence = String(row.bill_competence || targetMonth)
+
+    if (isRefund && !row.bill_competence) {
+      const closingDay = resolveClosingDay(cardId, paymentDate.slice(0, 7))
+      if (Number.isFinite(closingDay)) {
+        finalCompetence = resolveBillCompetence(paymentDate, Number(closingDay))
+      }
+    }
+
+    if (finalCompetence !== targetMonth) return
+    if (!cardId) return
+
+    items.push({
+      id: String(row.id || ''),
+      credit_card_id: cardId,
+      amount: Number(row.amount || 0),
+      payment_date: paymentDate,
+      bill_competence: String(row.bill_competence || targetMonth),
+      note: row.note ? String(row.note) : null,
+    })
+  })
+
+  return items
+}
+
+export const prepareBillExpenseRows = (
+  expenseRows: BillExpenseItem[],
+  weightsEnabled: boolean,
+): BillExpenseItem[] => {
+  return expenseRows.map((row) => applyReportWeightToBillRow(row, weightsEnabled))
+}
+
+export const groupPaymentsByCard = (
+  payments: BillPaymentDisplayItem[],
+): Record<string, BillPaymentDisplayItem[]> => {
+  return payments.reduce<Record<string, BillPaymentDisplayItem[]>>((accumulator, item) => {
+    const cardId = item.credit_card_id
+    if (!accumulator[cardId]) {
+      accumulator[cardId] = []
+    }
+    accumulator[cardId].push(item)
+    return accumulator
+  }, {})
 }
 
 export const resolveBillCompetence = (

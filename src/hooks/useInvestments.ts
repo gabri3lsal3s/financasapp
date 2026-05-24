@@ -5,6 +5,13 @@ import { format } from 'date-fns'
 import { enqueueOfflineOperation, shouldQueueOffline, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { getCache, setCache } from '@/services/offlineCache'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { applyCashOffsetAfterBuy, fetchPortfolioCashContext } from '@/services/cashOffsetService'
+import { resolvePricingMode } from '@/utils/cashBalanceApplication'
+
+export type CreateInvestmentInput = Omit<Investment, 'id' | 'created_at'> & {
+  /** Data real da operação (yyyy-MM-dd); usada no livro-razão de ativos. */
+  operation_date?: string
+}
 
 export function useInvestments(month?: string) {
   const { isOnline } = useNetworkStatus()
@@ -122,72 +129,76 @@ export function useInvestments(month?: string) {
     }
   }
 
-  const createInvestment = async (investment: Omit<Investment, 'id' | 'created_at'>) => {
+  const createInvestment = async (investment: CreateInvestmentInput) => {
     try {
       if (!isOnline) {
         throw new Error('Offline (bypass)')
       }
 
-      const investmentData: any = {
-        ...investment,
-        month: investment.month || format(new Date(), 'yyyy-MM'),
-      }
+      const month = investment.month || format(new Date(), 'yyyy-MM')
+      const operationDate =
+        investment.operation_date ||
+        (month.length === 7 ? `${month}-01` : month)
 
-      // 1. Se for um aporte em ativo, cria a transação de compra primeiro
-      let linkedTx = null
-      let portfolioRecord = null
-      
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: portfolio } = await supabase
-          .from('portfolios')
-          .select('id, cash_balance')
-          .eq('client_id', user.id)
-          .maybeSingle()
-        portfolioRecord = portfolio
+      if (!user) {
+        throw new Error('Usuário não autenticado')
       }
 
-      if (investment.ticker && portfolioRecord) {
-        const tickerUpper = investment.ticker.toUpperCase().trim()
-        const qty = Number(investment.quantity)
-        const price = Number(investment.price)
-        const dateVal = investmentData.month ? `${investmentData.month}-01` : format(new Date(), 'yyyy-MM-dd')
-
-        const { data: tx, error: txError } = await supabase
-          .from('portfolio_transactions')
-          .insert({
-            portfolio_id: portfolioRecord.id,
-            ticker: tickerUpper,
-            operation_type: 'buy',
-            quantity: qty,
-            price: price,
-            date: dateVal
-          })
-          .select()
-          .single()
-
-        if (txError) throw txError
-        linkedTx = tx
-        investmentData.transaction_id = tx.id
+      if (!investment.ticker) {
+        return {
+          data: null,
+          error: 'Aportes em caixa livre não são mais permitidos. Registre uma transação na carteira.',
+        }
       }
 
-      // 2. Insere o registro de investimento
-      const { data, error: insertError } = await supabase
-        .from('investments')
-        .insert([investmentData])
-        .select()
+      const { data: portfolio } = await supabase
+        .from('portfolios')
+        .select('id')
+        .eq('client_id', user.id)
+        .maybeSingle()
+
+      if (!portfolio) {
+        throw new Error('Carteira não encontrada. Abra a página de investimentos para inicializar.')
+      }
+
+      const tickerUpper = investment.ticker.toUpperCase().trim()
+      const qty = Number(investment.quantity)
+      const price = Number(investment.price)
+
+      const { data: inserted, error: txError } = await supabase
+        .from('portfolio_transactions')
+        .insert({
+          portfolio_id: portfolio.id,
+          ticker: tickerUpper,
+          operation_type: 'buy',
+          quantity: qty,
+          price,
+          date: operationDate,
+        })
+        .select('id')
         .single()
 
-      if (insertError) {
-        // Se falhar ao criar o investimento e criamos uma transação, tenta estornar para manter integridade
-        if (linkedTx) {
-          await supabase.from('portfolio_transactions').delete().eq('id', linkedTx.id)
-        }
-        throw insertError
-      }
+      if (txError) throw txError
 
-      setInvestments((prev) => sortInvestmentsByMonth([data, ...prev]))
-      return { data, error: null }
+      const { transactions, definitions } = await fetchPortfolioCashContext(portfolio.id)
+      const assetPricingMode = resolvePricingMode(tickerUpper, definitions)
+
+      await applyCashOffsetAfterBuy({
+        portfolioId: portfolio.id,
+        sourceTransactionId: inserted.id,
+        buyAmount: qty * price,
+        buyDate: operationDate,
+        assetPricingMode,
+        operationType: 'buy',
+        transactions,
+        definitions,
+      })
+
+      window.dispatchEvent(
+        new CustomEvent('local-data-changed', { detail: { entity: 'portfolio_transactions' } })
+      )
+      return { data: null, error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
         const uiId = `offline-${Date.now()}`

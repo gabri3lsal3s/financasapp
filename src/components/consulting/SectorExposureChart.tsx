@@ -2,32 +2,10 @@ import Card from '@/components/Card'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ChartTooltip, Legend as ChartLegend } from 'recharts'
 import { PieChart as PieIcon } from 'lucide-react'
 import { ConsolidatedGroup } from '@/services/investmentEngine'
+import { pickConsultingChartColor } from '@/utils/consultingChartPalette'
 
 interface SectorExposureChartProps {
   consolidatedSector: ConsolidatedGroup[]
-}
-
-const COLOR_PALETTE = [
-  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#06b6d4', '#14b8a6', '#6366f1', '#a855f7',
-  '#f97316', '#84cc16', '#475569', '#eab308'
-]
-
-const SECTOR_COLORS_MAP: Record<string, string> = {
-  'Financeiro': '#3b82f6',
-  'Energia': '#10b981',
-  'Energia Elétrica': '#10b981',
-  'Materiais Básicos': '#f59e0b',
-  'Petróleo e Gás': '#ef4444',
-  'Petróleo, Gás e Biocombustíveis': '#ef4444',
-  'Consumo': '#8b5cf6',
-  'Consumo Não Cíclico': '#8b5cf6',
-  'Consumo Cíclico': '#ec4899',
-  'Telecomunicações': '#06b6d4',
-  'Tecnologia': '#14b8a6',
-  'Tecnologia da Informação': '#14b8a6',
-  'Saneamento': '#6366f1',
-  'Outros': '#64748b'
 }
 
 export default function SectorExposureChart({ consolidatedSector }: SectorExposureChartProps) {
@@ -35,7 +13,7 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
     .filter(item => item.total_value > 0)
     .map((item, idx) => {
       // Tenta mapear o setor pelo nome ou usa um índice da paleta
-      const matchedColor = SECTOR_COLORS_MAP[item.name] || COLOR_PALETTE[idx % COLOR_PALETTE.length]
+      const matchedColor = pickConsultingChartColor(idx)
       return {
         name: item.name,
         value: item.total_value,

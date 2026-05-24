@@ -1,0 +1,35 @@
+---
+name: TEMPLATE - Nome da Regra
+description: Descrição curta do objetivo desta regra.
+---
+
+# Objetivo
+
+Explique em 1-2 frases o propósito da regra e quando ela se aplica.
+
+# Regras obrigatórias
+
+- Regra 1 (clara e verificável)
+- Regra 2 (clara e verificável)
+- Regra 3 (clara e verificável)
+
+# Escopo
+
+- Aplica em:
+- Não aplica em:
+
+# Exemplos
+
+## Correto
+
+- Exemplo de uso alinhado à regra.
+
+## Incorreto
+
+- Exemplo de uso que viola a regra.
+
+# Notas de manutenção
+
+- Dependências com outras regras:
+- Arquivos afetados com maior frequência:
+- Critério para revisar/atualizar esta regra:
