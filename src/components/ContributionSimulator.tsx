@@ -36,8 +36,8 @@ export default function ContributionSimulator({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<boolean>(false)
 
-  // Total da carteira atual (ações + caixa)
-  const portfolioCurrentValue = positions.reduce((sum, p) => sum + p.total_value, 0) + Number(portfolio.cash_balance)
+  // Total da carteira atual (apenas ativos)
+  const portfolioCurrentValue = positions.reduce((sum, p) => sum + p.total_value, 0)
 
   const handleSimulate = (e: React.FormEvent) => {
     e.preventDefault()
@@ -118,26 +118,13 @@ export default function ContributionSimulator({
     setError(null)
 
     try {
-      const amount = parseFloat(contributionAmount)
       const purchases = simulatedRows.filter(r => r.operation === 'Comprar' && r.suggestedValue > 0)
 
       if (purchases.length === 0) {
         throw new Error('Nenhuma compra sugerida para registrar.')
       }
 
-      // 1. Registrar o aporte financeiro externo na conta do cliente (aumenta o saldo do caixa)
-      // Fazemos isso atualizando o saldo do portfólio no banco de dados primeiro
-      const newCashBalance = Number(portfolio.cash_balance) + amount
-      
-      const { error: portfolioError } = await supabase
-        .from('portfolios')
-        .update({ cash_balance: newCashBalance })
-        .eq('id', portfolio.id)
-
-      if (portfolioError) throw portfolioError
-
-      // 2. Registrar cada compra sugerida no livro-razão de transações (transactions)
-      // E reduzir o caixa do portfólio para cada compra realizada
+      // Registrar cada compra sugerida no livro-razão de transações (transactions)
       const transactionsToInsert = purchases.map(p => {
         const currentPos = positions.find(pos => pos.ticker === p.ticker)
         return {
@@ -155,17 +142,6 @@ export default function ContributionSimulator({
         .insert(transactionsToInsert)
 
       if (txsError) throw txsError
-
-      // 3. Atualizar o caixa final subtraindo o valor total gasto nas compras
-      const totalSpent = purchases.reduce((sum, p) => sum + p.suggestedValue, 0)
-      const finalCash = Math.max(0, newCashBalance - totalSpent)
-
-      const { error: finalCashError } = await supabase
-        .from('portfolios')
-        .update({ cash_balance: finalCash })
-        .eq('id', portfolio.id)
-
-      if (finalCashError) throw finalCashError
 
       setSuccess(true)
       setContributionAmount('')

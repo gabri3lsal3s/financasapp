@@ -47,7 +47,7 @@ export function calculatePositions(
   transactions: PortfolioTransaction[],
   targets: TargetAllocation[],
   prices: Record<string, AssetPrice>,
-  cashBalance: number
+  _cashBalance: number
 ): { positions: AssetPosition[]; assetsValue: number; totalValue: number } {
   const positionsMap: Record<string, { quantity: number; totalCost: number }> = {}
 
@@ -111,7 +111,7 @@ export function calculatePositions(
     })
   }
 
-  const totalValue = assetsValue + cashBalance
+  const totalValue = assetsValue
 
   // Adiciona os percentuais reais e desvios (gaps) com base no total do portfólio
   const positions: AssetPosition[] = tempPositions.map(pos => {
@@ -137,7 +137,7 @@ export function calculatePositions(
 export function calculateShareHistory(
   transactions: PortfolioTransaction[],
   prices: Record<string, AssetPrice>,
-  finalCashBalance: number
+  _finalCashBalance: number
 ): { currentShareValue: number; totalShares: number; shareHistory: { date: string; shareValue: number }[] } {
   // Ordena transações por data
   const sortedTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
@@ -258,7 +258,7 @@ export function calculateShareHistory(
     const currentPrice = prices[ticker]?.current_price || FALLBACK_PRICE(ticker)
     finalAssetsValue += qty * currentPrice
   }
-  const finalTotalValue = finalAssetsValue + finalCashBalance
+  const finalTotalValue = finalAssetsValue
   
   if (totalShares > 0) {
     shareValue = finalTotalValue / totalShares

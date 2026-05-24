@@ -80,7 +80,7 @@ export default function Dashboard() {
           .eq('portfolio_id', portfolio.id)
 
         if (!transactions || transactions.length === 0) {
-          setConsultingPortfolioValue(Number(portfolio.cash_balance))
+          setConsultingPortfolioValue(0)
           return
         }
 
@@ -94,7 +94,7 @@ export default function Dashboard() {
           transactions,
           targets || [],
           prices,
-          Number(portfolio.cash_balance)
+          0
         )
 
         setConsultingPortfolioValue(totalValue)

@@ -9,7 +9,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
 import { 
-  Wallet, TrendingUp, DollarSign, FileText, CheckCircle, HelpCircle,
+  Wallet, TrendingUp, FileText, CheckCircle, HelpCircle,
   AlertCircle, ArrowUpRight, ArrowDownRight, ShieldCheck 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -98,21 +98,20 @@ export default function ClientDashboard() {
       if (tickers.length > 0) {
         const prices = await getAssetPrices(tickers)
         setAssetPrices(prices)
-
         const { positions: calcPositions, totalValue } = calculatePositions(
           txs,
           targetsData || [],
           prices,
-          Number(portData.cash_balance)
+          0
         )
         setPositions(calcPositions)
         setPortfolioValue(totalValue)
 
-        const { currentShareValue } = calculateShareHistory(txs, prices, Number(portData.cash_balance))
+        const { currentShareValue } = calculateShareHistory(txs, prices, 0)
         setShareValue(currentShareValue)
       } else {
         setPositions([])
-        setPortfolioValue(Number(portData.cash_balance))
+        setPortfolioValue(0)
         setShareValue(1.0)
       }
 
@@ -128,7 +127,7 @@ export default function ClientDashboard() {
     if (!portfolio) return
     toast.loading('Compilando seu relatório premium...', { id: 'client-report' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices, Number(portfolio.cash_balance))
+      const { shareHistory } = calculateShareHistory(transactions, assetPrices, 0)
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
@@ -138,9 +137,8 @@ export default function ClientDashboard() {
         shareHistory,
         metrics,
         theses: assetTheses,
-        cashBalance: Number(portfolio.cash_balance)
+        cashBalance: 0
       })
-      toast.success('Relatório baixado com sucesso!', { id: 'client-report' })
     } catch (err) {
       console.error(err)
       toast.error('Falha ao baixar relatório.', { id: 'client-report' })
@@ -206,18 +204,9 @@ export default function ClientDashboard() {
       }
       dataMap[cls].value += pos.total_value
     })
-    
-    // Adiciona o caixa
-    if (portfolio && Number(portfolio.cash_balance) > 0) {
-      dataMap['Saldo em Caixa'] = {
-        name: 'Saldo em Caixa',
-        value: Number(portfolio.cash_balance),
-        color: '#64748b' // Slate
-      }
-    }
 
     return Object.values(dataMap)
-  }, [positions, portfolio])
+  }, [positions])
 
   if (loading) {
     return <Loader text="Carregando sua carteira do Cerrado..." className="py-24" />
@@ -255,7 +244,7 @@ export default function ClientDashboard() {
       {portfolio ? (
         <>
           {/* Grid de Resumo */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 text-left">
             <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-emerald-500 flex items-center justify-between shadow-sm">
               <div>
                 <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Patrimônio Líquido</span>
@@ -265,18 +254,6 @@ export default function ClientDashboard() {
               </div>
               <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
                 <Wallet size={24} />
-              </div>
-            </Card>
-
-            <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-sky-500 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Saldo Líquido em Caixa</span>
-                <strong className="text-2xl font-black text-primary mt-1.5 block">
-                  R$ {Number(portfolio.cash_balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </strong>
-              </div>
-              <div className="p-3 bg-sky-500/10 text-sky-500 rounded-xl">
-                <DollarSign size={24} />
               </div>
             </Card>
 
@@ -348,7 +325,7 @@ export default function ClientDashboard() {
                       <div key={trade.ticker} className="p-3 bg-secondary border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-indigo-500/20">
                         <div>
                           <div className="flex items-center gap-2">
-                            <strong className="text-primary font-bold">{trade.ticker}</strong>
+                            <strong className="text-primary font-bold">{trade.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : trade.ticker}</strong>
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                               trade.action === 'buy' 
                                 ? 'bg-income/10 text-income' 
@@ -423,7 +400,7 @@ export default function ClientDashboard() {
                                 <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
                                   <td className="p-3.5 pl-6 font-extrabold text-primary flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                    {pos.ticker}
+                                    {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
                                     <span className="text-[10px] text-secondary font-normal">({pos.sector || 'Outros'})</span>
                                   </td>
                                   <td className="p-3.5 text-right text-secondary font-medium">{pos.quantity.toLocaleString('pt-BR')}</td>
@@ -440,18 +417,7 @@ export default function ClientDashboard() {
                             </div>
                           ))
                         })()}
-                        <tr className="bg-muted/10 font-bold border-t border-border/40">
-                          <td className="p-3.5 text-primary">CAIXA DISPONÍVEL</td>
-                          <td className="p-3.5 text-right text-secondary">-</td>
-                          <td className="p-3.5 text-right text-secondary">1,00</td>
-                          <td className="p-3.5 text-right text-primary">R$ {Number(portfolio.cash_balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="p-3.5 text-center">
-                            <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-secondary">
-                              {((Number(portfolio.cash_balance) / portfolioValue) * 100).toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-center">-</td>
-                        </tr>
+
                       </tbody>
                     </table>
                   </div>

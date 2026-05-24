@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Profile, Portfolio, PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget } from '@/types'
-import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, AssetPosition } from '@/services/investmentEngine'
+import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
 import { getAssetPrices, searchB3Assets, getAssetRichData, AssetRichData } from '@/services/priceService'
 import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
@@ -24,9 +24,16 @@ import ClientAllocationCharts from '@/components/consulting/ClientAllocationChar
 import RebalancingChecklist from '@/components/consulting/RebalancingChecklist'
 import PositionsTable from '@/components/consulting/PositionsTable'
 import AdvisorNotes from '@/components/consulting/AdvisorNotes'
-import BillingReportCard from '@/components/consulting/BillingReportCard'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
+
+// Novos Componentes de Monitoramento Analítico (Grid Mode)
+import SectorExposureChart from '@/components/consulting/SectorExposureChart'
+import ExposureVsLimitsChart from '@/components/consulting/ExposureVsLimitsChart'
+import WeeklyVariationChart from '@/components/consulting/WeeklyVariationChart'
+import PerformanceMetricsCard from '@/components/consulting/PerformanceMetricsCard'
+import BenchmarkComparisonTable from '@/components/consulting/BenchmarkComparisonTable'
+
 
 export default function ConsultantDashboard() {
   const { user } = useAuth()
@@ -35,7 +42,7 @@ export default function ConsultantDashboard() {
   const [loadingClients, setLoadingClients] = useState<boolean>(true)
   
   // Estado para Personalização de Layout & Billing
-  const [viewMode, setViewMode] = useState<'tabs' | 'grid'>('tabs')
+  const [viewMode, setViewMode] = useState<'tabs' | 'grid'>('grid')
   const [activeTab, setActiveTab] = useState<'overview' | 'composition' | 'ledger' | 'qualitative'>('overview')
   const [billingFeeRate, setBillingFeeRate] = useState<number>(0.1)
 
@@ -400,17 +407,15 @@ export default function ConsultantDashboard() {
         const clientName = getClientDisplayName(clientProfile?.email || 'Sem E-mail')
         const clientTxs = transactionsList.filter(t => t.portfolio_id === port.id)
         const clientTargets = targetsList.filter(t => t.portfolio_id === port.id)
-        const cash = Number(port.cash_balance)
 
         const { positions: calcPositions, totalValue } = calculatePositions(
           clientTxs,
           clientTargets,
           prices,
-          cash
+          0
         )
 
         overallAum += totalValue
-        overallCash += cash
 
         let deviationPct = 0
         if (totalValue > 0) {
@@ -426,7 +431,7 @@ export default function ConsultantDashboard() {
           name: clientName,
           email: clientProfile?.email || '',
           aum: totalValue,
-          cash: cash,
+          cash: 0,
           assetsCount: calcPositions.length,
           deviationPct: Math.round(deviationPct * 10) / 10
         }
@@ -504,17 +509,30 @@ export default function ConsultantDashboard() {
       }
       dataMap[cls].value += pos.total_value
     })
-    
-    if (portfolio && Number(portfolio.cash_balance) > 0) {
-      dataMap['Saldo em Caixa'] = {
-        name: 'Saldo em Caixa',
-        value: Number(portfolio.cash_balance),
-        color: '#64748b'
-      }
-    }
 
     return Object.values(dataMap)
-  }, [positions, portfolio])
+  }, [positions])
+
+  const shareHistoryData = React.useMemo(() => {
+    if (!portfolio) return []
+    const { shareHistory } = calculateShareHistory(transactions, assetPrices, 0)
+    return shareHistory
+  }, [transactions, assetPrices, portfolio])
+
+  // Métricas de performance (metrics)
+  const performanceMetrics = React.useMemo(() => {
+    return calculatePerformanceMetrics(shareHistoryData)
+  }, [shareHistoryData])
+
+  // Consolidado por classe de ativos (consolidatedClass)
+  const consolidatedClassData = React.useMemo(() => {
+    return calculateConsolidatedByClass(positions, portfolioValue, groupTargets)
+  }, [positions, portfolioValue, groupTargets])
+
+  // Consolidado por setor econômico (consolidatedSector)
+  const consolidatedSectorData = React.useMemo(() => {
+    return calculateConsolidatedBySector(positions, portfolioValue, groupTargets)
+  }, [positions, portfolioValue, groupTargets])
 
   const handleSavePortfolioSettings = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -640,24 +658,23 @@ export default function ConsultantDashboard() {
       if (tickers.length > 0) {
         const prices = await getAssetPrices(tickers)
         setAssetPrices(prices)
-        
+
         const { positions: calcPositions, totalValue } = calculatePositions(
           txs,
           targetsData || [],
           prices,
-          Number(portData.cash_balance)
+          0
         )
         setPositions(calcPositions)
         setPortfolioValue(totalValue)
 
-        const { currentShareValue } = calculateShareHistory(txs, prices, Number(portData.cash_balance))
+        const { currentShareValue } = calculateShareHistory(txs, prices, 0)
         setShareValue(currentShareValue)
       } else {
         setPositions([])
-        setPortfolioValue(Number(portData.cash_balance))
+        setPortfolioValue(0)
         setShareValue(1.0)
       }
-
     } catch (err) {
       console.error('Erro ao carregar dados do portfolio:', err)
       toast.error('Erro ao obter carteira do cliente')
@@ -930,20 +947,6 @@ export default function ConsultantDashboard() {
 
       if (txError) throw txError
 
-      const totalCost = qty * price
-      let newCash = Number(portfolio.cash_balance)
-      
-      if (txType === 'buy' || txType === 'subscription') {
-        newCash = Math.max(0, newCash - totalCost)
-      } else if (txType === 'sell' || txType === 'dividend') {
-        newCash = newCash + totalCost
-      }
-
-      await supabase
-        .from('portfolios')
-        .update({ cash_balance: newCash })
-        .eq('id', portfolio.id)
-
       toast.success('Transação registrada!')
       setShowTxForm(false)
       setTxTicker('')
@@ -961,9 +964,6 @@ export default function ConsultantDashboard() {
     if (!window.confirm('Tem certeza que deseja remover esta transação do livro-razão?')) return
 
     try {
-      const tx = transactions.find(t => t.id === txId)
-      if (!tx || !portfolio) return
-
       const { error: delError } = await supabase
         .from('portfolio_transactions')
         .delete()
@@ -971,21 +971,7 @@ export default function ConsultantDashboard() {
 
       if (delError) throw delError
 
-      const totalCost = Number(tx.quantity) * Number(tx.price)
-      let newCash = Number(portfolio.cash_balance)
-
-      if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-        newCash = newCash + totalCost
-      } else if (tx.operation_type === 'sell' || tx.operation_type === 'dividend') {
-        newCash = Math.max(0, newCash - totalCost)
-      }
-
-      await supabase
-        .from('portfolios')
-        .update({ cash_balance: newCash })
-        .eq('id', portfolio.id)
-
-      toast.success('Transação excluída e caixa ajustado!')
+      toast.success('Transação excluída!')
       loadPortfolioData(selectedClientId)
     } catch (err) {
       toast.error('Erro ao deletar transação')
@@ -1186,7 +1172,7 @@ export default function ConsultantDashboard() {
 
     toast.loading('Gerando relatório PDF de alta qualidade...', { id: 'pdf-toast' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices, Number(portfolio.cash_balance))
+      const { shareHistory } = calculateShareHistory(transactions, assetPrices, 0)
       const metrics = calculatePerformanceMetrics(shareHistory)
 
       await generateConsultingPDF({
@@ -1196,11 +1182,13 @@ export default function ConsultantDashboard() {
         shareHistory,
         metrics,
         theses: assetTheses,
-        cashBalance: Number(portfolio.cash_balance),
+        cashBalance: 0,
         groupTargets: groupTargets,
         executiveSummary: executiveSummary || undefined,
         nextMonthPlan: nextMonthPlan || undefined,
-        billingFeeRate
+        billingFeeRate,
+        assetPrices,
+        transactions
       })
       toast.success('Relatório PDF exportado com sucesso!', { id: 'pdf-toast' })
     } catch (err) {
@@ -1330,13 +1318,10 @@ export default function ConsultantDashboard() {
             <div className="space-y-6 animate-page-enter">
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  {/* Cards KPIs principais */}
                   <ClientKpiCards
                     portfolioValue={portfolioValue}
-                    cashBalance={Number(portfolio.cash_balance)}
                     shareValue={shareValue}
                   />
-
                   {/* Simulador integrado */}
                   <ContributionSimulator
                     portfolio={portfolio}
@@ -1346,7 +1331,7 @@ export default function ConsultantDashboard() {
 
                   {/* Distribuição Gráfica e Diretrizes de Rebalanceamento */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                    <ClientAllocationCharts classChartData={classChartData} />
+                    <ClientAllocationCharts classChartData={classChartData} consolidatedClass={consolidatedClassData} />
                     <RebalancingChecklist rebalancingTrades={rebalancingTrades} />
                   </div>
                 </div>
@@ -1462,30 +1447,52 @@ export default function ConsultantDashboard() {
             </div>
           ) : (
             /* =======================================================
-               B) RENDER EM GRIDE / PAINEL COMPLETO (ACOMPANHAMENTO GERAL)
+               B) RENDER EM GRIDE / PAINEL COMPLETO (MONITORAMENTO ANALÍTICO EXCLUSIVO)
                ======================================================= */
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-page-enter">
-              {/* Coluna da Esquerda e Meio */}
-              <div className="lg:col-span-2 space-y-6 lg:space-y-8 text-left">
-                <ClientKpiCards
-                  portfolioValue={portfolioValue}
-                  cashBalance={Number(portfolio.cash_balance)}
-                  shareValue={shareValue}
+            <div className="space-y-6 lg:space-y-8 animate-page-enter">
+              <ClientKpiCards
+                portfolioValue={portfolioValue}
+                shareValue={shareValue}
+              />
+              {/* 2. Distribuição de Classes & Setores (50% / 50%) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 text-left">
+                <ClientAllocationCharts
+                  classChartData={classChartData}
+                  consolidatedClass={consolidatedClassData}
                 />
+                <SectorExposureChart
+                  consolidatedSector={consolidatedSectorData}
+                />
+              </div>
 
-                <ContributionSimulator
-                  portfolio={portfolio}
+              {/* 3. Limites de Alocação por Ativo (largura total) */}
+              <div className="text-left">
+                <ExposureVsLimitsChart
                   positions={positions}
-                  onContributionExecuted={() => loadPortfolioData(selectedClientId)}
                 />
+              </div>
 
-                {positions.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ClientAllocationCharts classChartData={classChartData} />
-                    <RebalancingChecklist rebalancingTrades={rebalancingTrades} />
-                  </div>
-                )}
+              {/* 4. Histórico da Cota & Principais Métricas de Risco (50% / 50%) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 text-left">
+                <WeeklyVariationChart
+                  shareHistory={shareHistoryData}
+                />
+                <PerformanceMetricsCard
+                  metrics={performanceMetrics}
+                />
+              </div>
 
+              {/* 5. Tabela Comparativa de Benchmarks (largura total) */}
+              <div className="text-left">
+                <BenchmarkComparisonTable
+                  consolidatedClass={consolidatedClassData}
+                  transactions={transactions}
+                  assetPrices={assetPrices}
+                />
+              </div>
+
+              {/* 6. Tabela de Posições (largura total) */}
+              <div className="text-left">
                 <PositionsTable
                   positions={positions}
                   targetAllocations={targetAllocations}
@@ -1528,69 +1535,6 @@ export default function ConsultantDashboard() {
                     setIsEditAssetModalOpen(true)
                   }}
                   transactions={transactions}
-                />
-
-                {/* Qualitativo renderizado abaixo da tabela no modo completo */}
-                <QualitativeAnalysis
-                  positions={positions}
-                  assetTheses={assetTheses}
-                  editingThesisTicker={editingThesisTicker}
-                  setEditingThesisTicker={setEditingThesisTicker}
-                  thesisText={thesisText}
-                  setThesisText={setThesisText}
-                  savingThesis={savingThesis}
-                  onSaveThesis={handleSaveThesis}
-                  onDeleteThesis={handleDeleteThesis}
-                  executiveSummary={executiveSummary}
-                  setExecutiveSummary={setExecutiveSummary}
-                  nextMonthPlan={nextMonthPlan}
-                  setNextMonthPlan={setNextMonthPlan}
-                  savingReport={savingReport}
-                  onSaveReport={handleSaveReport}
-                  portfolioValue={portfolioValue}
-                  billingFeeRate={billingFeeRate}
-                  setBillingFeeRate={setBillingFeeRate}
-                  onExportPDF={handleExportPDF}
-                />
-              </div>
-
-              {/* Coluna da Direita */}
-              <div className="space-y-6 lg:space-y-8">
-                <AdvisorNotes
-                  clientNotes={clientNotes}
-                  setClientNotes={setClientNotes}
-                  onSaveNotes={handleSavePortfolioSettings}
-                  savingSettings={savingSettings}
-                />
-
-                <BillingReportCard
-                  portfolioValue={portfolioValue}
-                  billingFeeRate={billingFeeRate}
-                  setBillingFeeRate={setBillingFeeRate}
-                />
-
-                <LedgerBook
-                  transactions={transactions}
-                  showTxForm={showTxForm}
-                  setShowTxForm={setShowTxForm}
-                  txTicker={txTicker}
-                  onTxTickerChange={handleTxTickerChange}
-                  txSuggestions={txSuggestions}
-                  showTxSuggestions={showTxSuggestions}
-                  setShowTxSuggestions={setShowTxSuggestions}
-                  txType={txType}
-                  setTxType={setTxType}
-                  txQty={txQty}
-                  setTxQty={setTxQty}
-                  txPrice={txPrice}
-                  setTxPrice={setTxPrice}
-                  txDate={txDate}
-                  setTxDate={setTxDate}
-                  loadingRichData={loadingRichData}
-                  txAssetRichData={txAssetRichData}
-                  savingTx={savingTx}
-                  onAddTransaction={handleAddTransaction}
-                  onDeleteTransaction={handleDeleteTransaction}
                 />
               </div>
             </div>

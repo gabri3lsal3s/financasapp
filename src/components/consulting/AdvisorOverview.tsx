@@ -1,7 +1,7 @@
 import { Profile } from '@/types'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Wallet, DollarSign, UserPlus, Star, Eye, Trash2 } from 'lucide-react'
+import { Wallet, UserPlus, Star, Eye, Trash2 } from 'lucide-react'
 
 interface ClientRow {
   id: string
@@ -50,7 +50,7 @@ export default function AdvisorOverview({
 
       {/* Cards de KPIs Globais */}
       {globalAumData && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 text-left animate-page-enter">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 text-left animate-page-enter">
           <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-indigo-500 flex items-center justify-between shadow-sm transition-all hover:border-l-indigo-400">
             <div>
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">AUM Total Sob Gestão</span>
@@ -60,18 +60,6 @@ export default function AdvisorOverview({
             </div>
             <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
               <Wallet size={24} />
-            </div>
-          </Card>
-
-          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-sky-500 flex items-center justify-between shadow-sm transition-all hover:border-l-sky-400">
-            <div>
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Liquidez Consolidada (Caixa)</span>
-              <strong className="text-2xl font-black text-primary mt-1.5 block">
-                R$ {globalAumData.totalCash.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </strong>
-            </div>
-            <div className="p-3 bg-sky-500/10 text-sky-500 rounded-xl">
-              <DollarSign size={24} />
             </div>
           </Card>
 
@@ -105,7 +93,6 @@ export default function AdvisorOverview({
                 <tr className="border-b border-border/30 bg-muted/20">
                   <th className="p-3.5 font-bold text-secondary">Cliente</th>
                   <th className="p-3.5 font-bold text-secondary text-right">Ativos</th>
-                  <th className="p-3.5 font-bold text-secondary text-right">Caixa</th>
                   <th className="p-3.5 font-bold text-secondary text-right">AUM Consolidado</th>
                   <th className="p-3.5 font-bold text-secondary text-center">Desvio Médio</th>
                   <th className="p-3.5 font-bold text-secondary text-center">Ações</th>
@@ -121,7 +108,6 @@ export default function AdvisorOverview({
                         <span className="text-[10px] text-secondary font-normal font-mono">{row.email}</span>
                       </td>
                       <td className="p-3.5 text-right font-medium text-secondary">{row.assetsCount} ativos</td>
-                      <td className="p-3.5 text-right font-medium text-secondary">R$ {row.cash.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="p-3.5 text-right font-bold text-primary">R$ {row.aum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="p-3.5 text-center">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
