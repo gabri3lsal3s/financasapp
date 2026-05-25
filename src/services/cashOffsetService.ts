@@ -54,7 +54,7 @@ export async function fetchPortfolioCashContext(portfolioId: string): Promise<{
   }
 
   return {
-    transactions: (txRes.data as PortfolioTransaction[]) || [],
+    transactions: (txRes.data as unknown as PortfolioTransaction[]) || [],
     definitions: (defRes.data as PortfolioAssetDefinition[]) || [],
   }
 }
