@@ -72,8 +72,6 @@ export default function Expenses() {
       [id]: !(prev[id] !== undefined ? prev[id] : isDefaultExpanded),
     }))
   }
-  const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
-  
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
   const { categories, loading: categoriesLoading } = useCategories()
   const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
@@ -109,16 +107,12 @@ export default function Expenses() {
 
   const handleMonthChange = (month: string) => {
     if (month === currentMonth) return
-    setIsMonthTransitioning(true)
-    setTimeout(() => {
-      setCurrentMonth(month)
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev)
-        next.set('month', month)
-        return next
-      })
-      setTimeout(() => setIsMonthTransitioning(false), 50)
-    }, 150)
+    setCurrentMonth(month)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('month', month)
+      return next
+    })
   }
 
   const swipeHandlers = useSwipeMonth(currentMonth, handleMonthChange)
@@ -211,7 +205,7 @@ export default function Expenses() {
   }
 
   return (
-    <div {...swipeHandlers}>
+    <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.expenses.title}
         subtitle={PAGE_HEADERS.expenses.description}
@@ -231,11 +225,8 @@ export default function Expenses() {
       <div className="p-4 lg:p-6 animate-page-enter space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <div
-          className="transition-all duration-150 ease-in-out"
-          style={{
-            opacity: isMonthTransitioning ? 0 : 1,
-            transform: isMonthTransitioning ? 'translateY(4px)' : 'translateY(0)'
-          }}
+          key={currentMonth}
+          className="animate-month-change"
         >
           {loading && expenses.length === 0 ? (
             <Loader text="Carregando despesas..." className="py-12" />

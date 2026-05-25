@@ -31,7 +31,6 @@ export default function Incomes() {
       [id]: !(prev[id] !== undefined ? prev[id] : isDefaultExpanded),
     }))
   }
-  const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
   const { categories, loading: categoriesLoading } = useCategories()
   const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
@@ -59,16 +58,12 @@ export default function Incomes() {
 
   const handleMonthChange = (month: string) => {
     if (month === currentMonth) return
-    setIsMonthTransitioning(true)
-    setTimeout(() => {
-      setCurrentMonth(month)
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev)
-        next.set('month', month)
-        return next
-      })
-      setTimeout(() => setIsMonthTransitioning(false), 50)
-    }, 150)
+    setCurrentMonth(month)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('month', month)
+      return next
+    })
   }
 
   const swipeHandlers = useSwipeMonth(currentMonth, handleMonthChange)
@@ -107,7 +102,7 @@ export default function Incomes() {
   }, [searchParams, setSearchParams, incomeCategories, currentMonth])
 
   return (
-    <div {...swipeHandlers}>
+    <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.incomes.title}
         subtitle={PAGE_HEADERS.incomes.description}
@@ -127,11 +122,8 @@ export default function Incomes() {
       <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <div
-          className="transition-all duration-150 ease-in-out"
-          style={{
-            opacity: isMonthTransitioning ? 0 : 1,
-            transform: isMonthTransitioning ? 'translateY(4px)' : 'translateY(0)'
-          }}
+          key={currentMonth}
+          className="animate-month-change"
         >
           {loading && incomes.length === 0 ? (
             <Loader text="Carregando rendas..." className="py-12" />

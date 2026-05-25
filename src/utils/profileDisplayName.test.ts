@@ -48,12 +48,12 @@ describe('resolveProfileDisplayName', () => {
 })
 
 describe('profileSelectSublabel', () => {
-  it('marca carteira pessoal no subtítulo', () => {
+  it('retorna apenas o e-mail do cliente', () => {
     expect(
       profileSelectSublabel(
         { id: 'u1', email: 'me@example.com' },
         { selfUserId: 'u1' }
       )
-    ).toBe('me@example.com · Minha carteira')
+    ).toBe('me@example.com')
   })
 })

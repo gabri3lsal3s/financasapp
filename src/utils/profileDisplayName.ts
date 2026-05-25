@@ -33,11 +33,7 @@ export function resolveProfileDisplayName(profile: ProfileNameInput): string {
 
 export function profileSelectSublabel(
   profile: ProfileNameInput,
-  options?: { selfUserId?: string }
+  _options?: { selfUserId?: string }
 ): string {
-  const email = profile.email?.trim() ?? ''
-  if (options?.selfUserId && profile.id === options.selfUserId) {
-    return email ? `${email} · Minha carteira` : 'Minha carteira'
-  }
-  return email
+  return profile.email?.trim() ?? ''
 }

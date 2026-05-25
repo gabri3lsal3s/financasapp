@@ -21,7 +21,6 @@ import {
   suggestFromCreditCardCsvLearning,
 } from '@/utils/creditCardCsvLearning'
 import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput } from '@/utils/format'
-import { FileUp } from 'lucide-react'
 
 interface CategoryOption {
   id: string
@@ -85,7 +84,6 @@ interface CreditCardCsvReconciliationPanelProps {
     note?: string | null
   }>
   categories: CategoryOption[]
-  onClose: () => void
   onReloadBillData: () => Promise<void>
   createExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'category' | 'credit_card'>) => Promise<{ data: Expense | null; error: string | null }>
   updateExpense: (id: string, updates: Partial<Expense>) => Promise<{ data: Expense | null; error: string | null }>
@@ -144,7 +142,6 @@ export default function CreditCardCsvReconciliationPanel({
   currentMonth,
   // paymentItems: _paymentItems,
   categories,
-  onClose,
   onReloadBillData,
   createExpense,
   updateExpense,
@@ -158,6 +155,8 @@ export default function CreditCardCsvReconciliationPanel({
   const [loading, setLoading] = useState(false)
   const [fixedSuspiciousIds, setFixedSuspiciousIds] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [filterTab, setFilterTab] = useState<'all' | 'missing' | 'conflicts' | 'matched'>('all')
+  const [currentStep, setCurrentStep] = useState<'upload' | 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'>('upload')
 
   const selectedMissingCount = useMemo(
     () => missingDrafts.filter((draft) => draft.selected).length,
@@ -169,21 +168,12 @@ export default function CreditCardCsvReconciliationPanel({
     [conflictDrafts],
   )
 
-  const totalSelectedCount = selectedMissingCount + selectedConflictCount
-
   const draftByOfficialId = useMemo(() => {
     return missingDrafts.reduce<Record<string, MissingDraft>>((accumulator, draft) => {
       accumulator[draft.official.id] = draft
       return accumulator
     }, {})
   }, [missingDrafts])
-
-  const conflictDraftByKey = useMemo(() => {
-    return conflictDrafts.reduce<Record<string, ConflictDraft>>((accumulator, draft) => {
-      accumulator[draft.key] = draft
-      return accumulator
-    }, {})
-  }, [conflictDrafts])
 
   const comparisonRows = useMemo<ComparisonRow[]>(() => {
     if (!reconciliation) return []
@@ -215,6 +205,14 @@ export default function CreditCardCsvReconciliationPanel({
       return Math.abs(Number(b.official.amount || 0)) - Math.abs(Number(a.official.amount || 0))
     })
   }, [reconciliation])
+
+  const filteredComparisonRows = useMemo(() => {
+    if (filterTab === 'all') return comparisonRows
+    if (filterTab === 'missing') return comparisonRows.filter((r) => r.status === 'faltando')
+    if (filterTab === 'conflicts') return comparisonRows.filter((r) => r.status === 'conflitante')
+    if (filterTab === 'matched') return comparisonRows.filter((r) => r.status === 'conciliado')
+    return comparisonRows
+  }, [comparisonRows, filterTab])
 
   const identifiedTotals = useMemo<InvoiceTotals | null>(() => {
     if (!reconciliation || !reconciliation.matched) return null
@@ -439,6 +437,7 @@ export default function CreditCardCsvReconciliationPanel({
       })))
 
       setParseStatus('')
+      setCurrentStep('summary')
     } catch (error) {
       console.error('Error in handleCsvUpload:', error)
       setParseStatus('Ocorreu um erro ao processar o arquivo. Tente novamente.')
@@ -602,80 +601,166 @@ export default function CreditCardCsvReconciliationPanel({
     return true
   })
 
-  const handleFixSuspicious = async (item: BillExpenseItem, action: 'remove_card' | 'dismiss') => {
-    const id = String(item.id || '')
-    if (!id) return
 
-    if (action === 'dismiss') {
-      setFixedSuspiciousIds((previous) => new Set([...previous, id]))
-      return
-    }
-
-    // action === 'remove_card': retira o cartão e transforma em despesa comum
-    const updated = await updateExpense(id, {
-      payment_method: 'other',
-      credit_card_id: null,
-    })
-
-    if (updated.error) {
-      alert(`Erro ao corrigir lançamento: ${updated.error}`)
-      return
-    }
-
-    setFixedSuspiciousIds((previous) => new Set([...previous, id]))
-    await onReloadBillData()
-  }
 
   return (
-    <div className="rounded-2xl border border-primary bg-secondary p-4 space-y-4 overflow-x-hidden animate-page-enter">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-bold text-primary flex items-center gap-2">
-          <FileUp size={18} className="text-secondary" />
-          Conciliação de Fatura ({currentMonth})
-        </p>
-        <Button type="button" size="sm" variant="ghost" className="w-full sm:w-auto" onClick={onClose}>
-          Fechar
-        </Button>
-      </div>
+    <div className="space-y-4 overflow-x-hidden animate-page-enter">
+      {/* Stepper Wizard UX */}
+      {reconciliation && (
+        <div className="flex flex-col gap-2 border-b border-primary/20 pb-4 mb-2">
+          <div className="flex items-center justify-between overflow-x-auto gap-2 pb-1.5 scrollbar-none">
+            {[
+              { id: 'summary', label: '1. Resumo', count: undefined },
+              { id: 'conflicts', label: '2. Conflitos', count: reconciliation.conflicts.length },
+              { id: 'missing', label: '3. Faltando', count: reconciliation.missing.length },
+              {
+                id: 'suspicious',
+                label: '4. Alertas',
+                count: suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length
+              },
+              { id: 'review', label: '5. Revisão Final', count: undefined }
+            ].map((stepItem, index) => {
+              const isActive = currentStep === stepItem.id
+              const isCompleted = (() => {
+                const stepOrder = ['summary', 'conflicts', 'missing', 'suspicious', 'review']
+                const currentIdx = stepOrder.indexOf(currentStep)
+                const itemIdx = stepOrder.indexOf(stepItem.id)
+                return itemIdx < currentIdx
+              })()
 
-      <div className="rounded-xl border border-primary bg-primary/40 p-4 space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-primary">Importação Automática</p>
-            <p className="text-xs text-secondary mt-1">Importa o CSV da fatura e sugere categorias com base no seu histórico de conciliações.</p>
+              return (
+                <button
+                  key={stepItem.id}
+                  type="button"
+                  onClick={() => setCurrentStep(stepItem.id as any)}
+                  className={`flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${
+                    isActive
+                      ? 'bg-secondary text-primary border-primary'
+                      : isCompleted
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                      : 'bg-primary/10 text-secondary border-transparent hover:bg-primary/20 hover:text-primary'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black ${
+                    isActive ? 'bg-primary text-secondary' : isCompleted ? 'bg-emerald-500 text-white' : 'bg-secondary text-secondary border border-primary'
+                  }`}>
+                    {isCompleted ? '✓' : index + 1}
+                  </span>
+                  <span>{stepItem.label}</span>
+                  {stepItem.count !== undefined && stepItem.count > 0 && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                      isActive ? 'bg-primary text-secondary' : 'bg-secondary text-secondary'
+                    }`}>
+                      {stepItem.count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
+      )}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          onChange={handleCsvUpload}
-          className="hidden"
-        />
-
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Escolher arquivo CSV
-          </Button>
-          {fileName && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-tertiary border border-primary/20 max-w-full overflow-hidden">
-              <p className="text-xs text-secondary truncate">{fileName}</p>
+      {currentStep === 'upload' && (
+        <div className="rounded-xl border border-primary bg-primary/40 p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-primary">Importação Automática</p>
+              <p className="text-xs text-secondary mt-1">Importa o CSV da fatura e sugere categorias com base no seu histórico de conciliações.</p>
             </div>
-          )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleCsvUpload}
+            className="hidden"
+          />
+
+          <div className="flex flex-col items-center gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Escolher arquivo CSV
+            </Button>
+            {fileName && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-tertiary border border-primary/20 max-w-full overflow-hidden">
+                <p className="text-xs text-secondary truncate">{fileName}</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {parseStatus && <p className="text-xs text-secondary">{parseStatus}</p>}
 
-      {comparisonRows.length > 0 && (
-        <div className="space-y-1.5">
+      {/* Etapa 1: Resumo Inicial */}
+      {currentStep === 'summary' && reconciliation && (
+        <div className="rounded-xl border border-primary bg-primary/20 p-5 space-y-4 text-center animate-page-enter">
+          <div className="w-12 h-12 rounded-full bg-primary/30 flex items-center justify-center mx-auto text-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-file-check"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-primary">Arquivo CSV Importado com Sucesso!</h3>
+            <p className="text-xs text-secondary max-w-sm mx-auto leading-relaxed">
+              Analisamos a fatura de <strong>{currentMonth}</strong> do cartão <strong>{card.name}</strong> e identificamos o seguinte diagnóstico:
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3 max-w-md mx-auto pt-2">
+            <div className="bg-emerald-500/5 border border-emerald-500/20 p-3 rounded-xl">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conciliados</p>
+              <p className="text-lg font-bold text-emerald-500">{reconciliation.matched.length}</p>
+            </div>
+            <div className="bg-red-500/5 border border-red-500/20 p-3 rounded-xl">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Faltando</p>
+              <p className="text-lg font-bold text-red-500">{reconciliation.missing.length}</p>
+            </div>
+            <div className="bg-amber-500/5 border border-amber-500/20 p-3 rounded-xl">
+              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conflitos</p>
+              <p className="text-lg font-bold text-amber-500">{reconciliation.conflicts.length}</p>
+            </div>
+          </div>
+
+          {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length > 0 && (
+            <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl max-w-md mx-auto">
+              <p className="text-xs text-amber-600 dark:text-amber-400 leading-normal">
+                ⚠ Identificamos {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length} lançamentos no sistema que não constam no arquivo oficial.
+              </p>
+            </div>
+          )}
+
+          <div className="pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              className="px-6"
+              onClick={() => {
+                if (reconciliation.conflicts.length > 0) {
+                  setCurrentStep('conflicts')
+                } else if (reconciliation.missing.length > 0) {
+                  setCurrentStep('missing')
+                } else if (suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length > 0) {
+                  setCurrentStep('suspicious')
+                } else {
+                  setCurrentStep('review')
+                }
+              }}
+            >
+              Iniciar Conciliação Guiada
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Etapa 5: Revisão Final (Visível apenas na revisão) */}
+      {currentStep === 'review' && comparisonRows.length > 0 && (
+        <div className="space-y-1.5 animate-page-enter">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-primary">
               Fatura oficial x Item atual (ordenado por data)
@@ -703,8 +788,56 @@ export default function CreditCardCsvReconciliationPanel({
             </div>
           </div>
 
+          {/* Abas de Filtragem Premium */}
+          <div className="flex flex-wrap items-center gap-1.5 py-1">
+            <button
+              type="button"
+              onClick={() => setFilterTab('all')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 ${
+                filterTab === 'all'
+                  ? 'bg-secondary text-primary border border-primary'
+                  : 'bg-primary/20 text-secondary hover:text-primary hover:bg-primary/40'
+              }`}
+            >
+              Todos ({comparisonRows.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('missing')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                filterTab === 'missing'
+                  ? 'bg-red-500/15 text-red-500 border border-red-500/30'
+                  : 'bg-red-500/5 text-red-500/60 hover:text-red-500 hover:bg-red-500/10'
+              }`}
+            >
+              Faltando ({comparisonRows.filter((r) => r.status === 'faltando').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('conflicts')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                filterTab === 'conflicts'
+                  ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                  : 'bg-amber-500/5 text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10'
+              }`}
+            >
+              Conflitos ({comparisonRows.filter((r) => r.status === 'conflitante').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('matched')}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
+                filterTab === 'matched'
+                  ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                  : 'bg-emerald-500/5 text-emerald-500/60 hover:text-emerald-500 hover:bg-emerald-500/10'
+              }`}
+            >
+              Conciliados ({comparisonRows.filter((r) => r.status === 'conciliado').length})
+            </button>
+          </div>
+
           <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-            {comparisonRows.map((row, index) => {
+            {filteredComparisonRows.map((row, index) => {
               const staggerClass = index < 10 ? `animate-stagger-item delay-${(index + 1) * 50}` : 'animate-stagger-item'
               const draft = draftByOfficialId[row.official.id]
               const installment =
@@ -770,138 +903,43 @@ export default function CreditCardCsvReconciliationPanel({
         </div>
       )}
 
-      {reconciliation && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-primary bg-primary/30 p-3 animate-stagger-item delay-200">
-              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conciliados</p>
-              <p className="text-base font-bold text-primary">{reconciliation.matched.length}</p>
-            </div>
-            <div className="rounded-xl border border-primary bg-primary/30 p-3 animate-stagger-item delay-250">
-              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Faltando no sistema</p>
-              <p className="text-base font-bold text-primary">{reconciliation.missing.length}</p>
-            </div>
-            <div className="rounded-xl border border-primary bg-primary/30 p-3 animate-stagger-item delay-300">
-              <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conflitantes</p>
-              <p className="text-base font-bold text-primary">{reconciliation.conflicts.length}</p>
-            </div>
+      {currentStep === 'conflicts' && reconciliation && (
+        <div className="space-y-3 animate-page-enter">
+          <div className="flex flex-col gap-1">
+            <h4 className="text-sm font-semibold text-primary">
+              Conflitos Identificados ({reconciliation.conflicts.length})
+            </h4>
+            <p className="text-xs text-secondary">
+              Ajuste lançamentos no sistema que possuem divergências de data ou valor com a fatura oficial.
+            </p>
           </div>
 
-          {(missingDrafts.length > 0 || reconciliation.conflicts.length > 0) && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-primary">
-                  Sugestões do assistente
-                </p>
-              </div>
+          {conflictDrafts.length === 0 ? (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6 text-center space-y-2">
+              <span className="text-2xl text-emerald-500">✓</span>
+              <h4 className="font-bold text-emerald-500 text-sm">Nenhum conflito encontrado!</h4>
+              <p className="text-xs text-secondary">
+                Todos os lançamentos nesta fatura possuem datas e valores consistentes com o sistema.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                {conflictDrafts.map((draft, index) => {
+                  const conflict = reconciliation.conflicts.find((item) =>
+                    buildConflictKey(String(item.existing.id || ''), String(item.official.id || '')) === draft.key,
+                  )
 
-              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                {missingDrafts.map((draft, index) => (
-                  <div
-                    key={draft.id}
-                    className={`rounded-xl border bg-primary/50 p-4 space-y-3 cursor-pointer transition-all duration-200 animate-stagger-item delay-${(index % 5 + 1) * 50} ${draft.selected ? 'border-[var(--color-focus)] ring-2 ring-[var(--color-focus)]/20 bg-primary/80' : 'border-primary hover:border-primary/60'
-                      }`}
-                    onClick={() => {
-                      setMissingDrafts((previous) => previous.map((item) =>
-                        item.id === draft.id
-                          ? { ...item, selected: !item.selected }
-                          : item,
-                      ))
-                    }}
-                  >
-                    <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Item faltante</p>
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs text-secondary">{draft.selected ? 'Selecionado para inclusão' : 'Clique no card para selecionar'}</p>
-                      {draft.learnedSuggestion.enabled && (
-                        <span className="w-fit text-[11px] rounded-full border border-primary bg-secondary px-2 py-0.5 text-secondary">
-                          Sugestão aprendida{draft.learnedSuggestion.confidence ? ` (${Math.round((draft.learnedSuggestion.confidence || 0) * 100)}%)` : ''}
-                        </span>
-                      )}
-                    </div>
-
-                    {draft.official.isRefund && (
-                      <p className="text-xs text-secondary">Estorno: será incluído com valor negativo.</p>
-                    )}
-
-                    {draft.possibleExistingMatch && (
-                      <div className="rounded-lg border border-primary bg-secondary p-1.5 space-y-1">
-                        <p className="text-xs text-secondary">
-                          Possível lançamento já cadastrado com divergência de data e/ou forma de pagamento.
-                        </p>
-                        {draft.possibleExistingMatch.wrongDate && (
-                          <p className="text-xs text-secondary">• Data diferente da fatura oficial.</p>
-                        )}
-                        {draft.possibleExistingMatch.wrongPaymentMethod && (
-                          <p className="text-xs text-secondary">• Forma de pagamento/cartão diferente do esperado.</p>
-                        )}
-                        <p className="text-xs text-secondary">
-                          Oficial: {formatDate(draft.official.date)} • {formatCurrency(Number(draft.official.amount || 0))} • {draft.official.description}
-                        </p>
-                        <p className="text-xs text-secondary">
-                          Lançamento encontrado: {formatDate(draft.possibleExistingMatch.date)} • {formatCurrency(Number(draft.possibleExistingMatch.amount || 0))} • {draft.possibleExistingMatch.description || 'Sem descrição'}
-                        </p>
-                        <p className="text-xs text-secondary">Ao aplicar selecionados, esse lançamento será corrigido automaticamente.</p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      <Input
-                        label="Data"
-                        type="date"
-                        value={draft.date}
-                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
-                          item.id === draft.id ? { ...item, date: event.target.value } : item,
-                        ))}
-                      />
-
-                      <Input
-                        label="Valor"
-                        type="text"
-                        inputMode="decimal"
-                        value={draft.amount}
-                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
-                          item.id === draft.id ? { ...item, amount: event.target.value } : item,
-                        ))}
-                      />
-
-                      <Input
-                        label="Descrição"
-                        value={draft.description}
-                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
-                          item.id === draft.id ? { ...item, description: event.target.value } : item,
-                        ))}
-                      />
-
-                      <Select
-                        label="Categoria"
-                        value={draft.category_id}
-                        onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                        onChange={(event: { target: { value: string; name?: string } }) => setMissingDrafts((previous) => previous.map((item) =>
-                          item.id === draft.id ? { ...item, category_id: event.target.value } : item,
-                        ))}
-                        options={categories.map((category) => ({
-                          value: category.id,
-                          label: category.name,
-                        }))}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {reconciliation.conflicts.map((conflict, index) => {
-                  const key = buildConflictKey(String(conflict.existing.id || ''), String(conflict.official.id || ''))
-                  const draft = conflictDraftByKey[key]
-
-                  if (!draft) return null
+                  if (!conflict) return null
 
                   return (
                     <div
-                      key={`${conflict.existing.id}-${conflict.official.id}`}
-                      className={`rounded-xl border bg-primary/50 p-4 space-y-3 cursor-pointer transition-all duration-200 animate-stagger-item delay-${(index % 5 + 1) * 50} ${draft.selected ? 'border-[var(--color-focus)] ring-2 ring-[var(--color-focus)]/20 bg-primary/80' : 'border-primary hover:border-primary/60'
-                        }`}
+                      key={draft.key}
+                      className={`rounded-xl border p-4 space-y-2 cursor-pointer transition-all duration-200 animate-stagger-item delay-${(index % 5 + 1) * 50} ${
+                        draft.selected
+                          ? 'border-[var(--color-focus)] ring-2 ring-[var(--color-focus)]/20 bg-primary/80'
+                          : 'border-primary bg-primary/30 hover:border-primary/60 hover:bg-primary/50'
+                      }`}
                       onClick={() => {
                         if (draft.applied) return
                         setConflictDrafts((previous) => previous.map((item) =>
@@ -911,32 +949,63 @@ export default function CreditCardCsvReconciliationPanel({
                         ))
                       }}
                     >
-                      <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Conflito identificado</p>
-                      <p className="text-xs text-secondary">{draft.applied ? 'Sugestão já aplicada' : (draft.selected ? 'Selecionado para aplicar' : 'Clique no card para selecionar')}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider">
+                              Conflito
+                            </span>
+                            {draft.applied ? (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-bold uppercase tracking-wider">
+                                ✓ Ajuste aplicado
+                              </span>
+                            ) : draft.autoResolvedByInstallment ? (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase tracking-wider">
+                                Resolvido automático
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-sm font-semibold text-primary mt-1.5 break-words">
+                            {conflict.official.description || conflict.existing.description}
+                          </p>
+                          <p className="text-xs text-secondary mt-0.5 font-mono">
+                            Sistema: {formatDate(conflict.existing.date)} ({formatCurrency(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))}) <br />
+                            Oficial: {formatDate(conflict.suggestedUpdate.date)} ({formatCurrency(Number(conflict.official.amount || 0))})
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-accent">
+                            {formatCurrency(Number(draft.amount || conflict.official.amount || 0))}
+                          </p>
+                          {!draft.applied && (
+                            <p className="text-[10px] text-secondary mt-1.5 font-medium">
+                              {draft.selected ? '✓ Selecionado' : 'Clique para selecionar'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
                       {draft.autoResolvedByInstallment && (
-                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                          <p className="text-xs text-secondary">
-                            Sequência de parcelas consistente entre os meses. Diferença de data no CSV oficial foi tratada automaticamente.
+                        <div className="rounded-lg border border-primary bg-secondary p-2 mt-1">
+                          <p className="text-xs text-secondary leading-normal">
+                            ✓ Sequência de parcelas consistente entre os meses. Diferença de data no CSV oficial foi tratada automaticamente.
                           </p>
                         </div>
                       )}
 
                       {draft.installmentAnalysis && !draft.autoResolvedByInstallment && (
-                        <div className="rounded-lg border border-primary bg-secondary p-1.5 space-y-1">
+                        <div className="rounded-lg border border-primary bg-secondary p-2 space-y-1 mt-1">
                           {draft.installmentAnalysis.status === 'consistent' && (
                             <p className="text-xs text-secondary">
-                              Parcelamento consistente entre meses ({draft.installmentAnalysis.foundNumbers.join(', ')}/{draft.installmentLabel || 'n'}).
+                              ✓ Parcelamento consistente entre meses ({draft.installmentAnalysis.foundNumbers.join(', ')}/{draft.installmentLabel || 'n'}).
                             </p>
                           )}
 
                           {draft.installmentAnalysis.status === 'missing' && (
                             <>
-                              <p className="text-xs text-secondary">Parcelamento parcialmente consistente.</p>
+                              <p className="text-xs font-semibold text-accent">⚠ Parcelamento parcialmente consistente</p>
                               <p className="text-xs text-secondary">
-                                Parcelas encontradas: {draft.installmentAnalysis.foundNumbers.join(', ') || 'nenhuma'}
-                              </p>
-                              <p className="text-xs text-secondary">
+                                Parcelas encontradas: {draft.installmentAnalysis.foundNumbers.join(', ') || 'nenhuma'} <br />
                                 Parcelas faltando: {draft.installmentAnalysis.missingNumbers.join(', ') || 'nenhuma'}
                               </p>
                             </>
@@ -944,76 +1013,49 @@ export default function CreditCardCsvReconciliationPanel({
 
                           {draft.installmentAnalysis.status === 'inconclusive' && (
                             <p className="text-xs text-secondary">
-                              Não foi possível confirmar a sequência completa das parcelas entre faturas anteriores e posteriores.
+                              ⚠ Não foi possível confirmar a sequência completa das parcelas entre faturas anteriores e posteriores.
                             </p>
                           )}
 
                           {draft.installmentAnalysis.officialDateInconsistencyMessage && (
-                            <p className="text-xs text-secondary">
+                            <p className="text-xs text-secondary mt-1 italic">
                               {draft.installmentAnalysis.officialDateInconsistencyMessage}
                             </p>
                           )}
                         </div>
                       )}
 
-                      {draft.autoResolvedByInstallment && draft.installmentAnalysis?.officialDateInconsistencyMessage && (
-                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                          <p className="text-xs text-secondary">
-                            {draft.installmentAnalysis.officialDateInconsistencyMessage}
-                          </p>
+                      {draft.selected && !draft.applied && (
+                        <div className="pt-3 border-t border-primary/20 mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <p className="text-[11px] font-bold text-secondary uppercase tracking-wider font-mono">Ajustar sugestão de atualização:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Input
+                              label="Data sugerida"
+                              type="date"
+                              value={draft.date}
+                              disabled={draft.applied}
+                              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                                setConflictDrafts((previous) => previous.map((item) =>
+                                  item.key === draft.key ? { ...item, date: event.target.value } : item,
+                                ))
+                              }}
+                            />
+
+                            <Input
+                              label="Valor sugerido"
+                              type="text"
+                              inputMode="decimal"
+                              value={draft.amount}
+                              disabled={draft.applied}
+                              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                                setConflictDrafts((previous) => previous.map((item) =>
+                                  item.key === draft.key ? { ...item, amount: event.target.value } : item,
+                                ))
+                              }}
+                            />
+                          </div>
                         </div>
                       )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                          <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Sistema</p>
-                          <p className="text-xs text-secondary mt-1">
-                            {formatDate(conflict.existing.date)} • {formatCurrency(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))}
-                          </p>
-                          <p className="text-sm text-primary mt-1 break-words">{conflict.existing.description || 'Sem descrição'}</p>
-                        </div>
-
-                        <div className="rounded-lg border border-primary bg-secondary p-1.5">
-                          <p className="text-[11px] font-medium text-secondary uppercase tracking-wide">Oficial</p>
-                          <p className="text-xs text-secondary mt-1">
-                            {formatDate(conflict.suggestedUpdate.date)} • {formatCurrency(Number(conflict.official.amount || conflict.suggestedUpdate.amount || 0))}
-                          </p>
-                          <p className="text-sm text-primary mt-1 break-words">{conflict.official.description || 'Sem descrição'}</p>
-                          {draft.installmentLabel && (
-                            <p className="text-xs text-secondary mt-1">Compra parcelada • parcela {draft.installmentLabel}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        <Input
-                          label="Data sugerida"
-                          type="date"
-                          value={draft.date}
-                          disabled={draft.applied}
-                          onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                            setConflictDrafts((previous) => previous.map((item) =>
-                              item.key === draft.key ? { ...item, date: event.target.value } : item,
-                            ))
-                          }}
-                        />
-
-                        <Input
-                          label="Valor sugerido"
-                          type="text"
-                          inputMode="decimal"
-                          value={draft.amount}
-                          disabled={draft.applied}
-                          onClick={(event: React.MouseEvent) => event.stopPropagation()}
-                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                            setConflictDrafts((previous) => previous.map((item) =>
-                              item.key === draft.key ? { ...item, amount: event.target.value } : item,
-                            ))
-                          }}
-                        />
-                      </div>
-
                     </div>
                   )
                 })}
@@ -1026,126 +1068,319 @@ export default function CreditCardCsvReconciliationPanel({
                   size="md"
                   className="w-full sm:w-auto"
                   onClick={handleApplySelectedSuggestions}
-                  disabled={loading || totalSelectedCount === 0}
+                  disabled={loading || selectedConflictCount === 0}
                 >
-                  {loading ? 'Aplicando...' : `Aplicar selecionados (${totalSelectedCount})`}
+                  {loading ? 'Aplicando...' : `Ajustar Conflitos Selecionados (${selectedConflictCount})`}
                 </Button>
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Seção de lançamentos possivelmente incorretos */}
-          {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length > 0 && (
-            <div className="space-y-2 mt-2">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-semibold text-primary">
-                  Possíveis erros de cadastro ({suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length})
-                </p>
-                <p className="text-xs text-secondary">
-                  Lançamentos cadastrados nesta fatura que não aparecem no CSV oficial
-                </p>
-              </div>
+      {currentStep === 'missing' && reconciliation && (
+        <div className="space-y-3 animate-page-enter">
+          <div className="flex flex-col gap-1">
+            <h4 className="text-sm font-semibold text-primary">
+              Despesas Faltantes no Sistema ({reconciliation.missing.length})
+            </h4>
+            <p className="text-xs text-secondary">
+              Insira no sistema os lançamentos da fatura oficial que ainda não constam nos seus registros.
+            </p>
+          </div>
 
-              <div className="space-y-2">
-                {suspiciousItems
-                  .filter((item) => !fixedSuspiciousIds.has(String(item.id || '')))
-                  .map((item, index) => (
-                    <div key={item.id} className={`rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-3 animate-stagger-item delay-${(index + 1) * 50}`}>
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-primary break-words">
-                            {item.description || 'Sem descrição'}
-                          </p>
-                          <p className="text-xs text-secondary mt-0.5">
-                            {formatDate(item.date)} • {formatCurrency(Math.abs(Number(item.base_amount ?? item.amount ?? 0)))}
-                            {item.category_name ? ` • ${item.category_name}` : ''}
-                            {item.installment_number && item.installment_total
-                              ? ` • Parcela ${item.installment_number}/${item.installment_total}`
-                              : ''}
-                          </p>
-                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                            ⚠ Este lançamento está vinculado ao cartão mas não foi encontrado na fatura oficial.
-                            Pode estar cadastrado com cartão incorreto ou com outra forma de pagamento.
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <button
-                              onClick={async () => {
-                                if (!confirm('Remover este item do cartão? Ele será mantido como despesa comum.')) return
-                                await updateExpense(item.id, { payment_method: 'other', credit_card_id: null, bill_competence: null })
-                                setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
-                              }}
-                              className="text-[10px] text-red-400 hover:underline"
-                            >
-                              Remover do cartão
-                            </button>
-                            <button
-                              onClick={() => {
-                                setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
-                              }}
-                              className="text-[10px] text-secondary hover:underline"
-                            >
-                              Ignorar
-                            </button>
-                            {(() => {
-                              const purchaseDay = new Date(item.date + 'T12:00:00').getDate()
-                              if (purchaseDay >= 25 || purchaseDay <= 10) {
-                                const targetMonthLabel = purchaseDay >= 25 ? 'próxima' : 'anterior'
-                                return (
-                                  <button
-                                    onClick={async () => {
-                                      const baseDate = new Date(item.date + 'T12:00:00')
-                                      const newMonth = format(addMonths(baseDate, purchaseDay >= 25 ? 1 : -1), 'yyyy-MM')
-                                      
-                                      const confirmed = confirm(`Mover este lançamento para a fatura de ${newMonth}?`)
-                                      if (confirmed) {
-                                        const result = await updateExpense(item.id, { bill_competence: newMonth })
-                                        if (result.error) {
-                                          alert(`Erro ao mover: ${result.error}`)
-                                        } else {
-                                          setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
-                                          await onReloadBillData() // Recarrega para refletir a mudança
-                                        }
-                                      }
-                                    }}
-                                    className="text-[10px] text-blue-400 hover:underline"
-                                  >
-                                    Mover para fatura {targetMonthLabel}?
-                                  </button>
-                                )
-                              }
-                              return null
-                            })()}
-                          </div>
+          {missingDrafts.length === 0 ? (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6 text-center space-y-2">
+              <span className="text-2xl text-emerald-500">✓</span>
+              <h4 className="font-bold text-emerald-500 text-sm">Nenhuma despesa faltando!</h4>
+              <p className="text-xs text-secondary">
+                Todas as despesas da fatura oficial já constam no sistema.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                {missingDrafts.map((draft, index) => (
+                  <div
+                    key={draft.id}
+                    className={`rounded-xl border p-4 space-y-2 cursor-pointer transition-all duration-200 animate-stagger-item delay-${(index % 5 + 1) * 50} ${
+                      draft.selected
+                        ? 'border-[var(--color-focus)] ring-2 ring-[var(--color-focus)]/20 bg-primary/80'
+                        : 'border-primary bg-primary/30 hover:border-primary/60 hover:bg-primary/50'
+                    }`}
+                    onClick={() => {
+                      setMissingDrafts((previous) => previous.map((item) =>
+                        item.id === draft.id
+                          ? { ...item, selected: !item.selected }
+                          : item,
+                      ))
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[9px] font-bold uppercase tracking-wider">
+                            Faltando
+                          </span>
+                          {draft.learnedSuggestion.enabled && (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-bold uppercase tracking-wider" title={`Confiança: ${Math.round((draft.learnedSuggestion.confidence || 0) * 100)}%`}>
+                              Sugestão inteligente
+                            </span>
+                          )}
                         </div>
+                        <p className="text-sm font-semibold text-primary mt-1.5 break-words">
+                          {draft.description}
+                        </p>
+                        <p className="text-xs text-secondary mt-0.5">
+                          {formatDate(draft.date)} • Categoria: {categories.find(c => c.id === draft.category_id)?.name || 'Sem categoria'}
+                        </p>
                       </div>
-
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleFixSuspicious(item, 'remove_card')}
-                          disabled={loading}
-                        >
-                          Remover do cartão
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleFixSuspicious(item, 'dismiss')}
-                        >
-                          Ignorar
-                        </Button>
+                      <div className="text-right shrink-0">
+                        <p className={`text-sm font-bold ${draft.official.isRefund ? 'text-income' : 'text-primary'}`}>
+                          {draft.official.isRefund ? '-' : ''}{formatCurrency(parseMoneyInput(draft.amount) || 0)}
+                        </p>
+                        <p className="text-[10px] text-secondary mt-1.5 font-medium">
+                          {draft.selected ? '✓ Selecionado' : 'Clique para selecionar'}
+                        </p>
                       </div>
                     </div>
-                  ))}
+
+                    {draft.official.isRefund && (
+                      <p className="text-[11px] text-secondary bg-primary/30 px-2 py-0.5 rounded w-fit mt-1 font-mono">Estorno: será incluído com valor negativo.</p>
+                    )}
+
+                    {draft.possibleExistingMatch && (
+                      <div className="rounded-lg border border-primary bg-secondary p-2 space-y-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                        <p className="text-xs font-semibold text-accent flex items-center gap-1">
+                          ⚠ Possível lançamento duplicado
+                        </p>
+                        <p className="text-xs text-secondary">
+                          Encontrado no sistema com outra data/forma de pagamento. Se selecionado, será corrigido automaticamente para corresponder ao CSV oficial.
+                        </p>
+                        <div className="text-[11px] text-secondary space-y-0.5 bg-primary/20 p-1.5 rounded mt-1 font-mono">
+                          <p>Oficial: {formatDate(draft.official.date)} • {formatCurrency(Number(draft.official.amount || 0))} • {draft.official.description}</p>
+                          <p>Sistema: {formatDate(draft.possibleExistingMatch.date)} • {formatCurrency(Number(draft.possibleExistingMatch.amount || 0))} • {draft.possibleExistingMatch.description || 'Sem descrição'}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {draft.selected && (
+                      <div className="pt-3 border-t border-primary/20 mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                        <p className="text-[11px] font-bold text-secondary uppercase tracking-wider font-mono">Ajustar detalhes do lançamento:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Input
+                            label="Data"
+                            type="date"
+                            value={draft.date}
+                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
+                              item.id === draft.id ? { ...item, date: event.target.value } : item,
+                            ))}
+                          />
+
+                          <Input
+                            label="Valor"
+                            type="text"
+                            inputMode="decimal"
+                            value={draft.amount}
+                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
+                              item.id === draft.id ? { ...item, amount: event.target.value } : item,
+                            ))}
+                          />
+
+                          <Input
+                            label="Descrição"
+                            value={draft.description}
+                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setMissingDrafts((previous) => previous.map((item) =>
+                              item.id === draft.id ? { ...item, description: event.target.value } : item,
+                            ))}
+                          />
+
+                          <Select
+                            label="Categoria"
+                            value={draft.category_id}
+                            onChange={(event: { target: { value: string; name?: string } }) => setMissingDrafts((previous) => previous.map((item) =>
+                              item.id === draft.id ? { ...item, category_id: event.target.value } : item,
+                            ))}
+                            options={categories.map((category) => ({
+                              value: category.id,
+                              label: category.name,
+                            }))}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  onClick={handleApplySelectedSuggestions}
+                  disabled={loading || selectedMissingCount === 0}
+                >
+                  {loading ? 'Aplicando...' : `Adicionar Itens Selecionados (${selectedMissingCount})`}
+                </Button>
               </div>
             </div>
           )}
-        </>
+        </div>
+      )}
+
+      {currentStep === 'suspicious' && reconciliation && (
+        <div className="space-y-3 animate-page-enter">
+          <div className="flex flex-col gap-1">
+            <h4 className="text-sm font-semibold text-primary">
+              Alertas: Possíveis Erros de Cadastro ({suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length})
+            </h4>
+            <p className="text-xs text-secondary">
+              Lançamentos vinculados a este cartão no sistema que não constam no arquivo oficial da fatura.
+            </p>
+          </div>
+
+          {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length === 0 ? (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6 text-center space-y-2">
+              <span className="text-2xl text-emerald-500">✓</span>
+              <h4 className="font-bold text-emerald-500 text-sm">Nenhum lançamento suspeito!</h4>
+              <p className="text-xs text-secondary">
+                Não há lançamentos no sistema para este cartão que não constam no arquivo oficial da fatura.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+              {suspiciousItems
+                .filter((item) => !fixedSuspiciousIds.has(String(item.id || '')))
+                .map((item) => (
+                  <div key={item.id} className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-3 animate-stagger-item">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-primary break-words font-sans">
+                        {item.description || 'Sem descrição'}
+                      </p>
+                      <p className="text-xs text-secondary mt-0.5 font-medium font-mono">
+                        {formatDate(item.date)} • {formatCurrency(Math.abs(Number(item.base_amount ?? item.amount ?? 0)))}
+                        {item.category_name ? ` • ${item.category_name}` : ''}
+                        {item.installment_number && item.installment_total
+                          ? ` • Parcela ${item.installment_number}/${item.installment_total}`
+                          : ''}
+                      </p>
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 bg-yellow-500/10 p-2.5 rounded-lg border border-yellow-500/20 leading-normal">
+                        ⚠ Este lançamento está vinculado ao cartão mas não foi encontrado no arquivo de fatura oficial enviado.
+                        Ele pode ter sido cadastrado no cartão incorreto ou pertencer a outro mês.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={async () => {
+                          if (!confirm('Remover este item do cartão? Ele será mantido como despesa avulsa comum.')) return
+                          await updateExpense(item.id, { payment_method: 'other', credit_card_id: null, bill_competence: null })
+                          setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
+                        }}
+                        disabled={loading}
+                      >
+                        Desvincular do cartão
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 text-secondary"
+                        onClick={() => {
+                          setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
+                        }}
+                      >
+                        Ignorar alerta
+                      </Button>
+                      {(() => {
+                        const purchaseDay = new Date(item.date + 'T12:00:00').getDate()
+                        if (purchaseDay >= 25 || purchaseDay <= 10) {
+                          const targetMonthLabel = purchaseDay >= 25 ? 'próxima fatura' : 'fatura anterior'
+                          return (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-500"
+                              onClick={async () => {
+                                const baseDate = new Date(item.date + 'T12:00:00')
+                                const newMonth = format(addMonths(baseDate, purchaseDay >= 25 ? 1 : -1), 'yyyy-MM')
+                                
+                                const confirmed = confirm(`Mover este lançamento para a fatura de ${newMonth}?`)
+                                if (confirmed) {
+                                  const result = await updateExpense(item.id, { bill_competence: newMonth })
+                                  if (result.error) {
+                                    alert(`Erro ao mover: ${result.error}`)
+                                  } else {
+                                    setFixedSuspiciousIds(prev => new Set([...prev, item.id]))
+                                    await onReloadBillData()
+                                  }
+                                }
+                              }}
+                            >
+                              Mover para {targetMonthLabel}
+                            </Button>
+                          )
+                        }
+                        return null
+                      })()}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bottom Navigation Toolbar */}
+      {reconciliation && currentStep !== 'upload' && (
+        <div className="flex items-center justify-between border-t border-primary/20 pt-4 mt-6">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const stepOrder = ['summary', 'conflicts', 'missing', 'suspicious', 'review'] as const
+              const currentIdx = stepOrder.indexOf(currentStep as any)
+              if (currentIdx > 0) {
+                setCurrentStep(stepOrder[currentIdx - 1])
+              }
+            }}
+            disabled={currentStep === 'summary'}
+            className="text-secondary hover:text-primary"
+          >
+            ← Voltar
+          </Button>
+
+          <div className="flex gap-2">
+            {currentStep !== 'review' ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const stepOrder = ['summary', 'conflicts', 'missing', 'suspicious', 'review'] as const
+                  const currentIdx = stepOrder.indexOf(currentStep as any)
+                  if (currentIdx < stepOrder.length - 1) {
+                    setCurrentStep(stepOrder[currentIdx + 1])
+                  }
+                }}
+              >
+                Pular / Avançar →
+              </Button>
+            ) : (
+              <div className="text-xs font-semibold text-emerald-500 flex items-center gap-1 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-sans">
+                ✓ Pronto para Fechar
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

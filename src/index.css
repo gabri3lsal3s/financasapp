@@ -164,6 +164,15 @@
 }
 
 @layer utilities {
+  /* Hiding scrollbars */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none !important;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none !important;  /* IE and Edge */
+    scrollbar-width: none !important;  /* Firefox */
+  }
+
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -667,6 +676,22 @@
 
   .animate-scale-fade-in {
     animation: scale-fade-in 0.38s var(--ds-motion-easing-emphasis) forwards;
+  }
+
+  @keyframes month-change {
+    0% {
+      opacity: 0.1;
+      transform: scale(0.99) translateX(4px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateX(0);
+    }
+  }
+
+  .animate-month-change {
+    animation: month-change 0.22s var(--easing-standard) forwards;
+    will-change: transform, opacity;
   }
 }
 

@@ -6,13 +6,15 @@ import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { formatCurrency } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2 } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 
 import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
+import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
+import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
 import { 
@@ -61,6 +63,7 @@ export default function Investments() {
   // Estados adicionais para integração e sincronização de ativos e metas
   const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
   const [isTxModalOpen, setIsTxModalOpen] = useState(false)
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
 
   const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
@@ -337,6 +340,15 @@ export default function Investments() {
         subtitle={PAGE_HEADERS.investments.description}
         action={
           <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsReconciliationOpen(true)}
+              className="flex items-center gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 font-bold animate-pulse-subtle"
+            >
+              <FileSpreadsheet size={16} className="text-emerald-500" />
+              <span className="hidden sm:inline">Conciliação B3</span>
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -852,58 +864,13 @@ export default function Investments() {
             </Card>
 
             {/* Card de Transações do Livro-Razão */}
-            <Card className="p-4 lg:p-6 space-y-4">
-              <h3 className="text-base font-bold text-primary flex items-center gap-2">
-                <Briefcase size={16} className="text-indigo-500" />
-                Livro-Razão (Histórico de Transações)
-              </h3>
-
-              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
-                {transactions.length === 0 ? (
-                  <p className="text-center py-6 text-xs text-secondary italic">
-                    Nenhuma transação de ativo registrada.
-                  </p>
-                ) : (
-                  [...transactions].reverse().map(tx => (
-                    <button
-                      key={tx.id}
-                      type="button"
-                      onClick={() => handleOpenTxModal(tx)}
-                      className="w-full p-3 bg-secondary/30 border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-indigo-500/20 hover:bg-secondary/50 text-left cursor-pointer"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <strong className="text-primary font-bold">
-                            {tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA' || tx.ticker === 'SALDO EM CAIXA' || tx.ticker === 'SALDO_EM_CAIXA'
-                              ? 'Saldo em caixa'
-                              : tx.ticker}
-                          </strong>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
-                              tx.operation_type === 'buy' || tx.operation_type === 'subscription'
-                                ? 'bg-income/10 text-income'
-                                : tx.operation_type === 'dividend'
-                                ? 'bg-indigo-500/10 text-indigo-500'
-                                : 'bg-expense/10 text-expense'
-                            }`}
-                          >
-                            {tx.operation_type === 'buy' ? 'Compra' : tx.operation_type === 'sell' ? 'Venda' : tx.operation_type === 'dividend' ? 'Provento' : tx.operation_type === 'subscription' ? 'Subscrição' : 'Desdobro'}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-secondary mt-1 flex flex-wrap items-center gap-2">
-                          <span>Quantidade: <strong>{Number(tx.quantity).toLocaleString('pt-BR')}</strong></span>
-                          <span>•</span>
-                          <span>Preço: <strong>{formatCurrency(Number(tx.price))}</strong></span>
-                          <span>•</span>
-                          <span>Total: <strong>{formatCurrency(Number(tx.quantity) * Number(tx.price))}</strong></span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-secondary font-medium shrink-0">{tx.date}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </Card>
+            <LedgerBook
+              transactions={transactions}
+              onOpenTxModal={handleOpenTxModal}
+              onOpenReconciliation={() => setIsReconciliationOpen(true)}
+              portfolioId={portfolioId}
+              onSaved={loadPortfolio}
+            />
           </div>
         )}
       </div>
@@ -916,6 +883,17 @@ export default function Investments() {
             portfolioId={portfolioId}
             editingTransaction={editingTransaction}
             onSaved={loadPortfolio}
+          />
+          <InvestmentReconciliationModal
+            isOpen={isReconciliationOpen}
+            onClose={() => setIsReconciliationOpen(false)}
+            portfolioId={portfolioId}
+            existingTransactions={transactions}
+            onSaved={loadPortfolio}
+            onOpenAssetConfig={(ticker) => {
+              setAssetDefTicker(ticker)
+              setAssetDefModalOpen(true)
+            }}
           />
           <AssetDefinitionFormModal
             isOpen={assetDefModalOpen}

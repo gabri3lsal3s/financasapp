@@ -1,5 +1,5 @@
 import Card from '@/components/Card'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ChartTooltip, Legend as ChartLegend } from 'recharts'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ChartTooltip } from 'recharts'
 import { PieChart as PieIcon } from 'lucide-react'
 import { ConsolidatedGroup } from '@/services/investmentEngine'
 import { pickConsultingChartColor } from '@/utils/consultingChartPalette'
@@ -29,50 +29,81 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
         <PieIcon size={16} className="text-indigo-500" />
         Exposição Atual por Setor
       </h3>
-      <div className="h-64 w-full flex items-center justify-center relative">
-        {chartData.length === 0 ? (
-          <div className="text-xs text-secondary italic">Nenhum dado de setor disponível para exibir.</div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={3}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <ChartTooltip
-                formatter={(value: any, _name: any, props: any) => {
-                  const formattedVal = formatCurrency(Number(value))
-                  const pctVal = `(${formatNumberBR(props.payload.percentage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)`
-                  return [`${formattedVal} ${pctVal}`, 'Alocação']
-                }}
-                contentStyle={{
-                  backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
-                  borderColor: 'var(--color-border, rgb(51, 65, 85))',
-                  borderRadius: '12px',
-                  color: 'var(--color-text-primary, rgb(248, 250, 252))'
-                }}
-              />
-              <ChartLegend
-                verticalAlign="bottom"
-                height={40}
-                iconType="circle"
-                fontSize={11}
-                wrapperStyle={{ fontSize: 11 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+
+      {chartData.length === 0 ? (
+        <div className="h-64 flex items-center justify-center text-xs text-secondary italic">
+          Nenhum dado de setor disponível para exibir.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+          {/* Donut Chart (5 colunas no desktop) */}
+          <div className="md:col-span-5 h-56 relative flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={3}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <ChartTooltip
+                  formatter={(value: any, _name: any, props: any) => {
+                    const formattedVal = formatCurrency(Number(value))
+                    const pctVal = `(${formatNumberBR(props.payload.percentage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)`
+                    return [`${formattedVal} ${pctVal}`, 'Alocação']
+                  }}
+                  contentStyle={{
+                    backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
+                    borderColor: 'var(--color-border, rgb(51, 65, 85))',
+                    borderRadius: '12px',
+                    color: 'var(--color-text-primary, rgb(248, 250, 252))'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Legenda Lateral customizada (7 colunas no desktop) */}
+          <div className="md:col-span-7 space-y-2">
+            <div className="hidden sm:grid grid-cols-12 text-[9px] uppercase font-extrabold text-secondary/60 tracking-wider pb-1 border-b border-border/10 mb-2">
+              <span className="col-span-7">Setor</span>
+              <span className="col-span-5 text-right font-sans">Patrimônio / Peso</span>
+            </div>
+
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {chartData.map(item => (
+                <div key={item.name} className="grid grid-cols-12 items-center gap-1 sm:gap-2 p-1.5 rounded-lg hover:bg-muted/5 transition-all text-xs font-sans">
+                  {/* Identificação do setor com cor */}
+                  <div className="col-span-7 flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="font-semibold text-primary truncate" title={item.name}>
+                      {item.name}
+                    </span>
+                  </div>
+
+                  {/* Valores e % */}
+                  <div className="col-span-5 text-right">
+                    <span className="font-mono font-bold text-primary block leading-none">
+                      {formatCurrency(item.value)}
+                    </span>
+                    <span className="text-[10px] text-secondary font-mono leading-none">
+                      {formatNumberBR(item.percentage, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

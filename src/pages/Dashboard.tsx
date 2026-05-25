@@ -505,7 +505,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div {...swipeHandlers}>
+    <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
@@ -529,11 +529,8 @@ export default function Dashboard() {
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} isOnline={isOnline} />
 
         <div
-          style={{
-            opacity: isMonthTransitioning ? 0 : 1,
-            transition: 'opacity 150ms ease-in-out',
-            willChange: 'opacity',
-          }}
+          key={currentMonth}
+          className="animate-month-change"
         >
           <div className="mt-4 lg:mt-6">
 

@@ -32,6 +32,7 @@ import LedgerBook from '@/components/consulting/LedgerBook'
 import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
+import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 
 // Novos Componentes de Monitoramento Analítico (Grid Mode)
 import SectorExposureChart from '@/components/consulting/SectorExposureChart'
@@ -133,6 +134,7 @@ export default function ConsultantDashboard() {
 
   // Estado para modal de transações
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false)
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState<boolean>(false)
   const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
 
   // Estado para modal de definição e meta de ativos
@@ -1122,6 +1124,7 @@ export default function ConsultantDashboard() {
         title="Consultoria de Investimentos"
         subtitle={selectedClient ? `Assessoria ativa para o cliente: ${resolveProfileDisplayName(selectedClient)}` : 'Gestão patrimonial institucional e metodologia de alocação'}
         action={headerAction}
+        responsiveStack={true}
       />
 
       {/* Cabeçalho do Cliente Selecionado */}
@@ -1140,50 +1143,16 @@ export default function ConsultantDashboard() {
 
       {/* Menu de Personalização de Visualização (Abas Premium) */}
       {portfolio && selectedClient && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-card border border-border/40 p-4 rounded-3xl shadow-sm text-left animate-page-enter">
-          {/* Título da seção (visível em desktop, adaptado com seletor no mobile) */}
-          <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card border border-border/40 p-3 sm:p-4 rounded-3xl shadow-sm text-left animate-page-enter">
+          {/* Título da seção */}
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-[10px] sm:text-xs uppercase font-extrabold text-secondary tracking-wider block font-sans">
               Seção do Painel:
             </span>
-            {/* Seletor Dropdown Compacto no Mobile */}
-            <div className="block sm:hidden w-48 xs:w-56">
-              <Select
-                value={activeTab}
-                onChange={e => setActiveTab(e.target.value as any)}
-                options={[
-                  { 
-                    value: 'overview', 
-                    label: 'Resumo & Risco'
-                  },
-                  { 
-                    value: 'allocation', 
-                    label: 'Distribuição & Limites'
-                  },
-                  { 
-                    value: 'rebalancing', 
-                    label: 'Rebalanceamento'
-                  },
-                  { 
-                    value: 'positions', 
-                    label: 'Posições'
-                  },
-                  { 
-                    value: 'ledger', 
-                    label: 'Livro-Razão'
-                  },
-                  { 
-                    value: 'qualitative', 
-                    label: 'Relatório & PDF'
-                  },
-                ]}
-                placeholder="Selecionar Seção"
-              />
-            </div>
           </div>
 
-          {/* Abas Horizontais tradicionais em telas maiores */}
-          <div className="hidden sm:flex flex-wrap gap-1.5">
+          {/* Abas Premium responsivas: Grid no mobile/tablet, Flex no desktop */}
+          <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-wrap md:w-auto md:gap-1.5 pb-0.5 md:pb-0">
             {[
               { id: 'overview', label: 'Resumo & Risco', icon: LayoutDashboard },
               { id: 'allocation', label: 'Distribuição & Limites', icon: PieChart },
@@ -1200,14 +1169,14 @@ export default function ConsultantDashboard() {
                   variant={isActive ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition-all ${
+                  className={`flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl transition-all w-full md:w-auto ${
                     isActive 
                       ? 'shadow-md shadow-indigo-500/10' 
                       : 'hover:bg-muted/10'
                   }`}
                 >
-                  <Icon size={14} />
-                  <span>{tab.label}</span>
+                  <Icon size={14} className="shrink-0" />
+                  <span className="truncate">{tab.label}</span>
                 </Button>
               )
             })}
@@ -1383,6 +1352,9 @@ export default function ConsultantDashboard() {
               <LedgerBook
                 transactions={transactions}
                 onOpenTxModal={handleOpenTxModal}
+                onOpenReconciliation={() => setIsReconciliationOpen(true)}
+                portfolioId={portfolio?.id}
+                onSaved={() => loadPortfolioData(selectedClientId)}
               />
             )}
 
@@ -1702,13 +1674,26 @@ export default function ConsultantDashboard() {
 
       {/* Modal: Lançamento e Edição de Transações (Premium) */}
       {portfolio && (
-        <PortfolioTransactionFormModal
-          isOpen={isTxModalOpen}
-          onClose={handleCloseTxModal}
-          portfolioId={portfolio.id}
-          editingTransaction={editingTransaction}
-          onSaved={() => loadPortfolioData(selectedClientId)}
-        />
+        <>
+          <PortfolioTransactionFormModal
+            isOpen={isTxModalOpen}
+            onClose={handleCloseTxModal}
+            portfolioId={portfolio.id}
+            editingTransaction={editingTransaction}
+            onSaved={() => loadPortfolioData(selectedClientId)}
+          />
+          <InvestmentReconciliationModal
+            isOpen={isReconciliationOpen}
+            onClose={() => setIsReconciliationOpen(false)}
+            portfolioId={portfolio.id}
+            existingTransactions={transactions}
+            onSaved={() => loadPortfolioData(selectedClientId)}
+            onOpenAssetConfig={(ticker) => {
+              setAssetDefTicker(ticker)
+              setAssetDefModalOpen(true)
+            }}
+          />
+        </>
       )}
 
       {/* Modal: Definição e Metas de Ativos */}

@@ -24,14 +24,14 @@ export default function ClientOverviewHeader({
 
   return (
     <div className="space-y-4">
-      <div className="bg-card border border-border/40 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left shadow-sm">
-        <div>
+      <div className="bg-card border border-border/40 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left shadow-sm min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="font-extrabold text-sm text-primary flex items-center gap-2">
-            <ShieldCheck size={16} className="text-indigo-500 animate-pulse" />
-            {isSelfPortfolio ? 'Minha carteira pessoal' : 'Cliente selecionado'}
+            <ShieldCheck size={16} className="text-indigo-500 animate-pulse shrink-0" />
+            <span className="truncate">{isSelfPortfolio ? 'Minha carteira pessoal' : 'Cliente selecionado'}</span>
           </h3>
-          <p className="text-sm font-bold text-primary mt-1">{displayName}</p>
-          <p className="text-xs text-secondary mt-0.5 font-mono">{selectedClient.email}</p>
+          <p className="text-sm font-bold text-primary mt-1 truncate" title={displayName}>{displayName}</p>
+          <p className="text-xs text-secondary mt-0.5 font-mono truncate" title={selectedClient.email}>{selectedClient.email}</p>
         </div>
         <div className="flex items-center gap-3">
           {!isClientAdmin && !isSelfPortfolio && (

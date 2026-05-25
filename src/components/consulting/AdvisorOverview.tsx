@@ -172,12 +172,12 @@ export default function AdvisorOverview({
                     className="p-4 bg-card border border-border/40 rounded-2xl space-y-3 shadow-sm hover:scale-[1.01] transition-all"
                   >
                     {/* Cabeçalho do Cliente */}
-                    <div className="flex justify-between items-start">
-                      <div className="text-left">
-                        <h4 className="font-extrabold text-primary text-sm leading-snug">{row.name}</h4>
-                        <span className="text-[10px] text-secondary font-mono leading-tight block mt-0.5">{row.email}</span>
+                    <div className="flex justify-between items-start gap-3 min-w-0">
+                      <div className="text-left min-w-0 flex-1">
+                        <h4 className="font-extrabold text-primary text-sm leading-snug truncate" title={row.name}>{row.name}</h4>
+                        <span className="text-[10px] text-secondary font-mono leading-tight block mt-0.5 truncate" title={row.email}>{row.email}</span>
                       </div>
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase ${
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase shrink-0 ${
                         isHighDev 
                           ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
                           : 'bg-emerald-500/10 text-emerald-600'

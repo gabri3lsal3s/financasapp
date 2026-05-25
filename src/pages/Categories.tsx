@@ -223,7 +223,7 @@ export default function Categories() {
   }
 
   return (
-    <div className="animate-page-enter" {...swipeHandlers}>
+    <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader title={PAGE_HEADERS.categories.title} subtitle={PAGE_HEADERS.categories.description} />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
@@ -260,7 +260,7 @@ export default function Categories() {
         {loadingData ? (
           <Loader text="Carregando dados das categorias..." className="py-12" />
         ) : (
-          <>
+          <div key={currentMonth} className="animate-month-change space-y-4 lg:space-y-6">
             <Card>
               <div className="space-y-3">
                 <div>
@@ -420,7 +420,7 @@ export default function Categories() {
                 )}
               </div>
             </Card>
-          </>
+          </div>
         )}
       </div>
     </div>

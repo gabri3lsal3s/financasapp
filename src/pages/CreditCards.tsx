@@ -35,7 +35,7 @@ import {
   type BillPaymentRowInput,
 } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Check, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 
@@ -470,6 +470,8 @@ export default function CreditCards() {
   const [paymentCardId, setPaymentCardId] = useState<string>('')
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [isPaymentEditModalOpen, setIsPaymentEditModalOpen] = useState(false)
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
   const [selectedCardIdForCycle, setSelectedCardIdForCycle] = useState<string>('')
@@ -621,36 +623,20 @@ export default function CreditCards() {
     }
   }
 
-  const openPaymentField = (cardId: string) => {
+  const openPaymentModal = (cardId: string) => {
     setPaymentCardId(cardId)
     setPaymentAmount('')
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
     setPaymentNote('')
+    setIsPaymentModalOpen(true)
   }
 
-  const closePaymentField = () => {
+  const closePaymentModal = () => {
+    setIsPaymentModalOpen(false)
     setPaymentCardId('')
     setPaymentAmount('')
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
     setPaymentNote('')
-  }
-
-  const toggleReconciliationField = (cardId: string) => {
-    if (reconciliationCardId === cardId) {
-      setReconciliationCardId('')
-      return
-    }
-
-    setReconciliationCardId(cardId)
-  }
-
-  const togglePaymentField = (cardId: string) => {
-    if (paymentCardId === cardId) {
-      closePaymentField()
-      return
-    }
-
-    openPaymentField(cardId)
   }
 
   const openPaymentEditModal = (item: PaymentItem) => {
@@ -737,19 +723,16 @@ export default function CreditCards() {
     setCycleForm({ closing_day: '8', due_day: '15' })
   }
 
-  const toggleRefundField = (cardId: string) => {
-    if (refundCardId === cardId) {
-      setRefundCardId('')
-      return
-    }
-
+  const openRefundModal = (cardId: string) => {
     setRefundCardId(cardId)
     setRefundAmount('')
     setRefundDate(format(new Date(), 'yyyy-MM-dd'))
     setRefundDescription('')
+    setIsRefundModalOpen(true)
   }
 
-  const closeRefundField = () => {
+  const closeRefundModal = () => {
+    setIsRefundModalOpen(false)
     setRefundCardId('')
     setRefundAmount('')
     setRefundDate(format(new Date(), 'yyyy-MM-dd'))
@@ -1129,7 +1112,7 @@ export default function CreditCards() {
       return
     }
 
-    closePaymentField()
+    closePaymentModal()
     await loadBillData()
   }
 
@@ -1480,7 +1463,7 @@ export default function CreditCards() {
       return
     }
 
-    closeRefundField()
+    closeRefundModal()
     await loadBillData()
   }
 
@@ -1570,7 +1553,7 @@ export default function CreditCards() {
   }
 
   return (
-    <div className="animate-page-enter" {...swipeHandlers}>
+    <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.creditCards.title}
         subtitle={PAGE_HEADERS.creditCards.description}
@@ -1610,15 +1593,17 @@ export default function CreditCards() {
 
         {loading || !hasResolvedInitialMonth || loadingBills ? (
           <Loader text="Carregando cartões e faturas..." className="py-8" />
-        ) : activeCards.length === 0 ? (
-          <Card className="text-center py-8 space-y-3">
-            <p className="text-secondary">Nenhum cartão ativo cadastrado.</p>
-            <div className="flex justify-center">
-              <Button onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
-            </div>
-          </Card>
         ) : (
-          <div className="space-y-4">
+          <div key={currentMonth} className="animate-month-change">
+            {activeCards.length === 0 ? (
+              <Card className="text-center py-8 space-y-3">
+                <p className="text-secondary">Nenhum cartão ativo cadastrado.</p>
+                <div className="flex justify-center">
+                  <Button onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-4">
             {activeCards.map((card, index) => {
               const totalPrevisto = Number(expensesByCard[card.id] || 0)
               const totalPago = Number(paymentsByCard[card.id] || 0)
@@ -1665,24 +1650,24 @@ export default function CreditCards() {
                         />
                         <IconButton
                           size="sm"
-                          icon={refundCardId === card.id ? <X size={16} /> : <Undo2 size={16} />}
-                          onClick={() => toggleRefundField(card.id)}
-                          label={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
-                          title={refundCardId === card.id ? 'Fechar estorno' : 'Registrar estorno'}
+                          icon={<Undo2 size={16} />}
+                          onClick={() => openRefundModal(card.id)}
+                          label="Registrar estorno"
+                          title="Registrar estorno"
                         />
                         <IconButton
                           size="sm"
-                          icon={paymentCardId === card.id ? <X size={16} /> : <Wallet size={16} />}
-                          onClick={() => togglePaymentField(card.id)}
-                          label={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
-                          title={paymentCardId === card.id ? 'Fechar pagamento' : 'Registrar pagamento'}
+                          icon={<Wallet size={16} />}
+                          onClick={() => openPaymentModal(card.id)}
+                          label="Registrar pagamento"
+                          title="Registrar pagamento"
                         />
                         <IconButton
                           size="sm"
-                          icon={reconciliationCardId === card.id ? <X size={16} /> : <FileUp size={16} />}
-                          onClick={() => toggleReconciliationField(card.id)}
-                          label={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
-                          title={reconciliationCardId === card.id ? 'Fechar CSV' : 'Anexar CSV'}
+                          icon={<FileUp size={16} />}
+                          onClick={() => setReconciliationCardId(card.id)}
+                          label="Anexar CSV"
+                          title="Anexar CSV"
                         />
                       </div>
                     </div>
@@ -1718,149 +1703,7 @@ export default function CreditCards() {
                       </div>
                     </div>
 
-                    {refundCardId === card.id && (
-                      <form
-                        onSubmit={(event) => handleSubmitRefund(event, card.id)}
-                        className="rounded-xl border border-primary bg-primary/40 p-4 space-y-4 animate-page-enter"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                            Estorno de compra ({currentMonth})
-                          </p>
-                          <IconButton
-                            type="button"
-                            size="sm"
-                            icon={<X size={16} />}
-                            onClick={closeRefundField}
-                            label="Fechar formulário de estorno"
-                            title="Fechar formulário de estorno"
-                          />
-                        </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <Input
-                            label="Valor do estorno"
-                            type="text"
-                            inputMode="decimal"
-                            value={refundAmount}
-                            onChange={(event) => setRefundAmount(event.target.value)}
-                            onBlur={() => {
-                              const parsed = parseMoneyInput(refundAmount)
-                              if (!Number.isNaN(parsed) && parsed >= 0) {
-                                setRefundAmount(formatMoneyInput(parsed))
-                              }
-                            }}
-                            placeholder="0,00"
-                            required
-                          />
-
-                          <Input
-                            label="Data"
-                            type="date"
-                            value={refundDate}
-                            onChange={(event) => setRefundDate(event.target.value)}
-                            required
-                          />
-
-                          <div className="flex items-end justify-center">
-                            <Button
-                              type="submit"
-                              size="sm"
-                              variant="ghost-success"
-                              className="px-4"
-                              title="Confirmar estorno"
-                            >
-                              <Check size={24} />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <Input
-                          label="Descrição (opcional)"
-                          value={refundDescription}
-                          onChange={(event) => setRefundDescription(event.target.value)}
-                          placeholder="Ex: Estorno compra loja X"
-                        />
-
-                        <p className="text-xs text-secondary">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
-                      </form>
-                    )}
-
-                    {paymentCardId === card.id && (
-                      <form
-                        onSubmit={handleSubmitPayment}
-                        className="rounded-xl border border-primary bg-primary/40 p-4 space-y-4 animate-page-enter"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                            Registrar pagamento ({currentMonth})
-                          </p>
-                          <IconButton
-                            type="button"
-                            size="sm"
-                            icon={<X size={16} />}
-                            onClick={closePaymentField}
-                            label="Fechar formulário de pagamento"
-                            title="Fechar formulário de pagamento"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <Input
-                            label="Valor pago"
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={paymentAmount}
-                            onChange={(event) => setPaymentAmount(event.target.value)}
-                            required
-                          />
-
-                          <Input
-                            label="Data do pagamento"
-                            type="date"
-                            value={paymentDate}
-                            onChange={(event) => setPaymentDate(event.target.value)}
-                            required
-                          />
-
-                          <div className="flex items-end justify-center">
-                            <Button
-                              type="submit"
-                              size="sm"
-                              variant="ghost-success"
-                              className="px-4"
-                              title="Confirmar pagamento"
-                            >
-                              <Check size={24} />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <Input
-                          label="Observação (opcional)"
-                          value={paymentNote}
-                          onChange={(event) => setPaymentNote(event.target.value)}
-                        />
-                      </form>
-                    )}
-
-                    {reconciliationCardId === card.id && (
-                      <CreditCardCsvReconciliationPanel
-                        card={card}
-                        currentMonth={currentMonth}
-                        paymentItems={paymentItemsByCard[card.id] || []}
-                        categories={categories.map((category) => ({
-                          id: category.id,
-                          name: category.name,
-                        }))}
-                        onClose={() => setReconciliationCardId('')}
-                        onReloadBillData={loadBillData}
-                        createExpense={createExpense}
-                        updateExpense={updateExpense}
-                        fetchReconciliationCandidates={fetchReconciliationCandidates}
-                      />
-                    )}
 
                     <div className="space-y-2">
                       <p className="text-xs font-medium uppercase tracking-wide text-secondary">
@@ -1980,6 +1823,8 @@ export default function CreditCards() {
                 </div>
               )
             })}
+          </div>
+          )}
           </div>
         )}
       </div>
@@ -2383,6 +2228,111 @@ export default function CreditCards() {
             onDelete={handleDeleteRefundIncome}
           />
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={isRefundModalOpen}
+        onClose={closeRefundModal}
+        title={`Registrar estorno (${currentMonth})`}
+      >
+        <form onSubmit={(event) => handleSubmitRefund(event, refundCardId)} className="w-full max-w-md mx-auto space-y-4">
+          <Input
+            label="Valor do estorno"
+            type="text"
+            inputMode="decimal"
+            value={refundAmount}
+            onChange={(event) => setRefundAmount(event.target.value)}
+            onBlur={() => {
+              const parsed = parseMoneyInput(refundAmount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                setRefundAmount(formatMoneyInput(parsed))
+              }
+            }}
+            placeholder="0,00"
+            required
+          />
+
+          <Input
+            label="Data"
+            type="date"
+            value={refundDate}
+            onChange={(event) => setRefundDate(event.target.value)}
+            required
+          />
+
+          <Input
+            label="Descrição (opcional)"
+            value={refundDescription}
+            onChange={(event) => setRefundDescription(event.target.value)}
+            placeholder="Ex: Estorno compra loja X"
+          />
+
+          <p className="text-xs text-secondary">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
+
+          <ModalActionFooter onCancel={closeRefundModal} submitLabel="Confirmar estorno" />
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isPaymentModalOpen}
+        onClose={closePaymentModal}
+        title={`Registrar pagamento (${currentMonth})`}
+      >
+        <form onSubmit={handleSubmitPayment} className="w-full max-w-md mx-auto space-y-4">
+          <Input
+            label="Valor pago"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={paymentAmount}
+            onChange={(event) => setPaymentAmount(event.target.value)}
+            required
+          />
+
+          <Input
+            label="Data do pagamento"
+            type="date"
+            value={paymentDate}
+            onChange={(event) => setPaymentDate(event.target.value)}
+            required
+          />
+
+          <Input
+            label="Observação (opcional)"
+            value={paymentNote}
+            onChange={(event) => setPaymentNote(event.target.value)}
+            placeholder="Observações adicionais..."
+          />
+
+          <ModalActionFooter onCancel={closePaymentModal} submitLabel="Confirmar pagamento" />
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!reconciliationCardId}
+        onClose={() => setReconciliationCardId('')}
+        title={`Conciliação de Fatura (${currentMonth})`}
+        maxWidth="max-w-4xl"
+      >
+        {reconciliationCardId && (() => {
+          const card = creditCards.find((c) => c.id === reconciliationCardId)
+          if (!card) return null
+          return (
+            <CreditCardCsvReconciliationPanel
+              card={card}
+              currentMonth={currentMonth}
+              paymentItems={paymentItemsByCard[card.id] || []}
+              categories={categories.map((category) => ({
+                id: category.id,
+                name: category.name,
+              }))}
+              onReloadBillData={loadBillData}
+              createExpense={createExpense}
+              updateExpense={updateExpense}
+              fetchReconciliationCandidates={fetchReconciliationCandidates}
+            />
+          )
+        })()}
       </Modal>
     </div>
   )
