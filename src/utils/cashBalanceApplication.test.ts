@@ -47,6 +47,20 @@ describe('cashBalanceApplication', () => {
     expect(slots[0].balance).toBe(3000)
   })
 
+  it('lista saldo em caixa com base na definicao (sem transacao)', () => {
+    const definitions: PortfolioAssetDefinition[] = [
+      {
+        ...cashDefinition('SALDO EM CAIXA'),
+        applied_amount: 368.24,
+      },
+    ]
+
+    const slots = listAvailableCashBalances([], definitions)
+    expect(slots).toHaveLength(1)
+    expect(slots[0].ticker).toBe('SALDO EM CAIXA')
+    expect(slots[0].balance).toBe(368.24)
+  })
+
   it('aplica caixa parcialmente na compra', () => {
     const plan = planCashOffsetForPurchase(5000, [
       { ticker: 'CAIXA', balance: 3000, quantity: 1, averageUnit: 3000 },

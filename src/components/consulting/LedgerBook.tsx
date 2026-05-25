@@ -46,7 +46,7 @@ export default function LedgerBook({
               <div>
                 <div className="flex items-center gap-1.5">
                   <strong className="text-primary font-mono">
-                    {tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA'
+                    {tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA' || tx.ticker === 'SALDO EM CAIXA' || tx.ticker === 'SALDO_EM_CAIXA'
                       ? 'Saldo em caixa'
                       : tx.ticker}
                   </strong>

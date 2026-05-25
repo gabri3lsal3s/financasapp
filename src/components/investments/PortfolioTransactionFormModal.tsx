@@ -16,11 +16,11 @@ import type {
 import { deleteLegacyInvestmentsForTransaction } from '@/utils/legacyInvestmentMigration'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { ASSET_DEFINITION_SELECT, PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
-import { computeCashOffsetPreview, excludeCashOffsetSells } from '@/utils/cashBalanceApplication'
+import { computeCashOffsetPreview, excludeCashOffsetSells, calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import {
-  applyCashOffsetAfterBuy,
   fetchPortfolioCashContext,
-  reconcileCashOffsetOnBuyEdit,
+  reconcileCashOffsetOnTransactionSave,
+  deleteCashOffsetTransactions,
 } from '@/services/cashOffsetService'
 import toast from 'react-hot-toast'
 
@@ -150,10 +150,13 @@ export default function PortfolioTransactionFormModal({
   useEffect(() => {
     if (!isOpen || !portfolioId) return
 
-    void fetchPortfolioCashContext(portfolioId).then(({ transactions, definitions }) => {
+    const loadCashContext = async () => {
+      const { transactions, definitions } = await fetchPortfolioCashContext(portfolioId)
       setPortfolioTransactions(transactions)
       setPortfolioDefinitions(definitions)
-    })
+    }
+
+    void loadCashContext()
   }, [isOpen, portfolioId])
 
   useEffect(() => {
@@ -170,10 +173,10 @@ export default function PortfolioTransactionFormModal({
           .eq('ticker', tickerUpper)
           .maybeSingle()
 
-        if (data) {
-          applyDefinitionToForm(data as PortfolioAssetDefinition, pricingSetters)
-        } else if (tickerUpper === 'SALDO_INV' || tickerUpper === 'CAIXA') {
+        if (tickerUpper === 'SALDO_INV' || tickerUpper === 'CAIXA' || tickerUpper === 'SALDO EM CAIXA' || tickerUpper === 'SALDO_EM_CAIXA') {
           setPricingMode('cash')
+        } else if (data) {
+          applyDefinitionToForm(data as PortfolioAssetDefinition, pricingSetters)
         } else {
           resetPricingFields(pricingSetters)
           setIsB3Linked(isB3TickerPattern(tickerUpper))
@@ -297,6 +300,19 @@ export default function PortfolioTransactionFormModal({
     portfolioDefinitions,
   ])
 
+  const totalAvailableCash = useMemo(() => {
+    const isCashApply = (operationType === 'buy' || operationType === 'subscription') && pricingMode !== 'cash'
+    if (!isCashApply) return 0
+    return cashOffsetPreview.availableCash || 0
+  }, [cashOffsetPreview.availableCash, operationType, pricingMode])
+
+  const totalCashUsed = useMemo(() => {
+    return Math.min(totalAvailableCash, purchaseAmount)
+  }, [totalAvailableCash, purchaseAmount])
+
+  const netContribution = useMemo(() => {
+    return Math.max(0, purchaseAmount - totalCashUsed)
+  }, [purchaseAmount, totalCashUsed])
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!portfolioId) {
@@ -361,49 +377,38 @@ export default function PortfolioTransactionFormModal({
 
       if (defError) throw defError
 
-      let offsetCashUsed = 0
-      const buyAmount = qty * unitPrice
+      const currentTxAmount = qty * unitPrice
 
-      if (editingTransaction) {
-        const offset = await reconcileCashOffsetOnBuyEdit({
-          portfolioId,
-          buyTransactionId,
-          buyAmount,
-          buyDate: date,
-          assetPricingMode: pricingMode,
-          operationType,
-          transactions: portfolioTransactions,
-          definitions: portfolioDefinitions,
-        })
-        offsetCashUsed = offset.cashUsed
+      // Reconciliar os offsets de caixa vinculados no livro-razão de forma automática
+      const context = await fetchPortfolioCashContext(portfolioId)
+      const offset = await reconcileCashOffsetOnTransactionSave({
+        portfolioId,
+        transactionId: buyTransactionId,
+        amount: currentTxAmount,
+        date,
+        assetPricingMode: pricingMode,
+        operationType,
+        transactions: context.transactions,
+        definitions: context.definitions,
+      })
 
-        if (offset.cashUsed > 0) {
-          toast.success(
-            `${formatCurrency(offset.cashUsed)} do saldo em caixa aplicado. Aporte líquido: ${formatCurrency(offset.netContribution)}`
-          )
-        }
-      } else {
-        const offset = await applyCashOffsetAfterBuy({
-          portfolioId,
-          sourceTransactionId: buyTransactionId,
-          buyAmount,
-          buyDate: date,
-          assetPricingMode: pricingMode,
-          operationType,
-          transactions: portfolioTransactions,
-          definitions: portfolioDefinitions,
-        })
-        offsetCashUsed = offset.cashUsed
+      // Sincronizar portfolios.cash_balance com a soma do saldo em caixa do livro-razão
+      const updatedContext = await fetchPortfolioCashContext(portfolioId)
+      const finalLedgerCash = calculateLedgerCashBalance(updatedContext.transactions, updatedContext.definitions)
 
-        if (offset.cashUsed > 0) {
-          toast.success(
-            `${formatCurrency(offset.cashUsed)} do saldo em caixa aplicado. Aporte líquido: ${formatCurrency(offset.netContribution)}`
-          )
-        }
-      }
+      const { error: updatePortError } = await supabase
+        .from('portfolios')
+        .update({ cash_balance: finalLedgerCash })
+        .eq('id', portfolioId)
+
+      if (updatePortError) throw updatePortError
 
       dispatchPortfolioChanged()
-      if (offsetCashUsed === 0) {
+      if (offset.cashUsed > 0) {
+        toast.success(
+          `${formatCurrency(offset.cashUsed)} do saldo em caixa aplicado. Aporte líquido: ${formatCurrency(offset.netContribution)}`
+        )
+      } else {
         toast.success(editingTransaction ? 'Transação atualizada!' : 'Transação registrada!')
       }
       onSaved()
@@ -426,6 +431,9 @@ export default function PortfolioTransactionFormModal({
 
       await deleteLegacyInvestmentsForTransaction(supabase, user.id, editingTransaction)
 
+      // Excluir todas as transações de offset de caixa vinculadas no livro-razão
+      await deleteCashOffsetTransactions(portfolioId, editingTransaction.id)
+
       const { error } = await supabase
         .from('portfolio_transactions')
         .delete()
@@ -433,6 +441,17 @@ export default function PortfolioTransactionFormModal({
         .eq('portfolio_id', portfolioId)
 
       if (error) throw error
+
+      // Sincronizar portfolios.cash_balance com a soma do saldo em caixa do livro-razão
+      const updatedContext = await fetchPortfolioCashContext(portfolioId)
+      const finalLedgerCash = calculateLedgerCashBalance(updatedContext.transactions, updatedContext.definitions)
+
+      const { error: updatePortError } = await supabase
+        .from('portfolios')
+        .update({ cash_balance: finalLedgerCash })
+        .eq('id', portfolioId)
+
+      if (updatePortError) throw updatePortError
 
       // Limpeza de definições e metas órfãs
       const tickerUpper = editingTransaction.ticker.toUpperCase()
@@ -664,24 +683,32 @@ export default function PortfolioTransactionFormModal({
           />
         )}
 
-        {cashOffsetPreview.availableCash > 0 && pricingMode !== 'cash' &&
-          (operationType === 'buy' || operationType === 'subscription') && (
-          <div className="p-3 bg-secondary border border-primary rounded-xl text-xs space-y-1 text-secondary">
-            <div className="flex justify-between">
-              <span>Saldo em caixa disponível</span>
-              <span className="font-bold text-primary">{formatCurrency(cashOffsetPreview.availableCash)}</span>
+        {pricingMode !== 'cash' && (operationType === 'buy' || operationType === 'subscription') && (
+          <div className="p-3.5 bg-secondary border border-primary rounded-2xl text-xs space-y-2 text-secondary text-left animate-page-enter">
+            <h5 className="font-black text-primary text-[10px] uppercase tracking-wider mb-1">Cálculo de Aporte com Caixa</h5>
+            <div className="space-y-1.5 font-mono text-xs">
+              <div className="flex justify-between">
+                <span>Valor do Aporte:</span>
+                <span className="font-bold text-primary">{formatCurrency(purchaseAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>(-) Saldo em Caixa:</span>
+                <span className="font-bold text-indigo-500">{formatCurrency(totalAvailableCash)}</span>
+              </div>
+              <div className="h-[1px] bg-primary/10 my-1" />
+              <div className="flex justify-between text-sm font-black">
+                <span>Aporte Líquido:</span>
+                <span className={netContribution > 0 ? 'text-income' : 'text-emerald-500'}>
+                  {formatCurrency(netContribution)}
+                </span>
+              </div>
             </div>
-            {cashOffsetPreview.cashUsed > 0 && (
-              <>
-                <div className="flex justify-between">
-                  <span>Será debitado do caixa</span>
-                  <span className="font-bold text-expense">-{formatCurrency(cashOffsetPreview.cashUsed)}</span>
-                </div>
-                <div className="flex justify-between pt-1 border-t border-primary/10">
-                  <span>Aporte líquido (novo dinheiro)</span>
-                  <span className="font-bold text-income">{formatCurrency(cashOffsetPreview.netContribution)}</span>
-                </div>
-              </>
+            {totalAvailableCash > 0 && (
+              <p className="text-[10px] text-secondary italic opacity-85 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
+                {netContribution === 0 
+                  ? 'O saldo em caixa cobre integralmente este aporte.' 
+                  : `Serão utilizados ${formatCurrency(totalCashUsed)} do caixa. Os ${formatCurrency(netContribution)} restantes devem ser aportados de fora.`}
+              </p>
             )}
           </div>
         )}

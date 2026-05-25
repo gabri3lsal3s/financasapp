@@ -78,9 +78,9 @@ export function calculateShareHistory(
 
   const getPricingMode = (ticker: string): string => {
     const upper = ticker.toUpperCase()
+    if (upper === 'CAIXA' || upper === 'SALDO_INV' || upper === 'SALDO EM CAIXA' || upper === 'SALDO_EM_CAIXA') return 'cash'
     const def = definitions.find(d => d.ticker.toUpperCase() === upper)
     if (def?.pricing_mode) return def.pricing_mode
-    if (upper === 'CAIXA' || upper === 'SALDO_INV') return 'cash'
     return 'market'
   }
 

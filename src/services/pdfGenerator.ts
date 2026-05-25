@@ -290,6 +290,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
 
   const positionsByClass: Record<string, AssetPosition[]> = {}
   for (const pos of positions) {
+    if (pos.pricing_mode === 'cash') continue
     const clsName = pos.asset_class || 'Renda Fixa'
     if (!positionsByClass[clsName]) positionsByClass[clsName] = []
     positionsByClass[clsName].push(pos)

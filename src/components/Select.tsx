@@ -6,7 +6,7 @@ interface SelectProps {
   error?: string
   value: string
   onChange: (e: { target: { value: string, name?: string } }) => void
-  options: { value: string; label: string; sublabel?: string }[]
+  options: { value: string; label: React.ReactNode; sublabel?: string }[]
   placeholder?: string
   name?: string
   className?: string

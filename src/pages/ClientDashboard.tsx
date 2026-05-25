@@ -401,11 +401,12 @@ export default function ClientDashboard() {
                     <tbody className="divide-y divide-border/20">
                       {(() => {
                         const positionsByClass: Record<string, AssetPosition[]> = {}
-                        positions.forEach(pos => {
-                          const cls = pos.asset_class || 'Renda Fixa'
-                          if (!positionsByClass[cls]) positionsByClass[cls] = []
-                          positionsByClass[cls].push(pos)
-                        })
+                        positions
+                          .forEach(pos => {
+                            const cls = pos.asset_class || 'Renda Fixa'
+                            if (!positionsByClass[cls]) positionsByClass[cls] = []
+                            positionsByClass[cls].push(pos)
+                          })
                         return Object.entries(positionsByClass).map(([className, classPositions]) => (
                           <div key={className} style={{ display: 'contents' }}>
                             <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">

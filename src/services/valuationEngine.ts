@@ -40,7 +40,7 @@ interface PositionLedger {
 
 function defaultDefinition(ticker: string): PortfolioAssetDefinition {
   const upper = ticker.toUpperCase()
-  const isLegacyCash = upper === 'SALDO_INV' || upper === 'CAIXA'
+  const isLegacyCash = upper === 'SALDO_INV' || upper === 'CAIXA' || upper === 'SALDO EM CAIXA' || upper === 'SALDO_EM_CAIXA'
   const isB3 = isB3TickerPattern(upper)
   return {
     id: '',
@@ -68,7 +68,7 @@ function buildPositionLedger(transactions: PortfolioTransaction[]): Record<strin
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
 
   for (const tx of sorted) {
-    const ticker = tx.ticker.toUpperCase()
+    const ticker = tx.ticker.toUpperCase().trim()
     if (!map[ticker]) {
       map[ticker] = { quantity: 0, totalCost: 0, accumulatedDividends: 0 }
     }
@@ -226,12 +226,20 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
 
   const ledgerMap = buildPositionLedger(transactions)
   const definitionMap = Object.fromEntries(
-    definitions.map((d) => [d.ticker.toUpperCase(), d])
+    definitions.map((d) => [d.ticker.toUpperCase().trim(), d])
   )
+
+  const hasCashLedger = Object.keys(ledgerMap).some(
+    (t) => {
+      const trimmed = t.trim()
+      return trimmed === 'CAIXA' || trimmed === 'SALDO_INV' || trimmed === 'SALDO EM CAIXA' || trimmed === 'SALDO_EM_CAIXA' || definitionMap[trimmed]?.pricing_mode === 'cash'
+    }
+  )
+  const activeCashBalance = hasCashLedger ? 0 : cashBalance
 
   const tickers = new Set<string>([
     ...Object.keys(ledgerMap),
-    ...definitions.map((d) => d.ticker.toUpperCase()),
+    ...definitions.map((d) => d.ticker.toUpperCase().trim()),
   ])
 
   const tempPositions: Omit<
@@ -242,8 +250,19 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
   let assetsValue = 0
 
   for (const ticker of tickers) {
-    const ledger = ledgerMap[ticker] ?? { quantity: 0, totalCost: 0, accumulatedDividends: 0 }
-    const definition = definitionMap[ticker] ?? defaultDefinition(ticker)
+    const trimmedTicker = ticker.trim()
+    const ledger = ledgerMap[trimmedTicker] ?? ledgerMap[ticker] ?? { quantity: 0, totalCost: 0, accumulatedDividends: 0 }
+    let definition = definitionMap[trimmedTicker] ?? definitionMap[ticker] ?? defaultDefinition(trimmedTicker)
+
+    const upperTicker = trimmedTicker.toUpperCase()
+    const isLegacyCash = upperTicker === 'SALDO_INV' || upperTicker === 'CAIXA' || upperTicker === 'SALDO EM CAIXA' || upperTicker === 'SALDO_EM_CAIXA'
+    if (isLegacyCash) {
+      definition = {
+        ...definition,
+        pricing_mode: 'cash'
+      }
+    }
+
     const priceObj = prices[ticker]
     const target = targets.find((t) => t.ticker.toUpperCase() === ticker)
     const targetPct = target ? Number(target.target_percentage) : 0
@@ -342,7 +361,7 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     })
   }
 
-  const totalValue = assetsValue + cashBalance
+  const totalValue = assetsValue + activeCashBalance
 
   const positions: ValuedPosition[] = tempPositions.map((pos) => {
     const currentPercentage = totalValue > 0 ? (pos.total_value / totalValue) * 100 : 0

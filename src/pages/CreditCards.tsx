@@ -34,7 +34,7 @@ import {
   type BillPaymentRowInput,
 } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check, Scale } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, X, Check, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 
@@ -116,6 +116,345 @@ const DEFAULT_FORM: CardFormState = {
   due_day: '15',
   color: '#3b82f6',
   is_active: 'true',
+}
+
+function formatDateBR(date: Date) {
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function getSafeDate(year: number, month: number, day: number) {
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
+  const clampedDay = Math.min(day, lastDayOfMonth)
+  return new Date(year, month, clampedDay)
+}
+
+interface CreditCardTimelineProps {
+  card: CreditCard
+  currentMonth: string
+  totalPrevisto: number
+  saldoAberto: number
+  monthlyCycle: MonthlyCycleRow | undefined
+}
+
+function CreditCardTimeline({
+  card,
+  currentMonth,
+  totalPrevisto,
+  saldoAberto,
+  monthlyCycle,
+}: CreditCardTimelineProps) {
+  const [yearStr, monthStr] = currentMonth.split('-')
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10) - 1 // 0-based for JS Date
+
+  const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
+  const effectiveDueDay = monthlyCycle?.due_day || card.due_day
+
+  const dueDate = getSafeDate(year, month, effectiveDueDay)
+
+  let closingDate = getSafeDate(year, month, effectiveClosingDay)
+  let startDate = getSafeDate(year, month - 1, effectiveClosingDay + 1)
+
+  if (effectiveClosingDay >= effectiveDueDay) {
+    closingDate = getSafeDate(year, month - 1, effectiveClosingDay)
+    startDate = getSafeDate(year, month - 2, effectiveClosingDay + 1)
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  let status: 'paid' | 'empty' | 'overdue' | 'near_due' | 'closed' | 'open' = 'open'
+
+  if (totalPrevisto <= 0.009) {
+    status = 'empty'
+  } else if (saldoAberto <= 0.009) {
+    status = 'paid'
+  } else if (today.getTime() > dueDate.getTime()) {
+    status = 'overdue'
+  } else {
+    const diffTime = dueDate.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    if (diffDays >= 0 && diffDays <= 3) {
+      status = 'near_due'
+    } else if (today.getTime() < closingDate.getTime()) {
+      status = 'open'
+    } else {
+      status = 'closed'
+    }
+  }
+
+  const themeColor = card.color || '#3b82f6'
+
+  // Semantic/dynamic color mapping based on status
+  const statusColor = {
+    paid: '#10b981',
+    empty: '#6b7280',
+    overdue: '#ef4444',
+    near_due: '#f59e0b',
+    closed: themeColor,
+    open: themeColor,
+  }[status]
+
+  const config = {
+    paid: {
+      label: 'Paga',
+      icon: <CheckCircle2 size={13} className="text-emerald-500" />,
+      message: 'Fatura totalmente paga! Limite restabelecido.',
+    },
+    empty: {
+      label: 'Fatura Zerada',
+      icon: <CreditCardIcon size={13} className="text-secondary" />,
+      message: 'Nenhum lançamento registrado nesta competência.',
+    },
+    overdue: {
+      label: 'Vencida',
+      icon: <AlertCircle size={13} className="text-red-500" />,
+      message: `ATENÇÃO: Fatura vencida em ${formatDateBR(dueDate)}. Regularize para evitar juros.`,
+    },
+    near_due: {
+      label: 'Vence em Breve',
+      icon: <Clock size={13} className="text-amber-500" />,
+      message: `Atenção: Fatura fecha dia ${formatDateBR(closingDate)} e vence dia ${formatDateBR(dueDate)}. Pague logo!`,
+    },
+    closed: {
+      label: 'Fechada',
+      icon: <Lock size={13} style={{ color: themeColor }} />,
+      message: `Fatura fechada em ${formatDateBR(closingDate)}. Aguardando pagamento até ${formatDateBR(dueDate)}.`,
+    },
+    open: {
+      label: 'Em Aberto',
+      icon: <CreditCardIcon size={13} style={{ color: themeColor }} />,
+      message: `Fatura aberta para compras. Fechamento previsto em ${formatDateBR(closingDate)}.`,
+    },
+  }[status]
+
+  let progressPct = 0
+  if (status === 'paid') {
+    progressPct = 100
+  } else if (status === 'empty') {
+    progressPct = 0
+  } else {
+    const tTime = today.getTime()
+    const sTime = startDate.getTime()
+    const cTime = closingDate.getTime()
+    const dTime = dueDate.getTime()
+
+    if (tTime <= sTime) {
+      progressPct = 0
+    } else if (tTime >= dTime) {
+      progressPct = 100
+    } else if (tTime < cTime) {
+      const range = cTime - sTime
+      const pct = range > 0 ? (tTime - sTime) / range : 0
+      progressPct = Math.min(50, Math.max(0, pct * 50))
+    } else {
+      const range = dTime - cTime
+      const pct = range > 0 ? (tTime - cTime) / range : 0
+      progressPct = Math.min(100, Math.max(50, 50 + pct * 50))
+    }
+  }
+
+  // Dynamic styling based on status color and card theme color
+  const badgeStyle = {
+    backgroundColor: `${statusColor}12`,
+    borderColor: `${statusColor}28`,
+    color: statusColor,
+  }
+
+  const containerHoverStyle = {
+    '--timeline-border-hover': `${themeColor}22`,
+  } as React.CSSProperties
+
+  const barStyle = {
+    width: `${progressPct}%`,
+    backgroundColor: themeColor,
+  }
+
+  const nodeRingStyle = {
+    backgroundColor: themeColor,
+    boxShadow: `0 0 0 4px ${themeColor}28`,
+    borderColor: '#ffffff',
+  }
+
+  const bannerStyle = {
+    backgroundColor: `${statusColor}08`,
+    borderColor: `${statusColor}18`,
+  }
+
+  return (
+    <div
+      className="bg-gradient-to-r from-card/50 via-background/40 to-card/50 border border-border/40 rounded-xl p-4.5 space-y-4 shadow-sm text-left transition-all duration-300 hover:border-[var(--timeline-border-hover)] animate-page-enter"
+      style={containerHoverStyle}
+    >
+      {/* Top Header */}
+      <div className="flex justify-end">
+        {/* State Badge with dynamic colors */}
+        <span
+          className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all duration-300"
+          style={badgeStyle}
+        >
+          {config.icon}
+          {config.label}
+        </span>
+      </div>
+
+      {/* 1. Desktop & Tablet Layout (Horizontal Timeline) */}
+      <div className="hidden sm:block relative pt-4 pb-12 px-10">
+        <div className="h-1.5 w-full bg-muted/20 dark:bg-muted/10 rounded-full relative">
+          {/* Progress fill using Card Theme Color */}
+          <div
+            className="h-full rounded-full transition-all duration-700 ease-out"
+            style={barStyle}
+          />
+
+          {/* ================= NODES CIRCLES (Only circles centered on line) ================= */}
+          {/* Node 1 Circle */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 z-10"
+            style={progressPct >= 0 ? nodeRingStyle : undefined}
+          />
+
+          {/* Node 2 Circle */}
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 z-10 ${
+              progressPct >= 50
+                ? 'border-card'
+                : 'border-border/60 bg-background'
+            }`}
+            style={progressPct >= 50 ? nodeRingStyle : undefined}
+          />
+
+          {/* Node 3 Circle */}
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 left-full -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 z-10 ${
+              progressPct >= 100
+                ? 'border-card'
+                : 'border-border/60 bg-background'
+            }`}
+            style={progressPct >= 100 ? nodeRingStyle : undefined}
+          />
+
+          {/* ================= NODES TEXT LABELS & DATES (Positioned below line) ================= */}
+          {/* Node 1 Text */}
+          <div className="absolute top-4 left-0 -translate-x-1/2 flex flex-col items-center w-24 text-center">
+            <span className="text-[10px] font-bold text-primary font-mono whitespace-nowrap">
+              Início
+            </span>
+            <span className="text-[9px] text-secondary font-medium font-sans mt-0.5">
+              {formatDateBR(startDate)}
+            </span>
+          </div>
+
+          {/* Node 2 Text */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center w-24 text-center">
+            <span className="text-[10px] font-bold text-primary font-mono whitespace-nowrap">
+              Fechamento
+            </span>
+            <span className="text-[9px] text-secondary font-medium font-sans mt-0.5">
+              {formatDateBR(closingDate)}
+            </span>
+          </div>
+
+          {/* Node 3 Text */}
+          <div className="absolute top-4 left-full -translate-x-1/2 flex flex-col items-center w-24 text-center">
+            <span className="text-[10px] font-bold text-primary font-mono whitespace-nowrap">
+              Vencimento
+            </span>
+            <span className="text-[9px] text-secondary font-medium font-sans mt-0.5">
+              {formatDateBR(dueDate)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Mobile Layout (Creative Centered Vertical Timeline) */}
+      <div className="block sm:hidden space-y-3 pt-2 pb-2">
+        {/* Step 1: Início */}
+        <div className="flex flex-col items-center text-center space-y-1.5 animate-page-enter">
+          <div
+            className="w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 shrink-0"
+            style={progressPct >= 0 ? nodeRingStyle : undefined}
+          />
+          <div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-[11px] font-extrabold text-primary font-mono">Início do Ciclo</span>
+              <span className="text-[10px] text-secondary font-bold font-mono">({formatDateBR(startDate)})</span>
+            </div>
+            <p className="text-[10px] text-secondary max-w-[240px] mt-0.5 leading-normal">Compras começam a contar nesta fatura.</p>
+          </div>
+        </div>
+
+        {/* Connector 1 */}
+        <div
+          className="w-0.5 h-6 mx-auto transition-all duration-500 rounded-full"
+          style={{
+            background: progressPct >= 50
+              ? themeColor
+              : `linear-gradient(to bottom, ${themeColor} ${(progressPct / 50) * 100}%, rgba(100,100,100,0.15) ${(progressPct / 50) * 100}%)`
+          }}
+        />
+
+        {/* Step 2: Fechamento */}
+        <div className="flex flex-col items-center text-center space-y-1.5 animate-page-enter">
+          <div
+            className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
+              progressPct >= 50
+                ? 'border-card'
+                : 'border-border/60 bg-background'
+            }`}
+            style={progressPct >= 50 ? nodeRingStyle : undefined}
+          />
+          <div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-[11px] font-extrabold text-primary font-mono">Fechamento</span>
+              <span className="text-[10px] text-secondary font-bold font-mono">({formatDateBR(closingDate)})</span>
+            </div>
+            <p className="text-[10px] text-secondary max-w-[240px] mt-0.5 leading-normal">Fatura encerrada para compras.</p>
+          </div>
+        </div>
+
+        {/* Connector 2 */}
+        <div
+          className="w-0.5 h-6 mx-auto transition-all duration-500 rounded-full"
+          style={{
+            background: progressPct >= 100
+              ? themeColor
+              : progressPct >= 50
+              ? `linear-gradient(to bottom, ${themeColor} ${((progressPct - 50) / 50) * 100}%, rgba(100,100,100,0.15) ${((progressPct - 50) / 50) * 100}%)`
+              : 'rgba(100,100,100,0.15)'
+          }}
+        />
+
+        {/* Step 3: Vencimento */}
+        <div className="flex flex-col items-center text-center space-y-1.5 animate-page-enter">
+          <div
+            className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
+              progressPct >= 100
+                ? 'border-card'
+                : 'border-border/60 bg-background'
+            }`}
+            style={progressPct >= 100 ? nodeRingStyle : undefined}
+          />
+          <div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-[11px] font-extrabold text-primary font-mono">Vencimento</span>
+              <span className="text-[10px] text-secondary font-bold font-mono">({formatDateBR(dueDate)})</span>
+            </div>
+            <p className="text-[10px] text-secondary max-w-[240px] mt-0.5 leading-normal">Data limite de pagamento sem encargos.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Dynamic Insight Banner */}
+      <div
+        className="flex gap-2 p-2.5 rounded-lg text-[10px] text-secondary font-sans border transition-all duration-300 leading-relaxed items-center"
+        style={bannerStyle}
+      >
+        <span className="shrink-0">{config.icon}</span>
+        <span>{config.message}</span>
+      </div>
+    </div>
+  )
 }
 
 export default function CreditCards() {
@@ -1345,6 +1684,15 @@ export default function CreditCards() {
                         />
                       </div>
                     </div>
+
+                    {/* Linha do Tempo Dinâmica da Fatura (Estilo Consultoria) */}
+                    <CreditCardTimeline
+                      card={card}
+                      currentMonth={currentMonth}
+                      totalPrevisto={totalPrevisto}
+                      saldoAberto={saldoAberto}
+                      monthlyCycle={monthlyCycle}
+                    />
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="rounded-lg border border-primary bg-secondary p-3">

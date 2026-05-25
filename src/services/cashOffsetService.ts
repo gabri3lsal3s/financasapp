@@ -5,6 +5,7 @@ import {
   computeCashOffsetPreview,
   excludeCashOffsetSells,
   shouldApplyCashOffset,
+  getPreferredCashTicker,
 } from '@/utils/cashBalanceApplication'
 
 const TRANSACTION_SELECT =
@@ -37,7 +38,7 @@ export async function fetchPortfolioCashContext(portfolioId: string): Promise<{
   }
 }
 
-async function deleteCashOffsetSells(portfolioId: string, sourceTransactionId: string): Promise<void> {
+export async function deleteCashOffsetTransactions(portfolioId: string, sourceTransactionId: string): Promise<void> {
   const { error } = await supabase
     .from('portfolio_transactions')
     .delete()
@@ -104,13 +105,43 @@ export async function applyCashOffsetAfterBuy(params: {
 }
 
 /**
- * Ao editar compra/subscrição, remove vendas de caixa antigas e recalcula o offset.
+ * Após registrar venda/provento, credita saldo em caixa com compra automática.
  */
-export async function reconcileCashOffsetOnBuyEdit(params: {
+export async function applyCashOffsetAfterSellOrDividend(params: {
   portfolioId: string
-  buyTransactionId: string
-  buyAmount: number
-  buyDate: string
+  sourceTransactionId: string
+  amount: number
+  date: string
+  transactions: PortfolioTransaction[]
+  definitions: PortfolioAssetDefinition[]
+}): Promise<void> {
+  const { portfolioId, sourceTransactionId, amount, date, transactions, definitions } = params
+  if (amount <= 0) return
+
+  const cashTicker = getPreferredCashTicker(transactions, definitions)
+
+  const row = {
+    portfolio_id: portfolioId,
+    ticker: cashTicker,
+    operation_type: 'buy' as const, // Depósito de caixa
+    quantity: 1,
+    price: amount,
+    date,
+    cash_offset_source_id: sourceTransactionId,
+  }
+
+  const { error } = await supabase.from('portfolio_transactions').insert(row)
+  if (error) throw error
+}
+
+/**
+ * Ao salvar/editar qualquer transação, reconcilia os offsets de caixa vinculados.
+ */
+export async function reconcileCashOffsetOnTransactionSave(params: {
+  portfolioId: string
+  transactionId: string
+  amount: number
+  date: string
   assetPricingMode: PortfolioAssetDefinition['pricing_mode']
   operationType: PortfolioTransaction['operation_type']
   transactions: PortfolioTransaction[]
@@ -118,31 +149,51 @@ export async function reconcileCashOffsetOnBuyEdit(params: {
 }): Promise<ApplyCashOffsetResult> {
   const {
     portfolioId,
-    buyTransactionId,
-    buyAmount,
-    buyDate,
+    transactionId,
+    amount,
+    date,
     assetPricingMode,
     operationType,
     transactions,
     definitions,
   } = params
 
-  await deleteCashOffsetSells(portfolioId, buyTransactionId)
+  await deleteCashOffsetTransactions(portfolioId, transactionId)
 
-  if (!shouldApplyCashOffset(operationType, assetPricingMode)) {
-    return { cashUsed: 0, netContribution: buyAmount }
+  if (assetPricingMode === 'cash') {
+    return { cashUsed: 0, netContribution: amount }
   }
 
-  const cleanedTransactions = excludeCashOffsetSells(transactions, buyTransactionId)
+  if (operationType === 'buy' || operationType === 'subscription') {
+    if (!shouldApplyCashOffset(operationType, assetPricingMode)) {
+      return { cashUsed: 0, netContribution: amount }
+    }
+    const cleanedTransactions = excludeCashOffsetSells(transactions, transactionId)
+    return applyCashOffsetAfterBuy({
+      portfolioId,
+      sourceTransactionId: transactionId,
+      buyAmount: amount,
+      buyDate: date,
+      assetPricingMode,
+      operationType,
+      transactions: cleanedTransactions,
+      definitions,
+    })
+  } else if (operationType === 'sell' || operationType === 'dividend') {
+    const cleanedTransactions = excludeCashOffsetSells(transactions, transactionId)
+    await applyCashOffsetAfterSellOrDividend({
+      portfolioId,
+      sourceTransactionId: transactionId,
+      amount,
+      date,
+      transactions: cleanedTransactions,
+      definitions,
+    })
+  }
 
-  return applyCashOffsetAfterBuy({
-    portfolioId,
-    sourceTransactionId: buyTransactionId,
-    buyAmount,
-    buyDate,
-    assetPricingMode,
-    operationType,
-    transactions: cleanedTransactions,
-    definitions,
-  })
+  return { cashUsed: 0, netContribution: amount }
 }
+
+// Para manter compatibilidade de exportações
+export const reconcileCashOffsetOnBuyEdit = reconcileCashOffsetOnTransactionSave
+

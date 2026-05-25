@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
-import { Profile, Portfolio, PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
+import { Profile, Portfolio, PortfolioTransaction, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
 import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
-import { getAssetPrices, searchB3Assets } from '@/services/priceService'
+import { getAssetPrices } from '@/services/priceService'
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import ContributionSimulator from '@/components/ContributionSimulator'
@@ -15,9 +15,10 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Modal from '@/components/Modal'
 import PageHeader from '@/components/PageHeader'
-import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText } from 'lucide-react'
+import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText, Layers, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
+import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
 
 // Componentes Modulares
 import AdvisorOverview from '@/components/consulting/AdvisorOverview'
@@ -30,6 +31,7 @@ import AdvisorNotes from '@/components/consulting/AdvisorNotes'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
+import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 
 // Novos Componentes de Monitoramento Analítico (Grid Mode)
 import SectorExposureChart from '@/components/consulting/SectorExposureChart'
@@ -99,7 +101,6 @@ export default function ConsultantDashboard() {
   
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
   const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
-  const [targetAllocations, setTargetAllocations] = useState<TargetAllocation[]>([])
   const [assetPrices, setAssetPrices] = useState<Record<string, AssetPrice>>({})
   const [loadingPortfolio, setLoadingPortfolio] = useState<boolean>(false)
   const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
@@ -134,11 +135,9 @@ export default function ConsultantDashboard() {
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false)
   const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
 
-  // Estado para gerenciar Metas de Alocação
-  const [showTargetForm, setShowTargetForm] = useState<boolean>(false)
-  const [targetTicker, setTargetTicker] = useState<string>('')
-  const [targetPct, setTargetPct] = useState<string>('')
-  const [isCustomTicker, setIsCustomTicker] = useState<boolean>(false)
+  // Estado para modal de definição e meta de ativos
+  const [assetDefModalOpen, setAssetDefModalOpen] = useState<boolean>(false)
+  const [assetDefTicker, setAssetDefTicker] = useState<string>('')
 
   // Estado para gerenciar teses qualitativas
   const [assetTheses, setAssetTheses] = useState<Record<string, string>>({})
@@ -150,14 +149,6 @@ export default function ConsultantDashboard() {
   const [executiveSummary, setExecutiveSummary] = useState<string>('')
   const [nextMonthPlan, setNextMonthPlan] = useState<string>('')
   const [savingReport, setSavingReport] = useState<boolean>(false)
-
-  // Autocomplete B3 para metas de alocação
-  const [targetSuggestions, setTargetSuggestions] = useState<{ ticker: string, name: string }[]>([])
-  const [showTargetSuggestions, setShowTargetSuggestions] = useState<boolean>(false)
-
-  // Estado para cadastrar novo ativo/meta com classe e setor forçados
-  const [targetAssetClass, setTargetAssetClass] = useState<string>('')
-  const [targetSector, setTargetSector] = useState<string>('')
 
   // Estado para modal de edição direta de classificação de qualquer ativo
   const [isEditAssetModalOpen, setIsEditAssetModalOpen] = useState<boolean>(false)
@@ -172,6 +163,9 @@ export default function ConsultantDashboard() {
   const [groupTargetName, setGroupTargetName] = useState<string>('Ações Nacionais')
   const [groupTargetPct, setGroupTargetPct] = useState<string>('')
   const [groupTargets, setGroupTargets] = useState<PortfolioGroupTarget[]>([])
+  const [limitsCollapsed, setLimitsCollapsed] = useState<boolean>(true)
+  const [editingGroupTarget, setEditingGroupTarget] = useState<PortfolioGroupTarget | null>(null)
+  const [savingGroupTarget, setSavingGroupTarget] = useState<boolean>(false)
 
   useEffect(() => {
     loadClients()
@@ -183,7 +177,6 @@ export default function ConsultantDashboard() {
     } else {
       setPortfolio(null)
       setTransactions([])
-      setTargetAllocations([])
       setPositions([])
       setPortfolioValue(0)
       loadGlobalOverview()
@@ -195,45 +188,6 @@ export default function ConsultantDashboard() {
       loadEligibleClients()
     }
   }, [isLinkModalOpen])
-
-
-  const handleSelectRegisteredTicker = (val: string) => {
-    if (val === 'custom') {
-      setIsCustomTicker(true)
-      setTargetTicker('')
-      setTargetAssetClass('')
-      setTargetSector('')
-    } else {
-      setIsCustomTicker(false)
-      setTargetTicker(val)
-      const existing = assetPrices[val.toUpperCase()]
-      if (existing) {
-        setTargetAssetClass(existing.asset_class || '')
-        setTargetSector(existing.sector || '')
-      } else {
-        setTargetAssetClass('')
-        setTargetSector('')
-      }
-    }
-  }
-
-  const handleCustomTickerChange = async (val: string) => {
-    setTargetTicker(val)
-    const tickerUpper = val.toUpperCase().trim()
-    const existing = assetPrices[tickerUpper]
-    if (existing) {
-      setTargetAssetClass(existing.asset_class || '')
-      setTargetSector(existing.sector || '')
-    }
-    if (val.length >= 2) {
-      const suggestions = await searchB3Assets(val)
-      setTargetSuggestions(suggestions)
-      setShowTargetSuggestions(true)
-    } else {
-      setTargetSuggestions([])
-      setShowTargetSuggestions(false)
-    }
-  }
 
 
 
@@ -645,7 +599,6 @@ export default function ConsultantDashboard() {
         .eq('portfolio_id', portData.id)
 
       if (targetsError) throw targetsError
-      setTargetAllocations(targetsData || [])
 
       const { data: groupTargetsData } = await supabase
         .from('portfolio_group_targets')
@@ -955,87 +908,10 @@ export default function ConsultantDashboard() {
     setEditingTransaction(null)
   }
 
-  const handleSaveTarget = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!portfolio) return
-
-    try {
-      const ticker = targetTicker.toUpperCase().trim()
-      const pct = parseFloat(targetPct)
-
-      if (!ticker) throw new Error('Insira o ticker do ativo')
-      if (isNaN(pct) || pct < 0 || pct > 100) throw new Error('Percentual de alocação inválido (0 a 100)')
-
-      const currentSum = targetAllocations
-        .filter(t => t.ticker.toUpperCase() !== ticker)
-        .reduce((sum, t) => sum + Number(t.target_percentage), 0)
-
-      if (currentSum + pct > 100.00) {
-        throw new Error(`A soma das alocações passaria de 100% (Atual: ${currentSum}%, Tentativa: ${pct}%)`)
-      }
-
-      const { error: upsertError } = await supabase
-        .from('target_allocations')
-        .upsert({
-          portfolio_id: portfolio.id,
-          ticker,
-          target_percentage: pct
-        })
-
-      if (upsertError) throw upsertError
-
-      if (targetAssetClass || targetSector) {
-        const { data: existingPrice } = await supabase
-          .from('asset_prices')
-          .select('current_price')
-          .eq('ticker', ticker)
-          .maybeSingle()
-
-        const currentPrice = existingPrice?.current_price || 50.00
-        
-        await supabase
-          .from('asset_prices')
-          .upsert({
-            ticker,
-            current_price: currentPrice,
-            last_updated: new Date().toISOString(),
-            asset_class: targetAssetClass || undefined,
-            sector: targetSector || undefined
-          })
-      }
-
-      toast.success('Meta de alocação atualizada!')
-      setTargetTicker('')
-      setTargetPct('')
-      setTargetAssetClass('')
-      setTargetSector('')
-      setIsCustomTicker(false)
-      setShowTargetForm(false)
-      loadPortfolioData(selectedClientId)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar meta')
-    }
-  }
-
-  const handleDeleteTarget = async (targetId: string) => {
-    try {
-      const { error } = await supabase
-        .from('target_allocations')
-        .delete()
-        .eq('id', targetId)
-
-      if (error) throw error
-
-      toast.success('Meta excluída!')
-      loadPortfolioData(selectedClientId)
-    } catch (err) {
-      toast.error('Erro ao excluir meta')
-    }
-  }
-
   const handleSaveGroupTarget = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!portfolio) return
+    setSavingGroupTarget(true)
 
     try {
       const pct = parseFloat(groupTargetPct)
@@ -1047,6 +923,7 @@ export default function ConsultantDashboard() {
       const { error } = await supabase
         .from('portfolio_group_targets')
         .upsert({
+          ...(editingGroupTarget?.id ? { id: editingGroupTarget.id } : {}),
           portfolio_id: portfolio.id,
           group_type: groupTargetType,
           group_name: name,
@@ -1055,12 +932,15 @@ export default function ConsultantDashboard() {
 
       if (error) throw error
 
-      toast.success('Limite de exposição atualizado!')
+      toast.success(editingGroupTarget ? 'Limite de exposição atualizado!' : 'Limite de exposição cadastrado!')
       setGroupTargetPct('')
+      setEditingGroupTarget(null)
       setShowGroupTargetForm(false)
       loadPortfolioData(selectedClientId)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar limite')
+    } finally {
+      setSavingGroupTarget(false)
     }
   }
 
@@ -1078,6 +958,14 @@ export default function ConsultantDashboard() {
     } catch (err) {
       toast.error('Erro ao excluir limite')
     }
+  }
+
+  const handleEditGroupTarget = (gt: PortfolioGroupTarget) => {
+    setEditingGroupTarget(gt)
+    setGroupTargetType(gt.group_type)
+    setGroupTargetName(gt.group_name)
+    setGroupTargetPct(gt.target_percentage.toString())
+    setShowGroupTargetForm(true)
   }
 
   const handleSaveThesis = async () => {
@@ -1189,13 +1077,13 @@ export default function ConsultantDashboard() {
   }
 
   const headerAction = (
-    <div className="flex items-center gap-3 w-full sm:w-auto">
+    <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
       {loadingClients ? (
         <span className="text-xs text-secondary font-semibold uppercase font-sans">Carregando clientes...</span>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 sm:flex-initial">
           <span className="text-xs font-semibold text-secondary uppercase tracking-wider hidden md:inline font-sans">Cliente:</span>
-          <div className="w-48 sm:w-56">
+          <div className="w-full sm:w-56">
             <Select
               value={selectedClientId}
               onChange={e => setSelectedClientId(e.target.value)}
@@ -1216,7 +1104,7 @@ export default function ConsultantDashboard() {
         size="sm"
         onClick={() => setIsClientModalOpen(true)}
         variant="primary"
-        className="flex items-center gap-1 text-xs shrink-0 font-bold"
+        className="flex items-center gap-1 text-xs shrink-0 font-bold h-[42px] px-3.5"
       >
         <UserPlus size={14} />
         <span>Novo</span>
@@ -1252,14 +1140,80 @@ export default function ConsultantDashboard() {
 
       {/* Menu de Personalização de Visualização (Abas Premium) */}
       {portfolio && selectedClient && (
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-card border border-border/40 p-4 rounded-3xl shadow-sm text-left animate-page-enter">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block font-sans">
-              Painel de Assessoria:
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-card border border-border/40 p-4 rounded-3xl shadow-sm text-left animate-page-enter">
+          {/* Título da seção (visível em desktop, adaptado com seletor no mobile) */}
+          <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+            <span className="text-[10px] sm:text-xs uppercase font-extrabold text-secondary tracking-wider block font-sans">
+              Seção do Painel:
             </span>
+            {/* Seletor Dropdown Compacto no Mobile */}
+            <div className="block sm:hidden w-48 xs:w-56">
+              <Select
+                value={activeTab}
+                onChange={e => setActiveTab(e.target.value as any)}
+                options={[
+                  { 
+                    value: 'overview', 
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <LayoutDashboard size={14} className="text-secondary shrink-0" />
+                        <span>Resumo & Risco</span>
+                      </span>
+                    ) 
+                  },
+                  { 
+                    value: 'allocation', 
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <PieChart size={14} className="text-secondary shrink-0" />
+                        <span>Distribuição & Limites</span>
+                      </span>
+                    ) 
+                  },
+                  { 
+                    value: 'rebalancing', 
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <RefreshCw size={14} className="text-secondary shrink-0" />
+                        <span>Rebalanceamento</span>
+                      </span>
+                    ) 
+                  },
+                  { 
+                    value: 'positions', 
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <Briefcase size={14} className="text-secondary shrink-0" />
+                        <span>Posições</span>
+                      </span>
+                    ) 
+                  },
+                  { 
+                    value: 'ledger', 
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <History size={14} className="text-secondary shrink-0" />
+                        <span>Livro-Razão</span>
+                      </span>
+                    ) 
+                  },
+                  { 
+                    value: 'qualitative', 
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <FileText size={14} className="text-secondary shrink-0" />
+                        <span>Relatório & PDF</span>
+                      </span>
+                    ) 
+                  },
+                ]}
+                placeholder="Selecionar Seção"
+              />
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
+          {/* Abas Horizontais tradicionais em telas maiores */}
+          <div className="hidden sm:flex flex-wrap gap-1.5">
             {[
               { id: 'overview', label: 'Resumo & Risco', icon: LayoutDashboard },
               { id: 'allocation', label: 'Distribuição & Limites', icon: PieChart },
@@ -1290,7 +1244,6 @@ export default function ConsultantDashboard() {
           </div>
         </div>
       )}
-
       {portfolio ? (
         <div className={`transition-all duration-300 ${loadingPortfolio ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="space-y-6 animate-page-enter">
@@ -1316,7 +1269,91 @@ export default function ConsultantDashboard() {
             )}
 
             {activeTab === 'allocation' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
+                {/* Card de Limites de Exposição */}
+                <div className="bg-secondary/40 border border-primary p-4 rounded-2xl space-y-4">
+                  {/* Cabeçalho clicável */}
+                  <div 
+                    onClick={() => setLimitsCollapsed(!limitsCollapsed)}
+                    className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <Layers size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-black text-primary">Limites de Exposição</h4>
+                        <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
+                          Defina limites percentuais máximos recomendados para diversificação do portfólio por classe e setor do cliente
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Indicador de expansão */}
+                    <div className="flex items-center gap-2 text-secondary shrink-0">
+                      <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono">
+                        {groupTargets.length}
+                      </span>
+                      <Plus 
+                        size={16} 
+                        className={`transition-transform duration-300 ${!limitsCollapsed ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Grid de Limites (Listagem + Botão Novo Limite) */}
+                  <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
+                    limitsCollapsed ? 'hidden' : 'grid'
+                  }`}>
+                    {groupTargets.map((gt: any) => (
+                      <div 
+                        key={gt.id} 
+                        onClick={() => handleEditGroupTarget(gt)}
+                        className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-indigo-500/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col text-left">
+                            <span className="text-secondary uppercase text-[7px] font-extrabold tracking-wider leading-none">
+                              {gt.group_type === 'class' ? 'Classe' : 'Setor'}
+                            </span>
+                            <span className="text-primary font-black text-xs sm:text-sm mt-0.5 leading-tight">
+                              {gt.group_name}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="h-6 w-[1px] bg-primary/25" />
+                          <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Evita abrir o modal de edição ao excluir
+                              handleDeleteGroupTarget(gt.id);
+                            }}
+                            className="text-secondary hover:text-red-500 transition-colors p-1.5 rounded-xl hover:bg-red-500/10 flex items-center justify-center"
+                            title="Remover limite"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Adicionar Limite Card Button */}
+                    <div 
+                      onClick={() => {
+                        setEditingGroupTarget(null);
+                        setGroupTargetType('class');
+                        setGroupTargetName('Ações Nacionais');
+                        setGroupTargetPct('');
+                        setShowGroupTargetForm(true);
+                      }}
+                      className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-indigo-500/35 hover:border-indigo-500/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 hover:scale-[1.01]"
+                    >
+                      <Plus size={15} className="text-indigo-500" />
+                      <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
                   <ClientAllocationCharts
                     classChartData={classChartData}
@@ -1348,46 +1385,27 @@ export default function ConsultantDashboard() {
             {activeTab === 'positions' && (
               <PositionsTable
                 positions={positions}
-                targetAllocations={targetAllocations}
                 groupTargets={groupTargets}
-                assetPrices={assetPrices}
                 assetTheses={assetTheses}
-                showTargetForm={showTargetForm}
-                setShowTargetForm={setShowTargetForm}
                 showGroupTargetForm={showGroupTargetForm}
-                setShowGroupTargetForm={setShowGroupTargetForm}
-                targetTicker={targetTicker}
-                setTargetTicker={setTargetTicker}
-                targetPct={targetPct}
-                setTargetPct={setTargetPct}
-                targetAssetClass={targetAssetClass}
-                setTargetAssetClass={setTargetAssetClass}
-                targetSector={targetSector}
-                setTargetSector={setTargetSector}
-                isCustomTicker={isCustomTicker}
-                setIsCustomTicker={setIsCustomTicker}
                 groupTargetType={groupTargetType}
                 setGroupTargetType={setGroupTargetType}
                 groupTargetName={groupTargetName}
                 setGroupTargetName={setGroupTargetName}
                 groupTargetPct={groupTargetPct}
                 setGroupTargetPct={setGroupTargetPct}
-                onSaveTarget={handleSaveTarget}
-                onDeleteTarget={handleDeleteTarget}
                 onSaveGroupTarget={handleSaveGroupTarget}
                 onDeleteGroupTarget={handleDeleteGroupTarget}
-                targetSuggestions={targetSuggestions}
-                showTargetSuggestions={showTargetSuggestions}
-                setShowTargetSuggestions={setShowTargetSuggestions}
-                handleCustomTickerChange={handleCustomTickerChange}
-                handleSelectRegisteredTicker={handleSelectRegisteredTicker}
                 onEditAssetClassification={(ticker, clClass, clSector) => {
                   setEditingAssetTicker(ticker)
                   setEditingAssetClass(clClass)
                   setEditingAssetSector(clSector)
                   setIsEditAssetModalOpen(true)
                 }}
-                transactions={transactions}
+                onOpenAssetConfig={(ticker) => {
+                  setAssetDefTicker(ticker)
+                  setAssetDefModalOpen(true)
+                }}
               />
             )}
 
@@ -1721,6 +1739,45 @@ export default function ConsultantDashboard() {
           editingTransaction={editingTransaction}
           onSaved={() => loadPortfolioData(selectedClientId)}
         />
+      )}
+
+      {/* Modal: Definição e Metas de Ativos */}
+      {portfolio && (
+        <AssetDefinitionFormModal
+          isOpen={assetDefModalOpen}
+          onClose={() => setAssetDefModalOpen(false)}
+          portfolioId={portfolio.id}
+          ticker={assetDefTicker}
+          existing={assetDefinitions.find((d) => d.ticker.toUpperCase() === assetDefTicker.toUpperCase()) ?? null}
+          onSaved={() => loadPortfolioData(selectedClientId)}
+        />
+      )}
+
+      {/* Modal: Definir e Editar Limites de Exposição */}
+      {portfolio && (
+        <Modal
+          isOpen={showGroupTargetForm}
+          onClose={() => {
+            setShowGroupTargetForm(false)
+            setEditingGroupTarget(null)
+          }}
+          title="Definir Limites de Exposição"
+          maxWidth="max-w-md"
+        >
+          <InvestmentsGroupTargetForm
+            groupTargetType={groupTargetType}
+            groupTargetName={groupTargetName}
+            groupTargetPct={groupTargetPct}
+            savingGroupTarget={savingGroupTarget}
+            onTypeChange={(type) => {
+              setGroupTargetType(type)
+              setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
+            }}
+            onNameChange={setGroupTargetName}
+            onPctChange={setGroupTargetPct}
+            onSubmit={handleSaveGroupTarget}
+          />
+        </Modal>
       )}
     </div>
   )

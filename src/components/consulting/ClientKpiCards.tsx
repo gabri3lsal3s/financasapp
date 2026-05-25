@@ -35,35 +35,35 @@ export default function ClientKpiCards({
   const yieldPrimary = formatSignedYieldPct(yieldsPercentage)
 
   const yieldSecondary = hasYieldBasis ? (
-    <span className="text-xs text-secondary font-medium ml-1.5 font-sans">
+    <span className="block sm:inline sm:ml-1.5 text-[9px] xs:text-[10px] sm:text-xs text-secondary font-medium font-sans">
       ({accumulatedAmount >= 0 ? '+' : ''}{formatCurrency(accumulatedAmount)})
     </span>
   ) : null
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <Card className="p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-emerald-500 flex items-center justify-between shadow-sm transition-all hover:border-l-emerald-400">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-emerald-500 flex items-center justify-between shadow-sm transition-all hover:border-l-emerald-400">
         <div className="text-left">
-          <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">Patrimônio Líquido</span>
-          <strong className="text-xl font-black text-primary mt-1 block">
+          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">Patrimônio Líquido</span>
+          <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
             {formatCurrency(portfolioValue)}
           </strong>
         </div>
-        <div className="p-2.5 bg-emerald-500/10 text-emerald-500 rounded-lg shrink-0">
-          <Wallet size={20} />
+        <div className="p-1.5 sm:p-2 bg-emerald-500/10 text-emerald-500 rounded-lg shrink-0 flex items-center justify-center">
+          <Wallet size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
         </div>
       </Card>
  
-      <Card className="p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-purple-500 flex items-center justify-between shadow-sm transition-all hover:border-l-purple-400">
+      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-purple-500 flex items-center justify-between shadow-sm transition-all hover:border-l-purple-400">
         <div className="text-left">
-          <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block">{yieldLabel}</span>
-          <strong className="text-xl font-black text-primary mt-1 block">
+          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">{yieldLabel}</span>
+          <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
             <span className={yieldPctClass}>{yieldPrimary}</span>
             {yieldSecondary}
           </strong>
         </div>
-        <div className="p-2.5 bg-purple-500/10 text-purple-500 rounded-lg shrink-0">
-          <TrendingUp size={20} />
+        <div className="p-1.5 sm:p-2 bg-purple-500/10 text-purple-500 rounded-lg shrink-0 flex items-center justify-center">
+          <TrendingUp size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
         </div>
       </Card>
     </div>

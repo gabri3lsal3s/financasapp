@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -6,22 +6,23 @@ import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { formatCurrency } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Percent, Settings2 } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import Input from '@/components/Input'
+
 import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 import toast from 'react-hot-toast'
+import Modal from '@/components/Modal'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
   calculateConsolidatedByClass, 
   calculateConsolidatedBySector 
 } from '@/services/investmentEngine'
-import { searchB3Assets } from '@/services/priceService'
-import { loadPortfolioValuation, getAssetPricingBadgeLabel } from '@/utils/portfolioValuationLoader'
+
+import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
 
 import {
@@ -59,21 +60,9 @@ export default function Investments() {
 
   // Estados adicionais para integração e sincronização de ativos e metas
   const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
-  const [targetAllocations, setTargetAllocations] = useState<any[]>([])
   const [isTxModalOpen, setIsTxModalOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
 
-  const [showTargetForm, setShowTargetForm] = useState<boolean>(false)
-  const [targetTicker, setTargetTicker] = useState<string>('')
-  const [targetPct, setTargetPct] = useState<string>('')
-  const [savingTarget, setSavingTarget] = useState<boolean>(false)
-  const [targetAssetClass, setTargetAssetClass] = useState<string>('')
-  const [targetSector, setTargetSector] = useState<string>('')
-  const [isCustomTicker, setIsCustomTicker] = useState<boolean>(false)
-
-  const [targetSuggestions, setTargetSuggestions] = useState<{ ticker: string, name: string }[]>([])
-  const [showTargetSuggestions, setShowTargetSuggestions] = useState<boolean>(false)
-  const [assetPrices, setAssetPrices] = useState<Record<string, any>>({})
   const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
   const [assetDefModalOpen, setAssetDefModalOpen] = useState(false)
   const [assetDefTicker, setAssetDefTicker] = useState('')
@@ -85,12 +74,31 @@ export default function Investments() {
   const [groupTargetType, setGroupTargetType] = useState<'class' | 'sector'>('class')
   const [groupTargetName, setGroupTargetName] = useState<string>('Ações Nacionais')
   const [groupTargetPct, setGroupTargetPct] = useState<string>('')
+  const [editingGroupTarget, setEditingGroupTarget] = useState<any | null>(null)
+
+  const handleEditGroupTarget = (gt: any) => {
+    setEditingGroupTarget(gt)
+    setGroupTargetType(gt.group_type)
+    setGroupTargetName(gt.group_name)
+    setGroupTargetPct(String(gt.target_percentage))
+    setShowGroupTargetForm(true)
+  }
+
+  // Estados de controle do layout mobile
+  const [expandedAssets, setExpandedAssets] = useState<Record<string, boolean>>({})
+  const [limitsCollapsed, setLimitsCollapsed] = useState<boolean>(true)
+
+  const toggleAssetExpanded = (ticker: string) => {
+    setExpandedAssets(prev => ({
+      ...prev,
+      [ticker]: !prev[ticker]
+    }))
+  }
 
 
 
   const handleOpenTxModal = (tx?: PortfolioTransaction) => {
     setEditingTransaction(tx ?? null)
-    setShowTargetForm(false)
     setIsTxModalOpen(true)
   }
 
@@ -103,7 +111,6 @@ export default function Investments() {
     const quickAdd = searchParams.get('quickAdd')
     if (quickAdd === '1') {
       setEditingTransaction(null)
-      setShowTargetForm(false)
       setIsTxModalOpen(true)
 
       const next = new URLSearchParams(searchParams)
@@ -218,7 +225,6 @@ export default function Investments() {
         .eq('portfolio_id', portfolio.id)
 
       setTransactions(transactionsData || [])
-      setTargetAllocations(targets || [])
       setGroupTargets(groupTargetsData || [])
 
       if (!transactionsData || transactionsData.length === 0) {
@@ -239,12 +245,14 @@ export default function Investments() {
         Number(portfolio.cash_balance) || 0
       )
 
-      setAssetPrices(valuation.prices || {})
       setAssetDefinitions(valuation.definitions)
 
       const { positions, totalValue } = valuation
       const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, groupTargetsData || [])
       const consolidatedSector = calculateConsolidatedBySector(positions, totalValue, groupTargetsData || [])
+
+      console.log('Valuation positions:', positions)
+      console.log('Filtered positions:', positions.filter(pos => pos.ticker !== 'SALDO_INV' && pos.ticker !== 'CAIXA' && pos.pricing_mode !== 'cash'))
 
       setPortfolioData({
         cashBalance: valuation.cashBalance,
@@ -266,124 +274,7 @@ export default function Investments() {
     }
   }, [isOnline])
 
-  const handleSelectRegisteredTicker = (val: string) => {
-    if (val === 'custom') {
-      setIsCustomTicker(true)
-      setTargetTicker('')
-      setTargetAssetClass('')
-      setTargetSector('')
-    } else {
-      setIsCustomTicker(false)
-      setTargetTicker(val)
-      const existing = assetPrices[val.toUpperCase()]
-      if (existing) {
-        setTargetAssetClass(existing.asset_class || '')
-        setTargetSector(existing.sector || '')
-      } else {
-        setTargetAssetClass('')
-        setTargetSector('')
-      }
-    }
-  }
 
-  const handleCustomTickerChange = async (val: string) => {
-    setTargetTicker(val)
-    const tickerUpper = val.toUpperCase().trim()
-    const existing = assetPrices[tickerUpper]
-    if (existing) {
-      setTargetAssetClass(existing.asset_class || '')
-      setTargetSector(existing.sector || '')
-    }
-    if (val.length >= 2) {
-      const suggestions = await searchB3Assets(val)
-      setTargetSuggestions(suggestions)
-      setShowTargetSuggestions(true)
-    } else {
-      setTargetSuggestions([])
-      setShowTargetSuggestions(false)
-    }
-  }
-
-  const handleSaveTarget = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!portfolioId) return
-    setSavingTarget(true)
-
-    try {
-      const ticker = targetTicker.toUpperCase().trim()
-      const pct = parseFloat(targetPct)
-
-      if (!ticker) throw new Error('Insira o ticker do ativo')
-      if (isNaN(pct) || pct < 0 || pct > 100) throw new Error('Percentual de alocação inválido (0 a 100)')
-
-      const currentSum = targetAllocations
-        .filter(t => t.ticker.toUpperCase() !== ticker)
-        .reduce((sum, t) => sum + Number(t.target_percentage), 0)
-
-      if (currentSum + pct > 100.00) {
-        throw new Error(`A soma das alocações passaria de 100% (Atual: ${currentSum}%, Tentativa de adicionar: ${pct}%)`)
-      }
-
-      const { error: upsertError } = await supabase
-        .from('target_allocations')
-        .upsert({
-          portfolio_id: portfolioId,
-          ticker,
-          target_percentage: pct
-        })
-
-      if (upsertError) throw upsertError
-
-      if (targetAssetClass || targetSector) {
-        const { data: existingPrice } = await supabase
-          .from('asset_prices')
-          .select('current_price')
-          .eq('ticker', ticker)
-          .maybeSingle()
-
-        const currentPrice = existingPrice?.current_price || 50.00
-        
-        await supabase
-          .from('asset_prices')
-          .upsert({
-            ticker,
-            current_price: currentPrice,
-            last_updated: new Date().toISOString(),
-            asset_class: targetAssetClass || undefined,
-            sector: targetSector || undefined
-          })
-      }
-
-      toast.success('Meta de alocação atualizada!')
-      setTargetTicker('')
-      setTargetPct('')
-      setTargetAssetClass('')
-      setTargetSector('')
-      setIsCustomTicker(false)
-      setShowTargetForm(false)
-      loadPortfolio()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar meta')
-    } finally {
-      setSavingTarget(false)
-    }
-  }
-
-  const handleDeleteTarget = async (targetId: string) => {
-    try {
-      const { error } = await supabase
-        .from('target_allocations')
-        .delete()
-        .eq('id', targetId)
-
-      if (error) throw error
-
-      toast.success('Meta excluída!')
-      loadPortfolio()
-    } catch (err) {
-      toast.error('Erro ao excluir meta')
-    }
-  }
 
   const handleSaveGroupTarget = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -400,6 +291,7 @@ export default function Investments() {
       const { error } = await supabase
         .from('portfolio_group_targets')
         .upsert({
+          ...(editingGroupTarget?.id ? { id: editingGroupTarget.id } : {}),
           portfolio_id: portfolioId,
           group_type: groupTargetType,
           group_name: name,
@@ -408,8 +300,9 @@ export default function Investments() {
 
       if (error) throw error
 
-      toast.success('Limite de exposição atualizado!')
+      toast.success(editingGroupTarget ? 'Limite de exposição atualizado!' : 'Limite de exposição cadastrado!')
       setGroupTargetPct('')
+      setEditingGroupTarget(null)
       setShowGroupTargetForm(false)
       loadPortfolio()
     } catch (err) {
@@ -463,79 +356,134 @@ export default function Investments() {
         ) : portfolioData && (
           <div className="space-y-6 animate-fade-in">
             {/* Cards de KPIs da Consultoria */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card className="p-4 md:p-5 flex flex-col justify-between border-l-4 border-l-[var(--color-income)]">
-                <p className="text-xs font-semibold text-secondary tracking-wide uppercase">Patrimônio sob Consultoria</p>
-                <p className="text-2xl font-bold text-primary mt-2">
-                  {formatCurrency(portfolioData.totalValue)}
-                </p>
-                <p className="text-xs text-secondary mt-1">Valor total alocado em ativos</p>
-              </Card>
-              <Card className="p-4 md:p-5 flex flex-col justify-between border-l-4 border-l-[var(--color-balance)]">
-                <p className="text-xs font-semibold text-secondary tracking-wide uppercase">Ativos Gerenciados</p>
-                <p className="text-2xl font-bold text-primary mt-2">
-                  {portfolioData.positions.length}
-                </p>
-                <p className="text-xs text-secondary mt-1">Tickers recomendados pelo gestor</p>
-              </Card>
-            </div>
+            {(() => {
+              const nonCashPositions = portfolioData.positions.filter(p => p.pricing_mode !== 'cash')
+              const totalCost = nonCashPositions.reduce((sum, p) => sum + p.cost_basis, 0)
+              const totalCurrent = nonCashPositions.reduce((sum, p) => sum + p.total_value, 0)
+              const consolidatedYield = totalCost > 0 ? ((totalCurrent - totalCost) / totalCost) * 100 : 0
+              const consolidatedGain = totalCurrent - totalCost
+              const isPositive = consolidatedYield >= 0
+
+              const totalCash = portfolioData.positions
+                .filter(p => p.ticker === 'SALDO_INV' || p.ticker === 'CAIXA' || p.pricing_mode === 'cash')
+                .reduce((sum, p) => sum + p.total_value, 0)
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <Card className="p-3 sm:p-5 flex flex-col justify-between border-l-4 border-l-[var(--color-income)]">
+                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Líquido</p>
+                    <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
+                      {formatCurrency(portfolioData.totalValue)}
+                    </p>
+                    <p className="hidden sm:block text-xs text-secondary mt-1">Valor total de investimentos</p>
+                  </Card>
+                  <Card className="p-3 sm:p-5 flex flex-col justify-between border-l-4 border-l-indigo-500">
+                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Saldo em Caixa</p>
+                    <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
+                      {formatCurrency(totalCash)}
+                    </p>
+                    <p className="hidden sm:block text-xs text-secondary mt-1">Disponível para novos aportes</p>
+                  </Card>
+                  <Card className="p-3 sm:p-5 flex flex-col justify-between border-l-4 border-l-[var(--color-balance)]">
+                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Rentabilidade Consolidada</p>
+                    <div className="flex items-baseline gap-1.5 mt-1 sm:mt-2 flex-wrap">
+                      <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
+                        isPositive ? 'text-income' : 'text-expense'
+                      }`}>
+                        {isPositive ? '+' : ''}{consolidatedYield.toFixed(2)}%
+                      </p>
+                      <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
+                        consolidatedGain >= 0 ? 'text-income' : 'text-expense'
+                      }`}>
+                        ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
+                      </span>
+                    </div>
+                    <p className="hidden sm:block text-xs text-secondary mt-1">Retorno sobre o capital investido</p>
+                  </Card>
+                </div>
+              )
+            })()}
             <div className="bg-secondary/40 border border-primary p-4 rounded-2xl space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2.5 text-left">
-                  <Layers size={18} className="text-indigo-500" />
+              {/* Cabeçalho clicável */}
+              <div 
+                onClick={() => setLimitsCollapsed(!limitsCollapsed)}
+                className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
+              >
+                <div className="flex items-start gap-2.5">
+                  <Layers size={18} className="text-indigo-500 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-bold text-primary">Limites de Exposição por Classe & Setor</h4>
-                    <p className="text-[10px] text-secondary">Defina limites percentuais máximos recomendados para diversificação do seu portfólio</p>
+                    <h4 className="text-sm font-black text-primary">Limites de Exposição</h4>
+                    <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
+                      Defina limites percentuais máximos recomendados para diversificação do seu portfólio por classe e setor
+                    </p>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowGroupTargetForm(!showGroupTargetForm)}
-                  className="flex items-center gap-1.5 text-xs border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 dark:hover:text-indigo-300 py-1.5 px-3 rounded-xl font-semibold shadow-sm transition-all"
-                >
-                  <Plus size={13} />
-                  {showGroupTargetForm ? 'Fechar Painel' : 'Definir Limites'}
-                </Button>
+                
+                {/* Indicador de expansão */}
+                <div className="flex items-center gap-2 text-secondary shrink-0">
+                  <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono">
+                    {groupTargets.length}
+                  </span>
+                  <Plus 
+                    size={16} 
+                    className={`transition-transform duration-300 ${!limitsCollapsed ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
+                  />
+                </div>
               </div>
 
-              {showGroupTargetForm && (
-                <InvestmentsGroupTargetForm
-                  groupTargetType={groupTargetType}
-                  groupTargetName={groupTargetName}
-                  groupTargetPct={groupTargetPct}
-                  savingGroupTarget={savingGroupTarget}
-                  onTypeChange={(type) => {
-                    setGroupTargetType(type)
-                    setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
-                  }}
-                  onNameChange={setGroupTargetName}
-                  onPctChange={setGroupTargetPct}
-                  onSubmit={handleSaveGroupTarget}
-                />
-              )}
-
-              {/* Listagem de Limites Cadastrados */}
-              {groupTargets.length > 0 && (
-                <div className="pt-2 flex flex-wrap gap-2 text-left">
-                  {groupTargets.map((gt: any) => (
-                    <span key={gt.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary border border-primary rounded-xl text-xs font-semibold text-primary shadow-sm hover:border-indigo-500/30 transition-all animate-page-enter">
-                      <span className="text-secondary uppercase text-[8px] font-extrabold tracking-wider">
-                        {gt.group_type === 'class' ? 'Classe' : 'Setor'}:
-                      </span>
-                      <strong>{gt.group_name}</strong> ({gt.target_percentage}%)
+              {/* Grid de Limites (Listagem + Botão Novo Limite) */}
+              <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
+                limitsCollapsed ? 'hidden' : 'grid'
+              }`}>
+                {groupTargets.map((gt: any) => (
+                  <div 
+                    key={gt.id} 
+                    onClick={() => handleEditGroupTarget(gt)}
+                    className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-indigo-500/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col text-left">
+                        <span className="text-secondary uppercase text-[7px] font-extrabold tracking-wider leading-none">
+                          {gt.group_type === 'class' ? 'Classe' : 'Setor'}
+                        </span>
+                        <span className="text-primary font-black text-xs sm:text-sm mt-0.5 leading-tight">
+                          {gt.group_name}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="h-6 w-[1px] bg-primary/25" />
+                      <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
                       <button
                         type="button"
-                        onClick={() => handleDeleteGroupTarget(gt.id)}
-                        className="text-secondary hover:text-red-500 transition-colors ml-1.5 flex items-center justify-center"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita abrir o modal de edição ao excluir
+                          handleDeleteGroupTarget(gt.id);
+                        }}
+                        className="text-secondary hover:text-red-500 transition-colors p-1.5 rounded-xl hover:bg-red-500/10 flex items-center justify-center"
                         title="Remover limite"
                       >
-                        <Trash2 size={11} />
+                        <Trash2 size={13} />
                       </button>
-                    </span>
-                  ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Adicionar Limite Card Button */}
+                <div 
+                  onClick={() => {
+                    setEditingGroupTarget(null);
+                    setGroupTargetType('class');
+                    setGroupTargetName('Ações Nacionais');
+                    setGroupTargetPct('');
+                    setShowGroupTargetForm(true);
+                  }}
+                  className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-indigo-500/35 hover:border-indigo-500/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 hover:scale-[1.01]"
+                >
+                  <Plus size={15} className="text-indigo-500" />
+                  <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Grid de Consolidações: Classes de Ativos e Setores Econômicos */}
@@ -552,7 +500,7 @@ export default function Investments() {
                   {portfolioData.consolidatedClass.map((cls) => {
                     const isPositive = cls.yield_pct >= 0
                     return (
-                      <div key={cls.name} className="p-3 bg-secondary border border-primary rounded-xl space-y-2.5">
+                      <div key={cls.name} className="p-3 bg-secondary border border-primary rounded-xl space-y-2.5 text-left">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-primary text-sm">{cls.name}</span>
                           <div className="flex items-center gap-2">
@@ -601,7 +549,7 @@ export default function Investments() {
                   {portfolioData.consolidatedSector.map((sec) => {
                     const isPositive = sec.yield_pct >= 0
                     return (
-                      <div key={sec.name} className="p-3 bg-secondary border border-primary rounded-xl space-y-2.5">
+                      <div key={sec.name} className="p-3 bg-secondary border border-primary rounded-xl space-y-2.5 text-left">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-primary text-sm">{sec.name}</span>
                           <div className="flex items-center gap-2">
@@ -644,134 +592,10 @@ export default function Investments() {
             <Card className="p-4 lg:p-6 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                 <h3 className="text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setShowTargetForm(!showTargetForm)
-                      const registered = Array.from(new Set([
-                        ...transactions.map(t => t.ticker.toUpperCase()),
-                        ...targetAllocations.map(t => t.ticker.toUpperCase())
-                      ]))
-                      setIsCustomTicker(registered.length === 0)
-                    }}
-                    className="flex items-center gap-1.5 text-xs border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 py-1 px-2.5 rounded-lg"
-                  >
-                    <Percent size={13} className="text-emerald-500" />
-                    Ajustar Metas
-                  </Button>
-                </div>
               </div>
 
-              {showTargetForm && (() => {
-                const registeredTickers = Array.from(new Set([
-                  ...transactions.map(t => t.ticker.toUpperCase()),
-                  ...targetAllocations.map(t => t.ticker.toUpperCase())
-                ])).sort()
-
-                return (
-                  <form onSubmit={handleSaveTarget} className="p-4 bg-muted/20 border border-border/40 rounded-xl mb-4.5 flex flex-wrap md:flex-nowrap gap-3 items-end animate-page-enter">
-                    <div className="flex-1 min-w-[150px] text-left">
-                      <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Selecionar Ticker</label>
-                      <select
-                        value={isCustomTicker ? 'custom' : targetTicker}
-                        onChange={e => handleSelectRegisteredTicker(e.target.value)}
-                        className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                      >
-                        <option value="">Selecione um ativo...</option>
-                        {registeredTickers.map(ticker => (
-                          <option key={ticker} value={ticker}>{ticker}</option>
-                        ))}
-                        <option value="custom">➕ Outro Ativo (Digitar...)</option>
-                      </select>
-                    </div>
-
-                    {isCustomTicker && (
-                      <div className="flex-1 min-w-[120px] relative text-left animate-page-enter">
-                        <Input
-                          label="Digitar Ticker"
-                          type="text"
-                          required
-                          placeholder="Ex: WEGE3"
-                          value={targetTicker}
-                          onChange={e => handleCustomTickerChange(e.target.value)}
-                          onBlur={() => setTimeout(() => setShowTargetSuggestions(false), 200)}
-                          onFocus={() => targetTicker.length >= 2 && setShowTargetSuggestions(true)}
-                          className="uppercase text-sm font-semibold text-primary bg-primary"
-                        />
-                        {showTargetSuggestions && targetSuggestions.length > 0 && (
-                          <div className="absolute z-[1001] w-full mt-1 bg-primary border border-primary rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto">
-                            {targetSuggestions.map(s => (
-                              <button
-                                key={s.ticker}
-                                type="button"
-                                onClick={() => {
-                                  setTargetTicker(s.ticker)
-                                  const existing = assetPrices[s.ticker.toUpperCase()]
-                                  if (existing) {
-                                    setTargetAssetClass(existing.asset_class || '')
-                                    setTargetSector(existing.sector || '')
-                                  }
-                                  setShowTargetSuggestions(false)
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-tertiary text-primary flex items-center justify-between border-b border-primary/10 last:border-0"
-                              >
-                                <span className="font-bold">{s.ticker}</span>
-                                <span className="text-[10px] text-secondary truncate max-w-[150px]">{s.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-[120px] text-left">
-                      <Input
-                        label="% Alvo Ideal"
-                        type="number"
-                        required
-                        step="0.1"
-                        placeholder="Ex: 15"
-                        value={targetPct}
-                        onChange={e => setTargetPct(e.target.value)}
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[140px] text-left">
-                      <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Classe (Opcional)</label>
-                      <select
-                        value={targetAssetClass}
-                        onChange={e => setTargetAssetClass(e.target.value)}
-                        className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                      >
-                        <option value="">Inferir Auto</option>
-                        <option value="Ações Nacionais">Ações Nacionais</option>
-                        <option value="Ações Internacionais">Ações Internacionais</option>
-                        <option value="Fundos Imobiliários">Fundos Imobiliários</option>
-                        <option value="ETFs Nacionais">ETFs Nacionais</option>
-                        <option value="ETFs Internacionais">ETFs Internacionais</option>
-                        <option value="Criptoativos">Criptoativos</option>
-                        <option value="Renda Fixa">Renda Fixa</option>
-                      </select>
-                    </div>
-                    <div className="flex-1 min-w-[140px] text-left">
-                      <Input
-                        label="Setor (Opcional)"
-                        type="text"
-                        placeholder="Ex: Energia"
-                        value={targetSector}
-                        onChange={e => setTargetSector(e.target.value)}
-                        className="text-sm font-semibold"
-                      />
-                    </div>
-                    <Button type="submit" disabled={savingTarget} variant="primary" className="text-xs h-[42px] shrink-0 font-extrabold shadow-sm">
-                      Salvar Meta
-                    </Button>
-                  </form>
-                )
-              })()}
-
-              <div className="overflow-x-auto border border-primary rounded-xl">
+              {/* 1. Tabela para Desktop */}
+              <div className="hidden md:block overflow-x-auto border border-primary rounded-xl">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="bg-secondary border-b border-primary text-xs font-bold text-secondary uppercase tracking-wider">
@@ -779,11 +603,9 @@ export default function Investments() {
                       <th className="p-3">Classe</th>
                       <th className="p-3">Setor</th>
                       <th className="p-3 text-right">Qtd</th>
-                      <th className="p-3 text-right">Custo Médio</th>
                       <th className="p-3 text-right">Preço Atual</th>
                       <th className="p-3 text-right">Valor Total</th>
                       <th className="p-3 text-right">Rent. bruta</th>
-                      <th className="p-3 text-right">Rent. líq.</th>
                       <th className="p-3 text-center">Part. Real</th>
                       <th className="p-3 text-center">Part. Alvo</th>
                       <th className="p-3 text-center">Ações</th>
@@ -791,17 +613,18 @@ export default function Investments() {
                   </thead>
                   <tbody className="divide-y divide-primary">
                     {(() => {
+                      const displayPositions = portfolioData.positions
                       const positionsByClass: Record<string, AssetPosition[]> = {}
-                      portfolioData.positions.forEach(pos => {
+                      displayPositions.forEach(pos => {
                         const cls = pos.asset_class || 'Não classificado'
                         if (!positionsByClass[cls]) positionsByClass[cls] = []
                         positionsByClass[cls].push(pos)
                       })
                       return Object.entries(positionsByClass).map(([className, classPositions]) => (
-                        <div key={className} style={{ display: 'contents' }}>
+                        <Fragment key={className}>
                           {/* Linha de cabeçalho do grupo de classe */}
                           <tr className="bg-secondary/60 font-bold border-l-4 border-l-[var(--color-income)] text-primary text-xs tracking-wider">
-                            <td colSpan={12} className="p-3.5 uppercase font-extrabold text-secondary">
+                            <td colSpan={10} className="p-3.5 uppercase font-extrabold text-secondary">
                               {className}
                             </td>
                           </tr>
@@ -810,12 +633,10 @@ export default function Investments() {
                               <td className="p-3 pl-6 font-bold text-primary">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="w-1.5 h-1.5 rounded-full bg-income shrink-0" />
-                                  {pos.ticker === 'SALDO_INV' || pos.ticker === 'CAIXA'
-                                    ? 'Saldo em caixa'
-                                    : pos.ticker}
-                                  {getAssetPricingBadgeLabel(pos) && (
-                                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">
-                                      {getAssetPricingBadgeLabel(pos)}
+                                  {pos.ticker}
+                                  {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
+                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                      Cotação Desatualizada
                                     </span>
                                   )}
                                 </div>
@@ -823,39 +644,19 @@ export default function Investments() {
                               <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
                               <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
                               <td className="p-3 text-right text-primary font-medium">
-                                {pos.pricing_mode === 'cash' ? '—' : pos.quantity.toLocaleString('pt-BR')}
+                                {pos.quantity.toLocaleString('pt-BR')}
                               </td>
                               <td className="p-3 text-right text-secondary">
-                                {pos.pricing_mode === 'cash' ? '—' : formatCurrency(pos.average_price)}
-                              </td>
-                              <td className="p-3 text-right text-secondary">
-                                {pos.pricing_mode === 'cash' ? '—' : formatCurrency(pos.current_price)}
+                                {formatCurrency(pos.current_price)}
                               </td>
                               <td className="p-3 text-right text-primary font-semibold">{formatCurrency(pos.total_value)}</td>
-                              <td className={`p-3 text-right font-semibold ${pos.pricing_mode === 'cash' ? 'text-secondary' : pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
-                                {pos.pricing_mode === 'cash' ? '—' : `${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
-                              </td>
-                              <td className={`p-3 text-right font-semibold ${pos.pricing_mode === 'cash' ? 'text-secondary' : pos.net_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
-                                {pos.pricing_mode === 'cash' ? '—' : `${pos.net_yield_pct >= 0 ? '+' : ''}${pos.net_yield_pct.toFixed(2)}%`}
+                              <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
+                                {`${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
                               </td>
                               <td className="p-3 text-center font-bold text-primary">{pos.current_percentage.toFixed(1)}%</td>
-                              <td className="p-3 text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <span className="font-bold text-income">{pos.target_percentage.toFixed(0)}%</span>
-                                    {pos.target_percentage > 0 && (
-                                      <button
-                                        onClick={() => {
-                                          const targetObj = targetAllocations.find(t => t.ticker.toUpperCase() === pos.ticker);
-                                          if (targetObj) handleDeleteTarget(targetObj.id);
-                                        }}
-                                        className="text-secondary hover:text-red-500 transition-colors"
-                                        title="Remover meta"
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
+                              <td className="p-3 text-center font-bold text-income">
+                                {pos.target_percentage.toFixed(0)}%
+                              </td>
                               <td className="p-3 text-center">
                                 <button
                                   type="button"
@@ -864,19 +665,178 @@ export default function Investments() {
                                     setAssetDefModalOpen(true)
                                   }}
                                   className="text-secondary hover:text-primary transition-colors"
-                                  title="Configurar precificação"
+                                  title="Configurar Ativo"
                                 >
                                   <Settings2 size={14} />
                                 </button>
                               </td>
                             </tr>
                           ))}
-                        </div>
+                        </Fragment>
                       ))
                     })()}
 
                   </tbody>
                 </table>
+              </div>
+
+              {/* 2. Visualização em Cards para Mobile */}
+              <div className="block md:hidden space-y-4">
+                {(() => {
+                  const displayPositions = portfolioData.positions
+                  const positionsByClass: Record<string, AssetPosition[]> = {}
+                  displayPositions.forEach(pos => {
+                    const cls = pos.asset_class || 'Não classificado'
+                    if (!positionsByClass[cls]) positionsByClass[cls] = []
+                    positionsByClass[cls].push(pos)
+                  })
+                  
+                  return Object.entries(positionsByClass).map(([className, classPositions]) => (
+                    <div key={className} className="space-y-2">
+                      {/* Cabeçalho do Grupo de Classe */}
+                      <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-1.5 rounded-lg select-none text-left">
+                        {className}
+                      </div>
+
+                      {/* Cards de Ativos */}
+                      <div className="space-y-3">
+                        {classPositions.map((pos) => {
+                          const isGrossPositive = pos.gross_yield_pct >= 0;
+                          const isExpanded = !!expandedAssets[pos.ticker];
+                          
+                          return (
+                            <div 
+                              key={pos.ticker}
+                              className="bg-card border border-border/40 rounded-2xl shadow-sm transition-all animate-page-enter overflow-hidden"
+                            >
+                              {/* Cabeçalho compacto clicável */}
+                              <div 
+                                onClick={() => toggleAssetExpanded(pos.ticker)}
+                                className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
+                                  <div className="text-left">
+                                    <span className="font-mono font-black text-primary text-sm block leading-tight">
+                                      {pos.ticker}
+                                    </span>
+                                    <span className="text-[10px] text-secondary font-medium block">
+                                      {pos.sector || 'Outros'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-right">
+                                  <div>
+                                    <span className="text-xs font-black text-primary font-mono block leading-tight">
+                                      {formatCurrency(pos.total_value)}
+                                    </span>
+                                    <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                      {isGrossPositive ? '+' : ''}{pos.gross_yield_pct.toFixed(2)}%
+                                    </span>
+                                  </div>
+                                  <div className="text-secondary">
+                                    <Plus 
+                                      size={15} 
+                                      className={`transition-transform duration-300 ${isExpanded ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Conteúdo Expandido */}
+                              {isExpanded && (
+                                <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10">
+                                  {/* Grid de Métricas */}
+                                  <div className="grid grid-cols-2 gap-3 text-left bg-secondary/30 p-2.5 rounded-xl border border-primary/10">
+                                    <div>
+                                      <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
+                                      <span className="text-xs font-bold text-primary font-mono">
+                                        {pos.quantity.toLocaleString('pt-BR')}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
+                                      <span className="text-xs font-bold text-primary font-mono">
+                                        {formatCurrency(pos.current_price)}
+                                      </span>
+                                    </div>
+                                    <div className="col-span-2">
+                                      <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
+                                      <span className="text-xs font-bold text-primary font-mono">
+                                        {formatCurrency(pos.cost_basis)}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="col-span-2 pt-2 border-t border-primary/10 text-xs">
+                                      <div>
+                                        <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
+                                        <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                          {isGrossPositive ? '+' : ''}{pos.gross_yield_pct.toFixed(2)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Progresso de Metas de Exposição */}
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-[10px]">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-secondary font-medium">Real:</span>
+                                        <span className="font-mono font-bold text-primary">{pos.current_percentage.toFixed(1)}%</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-secondary font-medium">Meta:</span>
+                                        <span className="font-mono font-bold text-income">{pos.target_percentage.toFixed(0)}%</span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Barra de Progresso elegante */}
+                                    <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
+                                      <div 
+                                        className="h-full bg-income rounded-full transition-all duration-500"
+                                        style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
+                                      />
+                                      {pos.target_percentage > 0 && (
+                                        <div 
+                                          className="absolute top-0 bottom-0 w-0.5 bg-indigo-300 dark:bg-indigo-700"
+                                          style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Precificação e Ações rápidas */}
+                                  <div className="flex justify-between items-center pt-2 border-t border-primary/5">
+                                    <div>
+                                      {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
+                                        <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                          Cotação Desatualizada
+                                        </span>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAssetDefTicker(pos.ticker);
+                                        setAssetDefModalOpen(true);
+                                      }}
+                                      className="flex items-center gap-1.5 text-[10px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition-all py-1.5 px-3 border border-indigo-500/20 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
+                                    >
+                                      <Settings2 size={12} />
+                                      <span>Configurar Ativo</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             </Card>
 
@@ -903,7 +863,7 @@ export default function Investments() {
                       <div>
                         <div className="flex items-center gap-2">
                           <strong className="text-primary font-bold">
-                            {tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA'
+                            {tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA' || tx.ticker === 'SALDO EM CAIXA' || tx.ticker === 'SALDO_EM_CAIXA'
                               ? 'Saldo em caixa'
                               : tx.ticker}
                           </strong>
@@ -954,6 +914,26 @@ export default function Investments() {
             existing={assetDefinitions.find((d) => d.ticker.toUpperCase() === assetDefTicker.toUpperCase()) ?? null}
             onSaved={loadPortfolio}
           />
+          <Modal
+            isOpen={showGroupTargetForm}
+            onClose={() => setShowGroupTargetForm(false)}
+            title="Definir Limites de Exposição"
+            maxWidth="max-w-md"
+          >
+            <InvestmentsGroupTargetForm
+              groupTargetType={groupTargetType}
+              groupTargetName={groupTargetName}
+              groupTargetPct={groupTargetPct}
+              savingGroupTarget={savingGroupTarget}
+              onTypeChange={(type) => {
+                setGroupTargetType(type)
+                setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
+              }}
+              onNameChange={setGroupTargetName}
+              onPctChange={setGroupTargetPct}
+              onSubmit={handleSaveGroupTarget}
+            />
+          </Modal>
         </>
       )}
     </div>

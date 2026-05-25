@@ -36,9 +36,9 @@ export default function InvestmentsGroupTargetForm({
   onSubmit,
 }: InvestmentsGroupTargetFormProps) {
   return (
-    <form onSubmit={onSubmit} className="p-4 bg-primary/40 border border-primary rounded-xl space-y-4 animate-page-enter">
-      <div className="flex flex-wrap gap-3 items-end text-left">
-        <div className="flex-1 min-w-[150px]">
+    <form onSubmit={onSubmit} className="space-y-4 text-left w-full animate-page-enter">
+      <div className="flex flex-col gap-4">
+        <div className="w-full">
           <Select
             label="Tipo de Limite"
             value={groupTargetType}
@@ -54,7 +54,7 @@ export default function InvestmentsGroupTargetForm({
           />
         </div>
 
-        <div className="flex-1 min-w-[200px]">
+        <div className="w-full">
           {groupTargetType === 'class' ? (
             <Select
               label="Classe de Ativo"
@@ -76,7 +76,7 @@ export default function InvestmentsGroupTargetForm({
           )}
         </div>
 
-        <div className="w-[120px]">
+        <div className="w-full">
           <Input
             label="Limite Alvo (%)"
             type="number"
@@ -84,18 +84,20 @@ export default function InvestmentsGroupTargetForm({
             placeholder="Ex: 30"
             value={groupTargetPct}
             onChange={(event) => onPctChange(event.target.value)}
-            className="text-sm font-semibold text-primary bg-primary"
+            className="text-sm font-semibold text-primary bg-primary font-mono"
           />
         </div>
 
-        <Button
-          type="submit"
-          disabled={savingGroupTarget}
-          variant="primary"
-          className="text-xs h-[42px] shrink-0 font-extrabold px-5 shadow-sm"
-        >
-          {savingGroupTarget ? 'Salvando...' : 'Salvar Limite'}
-        </Button>
+        <div className="pt-2 flex justify-end">
+          <Button
+            type="submit"
+            disabled={savingGroupTarget}
+            variant="primary"
+            className="w-full sm:w-auto text-xs h-[42px] font-extrabold px-6 shadow-sm"
+          >
+            {savingGroupTarget ? 'Salvando...' : 'Salvar Limite'}
+          </Button>
+        </div>
       </div>
     </form>
   )

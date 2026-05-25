@@ -18,16 +18,16 @@ export interface CashOffsetPlan {
   sellTransactions: Array<{ ticker: string; quantity: number; price: number }>
 }
 
-const LEGACY_CASH_TICKERS = new Set(['SALDO_INV', 'CAIXA'])
+const LEGACY_CASH_TICKERS = new Set(['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'])
 
 export function resolvePricingMode(
   ticker: string,
   definitions: PortfolioAssetDefinition[]
 ): PortfolioPricingMode {
-  const upper = ticker.toUpperCase()
-  const found = definitions.find((d) => d.ticker.toUpperCase() === upper)
-  if (found) return found.pricing_mode
+  const upper = ticker.toUpperCase().trim()
   if (LEGACY_CASH_TICKERS.has(upper)) return 'cash'
+  const found = definitions.find((d) => d.ticker.toUpperCase().trim() === upper)
+  if (found) return found.pricing_mode
   return 'market'
 }
 
@@ -38,7 +38,7 @@ function buildPositionLedger(
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
 
   for (const tx of sorted) {
-    const ticker = tx.ticker.toUpperCase()
+    const ticker = tx.ticker.toUpperCase().trim()
     if (!map[ticker]) {
       map[ticker] = { quantity: 0, totalCost: 0 }
     }
@@ -81,14 +81,29 @@ export function listAvailableCashBalances(
 
   for (const ticker of tickers) {
     if (resolvePricingMode(ticker, definitions) !== 'cash') continue
-    const pos = ledger[ticker]
-    if (!pos || pos.quantity <= 0 || pos.totalCost <= 0) continue
+    
+    const pos = ledger[ticker.trim()] ?? ledger[ticker] ?? { quantity: 0, totalCost: 0 }
+    const def = definitions.find((d) => d.ticker.toUpperCase().trim() === ticker.trim())
 
-    const averageUnit = pos.totalCost / pos.quantity
+    // Resolve o saldo do caixa exatamente como no valuationEngine
+    let balance = 0
+    if (def && def.applied_amount != null) {
+      balance = Number(def.applied_amount)
+    } else if (def && def.manual_current_value != null) {
+      balance = Number(def.manual_current_value)
+    } else {
+      balance = pos.totalCost
+    }
+
+    if (balance <= 0) continue
+
+    const qty = pos.quantity > 0 ? pos.quantity : 1
+    const averageUnit = balance / qty
+
     slots.push({
       ticker,
-      balance: Math.round(pos.totalCost * 100) / 100,
-      quantity: pos.quantity,
+      balance: Math.round(balance * 100) / 100,
+      quantity: qty,
       averageUnit: Math.round(averageUnit * 10000) / 10000,
     })
   }
@@ -177,3 +192,27 @@ export function computeCashOffsetPreview(
 
   return { ...plan, availableCash }
 }
+
+export function getPreferredCashTicker(
+  transactions: PortfolioTransaction[],
+  definitions: PortfolioAssetDefinition[]
+): string {
+  const cashDef = definitions.find((d) => d.pricing_mode === 'cash')
+  if (cashDef) return cashDef.ticker.toUpperCase()
+
+  const cashTx = [...transactions]
+    .reverse()
+    .find((tx) => tx.ticker === 'CAIXA' || tx.ticker === 'SALDO_INV' || tx.ticker === 'SALDO EM CAIXA' || tx.ticker === 'SALDO_EM_CAIXA')
+  if (cashTx) return cashTx.ticker.toUpperCase()
+
+  return 'CAIXA'
+}
+
+export function calculateLedgerCashBalance(
+  transactions: PortfolioTransaction[],
+  definitions: PortfolioAssetDefinition[]
+): number {
+  const slots = listAvailableCashBalances(transactions, definitions)
+  return slots.reduce((sum, s) => sum + s.balance, 0)
+}
+

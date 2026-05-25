@@ -232,6 +232,33 @@ describe('valuationEngine', () => {
     expect(result.positions[0].cost_basis).toBe(323.91)
   })
 
+  it('identifica SALDO EM CAIXA como cash por padrao mesmo sem definicao explicita', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'Saldo em caixa',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 368.24,
+        date: '2026-05-24',
+        created_at: '',
+      },
+    ]
+
+    const result = calculatePortfolioValuation({
+      transactions,
+      definitions: [],
+      targets: [],
+      prices: {},
+      cashBalance: 0,
+      indexRatesByIndexer: { none: {}, cdi: {}, selic: {}, ipca: {} },
+    })
+
+    expect(result.positions[0].pricing_mode).toBe('cash')
+    expect(result.positions[0].total_value).toBe(368.24)
+  })
+
   it('saldo em caixa reduz com venda (retirada)', () => {
     const transactions: PortfolioTransaction[] = [
       {

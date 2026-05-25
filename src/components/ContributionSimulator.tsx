@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Portfolio } from '@/types'
 import { AssetPosition } from '@/services/investmentEngine'
 import { supabase } from '@/lib/supabase'
@@ -6,6 +6,11 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import { Check, Loader2, ArrowUpRight, AlertCircle } from 'lucide-react'
+import {
+  fetchPortfolioCashContext,
+  reconcileCashOffsetOnTransactionSave,
+} from '@/services/cashOffsetService'
+import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 
 interface ContributionSimulatorProps {
   portfolio: Portfolio
@@ -39,6 +44,12 @@ export default function ContributionSimulator({
   // Total da carteira atual (apenas ativos)
   const portfolioCurrentValue = positions.reduce((sum, p) => sum + p.total_value, 0)
 
+  const currentCash = useMemo(() => {
+    return positions
+      .filter(p => p.ticker === 'SALDO_INV' || p.ticker === 'CAIXA' || p.ticker === 'SALDO EM CAIXA' || p.ticker === 'SALDO_EM_CAIXA' || p.pricing_mode === 'cash')
+      .reduce((sum, p) => sum + p.total_value, 0)
+  }, [positions])
+
   const handleSimulate = (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -56,6 +67,11 @@ export default function ContributionSimulator({
     // Novo patrimônio projetado = Patrimônio atual + Aporte
     const projectedValue = portfolioCurrentValue + amount
 
+    // Filtra fora posições de caixa para o cálculo de distribuição do aporte
+    const nonCashPositions = positions.filter(
+      pos => pos.pricing_mode !== 'cash' && pos.ticker !== 'CAIXA' && pos.ticker !== 'SALDO_INV' && pos.ticker !== 'SALDO EM CAIXA' && pos.ticker !== 'SALDO_EM_CAIXA'
+    )
+
     // 1. Calcula o Gap (Déficit) de cada ativo com base na meta de alocação no novo patrimônio
     const rows: {
       ticker: string
@@ -64,7 +80,7 @@ export default function ContributionSimulator({
       currentValue: number
       gap: number
       currentPrice: number
-    }[] = positions.map(pos => {
+    }[] = nonCashPositions.map(pos => {
       const targetValue = (pos.target_percentage / 100) * projectedValue
       const gap = targetValue - pos.total_value
       return {
@@ -137,11 +153,43 @@ export default function ContributionSimulator({
         }
       })
 
-      const { error: txsError } = await supabase
+      const { data: insertedTxs, error: txsError } = await supabase
         .from('portfolio_transactions')
         .insert(transactionsToInsert)
+        .select()
 
       if (txsError) throw txsError
+
+      // Reconciliar os offsets de caixa vinculados no livro-razão para cada transação de compra inserida
+      if (insertedTxs && insertedTxs.length > 0) {
+        for (const tx of insertedTxs) {
+          const context = await fetchPortfolioCashContext(portfolio.id)
+          const def = context.definitions.find(d => d.ticker.toUpperCase() === tx.ticker.toUpperCase())
+          const assetPricingMode = def?.pricing_mode || 'market'
+
+          await reconcileCashOffsetOnTransactionSave({
+            portfolioId: portfolio.id,
+            transactionId: tx.id,
+            amount: Number(tx.quantity) * Number(tx.price),
+            date: tx.date,
+            assetPricingMode,
+            operationType: 'buy',
+            transactions: context.transactions,
+            definitions: context.definitions,
+          })
+        }
+      }
+
+      // Sincronizar portfolios.cash_balance com a soma do saldo em caixa do livro-razão
+      const updatedContext = await fetchPortfolioCashContext(portfolio.id)
+      const finalLedgerCash = calculateLedgerCashBalance(updatedContext.transactions, updatedContext.definitions)
+
+      const { error: updatePortError } = await supabase
+        .from('portfolios')
+        .update({ cash_balance: finalLedgerCash })
+        .eq('id', portfolio.id)
+
+      if (updatePortError) throw updatePortError
 
       setSuccess(true)
       setContributionAmount('')
@@ -168,9 +216,22 @@ export default function ContributionSimulator({
       </div>
 
       <form onSubmit={handleSimulate} className="flex flex-col sm:flex-row gap-3 mb-6 items-end">
-        <div className="flex-1">
+        <div className="flex-1 w-full text-left">
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-[11px] font-bold text-secondary uppercase tracking-wider">Aporte Mensal (R$)</span>
+            {currentCash > 0 && (
+              <button
+                type="button"
+                onClick={() => setContributionAmount(currentCash.toFixed(2))}
+                className="text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors flex items-center gap-1 font-mono"
+                title="Clique para preencher com o saldo em caixa disponível"
+              >
+                Usar Caixa: R$ {currentCash.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </button>
+            )}
+          </div>
           <Input
-            label="Valor Total do Aporte Mensal (R$)"
+            label=""
             type="number"
             step="0.01"
             required
@@ -179,7 +240,7 @@ export default function ContributionSimulator({
             onChange={e => setContributionAmount(e.target.value)}
           />
         </div>
-        <div className="flex items-end shrink-0">
+        <div className="flex items-end shrink-0 w-full sm:w-auto">
           <Button
             type="submit"
             disabled={isSimulating || isSaving}

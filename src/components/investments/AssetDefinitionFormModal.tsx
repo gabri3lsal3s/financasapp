@@ -49,38 +49,61 @@ export default function AssetDefinitionFormModal({
   const [assetTicker, setAssetTicker] = useState(ticker)
   const [suggestions, setSuggestions] = useState<{ ticker: string; name: string }[]>([])
   const [saving, setSaving] = useState(false)
+  const [targetPct, setTargetPct] = useState('')
 
   useEffect(() => {
     if (!isOpen) return
     const upper = ticker.toUpperCase()
     setAssetTicker(upper)
 
-    if (existing) {
-      setPricingMode(existing.pricing_mode)
-      setIsB3Linked(existing.is_b3_linked)
-      setIsTreasury(existing.is_treasury)
-      setAppliedAmount(existing.applied_amount != null ? String(existing.applied_amount) : '')
-      setContractRate(existing.contract_rate != null ? String(existing.contract_rate) : '')
-      setIndexer(existing.indexer)
-      setIndexerPercent(String(existing.indexer_percent))
-      setMaturityDate(existing.maturity_date ?? '')
-      setApplicationDate(existing.application_date ?? format(new Date(), 'yyyy-MM-dd'))
-      setManualCurrentValue(existing.manual_current_value != null ? String(existing.manual_current_value) : '')
-      setTaxExempt(existing.tax_exempt)
-    } else {
-      setPricingMode('market')
-      setIsB3Linked(isB3TickerPattern(upper))
-      setIsTreasury(upper.includes('TESOURO'))
-      setAppliedAmount('')
-      setContractRate('')
-      setIndexer('none')
-      setIndexerPercent('100')
-      setMaturityDate('')
-      setApplicationDate(format(new Date(), 'yyyy-MM-dd'))
-      setManualCurrentValue('')
-      setTaxExempt(false)
+    const fetchTargetAndSetStates = async () => {
+      // Carregar meta existente
+      try {
+        const { data, error } = await supabase
+          .from('target_allocations')
+          .select('target_percentage')
+          .eq('portfolio_id', portfolioId)
+          .eq('ticker', upper)
+          .maybeSingle()
+        if (!error && data) {
+          setTargetPct(String(data.target_percentage))
+        } else {
+          setTargetPct('')
+        }
+      } catch (err) {
+        console.error('Erro ao carregar meta de alocação:', err)
+        setTargetPct('')
+      }
+
+      if (existing) {
+        setPricingMode(existing.pricing_mode)
+        setIsB3Linked(existing.is_b3_linked)
+        setIsTreasury(existing.is_treasury)
+        setAppliedAmount(existing.applied_amount != null ? String(existing.applied_amount) : '')
+        setContractRate(existing.contract_rate != null ? String(existing.contract_rate) : '')
+        setIndexer(existing.indexer)
+        setIndexerPercent(String(existing.indexer_percent))
+        setMaturityDate(existing.maturity_date ?? '')
+        setApplicationDate(existing.application_date ?? format(new Date(), 'yyyy-MM-dd'))
+        setManualCurrentValue(existing.manual_current_value != null ? String(existing.manual_current_value) : '')
+        setTaxExempt(existing.tax_exempt)
+      } else {
+        setPricingMode('market')
+        setIsB3Linked(isB3TickerPattern(upper))
+        setIsTreasury(upper.includes('TESOURO'))
+        setAppliedAmount('')
+        setContractRate('')
+        setIndexer('none')
+        setIndexerPercent('100')
+        setMaturityDate('')
+        setApplicationDate(format(new Date(), 'yyyy-MM-dd'))
+        setManualCurrentValue('')
+        setTaxExempt(false)
+      }
     }
-  }, [isOpen, ticker, existing])
+
+    fetchTargetAndSetStates()
+  }, [isOpen, ticker, existing, portfolioId])
 
   const handleTickerSearch = async (value: string) => {
     setAssetTicker(value.toUpperCase())
@@ -136,10 +159,31 @@ export default function AssetDefinitionFormModal({
         .upsert(payload, { onConflict: 'portfolio_id,ticker' })
 
       if (error) throw error
+
+      // Salvar a meta de alocação (target_allocations)
+      const pct = parseFloat(targetPct)
+      if (!isNaN(pct) && pct > 0) {
+        const { error: targetError } = await supabase
+          .from('target_allocations')
+          .upsert({
+            portfolio_id: portfolioId,
+            ticker: normTicker,
+            target_percentage: pct
+          }, { onConflict: 'portfolio_id,ticker' })
+        if (targetError) throw targetError
+      } else {
+        await supabase
+          .from('target_allocations')
+          .delete()
+          .eq('portfolio_id', portfolioId)
+          .eq('ticker', normTicker)
+      }
+
       toast.success('Configuração do ativo salva.')
       onSaved()
       onClose()
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error('Não foi possível salvar a configuração do ativo.')
     } finally {
       setSaving(false)
@@ -286,6 +330,18 @@ export default function AssetDefinitionFormModal({
             onChange={(e) => setManualCurrentValue(e.target.value)}
           />
         )}
+
+        <Input
+          label="Meta de Alocação Ideal (%)"
+          type="number"
+          step="0.1"
+          min="0"
+          max="100"
+          placeholder="Ex: 15"
+          value={targetPct}
+          onChange={(e) => setTargetPct(e.target.value)}
+          className="text-sm font-semibold font-mono"
+        />
 
         <p className="text-[11px] text-secondary">
           Rentabilidade líquida usa estimativa simplificada de IR (tabela regressiva para RF; 15% para mercado).
