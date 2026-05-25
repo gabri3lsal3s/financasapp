@@ -45,10 +45,13 @@ import ExpenseFormModal from '@/components/ExpenseFormModal'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 
+import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isExpenseOpen, setIsExpenseOpen] = useState(false)
   const [isIncomeOpen, setIsIncomeOpen] = useState(false)
@@ -56,6 +59,7 @@ export default function Dashboard() {
   const { isOnline } = useNetworkStatus()
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
+  const [activeMobileChart, setActiveMobileChart] = useState<'panorama' | 'flow'>('panorama')
   
   const [portfolioId, setPortfolioId] = useState('')
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
@@ -501,7 +505,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div>
+    <div {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
@@ -554,8 +558,34 @@ export default function Dashboard() {
                 />
 
                 <div className="mt-4 space-y-4">
+                  {/* Selector of charts in mobile */}
+                  <div className="flex xl:hidden justify-center bg-secondary border border-primary p-1 rounded-xl max-w-[260px] mx-auto mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveMobileChart('panorama')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        activeMobileChart === 'panorama'
+                          ? 'bg-primary text-primary shadow-sm'
+                          : 'text-secondary opacity-70'
+                      }`}
+                    >
+                      Panorama
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveMobileChart('flow')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        activeMobileChart === 'flow'
+                          ? 'bg-primary text-primary shadow-sm'
+                          : 'text-secondary opacity-70'
+                      }`}
+                    >
+                      Fluxo Diário
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
-                    <Card className="h-full flex flex-col">
+                    <Card className={`${activeMobileChart === 'panorama' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
                       <h3 className="text-lg font-semibold text-primary mb-4">Panorama do mês</h3>
                       <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={monthlyOverviewData}>
@@ -577,7 +607,7 @@ export default function Dashboard() {
                       </ResponsiveContainer>
                     </Card>
 
-                    <Card className="h-full flex flex-col">
+                    <Card className={`${activeMobileChart === 'flow' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
                       <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário (mês)</h3>
                       <ResponsiveContainer width="100%" height={280}>
                         <LineChart data={dailyFlowData}>

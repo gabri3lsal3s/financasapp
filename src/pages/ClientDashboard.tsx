@@ -6,6 +6,7 @@ import { calculateShareHistory, calculatePerformanceMetrics, AssetPosition } fro
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { formatCurrency, formatNumberBR } from '@/utils/format'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
@@ -386,58 +387,147 @@ export default function ClientDashboard() {
               {positions.length === 0 ? (
                 <p className="text-center py-8 text-sm text-secondary">Aguardando inserção dos lançamentos iniciais pelo seu consultor.</p>
               ) : (
-                <div className="overflow-x-auto border border-border/30 rounded-xl bg-background/50">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border/30 bg-muted/20">
-                        <th className="p-3.5 font-bold text-secondary">Ativo</th>
-                        <th className="p-3.5 font-bold text-secondary text-right">Qtd</th>
-                        <th className="p-3.5 font-bold text-secondary text-right">Cotação</th>
-                        <th className="p-3.5 font-bold text-secondary text-right">Total Atual</th>
-                        <th className="p-3.5 font-bold text-secondary text-center">Meu Peso</th>
-                        <th className="p-3.5 font-bold text-secondary text-center">Peso Recomendado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
-                      {(() => {
-                        const positionsByClass: Record<string, AssetPosition[]> = {}
-                        positions
-                          .forEach(pos => {
-                            const cls = pos.asset_class || 'Renda Fixa'
-                            if (!positionsByClass[cls]) positionsByClass[cls] = []
-                            positionsByClass[cls].push(pos)
-                          })
-                        return Object.entries(positionsByClass).map(([className, classPositions]) => (
-                          <div key={className} style={{ display: 'contents' }}>
-                            <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
-                              <td colSpan={6} className="p-3 text-secondary uppercase font-extrabold">
-                                {className}
-                              </td>
-                            </tr>
-                            {classPositions.map(pos => (
-                              <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
-                                <td className="p-3.5 pl-6 font-extrabold text-primary flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                  {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
-                                  <span className="text-[10px] text-secondary font-normal">({pos.sector || 'Outros'})</span>
-                                </td>
-                                <td className="p-3.5 text-right text-secondary font-medium">{pos.quantity.toLocaleString('pt-BR')}</td>
-                                <td className="p-3.5 text-right font-semibold text-secondary">R$ {pos.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                <td className="p-3.5 text-right font-bold text-primary">R$ {pos.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                <td className="p-3.5 text-center">
-                                  <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-secondary">{pos.current_percentage}%</span>
-                                </td>
-                                <td className="p-3.5 text-center">
-                                  <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold">{pos.target_percentage}%</span>
+                <>
+                  {/* 1. Tabela para Desktop */}
+                  <div className="hidden md:block overflow-x-auto border border-border/30 rounded-xl bg-background/50">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-border/30 bg-muted/20">
+                          <th className="p-3.5 font-bold text-secondary">Ativo</th>
+                          <th className="p-3.5 font-bold text-secondary text-right">Qtd</th>
+                          <th className="p-3.5 font-bold text-secondary text-right">Cotação</th>
+                          <th className="p-3.5 font-bold text-secondary text-right">Total Atual</th>
+                          <th className="p-3.5 font-bold text-secondary text-center">Meu Peso</th>
+                          <th className="p-3.5 font-bold text-secondary text-center">Peso Recomendado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/20">
+                        {(() => {
+                          const positionsByClass: Record<string, AssetPosition[]> = {}
+                          positions
+                            .forEach(pos => {
+                              const cls = pos.asset_class || 'Renda Fixa'
+                              if (!positionsByClass[cls]) positionsByClass[cls] = []
+                              positionsByClass[cls].push(pos)
+                            })
+                          return Object.entries(positionsByClass).map(([className, classPositions]) => (
+                            <div key={className} style={{ display: 'contents' }}>
+                              <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
+                                <td colSpan={6} className="p-3 text-secondary uppercase font-extrabold">
+                                  {className}
                                 </td>
                               </tr>
+                              {classPositions.map(pos => (
+                                <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
+                                  <td className="p-3.5 pl-6 font-extrabold text-primary flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
+                                    <span className="text-[10px] text-secondary font-normal font-sans">({pos.sector || 'Outros'})</span>
+                                  </td>
+                                  <td className="p-3.5 text-right text-secondary font-medium">{formatNumberBR(pos.quantity)}</td>
+                                  <td className="p-3.5 text-right font-semibold text-secondary">{formatCurrency(pos.current_price)}</td>
+                                  <td className="p-3.5 text-right font-bold text-primary">{formatCurrency(pos.total_value)}</td>
+                                  <td className="p-3.5 text-center">
+                                    <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-secondary">{pos.current_percentage}%</span>
+                                  </td>
+                                  <td className="p-3.5 text-center">
+                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold">{pos.target_percentage}%</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </div>
+                          ))
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 2. Visualização em Cards para Mobile */}
+                  <div className="block md:hidden space-y-4">
+                    {(() => {
+                      const positionsByClass: Record<string, AssetPosition[]> = {}
+                      positions
+                        .forEach(pos => {
+                          const cls = pos.asset_class || 'Renda Fixa'
+                          if (!positionsByClass[cls]) positionsByClass[cls] = []
+                          positionsByClass[cls].push(pos)
+                        })
+                      return Object.entries(positionsByClass).map(([className, classPositions]) => (
+                        <div key={className} className="space-y-2">
+                          <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-muted/10 border-l-4 border-l-emerald-500 px-3 py-1.5 rounded-lg select-none">
+                            {className}
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {classPositions.map(pos => (
+                              <div 
+                                key={pos.ticker}
+                                className="p-4 bg-card border border-border/40 rounded-2xl space-y-3 shadow-sm transition-all hover:scale-[1.01]"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="font-mono font-bold text-primary text-sm">
+                                      {pos.ticker === 'SALDO_INV' ? 'Saldo Investimento' : pos.ticker}
+                                    </span>
+                                    <span className="text-[10px] text-secondary font-medium font-sans">({pos.sector || 'Outros'})</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço</span>
+                                    <span className="text-xs font-bold text-primary font-mono">
+                                      {formatCurrency(pos.current_price)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-left bg-secondary/35 p-2.5 rounded-xl border border-primary/5">
+                                  <div>
+                                    <span className="text-[9px] uppercase font-extrabold text-secondary block">Qtd</span>
+                                    <span className="text-xs font-semibold text-primary font-mono">
+                                      {formatNumberBR(pos.quantity)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] uppercase font-extrabold text-secondary block">Total</span>
+                                    <span className="text-xs font-bold text-primary font-mono">
+                                      {formatCurrency(pos.total_value)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-secondary font-medium">Meu Peso:</span>
+                                      <span className="font-mono font-bold text-primary">{pos.current_percentage}%</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-secondary font-medium">Recomendado:</span>
+                                      <span className="font-mono font-bold text-emerald-500">{pos.target_percentage}%</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
+                                    <div 
+                                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                      style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
+                                    />
+                                    {pos.target_percentage > 0 && (
+                                      <div 
+                                        className="absolute top-0 bottom-0 w-0.5 bg-emerald-300 dark:bg-emerald-700"
+                                        style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             ))}
                           </div>
-                        ))
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                </>
               )}
             </Card>
 

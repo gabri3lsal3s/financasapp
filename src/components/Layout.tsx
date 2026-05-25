@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut, Users } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
@@ -170,123 +171,216 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-secondary">
       <div className="lg:hidden">
-        <header className="fixed top-0 inset-x-0 z-[100] bg-secondary border-b border-primary safe-area-top">
+        {/* Sleek Top Header with Settings shortcut on mobile */}
+        <header className="fixed top-0 inset-x-0 z-[100] bg-secondary/95 backdrop-blur-md border-b border-primary safe-area-top">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="h-14 flex items-center justify-center relative">
-              <button
-                ref={mobileMenuButtonRef}
-                type="button"
-                onClick={() => setIsMobileMenuOpen((currentValue) => !currentValue)}
-                aria-label={isMobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
-                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] absolute left-0"
+            <div className="h-14 flex items-center justify-between relative">
+              <span className="w-10"></span> {/* Spacer */}
+              <h1 className="text-sm font-black text-primary text-center uppercase tracking-wider">Finanças</h1>
+              <Link
+                to="/settings"
+                aria-label="Configurações"
+                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
               >
-                {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-              </button>
-              <h1 className="text-lg font-bold text-primary text-center">Finanças</h1>
+                <Settings size={20} />
+              </Link>
             </div>
           </div>
         </header>
 
-        {isMobileMenuOpen && (
-          <>
-            <button
-              type="button"
-              aria-label="Fechar menu"
-              className="fixed inset-0 z-[110] bg-[var(--color-bg-secondary)]/75 animate-fade-in motion-standard"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
+        {/* Dynamic Bottom Sheet Menu via AnimatePresence */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <>
+              {/* Blur backdrop overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-[2px]"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
 
-            <aside ref={mobileMenuRef} className="fixed top-0 left-0 bottom-0 z-[120] w-[85vw] max-w-[340px] bg-secondary border-r border-primary safe-area-top safe-area-bottom overflow-y-auto animate-slide-in-left motion-emphasis">
-              <div className="p-4 border-b border-primary flex items-center justify-between">
-                <h2 className="text-base font-semibold text-primary">Menu</h2>
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <nav className="p-4">
-                <div className="space-y-2">
-                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide text-center">Páginas principais</p>
-                  {mainItemsList.map((item) => {
-                    const Icon = item.icon
-                    const isActive = location.pathname === item.path
-                    const isConcealed = item.onlineOnly && !isOnline
-
-                    return (
-                      <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
-                        <div className="transition-conceal-content">
-                          <Link
-                            to={item.path}
-                            className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
-                              ? activeItemClasses
-                              : inactiveItemClasses
-                              }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <Icon size={18} />
-                              <span className="font-medium">{item.label}</span>
-                            </div>
-                            {isActive && <ChevronRight size={16} />}
-                          </Link>
-                        </div>
-                      </div>
-                    )
-                  })}
+              {/* Bottom Sheet Menu Container */}
+              <motion.aside
+                ref={mobileMenuRef as any}
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 26, stiffness: 220 }}
+                className="fixed bottom-0 left-0 right-0 z-[120] bg-secondary border-t border-primary rounded-t-3xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh] safe-area-bottom"
+              >
+                {/* Visual drag indicator */}
+                <div className="w-12 h-1.5 bg-primary/20 rounded-full mx-auto my-3 shrink-0" />
+                
+                <div className="px-5 pb-3.5 pt-1 border-b border-primary flex items-center justify-between shrink-0">
+                  <h2 className="text-sm font-black text-primary uppercase tracking-widest">Mais Opções</h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-1.5 rounded-full border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
 
-                <div className="my-4 border-t border-primary"></div>
+                <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Cartões */}
+                    {!(!isOnline) && (
+                      <Link
+                        to="/credit-cards"
+                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
+                      >
+                        <CreditCard size={20} className="text-secondary mb-2" />
+                        <span className="text-xs font-bold text-primary">Cartões</span>
+                      </Link>
+                    )}
 
-                <div className="space-y-2">
-                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide text-center">Configurações</p>
-                  {settingsItemsList.map((item) => {
-                    const Icon = item.icon
-                    const isActive = location.pathname === item.path
-                    const isConcealed = item.onlineOnly && !isOnline
+                    {/* Relatórios */}
+                    {!(!isOnline) && (
+                      <Link
+                        to="/reports"
+                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
+                      >
+                        <BarChart3 size={20} className="text-secondary mb-2" />
+                        <span className="text-xs font-bold text-primary">Relatórios</span>
+                      </Link>
+                    )}
 
-                    return (
-                      <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
-                        <div className="transition-conceal-content">
-                          <Link
-                            to={item.path}
-                            className={`flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle ${isActive
-                              ? activeItemClasses
-                              : inactiveItemClasses
-                              }`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <Icon size={18} className="flex-shrink-0" />
-                              <span className="font-medium text-sm truncate">{item.label}</span>
-                            </div>
-                            {isActive && <ChevronRight size={16} />}
-                          </Link>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                    {/* Categorias */}
+                    {!(!isOnline) && (
+                      <Link
+                        to="/categories"
+                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
+                      >
+                        <Tags size={20} className="text-secondary mb-2" />
+                        <span className="text-xs font-bold text-primary">Categorias</span>
+                      </Link>
+                    )}
 
-                <div className="my-4 border-t border-primary"></div>
+                    {/* Configurações */}
+                    <Link
+                      to="/settings"
+                      className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
+                    >
+                      <Settings size={20} className="text-secondary mb-2" />
+                      <span className="text-xs font-bold text-primary">Ajustes</span>
+                    </Link>
 
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg motion-standard hover-lift-subtle text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <LogOut size={18} />
-                    <span className="font-medium">Sair</span>
+                    {/* Minha Consultoria (se aplicável) */}
+                    {hasAdvisoryLink && (
+                      <Link
+                        to="/my-consulting"
+                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2"
+                      >
+                        <Users size={20} className="text-secondary mb-2" />
+                        <span className="text-xs font-bold text-primary">Minha Consultoria</span>
+                      </Link>
+                    )}
+
+                    {/* Consultoria do Assessor (se aplicável) */}
+                    {profile?.role === 'consultant' && (
+                      <Link
+                        to="/consulting"
+                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2"
+                      >
+                        <Users size={20} className="text-secondary mb-2" />
+                        <span className="text-xs font-bold text-primary">Consultoria</span>
+                      </Link>
+                    )}
+
+                    {/* Botão Sair */}
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false)
+                        void handleLogout()
+                      }}
+                      className="col-span-2 w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 rounded-2xl motion-standard hover-lift-subtle press-subtle font-extrabold text-red-500 text-xs uppercase tracking-wider mt-2"
+                    >
+                      <LogOut size={16} />
+                      <span>Sair do App</span>
+                    </button>
                   </div>
-                </button>
-              </nav>
-            </aside>
-          </>
-        )}
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
 
-        <main className="relative safe-area-bottom pt-[calc(3.5rem+env(safe-area-inset-top))]">
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pb-6">
+        {/* Fixed Premium Bottom Tab Bar */}
+        <nav className="fixed bottom-0 inset-x-0 z-[100] bg-secondary/95 backdrop-blur-md border-t border-primary safe-area-bottom flex items-center justify-around h-16 shadow-lg px-2">
+          {/* Home Tab */}
+          <Link
+            to="/"
+            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
+              location.pathname === '/'
+                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
+                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
+            }`}
+          >
+            <Home size={18} className={location.pathname === '/' ? 'text-[var(--color-primary)]' : ''} />
+            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Início</span>
+          </Link>
+
+          {/* Expenses Tab */}
+          <Link
+            to="/expenses"
+            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
+              location.pathname === '/expenses'
+                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
+                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
+            }`}
+          >
+            <TrendingDown size={18} className={location.pathname === '/expenses' ? 'text-[var(--color-primary)]' : ''} />
+            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Despesas</span>
+          </Link>
+
+          {/* Incomes Tab */}
+          <Link
+            to="/incomes"
+            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
+              location.pathname === '/incomes'
+                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
+                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
+            }`}
+          >
+            <TrendingUp size={18} className={location.pathname === '/incomes' ? 'text-[var(--color-primary)]' : ''} />
+            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Rendas</span>
+          </Link>
+
+          {/* Investments Tab */}
+          <Link
+            to="/investments"
+            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
+              location.pathname === '/investments'
+                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
+                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
+            }`}
+          >
+            <PiggyBank size={18} className={location.pathname === '/investments' ? 'text-[var(--color-primary)]' : ''} />
+            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Carteira</span>
+          </Link>
+
+          {/* "Mais" Menu Tab Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
+              isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname)
+                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
+                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
+            }`}
+          >
+            <Menu size={18} className={isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname) ? 'text-[var(--color-primary)]' : ''} />
+            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Mais</span>
+          </button>
+        </nav>
+
+        {/* Main Content Area with Bottom Padding to avoid navigation overlay */}
+        <main className="relative pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(5.5rem+env(safe-area-inset-bottom))] min-h-screen">
+          <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-6">
             <section key={location.pathname} className="animate-page-enter">
               {children}
             </section>

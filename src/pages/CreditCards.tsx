@@ -12,6 +12,7 @@ import MonthSelector from '@/components/MonthSelector'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
+import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
@@ -460,6 +461,7 @@ function CreditCardTimeline({
 export default function CreditCards() {
   const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [hasResolvedInitialMonth, setHasResolvedInitialMonth] = useState(false)
   const [loadingBills, setLoadingBills] = useState(true)
   const [paymentAmount, setPaymentAmount] = useState('')
@@ -1568,7 +1570,7 @@ export default function CreditCards() {
   }
 
   return (
-    <div className="animate-page-enter">
+    <div className="animate-page-enter" {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.creditCards.title}
         subtitle={PAGE_HEADERS.creditCards.description}

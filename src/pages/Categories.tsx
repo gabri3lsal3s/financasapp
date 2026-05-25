@@ -16,10 +16,12 @@ import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectat
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { assignUniquePaletteColors, getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 
 export default function Categories() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [savingExpenseLimitIds, setSavingExpenseLimitIds] = useState<string[]>([])
   const [savingIncomeExpectationIds, setSavingIncomeExpectationIds] = useState<string[]>([])
   const [expenseLimitInputs, setExpenseLimitInputs] = useState<Record<string, string>>({})
@@ -221,7 +223,7 @@ export default function Categories() {
   }
 
   return (
-    <div className="animate-page-enter">
+    <div className="animate-page-enter" {...swipeHandlers}>
       <PageHeader title={PAGE_HEADERS.categories.title} subtitle={PAGE_HEADERS.categories.description} />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">

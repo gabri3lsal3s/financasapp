@@ -20,6 +20,7 @@ import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
+import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -63,6 +64,14 @@ const getPaymentMethodColor = (expense: Expense) => {
 export default function Expenses() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
+
+  const toggleExpand = (id: string, isDefaultExpanded: boolean) => {
+    setExpandedIds((prev) => ({
+      ...prev,
+      [id]: !(prev[id] !== undefined ? prev[id] : isDefaultExpanded),
+    }))
+  }
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
@@ -111,6 +120,8 @@ export default function Expenses() {
       setTimeout(() => setIsMonthTransitioning(false), 50)
     }, 150)
   }
+
+  const swipeHandlers = useSwipeMonth(currentMonth, handleMonthChange)
 
   const handleOpenModal = (expense?: Expense) => {
     setEditingExpense(expense || null)
@@ -176,11 +187,11 @@ export default function Expenses() {
       expense.date.substring(0, 7)
     
     const isSameMonth = !competence || competence === expense.date.substring(0, 7)
-    const [y, m, d] = expense.date.split('-')
+    const [, m, d] = expense.date.split('-')
 
     if (isSameMonth) {
       return {
-        dateLabel: `${d}/${m}/${y}`,
+        dateLabel: `${d}/${m}`,
         billCompetenceLabel: undefined
       }
     }
@@ -200,7 +211,7 @@ export default function Expenses() {
   }
 
   return (
-    <div>
+    <div {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.expenses.title}
         subtitle={PAGE_HEADERS.expenses.description}
@@ -255,6 +266,9 @@ export default function Expenses() {
                       const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
                       const staggerClass = index < 5 ? staggerClasses[index] : ''
 
+                      const isDefaultExpanded = false
+                      const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
+
                       return (
                         <TransactionCard
                           key={expense.id}
@@ -271,6 +285,14 @@ export default function Expenses() {
                           paymentLabel={paymentLabel}
                           paymentColor={getPaymentMethodColor(expense)}
                           billCompetenceLabel={billCompetenceLabel}
+                          isExpanded={isExpanded}
+                          onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
+                          onEdit={() => handleOpenModal(expense)}
+                          onDelete={async () => {
+                            if (window.confirm('Deseja realmente excluir esta despesa?')) {
+                              await deleteExpense(expense.id)
+                            }
+                          }}
                         />
                       )
                     })}
@@ -296,6 +318,9 @@ export default function Expenses() {
                       const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
                       const staggerClass = index < 5 ? staggerClasses[index] : ''
 
+                      const isDefaultExpanded = false
+                      const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
+
                       return (
                         <TransactionCard
                           key={expense.id}
@@ -311,6 +336,14 @@ export default function Expenses() {
                           paymentLabel={paymentLabel}
                           paymentColor={getPaymentMethodColor(expense)}
                           billCompetenceLabel={billCompetenceLabel}
+                          isExpanded={isExpanded}
+                          onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
+                          onEdit={() => handleOpenModal(expense)}
+                          onDelete={async () => {
+                            if (window.confirm('Deseja realmente excluir esta despesa?')) {
+                              await deleteExpense(expense.id)
+                            }
+                          }}
                         />
                       )
                     })}

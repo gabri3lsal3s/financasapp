@@ -18,10 +18,19 @@ import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
+import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 
 export default function Incomes() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
+
+  const toggleExpand = (id: string, isDefaultExpanded: boolean) => {
+    setExpandedIds((prev) => ({
+      ...prev,
+      [id]: !(prev[id] !== undefined ? prev[id] : isDefaultExpanded),
+    }))
+  }
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
   const { categories, loading: categoriesLoading } = useCategories()
@@ -62,6 +71,8 @@ export default function Incomes() {
     }, 150)
   }
 
+  const swipeHandlers = useSwipeMonth(currentMonth, handleMonthChange)
+
   const handleOpenModal = (income?: Income) => {
     setEditingIncome(income || null)
     setIsModalOpen(true)
@@ -96,7 +107,7 @@ export default function Incomes() {
   }, [searchParams, setSearchParams, incomeCategories, currentMonth])
 
   return (
-    <div>
+    <div {...swipeHandlers}>
       <PageHeader
         title={PAGE_HEADERS.incomes.title}
         subtitle={PAGE_HEADERS.incomes.description}
@@ -134,12 +145,15 @@ export default function Incomes() {
           ) : (
             <div className="flex flex-wrap gap-3 lg:gap-4">
               {incomes.map((income, index) => {
-                const category = incomeCategories.find((c) => c.id === income.income_category_id)
+                 const category = incomeCategories.find((c) => c.id === income.income_category_id)
                 const categoryColor = category?.color
                   ? getCategoryColorForPalette(category.color, colorPalette)
                   : 'var(--color-income)'
                 const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
                 const staggerClass = index < 5 ? staggerClasses[index] : ''
+
+                const isDefaultExpanded = false
+                const isExpanded = expandedIds[income.id] !== undefined ? expandedIds[income.id] : isDefaultExpanded
 
                 return (
                   <TransactionCard
@@ -148,11 +162,19 @@ export default function Incomes() {
                     subtitle={category?.name || 'Sem categoria'}
                     amount={getWeightedReportAmount(income.amount, income.report_weight)}
                     originalAmount={income.amount}
-                    dateLabel={formatDate(income.date)}
+                    dateLabel={formatDate(income.date).substring(0, 5)}
                     categoryColor={categoryColor}
                     isOffline={income.id.startsWith('offline-')}
                     onClick={() => handleOpenModal(income)}
                     staggerClass={staggerClass}
+                    isExpanded={isExpanded}
+                    onToggleExpand={() => toggleExpand(income.id, isDefaultExpanded)}
+                    onEdit={() => handleOpenModal(income)}
+                    onDelete={async () => {
+                      if (window.confirm('Deseja realmente excluir esta renda?')) {
+                        await deleteIncome(income.id)
+                      }
+                    }}
                   />
                 )
               })}

@@ -16,6 +16,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.38.4",
     "date-fns": "^2.30.0",
+    "framer-motion": "^11.18.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.294.0",

@@ -370,21 +370,30 @@ export default function Investments() {
 
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  <Card className="p-3 sm:p-5 flex flex-col justify-between border-l-4 border-l-[var(--color-income)]">
+                  <Card 
+                    className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
+                    style={{ borderLeftColor: 'var(--color-income)' }}
+                  >
                     <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Líquido</p>
                     <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
                       {formatCurrency(portfolioData.totalValue)}
                     </p>
                     <p className="hidden sm:block text-xs text-secondary mt-1">Valor total de investimentos</p>
                   </Card>
-                  <Card className="p-3 sm:p-5 flex flex-col justify-between border-l-4 border-l-indigo-500">
+                  <Card 
+                    className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
+                    style={{ borderLeftColor: '#6366f1' }}
+                  >
                     <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Saldo em Caixa</p>
                     <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
                       {formatCurrency(totalCash)}
                     </p>
                     <p className="hidden sm:block text-xs text-secondary mt-1">Disponível para novos aportes</p>
                   </Card>
-                  <Card className="p-3 sm:p-5 flex flex-col justify-between border-l-4 border-l-[var(--color-balance)]">
+                  <Card 
+                    className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
+                    style={{ borderLeftColor: isPositive ? 'var(--color-income)' : 'var(--color-expense)' }}
+                  >
                     <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Rentabilidade Consolidada</p>
                     <div className="flex items-baseline gap-1.5 mt-1 sm:mt-2 flex-wrap">
                       <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
@@ -628,50 +637,52 @@ export default function Investments() {
                               {className}
                             </td>
                           </tr>
-                          {classPositions.map((pos) => (
-                            <tr key={pos.ticker} className="hover:bg-secondary/40 transition-colors">
-                              <td className="p-3 pl-6 font-bold text-primary">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-income shrink-0" />
-                                  {pos.ticker}
-                                  {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-sans" title="Cotação desatualizada ou indisponível na B3">
-                                      Cotação Desatualizada
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
-                              <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
-                              <td className="p-3 text-right text-primary font-medium">
-                                {pos.quantity.toLocaleString('pt-BR')}
-                              </td>
-                              <td className="p-3 text-right text-secondary">
-                                {formatCurrency(pos.current_price)}
-                              </td>
-                              <td className="p-3 text-right text-primary font-semibold">{formatCurrency(pos.total_value)}</td>
-                              <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
-                                {`${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
-                              </td>
-                              <td className="p-3 text-center font-bold text-primary">{pos.current_percentage.toFixed(1)}%</td>
-                              <td className="p-3 text-center font-bold text-income">
-                                {pos.target_percentage.toFixed(0)}%
-                              </td>
-                              <td className="p-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setAssetDefTicker(pos.ticker)
-                                    setAssetDefModalOpen(true)
-                                  }}
-                                  className="text-secondary hover:text-primary transition-colors"
-                                  title="Configurar Ativo"
-                                >
-                                  <Settings2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                          {classPositions.map((pos) => {
+                            const isPositive = pos.gross_yield_pct >= 0
+                            return (
+                              <tr key={pos.ticker} className="hover:bg-secondary/40 transition-colors">
+                                <td className={`p-3 pl-6 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {pos.ticker}
+                                    {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
+                                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                        Cotação Desatualizada
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
+                                <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
+                                <td className="p-3 text-right text-primary font-medium">
+                                  {pos.quantity.toLocaleString('pt-BR')}
+                                </td>
+                                <td className="p-3 text-right text-secondary">
+                                  {formatCurrency(pos.current_price)}
+                                </td>
+                                <td className="p-3 text-right text-primary font-semibold">{formatCurrency(pos.total_value)}</td>
+                                <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
+                                  {`${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
+                                </td>
+                                <td className="p-3 text-center font-bold text-primary">{pos.current_percentage.toFixed(1)}%</td>
+                                <td className="p-3 text-center font-bold text-income">
+                                  {pos.target_percentage.toFixed(0)}%
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAssetDefTicker(pos.ticker)
+                                      setAssetDefModalOpen(true)
+                                    }}
+                                    className="text-secondary hover:text-primary transition-colors"
+                                    title="Configurar Ativo"
+                                  >
+                                    <Settings2 size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </Fragment>
                       ))
                     })()}
@@ -707,7 +718,7 @@ export default function Investments() {
                           return (
                             <div 
                               key={pos.ticker}
-                              className="bg-card border border-border/40 rounded-2xl shadow-sm transition-all animate-page-enter overflow-hidden"
+                              className={`bg-card border border-border/40 border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl shadow-sm transition-all animate-page-enter overflow-hidden`}
                             >
                               {/* Cabeçalho compacto clicável */}
                               <div 

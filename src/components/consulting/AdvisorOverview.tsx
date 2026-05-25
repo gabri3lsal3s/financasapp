@@ -89,76 +89,152 @@ export default function AdvisorOverview({
         {!globalAumData || globalAumData.clientRows.length === 0 ? (
           <p className="text-center py-8 text-sm text-secondary italic">Nenhum cliente com carteira ativa vinculado a você.</p>
         ) : (
-          <div className="overflow-x-auto border border-border/30 rounded-xl bg-background/50">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-border/30 bg-muted/20">
-                  <th className="p-3.5 font-bold text-secondary">Cliente</th>
-                  <th className="p-3.5 font-bold text-secondary text-right">Ativos</th>
-                  <th className="p-3.5 font-bold text-secondary text-right">AUM Consolidado</th>
-                  <th className="p-3.5 font-bold text-secondary text-center">Desvio Médio</th>
-                  <th className="p-3.5 font-bold text-secondary text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/20">
-                {globalAumData.clientRows.map(row => {
-                  const isHighDev = row.deviationPct > 10.0
-                  return (
-                    <tr key={row.id} className="hover:bg-muted/10 transition-colors">
-                      <td className="p-3.5 font-extrabold text-primary flex flex-col">
-                        <span>{row.name}</span>
-                        <span className="text-[10px] text-secondary font-normal font-mono">{row.email}</span>
-                      </td>
-                      <td className="p-3.5 text-right font-medium text-secondary">{row.assetsCount} ativos</td>
-                      <td className="p-3.5 text-right font-bold text-primary">{formatCurrency(row.aum)}</td>
-                      <td className="p-3.5 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          isHighDev 
-                            ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
-                            : 'bg-emerald-500/10 text-emerald-600'
-                        }`}>
-                          {formatNumberBR(row.deviationPct)}% {isHighDev && '⚠️'}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex items-center justify-center gap-2">
+          <>
+            {/* 1. Tabela para Desktop */}
+            <div className="hidden md:block overflow-x-auto border border-border/30 rounded-xl bg-background/50">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border/30 bg-muted/20">
+                    <th className="p-3.5 font-bold text-secondary">Cliente</th>
+                    <th className="p-3.5 font-bold text-secondary text-right">Ativos</th>
+                    <th className="p-3.5 font-bold text-secondary text-right">AUM Consolidado</th>
+                    <th className="p-3.5 font-bold text-secondary text-center">Desvio Médio</th>
+                    <th className="p-3.5 font-bold text-secondary text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {globalAumData.clientRows.map(row => {
+                    const isHighDev = row.deviationPct > 10.0
+                    return (
+                      <tr key={row.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="p-3.5 font-extrabold text-primary flex flex-col">
+                          <span>{row.name}</span>
+                          <span className="text-[10px] text-secondary font-normal font-mono">{row.email}</span>
+                        </td>
+                        <td className="p-3.5 text-right font-medium text-secondary">{row.assetsCount} ativos</td>
+                        <td className="p-3.5 text-right font-bold text-primary">{formatCurrency(row.aum)}</td>
+                        <td className="p-3.5 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            isHighDev 
+                              ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
+                              : 'bg-emerald-500/10 text-emerald-600'
+                          }`}>
+                            {formatNumberBR(row.deviationPct)}% {isHighDev && '⚠️'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => onSelectClient(row.id)}
+                              variant="outline"
+                              className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-xl border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 dark:hover:text-indigo-300 font-semibold shadow-sm transition-all"
+                            >
+                              <Eye size={12} />
+                              Visualizar
+                            </Button>
+                            {(() => {
+                              const cl = clients.find(c => c.id === row.id)
+                              const isClientAdmin = cl ? isPrimaryAdminProfile(cl) : isPrimaryAdminEmail(row.email)
+                              if (isClientAdmin) return null
+                              return (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    if (cl) {
+                                      onDeleteClient(cl)
+                                    }
+                                  }}
+                                  variant="outline"
+                                  className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-xl border-red-500/20 text-red-600 hover:bg-red-500/10 dark:hover:text-red-300 font-semibold shadow-sm transition-all"
+                                >
+                                  <Trash2 size={12} />
+                                  Excluir
+                                </Button>
+                              )
+                            })()}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 2. Cards para Mobile */}
+            <div className="block md:hidden space-y-3">
+              {globalAumData.clientRows.map(row => {
+                const isHighDev = row.deviationPct > 10.0
+                return (
+                  <div 
+                    key={row.id} 
+                    className="p-4 bg-card border border-border/40 rounded-2xl space-y-3 shadow-sm hover:scale-[1.01] transition-all"
+                  >
+                    {/* Cabeçalho do Cliente */}
+                    <div className="flex justify-between items-start">
+                      <div className="text-left">
+                        <h4 className="font-extrabold text-primary text-sm leading-snug">{row.name}</h4>
+                        <span className="text-[10px] text-secondary font-mono leading-tight block mt-0.5">{row.email}</span>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase ${
+                        isHighDev 
+                          ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
+                          : 'bg-emerald-500/10 text-emerald-600'
+                      }`}>
+                        Desvio: {formatNumberBR(row.deviationPct)}% {isHighDev && '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Informações da Carteira */}
+                    <div className="grid grid-cols-2 gap-3 text-left bg-secondary/35 p-2.5 rounded-xl border border-primary/5">
+                      <div>
+                        <span className="text-[9px] uppercase font-extrabold text-secondary block">Ativos</span>
+                        <span className="text-xs font-bold text-primary font-mono">{row.assetsCount} ativos</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-extrabold text-secondary block">AUM Consolidado</span>
+                        <span className="text-xs font-black text-primary font-mono">{formatCurrency(row.aum)}</span>
+                      </div>
+                    </div>
+
+                    {/* Botões de Ação */}
+                    <div className="flex gap-2 pt-2 border-t border-primary/5">
+                      <Button
+                        size="sm"
+                        onClick={() => onSelectClient(row.id)}
+                        variant="outline"
+                        className="flex-1 text-xs justify-center items-center gap-1.5 py-2 rounded-xl border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 dark:hover:text-indigo-300 font-bold shadow-sm"
+                      >
+                        <Eye size={13} />
+                        Visualizar
+                      </Button>
+                      {(() => {
+                        const cl = clients.find(c => c.id === row.id)
+                        const isClientAdmin = cl ? isPrimaryAdminProfile(cl) : isPrimaryAdminEmail(row.email)
+                        if (isClientAdmin) return null
+                        return (
                           <Button
                             size="sm"
-                            onClick={() => onSelectClient(row.id)}
+                            onClick={() => {
+                              if (cl) {
+                                onDeleteClient(cl)
+                              }
+                            }}
                             variant="outline"
-                            className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-xl border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 dark:hover:text-indigo-300 font-semibold shadow-sm transition-all"
+                            className="flex-1 text-xs justify-center items-center gap-1.5 py-2 rounded-xl border-red-500/20 text-red-600 hover:bg-red-500/10 dark:hover:text-red-300 font-bold shadow-sm"
                           >
-                            <Eye size={12} />
-                            Visualizar
+                            <Trash2 size={13} />
+                            Excluir
                           </Button>
-                          {(() => {
-                            const cl = clients.find(c => c.id === row.id)
-                            const isClientAdmin = cl ? isPrimaryAdminProfile(cl) : isPrimaryAdminEmail(row.email)
-                            if (isClientAdmin) return null
-                            return (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  if (cl) {
-                                    onDeleteClient(cl)
-                                  }
-                                }}
-                                variant="outline"
-                                className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-xl border-red-500/20 text-red-600 hover:bg-red-500/10 dark:hover:text-red-300 font-semibold shadow-sm transition-all"
-                              >
-                                <Trash2 size={12} />
-                                Excluir
-                              </Button>
-                            )
-                          })()}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </Card>
     </div>

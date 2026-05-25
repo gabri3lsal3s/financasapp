@@ -277,7 +277,8 @@ function getDefaultPanelRect(): PanelRect {
   const { width, height } = getUniformPanelSize(DEFAULT_PANEL_HEIGHT, minWidth, minHeight, maxWidth, maxHeight)
 
   const left = clamp(viewportWidth - width - 20, PANEL_MARGIN, viewportWidth - width - PANEL_MARGIN)
-  const top = clamp(viewportHeight - height - PANEL_MARGIN, PANEL_MARGIN, viewportHeight - height - PANEL_MARGIN)
+  const bottomOffset = viewportWidth < 1024 ? (64 + 16) : PANEL_MARGIN
+  const top = clamp(viewportHeight - height - bottomOffset, PANEL_MARGIN, viewportHeight - height - PANEL_MARGIN)
 
   return { left, top, width, height }
 }
@@ -1248,7 +1249,7 @@ export default function FloatingCalculator() {
       )}
 
       {!isExpanded && (
-        <div className={`fixed right-4 z-[1001] h-10 w-10 safe-area-right ${iconOrigin === 'top-right' ? 'top-4 safe-area-top' : 'bottom-4 safe-area-bottom'}`}>
+        <div className={`fixed right-4 z-[1001] h-10 w-10 safe-area-right ${iconOrigin === 'top-right' ? 'top-4 safe-area-top' : 'bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-4 safe-area-bottom'}`}>
           {(isDraggingIcon || isIconReturning) && (
             <div
               className={`pointer-events-none absolute rounded-full border ${isTopRightPinReady ? 'border-[var(--color-success)]' : 'border-primary'} ${isDraggingIcon ? 'opacity-80' : 'opacity-0'} motion-emphasis`}

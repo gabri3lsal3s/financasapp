@@ -288,12 +288,18 @@ export default function Settings() {
       aria-checked={checked}
       onClick={onChange}
       title={title}
-      className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${checked ? 'bg-tertiary border-[var(--color-primary)]' : 'bg-secondary border-primary'
-        }`}
+      className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-all duration-300 ${
+        checked 
+          ? 'bg-[var(--color-primary)] border-[var(--color-primary)]' 
+          : 'bg-secondary border-primary'
+      }`}
     >
       <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
+        className={`inline-block h-5 w-5 transform rounded-full shadow-sm transition-all duration-300 ease-in-out ${
+          checked 
+            ? 'translate-x-6 bg-[var(--color-bg-primary)]' 
+            : 'translate-x-1 bg-[var(--color-text-secondary)]'
+        }`}
       />
     </button>
   )
@@ -443,13 +449,13 @@ export default function Settings() {
                         </div>
                         <p className="text-xs text-secondary mt-0.5">Entrou em: {new Date(pUser.created_at).toLocaleDateString()}</p>
                       </div>
-                      <div className="flex gap-2 mt-2 sm:mt-0">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3 sm:mt-0 w-full sm:w-auto">
                         {pUser.is_approved ? (
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className={`flex-1 sm:flex-none ${pUser.is_blocked || pUser.rejection_count >= 2 ? 'text-[var(--color-success)] border-[var(--color-success)]' : 'text-[var(--color-warning)] border-[var(--color-warning)]'}`}
+                            className={`flex-1 sm:flex-none justify-center ${pUser.is_blocked || pUser.rejection_count >= 2 ? 'text-[var(--color-success)] border-[var(--color-success)] hover:bg-[var(--color-success)]/10' : 'text-[var(--color-warning)] border-[var(--color-warning)] hover:bg-[var(--color-warning)]/10'}`}
                             onClick={() => handleUpdateUserStatus(pUser.id, true, !(pUser.is_blocked || pUser.rejection_count >= 2))}
                           >
                             {pUser.is_blocked || pUser.rejection_count >= 2 ? 'Desbloquear' : 'Bloquear'}
@@ -459,7 +465,7 @@ export default function Settings() {
                             type="button"
                             variant="primary"
                             size="sm"
-                            className="flex-1 sm:flex-none"
+                            className="flex-1 sm:flex-none justify-center"
                             onClick={() => handleUpdateUserStatus(pUser.id, true, false)}
                           >
                             Aprovar
@@ -470,7 +476,7 @@ export default function Settings() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="flex-1 sm:flex-none text-[var(--color-danger)] border-[var(--color-danger)]"
+                            className="flex-1 sm:flex-none justify-center text-[var(--color-danger)] border-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
                             onClick={() => handleRejectUser(pUser.id, false, pUser.rejection_count)}
                           >
                             Recusar
@@ -480,10 +486,10 @@ export default function Settings() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="flex-1 sm:flex-none text-[var(--color-danger)] border-[var(--color-danger)]"
+                          className="flex-1 sm:flex-none justify-center text-[var(--color-danger)] border-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
                           onClick={() => openDeleteUserModal(pUser)}
                         >
-                          <Trash2 size={14} className="mr-1" />
+                          <Trash2 size={14} className="mr-1 shrink-0" />
                           Excluir
                         </Button>
                       </div>

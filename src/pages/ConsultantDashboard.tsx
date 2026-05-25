@@ -1154,57 +1154,27 @@ export default function ConsultantDashboard() {
                 options={[
                   { 
                     value: 'overview', 
-                    label: (
-                      <span className="flex items-center gap-2">
-                        <LayoutDashboard size={14} className="text-secondary shrink-0" />
-                        <span>Resumo & Risco</span>
-                      </span>
-                    ) 
+                    label: 'Resumo & Risco'
                   },
                   { 
                     value: 'allocation', 
-                    label: (
-                      <span className="flex items-center gap-2">
-                        <PieChart size={14} className="text-secondary shrink-0" />
-                        <span>Distribuição & Limites</span>
-                      </span>
-                    ) 
+                    label: 'Distribuição & Limites'
                   },
                   { 
                     value: 'rebalancing', 
-                    label: (
-                      <span className="flex items-center gap-2">
-                        <RefreshCw size={14} className="text-secondary shrink-0" />
-                        <span>Rebalanceamento</span>
-                      </span>
-                    ) 
+                    label: 'Rebalanceamento'
                   },
                   { 
                     value: 'positions', 
-                    label: (
-                      <span className="flex items-center gap-2">
-                        <Briefcase size={14} className="text-secondary shrink-0" />
-                        <span>Posições</span>
-                      </span>
-                    ) 
+                    label: 'Posições'
                   },
                   { 
                     value: 'ledger', 
-                    label: (
-                      <span className="flex items-center gap-2">
-                        <History size={14} className="text-secondary shrink-0" />
-                        <span>Livro-Razão</span>
-                      </span>
-                    ) 
+                    label: 'Livro-Razão'
                   },
                   { 
                     value: 'qualitative', 
-                    label: (
-                      <span className="flex items-center gap-2">
-                        <FileText size={14} className="text-secondary shrink-0" />
-                        <span>Relatório & PDF</span>
-                      </span>
-                    ) 
+                    label: 'Relatório & PDF'
                   },
                 ]}
                 placeholder="Selecionar Seção"

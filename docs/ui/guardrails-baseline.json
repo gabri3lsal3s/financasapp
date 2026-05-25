@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-24T06:35:03.029Z",
+  "generatedAt": "2026-05-25T18:14:04.114Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -16,20 +16,6 @@
     }
   ],
   "violations": [
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/AdvisorOverview.tsx|112|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/AdvisorOverview.tsx",
-      "line": 112,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/AdvisorOverview.tsx|59|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/AdvisorOverview.tsx",
-      "line": 59,
-      "match": ".toLocaleString("
-    },
     {
       "key": "ui-no-direct-number-formatting|src/components/consulting/BenchmarkComparisonTable.tsx|100|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
@@ -87,174 +73,6 @@
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/ClientAllocationCharts.tsx|114|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 114,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/ClientAllocationCharts.tsx|118|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 118,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/ClientAllocationCharts.tsx|118|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 118,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/ClientAllocationCharts.tsx|128|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 128,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/ClientAllocationCharts.tsx|65|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 65,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/ExposureVsLimitsChart.tsx|89|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 89,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/LedgerBook.tsx|132|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/LedgerBook.tsx",
-      "line": 132,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/LedgerBook.tsx|137|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/LedgerBook.tsx",
-      "line": 137,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/LedgerBook.tsx|204|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/LedgerBook.tsx",
-      "line": 204,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/LedgerBook.tsx|206|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/LedgerBook.tsx",
-      "line": 206,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PerformanceMetricsCard.tsx|107|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 107,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PerformanceMetricsCard.tsx|117|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 117,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PerformanceMetricsCard.tsx|130|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 130,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PerformanceMetricsCard.tsx|142|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 142,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PerformanceMetricsCard.tsx|89|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 89,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PositionsTable.tsx|397|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PositionsTable.tsx",
-      "line": 397,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PositionsTable.tsx|402|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PositionsTable.tsx",
-      "line": 402,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PositionsTable.tsx|407|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PositionsTable.tsx",
-      "line": 407,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/PositionsTable.tsx|409|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/PositionsTable.tsx",
-      "line": 409,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/QualitativeAnalysis.tsx|548|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/QualitativeAnalysis.tsx",
-      "line": 548,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/QualitativeAnalysis.tsx|576|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/QualitativeAnalysis.tsx",
-      "line": 576,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/QualitativeAnalysis.tsx|597|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/QualitativeAnalysis.tsx",
-      "line": 597,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/QualitativeAnalysis.tsx|601|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/QualitativeAnalysis.tsx",
-      "line": 601,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/QualitativeAnalysis.tsx|603|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/QualitativeAnalysis.tsx",
-      "line": 603,
-      "match": ".toLocaleString("
-    },
-    {
       "key": "ui-no-direct-number-formatting|src/components/consulting/RebalancingChecklist.tsx|56|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/consulting/RebalancingChecklist.tsx",
@@ -262,59 +80,45 @@
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/SectorExposureChart.tsx|53|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|225|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/SectorExposureChart.tsx",
-      "line": 53,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/SectorExposureChart.tsx|54|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/SectorExposureChart.tsx",
-      "line": 54,
+      "file": "src/components/ContributionSimulator.tsx",
+      "line": 225,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/WeeklyVariationChart.tsx|72|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 72,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/consulting/WeeklyVariationChart.tsx|77|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 77,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|234|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|229|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/ContributionSimulator.tsx",
-      "line": 234,
+      "line": 229,
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|237|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|295|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/ContributionSimulator.tsx",
-      "line": 237,
+      "line": 295,
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|240|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|298|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/ContributionSimulator.tsx",
-      "line": 240,
+      "line": 298,
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|265|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|301|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/ContributionSimulator.tsx",
-      "line": 265,
+      "line": 301,
+      "match": ".toLocaleString("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/components/ContributionSimulator.tsx|326|.toLocaleString(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/components/ContributionSimulator.tsx",
+      "line": 326,
       "match": ".toLocaleString("
     },
     {
@@ -325,17 +129,17 @@
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|669|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|670|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/FloatingCalculator.tsx",
-      "line": 669,
+      "line": 670,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|721|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/components/FloatingCalculator.tsx|722|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/FloatingCalculator.tsx",
-      "line": 721,
+      "line": 722,
       "match": ".toFixed("
     },
     {
@@ -346,17 +150,10 @@
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/components/investments/PortfolioTransactionFormModal.tsx|201|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/components/investments/PortfolioTransactionFormModal.tsx|205|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/components/investments/PortfolioTransactionFormModal.tsx",
-      "line": 201,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/components/investments/PortfolioTransactionFormModal.tsx|545|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/components/investments/PortfolioTransactionFormModal.tsx",
-      "line": 545,
+      "line": 205,
       "match": ".toFixed("
     },
     {
@@ -409,122 +206,136 @@
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Categories.tsx|180|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Categories.tsx|182|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Categories.tsx",
-      "line": 180,
+      "line": 182,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Categories.tsx|206|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Categories.tsx|208|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Categories.tsx",
-      "line": 206,
+      "line": 208,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|294|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|312|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 294,
+      "line": 312,
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|337|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|355|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 337,
+      "line": 355,
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|406|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1279|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/ClientDashboard.tsx",
-      "line": 406,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|407|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/ClientDashboard.tsx",
-      "line": 407,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/ClientDashboard.tsx|408|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/ClientDashboard.tsx",
-      "line": 408,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/ConsultantDashboard.tsx|264|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 264,
+      "file": "src/pages/CreditCards.tsx",
+      "line": 1279,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1194|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1535|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1194,
+      "line": 1535,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1284|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1625|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1284,
+      "line": 1625,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1564|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|1914|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1564,
+      "line": 1914,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|527|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|868|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 527,
+      "line": 868,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|538|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|879|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 538,
+      "line": 879,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|544|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|885|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 544,
+      "line": 885,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|549|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|890|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 549,
+      "line": 890,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|621|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|962|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/CreditCards.tsx",
-      "line": 621,
+      "line": 962,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/CreditCards.tsx|938|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|393|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 938,
+      "file": "src/pages/Investments.tsx",
+      "line": 393,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|511|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 511,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|514|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 514,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|517|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 517,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|532|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 532,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|560|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 560,
       "match": ".toFixed("
     },
     {
@@ -542,87 +353,80 @@
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|569|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|581|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 569,
+      "line": 581,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|584|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|648|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 584,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|612|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Investments.tsx",
-      "line": 612,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|615|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Investments.tsx",
-      "line": 615,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|618|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Investments.tsx",
-      "line": 618,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|633|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Investments.tsx",
-      "line": 633,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|826|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Investments.tsx",
-      "line": 826,
+      "line": 648,
       "match": ".toLocaleString("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|836|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|655|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 836,
+      "line": 655,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|839|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|657|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 839,
+      "line": 657,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|841|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|659|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 841,
+      "line": 659,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|844|.toFixed(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|737|.toFixed(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 844,
+      "line": 737,
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|923|.toLocaleString(",
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|757|.toLocaleString(",
       "ruleId": "ui-no-direct-number-formatting",
       "file": "src/pages/Investments.tsx",
-      "line": 923,
+      "line": 757,
+      "match": ".toLocaleString("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|777|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 777,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|788|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 788,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|792|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 792,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Investments.tsx|885|.toLocaleString(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Investments.tsx",
+      "line": 885,
       "match": ".toLocaleString("
     },
     {
@@ -647,143 +451,115 @@
       "match": ".toFixed("
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Categories.tsx|309|<input",
+      "key": "ui-no-native-control-in-pages|src/pages/Categories.tsx|311|<input",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Categories.tsx",
-      "line": 309,
+      "line": 311,
       "match": "<input"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Categories.tsx|389|<input",
+      "key": "ui-no-native-control-in-pages|src/pages/Categories.tsx|391|<input",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Categories.tsx",
-      "line": 389,
+      "line": 391,
       "match": "<input"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/ConsultantDashboard.tsx|1315|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/ConsultantDashboard.tsx|1295|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 1315,
+      "line": 1295,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/ConsultantDashboard.tsx|1325|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 1325,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/ConsultantDashboard.tsx|1347|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 1347,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/ConsultantDashboard.tsx|1754|<select",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 1754,
-      "match": "<select"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1532|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1882|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1532,
+      "line": 1882,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1594|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/CreditCards.tsx|1944|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/CreditCards.tsx",
-      "line": 1594,
+      "line": 1944,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|486|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|490|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 486,
+      "line": 490,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|643|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|563|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 643,
+      "line": 563,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|691|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|574|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 691,
+      "line": 574,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|704|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|673|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 704,
+      "line": 673,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|717|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|721|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 717,
+      "line": 721,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|527|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|734|<button",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Investments.tsx",
-      "line": 527,
+      "file": "src/pages/Dashboard.tsx",
+      "line": 734,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|677|<select",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|747|<button",
       "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Investments.tsx",
-      "line": 677,
-      "match": "<select"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|706|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Investments.tsx",
-      "line": 706,
+      "file": "src/pages/Dashboard.tsx",
+      "line": 747,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|742|<select",
+      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|457|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Investments.tsx",
-      "line": 742,
-      "match": "<select"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|846|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/Investments.tsx",
-      "line": 846,
+      "line": 457,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|860|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|662|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Investments.tsx",
-      "line": 860,
+      "line": 662,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|897|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|820|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Investments.tsx",
-      "line": 897,
+      "line": 820,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Investments.tsx|859|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Investments.tsx",
+      "line": 859,
       "match": "<button"
     },
     {
@@ -841,230 +617,6 @@
       "file": "src/App.tsx",
       "line": 83,
       "match": "#fff"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ClientAllocationCharts.tsx|67|#1e293b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 67,
-      "match": "#1e293b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ClientAllocationCharts.tsx|68|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 68,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ClientAllocationCharts.tsx|70|#f8fafc",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 70,
-      "match": "#f8fafc"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ClientAllocationCharts.tsx|88|#64748b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ClientAllocationCharts.tsx",
-      "line": 88,
-      "match": "#64748b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|103|#3b82f6",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 103,
-      "match": "#3b82f6"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|104|#10b981",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 104,
-      "match": "#10b981"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|37|#94a3b8",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 37,
-      "match": "#94a3b8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|37|#ef4444",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 37,
-      "match": "#ef4444"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|72|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 72,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|76|#94a3b8",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 76,
-      "match": "#94a3b8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|83|#94a3b8",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 83,
-      "match": "#94a3b8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|91|#1e293b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 91,
-      "match": "#1e293b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|92|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 92,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/ExposureVsLimitsChart.tsx|94|#f8fafc",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/ExposureVsLimitsChart.tsx",
-      "line": 94,
-      "match": "#f8fafc"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/PerformanceMetricsCard.tsx|15|#f59e0b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 15,
-      "match": "#f59e0b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/PerformanceMetricsCard.tsx|19|#14b8a6",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 19,
-      "match": "#14b8a6"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/PerformanceMetricsCard.tsx|23|#6366f1",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 23,
-      "match": "#6366f1"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/PerformanceMetricsCard.tsx|27|#10b981",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 27,
-      "match": "#10b981"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/PerformanceMetricsCard.tsx|31|#ef4444",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 31,
-      "match": "#ef4444"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/PerformanceMetricsCard.tsx|68|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/PerformanceMetricsCard.tsx",
-      "line": 68,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/SectorExposureChart.tsx|58|#1e293b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/SectorExposureChart.tsx",
-      "line": 58,
-      "match": "#1e293b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/SectorExposureChart.tsx|59|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/SectorExposureChart.tsx",
-      "line": 59,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/SectorExposureChart.tsx|61|#f8fafc",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/SectorExposureChart.tsx",
-      "line": 61,
-      "match": "#f8fafc"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|56|#6366f1",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 56,
-      "match": "#6366f1"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|57|#6366f1",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 57,
-      "match": "#6366f1"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|60|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 60,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|63|#94a3b8",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 63,
-      "match": "#94a3b8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|69|#94a3b8",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 69,
-      "match": "#94a3b8"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|79|#1e293b",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 79,
-      "match": "#1e293b"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|80|#334155",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 80,
-      "match": "#334155"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|82|#f8fafc",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 82,
-      "match": "#f8fafc"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/components/consulting/WeeklyVariationChart.tsx|88|#6366f1",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/components/consulting/WeeklyVariationChart.tsx",
-      "line": 88,
-      "match": "#6366f1"
     },
     {
       "key": "ui-no-raw-hex-color|src/components/ReportCharts.tsx|101|#000",
@@ -1851,122 +1403,115 @@
       "match": "#6b7280"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|198|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|215|#3b82f6",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 198,
+      "line": 215,
       "match": "#3b82f6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|199|#6366f1",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|216|#6366f1",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 199,
+      "line": 216,
       "match": "#6366f1"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|200|#10b981",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|217|#10b981",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 200,
+      "line": 217,
       "match": "#10b981"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|201|#f59e0b",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|218|#f59e0b",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 201,
+      "line": 218,
       "match": "#f59e0b"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|202|#ec4899",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|219|#ec4899",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 202,
+      "line": 219,
       "match": "#ec4899"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|203|#06b6d4",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|220|#06b6d4",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 203,
+      "line": 220,
       "match": "#06b6d4"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|204|#8b5cf6",
+      "key": "ui-no-raw-hex-color|src/pages/ClientDashboard.tsx|221|#8b5cf6",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/ClientDashboard.tsx",
-      "line": 204,
+      "line": 221,
       "match": "#8b5cf6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|546|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|118|#3b82f6",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 546,
+      "file": "src/pages/CreditCards.tsx",
+      "line": 118,
       "match": "#3b82f6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|547|#6366f1",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|187|#3b82f6",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 547,
-      "match": "#6366f1"
+      "file": "src/pages/CreditCards.tsx",
+      "line": 187,
+      "match": "#3b82f6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|548|#10b981",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|191|#10b981",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 548,
+      "file": "src/pages/CreditCards.tsx",
+      "line": 191,
       "match": "#10b981"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|549|#f59e0b",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|192|#6b7280",
       "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 549,
+      "file": "src/pages/CreditCards.tsx",
+      "line": 192,
+      "match": "#6b7280"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|193|#ef4444",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 193,
+      "match": "#ef4444"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|194|#f59e0b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 194,
       "match": "#f59e0b"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|550|#ec4899",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 550,
-      "match": "#ec4899"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|551|#06b6d4",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 551,
-      "match": "#06b6d4"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/pages/ConsultantDashboard.tsx|552|#8b5cf6",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/ConsultantDashboard.tsx",
-      "line": 552,
-      "match": "#8b5cf6"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|117|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|277|#ffffff",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/CreditCards.tsx",
-      "line": 117,
+      "line": 277,
+      "match": "#ffffff"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|539|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/pages/CreditCards.tsx",
+      "line": 539,
       "match": "#3b82f6"
     },
     {
-      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|198|#3b82f6",
+      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|711|#16a34a",
       "ruleId": "ui-no-raw-hex-color",
       "file": "src/pages/CreditCards.tsx",
-      "line": 198,
-      "match": "#3b82f6"
-    },
-    {
-      "key": "ui-no-raw-hex-color|src/pages/CreditCards.tsx|370|#16a34a",
-      "ruleId": "ui-no-raw-hex-color",
-      "file": "src/pages/CreditCards.tsx",
-      "line": 370,
+      "line": 711,
       "match": "#16a34a"
     },
     {
