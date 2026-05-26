@@ -133,16 +133,20 @@ interface CreditCardTimelineProps {
   card: CreditCard
   currentMonth: string
   totalPrevisto: number
+  totalPago: number
   saldoAberto: number
   monthlyCycle: MonthlyCycleRow | undefined
+  baseExpense?: number
 }
 
 function CreditCardTimeline({
   card,
   currentMonth,
   totalPrevisto,
+  totalPago,
   saldoAberto,
   monthlyCycle,
+  baseExpense,
 }: CreditCardTimelineProps) {
   const [yearStr, monthStr] = currentMonth.split('-')
   const year = parseInt(yearStr, 10)
@@ -300,7 +304,7 @@ function CreditCardTimeline({
       </div>
 
       {/* 1. Desktop & Tablet Layout (Horizontal Timeline) */}
-      <div className="hidden sm:block relative pt-4 pb-12 px-10">
+      <div className="hidden sm:block relative pt-20 pb-16 px-20">
         <div className="h-1.5 w-full bg-muted/20 dark:bg-muted/10 rounded-full relative">
           {/* Progress fill using Card Theme Color */}
           <div
@@ -311,13 +315,13 @@ function CreditCardTimeline({
           {/* ================= NODES CIRCLES (Only circles centered on line) ================= */}
           {/* Node 1 Circle */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 z-10"
+            className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 z-10"
             style={progressPct >= 0 ? nodeRingStyle : undefined}
           />
 
           {/* Node 2 Circle */}
           <div
-            className={`absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 z-10 ${
+            className={`absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
               progressPct >= 50
                 ? 'border-card'
                 : 'border-border/60 bg-background'
@@ -327,7 +331,7 @@ function CreditCardTimeline({
 
           {/* Node 3 Circle */}
           <div
-            className={`absolute top-1/2 -translate-y-1/2 left-full -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 z-10 ${
+            className={`absolute top-1/2 -translate-y-1/2 left-full -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
               progressPct >= 100
                 ? 'border-card'
                 : 'border-border/60 bg-background'
@@ -335,113 +339,185 @@ function CreditCardTimeline({
             style={progressPct >= 100 ? nodeRingStyle : undefined}
           />
 
-          {/* ================= NODES TEXT LABELS & DATES (Positioned below line) ================= */}
+          {/* ================= NODES TEXT LABELS & DATES (Positioned ABOVE the line) ================= */}
           {/* Node 1 Text */}
-          <div className="absolute top-4 left-0 -translate-x-1/2 flex flex-col items-center w-24 text-center">
-            <span className="text-[10px] font-bold text-primary font-mono whitespace-nowrap">
-              Início
+          <div className="absolute bottom-5 left-0 -translate-x-1/2 flex flex-col items-center w-36 text-center">
+            <span className="text-xs font-extrabold text-primary font-sans leading-tight whitespace-nowrap">
+              Início do Ciclo
             </span>
-            <span className="text-[9px] text-secondary font-medium font-sans mt-0.5">
-              {formatDateBR(startDate)}
+            <span className="text-[10px] text-secondary font-bold font-mono mt-0.5">
+              ({formatDateBR(startDate)})
             </span>
+            <p className="text-[9px] text-secondary mt-1 leading-normal max-w-[120px]">
+              Compras começam a contar.
+            </p>
           </div>
 
           {/* Node 2 Text */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center w-24 text-center">
-            <span className="text-[10px] font-bold text-primary font-mono whitespace-nowrap">
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-36 text-center">
+            <span className="text-xs font-extrabold text-primary font-sans leading-tight whitespace-nowrap">
               Fechamento
             </span>
-            <span className="text-[9px] text-secondary font-medium font-sans mt-0.5">
-              {formatDateBR(closingDate)}
+            <span className="text-[10px] text-secondary font-bold font-mono mt-0.5">
+              ({formatDateBR(closingDate)})
             </span>
+            <p className="text-[9px] text-secondary mt-1 leading-normal max-w-[120px]">
+              Fatura encerrada para compras.
+            </p>
           </div>
 
           {/* Node 3 Text */}
-          <div className="absolute top-4 left-full -translate-x-1/2 flex flex-col items-center w-24 text-center">
-            <span className="text-[10px] font-bold text-primary font-mono whitespace-nowrap">
+          <div className="absolute bottom-5 left-full -translate-x-1/2 flex flex-col items-center w-36 text-center">
+            <span className="text-xs font-extrabold text-primary font-sans leading-tight whitespace-nowrap">
               Vencimento
             </span>
-            <span className="text-[9px] text-secondary font-medium font-sans mt-0.5">
-              {formatDateBR(dueDate)}
+            <span className="text-[10px] text-secondary font-bold font-mono mt-0.5">
+              ({formatDateBR(dueDate)})
+            </span>
+            <p className="text-[9px] text-secondary mt-1 leading-normal max-w-[120px]">
+              Vencimento da fatura.
+            </p>
+          </div>
+
+          {/* ================= NODES VALUES (Positioned BELOW the line) ================= */}
+          {/* Node 1 Value */}
+          <div className="absolute top-5 left-0 -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
+            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
+              Previsto
+            </span>
+            <span className="text-sm font-extrabold text-primary font-mono mt-0.5 whitespace-nowrap">
+              {formatCurrency(totalPrevisto)}
+            </span>
+            {baseExpense !== undefined && baseExpense !== totalPrevisto && (
+              <span className="text-[9px] text-secondary opacity-70 font-sans" title="Valor base sem pesos">
+                ({formatCurrency(baseExpense)})
+              </span>
+            )}
+          </div>
+
+          {/* Node 2 Value */}
+          <div className="absolute top-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
+            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
+              Pago
+            </span>
+            <span className="text-sm font-extrabold text-income font-mono mt-0.5 whitespace-nowrap">
+              {formatCurrency(totalPago)}
+            </span>
+          </div>
+
+          {/* Node 3 Value */}
+          <div className="absolute top-5 left-full -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
+            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
+              Saldo
+            </span>
+            <span className={`text-sm font-extrabold font-mono mt-0.5 whitespace-nowrap ${saldoAberto > 0.009 ? 'text-primary' : 'text-secondary'}`}>
+              {formatCurrency(saldoAberto)}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 2. Mobile Layout (Creative Centered Vertical Timeline) */}
-      <div className="block sm:hidden space-y-3 pt-2 pb-2">
-        {/* Step 1: Início */}
-        <div className="flex flex-col items-center text-center space-y-1.5 animate-page-enter">
+      {/* 2. Mobile Layout (Creative Compact Timeline with Values on the Left) */}
+      <div className="block sm:hidden relative pt-2 pb-2">
+        {/* The vertical timeline connector line spanning Row 1 to Row 3 */}
+        <div className="absolute top-[22px] bottom-[22px] left-1/2 -translate-x-1/2 w-0.5 bg-muted/20 dark:bg-muted/10 rounded-full pointer-events-none">
           <div
-            className="w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 shrink-0"
-            style={progressPct >= 0 ? nodeRingStyle : undefined}
+            className="w-full rounded-full transition-all duration-700 ease-out"
+            style={{
+              height: `${progressPct}%`,
+              backgroundColor: themeColor
+            }}
           />
-          <div>
-            <div className="flex items-center justify-center gap-1.5">
-              <span className="text-[11px] font-extrabold text-primary font-mono">Início do Ciclo</span>
-              <span className="text-[10px] text-secondary font-bold font-mono">({formatDateBR(startDate)})</span>
-            </div>
-            <p className="text-[10px] text-secondary max-w-[240px] mt-0.5 leading-normal">Compras começam a contar nesta fatura.</p>
-          </div>
         </div>
 
-        {/* Connector 1 */}
-        <div
-          className="w-0.5 h-6 mx-auto transition-all duration-500 rounded-full"
-          style={{
-            background: progressPct >= 50
-              ? themeColor
-              : `linear-gradient(to bottom, ${themeColor} ${(progressPct / 50) * 100}%, rgba(100,100,100,0.15) ${(progressPct / 50) * 100}%)`
-          }}
-        />
-
-        {/* Step 2: Fechamento */}
-        <div className="flex flex-col items-center text-center space-y-1.5 animate-page-enter">
-          <div
-            className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
-              progressPct >= 50
-                ? 'border-card'
-                : 'border-border/60 bg-background'
-            }`}
-            style={progressPct >= 50 ? nodeRingStyle : undefined}
-          />
-          <div>
-            <div className="flex items-center justify-center gap-1.5">
-              <span className="text-[11px] font-extrabold text-primary font-mono">Fechamento</span>
-              <span className="text-[10px] text-secondary font-bold font-mono">({formatDateBR(closingDate)})</span>
+        <div className="grid grid-cols-[1fr_24px_1fr] gap-x-3 gap-y-4 items-center">
+          {/* Row 1: Início / Total Previsto */}
+          {/* Left: Value card */}
+          <div className="text-right flex flex-col justify-center">
+            <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Previsto</span>
+            <div className="flex flex-col items-end">
+              <span className="text-[13px] sm:text-[15px] font-extrabold text-primary font-mono leading-tight">
+                {formatCurrency(totalPrevisto)}
+              </span>
+              {baseExpense !== undefined && baseExpense !== totalPrevisto && (
+                <span className="text-[9px] sm:text-[10px] text-secondary opacity-70 font-sans" title="Valor base sem pesos">
+                  ({formatCurrency(baseExpense)})
+                </span>
+              )}
             </div>
-            <p className="text-[10px] text-secondary max-w-[240px] mt-0.5 leading-normal">Fatura encerrada para compras.</p>
           </div>
-        </div>
 
-        {/* Connector 2 */}
-        <div
-          className="w-0.5 h-6 mx-auto transition-all duration-500 rounded-full"
-          style={{
-            background: progressPct >= 100
-              ? themeColor
-              : progressPct >= 50
-              ? `linear-gradient(to bottom, ${themeColor} ${((progressPct - 50) / 50) * 100}%, rgba(100,100,100,0.15) ${((progressPct - 50) / 50) * 100}%)`
-              : 'rgba(100,100,100,0.15)'
-          }}
-        />
+          {/* Center: Circle */}
+          <div className="flex justify-center z-10">
+            <div
+              className="w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 shrink-0"
+              style={progressPct >= 0 ? nodeRingStyle : undefined}
+            />
+          </div>
 
-        {/* Step 3: Vencimento */}
-        <div className="flex flex-col items-center text-center space-y-1.5 animate-page-enter">
-          <div
-            className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
-              progressPct >= 100
-                ? 'border-card'
-                : 'border-border/60 bg-background'
-            }`}
-            style={progressPct >= 100 ? nodeRingStyle : undefined}
-          />
-          <div>
-            <div className="flex items-center justify-center gap-1.5">
-              <span className="text-[11px] font-extrabold text-primary font-mono">Vencimento</span>
-              <span className="text-[10px] text-secondary font-bold font-mono">({formatDateBR(dueDate)})</span>
+          {/* Right: Milestone */}
+          <div className="text-left flex flex-col justify-center">
+            <div className="flex flex-wrap items-baseline gap-1">
+              <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Início do Ciclo</span>
+              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDateBR(startDate)})</span>
             </div>
-            <p className="text-[10px] text-secondary max-w-[240px] mt-0.5 leading-normal">Data limite de pagamento sem encargos.</p>
+            <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Compras começam a contar.</p>
+          </div>
+
+          {/* Row 2: Fechamento / Total Pago */}
+          {/* Left: Value card */}
+          <div className="text-right flex flex-col justify-center">
+            <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Pago</span>
+            <span className="text-[13px] sm:text-[15px] font-extrabold text-income font-mono leading-tight">
+              {formatCurrency(totalPago)}
+            </span>
+          </div>
+
+          {/* Center: Circle */}
+          <div className="flex justify-center z-10">
+            <div
+              className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
+                progressPct >= 50 ? 'border-card' : 'border-border/60 bg-background'
+              }`}
+              style={progressPct >= 50 ? nodeRingStyle : undefined}
+            />
+          </div>
+
+          {/* Right: Milestone */}
+          <div className="text-left flex flex-col justify-center">
+            <div className="flex flex-wrap items-baseline gap-1">
+              <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Fechamento</span>
+              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDateBR(closingDate)})</span>
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Fatura encerrada para compras.</p>
+          </div>
+
+          {/* Row 3: Vencimento / Saldo em Aberto */}
+          {/* Left: Value card */}
+          <div className="text-right flex flex-col justify-center">
+            <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Saldo</span>
+            <span className={`text-[13px] sm:text-[15px] font-extrabold font-mono leading-tight ${saldoAberto > 0.009 ? 'text-primary' : 'text-secondary'}`}>
+              {formatCurrency(saldoAberto)}
+            </span>
+          </div>
+
+          {/* Center: Circle */}
+          <div className="flex justify-center z-10">
+            <div
+              className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
+                progressPct >= 100 ? 'border-card' : 'border-border/60 bg-background'
+              }`}
+              style={progressPct >= 100 ? nodeRingStyle : undefined}
+            />
+          </div>
+
+          {/* Right: Milestone */}
+          <div className="text-left flex flex-col justify-center">
+            <div className="flex flex-wrap items-baseline gap-1">
+              <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Vencimento</span>
+              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDateBR(dueDate)})</span>
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Vencimento da fatura.</p>
           </div>
         </div>
       </div>
@@ -1677,31 +1753,13 @@ export default function CreditCards() {
                       card={card}
                       currentMonth={currentMonth}
                       totalPrevisto={totalPrevisto}
+                      totalPago={totalPago}
                       saldoAberto={saldoAberto}
                       monthlyCycle={monthlyCycle}
+                      baseExpense={baseExpensesByCard[card.id]}
                     />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="rounded-lg border border-primary bg-secondary p-3">
-                        <p className="text-xs text-secondary">Total previsto</p>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-base font-semibold text-primary">{formatCurrency(totalPrevisto)}</p>
-                          {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
-                            <p className="text-[10px] text-secondary opacity-70" title="Valor base sem pesos">
-                              ({formatCurrency(baseExpensesByCard[card.id])})
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-primary bg-secondary p-3">
-                        <p className="text-xs text-secondary">Total pago</p>
-                        <p className="text-base font-semibold text-primary">{formatCurrency(totalPago)}</p>
-                      </div>
-                      <div className="rounded-lg border border-primary bg-secondary p-3">
-                        <p className="text-xs text-secondary">Saldo em aberto</p>
-                        <p className="text-base font-semibold text-primary">{formatCurrency(saldoAberto)}</p>
-                      </div>
-                    </div>
+
 
 
 

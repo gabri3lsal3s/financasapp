@@ -13,9 +13,8 @@ import type {
   PortfolioPricingMode,
   PortfolioAssetDefinition,
 } from '@/types'
-import { deleteLegacyInvestmentsForTransaction } from '@/utils/legacyInvestmentMigration'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
-import { ASSET_DEFINITION_SELECT, PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
+import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
 import { computeCashOffsetPreview, excludeCashOffsetSells, calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import {
   fetchPortfolioCashContext,
@@ -36,6 +35,8 @@ interface PortfolioTransactionFormModalProps {
   portfolioId: string
   editingTransaction: PortfolioTransaction | null
   onSaved: () => void
+  defaultTicker?: string
+  zIndexClass?: string
 }
 
 const OPERATION_OPTIONS: { value: PortfolioOperationType; label: string }[] = [
@@ -93,6 +94,8 @@ export default function PortfolioTransactionFormModal({
   portfolioId,
   editingTransaction,
   onSaved,
+  defaultTicker,
+  zIndexClass,
 }: PortfolioTransactionFormModalProps) {
   const [ticker, setTicker] = useState('')
   const [operationType, setOperationType] = useState<PortfolioOperationType>('buy')
@@ -100,7 +103,6 @@ export default function PortfolioTransactionFormModal({
   const [price, setPrice] = useState('')
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [saving, setSaving] = useState(false)
-  const [loadingDefinition, setLoadingDefinition] = useState(false)
   const [suggestions, setSuggestions] = useState<{ ticker: string; name: string }[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [richData, setRichData] = useState<AssetRichData | null>(null)
@@ -166,7 +168,7 @@ export default function PortfolioTransactionFormModal({
       setPrice(String(editingTransaction.price))
       setDate(editingTransaction.date)
     } else {
-      setTicker('')
+      setTicker(defaultTicker || '')
       setOperationType('buy')
       setQuantity('')
       setPrice('')
@@ -176,7 +178,7 @@ export default function PortfolioTransactionFormModal({
     setSuggestions([])
     setShowSuggestions(false)
     setRichData(null)
-  }, [isOpen, editingTransaction])
+  }, [isOpen, editingTransaction, defaultTicker])
 
   useEffect(() => {
     if (!isOpen || !portfolioId) return
@@ -191,34 +193,31 @@ export default function PortfolioTransactionFormModal({
   }, [isOpen, portfolioId])
 
   useEffect(() => {
-    if (!isOpen || !portfolioId || !editingTransaction) return
+    if (!isOpen || !portfolioId) return
 
-    const loadDefinition = async () => {
-      setLoadingDefinition(true)
-      try {
-        const tickerUpper = editingTransaction.ticker.toUpperCase()
-        const { data } = await supabase
-          .from('portfolio_asset_definitions')
-          .select(ASSET_DEFINITION_SELECT)
-          .eq('portfolio_id', portfolioId)
-          .eq('ticker', tickerUpper)
-          .maybeSingle()
-
-        if (tickerUpper === 'SALDO_INV' || tickerUpper === 'CAIXA' || tickerUpper === 'SALDO EM CAIXA' || tickerUpper === 'SALDO_EM_CAIXA') {
-          setPricingMode('cash')
-        } else if (data) {
-          applyDefinitionToForm(data as PortfolioAssetDefinition, pricingSetters)
-        } else {
-          resetPricingFields(pricingSetters)
-          setIsB3Linked(isB3TickerPattern(tickerUpper))
-        }
-      } finally {
-        setLoadingDefinition(false)
-      }
+    const tickerUpper = ticker.toUpperCase().trim()
+    if (!tickerUpper) {
+      resetPricingFields(pricingSetters)
+      return
     }
 
-    void loadDefinition()
-  }, [isOpen, portfolioId, editingTransaction?.id, editingTransaction?.ticker])
+    if (tickerUpper === 'SALDO_INV' || tickerUpper === 'CAIXA' || tickerUpper === 'SALDO EM CAIXA' || tickerUpper === 'SALDO_EM_CAIXA') {
+      setPricingMode('cash')
+      setIsB3Linked(false)
+      setIsTreasury(false)
+    } else {
+      const existingDef = portfolioDefinitions.find(
+        (d) => d.ticker.toUpperCase() === tickerUpper
+      )
+      if (existingDef) {
+        applyDefinitionToForm(existingDef, pricingSetters)
+      } else {
+        // Fallback for new tickers
+        resetPricingFields(pricingSetters)
+        setIsB3Linked(isB3TickerPattern(tickerUpper))
+      }
+    }
+  }, [isOpen, ticker, portfolioDefinitions, portfolioId])
 
   useEffect(() => {
     if (!isOpen || ticker.length < 3 || pricingMode !== 'market') {
@@ -457,10 +456,7 @@ export default function PortfolioTransactionFormModal({
 
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Usuário não autenticado')
 
-      await deleteLegacyInvestmentsForTransaction(supabase, user.id, editingTransaction)
 
       // Excluir todas as transações de offset de caixa vinculadas no livro-razão
       await deleteCashOffsetTransactions(portfolioId, editingTransaction.id)
@@ -523,7 +519,7 @@ export default function PortfolioTransactionFormModal({
   const modalTitle = editingTransaction ? 'Editar transação' : 'Lançar transação'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} maxWidth="max-w-lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} maxWidth="max-w-lg" zIndexClass={zIndexClass}>
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {/* Row 1: Ticker / Identificador */}
         <div className="relative">
@@ -568,13 +564,10 @@ export default function PortfolioTransactionFormModal({
               value={pricingMode}
               onChange={(e) => handlePricingModeChange(e.target.value as PortfolioPricingMode)}
               options={PORTFOLIO_PRICING_MODE_OPTIONS}
-              disabled={loadingDefinition || isPricingModeLocked}
+              disabled={isPricingModeLocked}
               className="rounded-xl font-semibold disabled:opacity-85 disabled:bg-secondary/40"
             />
           </div>
-          {loadingDefinition && (
-            <p className="text-[10px] text-indigo-500 animate-pulse font-semibold pb-3">Carregando configuração...</p>
-          )}
         </div>
 
         {/* Badges de classificação inteligente em Lançamentos */}
@@ -819,7 +812,7 @@ export default function PortfolioTransactionFormModal({
         <ModalActionFooter
           onCancel={onClose}
           submitLabel={editingTransaction ? 'Salvar alterações' : 'Salvar'}
-          submitDisabled={saving || !ticker.trim() || loadingDefinition}
+          submitDisabled={saving || !ticker.trim()}
           deleteLabel={editingTransaction ? 'Excluir transação' : undefined}
           onDelete={editingTransaction ? handleDelete : undefined}
         />

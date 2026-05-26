@@ -3,9 +3,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
 import { Profile, Portfolio, PortfolioTransaction, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
+import { getCache, setCache } from '@/services/offlineCache'
 import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
 import { getAssetPrices } from '@/services/priceService'
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
+import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
@@ -350,17 +352,34 @@ export default function ConsultantDashboard() {
         .or(`consultant_id.eq.${user?.id},client_id.eq.${user?.id}`)
 
       if (portsErr) throw portsErr
-      const portfoliosList = (ports || []).filter((port) => {
+  const portfoliosList = (ports || []).filter((port) => {
         const clientProfile = parseJoinedProfile(port.client)
         return clientProfile && (clientProfile.role === 'client' || clientProfile.id === user?.id)
       })
 
-      const { data: allTxs, error: txsErr } = await supabase
-        .from('portfolio_transactions')
-        .select('*')
-
-      if (txsErr) throw txsErr
-      const transactionsList = allTxs || []
+      let transactionsList: PortfolioTransaction[] = []
+      let txPage = 0
+      const txPageSize = 1000
+      let txHasMore = true
+      
+      while (txHasMore) {
+        const { data: pageData, error: txsErr } = await supabase
+          .from('portfolio_transactions')
+          .select('*')
+          .range(txPage * txPageSize, (txPage + 1) * txPageSize - 1)
+          
+        if (txsErr) throw txsErr
+        if (!pageData || pageData.length === 0) {
+          txHasMore = false
+        } else {
+          transactionsList = [...transactionsList, ...pageData]
+          if (pageData.length < txPageSize) {
+            txHasMore = false
+          } else {
+            txPage++
+          }
+        }
+      }
 
       const { data: allTargets, error: targetsErr } = await supabase
         .from('target_allocations')
@@ -548,8 +567,28 @@ export default function ConsultantDashboard() {
   }
 
   const loadPortfolioData = async (clientId: string, options?: { forceRefresh?: boolean }) => {
+    const cacheKey = `consultant-portfolio-data-${clientId}`
     try {
-      setLoadingPortfolio(true)
+      const cached = await getCache<any>(cacheKey)
+      if (cached && !options?.forceRefresh) {
+        if (cached.portfolio) setPortfolio(cached.portfolio)
+        if (cached.clientNotes !== undefined) setClientNotes(cached.clientNotes)
+        if (cached.billingFeeRate !== undefined) setBillingFeeRate(cached.billingFeeRate)
+        if (cached.transactions) setTransactions(cached.transactions)
+        if (cached.groupTargets) setGroupTargets(cached.groupTargets)
+        if (cached.assetPrices) setAssetPrices(cached.assetPrices)
+        if (cached.positions) setPositions(cached.positions)
+        if (cached.portfolioValue !== undefined) setPortfolioValue(cached.portfolioValue)
+        if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
+        if (cached.indexRatesByIndexer) setIndexRatesByIndexer(cached.indexRatesByIndexer)
+        if (cached.shareValue !== undefined) setShareValue(cached.shareValue)
+        if (cached.totalShares !== undefined) setTotalShares(cached.totalShares)
+        if (cached.assetTheses) setAssetTheses(cached.assetTheses)
+        if (cached.executiveSummary !== undefined) setExecutiveSummary(cached.executiveSummary)
+        if (cached.nextMonthPlan !== undefined) setNextMonthPlan(cached.nextMonthPlan)
+      }
+
+      setLoadingPortfolio(!cached)
       
       const portLookup = await supabase
         .from('portfolios')
@@ -600,17 +639,12 @@ export default function ConsultantDashboard() {
       }
 
       setPortfolio(portData)
-      setClientNotes(portData ? portData.notes || '' : '')
-      setBillingFeeRate(portData && portData.billing_fee_rate !== undefined && portData.billing_fee_rate !== null ? Number(portData.billing_fee_rate) : 0.85)
+      const currentNotes = portData ? portData.notes || '' : ''
+      setClientNotes(currentNotes)
+      const currentFee = portData && portData.billing_fee_rate !== undefined && portData.billing_fee_rate !== null ? Number(portData.billing_fee_rate) : 0.85
+      setBillingFeeRate(currentFee)
 
-      const { data: txsData, error: txsError } = await supabase
-        .from('portfolio_transactions')
-        .select('*')
-        .eq('portfolio_id', portData.id)
-        .order('date', { ascending: true })
-
-      if (txsError) throw txsError
-      const txs = txsData || []
+      const txs = await fetchAllPortfolioTransactions(portData.id, { orderField: 'date', ascending: true })
       setTransactions(txs)
 
       const { data: targetsData, error: targetsError } = await supabase
@@ -625,7 +659,12 @@ export default function ConsultantDashboard() {
         .select('*')
         .eq('portfolio_id', portData.id)
       
-      setGroupTargets(groupTargetsData || [])
+      const currentGroupTargets = groupTargetsData || []
+      setGroupTargets(currentGroupTargets)
+
+      let mappedTheses: Record<string, string> = {}
+      let execSummary = ''
+      let monthPlan = ''
 
       const { data: thesesData, error: thesesError } = await supabase
         .from('asset_theses')
@@ -633,14 +672,23 @@ export default function ConsultantDashboard() {
         .eq('consultant_id', user?.id)
 
       if (!thesesError && thesesData) {
-        const mappedTheses: Record<string, string> = {}
         for (const item of thesesData) {
           mappedTheses[item.ticker.toUpperCase()] = item.thesis
         }
         setAssetTheses(mappedTheses)
-        setExecutiveSummary(mappedTheses['__EXECUTIVE_SUMMARY__'] || '')
-        setNextMonthPlan(mappedTheses['__NEXT_MONTH_PLAN__'] || '')
+        execSummary = mappedTheses['__EXECUTIVE_SUMMARY__'] || ''
+        monthPlan = mappedTheses['__NEXT_MONTH_PLAN__'] || ''
+        setExecutiveSummary(execSummary)
+        setNextMonthPlan(monthPlan)
       }
+
+      let finalPrices = {}
+      let finalPositions: AssetPosition[] = []
+      let finalPortfolioValue = 0
+      let finalDefinitions: PortfolioAssetDefinition[] = []
+      let finalIndexRates: Record<string, IndexRateMap> = {}
+      let currentShareValue = 1.0
+      let sharesOutstanding = 0
 
       if (txs.length > 0) {
         const valuation = await loadPortfolioValuation(
@@ -656,14 +704,22 @@ export default function ConsultantDashboard() {
         setAssetDefinitions(valuation.definitions)
         setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
-        const { currentShareValue, totalShares: sharesOutstanding } = calculateShareHistory(
+        const shareHistoryResult = calculateShareHistory(
           txs,
           valuation.prices,
           valuation.definitions,
           valuation.indexRatesByIndexer
         )
+        currentShareValue = shareHistoryResult.currentShareValue
+        sharesOutstanding = shareHistoryResult.totalShares
         setShareValue(currentShareValue)
         setTotalShares(sharesOutstanding)
+
+        finalPrices = valuation.prices
+        finalPositions = valuation.positions
+        finalPortfolioValue = valuation.totalValue
+        finalDefinitions = valuation.definitions
+        finalIndexRates = valuation.indexRatesByIndexer
       } else {
         setPositions([])
         setPortfolioValue(0)
@@ -672,6 +728,25 @@ export default function ConsultantDashboard() {
         setAssetDefinitions([])
         setIndexRatesByIndexer({})
       }
+
+      // Cache all details
+      await setCache(cacheKey, {
+        portfolio: portData,
+        clientNotes: currentNotes,
+        billingFeeRate: currentFee,
+        transactions: txs,
+        groupTargets: currentGroupTargets,
+        assetPrices: finalPrices,
+        positions: finalPositions,
+        portfolioValue: finalPortfolioValue,
+        assetDefinitions: finalDefinitions,
+        indexRatesByIndexer: finalIndexRates,
+        shareValue: currentShareValue,
+        totalShares: sharesOutstanding,
+        assetTheses: mappedTheses,
+        executiveSummary: execSummary,
+        nextMonthPlan: monthPlan
+      })
     } catch (err) {
       console.error('Erro ao carregar dados do portfolio:', err)
       toast.error('Erro ao obter carteira do cliente')

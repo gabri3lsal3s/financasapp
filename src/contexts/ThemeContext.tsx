@@ -75,9 +75,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     // Aplicar variáveis CSS com base no Estilo Visual e no Tema de Cores
     const themesVars: Record<'light' | 'dark' | 'midnight', Record<string, string>> = {
       light: newStyle === 'cyberpunk' ? {
-        '--ds-color-surface-primary': 'rgba(255, 255, 255, 0.7)',
+        '--ds-color-surface-primary': 'rgba(255, 255, 255, 0.98)',
         '--ds-color-surface-secondary': '#f4f6fa',
-        '--ds-color-surface-tertiary': 'rgba(235, 238, 245, 0.7)',
+        '--ds-color-surface-tertiary': 'rgba(235, 238, 245, 0.95)',
         '--ds-color-text-primary': '#07080e',
         '--ds-color-text-secondary': '#5c6b8a',
         '--ds-color-border-default': 'rgba(0, 0, 0, 0.05)',

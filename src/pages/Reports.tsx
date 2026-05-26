@@ -12,7 +12,6 @@ import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
-import { useInvestments } from '@/hooks/useInvestments'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { useCreditCards } from '@/hooks/useCreditCards'
@@ -206,10 +205,10 @@ export default function Reports() {
     const loadAvailablePeriods = async () => {
       setLoadingAvailablePeriods(true)
 
-      const [expenseDatesRes, incomeDatesRes, investmentMonthsRes] = await Promise.all([
+      const [expenseDatesRes, incomeDatesRes, transactionDatesRes] = await Promise.all([
         supabase.from('expenses').select('date'),
         supabase.from('incomes').select('date'),
-        supabase.from('investments').select('month'),
+        supabase.from('portfolio_transactions').select('date'),
       ])
 
       if (canceled) return
@@ -230,8 +229,8 @@ export default function Reports() {
           }
         })
 
-        ; (investmentMonthsRes.data ?? []).forEach((row: { month?: string | null }) => {
-          const month = row.month
+        ; (transactionDatesRes.data ?? []).forEach((row: { date?: string | null }) => {
+          const month = row.date?.slice(0, 7)
           if (month && /^\d{4}-\d{2}$/.test(month)) {
             monthSet.add(month)
           }
@@ -304,7 +303,6 @@ export default function Reports() {
   const { incomes: monthIncomes, loading: loadingMonthIncomes } = useIncomes(selectedMonth)
   const { expenses: previousMonthExpenses, loading: loadingPreviousMonthExpenses } = useExpenses(previousMonth)
   const { incomes: previousMonthIncomes, loading: loadingPreviousMonthIncomes } = useIncomes(previousMonth)
-  const { investments: monthInvestments, loading: loadingMonthInvestments } = useInvestments(selectedMonth)
   const { isOnline } = useNetworkStatus()
   const [portfolioTransactions, setPortfolioTransactions] = useState<
     Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
@@ -363,10 +361,6 @@ export default function Reports() {
     }
   }, [selectedMonth, isOnline])
 
-  const cashMonthInvestments = useMemo(
-    () => monthInvestments.filter((inv) => !inv.transaction_id && !inv.ticker),
-    [monthInvestments]
-  )
   const { limits: monthExpenseLimits } = useExpenseCategoryLimits(selectedMonth)
   const { limits: previousMonthExpenseLimits } = useExpenseCategoryLimits(previousMonth)
   const { expectations: monthIncomeExpectations } = useIncomeCategoryExpectations(selectedMonth)
@@ -1109,34 +1103,10 @@ export default function Reports() {
       totalsByDay[index].Investimentos += value
     })
 
-    cashMonthInvestments.forEach((investment) => {
-      if (!investment.created_at) {
-        return
-      }
-
-      const createdDate = new Date(investment.created_at)
-      if (Number.isNaN(createdDate.getTime())) {
-        return
-      }
-
-      const yearPart = createdDate.getFullYear()
-      const monthPart = createdDate.getMonth() + 1
-
-      if (yearPart !== year || monthPart !== month) {
-        return
-      }
-
-      const day = createdDate.getDate()
-      if (day >= 1 && day <= daysInMonth) {
-        totalsByDay[day - 1].Investimentos += investment.amount
-      }
-    })
-
     return totalsByDay
   }, [
     monthExpenses,
     monthIncomes,
-    cashMonthInvestments,
     portfolioTransactions,
     selectedMonth,
     getAmountByMode,
@@ -1194,7 +1164,7 @@ export default function Reports() {
     }))
   }, [monthsForSelectedYear])
 
-  const loadingState = loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingMonthInvestments || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods
+  const loadingState = loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods
   const savingsRate = monthSummary && monthSummary.total_income > 0
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'react'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import { supabase } from '@/lib/supabase'
-import type { PortfolioOperationType, PortfolioTransaction, PortfolioPricingMode } from '@/types'
+import type { PortfolioOperationType, PortfolioTransaction, PortfolioPricingMode, PortfolioAssetDefinition } from '@/types'
 import {
   parseB3Excel,
   reconcileInvestmentTransactions,
@@ -17,7 +17,12 @@ import {
   reconcileCashOffsetOnTransactionSave,
   deleteCashOffsetTransactions,
 } from '@/services/cashOffsetService'
-import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
+import {
+  calculateLedgerCashBalance,
+  shouldApplyCashOffset,
+  computeCashOffsetPreview,
+  getPreferredCashTicker,
+} from '@/utils/cashBalanceApplication'
 import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
 import { Upload, FileCheck, ArrowRight, Layers, Check, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -369,12 +374,22 @@ export default function InvestmentReconciliationModal({
     if (activeMissing.length === 0) return
 
     setLoading(true)
-    setProgress({ current: 0, total: activeMissing.length, label: 'Iniciando importação...' })
+    setProgress({ current: 0, total: activeMissing.length, label: 'Iniciando importação em lote...' })
     scrollToTop()
     try {
+      // 1. Carregar contexto de caixa inicial
+      const context = await fetchPortfolioCashContext(portfolioId)
+      const localTransactions: PortfolioTransaction[] = [...context.transactions]
+      const localDefinitions: PortfolioAssetDefinition[] = [...context.definitions]
+
+      const txsToInsert: any[] = []
+      const defsToUpsertMap = new Map<string, any>()
+      const offsetsToInsert: any[] = []
       let importedCount = 0
+
       for (const [index, draft] of activeMissing.entries()) {
-        setProgress({ current: index + 1, total: activeMissing.length, label: `Importando: ${draft.ticker}` })
+        setProgress({ current: index + 1, total: activeMissing.length, label: `Processando item ${index + 1} de ${activeMissing.length}: ${draft.ticker}` })
+        
         const qty = parseFloat(draft.quantity)
         const prc = parseFloat(draft.price)
         const tickerUpper = draft.ticker.toUpperCase().trim()
@@ -392,69 +407,125 @@ export default function InvestmentReconciliationModal({
           continue
         }
 
-        // 1. Insert portfolio_transactions
-        const { data: inserted, error: insertError } = await supabase
-          .from('portfolio_transactions')
-          .insert({
-            portfolio_id: portfolioId,
-            ticker: tickerUpper,
-            date: draft.date,
-            quantity: qty,
-            price: prc,
-            operation_type: draft.operation_type,
-          })
-          .select('id')
-          .single()
+        // Gerar UUID client-side para vincular com offsets
+        const txId = crypto.randomUUID()
 
-        if (insertError) throw insertError
-
-        // 2. Upsert portfolio_asset_definitions
-        const { error: defError } = await supabase
-          .from('portfolio_asset_definitions')
-          .upsert(
-            {
-              portfolio_id: portfolioId,
-              ticker: tickerUpper,
-              pricing_mode: draft.pricing_mode,
-              is_b3_linked: draft.pricing_mode === 'market' ? draft.isB3Linked : false,
-              applied_amount: draft.pricing_mode !== 'market' ? prc * qty : null,
-              application_date: draft.date,
-              is_treasury: draft.pricing_mode === 'market' ? draft.isTreasury : false,
-              updated_at: new Date().toISOString(),
-            },
-            {
-              onConflict: 'portfolio_id,ticker',
-            }
-          )
-
-        if (defError) throw defError
-
-        // 3. Automatically sync cash offsets for this transaction
-        const context = await fetchPortfolioCashContext(portfolioId)
-        await reconcileCashOffsetOnTransactionSave({
-          portfolioId,
-          transactionId: inserted.id,
-          amount: qty * prc,
+        // 1. Criar payload da transação B3
+        const newTx = {
+          id: txId,
+          portfolio_id: portfolioId,
+          ticker: tickerUpper,
           date: draft.date,
-          assetPricingMode: draft.pricing_mode,
-          operationType: draft.operation_type,
-          transactions: context.transactions,
-          definitions: context.definitions,
-        })
+          quantity: qty,
+          price: prc,
+          operation_type: draft.operation_type,
+        }
+        txsToInsert.push(newTx)
+        localTransactions.push(newTx as any)
+
+        // 2. Preparar payload de definição de ativo
+        const defPayload = {
+          portfolio_id: portfolioId,
+          ticker: tickerUpper,
+          pricing_mode: draft.pricing_mode,
+          is_b3_linked: draft.pricing_mode === 'market' ? draft.isB3Linked : false,
+          applied_amount: draft.pricing_mode !== 'market' ? prc * qty : null,
+          application_date: draft.date,
+          is_treasury: draft.pricing_mode === 'market' ? draft.isTreasury : false,
+          updated_at: new Date().toISOString(),
+        }
+        
+        // Atualizar no contexto local para que as próximas iterações leiam a definição correta
+        const existingDefIndex = localDefinitions.findIndex(d => d.ticker === tickerUpper)
+        if (existingDefIndex >= 0) {
+          localDefinitions[existingDefIndex] = { ...localDefinitions[existingDefIndex], ...defPayload }
+        } else {
+          localDefinitions.push(defPayload as any)
+        }
+        defsToUpsertMap.set(tickerUpper, defPayload)
+
+        // 3. Simular offsets de caixa em memória para evitar requisições de rede
+        const amount = qty * prc
+        if (draft.pricing_mode !== 'cash') {
+          if (draft.operation_type === 'buy' || draft.operation_type === 'subscription') {
+            if (shouldApplyCashOffset(draft.operation_type, draft.pricing_mode)) {
+              const plan = computeCashOffsetPreview(
+                amount,
+                draft.operation_type,
+                draft.pricing_mode,
+                localTransactions,
+                localDefinitions
+              )
+              
+              if (plan.sellTransactions.length > 0) {
+                plan.sellTransactions.forEach(sell => {
+                  const offsetTx = {
+                    id: crypto.randomUUID(),
+                    portfolio_id: portfolioId,
+                    ticker: sell.ticker,
+                    operation_type: 'sell' as const,
+                    quantity: sell.quantity,
+                    price: sell.price,
+                    date: draft.date,
+                    cash_offset_source_id: txId,
+                  }
+                  offsetsToInsert.push(offsetTx)
+                  localTransactions.push(offsetTx as any)
+                })
+              }
+            }
+          } else if (draft.operation_type === 'sell' || draft.operation_type === 'dividend') {
+            if (amount > 0) {
+              const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
+              const offsetTx = {
+                id: crypto.randomUUID(),
+                portfolio_id: portfolioId,
+                ticker: cashTicker,
+                operation_type: 'buy' as const,
+                quantity: 1,
+                price: amount,
+                date: draft.date,
+                cash_offset_source_id: txId,
+              }
+              offsetsToInsert.push(offsetTx)
+              localTransactions.push(offsetTx as any)
+            }
+          }
+        }
 
         importedCount++
       }
 
-      setProgress({ current: activeMissing.length, total: activeMissing.length, label: 'Sincronizando saldo de caixa...' })
-      // Sync total cash balance
-      const updatedContext = await fetchPortfolioCashContext(portfolioId)
-      const finalLedgerCash = calculateLedgerCashBalance(updatedContext.transactions, updatedContext.definitions)
-      await supabase
+      if (txsToInsert.length === 0) {
+        throw new Error('Nenhum item válido para importação.')
+      }
+
+      // 4. Efetuar gravações no Supabase em lote real (apenas 3 a 4 roundtrips de rede no total!)
+      setProgress({ current: activeMissing.length, total: activeMissing.length, label: 'Salvando transações no banco...' })
+      const { error: txError } = await supabase.from('portfolio_transactions').insert(txsToInsert)
+      if (txError) throw txError
+
+      setProgress({ current: activeMissing.length, total: activeMissing.length, label: 'Atualizando definições de ativos...' })
+      const { error: defError } = await supabase
+        .from('portfolio_asset_definitions')
+        .upsert(Array.from(defsToUpsertMap.values()), { onConflict: 'portfolio_id,ticker' })
+      if (defError) throw defError
+
+      if (offsetsToInsert.length > 0) {
+        setProgress({ current: activeMissing.length, total: activeMissing.length, label: 'Sincronizando offsets de caixa...' })
+        const { error: offsetError } = await supabase.from('portfolio_transactions').insert(offsetsToInsert)
+        if (offsetError) throw offsetError
+      }
+
+      setProgress({ current: activeMissing.length, total: activeMissing.length, label: 'Sincronizando saldo de caixa final...' })
+      const finalLedgerCash = calculateLedgerCashBalance(localTransactions, localDefinitions)
+      const { error: updatePortError } = await supabase
         .from('portfolios')
         .update({ cash_balance: finalLedgerCash })
         .eq('id', portfolioId)
+      if (updatePortError) throw updatePortError
 
-      toast.success(`${importedCount} novos lançamentos inseridos com sucesso no livro-razão!`)
+      toast.success(`${importedCount} novos lançamentos importados com sucesso em lote!`)
       
       // Remove successfully imported rows from drafts list
       setImportedDrafts((prev) => [...prev, ...activeMissing])
@@ -471,7 +542,7 @@ export default function InvestmentReconciliationModal({
       }
     } catch (err) {
       console.error(err)
-      toast.error('Erro ao efetuar a importação em lote.')
+      toast.error(err instanceof Error ? err.message : 'Erro ao efetuar a importação em lote.')
     } finally {
       setLoading(false)
       setProgress(null)

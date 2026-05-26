@@ -18,6 +18,51 @@ export interface ApplyCashOffsetResult {
   netContribution: number
 }
 
+/**
+ * Busca todas as transações de um portfolio de forma paginada para contornar
+ * o limite server-side (max-rows) do PostgREST/Supabase que truncaria a resposta em 1000.
+ */
+export async function fetchAllPortfolioTransactions(
+  portfolioId: string,
+  options?: {
+    select?: string
+    orderField?: string
+    ascending?: boolean
+  }
+): Promise<PortfolioTransaction[]> {
+  const selectQuery = options?.select ?? '*'
+  const orderField = options?.orderField ?? 'date'
+  const ascending = options?.ascending ?? true
+
+  let allTransactions: PortfolioTransaction[] = []
+  let page = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('portfolio_transactions')
+      .select(selectQuery)
+      .eq('portfolio_id', portfolioId)
+      .order(orderField, { ascending })
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allTransactions = [...allTransactions, ...data]
+      if (data.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+
+  return allTransactions
+}
+
 export async function fetchPortfolioCashContext(portfolioId: string): Promise<{
   transactions: PortfolioTransaction[]
   definitions: PortfolioAssetDefinition[]
@@ -26,36 +71,41 @@ export async function fetchPortfolioCashContext(portfolioId: string): Promise<{
     ? TRANSACTION_SELECT
     : 'id, portfolio_id, ticker, operation_type, quantity, price, date, created_at'
 
-  const [txRes, defRes] = await Promise.all([
-    supabase
-      .from('portfolio_transactions')
-      .select(querySelect)
-      .eq('portfolio_id', portfolioId)
-      .order('date', { ascending: true }),
-    supabase
-      .from('portfolio_asset_definitions')
-      .select(ASSET_DEFINITION_SELECT)
-      .eq('portfolio_id', portfolioId),
-  ])
-
-  if (hasCashOffsetColumn && txRes.error && (txRes.error.code === '42703' || String(txRes.error.message).includes('cash_offset_source_id'))) {
-    console.warn('[cashOffsetService] Coluna cash_offset_source_id ausente no banco remoto. Re-consultando sem offset.')
-    hasCashOffsetColumn = false
-    const fallbackTxRes = await supabase
-      .from('portfolio_transactions')
-      .select('id, portfolio_id, ticker, operation_type, quantity, price, date, created_at')
-      .eq('portfolio_id', portfolioId)
-      .order('date', { ascending: true })
+  try {
+    const [transactions, defRes] = await Promise.all([
+      fetchAllPortfolioTransactions(portfolioId, { select: querySelect, orderField: 'date', ascending: true }),
+      supabase
+        .from('portfolio_asset_definitions')
+        .select(ASSET_DEFINITION_SELECT)
+        .eq('portfolio_id', portfolioId),
+    ])
 
     return {
-      transactions: (fallbackTxRes.data as PortfolioTransaction[]) || [],
+      transactions,
       definitions: (defRes.data as PortfolioAssetDefinition[]) || [],
     }
-  }
+  } catch (err: any) {
+    if (hasCashOffsetColumn && (err.code === '42703' || String(err.message).includes('cash_offset_source_id'))) {
+      console.warn('[cashOffsetService] Coluna cash_offset_source_id ausente no banco remoto. Re-consultando sem offset.')
+      hasCashOffsetColumn = false
+      const [transactions, defRes] = await Promise.all([
+        fetchAllPortfolioTransactions(portfolioId, {
+          select: 'id, portfolio_id, ticker, operation_type, quantity, price, date, created_at',
+          orderField: 'date',
+          ascending: true
+        }),
+        supabase
+          .from('portfolio_asset_definitions')
+          .select(ASSET_DEFINITION_SELECT)
+          .eq('portfolio_id', portfolioId),
+      ])
 
-  return {
-    transactions: (txRes.data as unknown as PortfolioTransaction[]) || [],
-    definitions: (defRes.data as PortfolioAssetDefinition[]) || [],
+      return {
+        transactions,
+        definitions: (defRes.data as PortfolioAssetDefinition[]) || [],
+      }
+    }
+    throw err
   }
 }
 

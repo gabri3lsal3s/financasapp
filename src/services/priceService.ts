@@ -63,12 +63,18 @@ async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Resp
 
   for (let i = 0; i < proxies.length; i++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 segundos de timeout por proxy
+    const timeoutId = setTimeout(() => controller.abort(), 2500); // Reduzido de 6s para 2.5s para maior resiliência e velocidade
 
     try {
       const proxyUrl = proxies[i](url);
       const response = await fetch(proxyUrl, { ...init, signal: controller.signal });
       clearTimeout(timeoutId);
+
+      // Se o destino retornou 404 (Não Encontrado), o ativo de fato não existe no Yahoo Finance.
+      // Retorna imediatamente para evitar cascata desnecessária em outros proxies.
+      if (response.status === 404) {
+        return response;
+      }
 
       if (response.ok) {
         // Valida se o corpo é um JSON legível para evitar aceitar respostas textuais de erro (ex: "Edge: Too Many Requests")
@@ -102,10 +108,13 @@ async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Resp
 
   // Tentativa direta como último recurso (falhará por CORS no browser, mas pode funcionar em SSR ou fora de sandbox)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 2000); // Reduzido de 5s para 2s
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
     clearTimeout(timeoutId);
+    if (response.status === 404) {
+      return response;
+    }
     if (response.ok) {
       const text = await response.text();
       try {
@@ -125,6 +134,7 @@ async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Resp
     throw lastError || err;
   }
 }
+
 
 /**
  * Busca cotações de uma lista de tickers de forma resiliente.
@@ -200,9 +210,11 @@ export async function getAssetPrices(
 
     const pricesToFetchFromApi: string[] = []
 
-    // Mapeia o que achou no Supabase
+    // Mapeia o que achou no Supabase e identifica direitos de subscrição
     for (const ticker of missingInCache) {
       const found = supabasePrices.find(p => p.ticker === ticker)
+      const isSubscriptionOrRight = isSubscriptionOrRightTicker(ticker)
+
       // Se achou no cache e NÃO estamos forçando atualização, aproveita
       if (found && !forceRefresh) {
         if (!found.asset_class || !found.sector) {
@@ -219,6 +231,22 @@ export async function getAssetPrices(
 
         result[ticker] = found
         memoryPriceCache[ticker] = found
+      } else if (isSubscriptionOrRight) {
+        // Se for direito de subscrição ou warrant B3 (ex: MXRF12, XPML12), lidamos localmente sem API
+        const oldPrice = found || supabasePrices.find(p => p.ticker === ticker)
+        const price = oldPrice ? Number(oldPrice.current_price) : 0
+        const meta = getAssetMetadata(ticker)
+        
+        const assetPrice: AssetPrice = {
+          ticker,
+          current_price: price,
+          last_updated: now.toISOString(),
+          asset_class: meta.asset_class,
+          sector: meta.sector,
+          quotation_status: oldPrice ? 'stale' : 'fallback_static',
+        }
+        result[ticker] = assetPrice
+        memoryPriceCache[ticker] = assetPrice
       } else {
         pricesToFetchFromApi.push(ticker)
       }
@@ -246,15 +274,26 @@ export async function getAssetPrices(
           try {
             response = await fetchWithCorsProxy(url)
           } catch (err) {
-            console.warn(`[getAssetPrices] Falha no query1 via chart para ${symbol}. Tentando query2...`, err)
+            console.warn(`[getAssetPrices] Falha no query1 via chart para ${symbol}.`, err)
+          }
+
+          // Se for 404 (Não Encontrado), o ativo não existe no Yahoo Finance.
+          // Não adianta tentar o query2 pois os dados são idênticos.
+          if (response && response.status === 404) {
+            console.warn(`[getAssetPrices] Ticker ${symbol} não encontrado no Yahoo Finance (404).`)
+            return
           }
 
           if (!response || !response.ok) {
             const backupUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
-            response = await fetchWithCorsProxy(backupUrl)
+            try {
+              response = await fetchWithCorsProxy(backupUrl)
+            } catch (err) {
+              console.warn(`[getAssetPrices] Falha no query2 via chart para ${symbol}.`, err)
+            }
           }
 
-          if (response.ok) {
+          if (response && response.ok) {
             const data = await safeJson(response)
             const chartMeta = data?.chart?.result?.[0]?.meta
             if (chartMeta && chartMeta.regularMarketPrice !== undefined) {
@@ -314,15 +353,17 @@ export async function getAssetPrices(
 
         result[ticker] = assetPrice
         memoryPriceCache[ticker] = assetPrice
-        if (quotationStatus === 'live' && price > 0) {
-          updatesToSave.push({
-            ticker,
-            current_price: price,
-            asset_class: meta.asset_class,
-            sector: meta.sector,
-            last_updated: now.toISOString() as any,
-          })
-        }
+
+        // Salvar todas as cotações que tentamos consultar no banco de dados,
+        // incluindo cotações com erro (preço 0 ou static/stale), para persistir no cache
+        // e evitar requisições repetidas de rede nas próximas 24 horas.
+        updatesToSave.push({
+          ticker,
+          current_price: price,
+          asset_class: meta.asset_class,
+          sector: meta.sector,
+          last_updated: now.toISOString() as any,
+        })
       }
 
       // Salvar novas cotações de volta no cache do Supabase em background
@@ -780,6 +821,32 @@ export function isB3TickerPattern(ticker: string): boolean {
     t = t.slice(0, -1)
   }
   return /^[A-Z]{4}[0-9]{1,2}$/.test(t)
+}
+
+/**
+ * Detecta se um ticker é um direito de subscrição ou outro ativo B3 não padrão
+ * que o Yahoo Finance não oferece suporte para cotações.
+ */
+export function isSubscriptionOrRightTicker(ticker: string): boolean {
+  let t = ticker.trim().toUpperCase()
+  if (t.endsWith('.SA')) {
+    t = t.replace('.SA', '')
+  }
+  if (/^[A-Z]{4}[0-9]{1,2}F$/i.test(t)) {
+    t = t.slice(0, -1)
+  }
+  
+  if (/^[A-Z]{4}[0-9]{1,2}$/.test(t)) {
+    const match = t.match(/[0-9]+$/)
+    if (match) {
+      const num = parseInt(match[0], 10)
+      // Digitos normais: 3, 4, 5, 6, 7, 8 (Ações), 11 (FIIs, ETFs, Units)
+      // Também suporta alguns BDRs comuns terminando em 34, 35, 39 ou renda fixa
+      const standardDigits = [3, 4, 5, 6, 7, 8, 11, 32, 33, 34, 35, 36, 39]
+      return !standardDigits.includes(num)
+    }
+  }
+  return false
 }
 
 /** Limpa completamente o cache em memória das cotações */

@@ -26,7 +26,6 @@ import type { AssetPosition } from '@/services/investmentEngine'
 import PortfolioTransactionFormModal from './PortfolioTransactionFormModal'
 import { deleteCashOffsetTransactions, fetchPortfolioCashContext } from '@/services/cashOffsetService'
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
-import { deleteLegacyInvestmentsForTransaction } from '@/utils/legacyInvestmentMigration'
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -336,7 +335,6 @@ export default function AssetTransactionsModal({
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Não autenticado')
-      await deleteLegacyInvestmentsForTransaction(supabase, user.id, tx)
       await deleteCashOffsetTransactions(portfolioId, tx.id)
       const { error } = await supabase.from('portfolio_transactions')
         .delete().eq('id', tx.id).eq('portfolio_id', portfolioId)
@@ -420,6 +418,8 @@ export default function AssetTransactionsModal({
                 ? { type: 'spring', damping: 30, stiffness: 280 }
                 : { duration: 0.24, ease: [0.16, 1, 0.3, 1] }
               }
+              role="dialog"
+              aria-modal="true"
               onClick={e => e.stopPropagation()}
               className={[
                 'relative flex flex-col z-[1001] w-full overflow-hidden',
@@ -467,14 +467,6 @@ export default function AssetTransactionsModal({
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={handleAddNew}
-                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl transition-colors shadow-sm shadow-indigo-500/20"
-                  >
-                    <Plus size={13} strokeWidth={2.5} />
-                    <span className="hidden sm:inline">Novo</span>
-                  </button>
                   <button
                     type="button"
                     onClick={onClose}
@@ -718,6 +710,8 @@ export default function AssetTransactionsModal({
           portfolioId={portfolioId}
           editingTransaction={editingTx}
           onSaved={handleFormSaved}
+          defaultTicker={position.ticker}
+          zIndexClass="z-[1200]"
         />
       )}
     </>,

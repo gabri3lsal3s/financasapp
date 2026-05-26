@@ -2,8 +2,10 @@ import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Portfolio, PortfolioTransaction, AssetPrice, PortfolioAssetDefinition } from '@/types'
+import { getCache, setCache } from '@/services/offlineCache'
 import { calculateShareHistory, calculatePerformanceMetrics, AssetPosition } from '@/services/investmentEngine'
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
+import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
@@ -42,8 +44,25 @@ export default function ClientDashboard() {
   }, [user])
 
   const loadClientData = async () => {
+    if (!user) return
+    const cacheKey = `client-dashboard-data-${user.id}`
+
     try {
-      setLoading(true)
+      const cached = await getCache<any>(cacheKey)
+      if (cached && !portfolio) {
+        if (cached.portfolio) setPortfolio(cached.portfolio)
+        if (cached.transactions) setTransactions(cached.transactions)
+        if (cached.assetPrices) setAssetPrices(cached.assetPrices)
+        if (cached.assetTheses) setAssetTheses(cached.assetTheses)
+        if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
+        if (cached.indexRatesByIndexer) setIndexRatesByIndexer(cached.indexRatesByIndexer)
+        if (cached.positions) setPositions(cached.positions)
+        if (cached.portfolioValue) setPortfolioValue(cached.portfolioValue)
+        if (cached.shareValue) setShareValue(cached.shareValue)
+        if (cached.totalShares) setTotalShares(cached.totalShares)
+      }
+
+      setLoading(!cached)
       
       // 1. Puxa o portfolio do cliente logado
       const { data: portData, error: portError } = await supabase
@@ -63,14 +82,7 @@ export default function ClientDashboard() {
       setPortfolio(portData)
 
       // 2. Carrega as transações da carteira do cliente
-      const { data: txsData, error: txsError } = await supabase
-        .from('portfolio_transactions')
-        .select('*')
-        .eq('portfolio_id', portData.id)
-        .order('date', { ascending: true })
-
-      if (txsError) throw txsError
-      const txs = txsData || []
+      const txs = await fetchAllPortfolioTransactions(portData.id, { orderField: 'date', ascending: true })
       setTransactions(txs)
 
       // 3. Carrega metas de alocação
@@ -82,6 +94,7 @@ export default function ClientDashboard() {
       if (targetsError) throw targetsError
 
       // 4. Carrega as teses de investimentos do consultor vinculadas
+      let mappedTheses: Record<string, string> = {}
       if (portData.consultant_id) {
         const { data: thesesData, error: thesesError } = await supabase
           .from('asset_theses')
@@ -89,7 +102,6 @@ export default function ClientDashboard() {
           .eq('consultant_id', portData.consultant_id)
 
         if (!thesesError && thesesData) {
-          const mappedTheses: Record<string, string> = {}
           for (const item of thesesData) {
             mappedTheses[item.ticker.toUpperCase()] = item.thesis
           }
@@ -98,6 +110,14 @@ export default function ClientDashboard() {
       }
 
       // 5. Busca cotações dos ativos para os cálculos
+      let finalPrices = {}
+      let finalPositions: AssetPosition[] = []
+      let finalPortfolioValue = 0
+      let finalDefinitions: PortfolioAssetDefinition[] = []
+      let finalIndexRates: Record<string, IndexRateMap> = {}
+      let currentShareValue = 1.0
+      let sharesOutstanding = 0
+
       if (txs.length > 0) {
         const valuation = await loadPortfolioValuation(
           portData.id,
@@ -111,14 +131,22 @@ export default function ClientDashboard() {
         setAssetDefinitions(valuation.definitions)
         setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
-        const { currentShareValue, totalShares: sharesOutstanding } = calculateShareHistory(
+        const shareHistoryResult = calculateShareHistory(
           txs,
           valuation.prices,
           valuation.definitions,
           valuation.indexRatesByIndexer
         )
+        currentShareValue = shareHistoryResult.currentShareValue
+        sharesOutstanding = shareHistoryResult.totalShares
         setShareValue(currentShareValue)
         setTotalShares(sharesOutstanding)
+
+        finalPrices = valuation.prices
+        finalPositions = valuation.positions
+        finalPortfolioValue = valuation.totalValue
+        finalDefinitions = valuation.definitions
+        finalIndexRates = valuation.indexRatesByIndexer
       } else {
         setPositions([])
         setPortfolioValue(0)
@@ -127,6 +155,20 @@ export default function ClientDashboard() {
         setAssetDefinitions([])
         setIndexRatesByIndexer({})
       }
+
+      // Cache all details
+      await setCache(cacheKey, {
+        portfolio: portData,
+        transactions: txs,
+        assetPrices: finalPrices,
+        assetTheses: mappedTheses,
+        assetDefinitions: finalDefinitions,
+        indexRatesByIndexer: finalIndexRates,
+        positions: finalPositions,
+        portfolioValue: finalPortfolioValue,
+        shareValue: currentShareValue,
+        totalShares: sharesOutstanding
+      })
 
     } catch (err) {
       console.error('Erro ao compilar painel do cliente:', err)

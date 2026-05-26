@@ -5,7 +5,6 @@ import Button from '@/components/Button'
 import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check } from 'lucide-react'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
-import { deleteLegacyInvestmentsForTransactions } from '@/utils/legacyInvestmentMigration'
 import { deleteCashOffsetTransactionsMultiple, fetchPortfolioCashContext } from '@/services/cashOffsetService'
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import toast from 'react-hot-toast'
@@ -100,24 +99,20 @@ export default function LedgerBook({
     setDeleting(true)
     setDeletingProgress('Lendo dados do usuário...')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Usuário não autenticado')
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) throw new Error('Usuário não autenticado')
 
       // Identificar transações para limpar legados e definições órfãs
       const txsToDelete = transactions.filter(t => selectedIds.has(t.id))
       const uniqueTickers = Array.from(new Set(txsToDelete.map(t => t.ticker.toUpperCase())))
       const txIds = Array.from(selectedIds)
 
-      // 1. Excluir registros legados em lote
-      setDeletingProgress(`Limpando dados legados (Etapa 1 de 3)...`)
-      await deleteLegacyInvestmentsForTransactions(supabase, user.id, txsToDelete)
-
-      // 2. Excluir offsets de caixa correspondentes em lote
-      setDeletingProgress(`Excluindo offsets de caixa (Etapa 2 de 3)...`)
+      // 1. Excluir offsets de caixa correspondentes em lote
+      setDeletingProgress(`Excluindo offsets de caixa (Etapa 1 de 2)...`)
       await deleteCashOffsetTransactionsMultiple(portfolioId, txIds)
 
-      // 3. Excluir transações principais em lote no Supabase
-      setDeletingProgress(`Excluindo do Livro-Razão (Etapa 3 de 3)...`)
+      // 2. Excluir transações principais em lote no Supabase
+      setDeletingProgress(`Excluindo do Livro-Razão (Etapa 2 de 2)...`)
       const { error: deleteError } = await supabase
         .from('portfolio_transactions')
         .delete()

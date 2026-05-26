@@ -47,17 +47,6 @@ export function useBackgroundCache() {
                 await setCache(`incomes-${monthStr}`, incomes)
             }
 
-            // 3. Cache Investments
-            const { data: investments } = await supabase
-                .from('investments')
-                .select('*')
-                .eq('month', monthStr)
-                .order('month', { ascending: false })
-
-            if (investments) {
-                await setCache(`investments-${monthStr}`, investments)
-            }
-
         } catch (error) {
             console.error(`[BackgroundCache] Error caching month ${month}:`, error)
         }

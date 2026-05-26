@@ -9,6 +9,7 @@ import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { getCache, setCache } from '@/services/offlineCache'
 
 import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
@@ -27,23 +28,11 @@ import {
 
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
+import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 
-import {
-  buildLegacyTransactionPayload,
-  findMatchingLegacyTransaction,
-  type LegacyInvestmentRow,
-} from '@/utils/legacyInvestmentMigration'
 
-const generateUUID = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
-}
+
+
 
 export default function Investments() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -211,9 +200,25 @@ export default function Investments() {
 
   async function loadPortfolio(options?: { forceRefresh?: boolean }) {
     try {
-      setPortfolioLoading(true)
+
+      
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      const userCacheKey = `portfolio-valuation-data-${user.id}`
+
+      // Try cache first if not forcing refresh
+      if (!options?.forceRefresh && !portfolioData) {
+        const cached = await getCache<any>(userCacheKey)
+        if (cached) {
+          if (cached.portfolioData) setPortfolioData(cached.portfolioData)
+          if (cached.transactions) setTransactions(cached.transactions)
+          if (cached.groupTargets) setGroupTargets(cached.groupTargets)
+          if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
+        }
+      }
+
+      setPortfolioLoading(!portfolioData)
 
       // 1. Verificar e Criar Portfolio se não existir
       let { data: portfolio } = await supabase
@@ -235,73 +240,8 @@ export default function Investments() {
 
       setPortfolioId(portfolio.id)
 
-      const { data: existingTransactions } = await supabase
-        .from('portfolio_transactions')
-        .select('id, portfolio_id, ticker, operation_type, quantity, price, date, created_at')
-        .eq('portfolio_id', portfolio.id)
-
-      const knownTransactions = (existingTransactions as PortfolioTransaction[]) || []
-
-      // 2. Migração idempotente dos dados legados (evita recriar SALDO_INV após exclusão)
-      const { data: userInvestments } = await supabase
-        .from('investments')
-        .select('id, month, amount, ticker, quantity, price, created_at, transaction_id')
-        .eq('user_id', user.id)
-
-      const unconverted = (userInvestments as LegacyInvestmentRow[] | null)?.filter((inv) => !inv.transaction_id) || []
-
-      if (unconverted.length > 0) {
-        const txsToInsert: Omit<PortfolioTransaction, 'created_at'>[] = []
-        const investmentsToUpdate: { id: string; transaction_id: string }[] = []
-        let migratedCount = 0
-
-        for (const inv of unconverted) {
-          const existingMatch = findMatchingLegacyTransaction(inv, knownTransactions)
-
-          if (existingMatch) {
-            investmentsToUpdate.push({
-              id: inv.id,
-              transaction_id: existingMatch.id,
-            })
-            migratedCount += 1
-            continue
-          }
-
-          const txId = generateUUID()
-          txsToInsert.push(buildLegacyTransactionPayload(inv, portfolio.id, txId))
-          investmentsToUpdate.push({
-            id: inv.id,
-            transaction_id: txId,
-          })
-          migratedCount += 1
-        }
-
-        if (txsToInsert.length > 0) {
-          const { error: txsInsertError } = await supabase
-            .from('portfolio_transactions')
-            .insert(txsToInsert)
-          if (txsInsertError) throw txsInsertError
-        }
-
-        for (const item of investmentsToUpdate) {
-          const { error: linkError } = await supabase
-            .from('investments')
-            .update({ transaction_id: item.transaction_id })
-            .eq('id', item.id)
-
-          if (linkError) throw linkError
-        }
-
-        if (migratedCount > 0 && txsToInsert.length > 0) {
-          toast.success('Seus dados legados foram importados com sucesso para a carteira de consultoria!')
-        }
-      }
-
       // 3. Carregar os dados atualizados do portfolio
-      const { data: transactionsData } = await supabase
-        .from('portfolio_transactions')
-        .select('*')
-        .eq('portfolio_id', portfolio.id)
+      const transactionsData = await fetchAllPortfolioTransactions(portfolio.id)
 
       const { data: targets } = await supabase
         .from('target_allocations')
@@ -313,23 +253,35 @@ export default function Investments() {
         .select('*')
         .eq('portfolio_id', portfolio.id)
 
-      setTransactions(transactionsData || [])
-      setGroupTargets(groupTargetsData || [])
+      const finalTransactions = transactionsData || []
+      const finalGroupTargets = groupTargetsData || []
 
-      if (!transactionsData || transactionsData.length === 0) {
-        setPortfolioData({
+      setTransactions(finalTransactions)
+      setGroupTargets(finalGroupTargets)
+
+      if (finalTransactions.length === 0) {
+        const emptyPortfolio = {
           cashBalance: 0,
           totalValue: 0,
           positions: [],
           consolidatedClass: [],
           consolidatedSector: []
+        }
+        setPortfolioData(emptyPortfolio)
+        
+        // Cache the empty portfolio
+        await setCache(userCacheKey, {
+          portfolioData: emptyPortfolio,
+          transactions: finalTransactions,
+          groupTargets: finalGroupTargets,
+          assetDefinitions: []
         })
         return
       }
 
       const valuation = await loadPortfolioValuation(
         portfolio.id,
-        transactionsData || [],
+        finalTransactions,
         targets || [],
         Number(portfolio.cash_balance) || 0,
         { forceRefresh: options?.forceRefresh }
@@ -338,19 +290,27 @@ export default function Investments() {
       setAssetDefinitions(valuation.definitions)
 
       const { positions, totalValue } = valuation
-      const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, groupTargetsData || [])
-      const consolidatedSector = calculateConsolidatedBySector(positions, totalValue, groupTargetsData || [])
+      const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, finalGroupTargets)
+      const consolidatedSector = calculateConsolidatedBySector(positions, totalValue, finalGroupTargets)
 
-      console.log('Valuation positions:', positions)
-      console.log('Filtered positions:', positions.filter(pos => pos.ticker !== 'SALDO_INV' && pos.ticker !== 'CAIXA' && pos.pricing_mode !== 'cash'))
-
-      setPortfolioData({
+      const nextPortfolioData = {
         cashBalance: valuation.cashBalance,
         totalValue,
         positions,
         consolidatedClass,
         consolidatedSector
-      })    } catch (err) {
+      }
+
+      setPortfolioData(nextPortfolioData)
+
+      // Save to cache
+      await setCache(userCacheKey, {
+        portfolioData: nextPortfolioData,
+        transactions: finalTransactions,
+        groupTargets: finalGroupTargets,
+        assetDefinitions: valuation.definitions
+      })
+    } catch (err) {
       console.error('Erro ao carregar carteira de consultoria em investimentos:', err)
       toast.error('Erro ao sincronizar dados da carteira: RLS ou conexão.')
     } finally {

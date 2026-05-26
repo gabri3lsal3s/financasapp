@@ -172,7 +172,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-secondary">
       <div className="lg:hidden">
         {/* Sleek Top Header with Settings shortcut on mobile */}
-        <header className="fixed top-0 inset-x-0 z-[100] bg-secondary/95 backdrop-blur-md border-b border-primary safe-area-top">
+        <header className="absolute top-0 inset-x-0 z-[100] bg-secondary/95 backdrop-blur-md border-b border-primary safe-area-top">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="h-14 flex items-center justify-between relative">
               <span className="w-10"></span> {/* Spacer */}

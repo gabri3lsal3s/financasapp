@@ -113,14 +113,6 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
 
       if (incomesError) throw incomesError
 
-      const { data: investments, error: investmentsError } = await supabase
-        .from('investments')
-        .select('amount, month, transaction_id, ticker')
-        .gte('month', format(startDate, 'yyyy-MM'))
-        .lte('month', format(endDate, 'yyyy-MM'))
-
-      if (investmentsError) throw investmentsError
-
       const { data: authData } = await supabase.auth.getUser()
       let portfolioTransactions: {
         date: string
@@ -163,18 +155,10 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
         const monthIncomes = (incomes || []).filter(
           (inc) => inc.date >= monthStart && inc.date <= monthEnd
         )
-        const cashInvestments = (investments || []).filter(
-          (inv) =>
-            inv.month === monthStr &&
-            !inv.transaction_id &&
-            !inv.ticker
-        )
 
         const totalExpenses = monthExpenses.reduce((sum, exp) => sum + getWeightedAmount(exp), 0)
         const totalIncomes = monthIncomes.reduce((sum, inc) => sum + getWeightedAmount(inc), 0)
-        const totalInvestments =
-          cashInvestments.reduce((sum, inv) => sum + inv.amount, 0) +
-          sumPortfolioTransactionsForMonth(portfolioTransactions, monthStr)
+        const totalInvestments = sumPortfolioTransactionsForMonth(portfolioTransactions, monthStr)
 
         summaries.push({
           month: monthStr,

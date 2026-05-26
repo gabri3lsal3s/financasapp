@@ -6,7 +6,6 @@ import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
-import { useInvestments } from '@/hooks/useInvestments'
 import { useNavigate } from 'react-router-dom'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
@@ -25,6 +24,7 @@ import {
   portfolioInvestmentByDay,
   sumPortfolioTransactionsForMonth,
 } from '@/utils/portfolioMonthlyFlow'
+import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import {
   Bar,
   BarChart,
@@ -63,7 +63,7 @@ export default function Dashboard() {
   
   const [portfolioId, setPortfolioId] = useState('')
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
-  const { investments, loading: investmentsLoading } = useInvestments(currentMonth)
+
 
   const loadPortfolioTransactions = useCallback(async () => {
     try {
@@ -89,12 +89,10 @@ export default function Dashboard() {
 
       setPortfolioId(portfolio.id)
 
-      const { data: transactions } = await supabase
-        .from('portfolio_transactions')
-        .select('id, portfolio_id, ticker, operation_type, quantity, price, date, created_at')
-        .eq('portfolio_id', portfolio.id)
-
-      setPortfolioTransactions((transactions as PortfolioTransaction[]) || [])
+      const transactions = await fetchAllPortfolioTransactions(portfolio.id, {
+        select: 'id, portfolio_id, ticker, operation_type, quantity, price, date, created_at'
+      })
+      setPortfolioTransactions(transactions)
     } catch (err) {
       console.error('Erro ao carregar livro-razão no dashboard:', err)
       setPortfolioId('')
@@ -144,11 +142,11 @@ export default function Dashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const isReady = !expensesLoading && !incomesLoading && !investmentsLoading && !categoriesLoading && !incomeCategoriesLoading
+    const isReady = !expensesLoading && !incomesLoading && !categoriesLoading && !incomeCategoriesLoading
     if (isReady && categories.length === 0 && incomeCategories.length === 0) {
       navigate('/onboarding', { replace: true })
     }
-  }, [expensesLoading, incomesLoading, investmentsLoading, categoriesLoading, incomeCategoriesLoading, categories.length, incomeCategories.length, navigate])
+  }, [expensesLoading, incomesLoading, categoriesLoading, incomeCategoriesLoading, categories.length, incomeCategories.length, navigate])
 
   const expenseAmountForDashboard = (amount: number, reportWeight?: number | null) =>
     amount * (reportWeight ?? 1)
@@ -159,31 +157,23 @@ export default function Dashboard() {
   const totalExpenses = expenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0)
   const totalIncomes = incomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0)
 
-  const cashOnlyInvestments = useMemo(
-    () => investments.filter((inv) => !inv.transaction_id && !inv.ticker),
-    [investments]
-  )
-
   const portfolioMonthFlow = useMemo(
     () => sumPortfolioTransactionsForMonth(portfolioTransactions, currentMonth),
     [portfolioTransactions, currentMonth]
   )
 
   const totalInvestments = useMemo(() => {
-    const cash = cashOnlyInvestments.reduce((sum, inv) => sum + inv.amount, 0)
-    return cash + portfolioMonthFlow
-  }, [cashOnlyInvestments, portfolioMonthFlow])
+    return portfolioMonthFlow
+  }, [portfolioMonthFlow])
 
   const balance = totalIncomes - totalExpenses - totalInvestments
   const hasMonthlyData =
     expenses.length > 0 ||
     incomes.length > 0 ||
-    cashOnlyInvestments.length > 0 ||
     portfolioMonthFlow !== 0
   const loading =
     expensesLoading ||
     incomesLoading ||
-    investmentsLoading ||
     expenseLimitsLoading ||
     previousExpenseLimitsLoading
 
@@ -396,17 +386,8 @@ export default function Dashboard() {
       series[index].Investimentos += value
     })
 
-    cashOnlyInvestments.forEach((investment) => {
-      const day = investment.created_at
-        ? new Date(investment.created_at).getDate()
-        : 1
-      if (day >= 1 && day <= daysInMonth) {
-        series[day - 1].Investimentos += investment.amount
-      }
-    })
-
     return series
-  }, [currentMonth, incomes, expenses, cashOnlyInvestments, portfolioTransactions])
+  }, [currentMonth, incomes, expenses, portfolioTransactions])
 
   const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) return null

@@ -9,9 +9,10 @@ interface ModalProps {
   title: string
   children: ReactNode
   maxWidth?: string
+  zIndexClass?: string
 }
 
-export default function Modal({ isOpen, onClose, title, children, maxWidth }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, maxWidth, zIndexClass }: ModalProps) {
   const modalPanelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const [isMobile, setIsMobile] = useState(false)
@@ -88,7 +89,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth }: Mo
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center p-0 sm:p-4 safe-area-top safe-area-bottom overflow-hidden">
+        <div className={`fixed inset-0 ${zIndexClass || 'z-[999]'} flex items-end sm:items-center justify-center p-0 sm:p-4 safe-area-top safe-area-bottom overflow-hidden`}>
           {/* Backdrop Overlay */}
           <motion.div
             variants={overlayVariants}
