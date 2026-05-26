@@ -203,13 +203,13 @@ export default function Layout({ children }: LayoutProps) {
               />
 
               {/* Bottom Sheet Menu Container */}
-              <motion.aside
+              <motion.div
                 ref={mobileMenuRef as any}
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 26, stiffness: 220 }}
-                className="fixed bottom-0 left-0 right-0 z-[120] bg-secondary border-t border-primary rounded-t-3xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh] safe-area-bottom"
+                className="fixed bottom-0 left-0 right-0 mx-auto max-w-md w-full z-[120] bg-secondary border-t border-primary rounded-t-3xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh] safe-area-bottom"
               >
                 {/* Visual drag indicator */}
                 <div className="w-12 h-1.5 bg-primary/20 rounded-full mx-auto my-3 shrink-0" />
@@ -304,7 +304,7 @@ export default function Layout({ children }: LayoutProps) {
                     </button>
                   </div>
                 </div>
-              </motion.aside>
+              </motion.div>
             </>
           )}
         </AnimatePresence>
@@ -507,7 +507,7 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
+      {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator isHidden={isMobileMenuOpen} />}
     </div>
   )
 }

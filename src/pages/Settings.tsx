@@ -5,8 +5,8 @@ import Card from '@/components/Card'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
-import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
 import { useAppSettings } from '@/hooks/useAppSettings'
+import { useTheme } from '@/hooks/useTheme'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
@@ -71,6 +71,8 @@ export default function Settings() {
     biometricLockTimeout,
     setBiometricLockTimeout,
   } = useAppSettings()
+
+  const { visualStyle, setVisualStyle } = useTheme()
 
   const fetchUsers = async () => {
     if (!isAdmin) return
@@ -486,7 +488,7 @@ export default function Settings() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="flex-1 sm:flex-none justify-center text-[var(--color-danger)] border-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                          className="flex-1 sm:flex-none justify-center text-expense border-expense/30 hover:bg-expense/10 hover:text-expense hover:border-expense/50 font-bold"
                           onClick={() => openDeleteUserModal(pUser)}
                         >
                           <Trash2 size={14} className="mr-1 shrink-0" />
@@ -509,10 +511,58 @@ export default function Settings() {
         <section className={activeSettingsView === 'appearance' ? 'space-y-4' : 'hidden'}>
           <div>
             <h2 className="text-xl font-semibold text-primary mb-1">Aparência</h2>
-            <p className="text-secondary text-sm">Personalize tema e paleta de cores da interface</p>
+            <p className="text-secondary text-sm">Personalize a estrutura e tema visual da interface</p>
           </div>
+
+          {/* Seletor de Estilo Visual */}
+          <Card className="animate-stagger-item delay-75">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-primary mb-1">Estilo Visual</h3>
+                <p className="text-secondary text-sm">Escolha a experiência estrutural e estética do app</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setVisualStyle('classic')}
+                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-36 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    visualStyle === 'classic'
+                      ? 'border-primary bg-tertiary accent-primary'
+                      : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <ShieldCheck size={18} className="accent-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[14px] text-primary leading-tight">Clássico</h4>
+                    <p className="text-[11px] leading-tight text-secondary mt-1">Interface clássica sólida, limpa e profissional com layout fixo.</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setVisualStyle('cyberpunk')}
+                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-36 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    visualStyle === 'cyberpunk'
+                      ? 'border-primary bg-tertiary accent-primary'
+                      : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                    <Sparkles size={18} className="text-indigo-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[14px] text-primary leading-tight">Cyber-Minimalista</h4>
+                    <p className="text-[11px] leading-tight text-secondary mt-1">Bento Grid com cantos arredondados, vidro translúcido, acentos neon e layout flutuante.</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </Card>
+
           <ThemeSwitcher />
-          <ColorPaletteSwitcher />
 
           <Card className="animate-stagger-item delay-100">
             <div className="space-y-5">
@@ -792,13 +842,13 @@ export default function Settings() {
 
             <div className="flex flex-col gap-2 pt-2">
               <Button
-                variant="primary"
+                variant="danger"
                 onClick={handleDeleteUser}
                 disabled={
                   deleteUserConfirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()
                   || deletingUser
                 }
-                className="bg-[var(--color-danger)] hover:bg-[var(--color-danger)]/90 text-white w-full py-3 flex items-center justify-center gap-2"
+                className="w-full py-3 flex items-center justify-center gap-2 font-bold"
               >
                 {deletingUser ? (
                   <>

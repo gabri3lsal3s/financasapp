@@ -214,9 +214,9 @@ export default function Expenses() {
             size="sm"
             variant="outline"
             onClick={() => handleOpenModal()}
-            className="flex items-center justify-center gap-2 font-bold"
+            className="flex items-center justify-center gap-2 border-expense/30 hover:bg-expense/10 font-bold"
           >
-            <Plus size={16} />
+            <Plus size={16} className="text-expense" />
             <span className="hidden sm:inline">Adicionar</span>
           </Button>
         }
@@ -234,7 +234,10 @@ export default function Expenses() {
             <Card className="text-center py-10 space-y-3">
               <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
               <div className="flex justify-center">
-                <Button onClick={() => handleOpenModal()}>
+                <Button 
+                  onClick={() => handleOpenModal()}
+                  className="bg-expense border-expense hover:bg-expense/90 text-white font-bold"
+                >
                   Adicionar despesa
                 </Button>
               </div>

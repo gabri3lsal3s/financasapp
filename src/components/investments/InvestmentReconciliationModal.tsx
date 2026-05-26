@@ -90,6 +90,23 @@ export default function InvestmentReconciliationModal({
   
   const [currentStep, setCurrentStep] = useState<'upload' | 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'>('upload')
   const [dragActive, setDragActive] = useState(false)
+  const modalTopRef = useRef<HTMLDivElement | null>(null)
+
+  const scrollToTop = () => {
+    const container = modalTopRef.current?.closest('.overflow-y-auto')
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      modalTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  // Rola para o topo do modal ao trocar de etapa ou quando o modal é aberto
+  useEffect(() => {
+    if (isOpen) {
+      scrollToTop()
+    }
+  }, [currentStep, isOpen])
 
   const manualYieldRequiredAssets = useMemo(() => {
     return importedDrafts.filter(draft => 
@@ -265,6 +282,7 @@ export default function InvestmentReconciliationModal({
 
     setLoading(true)
     setProgress({ current: 0, total: activeConflicts.length, label: 'Corrigindo divergências...' })
+    scrollToTop()
     try {
       let appliedCount = 0
       for (const [index, draft] of activeConflicts.entries()) {
@@ -352,6 +370,7 @@ export default function InvestmentReconciliationModal({
 
     setLoading(true)
     setProgress({ current: 0, total: activeMissing.length, label: 'Iniciando importação...' })
+    scrollToTop()
     try {
       let importedCount = 0
       for (const [index, draft] of activeMissing.entries()) {
@@ -503,6 +522,8 @@ export default function InvestmentReconciliationModal({
       maxWidth="max-w-5xl"
     >
       <div className="space-y-4">
+        {/* Invisible anchor for scrolling to top */}
+        <div ref={modalTopRef} />
         
         {/* ── Progress Overlay ── */}
         {loading && progress && (

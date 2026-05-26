@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import type { Theme } from '@/contexts/ThemeContext'
+import type { Theme, VisualStyle } from '@/contexts/ThemeContext'
 import { ThemeContext } from '@/contexts/themeSharedContext'
 
 export function useTheme() {
@@ -12,4 +12,5 @@ export function useTheme() {
   return context
 }
 
-export type { Theme }
+export type { Theme, VisualStyle }
+

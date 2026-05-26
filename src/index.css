@@ -1,6 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 :root {
   --ds-color-surface-primary: #ffffff;
@@ -739,3 +741,356 @@
     background: white !important;
   }
 }
+
+/* ==========================================================================
+   ESTILO VISUAL CYBER-MINIMALISTA (.cyberpunk)
+   ========================================================================== */
+
+/* --- 1. CONFIGURAÇÕES BASE E TIPOGRAFIA --- */
+.cyberpunk {
+  --ds-font-family-base: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.cyberpunk body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  letter-spacing: -0.015em !important;
+}
+
+/* Espessuras elegantes de fonte (Light & Medium) */
+.cyberpunk .font-black,
+.cyberpunk .font-extrabold,
+.cyberpunk .font-bold {
+  font-weight: 500 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.cyberpunk .font-semibold {
+  font-weight: 400 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.cyberpunk .text-ui-value {
+  font-weight: 300 !important;
+  letter-spacing: -0.04em !important;
+}
+
+.cyberpunk .text-ui-heading,
+.cyberpunk h1,
+.cyberpunk h2,
+.cyberpunk h3 {
+  font-weight: 400 !important;
+  letter-spacing: -0.03em !important;
+  text-transform: none !important;
+}
+
+/* --- 2. SUPERFÍCIES DE VIDRO (GLASSMORPHISM) & BENTO GRID --- */
+.cyberpunk .bg-primary {
+  background-color: var(--ds-color-surface-primary) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.cyberpunk .bg-secondary {
+  background-color: var(--ds-color-surface-secondary) !important;
+}
+
+.cyberpunk .bg-tertiary {
+  background-color: var(--ds-color-surface-tertiary) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* Bento Grid: Cantos arredondados generosos */
+.cyberpunk .rounded-lg { border-radius: 20px !important; }
+.cyberpunk .rounded-xl { border-radius: 22px !important; }
+.cyberpunk .rounded-2xl { border-radius: 24px !important; }
+.cyberpunk .rounded-3xl { border-radius: 28px !important; }
+
+/* Bordas finas reflexivas estilo vidro */
+.cyberpunk .border,
+.cyberpunk .border-primary,
+.cyberpunk .border-b,
+.cyberpunk .border-t,
+.cyberpunk .border-r,
+.cyberpunk .border-l {
+  border-color: var(--ds-color-border-default) !important;
+}
+
+/* Remover linhas divisórias pesadas redundantes */
+.cyberpunk .divide-y > * + * {
+  border-color: rgba(255, 255, 255, 0.02) !important;
+}
+.cyberpunk.light .divide-y > * + * {
+  border-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.cyberpunk header.border-b {
+  border-bottom: none !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+}
+
+/* --- 3. FORMULÁRIOS ESTILO VIDRO (GLASS INPUTS & SELECTS) --- */
+.cyberpunk input,
+.cyberpunk select,
+.cyberpunk textarea {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: var(--ds-color-text-primary) !important;
+  border-radius: 12px !important;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.cyberpunk.light input,
+.cyberpunk.light select,
+.cyberpunk.light textarea {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.cyberpunk input:focus,
+.cyberpunk select:focus,
+.cyberpunk textarea:focus {
+  border-color: var(--ds-color-accent-primary) !important;
+  box-shadow: 0 0 12px 0 rgba(0, 255, 136, 0.2) !important;
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.cyberpunk.light input:focus,
+.cyberpunk.light select:focus,
+.cyberpunk.light textarea:focus {
+  box-shadow: 0 0 12px 0 rgba(16, 185, 129, 0.15) !important;
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* --- 4. MICROINTERAÇÕES E EFEITOS NEON (GLOW) --- */
+.cyberpunk div[role="button"],
+.cyberpunk button,
+.cyberpunk a.rounded-lg,
+.cyberpunk .hover-lift-subtle {
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+/* Botões Neon Primários */
+.cyberpunk button.bg-\[var\(--color-primary\)\] {
+  background-color: var(--ds-color-accent-primary) !important;
+  color: var(--ds-color-button-text) !important;
+  border-color: var(--ds-color-accent-primary) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 14px 0 rgba(0, 255, 136, 0.25) !important;
+}
+
+.cyberpunk.light button.bg-\[var\(--color-primary\)\] {
+  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.2) !important;
+}
+
+.cyberpunk button.bg-\[var\(--color-primary\)\]:hover {
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 20px 0 rgba(0, 255, 136, 0.4) !important;
+  opacity: 0.95 !important;
+}
+
+.cyberpunk.light button.bg-\[var\(--color-primary\)\]:hover {
+  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Cards e botões secundários interativos (Glow Neon Verde) */
+.cyberpunk div[role="button"].border-primary:hover,
+.cyberpunk button.border-primary:hover,
+.cyberpunk a.rounded-lg:hover,
+.cyberpunk .hover-lift-subtle:hover {
+  border-color: rgba(0, 255, 136, 0.35) !important;
+  box-shadow: 0 0 16px 0 rgba(0, 255, 136, 0.15) !important;
+}
+
+.cyberpunk.light div[role="button"].border-primary:hover,
+.cyberpunk.light button.border-primary:hover,
+.cyberpunk.light a.rounded-lg:hover,
+.cyberpunk.light .hover-lift-subtle:hover {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 0 16px 0 rgba(16, 185, 129, 0.1) !important;
+}
+
+/* --- 5. NAVEGAÇÃO FLUTUANTE (LAYOUT RESPONSIVO) --- */
+/* Desktop */
+.cyberpunk .lg\:grid {
+  grid-template-columns: 1fr !important;
+  padding: 0 !important;
+}
+
+.cyberpunk aside {
+  position: fixed !important;
+  left: 20px !important;
+  top: 20px !important;
+  bottom: 20px !important;
+  height: calc(100vh - 40px) !important;
+  z-index: 200 !important;
+  border-radius: 24px !important;
+  border: 1px solid var(--ds-color-border-default) !important;
+  background-color: var(--ds-color-surface-primary) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35) !important;
+  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+/* Padding dinâmico com base na largura da sidebar */
+.cyberpunk .lg\:grid main {
+  transition: padding-left 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+  padding-left: 20px !important;
+}
+
+.cyberpunk .lg\:grid:has(aside.w-20) main { padding-left: 110px !important; }
+.cyberpunk .lg\:grid:has(aside.w-72) main { padding-left: 320px !important; }
+
+/* Mobile Bottom Tab Bar */
+.cyberpunk nav.fixed.bottom-0 {
+  bottom: 16px !important;
+  left: 16px !important;
+  right: 16px !important;
+  height: 64px !important;
+  border-radius: 20px !important;
+  border: 1px solid var(--ds-color-border-default) !important;
+  background-color: var(--ds-color-surface-primary) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.cyberpunk .lg\:hidden main {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
+}
+
+/* Header NÃO fixo no Mobile em modo Cyberpunk (scrolls com a página) */
+.cyberpunk header.fixed.top-0 {
+  position: absolute !important;
+  border-bottom: none !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+}
+
+/* --- 6. GRÁFICOS CYBER-GLASS E VISUALIZAÇÕES (RECHARTS) --- */
+.cyberpunk .recharts-cartesian-grid {
+  display: none !important;
+}
+
+/* Textos e Legendas dos Gráficos */
+.cyberpunk .recharts-text,
+.cyberpunk .recharts-label {
+  fill: var(--ds-color-text-secondary) !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 10px !important;
+  letter-spacing: -0.01em !important;
+}
+
+.cyberpunk .recharts-legend-item-text {
+  color: var(--ds-color-text-primary) !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 11px !important;
+  letter-spacing: -0.015em !important;
+}
+
+/* Efeito de Cursor nos Gráficos */
+.cyberpunk .recharts-tooltip-cursor {
+  fill: rgba(255, 255, 255, 0.02) !important;
+  stroke: rgba(0, 255, 136, 0.08) !important;
+}
+.cyberpunk.light .recharts-tooltip-cursor {
+  fill: rgba(0, 0, 0, 0.02) !important;
+  stroke: rgba(16, 185, 129, 0.08) !important;
+}
+
+/* Curvas com Brilho Neon (Line & Area) */
+.cyberpunk .recharts-line-curve,
+.cyberpunk .recharts-area-curve {
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 136, 0.35)) !important;
+}
+.cyberpunk.light .recharts-line-curve,
+.cyberpunk.light .recharts-area-curve {
+  filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.2)) !important;
+}
+
+/* Gráfico de Barras com Cantos Arredondados */
+.cyberpunk .recharts-rectangle {
+  rx: 6px !important; /* Arredondamento elegante */
+  ry: 6px !important;
+  filter: drop-shadow(0 0 3px rgba(0, 255, 136, 0.12)) !important;
+}
+
+/* Gráfico de Donut e Pizza (Setores Separados) */
+.cyberpunk .recharts-pie-sector {
+  stroke: var(--ds-color-surface-secondary) !important;
+  stroke-width: 2.5px !important; /* Separação premium */
+}
+
+/* Tooltip do Gráfico Estilo Vidro Flutuante */
+.cyberpunk .recharts-tooltip-wrapper .bg-primary,
+.cyberpunk .recharts-tooltip-wrapper .bg-white {
+  background-color: rgba(18, 20, 32, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.cyberpunk.light .recharts-tooltip-wrapper .bg-primary,
+.cyberpunk.light .recharts-tooltip-wrapper .bg-white {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+  color: var(--ds-color-text-primary) !important;
+}
+
+/* --- 7. DETALHES DE MODAIS E TABELAS ESTILO VIDRO --- */
+/* Overlay do Modal */
+.cyberpunk .fixed.inset-0.z-\[110\] {
+  backdrop-filter: blur(5px) !important;
+  background-color: rgba(0, 0, 0, 0.65) !important;
+}
+
+/* Modais de Vidro */
+.cyberpunk div[role="dialog"] {
+  background-color: rgba(20, 22, 36, 0.85) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+}
+
+.cyberpunk.light div[role="dialog"] {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Tabelas */
+.cyberpunk th {
+  font-weight: 500 !important;
+  color: var(--ds-color-text-secondary) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 12px 16px !important;
+}
+
+.cyberpunk.light th {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+.cyberpunk td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+  padding: 12px 16px !important;
+}
+
+.cyberpunk.light td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.02) !important;
+}
+
+

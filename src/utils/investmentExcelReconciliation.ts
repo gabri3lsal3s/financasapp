@@ -338,6 +338,11 @@ export const scoreInvestmentMatch = (official: B3TransactionItem, existing: Port
   if (official.operation_type !== existing.operation_type) return 0
 
   const dateDiff = Math.abs(dateDiffInDays(official.date, existing.date))
+
+  // Limite estrito de diferença de datas para evitar misturar lançamentos de meses/períodos distintos
+  const maxDays = official.operation_type === 'dividend' ? 10 : 15
+  if (dateDiff > maxDays) return 0
+
   const qtyDiff = Math.abs(official.quantity - existing.quantity)
   const priceDiff = Math.abs(official.price - existing.price)
   const totalOfficial = official.total_value || (official.quantity * official.price)
@@ -396,9 +401,8 @@ export const reconcileInvestmentTransactions = (
   const usedExistingIds = new Set<string>()
   const matched: InvestmentReconciliationResult['matched'] = []
   const conflicts: InvestmentReconciliationResult['conflicts'] = []
-  const missing: B3TransactionItem[] = []
 
-  // Filtra transaÃ§Ãµes legÃ­timas (ignora caixas automÃ¡ticos se houver)
+  // Filtra transações legítimas (ignora caixas automáticos se houver)
   const candidates = existingTransactions.filter(
     (tx) =>
       tx.ticker !== 'SALDO_INV' &&
@@ -407,50 +411,65 @@ export const reconcileInvestmentTransactions = (
       tx.ticker !== 'SALDO_EM_CAIXA'
   )
 
-  officialItems.forEach((official) => {
-    const scored = candidates
-      .filter((existing) => !usedExistingIds.has(existing.id))
-      .map((existing) => {
-        const score = scoreInvestmentMatch(official, existing)
-        return { existing, score }
-      })
-      .filter((candidate) => candidate.score >= 0.45)
-      .sort((a, b) => b.score - a.score)
+  // Controlar itens oficiais já associados para evitar associações duplicadas ou roubos
+  const matchedOfficialIds = new Set<string>()
 
-    const best = scored[0]
+  // Estratégia Multi-Pass (Múltiplas Passadas):
+  // 1ª Passada: Casamentos Perfeitos (score === 1.0)
+  // 2ª Passada: Casamentos Muito Confiáveis (score >= 0.85, ex: mesma qtde/preco e data com diferenca <= 3 dias)
+  // 3ª Passada: Casamentos Médios (score >= 0.70, ex: mesma qtde/preco e data com diferenca <= 7 dias)
+  // 4ª Passada: Casamentos Fracos/Residuais (score >= 0.45)
+  const passes = [1.0, 0.85, 0.70, 0.45]
 
-    if (!best) {
-      missing.push(official)
-      return
-    }
+  passes.forEach((minScore) => {
+    officialItems.forEach((official) => {
+      if (matchedOfficialIds.has(official.id)) return
 
-    usedExistingIds.add(best.existing.id)
+      const scored = candidates
+        .filter((existing) => !usedExistingIds.has(existing.id))
+        .map((existing) => {
+          const score = scoreInvestmentMatch(official, existing)
+          return { existing, score }
+        })
+        .filter((candidate) => candidate.score >= minScore)
+        .sort((a, b) => b.score - a.score)
 
-    const isExact = best.score >= 0.999
-    if (isExact) {
-      matched.push({ official, existing: best.existing, score: best.score })
-    } else {
-      const needsUpdate =
-        best.existing.date !== official.date ||
-        Math.abs(best.existing.quantity - official.quantity) > 0.0001 ||
-        Math.abs(best.existing.price - official.price) > 0.0001
+      const best = scored[0]
 
-      conflicts.push({
-        official,
-        existing: best.existing,
-        score: best.score,
-        suggestedUpdate: {
-          date: official.date,
-          quantity: official.quantity,
-          price: official.price,
-          operation_type: official.operation_type,
-          needsUpdate,
-        },
-      })
-    }
+      if (best) {
+        usedExistingIds.add(best.existing.id)
+        matchedOfficialIds.add(official.id)
+
+        const isExact = best.score >= 0.999
+        if (isExact) {
+          matched.push({ official, existing: best.existing, score: best.score })
+        } else {
+          const needsUpdate =
+            best.existing.date !== official.date ||
+            Math.abs(best.existing.quantity - official.quantity) > 0.0001 ||
+            Math.abs(best.existing.price - official.price) > 0.0001
+
+          conflicts.push({
+            official,
+            existing: best.existing,
+            score: best.score,
+            suggestedUpdate: {
+              date: official.date,
+              quantity: official.quantity,
+              price: official.price,
+              operation_type: official.operation_type,
+              needsUpdate,
+            },
+          })
+        }
+      }
+    })
   })
 
-  // Descobrir transaÃ§Ãµes que existem apenas no livro-razÃ£o no perÃ­odo do arquivo
+  // Itens oficiais que não foram casados em nenhuma das passadas são considerados ausentes no sistema
+  const missing = officialItems.filter((official) => !matchedOfficialIds.has(official.id))
+
+  // Descobrir transações que existem apenas no livro-razão no período do arquivo
   let existingOnly: PortfolioTransaction[] = []
   if (officialItems.length > 0) {
     const dates = officialItems.map((item) => item.date).sort()
@@ -459,7 +478,7 @@ export const reconcileInvestmentTransactions = (
 
     existingOnly = candidates.filter((tx) => {
       if (usedExistingIds.has(tx.id)) return false
-      // Verifica se a transaÃ§Ã£o estÃ¡ dentro da janela do arquivo (com tolerÃ¢ncia de 3 dias nas bordas)
+      // Verifica se a transação está dentro da janela do arquivo (com tolerância de 3 dias nas bordas)
       const dayDiffMin = dateDiffInDays(tx.date, minDate)
       const dayDiffMax = dateDiffInDays(tx.date, maxDate)
       

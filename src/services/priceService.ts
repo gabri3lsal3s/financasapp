@@ -48,46 +48,81 @@ async function safeJson(response: Response): Promise<any> {
 
 /**
  * Auxiliar para mitigar erros de CORS em navegadores utilizando múltiplos proxies CORS de backup.
- * Lista priorizada: codetabs → cors.lol → allorigins (como último recurso).
- * Se todos falharem, tenta requisição direta.
+ * Lista priorizada: corsproxy.io → codetabs → allorigins (como último recurso).
+ * Valida se o conteúdo retornado é um JSON legível para evitar que páginas/erros em texto
+ * interrompam o fluxo antes de tentar os demais proxies. Se todos falharem, tenta requisição direta.
  */
 async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Response> {
   const proxies = [
+    (targetUrl: string) => `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
     (targetUrl: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-    (targetUrl: string) => `https://api.cors.lol/?url=${encodeURIComponent(targetUrl)}`,
     (targetUrl: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
   ];
 
+  let lastError: any = null;
+
   for (let i = 0; i < proxies.length; i++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 segundos de timeout por proxy
 
     try {
       const proxyUrl = proxies[i](url);
       const response = await fetch(proxyUrl, { ...init, signal: controller.signal });
       clearTimeout(timeoutId);
-      if (response.ok) return response;
+
+      if (response.ok) {
+        // Valida se o corpo é um JSON legível para evitar aceitar respostas textuais de erro (ex: "Edge: Too Many Requests")
+        const text = await response.text();
+        try {
+          JSON.parse(text); // Tenta fazer o parse do JSON
+          // Retorna um novo objeto Response construído a partir do texto JSON validado
+          return new Response(text, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
+        } catch (jsonErr) {
+          console.warn(`[CORS Proxy] Resposta do proxy ${i} (${proxyUrl}) não é um JSON válido. Ignorando lote...`, jsonErr);
+          // Trata como falha de rede/proxy para seguir ao próximo da lista
+          continue;
+        }
+      }
+      
       // 429 = rate-limit atingido neste proxy — tenta o próximo sem logar
       if (response.status === 429) continue;
     } catch (err) {
       clearTimeout(timeoutId);
-      // Só exibe aviso ao trocar para o último proxy
+      lastError = err;
+      // Só exibe aviso ao trocar para o último proxy de backup
       if (i === proxies.length - 2) {
         console.warn('[CORS Proxy] Proxies principais indisponíveis, tentando último backup...', err);
       }
     }
   }
 
-  // Tentativa direta como último recurso (falhará por CORS no browser, mas pode funcionar em SSR)
+  // Tentativa direta como último recurso (falhará por CORS no browser, mas pode funcionar em SSR ou fora de sandbox)
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
     clearTimeout(timeoutId);
+    if (response.ok) {
+      const text = await response.text();
+      try {
+        JSON.parse(text);
+        return new Response(text, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch (jsonErr) {
+        throw new SyntaxError(`Resposta direta não retornou um JSON válido: ${text.slice(0, 80)}`);
+      }
+    }
     return response;
   } catch (err) {
     clearTimeout(timeoutId);
-    throw err;
+    throw lastError || err;
   }
 }
 
@@ -192,84 +227,66 @@ export async function getAssetPrices(
     // 4. Se houver tickers que precisam de consulta remota (Yahoo Finance)
     if (pricesToFetchFromApi.length > 0) {
       const fetchedPrices: Record<string, number> = {}
-      
-      try {
-        const yahooSymbols = pricesToFetchFromApi.map(ticker => {
-          // Cryptos: BTC, ETH, SOL, etc.
-          if (['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOT', 'USDT'].includes(ticker)) {
-            return `${ticker}-BRL`
-          }
-          // Os tickers aqui já estão limpos, então apenas anexamos o sufixo .SA para a B3
-          const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(ticker)
-          return isB3 ? `${ticker}.SA` : ticker
-        })
 
-        const symbolsStr = yahooSymbols.join(',')
-        // Tenta o host principal (query1), com fallback de host (query2) caso falhe ou retorne erro
-        let response: Response | null = null
+      const fetchSingleTicker = async (ticker: string) => {
         try {
-          response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
-        } catch (err) {
-          console.warn('[getAssetPrices] Falha no host principal query1. Tentando query2 de backup...', err)
-        }
-
-        if (!response || !response.ok) {
-          response = await fetchWithCorsProxy(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
-        }
-        
-        if (response.ok) {
-          const data = await safeJson(response)
-          if (data && data.quoteResponse && data.quoteResponse.result) {
-            for (const item of data.quoteResponse.result) {
-              if (item.symbol && item.regularMarketPrice !== undefined) {
-                let cleanTicker = item.symbol.toUpperCase()
-                if (cleanTicker.endsWith('.SA')) {
-                  cleanTicker = cleanTicker.replace('.SA', '')
-                } else if (cleanTicker.endsWith('-BRL')) {
-                  cleanTicker = cleanTicker.replace('-BRL', '')
-                }
-                fetchedPrices[cleanTicker] = item.regularMarketPrice
-              }
-            }
-          }
-        }
-      } catch (apiErr) {
-        console.warn('[getAssetPrices] API do Yahoo Finance indisponível, usando cache/fallback estático:', apiErr)
-      }
-
-      // 4b. Busca individual apenas quando poucos tickers falharam E o batch retornou algo
-      // (se nada veio do batch, os proxies estão bloqueados — não faz sentido disparar N novas requisições)
-      const failedTickers = pricesToFetchFromApi.filter(t => fetchedPrices[t] === undefined)
-      const batchReturnedSomething = Object.keys(fetchedPrices).length > 0
-      const fewFailures = failedTickers.length <= 3
-
-      if (failedTickers.length > 0 && batchReturnedSomething && fewFailures) {
-        for (const ticker of failedTickers) {
-          try {
-            // Tenta cotação direta com sufixo .SA (sem passar pelo buscador)
+          // Cryptos: BTC, ETH, SOL, etc.
+          let symbol = ticker
+          if (['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOT', 'USDT'].includes(ticker)) {
+            symbol = `${ticker}-BRL`
+          } else {
             const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(ticker)
-            const symbol = isB3 ? `${ticker}.SA` : ticker
-            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`
-            const quoteResp = await fetchWithCorsProxy(quoteUrl)
-            if (quoteResp.ok) {
-              const quoteData = await safeJson(quoteResp)
-              const item = quoteData?.quoteResponse?.result?.[0]
-              if (item?.regularMarketPrice !== undefined) {
-                fetchedPrices[ticker] = item.regularMarketPrice
-              }
-            }
-          } catch {
-            // Silencioso — o fallback estático/Supabase cobre o ticker abaixo
+            symbol = isB3 ? `${ticker}.SA` : ticker
           }
+
+          // Usa o endpoint v8/chart que não exige autenticação via crumb/cookie
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
+
+          let response: Response | null = null
+          try {
+            response = await fetchWithCorsProxy(url)
+          } catch (err) {
+            console.warn(`[getAssetPrices] Falha no query1 via chart para ${symbol}. Tentando query2...`, err)
+          }
+
+          if (!response || !response.ok) {
+            const backupUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`
+            response = await fetchWithCorsProxy(backupUrl)
+          }
+
+          if (response.ok) {
+            const data = await safeJson(response)
+            const chartMeta = data?.chart?.result?.[0]?.meta
+            if (chartMeta && chartMeta.regularMarketPrice !== undefined) {
+              fetchedPrices[ticker] = chartMeta.regularMarketPrice
+            }
+          }
+        } catch (tickerErr) {
+          console.warn(`[getAssetPrices] Erro ao buscar cotação via chart para ${ticker}:`, tickerErr)
         }
       }
 
-      // Processa os tickers atualizados e preenche fallbacks para os que falharam
+      // Executa a busca concorrentemente com fila controlada (máx 8 workers simultâneos)
+      const CONCURRENCY_LIMIT = 8
+      const queue = [...pricesToFetchFromApi]
+      try {
+        const workers = Array.from({ length: Math.min(CONCURRENCY_LIMIT, queue.length) }, async () => {
+          while (queue.length > 0) {
+            const ticker = queue.shift()
+            if (ticker) await fetchSingleTicker(ticker)
+          }
+        })
+        await Promise.all(workers)
+      } catch (apiErr) {
+        console.warn('[getAssetPrices] Erro na execução concorrente das cotações via chart:', apiErr)
+      }
+
+      // Processa tickers buscados e preenche fallbacks para os que falharam
       const updatesToSave: AssetPrice[] = []
-      
+
       for (const ticker of pricesToFetchFromApi) {
         let price = fetchedPrices[ticker]
-        
+
         let quotationStatus: AssetPrice['quotation_status'] = 'live'
         if (price === undefined) {
           const oldPrice = supabasePrices.find(p => p.ticker === ticker)
@@ -303,7 +320,7 @@ export async function getAssetPrices(
             current_price: price,
             asset_class: meta.asset_class,
             sector: meta.sector,
-            last_updated: now.toISOString() as any, // Salva o timestamp exato do update
+            last_updated: now.toISOString() as any,
           })
         }
       }
@@ -323,6 +340,7 @@ export async function getAssetPrices(
       }
     }
   }
+
 
   // 5. Mapear o resultado unificado de volta para as chaves originais que foram pedidas
   const finalResult: Record<string, AssetPrice> = {}

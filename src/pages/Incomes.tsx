@@ -111,9 +111,9 @@ export default function Incomes() {
             size="sm"
             variant="outline"
             onClick={() => handleOpenModal()}
-            className="flex items-center justify-center gap-2 font-bold"
+            className="flex items-center justify-center gap-2 border-income/30 hover:bg-income/10 font-bold"
           >
-            <Plus size={16} />
+            <Plus size={16} className="text-income" />
             <span className="hidden sm:inline">Adicionar</span>
           </Button>
         }
@@ -131,7 +131,12 @@ export default function Incomes() {
             <Card className="text-center py-10 space-y-3">
               <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
               <div className="flex justify-center">
-                <Button onClick={() => handleOpenModal()}>Adicionar renda</Button>
+                <Button 
+                  onClick={() => handleOpenModal()}
+                  className="bg-income border-income hover:bg-income/90 text-white font-bold"
+                >
+                  Adicionar renda
+                </Button>
               </div>
             </Card>
           ) : (

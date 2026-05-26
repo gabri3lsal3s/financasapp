@@ -3,13 +3,14 @@ import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { formatNumberBR } from '@/utils/format'
 import IconButton from '@/components/IconButton'
+import { useTheme } from '@/hooks/useTheme'
+
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
 const CALCULATOR_UI_KEY = 'floating-calculator-ui'
 const CALCULATOR_TARGET_CLASS = 'calculator-target-input'
 const PANEL_MARGIN = 8
 const ICON_DRAG_LIMIT = 120
-const ICON_HOLD_TO_PIN_MS = 900
 const MIN_PANEL_WIDTH = 320
 const MAX_PANEL_WIDTH = 620
 const MIN_PANEL_HEIGHT = 430
@@ -296,7 +297,14 @@ function clampOffsetToIconLimit(offset: Point): Point {
   }
 }
 
-export default function FloatingCalculator() {
+interface FloatingCalculatorProps {
+  isHidden?: boolean
+}
+
+export default function FloatingCalculator({ isHidden = false }: FloatingCalculatorProps) {
+  const { visualStyle } = useTheme()
+  const [isMobile, setIsMobile] = useState(() => isMobileViewport(window.innerWidth))
+  const [customTopY, setCustomTopY] = useState(() => Number(window.localStorage.getItem('floating-calculator-custom-top') || '160'))
   const location = useLocation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [expression, setExpression] = useState(DEFAULT_STATE.expression)
@@ -314,12 +322,13 @@ export default function FloatingCalculator() {
   const [isDraggingIcon, setIsDraggingIcon] = useState(false)
   const [isIconReturning, setIsIconReturning] = useState(false)
   const [iconOrigin, setIconOrigin] = useState<IconOrigin>('bottom-right')
-  const [isTopRightPinReady, setIsTopRightPinReady] = useState(false)
-  const isTopRightPinReadyRef = useRef(false)
   const iconDragMovedRef = useRef(false)
   const iconReturnTimeoutRef = useRef<number | null>(null)
-  const iconPinTimeoutRef = useRef<number | null>(null)
-  const pendingIconOriginRef = useRef<IconOrigin | null>(null)
+
+  useEffect(() => {
+    window.localStorage.setItem('floating-calculator-custom-top', String(customTopY))
+  }, [customTopY])
+
 
   useEffect(() => {
     isExpandedRef.current = isExpanded
@@ -330,16 +339,9 @@ export default function FloatingCalculator() {
   }, [panelRect])
 
   useEffect(() => {
-    isTopRightPinReadyRef.current = isTopRightPinReady
-  }, [isTopRightPinReady])
-
-  useEffect(() => {
     return () => {
       if (iconReturnTimeoutRef.current) {
         window.clearTimeout(iconReturnTimeoutRef.current)
-      }
-      if (iconPinTimeoutRef.current) {
-        window.clearTimeout(iconPinTimeoutRef.current)
       }
     }
   }, [])
@@ -371,6 +373,7 @@ export default function FloatingCalculator() {
 
   useEffect(() => {
     const onResizeViewport = () => {
+      setIsMobile(isMobileViewport(window.innerWidth))
       setPanelRect((currentRect) => {
         const minWidth = getPanelMinWidth(window.innerWidth)
         const minHeight = getPanelMinHeight(window.innerWidth, window.innerHeight)
@@ -932,69 +935,76 @@ export default function FloatingCalculator() {
     if (iconReturnTimeoutRef.current) {
       window.clearTimeout(iconReturnTimeoutRef.current)
     }
-    if (iconPinTimeoutRef.current) {
-      window.clearTimeout(iconPinTimeoutRef.current)
-      iconPinTimeoutRef.current = null
-    }
 
     setIsIconReturning(false)
     setIsDraggingIcon(true)
-    setIsTopRightPinReady(false)
     iconDragMovedRef.current = false
-    pendingIconOriginRef.current = null
 
     const startX = event.clientX
     const startY = event.clientY
     const pointerId = event.pointerId
+
+    let currentOrigin = iconOrigin
+    let activeStartY = startY
+    let activeStartTopY = customTopY
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) {
         return
       }
 
-      const rawOffset = {
-        x: moveEvent.clientX - startX,
-        y: moveEvent.clientY - startY,
-      }
+      const deltaX = moveEvent.clientX - startX
+      const rawDeltaY = moveEvent.clientY - startY
 
-      const boundedOffset = clampOffsetToIconLimit(rawOffset)
-      if (!iconDragMovedRef.current && Math.hypot(rawOffset.x, rawOffset.y) > 4) {
+      if (!iconDragMovedRef.current && Math.hypot(deltaX, rawDeltaY) > 4) {
         iconDragMovedRef.current = true
       }
 
-      const distance = Math.hypot(boundedOffset.x, boundedOffset.y)
-      const isNearVerticalAxis = Math.abs(boundedOffset.x) <= ICON_DRAG_LIMIT * 0.45
-      const isAtTopZone = distance >= ICON_DRAG_LIMIT - 6
-        && boundedOffset.y <= -ICON_DRAG_LIMIT * 0.75
-        && isNearVerticalAxis
-      const isAtBottomZone = distance >= ICON_DRAG_LIMIT - 6
-        && boundedOffset.y >= ICON_DRAG_LIMIT * 0.75
-        && isNearVerticalAxis
-
-      const shouldTriggerOriginSwap =
-        (iconOrigin === 'bottom-right' && isAtTopZone) ||
-        (iconOrigin === 'top-right' && isAtBottomZone)
-
-      if (shouldTriggerOriginSwap) {
-        if (!iconPinTimeoutRef.current && !isTopRightPinReadyRef.current) {
-          iconPinTimeoutRef.current = window.setTimeout(() => {
-            pendingIconOriginRef.current = iconOrigin === 'bottom-right' ? 'top-right' : 'bottom-right'
-            setIsTopRightPinReady(true)
-            iconPinTimeoutRef.current = null
-          }, ICON_HOLD_TO_PIN_MS)
+      // 1. If currently at bottom-right (on top of bottom nav bar / bottom corner)
+      if (currentOrigin === 'bottom-right') {
+        const snapThreshold = isMobile ? window.innerHeight - 150 : window.innerHeight - 120
+        if (moveEvent.clientY < snapThreshold) {
+          // Snap/switch to top-right origin (vertical dragging along side)
+          currentOrigin = 'top-right'
+          setIconOrigin('top-right')
+          
+          const initialTop = clamp(moveEvent.clientY - 20, 16, window.innerHeight - (isMobile ? 150 : 80))
+          setCustomTopY(initialTop)
+          activeStartY = moveEvent.clientY
+          activeStartTopY = initialTop
+          
+          // Clear standard offset on switch to keep motion smooth
+          setIconOffset({ x: 0, y: 0 })
+        } else {
+          // Standard relative offset dragging inside bottom area
+          const boundedOffset = clampOffsetToIconLimit({ x: deltaX, y: rawDeltaY })
+          setIconOffset(boundedOffset)
         }
-      } else {
-        if (iconPinTimeoutRef.current) {
-          window.clearTimeout(iconPinTimeoutRef.current)
-          iconPinTimeoutRef.current = null
-        }
-        if (pendingIconOriginRef.current) {
-          pendingIconOriginRef.current = null
-          setIsTopRightPinReady(false)
+      } 
+      // 2. If currently at top-right (vertical sliding tab mode)
+      else if (currentOrigin === 'top-right') {
+        const currentDeltaY = moveEvent.clientY - activeStartY
+        const newTopY = activeStartTopY + currentDeltaY
+        const minTop = 16
+        const maxTop = window.innerHeight - (isMobile ? 150 : 80)
+        const clampedTopY = clamp(newTopY, minTop, maxTop)
+        
+        setCustomTopY(clampedTopY)
+
+        // If dragged all the way down near the bottom nav bar, snap back to bottom-right
+        const snapBottomThreshold = window.innerHeight - (isMobile ? 120 : 80)
+        if (moveEvent.clientY > snapBottomThreshold) {
+          currentOrigin = 'bottom-right'
+          setIconOrigin('bottom-right')
+          // Reset starting drag positions to make bottom relative dragging smooth
+          activeStartY = moveEvent.clientY
+          setIconOffset({ x: deltaX, y: 0 })
+        } else {
+          // Allow minor horizontal drag offset for physical spring effect
+          const boundedOffset = clampOffsetToIconLimit({ x: deltaX, y: 0 })
+          setIconOffset({ x: boundedOffset.x, y: 0 })
         }
       }
-
-      setIconOffset(boundedOffset)
     }
 
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -1006,18 +1016,7 @@ export default function FloatingCalculator() {
       document.removeEventListener('pointerup', onPointerUp)
       document.removeEventListener('pointercancel', onPointerUp)
 
-      if (iconPinTimeoutRef.current) {
-        window.clearTimeout(iconPinTimeoutRef.current)
-        iconPinTimeoutRef.current = null
-      }
-
-      if (pendingIconOriginRef.current) {
-        setIconOrigin(pendingIconOriginRef.current)
-        pendingIconOriginRef.current = null
-      }
-
       setIsDraggingIcon(false)
-      setIsTopRightPinReady(false)
       setIsIconReturning(true)
       setIconOffset({ x: 0, y: 0 })
 
@@ -1030,6 +1029,7 @@ export default function FloatingCalculator() {
     document.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointercancel', onPointerUp)
   }
+
 
   const handleIconClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (iconDragMovedRef.current) {
@@ -1055,7 +1055,7 @@ export default function FloatingCalculator() {
         />
       )}
 
-      {isExpanded && (
+      {isExpanded && !isHidden && (
         <div
           className="fixed z-[1001] rounded-2xl border border-primary bg-primary/95 backdrop-blur-xl p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
           onPointerDown={startDrag}
@@ -1248,11 +1248,19 @@ export default function FloatingCalculator() {
         </div>
       )}
 
-      {!isExpanded && (
-        <div className={`fixed right-4 z-[1001] h-10 w-10 safe-area-right ${iconOrigin === 'top-right' ? 'top-4 safe-area-top' : 'bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-4 safe-area-bottom'}`}>
-          {(isDraggingIcon || isIconReturning) && (
+      {!isExpanded && !isHidden && (
+        <div
+          className={
+            iconOrigin === 'top-right'
+              ? 'fixed right-0 z-[1001] w-10 safe-area-right'
+              : 'fixed right-4 z-[1001] h-10 w-10 safe-area-right bottom-[calc(6.2rem+env(safe-area-inset-bottom))] lg:bottom-8 safe-area-bottom'
+          }
+          style={iconOrigin === 'top-right' ? { top: `${customTopY}px`, touchAction: 'none' } : { touchAction: 'none' }}
+        >
+          {/* Old drag limits indicator omitted in cyberpunk mode for cleaner interaction */}
+          {visualStyle !== 'cyberpunk' && (isDraggingIcon || isIconReturning) && (
             <div
-              className={`pointer-events-none absolute rounded-full border ${isTopRightPinReady ? 'border-[var(--color-success)]' : 'border-primary'} ${isDraggingIcon ? 'opacity-80' : 'opacity-0'} motion-emphasis`}
+              className={`pointer-events-none absolute rounded-full border border-primary ${isDraggingIcon ? 'opacity-80' : 'opacity-0'} motion-emphasis`}
               style={{
                 width: `${ICON_DRAG_LIMIT * 2 + 40}px`,
                 height: `${ICON_DRAG_LIMIT * 2 + 40}px`,
@@ -1267,8 +1275,31 @@ export default function FloatingCalculator() {
             onPointerDown={startIconDrag}
             onClick={handleIconClick}
             aria-label="Abrir calculadora flutuante"
-            style={{ transform: `translate(${iconOffset.x}px, ${iconOffset.y}px)`, touchAction: 'none' }}
-            className={`h-10 w-10 rounded-full border border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'} ${isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'}`}
+            style={{
+              transform: `translate(${iconOffset.x}px, ${iconOrigin === 'top-right' ? 0 : iconOffset.y}px)`,
+              touchAction: 'none',
+            }}
+            className={
+              visualStyle === 'cyberpunk'
+                ? iconOrigin === 'top-right'
+                  ? `h-12 w-10 rounded-l-2xl rounded-r-none border-y border-l border-emerald-500/20 dark:border-emerald-400/10 bg-white/10 dark:bg-black/45 backdrop-blur-md text-emerald-400 dark:text-emerald-400 hover:text-emerald-300 hover:bg-white/20 dark:hover:bg-black/60 press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
+                    } transition-all duration-300 hover:-translate-x-1.5 hover:w-11 shadow-[0_8px_24px_rgba(0,255,136,0.15)] flex items-center justify-center`
+                  : `h-10 w-10 rounded-full border border-emerald-500/20 dark:border-emerald-400/10 bg-white/10 dark:bg-black/45 backdrop-blur-md text-emerald-400 dark:text-emerald-400 hover:text-emerald-300 hover:bg-white/20 dark:hover:bg-black/60 press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
+                    } ${
+                      isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
+                    } shadow-[0_8px_24px_rgba(0,255,136,0.15)] flex items-center justify-center`
+                : iconOrigin === 'top-right'
+                  ? `h-12 w-10 rounded-l-2xl rounded-r-none border-y border-l border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
+                    } transition-all duration-300 hover:-translate-x-1.5 hover:w-11 shadow-[0_8px_24px_rgba(0,0,0,0.12)] flex items-center justify-center`
+                  : `h-10 w-10 rounded-full border border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
+                    } ${
+                      isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
+                    } flex items-center justify-center`
+            }
           >
             <Calculator size={17} className="mx-auto" />
           </button>

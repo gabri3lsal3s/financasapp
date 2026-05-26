@@ -6,7 +6,7 @@ import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { formatCurrency } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 
@@ -14,6 +14,7 @@ import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGrou
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
+import AssetTransactionsModal from '@/components/investments/AssetTransactionsModal'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
@@ -73,6 +74,19 @@ export default function Investments() {
   // Estados para limites de exposição por classe e setor
   const [portfolioId, setPortfolioId] = useState<string>('')
   const [groupTargets, setGroupTargets] = useState<any[]>([])
+
+  const sumClass = useMemo(() => {
+    return groupTargets
+      .filter((gt: any) => gt.group_type === 'class')
+      .reduce((sum: number, gt: any) => sum + Number(gt.target_percentage || 0), 0)
+  }, [groupTargets])
+
+  const sumSector = useMemo(() => {
+    return groupTargets
+      .filter((gt: any) => gt.group_type === 'sector')
+      .reduce((sum: number, gt: any) => sum + Number(gt.target_percentage || 0), 0)
+  }, [groupTargets])
+
   const [showGroupTargetForm, setShowGroupTargetForm] = useState<boolean>(false)
   const [groupTargetType, setGroupTargetType] = useState<'class' | 'sector'>('class')
   const [groupTargetName, setGroupTargetName] = useState<string>('Ações Nacionais')
@@ -96,6 +110,17 @@ export default function Investments() {
       ...prev,
       [ticker]: !prev[ticker]
     }))
+  }
+
+  // Estado do modal de transações detalhadas do ativo
+  const [assetTxModalPosition, setAssetTxModalPosition] = useState<import('@/services/investmentEngine').AssetPosition | null>(null)
+
+  const handleOpenAssetTxModal = (pos: import('@/services/investmentEngine').AssetPosition) => {
+    setAssetTxModalPosition(pos)
+  }
+
+  const handleCloseAssetTxModal = () => {
+    setAssetTxModalPosition(null)
   }
 
 
@@ -353,6 +378,19 @@ export default function Investments() {
       const name = groupTargetName.trim()
       if (!name) throw new Error('Insira o nome do grupo')
 
+      // Validar se o limite acumulado excede 100%
+      const currentSum = groupTargets
+        .filter((gt: any) => gt.group_type === groupTargetType && gt.id !== editingGroupTarget?.id)
+        .reduce((sum: number, gt: any) => sum + Number(gt.target_percentage || 0), 0)
+
+      if (currentSum + pct > 100) {
+        throw new Error(
+          `O limite total de exposição por ${
+            groupTargetType === 'class' ? 'classe' : 'setor'
+          } não pode ultrapassar 100% (atual: ${currentSum.toFixed(0)}%)`
+        )
+      }
+
       const { error } = await supabase
         .from('portfolio_group_targets')
         .upsert({
@@ -407,14 +445,14 @@ export default function Investments() {
               variant="outline"
               onClick={handleForceRefresh}
               disabled={refreshing || portfolioLoading}
-              className="flex items-center gap-2 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 font-bold"
+              className="hidden sm:flex items-center gap-2 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 font-bold"
             >
               {refreshing ? (
                 <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <TrendingUp size={16} className="text-amber-500" />
               )}
-              <span className="hidden sm:inline">{refreshing ? 'Atualizando...' : 'Atualizar Cotações'}</span>
+              <span>{refreshing ? 'Atualizando...' : 'Atualizar Cotações'}</span>
             </Button>
             <Button
               size="sm"
@@ -429,10 +467,10 @@ export default function Investments() {
               size="sm"
               variant="outline"
               onClick={() => handleOpenTxModal()}
-              className="hidden sm:inline-flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold"
+              className="flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold"
             >
               <Plus size={16} className="text-indigo-500" />
-              <span>Lançar Transação</span>
+              <span className="hidden sm:inline">Lançar Transação</span>
             </Button>
           </div>
         }
@@ -519,7 +557,7 @@ export default function Investments() {
                 {/* Indicador de expansão */}
                 <div className="flex items-center gap-2 text-secondary shrink-0">
                   <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono">
-                    {groupTargets.length}
+                    {groupTargets.filter((gt: any) => gt.group_type === consolidationView).length}
                   </span>
                   <Plus 
                     size={16} 
@@ -532,54 +570,58 @@ export default function Investments() {
               <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
                 limitsCollapsed ? 'hidden' : 'grid'
               }`}>
-                {groupTargets.map((gt: any) => (
-                  <div 
-                    key={gt.id} 
-                    onClick={() => handleEditGroupTarget(gt)}
-                    className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-indigo-500/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col text-left">
-                        <span className="text-secondary uppercase text-[7px] font-extrabold tracking-wider leading-none">
-                          {gt.group_type === 'class' ? 'Classe' : 'Setor'}
-                        </span>
-                        <span className="text-primary font-black text-xs sm:text-sm mt-0.5 leading-tight">
-                          {gt.group_name}
-                        </span>
+                {groupTargets
+                  .filter((gt: any) => gt.group_type === consolidationView)
+                  .map((gt: any) => (
+                    <div 
+                      key={gt.id} 
+                      onClick={() => handleEditGroupTarget(gt)}
+                      className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-indigo-500/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col text-left">
+                          <span className="text-secondary uppercase text-[7px] font-extrabold tracking-wider leading-none">
+                            {gt.group_type === 'class' ? 'Classe' : 'Setor'}
+                          </span>
+                          <span className="text-primary font-black text-xs sm:text-sm mt-0.5 leading-tight">
+                            {gt.group_name}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="h-6 w-[1px] bg-primary/25" />
+                        <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Evita abrir o modal de edição ao excluir
+                            handleDeleteGroupTarget(gt.id);
+                          }}
+                          className="text-secondary hover:text-red-500 transition-colors p-1.5 rounded-xl hover:bg-red-500/10 flex items-center justify-center"
+                          title="Remover limite"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="h-6 w-[1px] bg-primary/25" />
-                      <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation(); // Evita abrir o modal de edição ao excluir
-                          handleDeleteGroupTarget(gt.id);
-                        }}
-                        className="text-secondary hover:text-red-500 transition-colors p-1.5 rounded-xl hover:bg-red-500/10 flex items-center justify-center"
-                        title="Remover limite"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
 
                 {/* Adicionar Limite Card Button */}
-                <div 
-                  onClick={() => {
-                    setEditingGroupTarget(null);
-                    setGroupTargetType('class');
-                    setGroupTargetName('Ações Nacionais');
-                    setGroupTargetPct('');
-                    setShowGroupTargetForm(true);
-                  }}
-                  className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-indigo-500/35 hover:border-indigo-500/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 hover:scale-[1.01]"
-                >
-                  <Plus size={15} className="text-indigo-500" />
-                  <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
-                </div>
+                {(consolidationView === 'class' ? sumClass < 100 : sumSector < 100) && (
+                  <div 
+                    onClick={() => {
+                      setEditingGroupTarget(null);
+                      setGroupTargetType(consolidationView);
+                      setGroupTargetName(consolidationView === 'class' ? 'Ações Nacionais' : '');
+                      setGroupTargetPct('');
+                      setShowGroupTargetForm(true);
+                    }}
+                    className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-indigo-500/35 hover:border-indigo-500/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 hover:scale-[1.01]"
+                  >
+                    <Plus size={15} className="text-indigo-500" />
+                    <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -682,8 +724,24 @@ export default function Investments() {
 
             {/* Lista Detalhada de Ativos */}
             <Card className="p-4 lg:p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                <h3 className="text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h3 className="text-sm sm:text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
+                
+                {/* Botão de atualizar cotações visível apenas no Mobile */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleForceRefresh}
+                  disabled={refreshing || portfolioLoading}
+                  className="flex sm:hidden items-center justify-center h-8 w-8 p-0 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 font-bold"
+                  title="Atualizar cotações"
+                >
+                  {refreshing ? (
+                    <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <TrendingUp size={15} className="text-amber-500" />
+                  )}
+                </Button>
               </div>
 
               {/* 1. Tabela para Desktop */}
@@ -715,7 +773,12 @@ export default function Investments() {
                           {classPositions.map((pos) => {
                             const isPositive = pos.gross_yield_pct >= 0
                             return (
-                              <tr key={pos.ticker} className="hover:bg-secondary/40 transition-colors">
+                              <tr
+                                key={pos.ticker}
+                                className="hover:bg-secondary/40 transition-colors cursor-pointer"
+                                onClick={() => handleOpenAssetTxModal(pos)}
+                                title="Ver transações do ativo"
+                              >
                                 <td className={`p-3 pl-6 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
                                   <div className="flex items-center gap-2 flex-wrap">
                                     {pos.ticker}
@@ -796,7 +859,8 @@ export default function Investments() {
                                 <td className="p-3 text-center">
                                   <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setAssetDefTicker(pos.ticker)
                                       setAssetDefModalOpen(true)
                                     }}
@@ -990,18 +1054,31 @@ export default function Investments() {
                                         </span>
                                       )}
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setAssetDefTicker(pos.ticker);
-                                        setAssetDefModalOpen(true);
-                                      }}
-                                      className="flex items-center gap-1.5 text-[10px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition-all py-1.5 px-3 border border-indigo-500/20 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
-                                    >
-                                      <Settings2 size={12} />
-                                      <span>Configurar Ativo</span>
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenAssetTxModal(pos);
+                                        }}
+                                        className="flex items-center gap-1.5 text-[10px] text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 transition-all py-1.5 px-3 border border-emerald-500/20 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 font-bold"
+                                      >
+                                        <BarChart2 size={12} />
+                                        <span>Transações</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setAssetDefTicker(pos.ticker);
+                                          setAssetDefModalOpen(true);
+                                        }}
+                                        className="flex items-center gap-1.5 text-[10px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition-all py-1.5 px-3 border border-indigo-500/20 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
+                                      >
+                                        <Settings2 size={12} />
+                                        <span>Configurar</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -1052,6 +1129,14 @@ export default function Investments() {
             portfolioId={portfolioId}
             ticker={assetDefTicker}
             existing={assetDefinitions.find((d) => d.ticker.toUpperCase() === assetDefTicker.toUpperCase()) ?? null}
+            onSaved={loadPortfolio}
+          />
+          <AssetTransactionsModal
+            isOpen={!!assetTxModalPosition}
+            onClose={handleCloseAssetTxModal}
+            position={assetTxModalPosition}
+            allTransactions={transactions}
+            portfolioId={portfolioId}
             onSaved={loadPortfolio}
           />
           <Modal

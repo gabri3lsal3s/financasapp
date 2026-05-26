@@ -19,7 +19,7 @@ describe('B3 Investment Reconciliation Utilities', () => {
 
     it('should return full string for both ticker and name if hyphen is absent', () => {
       const { ticker, name } = parseB3Product('Tesouro Selic 2031')
-      expect(ticker).toBe('Tesouro Selic 2031')
+      expect(ticker).toBe('TESOURO SELIC 2031')
       expect(name).toBe('Tesouro Selic 2031')
     })
 
@@ -157,6 +157,82 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(result.missing).toHaveLength(1)
       expect(result.missing[0].ticker).toBe('EGIE3')
       expect(result.missing[0].operation_type).toBe('dividend')
+    })
+
+    it('should not steal matching transactions from other months or periods', () => {
+      // Cenário de proventos mensais com o mesmo valor mas datas distintas:
+      // O banco tem o provento de abril (15/04).
+      // O extrato da B3 tem o provento de abril (15/04) e o provento de maio (15/05).
+      // A transação de maio está "missing" no banco.
+      // O sistema deve conciliar perfeitamente a de abril e reportar a de maio como "missing",
+      // em vez de associar a de maio (mais recente) com o registro de abril (conflito) e deixar a de abril como "missing".
+      
+      const officialItems: B3TransactionItem[] = [
+        {
+          id: 'official-may', date: '2026-05-15', direction: 'Credito', operation_type: 'dividend',
+          raw_operation_type: 'Rendimento', ticker: 'MXRF11', product_name: 'MXRF11 FII',
+          institution: 'BTG', quantity: 100, price: 0.1, total_value: 10
+        },
+        {
+          id: 'official-april', date: '2026-04-15', direction: 'Credito', operation_type: 'dividend',
+          raw_operation_type: 'Rendimento', ticker: 'MXRF11', product_name: 'MXRF11 FII',
+          institution: 'BTG', quantity: 100, price: 0.1, total_value: 10
+        }
+      ]
+
+      const existingTransactions: PortfolioTransaction[] = [
+        {
+          id: 'existing-april', portfolio_id: 'p1', ticker: 'MXRF11', operation_type: 'dividend',
+          quantity: 100, price: 0.1, date: '2026-04-15', created_at: ''
+        }
+      ]
+
+      const result = reconcileInvestmentTransactions(officialItems, existingTransactions)
+
+      // Deve casar o provento de abril de forma exata
+      expect(result.matched).toHaveLength(1)
+      expect(result.matched[0].official.id).toBe('official-april')
+      expect(result.matched[0].existing.id).toBe('existing-april')
+
+      // O provento de maio deve ser dado como faltando (missing)
+      expect(result.missing).toHaveLength(1)
+      expect(result.missing[0].id).toBe('official-may')
+
+      // Não deve haver conflitos de data incorretos sugeridos (ex: mover a data de abril para maio)
+      expect(result.conflicts).toHaveLength(0)
+    })
+
+    it('should respect strict date difference limits (max 10 days for dividends and 15 days for assets)', () => {
+      const officialItems: B3TransactionItem[] = [
+        {
+          id: 'official-asset', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
+          raw_operation_type: 'Compra', ticker: 'PETR4', product_name: 'PETROBRAS',
+          institution: 'BTG', quantity: 100, price: 30, total_value: 3000
+        },
+        {
+          id: 'official-div', date: '2026-05-20', direction: 'Credito', operation_type: 'dividend',
+          raw_operation_type: 'Dividendo', ticker: 'PETR4', product_name: 'PETROBRAS',
+          institution: 'BTG', quantity: 100, price: 1, total_value: 100
+        }
+      ]
+
+      const existingTransactions: PortfolioTransaction[] = [
+        {
+          id: 'existing-asset', portfolio_id: 'p1', ticker: 'PETR4', operation_type: 'buy',
+          quantity: 100, price: 30, date: '2026-05-04', created_at: '' // diff 16 days (> 15)
+        },
+        {
+          id: 'existing-div', portfolio_id: 'p1', ticker: 'PETR4', operation_type: 'dividend',
+          quantity: 100, price: 1, date: '2026-05-09', created_at: '' // diff 11 days (> 10)
+        }
+      ]
+
+      const result = reconcileInvestmentTransactions(officialItems, existingTransactions)
+
+      // Nenhuma das transações deve conciliar automaticamente por conta das restrições estritas de data
+      expect(result.matched).toHaveLength(0)
+      expect(result.conflicts).toHaveLength(0)
+      expect(result.missing).toHaveLength(2)
     })
   })
 })

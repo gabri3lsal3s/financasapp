@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { addMonths, format } from 'date-fns'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
@@ -157,6 +157,21 @@ export default function CreditCardCsvReconciliationPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [filterTab, setFilterTab] = useState<'all' | 'missing' | 'conflicts' | 'matched'>('all')
   const [currentStep, setCurrentStep] = useState<'upload' | 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'>('upload')
+  const modalTopRef = useRef<HTMLDivElement | null>(null)
+
+  const scrollToTop = () => {
+    const container = modalTopRef.current?.closest('.overflow-y-auto')
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      modalTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  // Rola para o topo do modal ao trocar de etapa
+  useEffect(() => {
+    scrollToTop()
+  }, [currentStep])
 
   const selectedMissingCount = useMemo(
     () => missingDrafts.filter((draft) => draft.selected).length,
@@ -454,6 +469,7 @@ export default function CreditCardCsvReconciliationPanel({
     }
 
     setLoading(true)
+    scrollToTop()
     try {
       for (const draft of selectedMissing) {
         const amount = parseMoneyInput(draft.amount)
@@ -605,6 +621,8 @@ export default function CreditCardCsvReconciliationPanel({
 
   return (
     <div className="space-y-4 overflow-x-hidden animate-page-enter">
+      {/* Invisible anchor for scrolling to top */}
+      <div ref={modalTopRef} />
       {/* Stepper Wizard UX */}
       {reconciliation && (
         <div className="flex flex-col gap-2 border-b border-primary/20 pb-4 mb-2">
