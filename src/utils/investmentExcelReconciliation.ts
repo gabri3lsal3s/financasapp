@@ -1,4 +1,7 @@
-﻿export type B3AssetCategory = 'equityB3' | 'fixedIncome' | 'treasury' | 'other'
+import * as XLSX from 'xlsx'
+import type { PortfolioOperationType, PortfolioTransaction } from '@/types'
+
+export type B3AssetCategory = 'equityB3' | 'fixedIncome' | 'treasury' | 'other'
 
 /**
  * Classifica um ticker/produto B3:
@@ -78,30 +81,96 @@ const normalizeString = (value: string) =>
     .toLowerCase()
     .trim()
 
+const CORPORATE_NAME_TO_TICKER: Record<string, string> = {
+  'WEG': 'WEGE3',
+  'VALE': 'VALE3',
+  'PETROBRAS': 'PETR4',
+  'PETROLEO BRASILEIRO': 'PETR4',
+  'ITAU UNIBANCO': 'ITUB4',
+  'ITAU': 'ITUB4',
+  'ITAUSA': 'ITSA4',
+  'BANCO DO BRASIL': 'BBAS3',
+  'BRADESCO': 'BBDC4',
+  'TAESA': 'TAEE11',
+  'KLABIN': 'KLBN11',
+  'SANEPAR': 'SAPR11',
+  'ALUPAR': 'ALUP11',
+  'ENGIE': 'EGIE3',
+  'ELETROBRAS': 'ELET3',
+  'COPEL': 'CPLE6',
+  'MAGAZINE LUIZA': 'MGLU3',
+  'LOJAS RENNER': 'LREN3',
+  'AMBEV': 'ABEV3',
+  'JBS': 'JBSS3',
+  'LOCALIZA': 'RENT3',
+  'XP INVESTIMENTOS': 'XPML11',
+  'XP LOG': 'XPLG11',
+  'VINCI': 'VILG11',
+  'BRL TRUST': 'BTLG11',
+  'BTG PACTUAL': 'BPAC11',
+  'CAIXA SEGURIDADE': 'CXSE3',
+  'PORTO SEGURO': 'PSSA3',
+  'EMBRAER': 'EMBR3',
+  'RAIA DROGASIL': 'RADL3',
+  'FLEURY': 'FLRY3',
+}
+
 export const parseB3Product = (rawProduct: string) => {
   const clean = String(rawProduct || '').trim()
   if (!clean) return { ticker: '', name: '' }
   
+  let ticker = ''
+  let name = ''
+
   const parts = clean.split(' - ')
   if (parts.length >= 2) {
     const firstPart = parts[0].trim()
     const isCdbOrSimilar = /^(cdb|lci|lca|lc|cri|cra|debenture|debentures)$/i.test(firstPart)
     
     if (isCdbOrSimilar && parts.length >= 3) {
-      const ticker = `${firstPart} - ${parts[1].trim()}`
-      const name = parts.slice(2).join(' - ').trim()
-      return { ticker, name }
+      ticker = `${firstPart} - ${parts[1].trim()}`
+      name = parts.slice(2).join(' - ').trim()
     } else if (isCdbOrSimilar) {
-      return { ticker: clean, name: clean }
+      ticker = clean
+      name = clean
+    } else {
+      ticker = firstPart
+      name = parts.slice(1).join(' - ').trim()
     }
-    
-    const ticker = firstPart
-    const name = parts.slice(1).join(' - ').trim()
-    return { ticker, name }
+  } else {
+    ticker = clean
+    name = clean
   }
-  
-  return { ticker: clean, name: clean }
+
+  // Fallback 1: Se o ticker não for um código B3 padrão, tenta pescar com regex na descrição inteira
+  if (!/^[A-Z]{4}[0-9]{1,2}$/i.test(ticker)) {
+    const b3Match = clean.match(/\b([A-Z]{4}[0-9]{1,2})(F)?\b/i)
+    if (b3Match) {
+      ticker = b3Match[1]
+      name = clean
+    }
+  }
+
+  // Fallback 2: Se ainda assim não bater, tenta identificar através de palavras-chave corporativas
+  if (!/^[A-Z]{4}[0-9]{1,2}$/i.test(ticker)) {
+    const normalizedClean = clean.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    for (const [kw, tck] of Object.entries(CORPORATE_NAME_TO_TICKER)) {
+      if (normalizedClean.includes(kw)) {
+        ticker = tck
+        name = clean
+        break
+      }
+    }
+  }
+
+  // Normalização final de ticker B3: remover o "F" fracionário se houver (ex: PETR4F -> PETR4)
+  if (/^[A-Z]{4}[0-9]{1,2}F$/i.test(ticker)) {
+    ticker = ticker.slice(0, -1)
+  }
+
+  return { ticker: ticker.toUpperCase(), name }
 }
+
 
 export const mapB3OperationType = (rawMov: string, direction?: 'Credito' | 'Debito'): PortfolioOperationType => {
   const mov = normalizeString(rawMov)
@@ -193,7 +262,7 @@ export const parseB3Excel = (fileBuffer: ArrayBuffer): B3TransactionItem[] => {
 
   if (rows.length < 2) return []
 
-  const headers = rows[0].map((h) => String(h || '').trim())
+  const headers = (rows[0] as any[]).map((h: any) => String(h || '').trim())
   const dataRows = rows.slice(1)
 
   const mapping: Record<B3FieldKey, number> = {
@@ -214,7 +283,7 @@ export const parseB3Excel = (fileBuffer: ArrayBuffer): B3TransactionItem[] => {
 
   const items: B3TransactionItem[] = []
 
-  dataRows.forEach((row, idx) => {
+  ;(dataRows as any[]).forEach((row: any, idx: number) => {
     if (!row || row.length === 0) return
 
     const rawDate = row[mapping.date]

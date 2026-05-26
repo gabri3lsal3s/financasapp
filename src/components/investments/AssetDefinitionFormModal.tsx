@@ -8,7 +8,6 @@ import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
 import { isB3TickerPattern, searchB3Assets } from '@/services/priceService'
 import type { PortfolioAssetDefinition, PortfolioPricingMode, PortfolioAssetIndexer } from '@/types'
-import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
 import toast from 'react-hot-toast'
 
 interface AssetDefinitionFormModalProps {
@@ -27,6 +26,9 @@ const INDEXER_OPTIONS: { value: PortfolioAssetIndexer; label: string }[] = [
   { value: 'ipca', label: 'IPCA' },
 ]
 
+type AssetCategory = 'variable' | 'fixed_or_other'
+type FixedSubtype = 'fixed_income_standard' | 'treasury' | 'manual' | 'cash'
+
 export default function AssetDefinitionFormModal({
   isOpen,
   onClose,
@@ -35,8 +37,11 @@ export default function AssetDefinitionFormModal({
   existing,
   onSaved,
 }: AssetDefinitionFormModalProps) {
+  const [assetCategory, setAssetCategory] = useState<AssetCategory>('variable')
+  const [fixedSubtype, setFixedSubtype] = useState<FixedSubtype>('fixed_income_standard')
+  
   const [pricingMode, setPricingMode] = useState<PortfolioPricingMode>('market')
-  const [isB3Linked, setIsB3Linked] = useState(false)
+  const [isB3Linked, setIsB3Linked] = useState(true)
   const [isTreasury, setIsTreasury] = useState(false)
   const [appliedAmount, setAppliedAmount] = useState('')
   const [contractRate, setContractRate] = useState('')
@@ -51,13 +56,65 @@ export default function AssetDefinitionFormModal({
   const [saving, setSaving] = useState(false)
   const [targetPct, setTargetPct] = useState('')
 
+  const upperTicker = assetTicker.trim().toUpperCase()
+  const isB3Variable = isB3TickerPattern(upperTicker) && !upperTicker.includes('TESOURO')
+  const isFixedIncomePrefix = upperTicker.startsWith('CDB') || upperTicker.startsWith('LCI') || upperTicker.startsWith('LCA') || upperTicker.startsWith('CRI') || upperTicker.startsWith('CRA') || upperTicker.includes('TESOURO') || upperTicker.includes('DEBENTURE') || upperTicker.includes('DEBÊNTURE')
+  const isCashType = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(upperTicker)
+
+  // Re-classify dynamically as the user types
+  useEffect(() => {
+    const t = assetTicker.trim().toUpperCase()
+    if (!t) return
+
+    const isB3 = isB3TickerPattern(t) && !t.includes('TESOURO')
+    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE')
+    const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(t)
+
+    if (isB3) {
+      setAssetCategory('variable')
+    } else if (isFixed) {
+      setAssetCategory('fixed_or_other')
+      if (t.includes('TESOURO')) {
+        setFixedSubtype('treasury')
+      } else {
+        setFixedSubtype('fixed_income_standard')
+      }
+    } else if (isCash) {
+      setAssetCategory('fixed_or_other')
+      setFixedSubtype('cash')
+    }
+  }, [assetTicker])
+
+  // Map sub-type selection to pricing mode and treasury flags
+  useEffect(() => {
+    if (assetCategory === 'variable') {
+      setPricingMode('market')
+      setIsTreasury(false)
+      setIsB3Linked(true)
+    } else {
+      setIsB3Linked(false)
+      if (fixedSubtype === 'fixed_income_standard') {
+        setPricingMode('fixed_income')
+        setIsTreasury(false)
+      } else if (fixedSubtype === 'treasury') {
+        setPricingMode('fixed_income')
+        setIsTreasury(true)
+      } else if (fixedSubtype === 'manual') {
+        setPricingMode('manual_value')
+        setIsTreasury(false)
+      } else if (fixedSubtype === 'cash') {
+        setPricingMode('cash')
+        setIsTreasury(false)
+      }
+    }
+  }, [assetCategory, fixedSubtype])
+
   useEffect(() => {
     if (!isOpen) return
     const upper = ticker.toUpperCase()
     setAssetTicker(upper)
 
     const fetchTargetAndSetStates = async () => {
-      // Carregar meta existente
       try {
         const { data, error } = await supabase
           .from('target_allocations')
@@ -87,10 +144,42 @@ export default function AssetDefinitionFormModal({
         setApplicationDate(existing.application_date ?? format(new Date(), 'yyyy-MM-dd'))
         setManualCurrentValue(existing.manual_current_value != null ? String(existing.manual_current_value) : '')
         setTaxExempt(existing.tax_exempt)
+
+        // Classify loaded asset category & subtype
+        if (existing.pricing_mode === 'market' && !existing.is_treasury) {
+          setAssetCategory('variable')
+        } else {
+          setAssetCategory('fixed_or_other')
+          if (existing.is_treasury) {
+            setFixedSubtype('treasury')
+          } else if (existing.pricing_mode === 'fixed_income') {
+            setFixedSubtype('fixed_income_standard')
+          } else if (existing.pricing_mode === 'manual_value') {
+            setFixedSubtype('manual')
+          } else if (existing.pricing_mode === 'cash') {
+            setFixedSubtype('cash')
+          }
+        }
       } else {
-        setPricingMode('market')
-        setIsB3Linked(isB3TickerPattern(upper))
-        setIsTreasury(upper.includes('TESOURO'))
+        const isB3 = isB3TickerPattern(upper)
+        const isTreasuryAsset = upper.includes('TESOURO')
+        
+        if (isB3 && !isTreasuryAsset) {
+          setAssetCategory('variable')
+          setPricingMode('market')
+          setIsB3Linked(true)
+          setIsTreasury(false)
+        } else {
+          setAssetCategory('fixed_or_other')
+          if (isTreasuryAsset) {
+            setFixedSubtype('treasury')
+          } else if (upper.startsWith('CDB') || upper.startsWith('LCI') || upper.startsWith('LCA') || upper.startsWith('CRI') || upper.startsWith('CRA')) {
+            setFixedSubtype('fixed_income_standard')
+          } else {
+            setFixedSubtype('manual')
+          }
+        }
+
         setAppliedAmount('')
         setContractRate('')
         setIndexer('none')
@@ -107,7 +196,7 @@ export default function AssetDefinitionFormModal({
 
   const handleTickerSearch = async (value: string) => {
     setAssetTicker(value.toUpperCase())
-    if (pricingMode === 'market' && value.length >= 2) {
+    if (assetCategory === 'variable' && value.length >= 2) {
       const results = await searchB3Assets(value)
       setSuggestions(results)
     } else {
@@ -123,13 +212,18 @@ export default function AssetDefinitionFormModal({
       return
     }
 
-    if (pricingMode === 'fixed_income' && !appliedAmount) {
-      toast.error('Informe o valor aplicado para renda fixa.')
+    if (pricingMode === 'fixed_income' && (!appliedAmount || !applicationDate)) {
+      toast.error('Informe o valor aplicado e data da aplicação para renda fixa.')
       return
     }
 
-    if (pricingMode === 'manual_value' && (!appliedAmount || !manualCurrentValue)) {
-      toast.error('Informe valor aplicado e valor atual.')
+    if (pricingMode === 'manual_value' && (!appliedAmount || !manualCurrentValue || !applicationDate)) {
+      toast.error('Informe valor aplicado, valor atual e data de aquisição para ativos manuais.')
+      return
+    }
+
+    if (pricingMode === 'cash' && !applicationDate) {
+      toast.error('Informe a data da aplicação/início para o saldo em caixa.')
       return
     }
 
@@ -141,16 +235,16 @@ export default function AssetDefinitionFormModal({
         pricing_mode: pricingMode,
         is_b3_linked: pricingMode === 'market' ? isB3Linked : false,
         applied_amount:
-          pricingMode === 'cash' ? null : appliedAmount ? Number(appliedAmount) : null,
-        contract_rate: contractRate ? Number(contractRate) : null,
-        indexer: pricingMode === 'fixed_income' || isTreasury ? indexer : 'none',
-        indexer_percent: Number(indexerPercent) || 100,
-        maturity_date: maturityDate || null,
-        application_date: applicationDate || null,
-        manual_current_value: manualCurrentValue ? Number(manualCurrentValue) : null,
-        manual_value_updated_at: manualCurrentValue ? new Date().toISOString() : null,
-        tax_exempt: taxExempt,
-        is_treasury: isTreasury,
+          pricingMode === 'market' || pricingMode === 'cash' ? null : appliedAmount ? Number(appliedAmount) : null,
+        contract_rate: pricingMode === 'fixed_income' && contractRate ? Number(contractRate) : null,
+        indexer: pricingMode === 'fixed_income' ? indexer : 'none',
+        indexer_percent: pricingMode === 'fixed_income' ? (Number(indexerPercent) || 100) : 100,
+        maturity_date: pricingMode === 'fixed_income' ? (maturityDate || null) : null,
+        application_date: pricingMode === 'market' ? null : (applicationDate || null),
+        manual_current_value: pricingMode === 'manual_value' ? (manualCurrentValue ? Number(manualCurrentValue) : null) : null,
+        manual_value_updated_at: pricingMode === 'manual_value' && manualCurrentValue ? new Date().toISOString() : null,
+        tax_exempt: pricingMode === 'fixed_income' ? taxExempt : false,
+        is_treasury: pricingMode === 'fixed_income' ? isTreasury : false,
         updated_at: new Date().toISOString(),
       }
 
@@ -195,98 +289,165 @@ export default function AssetDefinitionFormModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`Configurar ativo ${assetTicker || ''}`}
+      maxWidth="max-w-lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Select
-          label="Tipo de precificação"
-          value={pricingMode}
-          onChange={(e) => setPricingMode(e.target.value as PortfolioPricingMode)}
-          options={PORTFOLIO_PRICING_MODE_OPTIONS}
-        />
+      {/* Categoria Principal: Renda Variável vs Renda Fixa com travas reativas */}
+      <div className="flex bg-secondary/50 border border-primary p-1 rounded-xl mb-3">
+        <button
+          type="button"
+          disabled={isFixedIncomePrefix || isCashType}
+          onClick={() => setAssetCategory('variable')}
+          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 ${
+            assetCategory === 'variable'
+              ? 'bg-primary text-primary shadow-md font-bold'
+              : 'text-secondary hover:text-primary'
+          } ${(isFixedIncomePrefix || isCashType) ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          Renda Variável (Ações / FIIs)
+        </button>
+        <button
+          type="button"
+          disabled={isB3Variable}
+          onClick={() => setAssetCategory('fixed_or_other')}
+          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 ${
+            assetCategory === 'fixed_or_other'
+              ? 'bg-primary text-primary shadow-md font-bold'
+              : 'text-secondary hover:text-primary'
+          } ${isB3Variable ? 'opacity-40 cursor-not-allowed' : ''}`}
+        >
+          Renda Fixa & Outros
+        </button>
+      </div>
 
-        {pricingMode === 'market' && (
-          <>
-            <Input
-              label="Ticker"
-              value={assetTicker}
-              onChange={(e) => handleTickerSearch(e.target.value)}
-              placeholder="Ex: WEGE3"
-            />
-            {suggestions.length > 0 && (
-              <div className="max-h-32 overflow-y-auto border border-primary rounded-lg">
-                {suggestions.slice(0, 6).map((s) => (
-                  <button
-                    key={s.ticker}
-                    type="button"
-                    onClick={() => {
-                      setAssetTicker(s.ticker)
-                      setIsB3Linked(isB3TickerPattern(s.ticker))
-                      setSuggestions([])
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-tertiary"
-                  >
-                    <span className="font-bold">{s.ticker}</span> — {s.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-col gap-2.5 p-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl">
+      {/* Badges de classificação inteligente */}
+      {isB3Variable && (
+        <div className="mb-4 p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
+          <span>📈 Ativo de Renda Variável Detectado (B3)</span>
+          <span className="text-[10px] bg-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase">Mercado</span>
+        </div>
+      )}
+      {isFixedIncomePrefix && (
+        <div className="mb-4 p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
+          <span>💰 Ativo de Renda Fixa Detectado</span>
+          <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full font-bold uppercase">{upperTicker.includes('TESOURO') ? 'Tesouro Direto' : 'Renda Fixa'}</span>
+        </div>
+      )}
+      {isCashType && (
+        <div className="mb-4 p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
+          <span>🏦 Saldo em Caixa Detectado</span>
+          <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold uppercase">Caixa</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {assetCategory === 'variable' ? (
+          <div className="space-y-4 animate-page-enter">
+            <div className="relative">
+              <Input
+                label="Ticker / Símbolo"
+                value={assetTicker}
+                onChange={(e) => handleTickerSearch(e.target.value)}
+                placeholder="Ex: WEGE3, MXRF11, BOVA11"
+                className="uppercase font-semibold tracking-wider"
+              />
+              {suggestions.length > 0 && (
+                <div className="absolute z-[1001] w-full mt-1 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-border/40 animate-page-enter">
+                  {suggestions.slice(0, 6).map((s) => (
+                    <button
+                      key={s.ticker}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Impede o blur do input
+                        setAssetTicker(s.ticker)
+                        setIsB3Linked(isB3TickerPattern(s.ticker))
+                        setSuggestions([])
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs hover:bg-indigo-500/10 text-primary flex items-center justify-between transition-colors"
+                    >
+                      <span className="font-bold text-sm text-primary tracking-wide">{s.ticker}</span>
+                      <span className="text-[10px] text-secondary font-medium truncate max-w-[180px]">{s.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl">
               <Checkbox
                 label="Vinculado à B3"
-                description="Cotação atualizada automaticamente pelo mercado"
+                description="Sincroniza a cotação do ativo automaticamente a mercado"
                 checked={isB3Linked}
                 onChange={(e) => setIsB3Linked(e.target.checked)}
               />
-              <Checkbox
-                label="Tesouro Direto (híbrido)"
-                description="Cotação por mercado ou taxa contratada"
-                checked={isTreasury}
-                onChange={(e) => setIsTreasury(e.target.checked)}
-              />
             </div>
-          </>
-        )}
-
-        {(pricingMode === 'fixed_income' || pricingMode === 'manual_value' || pricingMode === 'cash') && (
-          <Input
-            label="Ticker / identificador"
-            value={assetTicker}
-            onChange={(e) => setAssetTicker(e.target.value.toUpperCase())}
-            placeholder="Ex: CDB-INTER-2027"
-          />
+          </div>
+        ) : (
+          <div className="space-y-4 animate-page-enter">
+            <Select
+              label="Tipo de Ativo"
+              value={fixedSubtype}
+              onChange={(e) => setFixedSubtype(e.target.value as FixedSubtype)}
+              options={[
+                { value: 'fixed_income_standard', label: 'Renda Fixa / Tesouro (CDB, LCI, LCA, CRI, CRA, Debêntures, Tesouro)' },
+                { value: 'manual', label: 'Rentabilidade Manual (Outros ativos)' },
+                { value: 'cash', label: 'Saldo em Caixa (Sem rentabilidade)' },
+              ]}
+              className="rounded-xl font-semibold"
+            />
+            
+            <Input
+              label={fixedSubtype === 'cash' ? 'Identificador do Caixa' : 'Identificador / Nome do Ativo'}
+              value={assetTicker}
+              onChange={(e) => setAssetTicker(e.target.value.toUpperCase())}
+              placeholder={
+                fixedSubtype === 'fixed_income_standard'
+                  ? 'Ex: CDB BANCO INTER 110% CDI'
+                  : fixedSubtype === 'cash'
+                  ? 'Ex: CAIXA PRINCIPAL'
+                  : 'Ex: MINHA STARTUP / IMOVEL X'
+              }
+              className="font-semibold rounded-xl"
+            />
+          </div>
         )}
 
         {pricingMode === 'cash' && (
-          <p className="text-xs text-secondary">
-            Saldo em caixa não possui rentabilidade — o valor acompanha apenas os lançamentos de entrada e saída.
+          <p className="text-xs text-secondary bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-3.5 font-sans leading-relaxed animate-page-enter">
+            Saldo em caixa não possui rentabilidade — o valor acompanha apenas as movimentações manuais de entrada e saída.
           </p>
         )}
 
-        {pricingMode !== 'cash' && (
+        {pricingMode !== 'cash' && assetCategory !== 'variable' && (
           <Input
-            label="Valor aplicado (R$)"
+            label="Valor aplicado / Investido original (R$)"
             type="number"
             step="0.01"
+            required
             value={appliedAmount}
             onChange={(e) => setAppliedAmount(e.target.value)}
             placeholder="Ex: 10000"
+            className="font-semibold rounded-xl text-sm"
           />
         )}
 
-        <Input
-          label="Data da aplicação"
-          type="date"
-          value={applicationDate}
-          onChange={(e) => setApplicationDate(e.target.value)}
-        />
+        {assetCategory !== 'variable' && (
+          <Input
+            label="Data da aplicação / Aquisição"
+            type="date"
+            required
+            value={applicationDate}
+            onChange={(e) => setApplicationDate(e.target.value)}
+            className="font-semibold rounded-xl text-sm"
+          />
+        )}
 
         {pricingMode === 'fixed_income' && (
-          <>
+          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl space-y-4 animate-page-enter">
             <Select
               label="Indexador"
               value={indexer}
               onChange={(e) => setIndexer(e.target.value as PortfolioAssetIndexer)}
               options={INDEXER_OPTIONS}
+              className="rounded-xl font-semibold"
             />
             {indexer !== 'none' && (
               <Input
@@ -295,6 +456,7 @@ export default function AssetDefinitionFormModal({
                 step="0.01"
                 value={indexerPercent}
                 onChange={(e) => setIndexerPercent(e.target.value)}
+                className="font-semibold rounded-xl text-sm"
               />
             )}
             {indexer === 'none' && (
@@ -304,48 +466,58 @@ export default function AssetDefinitionFormModal({
                 step="0.01"
                 value={contractRate}
                 onChange={(e) => setContractRate(e.target.value)}
+                className="font-semibold rounded-xl text-sm"
               />
             )}
             <Input
-              label="Vencimento"
+              label="Data de Vencimento"
               type="date"
               value={maturityDate}
               onChange={(e) => setMaturityDate(e.target.value)}
+              className="font-semibold rounded-xl text-sm"
             />
-            <Checkbox
-              label="Isento de IR (LCI/LCA)"
-              description="Não aplica tabela regressiva de imposto de renda"
-              checked={taxExempt}
-              onChange={(e) => setTaxExempt(e.target.checked)}
-            />
-          </>
+            {fixedSubtype === 'fixed_income_standard' && (
+              <Checkbox
+                label="Isento de Imposto de Renda"
+                description="LCI, LCA, CRI, CRA são isentos de IR (não aplica tabela regressiva)"
+                checked={taxExempt}
+                onChange={(e) => setTaxExempt(e.target.checked)}
+              />
+            )}
+          </div>
         )}
 
         {pricingMode === 'manual_value' && (
-          <Input
-            label="Valor atual (R$)"
-            type="number"
-            step="0.01"
-            value={manualCurrentValue}
-            onChange={(e) => setManualCurrentValue(e.target.value)}
-          />
+          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl animate-page-enter">
+            <Input
+              label="Valor atual estimado / Último saldo (R$)"
+              type="number"
+              step="0.01"
+              required
+              value={manualCurrentValue}
+              onChange={(e) => setManualCurrentValue(e.target.value)}
+              placeholder="Ex: 12500"
+              className="font-semibold rounded-xl text-sm"
+            />
+          </div>
         )}
 
-        <Input
-          label="Meta de Alocação Ideal (%)"
-          type="number"
-          step="0.1"
-          min="0"
-          max="100"
-          placeholder="Ex: 15"
-          value={targetPct}
-          onChange={(e) => setTargetPct(e.target.value)}
-          className="text-sm font-semibold font-mono"
-        />
+        <div className="pt-3 border-t border-primary/20">
+          <Input
+            label="Meta de Alocação Ideal no Portfólio (%)"
+            type="number"
+            step="0.1"
+            min="0"
+            max="100"
+            placeholder="Ex: 15"
+            value={targetPct}
+            onChange={(e) => setTargetPct(e.target.value)}
+            className="text-sm font-semibold font-mono rounded-xl text-sm"
+          />
+        </div>
 
-        <p className="text-[11px] text-secondary">
-          Rentabilidade líquida usa estimativa simplificada de IR (tabela regressiva para RF; 15% para mercado).
-          Sem come-cotas.
+        <p className="text-[10px] text-secondary leading-relaxed opacity-85">
+          A rentabilidade líquida estimada utiliza a tabela regressiva de IR para renda fixa, 15% de ganho de capital para mercado/outros, exceto se marcado como isento.
         </p>
 
         <ModalActionFooter onCancel={onClose} submitLabel="Salvar" submitDisabled={saving} />

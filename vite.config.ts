@@ -14,7 +14,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,json,woff2}'],
         cleanupOutdatedCaches: true,
-        navigateFallbackAllowlist: [/^\/.*$/],
+        navigateFallbackAllowlist: [/^\/[^.]*$/],
         runtimeCaching: [],
       },
       devOptions: {

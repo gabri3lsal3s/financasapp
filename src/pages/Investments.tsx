@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from 'react'
+import { useEffect, useState, useMemo, Fragment } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -6,7 +6,7 @@ import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { formatCurrency } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 
@@ -123,7 +123,68 @@ export default function Investments() {
     }
   }, [searchParams, setSearchParams])
 
-  async function loadPortfolio() {
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Estados para edição inline de cotações
+  const [editingPriceTicker, setEditingPriceTicker] = useState<string | null>(null)
+  const [editingPriceValue, setEditingPriceValue] = useState<string>('')
+  const [savingPrice, setSavingPrice] = useState<boolean>(false)
+
+  // Estado para transitar entre a visualização de Classes e Setores
+  const [consolidationView, setConsolidationView] = useState<'class' | 'sector'>('class')
+
+  // Memoiza o agrupamento de posições por classe (exclui entradas de caixa/saldo)
+  // Usado tanto na tabela Desktop quanto nos cards Mobile — evita recálculo duplo
+  const positionsByClass = useMemo<Record<string, AssetPosition[]>>(() => {
+    if (!portfolioData?.positions) return {}
+    const displayPositions = portfolioData.positions.filter(
+      (pos) => pos.pricing_mode !== 'cash' && pos.ticker !== 'SALDO_INV' && pos.ticker !== 'CAIXA'
+    )
+    const groups: Record<string, AssetPosition[]> = {}
+    displayPositions.forEach(pos => {
+      const cls = pos.asset_class || 'Não classificado'
+      if (!groups[cls]) groups[cls] = []
+      groups[cls].push(pos)
+    })
+    return groups
+  }, [portfolioData?.positions])
+
+  const handleSaveInlinePrice = async (ticker: string) => {
+    try {
+      setSavingPrice(true)
+      const numericPrice = parseFloat(editingPriceValue)
+      if (isNaN(numericPrice) || numericPrice < 0) {
+        toast.error('Preço inválido')
+        return
+      }
+      
+      const { forceUpdateAssetPrice } = await import('@/services/priceService')
+      await forceUpdateAssetPrice(ticker, numericPrice)
+      
+      toast.success('Cotação atualizada!')
+      setEditingPriceTicker(null)
+      await loadPortfolio()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao salvar cotação')
+    } finally {
+      setSavingPrice(false)
+    }
+  }
+
+  const handleForceRefresh = async () => {
+    try {
+      setRefreshing(true)
+      await loadPortfolio({ forceRefresh: true })
+      toast.success('Cotações atualizadas com sucesso!')
+    } catch (err) {
+      toast.error('Erro ao atualizar cotações.')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  async function loadPortfolio(options?: { forceRefresh?: boolean }) {
     try {
       setPortfolioLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
@@ -245,7 +306,8 @@ export default function Investments() {
         portfolio.id,
         transactionsData || [],
         targets || [],
-        Number(portfolio.cash_balance) || 0
+        Number(portfolio.cash_balance) || 0,
+        { forceRefresh: options?.forceRefresh }
       )
 
       setAssetDefinitions(valuation.definitions)
@@ -339,24 +401,38 @@ export default function Investments() {
         title={PAGE_HEADERS.investments.title}
         subtitle={PAGE_HEADERS.investments.description}
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleForceRefresh}
+              disabled={refreshing || portfolioLoading}
+              className="flex items-center gap-2 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 font-bold"
+            >
+              {refreshing ? (
+                <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <TrendingUp size={16} className="text-amber-500" />
+              )}
+              <span className="hidden sm:inline">{refreshing ? 'Atualizando...' : 'Atualizar Cotações'}</span>
+            </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => setIsReconciliationOpen(true)}
-              className="flex items-center gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 font-bold animate-pulse-subtle"
+              className="hidden sm:inline-flex items-center gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 font-bold animate-pulse-subtle"
             >
               <FileSpreadsheet size={16} className="text-emerald-500" />
-              <span className="hidden sm:inline">Conciliação B3</span>
+              <span>Conciliação B3</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleOpenTxModal()}
-              className="flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold"
+              className="hidden sm:inline-flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold"
             >
               <Plus size={16} className="text-indigo-500" />
-              <span className="hidden sm:inline">Lançar Transação</span>
+              <span>Lançar Transação</span>
             </Button>
           </div>
         }
@@ -364,7 +440,7 @@ export default function Investments() {
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 animate-page-enter">
         {portfolioLoading ? (
-          <Loader text="Carregando sua carteira de consultoria..." className="py-12" />
+          <Loader text="Carregando sua carteira..." className="py-12" />
         ) : portfolioData && (
           <div className="space-y-6 animate-fade-in">
             {/* Cards de KPIs da Consultoria */}
@@ -507,99 +583,94 @@ export default function Investments() {
               </div>
             </div>
 
-            {/* Grid de Consolidações: Classes de Ativos e Setores Econômicos */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              
-              {/* 1. Classes de Ativos */}
-              <Card className="p-4 lg:p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Layers size={18} className="text-secondary" />
-                  <h3 className="text-base font-bold text-primary">Consolidação por Classes de Ativos</h3>
+            {/* Demonstrativo Detalhado de Consolidação em Largura Total */}
+            <div className="w-full animate-fade-in">
+              <Card className="p-4 lg:p-6 space-y-4 w-full">
+                <div className="flex items-center justify-between gap-3 mb-3 pb-2 border-b border-primary/5">
+                  <div className="flex items-center gap-2">
+                    {consolidationView === 'class' ? (
+                      <Layers size={18} className="text-indigo-500 shrink-0 transition-colors duration-300" />
+                    ) : (
+                      <Briefcase size={18} className="text-emerald-500 shrink-0 transition-colors duration-300" />
+                    )}
+                    <h3 className="text-sm sm:text-base font-bold text-primary leading-tight transition-all duration-300">
+                      {consolidationView === 'class' ? 'Consolidação por Classes' : 'Consolidação por Setores'}
+                    </h3>
+                  </div>
+                  
+                  {/* Switcher Discreto Unificado com Fundo Deslizante Fluido */}
+                  <div className="relative inline-flex items-center bg-secondary/50 border border-primary p-0.5 rounded-full select-none shrink-0 shadow-sm h-[30px] w-40 sm:w-44 overflow-hidden">
+                    {/* Indicador Deslizante com transição lateral e de cores */}
+                    <div 
+                      className={`absolute top-[2px] bottom-[2px] rounded-full transition-all duration-300 ease-out ${
+                        consolidationView === 'class'
+                          ? 'left-[2px] w-[calc(50%-2px)] bg-indigo-500 shadow-md'
+                          : 'left-[calc(50%)] w-[calc(50%-2px)] bg-emerald-500 shadow-md'
+                      }`}
+                    />
+                    
+                    <button
+                      type="button"
+                      onClick={() => setConsolidationView('class')}
+                      className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 flex items-center justify-center gap-1 ${
+                        consolidationView === 'class' ? 'text-white' : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <Layers size={10} />
+                      <span>Classes</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConsolidationView('sector')}
+                      className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 flex items-center justify-center gap-1 ${
+                        consolidationView === 'sector' ? 'text-white' : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <Briefcase size={10} />
+                      <span>Setores</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-4">
-                  {portfolioData.consolidatedClass.map((cls) => {
-                    const isPositive = cls.yield_pct >= 0
+                <div className="space-y-4 transition-all duration-300">
+                  {(consolidationView === 'class' 
+                    ? portfolioData.consolidatedClass 
+                    : portfolioData.consolidatedSector
+                  ).map((group) => {
+                    const isPositive = group.yield_pct >= 0
                     return (
-                      <div key={cls.name} className="p-3 bg-secondary border border-primary rounded-xl space-y-2.5 text-left">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-primary text-sm">{cls.name}</span>
-                          <div className="flex items-center gap-2">
+                      <div key={group.name} className="p-3.5 bg-secondary border border-primary rounded-2xl space-y-3.5 text-left transition-all duration-250 hover:border-primary/80">
+                        <div className="flex items-center justify-between flex-wrap gap-2.5">
+                          <span className="font-bold text-primary text-sm tracking-wide">{group.name}</span>
+                          <div className="flex items-center gap-2.5 flex-wrap">
                             <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
                               isPositive ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
                             }`}>
                               {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                              Bruta {isPositive ? '+' : ''}{cls.gross_yield_pct.toFixed(2)}%
+                              Bruta {isPositive ? '+' : ''}{group.gross_yield_pct.toFixed(2)}%
                             </span>
-                            <span className="text-[10px] text-secondary">
-                              Líq. {cls.net_yield_pct >= 0 ? '+' : ''}{cls.net_yield_pct.toFixed(2)}%
+                            <span className="text-[10px] text-secondary font-mono">
+                              Líq. {group.net_yield_pct >= 0 ? '+' : ''}{group.net_yield_pct.toFixed(2)}%
                             </span>
-                            <span className="text-xs text-secondary font-medium">
-                              {cls.current_percentage.toFixed(1)}%
+                            <span className="text-xs text-secondary font-extrabold bg-primary px-2.5 py-0.5 rounded-xl border border-primary/25 font-mono">
+                              {group.current_percentage.toFixed(1)}%
                             </span>
                           </div>
                         </div>
 
                         {/* Progress Bar com Alvo vs Atual */}
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <div className="w-full h-2 rounded-full bg-primary relative overflow-hidden">
                             <div 
-                              className="h-full rounded-full bg-income transition-all duration-500" 
-                              style={{ width: `${Math.min(cls.current_percentage, 100)}%` }} 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                consolidationView === 'class' ? 'bg-balance' : 'bg-income'
+                              }`} 
+                              style={{ width: `${Math.min(group.current_percentage, 100)}%` }} 
                             />
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-secondary">
-                            <span>Atual: {formatCurrency(cls.total_value)}</span>
-                            <span>Alvo recomendado: {cls.target_percentage.toFixed(0)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Card>
-
-              {/* 2. Setores Econômicos */}
-              <Card className="p-4 lg:p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Briefcase size={18} className="text-secondary" />
-                  <h3 className="text-base font-bold text-primary">Consolidação por Setores Econômicos</h3>
-                </div>
-
-                <div className="space-y-4">
-                  {portfolioData.consolidatedSector.map((sec) => {
-                    const isPositive = sec.yield_pct >= 0
-                    return (
-                      <div key={sec.name} className="p-3 bg-secondary border border-primary rounded-xl space-y-2.5 text-left">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-primary text-sm">{sec.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
-                              isPositive ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
-                            }`}>
-                              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                              Bruta {isPositive ? '+' : ''}{sec.gross_yield_pct.toFixed(2)}%
-                            </span>
-                            <span className="text-[10px] text-secondary">
-                              Líq. {sec.net_yield_pct >= 0 ? '+' : ''}{sec.net_yield_pct.toFixed(2)}%
-                            </span>
-                            <span className="text-xs text-secondary font-medium">
-                              {sec.current_percentage.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="space-y-1">
-                          <div className="w-full h-2 rounded-full bg-primary relative overflow-hidden">
-                            <div 
-                              className="h-full rounded-full bg-balance transition-all duration-500" 
-                              style={{ width: `${Math.min(sec.current_percentage, 100)}%` }} 
-                            />
-                          </div>
-                          <div className="flex items-center justify-between text-[10px] text-secondary">
-                            <span>Atual: {formatCurrency(sec.total_value)}</span>
-                            <span>Alvo recomendado: {sec.target_percentage.toFixed(0)}%</span>
+                          <div className="flex items-center justify-between text-[10px] text-secondary font-mono">
+                            <span>Atual: {formatCurrency(group.total_value)}</span>
+                            <span>Alvo recomendado: {group.target_percentage.toFixed(0)}%</span>
                           </div>
                         </div>
                       </div>
@@ -633,15 +704,7 @@ export default function Investments() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-primary">
-                    {(() => {
-                      const displayPositions = portfolioData.positions
-                      const positionsByClass: Record<string, AssetPosition[]> = {}
-                      displayPositions.forEach(pos => {
-                        const cls = pos.asset_class || 'Não classificado'
-                        if (!positionsByClass[cls]) positionsByClass[cls] = []
-                        positionsByClass[cls].push(pos)
-                      })
-                      return Object.entries(positionsByClass).map(([className, classPositions]) => (
+                    {Object.entries(positionsByClass).map(([className, classPositions]) => (
                         <Fragment key={className}>
                           {/* Linha de cabeçalho do grupo de classe */}
                           <tr className="bg-secondary/60 font-bold border-l-4 border-l-[var(--color-income)] text-primary text-xs tracking-wider">
@@ -668,9 +731,60 @@ export default function Investments() {
                                 <td className="p-3 text-right text-primary font-medium">
                                   {pos.quantity.toLocaleString('pt-BR')}
                                 </td>
-                                <td className="p-3 text-right text-secondary">
-                                  {formatCurrency(pos.current_price)}
-                                </td>
+                                 <td className="p-3 text-right text-secondary">
+                                   {editingPriceTicker === pos.ticker ? (
+                                     <div className="flex items-center justify-end gap-1.5">
+                                       <input
+                                         type="number"
+                                         step="0.01"
+                                         value={editingPriceValue}
+                                         onChange={(e) => setEditingPriceValue(e.target.value)}
+                                         onKeyDown={(e) => {
+                                           if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
+                                           if (e.key === 'Escape') setEditingPriceTicker(null)
+                                         }}
+                                         disabled={savingPrice}
+                                         className="w-20 px-1.5 py-0.5 text-xs text-right border border-indigo-500 rounded bg-primary text-primary font-mono outline-none"
+                                         autoFocus
+                                       />
+                                       <button
+                                         type="button"
+                                         onClick={() => handleSaveInlinePrice(pos.ticker)}
+                                         disabled={savingPrice}
+                                         className="text-income hover:bg-income/10 p-0.5 rounded transition-colors"
+                                         title="Salvar"
+                                       >
+                                         <Check size={12} />
+                                       </button>
+                                       <button
+                                         type="button"
+                                         onClick={() => setEditingPriceTicker(null)}
+                                         disabled={savingPrice}
+                                         className="text-expense hover:bg-expense/10 p-0.5 rounded transition-colors"
+                                         title="Cancelar"
+                                       >
+                                         <X size={12} />
+                                       </button>
+                                     </div>
+                                   ) : (
+                                     <div className="group flex items-center justify-end gap-1 select-none">
+                                       <span className="font-mono">{formatCurrency(pos.current_price)}</span>
+                                       {pos.pricing_mode === 'market' && (
+                                         <button
+                                           type="button"
+                                           onClick={() => {
+                                             setEditingPriceTicker(pos.ticker)
+                                             setEditingPriceValue(pos.current_price.toString())
+                                           }}
+                                           className="opacity-0 group-hover:opacity-100 text-secondary hover:text-indigo-500 p-0.5 rounded transition-all"
+                                           title="Editar cotação manualmente"
+                                         >
+                                           <Edit2 size={11} className="shrink-0" />
+                                         </button>
+                                       )}
+                                     </div>
+                                   )}
+                                 </td>
                                 <td className="p-3 text-right text-primary font-semibold">{formatCurrency(pos.total_value)}</td>
                                 <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
                                   {`${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
@@ -696,25 +810,14 @@ export default function Investments() {
                             )
                           })}
                         </Fragment>
-                      ))
-                    })()}
-
+                    ))}
                   </tbody>
                 </table>
               </div>
 
               {/* 2. Visualização em Cards para Mobile */}
               <div className="block md:hidden space-y-4">
-                {(() => {
-                  const displayPositions = portfolioData.positions
-                  const positionsByClass: Record<string, AssetPosition[]> = {}
-                  displayPositions.forEach(pos => {
-                    const cls = pos.asset_class || 'Não classificado'
-                    if (!positionsByClass[cls]) positionsByClass[cls] = []
-                    positionsByClass[cls].push(pos)
-                  })
-                  
-                  return Object.entries(positionsByClass).map(([className, classPositions]) => (
+                {Object.entries(positionsByClass).map(([className, classPositions]) => (
                     <div key={className} className="space-y-2">
                       {/* Cabeçalho do Grupo de Classe */}
                       <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-1.5 rounded-lg select-none text-left">
@@ -780,9 +883,58 @@ export default function Investments() {
                                     </div>
                                     <div>
                                       <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
-                                      <span className="text-xs font-bold text-primary font-mono">
-                                        {formatCurrency(pos.current_price)}
-                                      </span>
+                                      {editingPriceTicker === pos.ticker ? (
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            value={editingPriceValue}
+                                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
+                                              if (e.key === 'Escape') setEditingPriceTicker(null)
+                                            }}
+                                            disabled={savingPrice}
+                                            className="w-16 px-1.5 py-0.5 text-xs border border-indigo-500 rounded bg-primary text-primary font-mono outline-none"
+                                            autoFocus
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSaveInlinePrice(pos.ticker)}
+                                            disabled={savingPrice}
+                                            className="text-income hover:bg-income/10 p-0.5 rounded transition-colors"
+                                          >
+                                            <Check size={11} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingPriceTicker(null)}
+                                            disabled={savingPrice}
+                                            className="text-expense hover:bg-expense/10 p-0.5 rounded transition-colors"
+                                          >
+                                            <X size={11} />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <span className="text-xs font-bold text-primary font-mono">
+                                            {formatCurrency(pos.current_price)}
+                                          </span>
+                                          {pos.pricing_mode === 'market' && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditingPriceTicker(pos.ticker)
+                                                setEditingPriceValue(pos.current_price.toString())
+                                              }}
+                                              className="text-secondary hover:text-indigo-500 p-0.5 rounded"
+                                              title="Editar cotação manualmente"
+                                            >
+                                              <Edit2 size={10} className="shrink-0" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="col-span-2">
                                       <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
@@ -858,8 +1010,7 @@ export default function Investments() {
                         })}
                       </div>
                     </div>
-                  ));
-                })()}
+                ))}
               </div>
             </Card>
 

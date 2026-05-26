@@ -1564,10 +1564,10 @@ export default function CreditCards() {
               variant="outline"
               onClick={() => setCreditCardsWeightsEnabled(!creditCardsWeightsEnabled)}
               title={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              className="flex items-center gap-2"
+              className="hidden sm:inline-flex items-center gap-2 font-bold"
             >
               <Scale size={16} />
-              <span className="hidden sm:inline">
+              <span>
                 {creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
               </span>
             </Button>
@@ -1575,7 +1575,7 @@ export default function CreditCards() {
               size="sm"
               variant="outline"
               onClick={openCreateCardModal}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 font-bold"
             >
               <Plus size={16} />
               <span className="hidden sm:inline">Novo cartão</span>

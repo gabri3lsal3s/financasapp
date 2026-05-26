@@ -41,7 +41,8 @@ export async function loadPortfolioValuation(
   portfolioId: string,
   transactions: PortfolioTransaction[],
   targets: TargetAllocation[],
-  cashBalance: number
+  cashBalance: number,
+  options?: { forceRefresh?: boolean }
 ): Promise<PortfolioValuationBundle> {
   const { data: definitionsData } = await supabase
     .from('portfolio_asset_definitions')
@@ -69,7 +70,7 @@ export async function loadPortfolioValuation(
     return def.pricing_mode === 'market' || def.is_treasury
   })
 
-  const prices = marketTickers.length > 0 ? await getAssetPrices(marketTickers) : {}
+  const prices = marketTickers.length > 0 ? await getAssetPrices(marketTickers, { forceRefresh: options?.forceRefresh }) : {}
 
   const { positions, assetsValue, totalValue } = calculatePositions(
     transactions,

@@ -111,7 +111,7 @@ export default function Incomes() {
             size="sm"
             variant="outline"
             onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2 font-bold"
           >
             <Plus size={16} />
             <span className="hidden sm:inline">Adicionar</span>

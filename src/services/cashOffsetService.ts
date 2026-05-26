@@ -77,6 +77,24 @@ export async function deleteCashOffsetTransactions(portfolioId: string, sourceTr
   }
 }
 
+export async function deleteCashOffsetTransactionsMultiple(portfolioId: string, sourceTransactionIds: string[]): Promise<void> {
+  if (!hasCashOffsetColumn || sourceTransactionIds.length === 0) return
+
+  const { error } = await supabase
+    .from('portfolio_transactions')
+    .delete()
+    .eq('portfolio_id', portfolioId)
+    .in('cash_offset_source_id', sourceTransactionIds)
+
+  if (error) {
+    if (error.code === '42703' || String(error.message).includes('cash_offset_source_id')) {
+      hasCashOffsetColumn = false
+      return
+    }
+    throw error
+  }
+}
+
 /**
  * Após registrar compra/subscrição, debita saldo em caixa com vendas automáticas.
  */

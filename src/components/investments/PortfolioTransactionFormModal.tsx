@@ -115,6 +115,37 @@ export default function PortfolioTransactionFormModal({
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
   const [portfolioDefinitions, setPortfolioDefinitions] = useState<PortfolioAssetDefinition[]>([])
 
+  const tUpper = ticker.trim().toUpperCase()
+  const isB3Var = isB3TickerPattern(tUpper) && !tUpper.includes('TESOURO')
+  const isFixedInc = tUpper.startsWith('CDB') || tUpper.startsWith('LCI') || tUpper.startsWith('LCA') || tUpper.startsWith('CRI') || tUpper.startsWith('CRA') || tUpper.includes('TESOURO') || tUpper.includes('DEBENTURE') || tUpper.includes('DEBÊNTURE')
+  const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(tUpper)
+
+  const isPricingModeLocked = isB3Var || isFixedInc || isCash
+
+  // Re-classify dynamically as the user types/selects the ticker
+  useEffect(() => {
+    const t = ticker.trim().toUpperCase()
+    if (!t) return
+
+    const isB3 = isB3TickerPattern(t) && !t.includes('TESOURO')
+    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE')
+    const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(t)
+
+    if (isB3) {
+      setPricingMode('market')
+      setIsB3Linked(true)
+      setIsTreasury(false)
+    } else if (isFixed) {
+      setPricingMode('fixed_income')
+      setIsB3Linked(false)
+      setIsTreasury(t.includes('TESOURO'))
+    } else if (isCash) {
+      setPricingMode('cash')
+      setIsB3Linked(false)
+      setIsTreasury(false)
+    }
+  }, [ticker])
+
   const pricingSetters = {
     setPricingMode,
     setIsB3Linked,
@@ -494,27 +525,10 @@ export default function PortfolioTransactionFormModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} maxWidth="max-w-lg">
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
-        <Select
-          label="Tipo de ativo"
-          value={pricingMode}
-          onChange={(e) => handlePricingModeChange(e.target.value as PortfolioPricingMode)}
-          options={PORTFOLIO_PRICING_MODE_OPTIONS}
-          disabled={loadingDefinition}
-        />
-
-        {loadingDefinition && (
-          <p className="text-[10px] text-secondary animate-pulse">Carregando configuração do ativo...</p>
-        )}
-
-        {pricingMode === 'cash' && (
-          <p className="text-xs text-secondary bg-secondary border border-primary rounded-xl p-3">
-            Saldo em caixa não gera rentabilidade. O valor permanece igual ao montante registrado nos lançamentos.
-          </p>
-        )}
-
+        {/* Row 1: Ticker / Identificador */}
         <div className="relative">
           <Input
-            label={pricingMode === 'cash' ? 'Identificador' : 'Ticker'}
+            label={pricingMode === 'cash' ? 'Identificador do Caixa' : 'Ticker / Código'}
             type="text"
             required
             placeholder={pricingMode === 'cash' ? 'Ex: CAIXA' : 'Ex: PETR4'}
@@ -522,99 +536,152 @@ export default function PortfolioTransactionFormModal({
             onChange={(e) => handleTickerChange(e.target.value)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             onFocus={() => ticker.length >= 2 && setShowSuggestions(true)}
-            className="uppercase font-semibold"
+            className="uppercase font-semibold tracking-wider text-base focus:ring-2 focus:ring-indigo-500 rounded-xl"
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-[1001] w-full mt-1 bg-primary border border-primary rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto">
+            <div className="absolute z-[1001] w-full mt-1 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-border/40 animate-page-enter">
               {suggestions.map((s) => (
                 <button
                   key={s.ticker}
                   type="button"
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Impede o blur do input
                     setTicker(s.ticker)
                     setIsB3Linked(isB3TickerPattern(s.ticker))
                     setShowSuggestions(false)
                   }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-tertiary text-primary flex items-center justify-between border-b border-primary/10 last:border-0"
+                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-indigo-500/10 text-primary flex items-center justify-between transition-colors"
                 >
-                  <span className="font-bold">{s.ticker}</span>
-                  <span className="text-[10px] text-secondary truncate max-w-[150px]">{s.name}</span>
+                  <span className="font-bold text-sm text-primary tracking-wide">{s.ticker}</span>
+                  <span className="text-[10px] text-secondary font-medium truncate max-w-[180px]">{s.name}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div>
-          <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">
-            Operação
-          </label>
-          <select
-            value={operationType}
-            onChange={(e) => setOperationType(e.target.value as PortfolioOperationType)}
-            className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-          >
-            {OPERATION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+        {/* Row 2: Tipo de Ativo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+          <div>
+            <Select
+              label="Tipo de ativo"
+              value={pricingMode}
+              onChange={(e) => handlePricingModeChange(e.target.value as PortfolioPricingMode)}
+              options={PORTFOLIO_PRICING_MODE_OPTIONS}
+              disabled={loadingDefinition || isPricingModeLocked}
+              className="rounded-xl font-semibold disabled:opacity-85 disabled:bg-secondary/40"
+            />
+          </div>
+          {loadingDefinition && (
+            <p className="text-[10px] text-indigo-500 animate-pulse font-semibold pb-3">Carregando configuração...</p>
+          )}
         </div>
 
-        <Input
-          label="Data"
-          type="date"
-          required
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="font-semibold"
-        />
-
-        {loadingRichData && (
-          <p className="text-[10px] text-secondary animate-pulse">Carregando cotação...</p>
-        )}
-
-        {richData && pricingMode === 'market' && (
-          <div className="p-3 bg-secondary border border-primary rounded-xl text-xs space-y-1 text-secondary">
-            <div className="flex justify-between items-center">
-              <strong className="text-primary font-bold">{richData.name}</strong>
-              <span className="text-income font-extrabold">{formatCurrency(richData.price)}</span>
-            </div>
-            {richData.dividendYield !== undefined && (
-              <div className="flex justify-between items-center text-[10px] opacity-80 pt-0.5 border-t border-primary/10">
-                <span>Dividend Yield Anual (DY):</span>
-                <span className="text-indigo-500 font-bold">{formatNumberBR(richData.dividendYield, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
+        {/* Badges de classificação inteligente em Lançamentos */}
+        {isPricingModeLocked && (
+          <div className="animate-page-enter">
+            {isB3Var && (
+              <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs rounded-xl flex items-center justify-between font-medium">
+                <span>📈 Ativo B3: Renda Variável (Precificação a Mercado)</span>
+                <span className="text-[10px] bg-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase">B3</span>
+              </div>
+            )}
+            {isFixedInc && (
+              <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs rounded-xl flex items-center justify-between font-medium">
+                <span>💰 Renda Fixa: Taxa e Vencimento Contratados</span>
+                <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full font-bold uppercase">{tUpper.includes('TESOURO') ? 'Tesouro Direto' : 'Renda Fixa'}</span>
+              </div>
+            )}
+            {isCash && (
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl flex items-center justify-between font-medium">
+                <span>🏦 Caixa: Saldo e Transações de Aporte/Retirada</span>
+                <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold uppercase">Caixa</span>
               </div>
             )}
           </div>
         )}
 
+        {pricingMode === 'cash' && (
+          <p className="text-xs text-secondary bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-3.5 font-sans leading-relaxed">
+            Saldo em caixa não gera rentabilidade — o valor permanece idêntico aos montantes de depósitos/retiradas registradas.
+          </p>
+        )}
+
+        {/* Row 3: Operação e Data */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">
+              Operação
+            </label>
+            <select
+              value={operationType}
+              onChange={(e) => setOperationType(e.target.value as PortfolioOperationType)}
+              className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {OPERATION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Input
+            label="Data da Operação"
+            type="date"
+            required
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="font-semibold rounded-xl"
+          />
+        </div>
+
+        {/* Row 4: Cotação atual (Rich Data Card) */}
+        {loadingRichData && (
+          <p className="text-[10px] text-secondary animate-pulse font-semibold">Buscando cotação em tempo real...</p>
+        )}
+
+        {richData && pricingMode === 'market' && (
+          <div className="p-3.5 bg-gradient-to-br from-indigo-500/5 to-emerald-500/5 border border-border rounded-2xl text-xs space-y-2 text-secondary shadow-sm relative overflow-hidden animate-fade-in text-left">
+            <div className="flex justify-between items-center">
+              <div className="overflow-hidden pr-2">
+                <strong className="text-primary font-bold text-sm block truncate max-w-[240px]">{richData.name}</strong>
+                <span className="text-[10px] text-secondary tracking-wide uppercase font-semibold">Yahoo Finance B3</span>
+              </div>
+              <div className="text-right">
+                <span className="text-emerald-500 font-mono font-black text-base block">{formatCurrency(richData.price)}</span>
+                <span className="text-[9px] uppercase font-extrabold text-income tracking-wider">Cotação Atual</span>
+              </div>
+            </div>
+            {richData.dividendYield !== undefined && (
+              <div className="flex justify-between items-center text-[10px] opacity-80 pt-2 border-t border-primary/10 font-mono">
+                <span>Dividend Yield Anual (DY):</span>
+                <span className="text-indigo-500 font-bold text-xs">{formatNumberBR(richData.dividendYield, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Row 5: Configurações específicas de precificação */}
         {pricingMode === 'market' && (
-          <div className="flex flex-col gap-2.5 p-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl">
+          <div className="flex flex-col gap-2.5 p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl animate-page-enter">
             <Checkbox
               label="Vinculado à B3"
-              description="Cotação atualizada automaticamente pelo mercado"
+              description="Sincroniza a cotação do ativo automaticamente a mercado"
               checked={isB3Linked}
               onChange={(e) => setIsB3Linked(e.target.checked)}
-            />
-            <Checkbox
-              label="Tesouro Direto (híbrido)"
-              description="Aplica indexador ao preço de mercado do Tesouro"
-              checked={isTreasury}
-              onChange={(e) => setIsTreasury(e.target.checked)}
             />
           </div>
         )}
 
         {pricingMode === 'fixed_income' && (
-          <>
+          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl space-y-4 animate-page-enter">
             <Input
               label="Taxa contratada (% a.a.) — pré-fixado"
               type="number"
               step="0.01"
               value={contractRate}
               onChange={(e) => setContractRate(e.target.value)}
+              className="rounded-xl font-semibold"
             />
             <Select
               label="Indexador (pós-fixado)"
@@ -626,91 +693,127 @@ export default function PortfolioTransactionFormModal({
                 { value: 'selic', label: 'SELIC' },
                 { value: 'ipca', label: 'IPCA' },
               ]}
+              className="rounded-xl font-semibold"
             />
             <Checkbox
               label="Isento de IR (LCI/LCA)"
-              description="Não aplica tabela regressiva de imposto de renda"
+              description="Não aplica tabela regressiva de imposto de renda sobre os ganhos"
               checked={taxExempt}
               onChange={(e) => setTaxExempt(e.target.checked)}
             />
-          </>
+          </div>
         )}
 
         {pricingMode === 'manual_value' && (
-          <Input
-            label="Valor atual (R$)"
-            type="number"
-            step="0.01"
-            value={manualCurrentValue}
-            onChange={(e) => setManualCurrentValue(e.target.value)}
-          />
+          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl animate-page-enter">
+            <Input
+              label="Valor atual estimado / Saldo atual (R$)"
+              type="number"
+              step="0.01"
+              value={manualCurrentValue}
+              onChange={(e) => setManualCurrentValue(e.target.value)}
+              className="rounded-xl font-semibold"
+            />
+          </div>
         )}
 
-        <Input
-          label={
-            pricingMode === 'market'
-              ? 'Quantidade'
-              : pricingMode === 'cash'
-                ? 'Valor (R$)'
-                : 'Valor aplicado (R$)'
-          }
-          type="number"
-          required
-          step="any"
-          placeholder={pricingMode === 'market' ? 'Ex: 10' : 'Ex: 10000'}
-          value={isAmountBased ? price || quantity : quantity}
-          onChange={(e) => {
-            if (isAmountBased) {
-              setPrice(e.target.value)
-              setQuantity('1')
-            } else {
-              setQuantity(e.target.value)
-            }
-          }}
-          className="font-semibold"
-        />
-
-        {pricingMode === 'market' && (
+        {/* Row 6: Quantidade e Preço de Execução */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Preço de execução"
+            label={
+              pricingMode === 'market'
+                ? 'Quantidade'
+                : pricingMode === 'cash'
+                  ? 'Valor (R$)'
+                  : 'Valor aplicado (R$)'
+            }
             type="number"
             required
             step="any"
-            placeholder="Ex: 35.50"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="font-semibold"
+            placeholder={pricingMode === 'market' ? 'Ex: 10' : 'Ex: 10000'}
+            value={isAmountBased ? price || quantity : quantity}
+            onChange={(e) => {
+              if (isAmountBased) {
+                setPrice(e.target.value)
+                setQuantity('1')
+              } else {
+                setQuantity(e.target.value)
+              }
+            }}
+            className="font-semibold rounded-xl text-sm"
           />
-        )}
 
+          {pricingMode === 'market' && (
+            <Input
+              label="Preço de execução unitário"
+              type="number"
+              required
+              step="any"
+              placeholder="Ex: 35.50"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="font-semibold rounded-xl text-sm"
+            />
+          )}
+        </div>
+
+        {/* Row 7: Valor do Caixa (edição) ou Cálculo de Aporte (novo lançamento) */}
         {pricingMode !== 'cash' && (operationType === 'buy' || operationType === 'subscription') && (
-          <div className="p-3.5 bg-secondary border border-primary rounded-2xl text-xs space-y-2 text-secondary text-left animate-page-enter">
-            <h5 className="font-black text-primary text-[10px] uppercase tracking-wider mb-1">Cálculo de Aporte com Caixa</h5>
-            <div className="space-y-1.5 font-mono text-xs">
-              <div className="flex justify-between">
-                <span>Valor do Aporte:</span>
-                <span className="font-bold text-primary">{formatCurrency(purchaseAmount)}</span>
+          editingTransaction ? (
+            /* Modo edição: mostra o valor real gasto nesse lançamento */
+            <div className="p-4 bg-secondary/40 border border-primary/20 rounded-2xl text-xs space-y-2.5 text-secondary text-left animate-page-enter">
+              <h5 className="font-black text-secondary text-[10px] uppercase tracking-wider mb-1">Valor do Caixa — Lançamento Cadastrado</h5>
+              <div className="space-y-1.5 font-mono text-xs">
+                <div className="flex justify-between">
+                  <span>Quantidade:</span>
+                  <span className="font-bold text-primary">
+                    {isAmountBased ? '—' : parseFloat(quantity || '0').toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Preço unitário:</span>
+                  <span className="font-bold text-primary">{formatCurrency(parseFloat(price || '0'))}</span>
+                </div>
+                <div className="h-[1px] bg-primary/10 my-1" />
+                <div className="flex justify-between text-sm font-black">
+                  <span>Total gasto do caixa:</span>
+                  <span className="text-indigo-500">{formatCurrency(purchaseAmount)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>(-) Saldo em Caixa:</span>
-                <span className="font-bold text-indigo-500">{formatCurrency(totalAvailableCash)}</span>
-              </div>
-              <div className="h-[1px] bg-primary/10 my-1" />
-              <div className="flex justify-between text-sm font-black">
-                <span>Aporte Líquido:</span>
-                <span className={netContribution > 0 ? 'text-income' : 'text-emerald-500'}>
-                  {formatCurrency(netContribution)}
-                </span>
-              </div>
-            </div>
-            {totalAvailableCash > 0 && (
-              <p className="text-[10px] text-secondary italic opacity-85 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
-                {netContribution === 0 
-                  ? 'O saldo em caixa cobre integralmente este aporte.' 
-                  : `Serão utilizados ${formatCurrency(totalCashUsed)} do caixa. Os ${formatCurrency(netContribution)} restantes devem ser aportados de fora.`}
+              <p className="text-[10px] text-secondary italic opacity-75 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
+                Valor registrado no lançamento original. Altere quantidade ou preço acima para recalcular.
               </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* Modo novo lançamento: mostra cálculo prospectivo de aporte */
+            <div className="p-4 bg-indigo-500/[0.03] border border-indigo-500/10 rounded-2xl text-xs space-y-2.5 text-secondary text-left animate-page-enter">
+              <h5 className="font-black text-indigo-600 dark:text-indigo-400 text-[10px] uppercase tracking-wider mb-1">Cálculo de Aporte com Caixa</h5>
+              <div className="space-y-1.5 font-mono text-xs">
+                <div className="flex justify-between">
+                  <span>Valor do Aporte:</span>
+                  <span className="font-bold text-primary">{formatCurrency(purchaseAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>(-) Saldo em Caixa:</span>
+                  <span className="font-bold text-indigo-500">{formatCurrency(totalAvailableCash)}</span>
+                </div>
+                <div className="h-[1px] bg-primary/10 my-1" />
+                <div className="flex justify-between text-sm font-black">
+                  <span>Aporte Líquido:</span>
+                  <span className={netContribution > 0 ? 'text-income' : 'text-emerald-500'}>
+                    {formatCurrency(netContribution)}
+                  </span>
+                </div>
+              </div>
+              {totalAvailableCash > 0 && (
+                <p className="text-[10px] text-secondary italic opacity-85 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
+                  {netContribution === 0
+                    ? 'O saldo em caixa cobre integralmente este aporte.'
+                    : `Serão utilizados ${formatCurrency(totalCashUsed)} do caixa. Os ${formatCurrency(netContribution)} restantes devem ser aportados de fora.`}
+                </p>
+              )}
+            </div>
+          )
         )}
 
         <ModalActionFooter

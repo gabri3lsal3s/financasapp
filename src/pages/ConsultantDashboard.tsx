@@ -268,6 +268,24 @@ export default function ConsultantDashboard() {
     }
   }
 
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleForceRefresh = async () => {
+    try {
+      setRefreshing(true)
+      if (selectedClientId) {
+        await loadPortfolioData(selectedClientId, { forceRefresh: true })
+      } else {
+        await loadGlobalOverview({ forceRefresh: true })
+      }
+      toast.success('Cotações atualizadas com sucesso!')
+    } catch (err) {
+      toast.error('Erro ao atualizar cotações.')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const loadClients = async () => {
     if (!user?.id) return
 
@@ -323,7 +341,7 @@ export default function ConsultantDashboard() {
     }
   }
 
-  const loadGlobalOverview = async () => {
+  const loadGlobalOverview = async (options?: { forceRefresh?: boolean }) => {
     try {
       setLoadingPortfolio(true)
       const { data: ports, error: portsErr } = await supabase
@@ -356,7 +374,7 @@ export default function ConsultantDashboard() {
         ...targetsList.map(t => t.ticker.toUpperCase())
       ]))
 
-      const prices = tickers.length > 0 ? await getAssetPrices(tickers) : {}
+      const prices = tickers.length > 0 ? await getAssetPrices(tickers, { forceRefresh: options?.forceRefresh }) : {}
       setAssetPrices(prices)
 
       let overallAum = 0
@@ -529,7 +547,7 @@ export default function ConsultantDashboard() {
     }
   }
 
-  const loadPortfolioData = async (clientId: string) => {
+  const loadPortfolioData = async (clientId: string, options?: { forceRefresh?: boolean }) => {
     try {
       setLoadingPortfolio(true)
       
@@ -629,7 +647,8 @@ export default function ConsultantDashboard() {
           portData.id,
           txs,
           targetsData || [],
-          Number(portData.cash_balance) || 0
+          Number(portData.cash_balance) || 0,
+          { forceRefresh: options?.forceRefresh }
         )
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
@@ -1102,6 +1121,20 @@ export default function ConsultantDashboard() {
           </div>
         </div>
       )}
+      <Button
+        size="sm"
+        onClick={handleForceRefresh}
+        disabled={refreshing || loadingPortfolio}
+        variant="outline"
+        className="flex items-center gap-1 text-xs shrink-0 font-bold h-[42px] px-3.5 border-amber-500/20 text-amber-600 hover:bg-amber-500/10"
+      >
+        {refreshing ? (
+          <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <RefreshCw size={14} className="text-amber-500" />
+        )}
+        <span>{refreshing ? 'Atualizando...' : 'Atualizar'}</span>
+      </Button>
       <Button
         size="sm"
         onClick={() => setIsClientModalOpen(true)}

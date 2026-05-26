@@ -19,177 +19,325 @@ const FALLBACK_PRICES: Record<string, number> = {
   MXRF11: 10.15,
   HGLG11: 165.50,
   XPML11: 114.20,
+  VINO11: 7.20,
+  XPLG11: 94.50,
+  BTLG11: 102.30,
+  KNIP11: 96.10,
+  KNCR11: 102.50,
+  VISC11: 112.40,
+  MALL11: 115.60,
+  TRXF11: 104.20,
+  HGRU11: 125.40,
   BTC: 345000.00,
   ETH: 18500.00,
 }
 
 /**
- * Auxiliar para mitigar erros de CORS em navegadores utilizando o proxy gratuito AllOrigins.
- * Se o proxy falhar ou estiver indisponível, faz o fetch direto como fallback.
+ * Lê uma resposta HTTP como texto e tenta decodificar o JSON com segurança.
+ * Em caso de erro de parsing, lança um SyntaxError com o início do conteúdo recebido,
+ * facilitando o diagnóstico (ex: "Edge: Too Many Requests").
  */
-async function fetchWithCorsProxy(url: string): Promise<Response> {
+async function safeJson(response: Response): Promise<any> {
+  const text = await response.text()
   try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl);
-    if (response.ok) return response;
-  } catch (err) {
-    console.warn('Falha no proxy CORS, tentando fetch direto como fallback:', err);
+    return JSON.parse(text)
+  } catch {
+    throw new SyntaxError(`Resposta inválida do servidor: ${text.slice(0, 80)}`)
   }
-  return fetch(url);
+}
+
+/**
+ * Auxiliar para mitigar erros de CORS em navegadores utilizando múltiplos proxies CORS de backup.
+ * Lista priorizada: codetabs → cors.lol → allorigins (como último recurso).
+ * Se todos falharem, tenta requisição direta.
+ */
+async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Response> {
+  const proxies = [
+    (targetUrl: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+    (targetUrl: string) => `https://api.cors.lol/?url=${encodeURIComponent(targetUrl)}`,
+    (targetUrl: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+  ];
+
+  for (let i = 0; i < proxies.length; i++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const proxyUrl = proxies[i](url);
+      const response = await fetch(proxyUrl, { ...init, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (response.ok) return response;
+      // 429 = rate-limit atingido neste proxy — tenta o próximo sem logar
+      if (response.status === 429) continue;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      // Só exibe aviso ao trocar para o último proxy
+      if (i === proxies.length - 2) {
+        console.warn('[CORS Proxy] Proxies principais indisponíveis, tentando último backup...', err);
+      }
+    }
+  }
+
+  // Tentativa direta como último recurso (falhará por CORS no browser, mas pode funcionar em SSR)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
 }
 
 /**
  * Busca cotações de uma lista de tickers de forma resiliente.
- * Lê o cache do Supabase e, se ausente ou desatualizado (> 4 horas), 
+ * Lê o cache do Supabase e, se ausente ou desatualizado (caso forceRefresh seja true),
  * busca em tempo real da API pública e estável do Yahoo Finance B3 com fallback.
  */
-export async function getAssetPrices(tickers: string[]): Promise<Record<string, AssetPrice>> {
+export async function getAssetPrices(
+  tickers: string[],
+  options?: { forceRefresh?: boolean }
+): Promise<Record<string, AssetPrice>> {
   if (tickers.length === 0) return {}
 
-  const normalizedTickers = tickers.map(t => t.trim().toUpperCase()).filter(Boolean)
-  const result: Record<string, AssetPrice> = {}
   const now = new Date()
+  const forceRefresh = options?.forceRefresh ?? false
 
-  // 1. Tentar pegar do cache em memória primeiro
+  // 1. Mapeamento bidirecional de tickers originais para normalizados limpos
+  // (ex: VINO11.SA -> VINO11; PETR4F -> PETR4)
+  const tickerMap = new Map<string, string>() // original -> limpo
+  const cleanTickers: string[] = []
+
+  for (const raw of tickers) {
+    const rawUpper = raw.trim().toUpperCase()
+    if (!rawUpper) continue
+
+    // Ignorar Caixa/Índices que não devem ser buscados em APIs de mercado
+    if (['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'CDI', 'SELIC', 'IPCA', 'TESOURO', 'DEBENTURE'].includes(rawUpper)) {
+      continue
+    }
+
+    let clean = rawUpper
+    if (clean.endsWith('.SA')) {
+      clean = clean.replace('.SA', '')
+    }
+    if (/^[A-Z]{4}[0-9]{1,2}F$/i.test(clean)) {
+      clean = clean.slice(0, -1)
+    }
+
+    tickerMap.set(rawUpper, clean)
+    if (!cleanTickers.includes(clean)) {
+      cleanTickers.push(clean)
+    }
+  }
+
+  const result: Record<string, AssetPrice> = {}
+
+  // 2. Tentar pegar do cache em memória primeiro (se não estiver forçando)
   const missingInCache: string[] = []
-  for (const ticker of normalizedTickers) {
+  for (const ticker of cleanTickers) {
     const cached = memoryPriceCache[ticker]
-    // Se estiver no cache e atualizado nos últimos 5 minutos, aproveita
-    if (cached && (now.getTime() - new Date(cached.last_updated).getTime() < 5 * 60 * 1000)) {
+    // Se estiver no cache e atualizado nos últimos 5 minutos, aproveita (se não for forceRefresh)
+    if (!forceRefresh && cached && (now.getTime() - new Date(cached.last_updated).getTime() < 5 * 60 * 1000)) {
       result[ticker] = cached
     } else {
       missingInCache.push(ticker)
     }
   }
 
-  if (missingInCache.length === 0) {
-    return result;
-  }
-
-  // 2. Buscar do cache persistente no Supabase
-  let supabasePrices: AssetPrice[] = []
-  try {
-    const { data, error } = await supabase
-      .from('asset_prices')
-      .select()
-      .in('ticker', missingInCache)
-
-    if (!error && data) {
-      supabasePrices = data as AssetPrice[]
-    }
-  } catch (err) {
-    console.warn('Erro ao ler cache de cotações do Supabase, operando localmente:', err)
-  }
-
-  const pricesToFetchFromApi: string[] = []
-  const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000)
-
-  // Mapeia o que achou no Supabase
-  for (const ticker of missingInCache) {
-    const found = supabasePrices.find(p => p.ticker === ticker)
-    if (found && new Date(found.last_updated) > fourHoursAgo) {
-      if (!found.asset_class || !found.sector) {
-        const meta = getAssetMetadata(ticker)
-        found.asset_class = found.asset_class || meta.asset_class
-        found.sector = found.sector || meta.sector
-      }
-      result[ticker] = found
-      memoryPriceCache[ticker] = found
-    } else {
-      pricesToFetchFromApi.push(ticker)
-    }
-  }
-
-  // 3. Se houver tickers que precisam de atualização de API (Yahoo Finance)
-  if (pricesToFetchFromApi.length > 0) {
-    const fetchedPrices: Record<string, number> = {}
-    
+  if (missingInCache.length > 0) {
+    // 3. Buscar do cache persistente no Supabase
+    let supabasePrices: AssetPrice[] = []
     try {
-      // Mapeia os símbolos brasileiros para a extensão do Yahoo Finance (.SA)
-      const yahooSymbols = pricesToFetchFromApi.map(ticker => {
-        // Se for um ativo brasileiro de 5 ou 6 caracteres (Ex: WEGE3, BOVA11)
-        const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(ticker)
-        return isB3 ? `${ticker}.SA` : ticker
-      })
+      const { data, error } = await supabase
+        .from('asset_prices')
+        .select()
+        .in('ticker', missingInCache)
 
-      const symbolsStr = yahooSymbols.join(',')
-      // Busca cotações através do proxy CORS para evitar bloqueios no navegador
-      const response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
+      if (!error && data) {
+        supabasePrices = data as AssetPrice[]
+      }
+    } catch (err) {
+      console.warn('Erro ao ler cache de cotações do Supabase, operando localmente:', err)
+    }
+
+    const pricesToFetchFromApi: string[] = []
+
+    // Mapeia o que achou no Supabase
+    for (const ticker of missingInCache) {
+      const found = supabasePrices.find(p => p.ticker === ticker)
+      // Se achou no cache e NÃO estamos forçando atualização, aproveita
+      if (found && !forceRefresh) {
+        if (!found.asset_class || !found.sector) {
+          const meta = getAssetMetadata(ticker)
+          found.asset_class = found.asset_class || meta.asset_class
+          found.sector = found.sector || meta.sector
+        }
+        
+        // Calcular dinamicamente o status de cotação com base na data de atualização
+        const lastUpdatedDate = found.last_updated ? new Date(found.last_updated) : new Date(0)
+        const ageInMs = now.getTime() - lastUpdatedDate.getTime()
+        const oneDayInMs = 24 * 60 * 60 * 1000
+        found.quotation_status = found.quotation_status || (ageInMs < oneDayInMs ? 'live' : 'stale')
+
+        result[ticker] = found
+        memoryPriceCache[ticker] = found
+      } else {
+        pricesToFetchFromApi.push(ticker)
+      }
+    }
+
+    // 4. Se houver tickers que precisam de consulta remota (Yahoo Finance)
+    if (pricesToFetchFromApi.length > 0) {
+      const fetchedPrices: Record<string, number> = {}
       
-      if (response.ok) {
-        const data = await response.json()
-        if (data && data.quoteResponse && data.quoteResponse.result) {
-          for (const item of data.quoteResponse.result) {
-            if (item.symbol && item.regularMarketPrice !== undefined) {
-              const cleanTicker = item.symbol.replace('.SA', '').toUpperCase()
-              fetchedPrices[cleanTicker] = item.regularMarketPrice
+      try {
+        const yahooSymbols = pricesToFetchFromApi.map(ticker => {
+          // Cryptos: BTC, ETH, SOL, etc.
+          if (['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOT', 'USDT'].includes(ticker)) {
+            return `${ticker}-BRL`
+          }
+          // Os tickers aqui já estão limpos, então apenas anexamos o sufixo .SA para a B3
+          const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(ticker)
+          return isB3 ? `${ticker}.SA` : ticker
+        })
+
+        const symbolsStr = yahooSymbols.join(',')
+        // Tenta o host principal (query1), com fallback de host (query2) caso falhe ou retorne erro
+        let response: Response | null = null
+        try {
+          response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
+        } catch (err) {
+          console.warn('[getAssetPrices] Falha no host principal query1. Tentando query2 de backup...', err)
+        }
+
+        if (!response || !response.ok) {
+          response = await fetchWithCorsProxy(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`)
+        }
+        
+        if (response.ok) {
+          const data = await safeJson(response)
+          if (data && data.quoteResponse && data.quoteResponse.result) {
+            for (const item of data.quoteResponse.result) {
+              if (item.symbol && item.regularMarketPrice !== undefined) {
+                let cleanTicker = item.symbol.toUpperCase()
+                if (cleanTicker.endsWith('.SA')) {
+                  cleanTicker = cleanTicker.replace('.SA', '')
+                } else if (cleanTicker.endsWith('-BRL')) {
+                  cleanTicker = cleanTicker.replace('-BRL', '')
+                }
+                fetchedPrices[cleanTicker] = item.regularMarketPrice
+              }
             }
           }
         }
+      } catch (apiErr) {
+        console.warn('[getAssetPrices] API do Yahoo Finance indisponível, usando cache/fallback estático:', apiErr)
       }
-    } catch (apiErr) {
-      console.warn('API de cotações do Yahoo Finance indisponível. Usando cotações locais:', apiErr)
-    }
 
-    // Processa os tickers atualizados e preenche fallbacks para os que falharam
-    const updatesToSave: Omit<AssetPrice, 'last_updated'>[] = []
-    
-    for (const ticker of pricesToFetchFromApi) {
-      let price = fetchedPrices[ticker]
-      
-      let quotationStatus: AssetPrice['quotation_status'] = 'live'
-      if (price === undefined) {
-        const oldPrice = supabasePrices.find(p => p.ticker === ticker)
-        if (oldPrice) {
-          price = Number(oldPrice.current_price)
-          quotationStatus = 'stale'
-        } else if (FALLBACK_PRICES[ticker] !== undefined) {
-          price = FALLBACK_PRICES[ticker]
-          quotationStatus = 'fallback_static'
-        } else {
-          price = 0
-          quotationStatus = 'unavailable'
+      // 4b. Busca individual apenas quando poucos tickers falharam E o batch retornou algo
+      // (se nada veio do batch, os proxies estão bloqueados — não faz sentido disparar N novas requisições)
+      const failedTickers = pricesToFetchFromApi.filter(t => fetchedPrices[t] === undefined)
+      const batchReturnedSomething = Object.keys(fetchedPrices).length > 0
+      const fewFailures = failedTickers.length <= 3
+
+      if (failedTickers.length > 0 && batchReturnedSomething && fewFailures) {
+        for (const ticker of failedTickers) {
+          try {
+            // Tenta cotação direta com sufixo .SA (sem passar pelo buscador)
+            const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(ticker)
+            const symbol = isB3 ? `${ticker}.SA` : ticker
+            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`
+            const quoteResp = await fetchWithCorsProxy(quoteUrl)
+            if (quoteResp.ok) {
+              const quoteData = await safeJson(quoteResp)
+              const item = quoteData?.quoteResponse?.result?.[0]
+              if (item?.regularMarketPrice !== undefined) {
+                fetchedPrices[ticker] = item.regularMarketPrice
+              }
+            }
+          } catch {
+            // Silencioso — o fallback estático/Supabase cobre o ticker abaixo
+          }
         }
       }
 
-      const meta = getAssetMetadata(ticker)
-      const assetPrice: AssetPrice = {
-        ticker,
-        current_price: price,
-        last_updated: now.toISOString(),
-        asset_class: meta.asset_class,
-        sector: meta.sector,
-        quotation_status: quotationStatus,
-      }
+      // Processa os tickers atualizados e preenche fallbacks para os que falharam
+      const updatesToSave: AssetPrice[] = []
+      
+      for (const ticker of pricesToFetchFromApi) {
+        let price = fetchedPrices[ticker]
+        
+        let quotationStatus: AssetPrice['quotation_status'] = 'live'
+        if (price === undefined) {
+          const oldPrice = supabasePrices.find(p => p.ticker === ticker)
+          if (oldPrice) {
+            price = Number(oldPrice.current_price)
+            quotationStatus = 'stale'
+          } else if (FALLBACK_PRICES[ticker] !== undefined) {
+            price = FALLBACK_PRICES[ticker]
+            quotationStatus = 'fallback_static'
+          } else {
+            price = 0
+            quotationStatus = 'unavailable'
+          }
+        }
 
-      result[ticker] = assetPrice
-      memoryPriceCache[ticker] = assetPrice
-      if (quotationStatus === 'live' && price > 0) {
-        updatesToSave.push({
+        const meta = getAssetMetadata(ticker)
+        const assetPrice: AssetPrice = {
           ticker,
           current_price: price,
+          last_updated: now.toISOString(),
           asset_class: meta.asset_class,
           sector: meta.sector,
-        })
-      }
-    }
+          quotation_status: quotationStatus,
+        }
 
-    // 4. Salvar novas cotações de volta no cache do Supabase em background
-    if (updatesToSave.length > 0) {
-      const savePricesBackground = async () => {
-        try {
-          await supabase
-            .from('asset_prices')
-            .upsert(updatesToSave)
-        } catch (err) {
-          console.error('Erro de conexão ao salvar cotações:', err)
+        result[ticker] = assetPrice
+        memoryPriceCache[ticker] = assetPrice
+        if (quotationStatus === 'live' && price > 0) {
+          updatesToSave.push({
+            ticker,
+            current_price: price,
+            asset_class: meta.asset_class,
+            sector: meta.sector,
+            last_updated: now.toISOString() as any, // Salva o timestamp exato do update
+          })
         }
       }
-      savePricesBackground()
+
+      // Salvar novas cotações de volta no cache do Supabase em background
+      if (updatesToSave.length > 0) {
+        const savePricesBackground = async () => {
+          try {
+            await supabase
+              .from('asset_prices')
+              .upsert(updatesToSave)
+          } catch (err) {
+            console.error('Erro de conexão ao salvar cotações:', err)
+          }
+        }
+        savePricesBackground()
+      }
     }
   }
 
-  return result
+  // 5. Mapear o resultado unificado de volta para as chaves originais que foram pedidas
+  const finalResult: Record<string, AssetPrice> = {}
+  for (const raw of tickers) {
+    const rawUpper = raw.trim().toUpperCase()
+    const clean = tickerMap.get(rawUpper)
+    if (clean && result[clean]) {
+      finalResult[rawUpper] = {
+        ...result[clean],
+        ticker: rawUpper // mantém o nome original exato solicitado (ex: VINO11.SA) para compatibilidade do chamador
+      }
+    }
+  }
+
+  return finalResult
 }
 
 /**
@@ -236,22 +384,136 @@ export interface SearchedAsset {
   name: string
 }
 
+const POPULAR_ASSETS: SearchedAsset[] = [
+  // Ações
+  { ticker: 'PETR4', name: 'Petrobras PN (Cof. e Dist.)' },
+  { ticker: 'PETR3', name: 'Petrobras ON' },
+  { ticker: 'VALE3', name: 'Vale S.A. ON' },
+  { ticker: 'ITUB4', name: 'Itaú Unibanco PN' },
+  { ticker: 'BBDC4', name: 'Bradesco PN' },
+  { ticker: 'BBDC3', name: 'Bradesco ON' },
+  { ticker: 'BBAS3', name: 'Banco do Brasil ON' },
+  { ticker: 'ITSA4', name: 'Itaúsa PN' },
+  { ticker: 'WEGE3', name: 'WEG S.A. ON' },
+  { ticker: 'MGLU3', name: 'Magazine Luiza ON' },
+  { ticker: 'ABEV3', name: 'Ambev ON' },
+  { ticker: 'RENT3', name: 'Localiza ON' },
+  { ticker: 'LREN3', name: 'Lojas Renner ON' },
+  { ticker: 'PRIO3', name: 'PetroRio ON' },
+  { ticker: 'EGIE3', name: 'Engie Brasil ON' },
+  { ticker: 'ELET3', name: 'Eletrobras ON' },
+  { ticker: 'ELET6', name: 'Eletrobras PN' },
+  { ticker: 'GGBR4', name: 'Gerdau PN' },
+  { ticker: 'SUZB3', name: 'Suzano ON' },
+  { ticker: 'HAPV3', name: 'Hapvida ON' },
+  { ticker: 'RADL3', name: 'Raia Drogasil ON' },
+  { ticker: 'EQTL3', name: 'Equatorial Energia ON' },
+  { ticker: 'RDOR3', name: 'Rede D\'Or ON' },
+  { ticker: 'ASAI3', name: 'Assaí Sendas ON' },
+  { ticker: 'CSAN3', name: 'Cosan ON' },
+  { ticker: 'CPLE6', name: 'Copel PNB' },
+  { ticker: 'CCRO3', name: 'CCR ON' },
+  { ticker: 'TIMS3', name: 'TIM ON' },
+  { ticker: 'VIVT3', name: 'Telefônica Brasil ON' },
+  { ticker: 'EMBR3', name: 'Embraer ON' },
+  { ticker: 'CMIG4', name: 'Cemig PN' },
+  { ticker: 'B3SA3', name: 'B3 ON' },
+  { ticker: 'USIM5', name: 'Usiminas PNA' },
+  { ticker: 'COGN3', name: 'Cogna ON' },
+  { ticker: 'YDUQ3', name: 'Yduqs ON' },
+  { ticker: 'RAIZ4', name: 'Raízen PN' },
+  { ticker: 'CIEL3', name: 'Cielo ON' },
+  { ticker: 'GOLL4', name: 'Gol PN' },
+  { ticker: 'AZUL4', name: 'Azul PN' },
+  { ticker: 'MRVE3', name: 'MRV ON' },
+  { ticker: 'CYRE3', name: 'Cyrela ON' },
+  { ticker: 'JHSF3', name: 'JHSF ON' },
+  { ticker: 'FLRY3', name: 'Fleury ON' },
+  { ticker: 'TOTS3', name: 'Totvs ON' },
+  { ticker: 'IRBR3', name: 'IRB Brasil ON' },
+
+  // FIIs
+  { ticker: 'MXRF11', name: 'Maxi Renda FII' },
+  { ticker: 'HGLG11', name: 'CGG Logística FII' },
+  { ticker: 'XPML11', name: 'XP Malls FII' },
+  { ticker: 'XPLG11', name: 'XP Log FII' },
+  { ticker: 'BTLG11', name: 'BTG Pactual Logística FII' },
+  { ticker: 'KNIP11', name: 'Kinea Índices de Preços FII' },
+  { ticker: 'KNCR11', name: 'Kinea Rendimentos Imobiliários FII' },
+  { ticker: 'KNSC11', name: 'Kinea Recebíveis Imobiliários FII' },
+  { ticker: 'KNRI11', name: 'Kinea Renda Imobiliária FII' },
+  { ticker: 'HGBS11', name: 'Hedge Shopping Centers FII' },
+  { ticker: 'HGRU11', name: 'Hedge Recebíveis Imobiliários FII' },
+  { ticker: 'VISC11', name: 'Vinci Shopping Centers FII' },
+  { ticker: 'MALL11', name: 'Malls Brasil Plural FII' },
+  { ticker: 'TRXF11', name: 'TRX Real Estate FII' },
+  { ticker: 'HCTR11', name: 'Hectare CE FII' },
+  { ticker: 'DEVA11', name: 'Devant Recebíveis Imobiliários FII' },
+  { ticker: 'IRDM11', name: 'Iridium Recebíveis Imobiliários FII' },
+  { ticker: 'CPTS11', name: 'Capitânia Securities II FII' },
+  { ticker: 'RECT11', name: 'Real Estate FII' },
+  { ticker: 'VINO11', name: 'Vinci Offices FII' },
+  { ticker: 'BRCR11', name: 'BTG Pactual Corporate Office Fund FII' },
+  { ticker: 'ALZR11', name: 'Alianza Trust Estilo FII' },
+  { ticker: 'BCFF11', name: 'BTG Pactual Fundo de Fundos FII' },
+  { ticker: 'TGAR11', name: 'TG Ativa Real Estate FII' },
+  { ticker: 'VGIP11', name: 'Valora IP FII' },
+  { ticker: 'URPR11', name: 'Urca Prime Renda FII' },
+  { ticker: 'RECR11', name: 'REC Recebíveis Imobiliários FII' },
+  { ticker: 'VSLH11', name: 'Versalhes Recebíveis Imobiliários FII' },
+  { ticker: 'HREC11', name: 'Hedge Recebíveis FII' },
+  { ticker: 'GALG11', name: 'Guardian Logística FII' },
+  { ticker: 'CACR11', name: 'Cartesia Recebíveis FII' },
+
+  // ETFs e Internacionais / Crypto
+  { ticker: 'BOVA11', name: 'iShares Ibovespa ETF' },
+  { ticker: 'IVVB11', name: 'iShares S&P 500 ETF' },
+  { ticker: 'SMAL11', name: 'iShares Small Cap ETF' },
+  { ticker: 'HASH11', name: 'Hashdex Nasdaq Crypto Index ETF' },
+  { ticker: 'QBTC11', name: 'QR Bitcoin ETF' },
+  { ticker: 'QETH11', name: 'QR Ether ETF' },
+  { ticker: 'GOLD11', name: 'Trend Ouro ETF' },
+  { ticker: 'XINA11', name: 'Trend China ETF' },
+  { ticker: 'AAPL', name: 'Apple Inc. (NASDAQ)' },
+  { ticker: 'MSFT', name: 'Microsoft Corporation (NASDAQ)' },
+  { ticker: 'GOOGL', name: 'Alphabet Inc. (NASDAQ)' },
+  { ticker: 'AMZN', name: 'Amazon.com Inc. (NASDAQ)' },
+  { ticker: 'TSLA', name: 'Tesla Inc. (NASDAQ)' },
+  { ticker: 'NVDA', name: 'NVIDIA Corporation (NASDAQ)' },
+  { ticker: 'BTC', name: 'Bitcoin (Criptomoeda)' },
+  { ticker: 'ETH', name: 'Ethereum (Criptomoeda)' },
+  { ticker: 'USDT', name: 'Tether Dollar Stablecoin' },
+]
+
 /**
- * Pesquisa ativos B3 / Internacionais em tempo real no Yahoo Finance.
- * Usado para o autocomplete de ativos do dashboard.
+ * Pesquisa ativos B3 / Internacionais em tempo real com busca local ultra-rápida
+ * e fallback/enriquecimento assíncrono via Yahoo Finance.
  */
 export async function searchB3Assets(query: string): Promise<SearchedAsset[]> {
-  const q = query.trim()
+  const q = query.trim().toUpperCase()
   if (q.length < 2) return []
 
+  // 1. Filtrar ativos populares locais instantaneamente
+  const localMatches = POPULAR_ASSETS.filter(
+    (asset) => asset.ticker.startsWith(q) || asset.name.toUpperCase().includes(q)
+  )
+
+  let remoteMatches: SearchedAsset[] = []
   try {
-    const response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`)
+    // Definimos um timeout curto (800ms) para que a rede nunca trave a digitação do usuário
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 800)
+
+    const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`
+    // Tenta fetch com múltiplos proxies de backup em cascata
+    const response = await fetchWithCorsProxy(targetUrl, { signal: controller.signal })
+    clearTimeout(timeoutId)
+
     if (response.ok) {
-      const data = await response.json()
+      const data = await safeJson(response)
       if (data && data.quotes) {
-        return data.quotes
+        remoteMatches = data.quotes
           .filter((item: any) => {
-            // Filtra apenas ativos da B3 (.SA) ou mercado global sem pontos no símbolo
             return item.symbol && (item.symbol.endsWith('.SA') || !item.symbol.includes('.'))
           })
           .map((item: any) => {
@@ -264,13 +526,40 @@ export async function searchB3Assets(query: string): Promise<SearchedAsset[]> {
       }
     }
   } catch (err) {
-    console.error('Erro ao pesquisar ativos na B3/Yahoo:', err)
+    console.debug('[searchB3Assets] Falha ou timeout na busca remota, usando locais:', err)
   }
 
-  // Fallback local se estiver offline
-  return Object.keys(FALLBACK_PRICES)
-    .filter(t => t.startsWith(q.toUpperCase()))
-    .map(t => ({ ticker: t, name: `${t} Asset` }))
+  // 2. Mesclar resultados sem duplicar tickers, priorizando os locais
+  const seenTickers = new Set<string>()
+  const merged: SearchedAsset[] = []
+
+  for (const asset of localMatches) {
+    seenTickers.add(asset.ticker)
+    merged.push(asset)
+  }
+
+  for (const asset of remoteMatches) {
+    if (!seenTickers.has(asset.ticker)) {
+      seenTickers.add(asset.ticker)
+      merged.push(asset)
+    }
+  }
+
+  // 3. Fallback adicional do FALLBACK_PRICES se a busca remota falhar e não houver localMatches
+  if (merged.length === 0) {
+    const fallbackMatches = Object.keys(FALLBACK_PRICES)
+      .filter((t) => t.startsWith(q))
+      .map((t) => ({ ticker: t, name: `${t} Asset` }))
+
+    for (const asset of fallbackMatches) {
+      if (!seenTickers.has(asset.ticker)) {
+        seenTickers.add(asset.ticker)
+        merged.push(asset)
+      }
+    }
+  }
+
+  return merged.slice(0, 10)
 }
 
 export interface AssetRichData {
@@ -295,12 +584,26 @@ export async function getAssetRichData(ticker: string): Promise<AssetRichData | 
   }
 
   try {
-    const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(normTicker)
-    const symbol = isB3 ? `${normTicker}.SA` : normTicker
-    const response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
+    let t = normTicker
+    if (/^[A-Z]{4}[0-9]{1,2}F$/i.test(t)) {
+      t = t.slice(0, -1)
+    }
+    const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(t)
+    const symbol = isB3 ? `${t}.SA` : t
+
+    let response: Response | null = null
+    try {
+      response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
+    } catch (err) {
+      console.warn('[getAssetRichData] Falha no host principal query1. Tentando query2...', err)
+    }
+
+    if (!response || !response.ok) {
+      response = await fetchWithCorsProxy(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
+    }
     
     if (response.ok) {
-      const data = await response.json()
+      const data = await safeJson(response)
       if (data && data.quoteResponse && data.quoteResponse.result && data.quoteResponse.result.length > 0) {
         const item = data.quoteResponse.result[0]
         const richData: AssetRichData = {
@@ -451,5 +754,25 @@ export function getAssetMetadata(ticker: string): { asset_class: string; sector:
 
 /** Indica se o ticker segue o padrão de código B3 (4 letras + 1–2 dígitos). */
 export function isB3TickerPattern(ticker: string): boolean {
-  return /^[A-Z]{4}[0-9]{1,2}$/.test(ticker.trim().toUpperCase())
+  let t = ticker.trim().toUpperCase()
+  if (t.endsWith('.SA')) {
+    t = t.replace('.SA', '')
+  }
+  if (/^[A-Z]{4}[0-9]{1,2}F$/i.test(t)) {
+    t = t.slice(0, -1)
+  }
+  return /^[A-Z]{4}[0-9]{1,2}$/.test(t)
+}
+
+/** Limpa completamente o cache em memória das cotações */
+export function clearPriceCache(): void {
+  for (const key in memoryPriceCache) {
+    delete memoryPriceCache[key]
+  }
+}
+
+/** Atualiza forçadamente uma lista de tickers bypassando o cache persistente */
+export async function forceRefreshPrices(tickers: string[]): Promise<Record<string, AssetPrice>> {
+  clearPriceCache()
+  return getAssetPrices(tickers, { forceRefresh: true })
 }

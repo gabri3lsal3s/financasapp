@@ -102,3 +102,41 @@ export async function deleteLegacyInvestmentsForTransaction(
 
   if (orphanError) throw orphanError
 }
+
+/**
+ * Remove múltiplos investimentos legados em lote antes de excluir as transações.
+ */
+export async function deleteLegacyInvestmentsForTransactions(
+  supabase: SupabaseClient,
+  userId: string,
+  txs: Pick<PortfolioTransaction, 'id' | 'ticker' | 'date' | 'price'>[]
+): Promise<void> {
+  if (txs.length === 0) return
+  
+  const txIds = txs.map((tx) => tx.id)
+  const { error: linkedError } = await supabase
+    .from('investments')
+    .delete()
+    .in('transaction_id', txIds)
+
+  if (linkedError) throw linkedError
+
+  const saldoInvTxs = txs.filter((tx) => tx.ticker === 'SALDO_INV')
+  if (saldoInvTxs.length === 0) return
+
+  // Para transações SALDO_INV, deletamos os registros órfãos
+  await Promise.all(
+    saldoInvTxs.map(async (tx) => {
+      const monthStr = tx.date.slice(0, 7)
+      const { error: orphanError } = await supabase
+        .from('investments')
+        .delete()
+        .eq('user_id', userId)
+        .eq('month', monthStr)
+        .is('ticker', null)
+        .eq('amount', Number(tx.price))
+
+      if (orphanError) throw orphanError
+    })
+  )
+}
