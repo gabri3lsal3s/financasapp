@@ -1155,25 +1155,82 @@
 
 /* --- 7. DETALHES DE MODAIS E TABELAS ESTILO VIDRO --- */
 /* Overlay do Modal */
-.cyberpunk .fixed.inset-0.z-\[110\] {
+.cyberpunk .fixed.inset-0.z-\[110\],
+.cyberpunk .fixed.inset-0.z-\[999\],
+.cyberpunk .fixed.inset-0.z-\[1000\] {
   backdrop-filter: blur(5px) !important;
   background-color: rgba(0, 0, 0, 0.65) !important;
 }
 
-/* Modais de Vidro */
-.cyberpunk div[role="dialog"] {
-  background-color: rgba(20, 22, 36, 0.85) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 24px !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+/* ==================== 7.1. MODAIS CLÁSSICOS ==================== */
+
+/* Classic Light Modals */
+.light:not(.cyberpunk) div[role="dialog"] {
+  background-color: var(--ds-color-surface-primary) !important;
+  border: 1px solid var(--ds-color-border-default) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 10px 10px -5px rgba(0, 0, 0, 0.02) !important;
 }
 
+/* Classic Dark Modals (Lighter dark color than body for elevation) */
+.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] {
+  background-color: var(--ds-color-surface-secondary) !important;
+  border: 1px solid var(--ds-color-border-default) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Ensure inputs/selects inside Classic Dark Modals are properly recessed (darker than the modal) */
+.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] input,
+.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] select,
+.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] textarea,
+.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] .bg-primary {
+  background-color: var(--ds-color-surface-primary) !important;
+  border-color: var(--ds-color-border-default) !important;
+}
+
+/* Classic Midnight Modals (Lighter black color than body for elevation) */
+.midnight:not(.cyberpunk) div[role="dialog"] {
+  background-color: var(--ds-color-surface-secondary) !important;
+  border: 1px solid var(--ds-color-border-default) !important;
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 15px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Ensure inputs/selects inside Classic Midnight Modals are properly recessed */
+.midnight:not(.cyberpunk) div[role="dialog"] input,
+.midnight:not(.cyberpunk) div[role="dialog"] select,
+.midnight:not(.cyberpunk) div[role="dialog"] textarea,
+.midnight:not(.cyberpunk) div[role="dialog"] .bg-primary {
+  background-color: var(--ds-color-surface-primary) !important;
+  border-color: var(--ds-color-border-default) !important;
+}
+
+/* ==================== 7.2. MODAIS CYBERPUNK (GLASSMORPHISM) ==================== */
+
+/* Default Glassmorphic Dialog structure */
+.cyberpunk div[role="dialog"] {
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-radius: 24px !important;
+}
+
+/* Cyberpunk Light Glass Modals (Soft Cyan Neon Glow) */
 .cyberpunk.light div[role="dialog"] {
-  background-color: rgba(240, 244, 255, 0.95) !important;
-  border: 1px solid rgba(6, 182, 212, 0.15) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(240, 244, 255, 0.92) !important;
+  border: 1px solid rgba(6, 182, 212, 0.25) !important;
+  box-shadow: 0 20px 50px rgba(6, 182, 212, 0.12) !important;
+}
+
+/* Cyberpunk Dark Glass Modals (Soft Green Neon Glow) */
+.cyberpunk.dark:not(.midnight) div[role="dialog"] {
+  background-color: rgba(10, 11, 22, 0.82) !important;
+  border: 1px solid rgba(0, 255, 136, 0.22) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 25px rgba(0, 255, 136, 0.12) !important;
+}
+
+/* Cyberpunk Midnight Glass Modals (Ultra Deep Pitch Black Glass + Neon Glow) */
+.cyberpunk.midnight div[role="dialog"] {
+  background-color: rgba(5, 5, 8, 0.88) !important;
+  border: 1px solid rgba(0, 255, 136, 0.25) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 255, 136, 0.16) !important;
 }
 
 /* Tabelas */
