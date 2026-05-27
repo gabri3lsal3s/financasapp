@@ -51,7 +51,7 @@ export async function fetchAllPortfolioTransactions(
     if (!data || data.length === 0) {
       hasMore = false
     } else {
-      allTransactions = [...allTransactions, ...data]
+      allTransactions = [...allTransactions, ...(data as any[])]
       if (data.length < pageSize) {
         hasMore = false
       } else {
@@ -130,19 +130,30 @@ export async function deleteCashOffsetTransactions(portfolioId: string, sourceTr
 export async function deleteCashOffsetTransactionsMultiple(portfolioId: string, sourceTransactionIds: string[]): Promise<void> {
   if (!hasCashOffsetColumn || sourceTransactionIds.length === 0) return
 
-  const { error } = await supabase
-    .from('portfolio_transactions')
-    .delete()
-    .eq('portfolio_id', portfolioId)
-    .in('cash_offset_source_id', sourceTransactionIds)
-
-  if (error) {
-    if (error.code === '42703' || String(error.message).includes('cash_offset_source_id')) {
-      hasCashOffsetColumn = false
-      return
-    }
-    throw error
+  const CHUNK_SIZE = 100
+  const chunks: string[][] = []
+  for (let i = 0; i < sourceTransactionIds.length; i += CHUNK_SIZE) {
+    chunks.push(sourceTransactionIds.slice(i, i + CHUNK_SIZE))
   }
+
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      if (!hasCashOffsetColumn) return
+      const { error } = await supabase
+        .from('portfolio_transactions')
+        .delete()
+        .eq('portfolio_id', portfolioId)
+        .in('cash_offset_source_id', chunk)
+
+      if (error) {
+        if (error.code === '42703' || String(error.message).includes('cash_offset_source_id')) {
+          hasCashOffsetColumn = false
+          return
+        }
+        throw error
+      }
+    })
+  )
 }
 
 /**

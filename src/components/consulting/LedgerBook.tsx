@@ -113,13 +113,22 @@ export default function LedgerBook({
 
       // 2. Excluir transações principais em lote no Supabase
       setDeletingProgress(`Excluindo do Livro-Razão (Etapa 2 de 2)...`)
-      const { error: deleteError } = await supabase
-        .from('portfolio_transactions')
-        .delete()
-        .in('id', txIds)
-        .eq('portfolio_id', portfolioId)
+      const TX_CHUNK_SIZE = 100
+      const txChunks: string[][] = []
+      for (let i = 0; i < txIds.length; i += TX_CHUNK_SIZE) {
+        txChunks.push(txIds.slice(i, i + TX_CHUNK_SIZE))
+      }
 
-      if (deleteError) throw deleteError
+      await Promise.all(
+        txChunks.map(async (chunk) => {
+          const { error: chunkDeleteError } = await supabase
+            .from('portfolio_transactions')
+            .delete()
+            .in('id', chunk)
+            .eq('portfolio_id', portfolioId)
+          if (chunkDeleteError) throw chunkDeleteError
+        })
+      )
 
       // Recalcular saldo de caixa total e atualizar o portfolio
       setDeletingProgress('Atualizando saldo de caixa...')
