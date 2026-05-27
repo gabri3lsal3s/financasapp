@@ -41,10 +41,10 @@
   --ds-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 
-  --ds-motion-duration-fast: 200ms;
-  --ds-motion-duration-normal: 300ms;
-  --ds-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ds-motion-easing-emphasis: cubic-bezier(0.2, 0, 0, 1);
+  --ds-motion-duration-fast: 180ms;
+  --ds-motion-duration-normal: 260ms;
+  --ds-motion-easing-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-motion-easing-emphasis: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --color-bg-primary: var(--ds-color-surface-primary);
   --color-bg-secondary: var(--ds-color-surface-secondary);
@@ -908,14 +908,14 @@
 .cyberpunk select:focus,
 .cyberpunk textarea:focus {
   border-color: var(--ds-color-accent-primary) !important;
-  box-shadow: 0 0 12px 0 rgba(0, 255, 136, 0.2) !important;
+  box-shadow: 0 0 8px 0 rgba(0, 255, 136, 0.08) !important;
   background-color: rgba(255, 255, 255, 0.06) !important;
 }
 
 .cyberpunk.light input:focus,
 .cyberpunk.light select:focus,
 .cyberpunk.light textarea:focus {
-  box-shadow: 0 0 12px 0 rgba(16, 185, 129, 0.15) !important;
+  box-shadow: 0 0 8px 0 rgba(16, 185, 129, 0.06) !important;
   background-color: rgba(0, 0, 0, 0.03) !important;
 }
 
@@ -924,47 +924,47 @@
 .cyberpunk button,
 .cyberpunk a.rounded-lg,
 .cyberpunk .hover-lift-subtle {
-  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: all 0.25s var(--ds-motion-easing-standard) !important;
 }
 
-/* Botões Neon Primários */
+/* Botões Neon Primários - Glow sutil e classudo */
 .cyberpunk button.bg-\[var\(--color-primary\)\] {
   background-color: var(--ds-color-accent-primary) !important;
   color: var(--ds-color-button-text) !important;
   border-color: var(--ds-color-accent-primary) !important;
   font-weight: 600 !important;
-  box-shadow: 0 4px 14px 0 rgba(0, 255, 136, 0.25) !important;
+  box-shadow: 0 4px 10px 0 rgba(0, 255, 136, 0.1) !important;
 }
 
 .cyberpunk.light button.bg-\[var\(--color-primary\)\] {
-  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.2) !important;
+  box-shadow: 0 4px 10px 0 rgba(16, 185, 129, 0.08) !important;
 }
 
 .cyberpunk button.bg-\[var\(--color-primary\)\]:hover {
-  transform: translateY(-1.5px) !important;
-  box-shadow: 0 6px 20px 0 rgba(0, 255, 136, 0.4) !important;
-  opacity: 0.95 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 14px 0 rgba(0, 255, 136, 0.16) !important;
+  opacity: 0.98 !important;
 }
 
 .cyberpunk.light button.bg-\[var\(--color-primary\)\]:hover {
-  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 6px 14px 0 rgba(16, 185, 129, 0.12) !important;
 }
 
-/* Cards e botões secundários interativos (Glow Neon Verde) */
+/* Cards e botões secundários interativos (Aura Neon Verde Altamente Discreta) */
 .cyberpunk div[role="button"].border-primary:hover,
 .cyberpunk button.border-primary:hover,
 .cyberpunk a.rounded-lg:hover,
 .cyberpunk .hover-lift-subtle:hover {
-  border-color: rgba(0, 255, 136, 0.35) !important;
-  box-shadow: 0 0 16px 0 rgba(0, 255, 136, 0.15) !important;
+  border-color: rgba(0, 255, 136, 0.22) !important;
+  box-shadow: 0 0 10px 0 rgba(0, 255, 136, 0.06) !important;
 }
 
 .cyberpunk.light div[role="button"].border-primary:hover,
 .cyberpunk.light button.border-primary:hover,
 .cyberpunk.light a.rounded-lg:hover,
 .cyberpunk.light .hover-lift-subtle:hover {
-  border-color: rgba(16, 185, 129, 0.35) !important;
-  box-shadow: 0 0 16px 0 rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.22) !important;
+  box-shadow: 0 0 10px 0 rgba(16, 185, 129, 0.04) !important;
 }
 
 /* --- 5. NAVEGAÇÃO FLUTUANTE (LAYOUT RESPONSIVO) --- */
@@ -984,15 +984,15 @@
   border-radius: 24px !important;
   border: 1px solid var(--ds-color-border-default) !important;
   background-color: var(--ds-color-surface-primary) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35) !important;
-  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.3) !important;
+  transition: width 0.35s var(--ds-motion-easing-standard) !important;
 }
 
 /* Padding dinâmico com base na largura da sidebar */
 .cyberpunk .lg\:grid main {
-  transition: padding-left 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: padding-left 0.35s var(--ds-motion-easing-standard) !important;
   padding-left: 20px !important;
 }
 
@@ -1008,9 +1008,9 @@
   border-radius: 20px !important;
   border: 1px solid var(--ds-color-border-default) !important;
   background-color: var(--ds-color-surface-primary) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  box-shadow: 0 8px 32px -10px rgba(0, 0, 0, 0.25) !important;
 }
 
 .cyberpunk .lg\:hidden main {
@@ -1025,10 +1025,10 @@
   backdrop-filter: none !important;
 }
 
-/* Itens de Menu Ativos no Cyberpunk */
+/* Itens de Menu Ativos no Cyberpunk - Sem brilho excessivo */
 .cyberpunk .bg-tertiary.accent-primary {
   border: 1px solid var(--ds-color-accent-primary-soft) !important;
-  box-shadow: 0 0 10px 0 var(--ds-color-accent-primary-soft) !important;
+  box-shadow: 0 0 6px 0 rgba(0, 255, 136, 0.05) !important;
   background-color: var(--ds-color-accent-primary-soft) !important;
   color: var(--ds-color-accent-primary) !important;
 }
@@ -1038,8 +1038,13 @@
 }
 
 /* --- 6. GRÁFICOS CYBER-GLASS E VISUALIZAÇÕES (RECHARTS) --- */
-.cyberpunk .recharts-cartesian-grid {
-  display: none !important;
+
+/* Cartesian Grid: Fino e sutil, preservando alinhamento sem poluir */
+.cyberpunk .recharts-cartesian-grid line {
+  stroke: var(--ds-color-border-default) !important;
+  stroke-width: 1px;
+  stroke-dasharray: 6 6;
+  opacity: 0.04 !important;
 }
 
 /* Textos e Legendas dos Gráficos Cyber */
@@ -1049,6 +1054,7 @@
   font-family: 'Plus Jakarta Sans', sans-serif !important;
   font-size: 10px !important;
   letter-spacing: -0.015em !important;
+  opacity: 0.8 !important;
 }
 
 .cyberpunk .recharts-legend-item-text {
@@ -1056,56 +1062,72 @@
   font-family: 'Plus Jakarta Sans', sans-serif !important;
   font-size: 11px !important;
   letter-spacing: -0.02em !important;
+  opacity: 0.9 !important;
 }
 
 /* Efeito de Cursor nos Gráficos Cyber */
 .cyberpunk .recharts-tooltip-cursor {
-  fill: rgba(255, 255, 255, 0.02) !important;
-  stroke: rgba(6, 182, 212, 0.08) !important;
+  fill: rgba(255, 255, 255, 0.015) !important;
+  stroke: rgba(6, 182, 212, 0.05) !important;
 }
 .cyberpunk:not(.light) .recharts-tooltip-cursor {
-  stroke: rgba(0, 255, 136, 0.08) !important;
+  stroke: rgba(0, 255, 136, 0.05) !important;
 }
 
-/* Curvas com Brilho Neon (Line & Area) */
+/* Curvas com Brilho Neon sutil (Line & Area) */
 .cyberpunk .recharts-line-curve,
 .cyberpunk .recharts-area-curve {
-  stroke-width: 2.2px !important;
-  filter: drop-shadow(0 0 5px var(--ds-color-accent-primary)) !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 255, 136, 0.12)) !important;
+}
+.cyberpunk.light .recharts-line-curve,
+.cyberpunk.light .recharts-area-curve {
+  filter: drop-shadow(0 2px 4px rgba(6, 182, 212, 0.08)) !important;
 }
 
-/* Gráfico de Barras com Cantos Arredondados e Glow */
+/* Gráfico de Barras com Cantos Arredondados - Sem glow exagerado */
 .cyberpunk .recharts-rectangle {
   rx: 6px !important;
   ry: 6px !important;
-  filter: drop-shadow(0 0 3px var(--ds-color-accent-primary-soft)) !important;
+  filter: none !important;
+  stroke-width: 0.5px !important;
+  stroke: rgba(255, 255, 255, 0.05) !important;
+}
+.cyberpunk.light .recharts-rectangle {
+  stroke: rgba(0, 0, 0, 0.03) !important;
 }
 
-/* Gráfico de Donut e Pizza (Setores Separados) */
+/* Gráfico de Donut e Pizza (Setores Separados por Vidro) */
 .cyberpunk .recharts-pie-sector {
-  stroke: var(--ds-color-surface-secondary) !important;
-  stroke-width: 2.5px !important;
+  stroke: var(--ds-color-surface-primary) !important;
+  stroke-width: 2px !important;
+  outline: none !important;
+  transition: all 0.35s var(--ds-motion-easing-standard) !important;
 }
 
-/* Tooltip do Gráfico Estilo Vidro Flutuante */
+.cyberpunk .recharts-pie-sector:hover {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15)) !important;
+}
+
+/* Tooltip do Gráfico Estilo Vidro Flutuante Premium */
 .cyberpunk .recharts-tooltip-wrapper .bg-primary,
 .cyberpunk .recharts-tooltip-wrapper .bg-white,
 .cyberpunk .recharts-default-tooltip {
-  background-color: rgba(18, 20, 32, 0.85) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(0, 255, 136, 0.25) !important;
+  background-color: rgba(10, 11, 22, 0.88) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(0, 255, 136, 0.12) !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 24px rgba(0, 255, 136, 0.15) !important;
-  color: #ffffff !important;
+  box-shadow: 0 12px 32px -5px rgba(0, 0, 0, 0.5), 0 0 12px 0 rgba(0, 255, 136, 0.04) !important;
+  color: #fafafa !important;
 }
 
 .cyberpunk.light .recharts-tooltip-wrapper .bg-primary,
 .cyberpunk.light .recharts-tooltip-wrapper .bg-white,
 .cyberpunk.light .recharts-default-tooltip {
-  background-color: rgba(240, 244, 255, 0.9) !important;
-  border: 1px solid rgba(6, 182, 212, 0.25) !important;
-  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.1) !important;
+  background-color: rgba(240, 244, 255, 0.92) !important;
+  border: 1px solid rgba(6, 182, 212, 0.18) !important;
+  box-shadow: 0 12px 32px -5px rgba(6, 182, 212, 0.08) !important;
   color: var(--ds-color-text-primary) !important;
 }
 
@@ -1128,14 +1150,14 @@
 /* Animações e Cards Especiais de Neon */
 @keyframes cyberpunk-pulse {
   0%, 100% {
-    opacity: 0.8;
+    opacity: 0.85;
     transform: scale(1);
     filter: drop-shadow(0 0 2px var(--ds-color-accent-primary));
   }
   50% {
     opacity: 1;
-    transform: scale(1.03);
-    filter: drop-shadow(0 0 6px var(--ds-color-accent-primary));
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 4px var(--ds-color-accent-primary));
   }
 }
 
@@ -1143,94 +1165,93 @@
   animation: cyberpunk-pulse 2.2s infinite ease-in-out;
 }
 
-/* Card com Brilho Neon sutil */
+/* Card com Brilho Neon sutil - Glow Altamente Discreto */
 .cyberpunk-glow-card {
-  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: all 0.3s var(--ds-motion-easing-standard) !important;
 }
 .cyberpunk-glow-card:hover {
   border-color: var(--ds-color-accent-primary) !important;
-  box-shadow: 0 0 16px 0 var(--ds-color-accent-primary-soft) !important;
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.3), 0 0 10px 0 rgba(0, 255, 136, 0.05) !important;
   transform: translateY(-2px) !important;
 }
 
 /* --- 7. DETALHES DE MODAIS E TABELAS ESTILO VIDRO --- */
-/* Overlay do Modal */
-.cyberpunk .fixed.inset-0.z-\[110\],
-.cyberpunk .fixed.inset-0.z-\[999\],
-.cyberpunk .fixed.inset-0.z-\[1000\] {
-  backdrop-filter: blur(5px) !important;
-  background-color: rgba(0, 0, 0, 0.65) !important;
+
+/* Backdrop Glass Overlay - Sem escurecer a tela, apenas com desfoque de vidro e transparência extrema */
+.fixed.inset-0[class*="z-"] > div:first-child,
+.fixed.inset-0[class*="z-"] > [role="presentation"],
+.fixed.inset-0.bg-black\/60,
+.fixed.inset-0.bg-black\/55,
+.fixed.inset-0.dark\:bg-black\/70 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 
-/* ==================== 7.1. MODAIS CLÁSSICOS ==================== */
+.light .fixed.inset-0[class*="z-"] > div:first-child,
+.light .fixed.inset-0.bg-black\/60,
+.light .fixed.inset-0.bg-black\/55 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ==================== 7.1. ESTRUTURA GERAL DOS MODAIS (VIDRO TRANSLÚCIDO) ==================== */
+
+/* Efeito de Vidro Unificado em todos os modais, preservando a cor primária exata de cada paleta */
+div[role="dialog"] {
+  background-color: color-mix(in srgb, var(--ds-color-surface-primary) 78%, transparent) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-radius: 24px !important;
+  transition: all 0.3s var(--ds-motion-easing-standard) !important;
+}
+
+/* ==================== 7.2. MODAIS CLÁSSICOS ==================== */
 
 /* Classic Light Modals */
 .light:not(.cyberpunk) div[role="dialog"] {
-  background-color: var(--ds-color-surface-primary) !important;
   border: 1px solid var(--ds-color-border-default) !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 10px 10px -5px rgba(0, 0, 0, 0.02) !important;
 }
 
-/* Classic Dark Modals (Lighter dark color than body for elevation) */
+/* Classic Dark Modals */
 .dark:not(.midnight):not(.cyberpunk) div[role="dialog"] {
-  background-color: var(--ds-color-surface-secondary) !important;
   border: 1px solid var(--ds-color-border-default) !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Ensure inputs/selects inside Classic Dark Modals are properly recessed (darker than the modal) */
-.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] input,
-.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] select,
-.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] textarea,
-.dark:not(.midnight):not(.cyberpunk) div[role="dialog"] .bg-primary {
-  background-color: var(--ds-color-surface-primary) !important;
-  border-color: var(--ds-color-border-default) !important;
-}
-
-/* Classic Midnight Modals (Lighter black color than body for elevation) */
+/* Classic Midnight Modals */
 .midnight:not(.cyberpunk) div[role="dialog"] {
-  background-color: var(--ds-color-surface-secondary) !important;
   border: 1px solid var(--ds-color-border-default) !important;
-  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.7), 0 10px 15px -5px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 20px 50px -5px rgba(0, 0, 0, 0.7), 0 10px 15px -5px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* Ensure inputs/selects inside Classic Midnight Modals are properly recessed */
-.midnight:not(.cyberpunk) div[role="dialog"] input,
-.midnight:not(.cyberpunk) div[role="dialog"] select,
-.midnight:not(.cyberpunk) div[role="dialog"] textarea,
-.midnight:not(.cyberpunk) div[role="dialog"] .bg-primary {
+/* Recuo visual dos formulários internos (campos de input/select mais escuros e opacos) */
+.dark:not(.cyberpunk) div[role="dialog"] input,
+.dark:not(.cyberpunk) div[role="dialog"] select,
+.dark:not(.cyberpunk) div[role="dialog"] textarea,
+.dark:not(.cyberpunk) div[role="dialog"] .bg-primary {
   background-color: var(--ds-color-surface-primary) !important;
   border-color: var(--ds-color-border-default) !important;
 }
 
-/* ==================== 7.2. MODAIS CYBERPUNK (GLASSMORPHISM) ==================== */
-
-/* Default Glassmorphic Dialog structure */
-.cyberpunk div[role="dialog"] {
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border-radius: 24px !important;
-}
+/* ==================== 7.3. MODAIS CYBERPUNK (GLASS + SUBLTE NEON AURA) ==================== */
 
 /* Cyberpunk Light Glass Modals (Soft Cyan Neon Glow) */
 .cyberpunk.light div[role="dialog"] {
-  background-color: rgba(240, 244, 255, 0.92) !important;
   border: 1px solid rgba(6, 182, 212, 0.25) !important;
-  box-shadow: 0 20px 50px rgba(6, 182, 212, 0.12) !important;
+  box-shadow: 0 20px 50px rgba(6, 182, 212, 0.1) !important;
 }
 
 /* Cyberpunk Dark Glass Modals (Soft Green Neon Glow) */
 .cyberpunk.dark:not(.midnight) div[role="dialog"] {
-  background-color: rgba(10, 11, 22, 0.82) !important;
   border: 1px solid rgba(0, 255, 136, 0.22) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 25px rgba(0, 255, 136, 0.12) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 255, 136, 0.05) !important;
 }
 
 /* Cyberpunk Midnight Glass Modals (Ultra Deep Pitch Black Glass + Neon Glow) */
 .cyberpunk.midnight div[role="dialog"] {
-  background-color: rgba(5, 5, 8, 0.88) !important;
   border: 1px solid rgba(0, 255, 136, 0.25) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 255, 136, 0.16) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 255, 136, 0.05) !important;
 }
 
 /* Tabelas */
