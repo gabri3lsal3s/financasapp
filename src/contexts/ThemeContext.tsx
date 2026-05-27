@@ -212,9 +212,17 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     })
 
     // Aplicar variáveis de paleta dinâmicas do Cyber-Minimalismo ou Clássicas
-    const cyberIncome = actualTheme === 'light' ? '#10b981' : '#00FF88'
-    const cyberExpense = actualTheme === 'light' ? '#EF4444' : '#FF3366'
-    const cyberBalance = actualTheme === 'light' ? '#06b6d4' : '#00FF88'
+    const cyberIncome = newPalette === 'monochrome'
+      ? (actualTheme === 'light' ? '#e5e5e5' : '#f5f5f7')
+      : (actualTheme === 'light' ? '#10b981' : '#00FF88')
+      
+    const cyberExpense = newPalette === 'monochrome'
+      ? (actualTheme === 'light' ? '#a3a3a3' : '#a3a3a3')
+      : (actualTheme === 'light' ? '#EF4444' : '#FF3366')
+      
+    const cyberBalance = newPalette === 'monochrome'
+      ? (actualTheme === 'light' ? '#737373' : '#525252')
+      : (actualTheme === 'light' ? '#06b6d4' : '#00E5FF')
 
     root.style.setProperty('--ds-color-data-income', newStyle === 'cyberpunk' ? cyberIncome : paletteVars.income)
     root.style.setProperty('--ds-color-data-expense', newStyle === 'cyberpunk' ? cyberExpense : paletteVars.expense)

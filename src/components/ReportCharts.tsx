@@ -113,6 +113,12 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
     }));
   }, [historyReports]);
 
+  const animProps = useMemo(() => ({
+    isAnimationActive: true,
+    animationDuration: visualStyle === 'cyberpunk' ? 1200 : 700,
+    animationEasing: visualStyle === 'cyberpunk' ? 'cubic-bezier(0.34, 1.56, 0.64, 1)' : 'ease-out'
+  }), [visualStyle]);
+
   // Renderizador de percentual nas fatias (adaptável para contraste de temas)
   const renderLabel = ({ cx, cy, midAngle, outerRadius, pct }: any) => {
     if (parseFloat(pct) < 4) return null;
@@ -167,8 +173,8 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                 />
                 <YAxis tickFormatter={v => `${v}%`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} />
-                <Bar dataKey="Atual (%)" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Alvo (%)" fill="var(--color-disabled)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Atual (%)" fill="var(--color-primary)" radius={[4, 4, 0, 0]} {...animProps} />
+                <Bar dataKey="Alvo (%)" fill="var(--color-disabled)" radius={[4, 4, 0, 0]} {...animProps} />
                 <Legend iconSize={8} wrapperStyle={{ fontSize: 9, paddingTop: 10 }} verticalAlign="bottom" />
               </BarChart>
             </ResponsiveContainer>
@@ -202,6 +208,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                        label={renderLabel}
                        minAngle={15}
                        paddingAngle={2}
+                       {...animProps}
                     >
                       {macroDist.map((_, i) => <Cell key={i} fill={chartPalette[i % chartPalette.length]} />)}
                     </Pie>
@@ -229,6 +236,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                        label={renderLabel}
                        minAngle={15}
                        paddingAngle={2}
+                       {...animProps}
                     >
                       {sectorDist.map((_, i) => <Cell key={i} fill={chartPalette[i % chartPalette.length]} />)}
                     </Pie>
@@ -254,12 +262,19 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                     <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.2} />
                     <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
+                  <filter id="cyberGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} />
+                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlow)' : undefined} {...animProps} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -277,7 +292,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                 <XAxis type="number" tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 9, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} {...animProps}>
                   {sectorDist.slice(0, 6).map((_, i) => <Cell key={i} fill={chartPalette[i % chartPalette.length]} />)}
                 </Bar>
               </BarChart>

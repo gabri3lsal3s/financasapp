@@ -46,10 +46,12 @@ import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+import { useTheme } from '@/hooks/useTheme'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
+  const { visualStyle } = useTheme()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
@@ -389,6 +391,12 @@ export default function Dashboard() {
     return series
   }, [currentMonth, incomes, expenses, portfolioTransactions])
 
+  const animProps = useMemo(() => ({
+    isAnimationActive: true,
+    animationDuration: visualStyle === 'cyberpunk' ? 1200 : 700,
+    animationEasing: visualStyle === 'cyberpunk' ? 'cubic-bezier(0.34, 1.56, 0.64, 1)' : 'ease-out'
+  }), [visualStyle])
+
   const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) return null
 
@@ -576,7 +584,7 @@ export default function Dashboard() {
                             tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
                           />
                           <Tooltip content={chartTooltip} />
-                          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                          <Bar dataKey="value" radius={[6, 6, 0, 0]} {...animProps}>
                             {monthlyOverviewData.map((item) => (
                               <Cell key={item.name} fill={item.color} />
                             ))}
@@ -589,6 +597,15 @@ export default function Dashboard() {
                       <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário (mês)</h3>
                       <ResponsiveContainer width="100%" height={280}>
                         <LineChart data={dailyFlowData}>
+                          <defs>
+                            <filter id="cyberGlowLine" x="-20%" y="-20%" width="140%" height="140%">
+                              <feGaussianBlur stdDeviation="2.5" result="blur" />
+                              <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                              </feMerge>
+                            </filter>
+                          </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                           <XAxis dataKey="day" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} minTickGap={14} />
                           <YAxis
@@ -599,9 +616,9 @@ export default function Dashboard() {
                           />
                           <Tooltip content={chartTooltip} />
                           <Legend content={renderInteractiveLegend} />
-                          <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} />
-                          <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} />
-                          <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} />
+                          <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={visualStyle === 'cyberpunk' ? 2.5 : 2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlowLine)' : undefined} {...animProps} />
+                          <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={visualStyle === 'cyberpunk' ? 2.5 : 2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlowLine)' : undefined} {...animProps} />
+                          <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={visualStyle === 'cyberpunk' ? 2.5 : 2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlowLine)' : undefined} {...animProps} />
                         </LineChart>
                       </ResponsiveContainer>
                     </Card>
@@ -632,6 +649,7 @@ export default function Dashboard() {
                                       openExpenseCategoryDetails(entry.categoryId, entry.name)
                                     }
                                   }}
+                                  {...animProps}
                                 >
                                   {expenseCategoriesPieData.map((entry) => (
                                     <Cell key={entry.name} fill={entry.color} />
