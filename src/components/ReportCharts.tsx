@@ -5,6 +5,7 @@ import {
   AreaChart, Area
 } from 'recharts';
 import { formatCurrency } from '@/utils/format';
+import { useTheme } from '@/hooks/useTheme';
 
 interface Asset {
   asset_name: string;
@@ -26,11 +27,44 @@ interface Props {
   compositionDescription?: string;
 }
 
-const BW_PALETTE = ['#000000', '#2a2a2a', '#444444', '#666666', '#888888', '#aaaaaa', '#bbbbbb', '#cccccc'];
 const RADIAN = Math.PI / 180;
-const SECTION_SPACING = 20; 
+const SECTION_SPACING = 24; 
 
 export default function ReportCharts({ assets, macroSectors, sectors, historyReports, totalBalance, compositionDescription }: Props) {
+  const { visualStyle, colorPalette } = useTheme();
+
+  // Cores dinâmicas para a distribuição de ativos baseadas em temas/estilos
+  const chartPalette = useMemo(() => {
+    if (colorPalette === 'monochrome') {
+      return ['#404040', '#525252', '#737373', '#a3a3a3', '#d4d4d8', '#e4e4e7'];
+    }
+    
+    // Cores vibrantes estilo Cyberpunk
+    if (visualStyle === 'cyberpunk') {
+      return [
+        'var(--ds-color-accent-primary)',
+        '#00d2ff', // Neon Cyan
+        '#8a2be2', // Neon Violet
+        '#ff007f', // Neon Pink
+        '#ffaa00', // Neon Amber
+        '#39ff14', // Neon Green
+        '#00f2fe',
+        '#f35588'
+      ];
+    }
+    
+    // Cores clássicas e elegantes do SaaS
+    return [
+      'var(--color-primary)',
+      '#4f46e5', // Indigo
+      '#0ea5e9', // Sky Blue
+      '#10b981', // Emerald Green
+      '#f59e0b', // Amber
+      '#ec4899', // Pink
+      '#8b5cf6', // Violet
+      '#f43f5e'  // Rose
+    ];
+  }, [visualStyle, colorPalette]);
 
   const macroComposition = useMemo(() => {
     return macroSectors.map((m) => {
@@ -79,62 +113,70 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
     }));
   }, [historyReports]);
 
+  // Renderizador de percentual nas fatias (adaptável para contraste de temas)
   const renderLabel = ({ cx, cy, midAngle, outerRadius, pct }: any) => {
     if (parseFloat(pct) < 4) return null;
     const radius = outerRadius + 8;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     return (
-      <text x={x} y={y} fill="#111" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" style={{ fontSize: 7, fontWeight: '900' }}>
+      <text 
+        x={x} 
+        y={y} 
+        fill="var(--color-text-secondary)" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central" 
+        style={{ fontSize: 9, fontWeight: '700', fontFamily: 'inherit' }}
+      >
         {pct}%
       </text>
     );
   };
 
   const TITLE_STYLE: React.CSSProperties = { 
-    fontSize: 10, 
-    fontWeight: '900', 
-    color: '#000', 
+    fontSize: '11px', 
+    fontWeight: '800', 
+    color: 'var(--color-text-primary)', 
     textTransform: 'uppercase', 
-    letterSpacing: '0.1em', 
-    marginBottom: 12,
-    borderBottom: '1px solid #000',
-    paddingBottom: '4px',
+    letterSpacing: '0.05em', 
+    marginBottom: 16,
+    borderBottom: '1px solid var(--color-border)',
+    paddingBottom: '6px',
     display: 'block'
   };
 
   return (
-    <div style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+    <div className="space-y-6 font-sans">
       {/* Chart 1: Composição Atual vs Alvo */}
       {macroComposition.length > 0 && (
-        <div style={{ marginBottom: SECTION_SPACING }}>
+        <div style={{ marginBottom: SECTION_SPACING }} className="w-full">
           <p style={TITLE_STYLE}>COMPOSIÇÃO ATUAL VS. ALVO (%)</p>
-          <div style={{ height: 260 }}>
+          <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={macroComposition} barCategoryGap="30%" margin={{ top: 10, bottom: 40, left: 0, right: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+              <BarChart data={macroComposition} barCategoryGap="25%" margin={{ top: 10, bottom: 20, left: -25, right: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                    dataKey="name" 
-                   tick={{ fontSize: 7, fill: '#333', fontWeight: 'bold' }} 
+                   tick={{ fontSize: 9, fontWeight: 'bold' }} 
                    axisLine={false} 
                    tickLine={false}
                    interval={0}
-                   angle={-35}
+                   angle={-25}
                    textAnchor="end"
-                   height={50}
+                   height={45}
                 />
-                <YAxis tickFormatter={v => `${v}%`} tick={{ fontSize: 7, fill: '#888' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} contentStyle={{ fontSize: 9, borderRadius: 4 }} />
-                <Bar dataKey="Atual (%)" fill="#000" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Alvo (%)" fill="#bbb" radius={[2, 2, 0, 0]} />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: 8, paddingTop: 10 }} verticalAlign="bottom" />
+                <YAxis tickFormatter={v => `${v}%`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} />
+                <Bar dataKey="Atual (%)" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Alvo (%)" fill="var(--color-disabled)" radius={[4, 4, 0, 0]} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: 9, paddingTop: 10 }} verticalAlign="bottom" />
               </BarChart>
             </ResponsiveContainer>
           </div>
           
           {compositionDescription && (
-            <div style={{ marginTop: -20, overflow: 'hidden', wordWrap: 'break-word' }}>
-              <p style={{ fontSize: '10px', color: '#111', lineHeight: '1.5', textAlign: 'justify' }}>{compositionDescription}</p>
+            <div className="mt-4 px-1">
+              <p className="text-xs text-secondary leading-relaxed text-justify">{compositionDescription}</p>
             </div>
           )}
         </div>
@@ -142,54 +184,56 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
 
       {/* Charts 2 & 3: Donuts side by side */}
       {(macroDist.length > 0 || sectorDist.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30, marginBottom: SECTION_SPACING }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full" style={{ marginBottom: SECTION_SPACING }}>
           {macroDist.length > 0 && (
-            <div>
+            <div className="w-full">
               <p style={TITLE_STYLE}>DISTRIBUIÇÃO POR CLASSE</p>
-              <div style={{ height: 200 }}>
+              <div className="h-56 sm:h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 10, bottom: 20, left: 10, right: 10 }}>
+                  <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Pie 
                        data={macroDist} 
                        cx="50%" 
                        cy="45%" 
-                       innerRadius={30} 
-                       outerRadius={50} 
+                       innerRadius={45} 
+                       outerRadius={65} 
                        dataKey="value" 
                        labelLine={false} 
                        label={renderLabel}
                        minAngle={15}
+                       paddingAngle={2}
                     >
-                      {macroDist.map((_, i) => <Cell key={i} fill={BW_PALETTE[i % BW_PALETTE.length]} />)}
+                      {macroDist.map((_, i) => <Cell key={i} fill={chartPalette[i % chartPalette.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 8 }} />
-                    <Legend iconSize={7} wrapperStyle={{ fontSize: 7, paddingTop: 10 }} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: 9, paddingTop: 8 }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
           )}
           {sectorDist.length > 0 && (
-            <div>
+            <div className="w-full">
               <p style={TITLE_STYLE}>DISTRIBUIÇÃO POR SETOR</p>
-              <div style={{ height: 200 }}>
+              <div className="h-56 sm:h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 10, bottom: 20, left: 10, right: 10 }}>
+                  <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Pie 
                        data={sectorDist} 
                        cx="50%" 
                        cy="45%" 
-                       innerRadius={30} 
-                       outerRadius={50} 
+                       innerRadius={45} 
+                       outerRadius={65} 
                        dataKey="value" 
                        labelLine={false} 
                        label={renderLabel}
                        minAngle={15}
+                       paddingAngle={2}
                     >
-                      {sectorDist.map((_, i) => <Cell key={i} fill={BW_PALETTE[i % BW_PALETTE.length]} />)}
+                      {sectorDist.map((_, i) => <Cell key={i} fill={chartPalette[i % chartPalette.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 8 }} />
-                    <Legend iconSize={7} wrapperStyle={{ fontSize: 7, paddingTop: 10 }} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: 9, paddingTop: 8 }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -200,22 +244,22 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
 
       {/* Chart 4: Evolução Patrimonial */}
       {evolutionData.length > 1 && (
-        <div style={{ marginBottom: SECTION_SPACING }}>
+        <div style={{ marginBottom: SECTION_SPACING }} className="w-full">
           <p style={TITLE_STYLE}>EVOLUÇÃO PATRIMONIAL</p>
-          <div style={{ height: 180 }}>
+          <div className="h-56 sm:h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={evolutionData} margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <AreaChart data={evolutionData} margin={{ top: 10, bottom: 10, left: -10, right: 10 }}>
                 <defs>
-                  <linearGradient id="bwGradRpt" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#000" stopOpacity={0.12} />
-                    <stop offset="95%" stopColor="#000" stopOpacity={0} />
+                  <linearGradient id="chartEvolutionGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis dataKey="month" tick={{ fontSize: 7, fill: '#888' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 7, fill: '#888' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 8, borderRadius: 4 }} />
-                <Area type="monotone" dataKey="Patrimônio" stroke="#000" strokeWidth={1.5} fill="url(#bwGradRpt)" dot={{ fill: '#000', r: 2 }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -224,17 +268,17 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
 
       {/* Chart 5: Concentração por Setor (horizontal bars) */}
       {sectorDist.length > 1 && (
-        <div>
+        <div className="w-full">
           <p style={TITLE_STYLE}>CONCENTRAÇÃO POR SETOR</p>
-          <div style={{ height: 200 }}>
+          <div className="h-56 sm:h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sectorDist.slice(0, 6)} layout="vertical" barCategoryGap="20%" margin={{ top: 10, bottom: 10, left: 10, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eee" />
-                <XAxis type="number" tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 7, fill: '#888' }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={85} tick={{ fontSize: 7, fill: '#555', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 8 }} />
-                <Bar dataKey="value" fill="#333" radius={[0, 2, 2, 0]}>
-                  {sectorDist.slice(0, 6).map((_, i) => <Cell key={i} fill={BW_PALETTE[Math.min(i, BW_PALETTE.length - 1)]} />)}
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 9, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {sectorDist.slice(0, 6).map((_, i) => <Cell key={i} fill={chartPalette[i % chartPalette.length]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

@@ -26,8 +26,8 @@ export default function DashboardKpis({
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-secondary tracking-wider uppercase whitespace-nowrap">Rendas</p>
-            <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono truncate">
+            <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Rendas</p>
+            <p className="text-fluid-lg sm:text-fluid-xl font-black text-primary mt-1 font-mono truncate">
               {formatCurrency(totalIncomes)}
             </p>
           </div>
@@ -45,8 +45,8 @@ export default function DashboardKpis({
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-secondary tracking-wider uppercase whitespace-nowrap">Despesas</p>
-            <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono truncate">
+            <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Despesas</p>
+            <p className="text-fluid-lg sm:text-fluid-xl font-black text-primary mt-1 font-mono truncate">
               {formatCurrency(totalExpenses)}
             </p>
           </div>
@@ -64,8 +64,8 @@ export default function DashboardKpis({
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-secondary tracking-wider uppercase whitespace-nowrap">Investimentos</p>
-            <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono truncate">
+            <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Investimentos</p>
+            <p className="text-fluid-lg sm:text-fluid-xl font-black text-primary mt-1 font-mono truncate">
               {formatCurrency(totalInvestments)}
             </p>
           </div>
@@ -85,9 +85,9 @@ export default function DashboardKpis({
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-secondary tracking-wider uppercase whitespace-nowrap">Saldo Líquido</p>
+            <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Saldo Líquido</p>
             <p
-              className={`text-sm xs:text-base sm:text-2xl font-black mt-1 sm:mt-2 font-mono truncate ${
+              className={`text-fluid-lg sm:text-fluid-xl font-black mt-1 font-mono truncate ${
                 isBalancePositive ? 'text-income' : 'text-expense'
               }`}
             >

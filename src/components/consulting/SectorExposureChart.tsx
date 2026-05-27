@@ -26,7 +26,7 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
   return (
     <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-        <PieIcon size={16} className="text-indigo-500" />
+        <PieIcon size={16} className="accent-primary" />
         Exposição Atual por Setor
       </h3>
 
@@ -59,12 +59,6 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
                     const formattedVal = formatCurrency(Number(value))
                     const pctVal = `(${formatNumberBR(props.payload.percentage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)`
                     return [`${formattedVal} ${pctVal}`, 'Alocação']
-                  }}
-                  contentStyle={{
-                    backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
-                    borderColor: 'var(--color-border, rgb(51, 65, 85))',
-                    borderRadius: '12px',
-                    color: 'var(--color-text-primary, rgb(248, 250, 252))'
                   }}
                 />
               </PieChart>

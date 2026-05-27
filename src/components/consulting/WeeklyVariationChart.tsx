@@ -40,7 +40,7 @@ export default function WeeklyVariationChart({ shareHistory }: WeeklyVariationCh
   return (
     <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-        <LineIcon size={16} className="text-indigo-500" />
+        <LineIcon size={16} className="accent-primary" />
         Evolução da Rentabilidade Total dos Ativos
       </h3>
 
@@ -62,16 +62,14 @@ export default function WeeklyVariationChart({ shareHistory }: WeeklyVariationCh
                 </linearGradient>
               </defs>
 
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border, rgb(51, 65, 85))" opacity={0.15} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="date"
-                stroke="var(--color-text-secondary, rgb(148, 163, 184))"
                 fontSize={10}
                 tickFormatter={formatDateLabel}
                 tickLine={false}
               />
               <YAxis
-                stroke="var(--color-text-secondary, rgb(148, 163, 184))"
                 fontSize={10}
                 domain={yDomain}
                 tickFormatter={(value) => `${formatNumberBR(value, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
@@ -80,12 +78,6 @@ export default function WeeklyVariationChart({ shareHistory }: WeeklyVariationCh
               <Tooltip
                 labelFormatter={(label) => `Data: ${formatDateLabel(label)}`}
                 formatter={(value: any) => [`${formatNumberBR(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, 'Rentabilidade Total']}
-                contentStyle={{
-                  backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
-                  borderColor: 'var(--color-border, rgb(51, 65, 85))',
-                  borderRadius: '12px',
-                  color: 'var(--color-text-primary, rgb(248, 250, 252))'
-                }}
               />
               <Area
                 type="monotone"
