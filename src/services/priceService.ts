@@ -30,6 +30,7 @@ const FALLBACK_PRICES: Record<string, number> = {
   HGRU11: 125.40,
   BTC: 345000.00,
   ETH: 18500.00,
+  'USDBRL=X': 5.25,
 }
 
 /**
@@ -135,6 +136,54 @@ async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Resp
   }
 }
 
+interface B3TreasuryPrice {
+  name: string
+  price: number
+  maturityDate: string
+}
+
+let cachedTreasuryPrices: Record<string, B3TreasuryPrice> | null = null
+let lastTreasuryFetchTime = 0
+
+async function fetchB3TreasuryPrices(): Promise<Record<string, B3TreasuryPrice>> {
+  const now = Date.now()
+  if (cachedTreasuryPrices && (now - lastTreasuryFetchTime < 15 * 60 * 1000)) {
+    return cachedTreasuryPrices
+  }
+
+  const url = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json'
+  try {
+    const response = await fetchWithCorsProxy(url)
+    if (!response.ok) throw new Error(`Falha ao buscar preços do Tesouro B3: ${response.status}`)
+    const data = await safeJson(response)
+    const list = data?.response?.TrsrBdTradgList
+    if (!Array.isArray(list)) throw new Error('Estrutura de resposta inválida da API do Tesouro B3')
+
+    const prices: Record<string, B3TreasuryPrice> = {}
+    for (const item of list) {
+      const bd = item.TrsrBd
+      if (!bd || !bd.nm) continue
+      const name = bd.nm.trim().toUpperCase()
+      
+      const price = Number(bd.untrRedVal || bd.untrInvstmtVal || 0)
+      
+      prices[name] = {
+        name: bd.nm,
+        price,
+        maturityDate: bd.mtrtyDt ? bd.mtrtyDt.split('T')[0] : ''
+      }
+    }
+
+    cachedTreasuryPrices = prices
+    lastTreasuryFetchTime = now
+    return prices
+  } catch (err) {
+    console.error('[fetchB3TreasuryPrices] Erro ao carregar preços oficiais do Tesouro Direto B3:', err)
+    return cachedTreasuryPrices || {}
+  }
+}
+
+
 
 /**
  * Busca cotações de uma lista de tickers de forma resiliente.
@@ -210,10 +259,26 @@ export async function getAssetPrices(
 
     const pricesToFetchFromApi: string[] = []
 
+    // Buscar cotações do Tesouro B3 uma única vez em background se houver algum ticker de Tesouro pendente
+    const hasTreasury = missingInCache.some(t =>
+      t.toUpperCase().includes('TESOURO') ||
+      t.toUpperCase().startsWith('LFT') ||
+      t.toUpperCase().startsWith('NTN') ||
+      t.toUpperCase().startsWith('LTN')
+    )
+    if (hasTreasury) {
+      await fetchB3TreasuryPrices()
+    }
+
     // Mapeia o que achou no Supabase e identifica direitos de subscrição
     for (const ticker of missingInCache) {
       const found = supabasePrices.find(p => p.ticker === ticker)
       const isSubscriptionOrRight = isSubscriptionOrRightTicker(ticker)
+
+      const isTreasury = ticker.toUpperCase().includes('TESOURO') ||
+                         ticker.toUpperCase().startsWith('LFT') ||
+                         ticker.toUpperCase().startsWith('NTN') ||
+                         ticker.toUpperCase().startsWith('LTN')
 
       // Se achou no cache e NÃO estamos forçando atualização, aproveita
       if (found && !forceRefresh) {
@@ -247,6 +312,47 @@ export async function getAssetPrices(
         }
         result[ticker] = assetPrice
         memoryPriceCache[ticker] = assetPrice
+      } else if (isTreasury) {
+        // Obter da API B3 do Tesouro Direto (que já foi carregada em cache)
+        let foundPrice = 0
+        const b3Treasury = cachedTreasuryPrices || {}
+        const normTicker = ticker.toUpperCase().replace(/\s+/g, ' ').trim()
+        
+        if (b3Treasury[normTicker]) {
+          foundPrice = b3Treasury[normTicker].price
+        } else {
+          // Match inteligente por palavras-chave
+          const words = normTicker.split(' ').filter(w => w.length > 2)
+          const matched = Object.values(b3Treasury).find(item => {
+            const itemUpper = item.name.toUpperCase()
+            return words.every(w => itemUpper.includes(w))
+          })
+          if (matched) foundPrice = matched.price
+        }
+
+        const price = foundPrice || (found && Number(found.current_price)) || 0
+        const assetPrice: AssetPrice = {
+          ticker,
+          current_price: price,
+          last_updated: now.toISOString(),
+          asset_class: 'Renda Fixa',
+          sector: 'Títulos Públicos/Privados',
+          quotation_status: price > 0 ? 'live' : 'unavailable',
+        }
+        result[ticker] = assetPrice
+        memoryPriceCache[ticker] = assetPrice
+        
+        if (price > 0) {
+          supabase.from('asset_prices').upsert({
+            ticker,
+            current_price: price,
+            asset_class: 'Renda Fixa',
+            sector: 'Títulos Públicos/Privados',
+            last_updated: now.toISOString() as any,
+          }).then(({ error }) => {
+            if (error) console.error('Erro ao salvar preço do Tesouro no Supabase:', error)
+          })
+        }
       } else {
         pricesToFetchFromApi.push(ticker)
       }
@@ -861,3 +967,26 @@ export async function forceRefreshPrices(tickers: string[]): Promise<Record<stri
   clearPriceCache()
   return getAssetPrices(tickers, { forceRefresh: true })
 }
+
+/**
+ * Detecta dinamicamente a moeda de cotação padrão de um ativo a partir de seu ticker.
+ */
+export function detectDefaultCurrency(ticker: string): 'BRL' | 'USD' {
+  const t = ticker.trim().toUpperCase()
+  if (['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOT', 'USDT'].includes(t)) {
+    return 'BRL'
+  }
+  if (isB3TickerPattern(t)) {
+    return 'BRL'
+  }
+  if (['CDI', 'SELIC', 'IPCA', 'TESOURO', 'LCI', 'LCA', 'CDB', 'DEBENTURE', 'CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].some(rf => t.includes(rf))) {
+    return 'BRL'
+  }
+  // Ativos cotados no mercado americano (geralmente 3 ou 4 letras puras, ex: AAPL, VOO)
+  const isUsStock = /^[A-Z]{3,4}$/.test(t)
+  if (isUsStock) {
+    return 'USD'
+  }
+  return 'BRL'
+}
+

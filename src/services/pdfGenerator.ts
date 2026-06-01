@@ -49,7 +49,6 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
     shareHistory, 
     metrics, 
     theses, 
-    cashBalance, 
     groupTargets, 
     executiveSummary, 
     nextMonthPlan, 

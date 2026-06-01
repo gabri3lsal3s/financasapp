@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Upload, Wand2, AlertCircle } from 'lucide-react'
+import { Upload, Wand2, AlertCircle, Sparkles } from 'lucide-react'
 import Button from '@/components/Button'
 import B3ReconciliationGuidance from '@/components/investments/B3ReconciliationGuidance'
 import { formatCurrency } from '@/utils/format'
@@ -28,6 +28,8 @@ interface B3PositionValidationPanelProps {
   onApplyAdjustments: () => void
   applyingAdjustments: boolean
   showNonEquityNote: boolean
+  /** Quando true, não há extrato de movimentação — oculta coluna Mov. e filtra falsos positivos de "Extrato incompleto" */
+  positionOnlyMode?: boolean
 }
 
 const statusLabel = (row: PositionValidationRow): string => {
@@ -56,30 +58,42 @@ export default function B3PositionValidationPanel({
   onApplyAdjustments,
   applyingAdjustments,
   showNonEquityNote,
+  positionOnlyMode = false,
 }: B3PositionValidationPanelProps) {
   const selectedCount = useMemo(
     () => adjustments.filter((a) => selectedAdjustmentTickers.has(a.ticker)).length,
     [adjustments, selectedAdjustmentTickers]
   )
 
+  const visibleRows = useMemo(
+    () =>
+      positionOnlyMode
+        ? (positionValidation?.rows.filter((r) => r.status !== 'movements_official') ?? [])
+        : (positionValidation?.rows ?? []),
+    [positionValidation, positionOnlyMode]
+  )
+
   const mismatchRows = useMemo(
-    () => positionValidation?.rows.filter((r) => r.status !== 'ok') ?? [],
-    [positionValidation]
+    () => visibleRows.filter((r) => r.status !== 'ok'),
+    [visibleRows]
   )
 
   return (
-    <div className="space-y-3 text-left">
+    <div className="space-y-4 text-left animate-page-enter">
+      {/* Visual File Dropzone Panel */}
       <div
         onDragEnter={onPositionDragEnter}
         onDragOver={onPositionDragOver}
         onDragLeave={onPositionDragLeave}
         onDrop={onPositionDrop}
         onClick={() => document.getElementById('b3-position-file-input')?.click()}
-        className={`border border-dashed rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors ${
+        className={`relative overflow-hidden border border-dashed rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4 cursor-pointer backdrop-blur-md transition-all duration-300 ${
           positionDragActive
-            ? 'border-emerald-500 bg-emerald-500/5'
-            : 'border-border/50 bg-card/40 hover:border-emerald-500/40'
-        }`}
+            ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01] shadow-lg shadow-emerald-500/5'
+            : positionFileName
+              ? 'border-emerald-500/30 bg-emerald-500/[0.02] hover:border-emerald-500/50 hover:bg-emerald-500/5'
+              : 'border-primary/30 bg-primary/20 hover:border-emerald-500/40 hover:bg-emerald-500/[0.03]'
+        } group`}
       >
         <input
           id="b3-position-file-input"
@@ -92,68 +106,106 @@ export default function B3PositionValidationPanel({
             if (file) onPositionFileChange(file)
           }}
         />
-        <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-          <Upload size={18} className="text-emerald-600" />
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
+          positionFileName ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/30 text-secondary'
+        } group-hover:scale-105`}>
+          <Upload size={20} className={positionDragActive ? 'animate-bounce' : ''} />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-primary truncate">
-            {positionFileName || 'Relatório de posição atual (.xlsx)'}
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <p className="text-xs font-black text-primary truncate tracking-tight">
+            {positionFileName ? (
+              <span className="text-emerald-500 font-mono">{positionFileName}</span>
+            ) : (
+              'Planilha de Posição de Custódia Oficial (.xlsx)'
+            )}
           </p>
-          <p className="text-[10px] text-secondary">Exporte em Investimentos → Posição na B3/XP</p>
+          <p className="text-[10px] text-secondary mt-0.5">
+            {positionFileName 
+              ? 'Clique ou arraste outro arquivo para atualizar a validação' 
+              : 'Exporte na área logada da B3 (Investimentos → Posição) ou XP.'}
+          </p>
         </div>
+        {positionFileName && (
+          <span className="absolute top-2 right-2 flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+        )}
       </div>
 
       {positionParseStatus && (
-        <p className="text-[11px] text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+        <p className="text-[11px] text-amber-500 bg-amber-500/5 border border-amber-500/15 rounded-xl px-4 py-2.5">
           {positionParseStatus}
         </p>
       )}
 
       {positionValidation && (
         <>
-          {positionValidation.allOk ? (
-            <B3ReconciliationGuidance title="Posição conferida" variant="success">
-              Custódia B3, movimentações e livro-razão estão alinhados.
+          {mismatchRows.length === 0 ? (
+            <B3ReconciliationGuidance title="Custódia Auditada e Sincronizada!" variant="success">
+              {positionOnlyMode
+                ? 'Todas as cotas do Livro-Razão coincidem perfeitamente com a custódia oficial B3.'
+                : 'A custódia B3, as movimentações e o livro-razão estão em perfeita harmonia.'}
             </B3ReconciliationGuidance>
           ) : (
-            <B3ReconciliationGuidance title={`${positionValidation.mismatchCount} divergência(s) de cotas`} variant="warning">
-              Use o ajuste automático para igualar o livro-razão à posição oficial B3, ou corrija manualmente nos passos anteriores.
+            <B3ReconciliationGuidance title={`${mismatchRows.length} discrepância(s) de posição detectada(s)`} variant="warning">
+              Há diferenças entre a custódia oficial da B3 e as posições registradas no Livro-Razão. Aplique o ajuste automático abaixo para regularizar.
             </B3ReconciliationGuidance>
           )}
 
-          <div className="overflow-x-auto rounded-xl border border-border/40">
-            <table className="w-full text-[11px]">
+          {/* Premium Audit Grid */}
+          <div className="overflow-x-auto rounded-2xl border border-border/40 bg-card/20 backdrop-blur-md shadow-sm">
+            <table className="w-full text-[11px] border-collapse">
               <thead>
-                <tr className="bg-secondary/40 text-secondary text-[9px] uppercase">
-                  <th className="text-left px-3 py-2 font-bold">Ticker</th>
-                  <th className="text-right px-3 py-2 font-bold">B3</th>
-                  <th className="text-right px-3 py-2 font-bold hidden sm:table-cell">Mov.</th>
-                  <th className="text-right px-3 py-2 font-bold">Sistema</th>
-                  <th className="text-right px-3 py-2 font-bold">Δ</th>
-                  <th className="text-left px-3 py-2 font-bold">Status</th>
+                <tr className="bg-secondary/40 text-secondary text-[9px] uppercase tracking-wider border-b border-border/30">
+                  <th className="text-left px-4 py-3 font-extrabold">Ativo / Ticker</th>
+                  <th className="text-right px-4 py-3 font-extrabold">Custódia B3</th>
+                  {!positionOnlyMode && (
+                    <th className="text-right px-4 py-3 font-extrabold hidden sm:table-cell">Histórico Mov.</th>
+                  )}
+                  <th className="text-right px-4 py-3 font-extrabold">Livro-Razão</th>
+                  <th className="text-right px-4 py-3 font-extrabold">Desvio ($\Delta$)</th>
+                  <th className="text-left px-4 py-3 font-extrabold">Parecer</th>
                 </tr>
               </thead>
-              <tbody className="font-mono divide-y divide-border/30">
-                {positionValidation.rows.map((row) => {
+              <tbody className="font-mono divide-y divide-border/20">
+                {visibleRows.map((row) => {
                   const delta = row.official - row.system
                   const isOk = row.status === 'ok'
                   return (
-                    <tr key={row.ticker} className={isOk ? '' : 'bg-amber-500/[0.04]'}>
-                      <td className="px-3 py-1.5 font-bold text-primary">{row.ticker}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{row.official}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums hidden sm:table-cell">{row.fromMovements}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{row.system}</td>
+                    <tr 
+                      key={row.ticker} 
+                      className={`transition-colors duration-200 hover:bg-primary/5 ${
+                        isOk ? '' : 'bg-amber-500/[0.02]'
+                      }`}
+                    >
+                      <td className="px-4 py-2.5 font-bold text-primary text-xs tracking-wide">
+                        {row.ticker}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
+                        {row.official}
+                      </td>
+                      {!positionOnlyMode && (
+                        <td className="px-4 py-2.5 text-right text-secondary/80 tabular-nums hidden sm:table-cell">
+                          {row.fromMovements}
+                        </td>
+                      )}
+                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
+                        {row.system}
+                      </td>
                       <td
-                        className={`px-3 py-1.5 text-right tabular-nums font-bold ${
-                          isOk ? 'text-secondary' : delta > 0 ? 'text-emerald-600' : 'text-red-500'
+                        className={`px-4 py-2.5 text-right tabular-nums font-black ${
+                          isOk ? 'text-secondary/60' : delta > 0 ? 'text-emerald-500' : 'text-red-500'
                         }`}
                       >
                         {isOk ? '—' : `${delta > 0 ? '+' : ''}${delta}`}
                       </td>
-                      <td className="px-3 py-1.5">
+                      <td className="px-4 py-2.5">
                         <span
-                          className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded whitespace-nowrap ${
-                            isOk ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
+                          className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
+                            isOk 
+                              ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/10' 
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/10'
                           }`}
                         >
                           {statusLabel(row)}
@@ -166,71 +218,94 @@ export default function B3PositionValidationPanel({
             </table>
           </div>
 
+          {/* Magical Automatic Adjustments Panel */}
           {adjustments.length > 0 && (
-            <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/5 p-3 space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.03] backdrop-blur-md p-4 space-y-3 hover:shadow-lg hover:shadow-indigo-500/5 group transition-all duration-300">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-500/15 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Wand2 size={16} className="text-indigo-500" />
-                  <p className="text-xs font-bold text-primary">Ajuste automático (posição B3)</p>
+                  <Sparkles size={16} className="text-indigo-400 animate-pulse" />
+                  <p className="text-xs font-black text-primary uppercase tracking-tight">
+                    Central de Ajuste Mágico (Custódia B3)
+                  </p>
                 </div>
-                <label className="flex items-center gap-1.5 text-[10px] text-secondary cursor-pointer">
+                <label className="flex items-center gap-2 text-[10px] font-bold text-secondary cursor-pointer hover:text-primary transition-colors">
                   <input
                     type="checkbox"
-                    className="rounded border-primary"
+                    className="h-3.5 w-3.5 rounded border-indigo-500/30 bg-primary text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 focus:outline-none cursor-pointer"
                     checked={selectedCount === adjustments.length}
                     onChange={(e) => onSelectAllAdjustments(e.target.checked)}
                   />
-                  Selecionar todos
+                  Selecionar Todos os Ajustes
                 </label>
               </div>
+              
               <p className="text-[10px] text-secondary leading-relaxed">
-                Serão criados lançamentos de compra/venda para igualar o livro-razão à custódia oficial. Preço estimado pelo último negócio do ativo.
+                Recomendamos efetuar os lançamentos abaixo para sincronizar seu livro-razão com a custódia B3 de forma instantânea. 
+                Os preços unitários foram obtidos da planilha de posição ou da última cotação conhecida.
               </p>
-              <ul className="space-y-1.5 max-h-40 overflow-y-auto">
-                {adjustments.map((adj) => (
-                  <li
-                    key={adj.ticker}
-                    className="flex items-start gap-2 text-[11px] bg-card/80 border border-border/30 rounded-lg px-2.5 py-2"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 rounded border-primary"
-                      checked={selectedAdjustmentTickers.has(adj.ticker)}
-                      onChange={() => onToggleAdjustment(adj.ticker)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="font-mono font-bold text-primary">{adj.ticker}</span>
-                      <span className="text-secondary"> — {adj.label}</span>
-                      <p className="text-[9px] text-secondary mt-0.5">
-                        {portfolioOperationLabel(adj.operation_type)} · {adj.quantity} un ·{' '}
-                        {formatCurrency(adj.price)} · {adj.date}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+              
+              <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {adjustments.map((adj) => {
+                  const isChecked = selectedAdjustmentTickers.has(adj.ticker)
+                  return (
+                    <li
+                      key={adj.ticker}
+                      onClick={() => onToggleAdjustment(adj.ticker)}
+                      className={`flex items-start gap-3 text-[11px] border rounded-xl px-3.5 py-2.5 cursor-pointer transition-all duration-200 ${
+                        isChecked
+                          ? 'border-indigo-500/30 bg-indigo-500/[0.04] shadow-sm'
+                          : 'border-border/30 bg-card/40 hover:border-indigo-500/20'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-primary bg-primary text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 focus:outline-none cursor-pointer shrink-0"
+                        checked={isChecked}
+                        readOnly
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-primary text-xs">{adj.ticker}</span>
+                          <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded-md ${
+                            adj.operation_type === 'buy' 
+                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/10'
+                              : 'bg-red-500/10 text-red-500 border border-red-500/10'
+                          }`}>
+                            {adj.operation_type === 'buy' ? 'Aporte de Ajuste' : 'Retirada de Ajuste'}
+                          </span>
+                        </div>
+                        <p className="text-[9.5px] text-secondary mt-1 font-mono">
+                          {portfolioOperationLabel(adj.operation_type)} de <strong className="text-primary font-bold">{adj.quantity}</strong> un a <strong className="text-primary font-bold">{formatCurrency(adj.price)}</strong> em <span className="underline">{adj.date}</span>.
+                        </p>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                disabled={applyingAdjustments || selectedCount === 0}
-                onClick={onApplyAdjustments}
-                className="w-full sm:w-auto font-bold gap-1.5"
-              >
-                <Wand2 size={14} />
-                {applyingAdjustments
-                  ? 'Aplicando...'
-                  : `Corrigir ${selectedCount} posição(ões) automaticamente`}
-              </Button>
+              
+              <div className="pt-2 border-t border-indigo-500/10 flex justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={applyingAdjustments || selectedCount === 0}
+                  onClick={onApplyAdjustments}
+                  className="w-full sm:w-auto font-bold gap-1.5 shadow-md shadow-indigo-500/10 group-hover:scale-102"
+                >
+                  <Wand2 size={13} className="group-hover:rotate-12 transition-transform duration-300" />
+                  {applyingAdjustments
+                    ? 'Auditando e gravando...'
+                    : `Aplicar ${selectedCount} Ajuste(s) Automático(s)`}
+                </Button>
+              </div>
             </div>
           )}
 
-          {mismatchRows.some((r) => r.status === 'movements_official') && (
-            <div className="flex gap-2 text-[10px] text-secondary bg-primary/15 rounded-lg px-3 py-2 border border-border/30">
-              <AlertCircle size={14} className="shrink-0 text-amber-500 mt-0.5" />
-              <span>
-                Tickers com &quot;Extrato incompleto&quot;: o livro-razão já bate com a B3, mas o arquivo de movimentação
-                não reproduz a posição — reimporte um extrato mais longo.
+          {!positionOnlyMode && mismatchRows.some((r) => r.status === 'movements_official') && (
+            <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-3 border border-border/30 items-start">
+              <AlertCircle size={15} className="shrink-0 text-amber-500 mt-0.5 animate-pulse" />
+              <span className="leading-relaxed">
+                <strong>Observação de Auditoria:</strong> Alguns ativos exibem a marcação &quot;Extrato incompleto&quot;. Isso indica que as quantidades finais no livro-razão coincidem com a B3, mas a planilha de movimentações carregada não possui histórico suficiente para justificar a evolução do saldo.
               </span>
             </div>
           )}
@@ -238,7 +313,9 @@ export default function B3PositionValidationPanel({
       )}
 
       {showNonEquityNote && (
-        <p className="text-[10px] text-secondary italic">Tesouro e renda fixa lidos apenas para referência.</p>
+        <p className="text-[9.5px] text-secondary/60 italic text-right">
+          * Ativos de Renda Fixa e Tesouro Direto lidos apenas para mapeamento cadastral.
+        </p>
       )}
     </div>
   )

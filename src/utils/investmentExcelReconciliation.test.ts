@@ -50,6 +50,13 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(classifyB3Movement('Cessão de Direitos')).toBe('ignore')
       expect(classifyB3Movement('Direito de Subscrição')).toBe('ignore')
       expect(classifyB3Movement('Direitos de Subscrição - Não Exercido')).toBe('ignore')
+      
+      // Renda Fixa e Tesouro
+      expect(classifyB3Movement('Aplicação')).toBe('trade')
+      expect(classifyB3Movement('Resgate')).toBe('trade')
+      expect(classifyB3Movement('Vencimento')).toBe('trade')
+      expect(classifyB3Movement('Pagamento de Juros')).toBe('income')
+      expect(classifyB3Movement('Amortização')).toBe('income')
     })
 
     it('identifica ticker temporário de direito FII (XXXX12)', () => {
@@ -100,6 +107,12 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(mapB3OperationType('Grupamento')).toBe('reverse_split')
     })
 
+    it('should map Renda Fixa operations', () => {
+      expect(mapB3OperationType('Aplicação')).toBe('buy')
+      expect(mapB3OperationType('Resgate')).toBe('sell')
+      expect(mapB3OperationType('Vencimento')).toBe('sell')
+      expect(mapB3OperationType('Pagamento de Juros')).toBe('dividend')
+    })
   })
 
   describe('parseNumericValue', () => {
@@ -208,6 +221,30 @@ describe('B3 Investment Reconciliation Utilities', () => {
       const score = scoreInvestmentMatch(official, existing)
       expect(score).toBeGreaterThan(0.85)
       expect(score).toBeLessThan(1)
+    })
+
+    it('should match CDBs by keyword matching for Renda Fixa', () => {
+      const official = baseItem({
+        id: '1',
+        ticker: 'CDB - BANCO MASTER - POS',
+        product_name: 'CDB BANCO MASTER',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 1000,
+        total_value: 1000,
+      })
+      const existing: PortfolioTransaction = {
+        id: 'a',
+        portfolio_id: 'p1',
+        ticker: 'CDB BANCO MASTER 120% CDI',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 1000,
+        date: '2026-05-20',
+        created_at: '',
+      }
+      const score = scoreInvestmentMatch(official, existing)
+      expect(score).toBeGreaterThan(0.9)
     })
   })
 
@@ -413,6 +450,17 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(suggestions[0]?.ticker).toBe('BBAS3')
       expect(suggestions[0]?.operation_type).toBe('buy')
       expect(suggestions[0]?.quantity).toBe(5)
+    })
+
+    it('suggestPositionAdjustments ignora Renda Fixa privada', () => {
+      const validation = buildPositionValidation(
+        { 'CDB - BANCO MASTER': 1000, 'PETR4': 100 },
+        { 'CDB - BANCO MASTER': 1000, 'PETR4': 100 },
+        { 'CDB - BANCO MASTER': 800, 'PETR4': 80 }
+      )
+      const suggestions = suggestPositionAdjustments(validation, [], [])
+      expect(suggestions).toHaveLength(1)
+      expect(suggestions[0]?.ticker).toBe('PETR4') // Apenas Renda Variável proposta para ajuste
     })
   })
 })

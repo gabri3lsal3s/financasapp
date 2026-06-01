@@ -7,7 +7,7 @@ import type {
 import { buildPortfolioLedger, type PositionLedgerEntry } from '@/utils/portfolioLedger'
 import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { calculateGrossAndNetYield } from '@/utils/incomeTaxInvestment'
-import { isB3TickerPattern } from '@/services/priceService'
+import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
 
 export type ValuationSource = 'market' | 'fixed_income' | 'manual' | 'hybrid' | 'cash' | 'unavailable'
 
@@ -31,6 +31,8 @@ export interface ValuedPosition {
   gross_yield_pct: number
   net_yield_pct: number
   accumulated_dividends: number
+  currency: 'BRL' | 'USD'
+  usd_rate?: number
 }
 
 type PositionLedger = PositionLedgerEntry
@@ -57,6 +59,7 @@ function defaultDefinition(ticker: string): PortfolioAssetDefinition {
     application_date: null,
     created_at: '',
     updated_at: '',
+    currency: detectDefaultCurrency(upper),
   }
 }
 
@@ -196,6 +199,11 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     fallbackPrice = () => 0,
   } = input
 
+  const usdPriceObj = prices['USDBRL=X']
+  const usdCoeff = usdPriceObj?.current_price && usdPriceObj.current_price > 0
+    ? usdPriceObj.current_price
+    : 5.25
+
   const ledgerMap = buildPositionLedger(transactions)
   const definitionMap = Object.fromEntries(
     definitions.map((d) => [d.ticker.toUpperCase().trim(), d])
@@ -235,6 +243,8 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
         pricing_mode: 'cash'
       }
     }
+
+    const currency = definition.currency || detectDefaultCurrency(trimmedTicker)
 
     const priceObj = prices[ticker]
     const target = targets.find((t) => t.ticker.toUpperCase() === ticker)
@@ -306,10 +316,12 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
             pricingMode: definition.pricing_mode,
           })
 
+    const valueBrl = currency === 'USD' ? currentValue * usdCoeff : currentValue
+
     if (definition.pricing_mode === 'cash') {
-      cashFromPositions += currentValue
+      cashFromPositions += valueBrl
     } else {
-      investedValue += currentValue
+      investedValue += valueBrl
     }
 
     const isCash = definition.pricing_mode === 'cash'
@@ -335,6 +347,8 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
       gross_yield_pct: taxResult.grossYieldPct,
       net_yield_pct: taxResult.netYieldPct,
       accumulated_dividends: Math.round(ledger.accumulatedDividends * 100) / 100,
+      currency,
+      usd_rate: usdCoeff,
     })
   }
 
@@ -343,8 +357,10 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
   const totalValue = investedValue + cashValue
 
   const positions: ValuedPosition[] = tempPositions.map((pos) => {
-    const currentPercentage = totalValue > 0 ? (pos.total_value / totalValue) * 100 : 0
-    const targetValue = (pos.target_percentage / 100) * totalValue
+    const valueInBrl = pos.currency === 'USD' ? pos.total_value * usdCoeff : pos.total_value
+    const currentPercentage = totalValue > 0 ? (valueInBrl / totalValue) * 100 : 0
+    const targetValueBrl = (pos.target_percentage / 100) * totalValue
+    const targetValue = pos.currency === 'USD' ? targetValueBrl / usdCoeff : targetValueBrl
     const gapFinancial = targetValue - pos.total_value
 
     return {

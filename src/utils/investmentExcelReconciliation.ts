@@ -41,7 +41,7 @@ export function classifyB3Item(ticker: string, productName?: string): B3AssetCat
 
   const fixedPrefixes = ['CDB', 'LCI', 'LCA', 'CRI', 'CRA', 'CCB']
   for (const pfx of fixedPrefixes) {
-    if (t === pfx || t.startsWith(pfx + '-') || t.startsWith(pfx + ' ')) return 'fixedIncome'
+    if (t === pfx || t.startsWith(pfx + '-') || t.startsWith(pfx + ' ') || t.startsWith(pfx)) return 'fixedIncome'
   }
   const fixedKeywords = ['DEBENTURE', 'LETRA DE CR', 'LETRA FINANCEIRA', 'CERTIFICADO DE DEP']
   for (const kw of fixedKeywords) {
@@ -69,6 +69,25 @@ export function classifyB3Movement(rawMov: string): B3MovementCategory {
 
   if (m.includes('desdobro') || m.includes('grupamento') || m.includes('bonificacao')) return 'corporate'
 
+  // Movimentações de Renda Fixa e Tesouro Direto
+  if (
+    m.includes('aplicacao') ||
+    m.includes('aplicação') ||
+    m.includes('resgate') ||
+    m.includes('vencimento')
+  ) {
+    return 'trade'
+  }
+
+  if (
+    m.includes('pagamento de juros') ||
+    m.includes('juros') ||
+    m.includes('amortizacao') ||
+    m.includes('amortização')
+  ) {
+    return 'income'
+  }
+
   // Direitos / oferta de cotas / subscrição: ativos temporários — não entram no livro-razão via conciliação
   if (m.includes('nao exercido')) return 'ignore'
   if (m.includes('subscricao') || m.includes('direito de subscricao') || m.includes('direitos de subscricao')) {
@@ -84,12 +103,8 @@ export function classifyB3Movement(rawMov: string): B3MovementCategory {
     m.includes('atualizacao') ||
     m.includes('leilao') ||
     m.includes('fracao em ativos') ||
-    m.includes('resgate') ||
-    m.includes('vencimento') ||
-    m.includes('aplicacao') ||
     m.includes('reembolso') ||
-    m.includes('retirada de custodia') ||
-    m.includes('pagamento de juros')
+    m.includes('retirada de custodia')
   ) {
     return 'ignore'
   }
@@ -248,7 +263,20 @@ export const parseB3Product = (rawProduct: string) => {
     ticker = ticker.slice(0, -1)
   }
 
-  return { ticker: ticker.toUpperCase(), name }
+  let finalTicker = ticker.toUpperCase()
+  if (finalTicker.length > 12 && finalTicker.includes('TESOURO')) {
+    let type = 'PRE'
+    if (finalTicker.includes('SELIC')) type = 'SELIC'
+    else if (finalTicker.includes('IPCA')) type = 'IPCA'
+    const yearMatch = finalTicker.match(/\b(20[2-5][0-9])\b/)
+    const yearSuffix = yearMatch ? yearMatch[1].slice(-2) : ''
+    finalTicker = `TES ${type} ${yearSuffix}`.trim()
+  }
+  if (finalTicker.length > 50) {
+    finalTicker = finalTicker.slice(0, 50).trim()
+  }
+
+  return { ticker: finalTicker, name }
 }
 
 export const mapB3OperationType = (
@@ -262,6 +290,18 @@ export const mapB3OperationType = (
   if (mov.includes('juros sobre capital')) return 'jcp'
   if (mov.includes('dividendo')) return 'dividend'
   if (mov.includes('rendimento')) return 'fii_yield'
+
+  if (mov.includes('pagamento de juros') || mov.includes('juros') || mov.includes('amortizacao') || mov.includes('amortização')) {
+    return 'dividend'
+  }
+
+  if (mov.includes('aplicacao') || mov.includes('aplicação')) {
+    return 'buy'
+  }
+
+  if (mov.includes('resgate') || mov.includes('vencimento')) {
+    return 'sell'
+  }
 
   if (mov.includes('grupamento')) return 'reverse_split'
   if (mov.includes('desdobro')) return 'split'
@@ -556,7 +596,29 @@ const operationTypesCompatible = (
 }
 
 export const scoreInvestmentMatch = (official: B3TransactionItem, existing: PortfolioTransaction): number => {
-  if (official.ticker.toUpperCase() !== existing.ticker.toUpperCase()) return 0
+  const isOfficialFixed = classifyB3Item(official.ticker, official.product_name) === 'fixedIncome'
+  const isExistingFixed = existing.ticker.toUpperCase().includes('CDB') ||
+                          existing.ticker.toUpperCase().includes('LCI') ||
+                          existing.ticker.toUpperCase().includes('LCA') ||
+                          existing.ticker.toUpperCase().includes('CRI') ||
+                          existing.ticker.toUpperCase().includes('CRA') ||
+                          existing.ticker.toUpperCase().includes('DEBENTURE')
+
+  let tickerMatch = official.ticker.toUpperCase() === existing.ticker.toUpperCase()
+
+  if (!tickerMatch && (isOfficialFixed || isExistingFixed)) {
+    const cleanStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, ' ').toUpperCase()
+    const wordsOfficial = cleanStr(official.ticker + ' ' + (official.product_name || '')).split(/\s+/).filter(w => w.length > 2)
+    const wordsExisting = cleanStr(existing.ticker).split(/\s+/).filter(w => w.length > 2)
+
+    const common = wordsOfficial.filter((w, idx) => wordsExisting.includes(w) && wordsOfficial.indexOf(w) === idx)
+    const minWords = Math.min(wordsOfficial.length, wordsExisting.length)
+    if (common.length >= 3 || (minWords > 0 && common.length / minWords >= 0.6)) {
+      tickerMatch = true
+    }
+  }
+
+  if (!tickerMatch) return 0
   if (!operationTypesCompatible(official.operation_type, existing.operation_type)) return 0
 
   const incomeTypeMismatch =
@@ -771,6 +833,11 @@ export function suggestPositionAdjustments(
 
   return validation.rows
     .filter((row) => !qtyEqual(row.official, row.system))
+    .filter((row) => {
+      // Ignorar Renda Fixa Privada na sugestão automática de ajustes de quantidade/cotas
+      const category = classifyB3Item(row.ticker)
+      return category !== 'fixedIncome'
+    })
     .map((row) => {
       const delta = row.official - row.system
       const operation_type = delta > 0 ? ('buy' as const) : ('sell' as const)

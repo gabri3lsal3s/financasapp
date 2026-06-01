@@ -63,6 +63,16 @@ export function formatCurrency(value: number): string {
   })
 }
 
+export function formatCurrencyByCode(value: number, currency: 'BRL' | 'USD' = 'BRL'): string {
+  if (currency === 'USD') {
+    return formatNumberBR(value, {
+      style: 'currency',
+      currency: 'USD',
+    })
+  }
+  return formatCurrency(value)
+}
+
 export function formatNumberBR(value: number, options: Intl.NumberFormatOptions = {}): string {
   const numericValue = Number(value)
   const safeValue = Number.isFinite(numericValue) ? numericValue : 0

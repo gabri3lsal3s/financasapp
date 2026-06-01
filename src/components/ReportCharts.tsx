@@ -116,7 +116,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
   const animProps = useMemo(() => ({
     isAnimationActive: true,
     animationDuration: visualStyle === 'cyberpunk' ? 1200 : 700,
-    animationEasing: visualStyle === 'cyberpunk' ? 'cubic-bezier(0.34, 1.56, 0.64, 1)' : 'ease-out'
+    animationEasing: (visualStyle === 'cyberpunk' ? 'cubic-bezier(0.34, 1.56, 0.64, 1)' : 'ease-out') as any
   }), [visualStyle]);
 
   // Renderizador de percentual nas fatias (adaptável para contraste de temas)

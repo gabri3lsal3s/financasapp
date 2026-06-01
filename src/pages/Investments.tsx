@@ -4,7 +4,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatCurrencyByCode } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -450,8 +450,14 @@ export default function Investments() {
             {/* Cards de KPIs da Consultoria */}
             {(() => {
               const nonCashPositions = portfolioData.positions.filter(p => p.pricing_mode !== 'cash')
-              const totalCost = nonCashPositions.reduce((sum, p) => sum + p.cost_basis, 0)
-              const totalCurrent = nonCashPositions.reduce((sum, p) => sum + p.total_value, 0)
+              const totalCost = nonCashPositions.reduce((sum, p) => {
+                const rate = p.usd_rate || 5.25
+                return sum + (p.currency === 'USD' ? p.cost_basis * rate : p.cost_basis)
+              }, 0)
+              const totalCurrent = nonCashPositions.reduce((sum, p) => {
+                const rate = p.usd_rate || 5.25
+                return sum + (p.currency === 'USD' ? p.total_value * rate : p.total_value)
+              }, 0)
               const consolidatedYield = totalCost > 0 ? ((totalCurrent - totalCost) / totalCost) * 100 : 0
               const consolidatedGain = totalCurrent - totalCost
               const isPositive = consolidatedYield >= 0
@@ -795,7 +801,7 @@ export default function Investments() {
                                      </div>
                                    ) : (
                                      <div className="group flex items-center justify-end gap-1 select-none">
-                                       <span className="font-mono">{formatCurrency(pos.current_price)}</span>
+                                       <span className="font-mono">{formatCurrencyByCode(pos.current_price, pos.currency)}</span>
                                        {pos.pricing_mode === 'market' && (
                                          <button
                                            type="button"
@@ -812,7 +818,7 @@ export default function Investments() {
                                      </div>
                                    )}
                                  </td>
-                                <td className="p-3 text-right text-primary font-semibold">{formatCurrency(pos.total_value)}</td>
+                                <td className="p-3 text-right text-primary font-semibold">{formatCurrencyByCode(pos.total_value, pos.currency)}</td>
                                 <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
                                   {`${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
                                 </td>
@@ -883,7 +889,7 @@ export default function Investments() {
                                 <div className="flex items-center gap-3 text-right">
                                   <div>
                                     <span className="text-xs font-black text-primary font-mono block leading-tight">
-                                      {formatCurrency(pos.total_value)}
+                                      {formatCurrencyByCode(pos.total_value, pos.currency)}
                                     </span>
                                     <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
                                       {isGrossPositive ? '+' : ''}{pos.gross_yield_pct.toFixed(2)}%
@@ -946,7 +952,7 @@ export default function Investments() {
                                       ) : (
                                         <div className="flex items-center gap-1 mt-0.5">
                                           <span className="text-xs font-bold text-primary font-mono">
-                                            {formatCurrency(pos.current_price)}
+                                            {formatCurrencyByCode(pos.current_price, pos.currency)}
                                           </span>
                                           {pos.pricing_mode === 'market' && (
                                             <button
@@ -967,7 +973,7 @@ export default function Investments() {
                                     <div className="col-span-2">
                                       <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
                                       <span className="text-xs font-bold text-primary font-mono">
-                                        {formatCurrency(pos.cost_basis)}
+                                        {formatCurrencyByCode(pos.cost_basis, pos.currency)}
                                       </span>
                                     </div>
                                     

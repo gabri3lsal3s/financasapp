@@ -8,4 +8,4 @@ export const PORTFOLIO_PRICING_MODE_OPTIONS: { value: PortfolioPricingMode; labe
 ]
 
 export const ASSET_DEFINITION_SELECT =
-  'id, portfolio_id, ticker, pricing_mode, is_b3_linked, applied_amount, contract_rate, indexer, indexer_percent, maturity_date, manual_current_value, manual_value_updated_at, tax_exempt, is_treasury, application_date, created_at, updated_at'
+  'id, portfolio_id, ticker, pricing_mode, is_b3_linked, applied_amount, contract_rate, indexer, indexer_percent, maturity_date, manual_current_value, manual_value_updated_at, tax_exempt, is_treasury, application_date, created_at, updated_at, currency'

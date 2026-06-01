@@ -2,6 +2,7 @@ import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarge
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
 import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { detectDefaultCurrency } from '@/services/priceService'
 
 export type AssetPosition = ValuedPosition
 
@@ -94,6 +95,18 @@ export function calculateShareHistory(
     return 'market'
   }
 
+  const getAssetCurrency = (ticker: string): 'BRL' | 'USD' => {
+    const upper = ticker.toUpperCase()
+    const def = definitions.find(d => d.ticker.toUpperCase() === upper)
+    if (def?.currency) return def.currency
+    return detectDefaultCurrency(ticker)
+  }
+
+  const usdPriceObj = prices['USDBRL=X']
+  const usdCoeff = usdPriceObj?.current_price && usdPriceObj.current_price > 0
+    ? usdPriceObj.current_price
+    : 5.25
+
   const todayStr = new Date().toISOString().split('T')[0]
 
   // Função interna robusta para estimar o preço de um ativo em qualquer data histórica
@@ -162,6 +175,7 @@ export function calculateShareHistory(
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
       const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
       const pricingMode = getPricingMode(ticker)
+      let val = 0
 
       if (pricingMode === 'fixed_income') {
         const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
@@ -183,7 +197,7 @@ export function calculateShareHistory(
         }
 
         const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-        const val = principal > 0 ? calculateFixedIncomeValue({
+        val = principal > 0 ? calculateFixedIncomeValue({
           principal,
           contractRateAnnual: def?.contract_rate ?? null,
           indexer: def?.indexer || 'none',
@@ -192,15 +206,17 @@ export function calculateShareHistory(
           asOfDate: date,
           indexRates,
         }) : 0
-        assetsValueBefore += val
       } else if (pricingMode === 'manual_value') {
-        assetsValueBefore += qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
+        val = qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
-        assetsValueBefore += qty * 1.00
+        val = qty * 1.00
       } else {
         const assetPrice = getInterpolatedPrice(ticker, date)
-        assetsValueBefore += qty * assetPrice
+        val = qty * assetPrice
       }
+      
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      assetsValueBefore += isUsd ? val * usdCoeff : val
     }
     const totalValueBefore = assetsValueBefore + currentCash
 
@@ -216,22 +232,24 @@ export function calculateShareHistory(
       const qty = Number(tx.quantity)
       const price = Number(tx.price)
       const amount = qty * price
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      const amountBrl = isUsd ? amount * usdCoeff : amount
       const pricingMode = getPricingMode(ticker)
 
       if (tx.operation_type === 'buy') {
-        currentCash -= amount
-        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amount : qty)
+        currentCash -= amountBrl
+        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amountBrl : qty)
         if (currentCash < 0) {
           netCapitalFlow += Math.abs(currentCash)
           currentCash = 0
         }
       } else if (tx.operation_type === 'sell') {
-        currentCash += amount
+        currentCash += amountBrl
         if (currentPortfolio[ticker]) {
-          currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - (pricingMode === 'cash' ? amount : qty))
+          currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - (pricingMode === 'cash' ? amountBrl : qty))
         }
       } else if (isPortfolioIncomeType(tx.operation_type)) {
-        currentCash += amount
+        currentCash += amountBrl
       } else if (tx.operation_type === 'split') {
         currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + qty
       } else if (tx.operation_type === 'reverse_split') {
@@ -239,8 +257,8 @@ export function calculateShareHistory(
           currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - qty)
         }
       } else if (tx.operation_type === 'subscription') {
-        currentCash -= amount
-        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amount : qty)
+        currentCash -= amountBrl
+        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amountBrl : qty)
         if (currentCash < 0) {
           netCapitalFlow += Math.abs(currentCash)
           currentCash = 0
@@ -264,6 +282,7 @@ export function calculateShareHistory(
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
       const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
       const pricingMode = getPricingMode(ticker)
+      let val = 0
 
       if (pricingMode === 'fixed_income') {
         const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
@@ -285,7 +304,7 @@ export function calculateShareHistory(
         }
 
         const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-        const val = principal > 0 ? calculateFixedIncomeValue({
+        val = principal > 0 ? calculateFixedIncomeValue({
           principal,
           contractRateAnnual: def?.contract_rate ?? null,
           indexer: def?.indexer || 'none',
@@ -294,15 +313,17 @@ export function calculateShareHistory(
           asOfDate: date,
           indexRates,
         }) : 0
-        assetsValueAfter += val
       } else if (pricingMode === 'manual_value') {
-        assetsValueAfter += qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
+        val = qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
-        assetsValueAfter += qty * 1.00
+        val = qty * 1.00
       } else {
         const assetPrice = getInterpolatedPrice(ticker, date)
-        assetsValueAfter += qty * assetPrice
+        val = qty * assetPrice
       }
+      
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      assetsValueAfter += isUsd ? val * usdCoeff : val
     }
     const totalValueAfter = assetsValueAfter + currentCash
     
@@ -321,6 +342,7 @@ export function calculateShareHistory(
   for (const [ticker, qty] of Object.entries(currentPortfolio)) {
     const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
     const pricingMode = getPricingMode(ticker)
+    let val = 0
 
     if (pricingMode === 'fixed_income') {
       const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase())
@@ -342,7 +364,7 @@ export function calculateShareHistory(
       }
 
       const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-      const val = principal > 0 ? calculateFixedIncomeValue({
+      val = principal > 0 ? calculateFixedIncomeValue({
         principal,
         contractRateAnnual: def?.contract_rate ?? null,
         indexer: def?.indexer || 'none',
@@ -351,15 +373,17 @@ export function calculateShareHistory(
         asOfDate: todayStr,
         indexRates,
       }) : 0
-      finalAssetsValue += val
     } else if (pricingMode === 'manual_value') {
-      finalAssetsValue += qty * (def?.manual_current_value ?? (prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)))
+      val = qty * (def?.manual_current_value ?? (prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)))
     } else if (pricingMode === 'cash') {
-      finalAssetsValue += qty * 1.00
+      val = qty * 1.00
     } else {
       const currentPrice = prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)
-      finalAssetsValue += qty * currentPrice
+      val = qty * currentPrice
     }
+    
+    const isUsd = getAssetCurrency(ticker) === 'USD'
+    finalAssetsValue += isUsd ? val * usdCoeff : val
   }
   const finalTotalValue = finalAssetsValue + currentCash
   
@@ -530,11 +554,19 @@ export function calculateConsolidatedByClass(
     }
 
     const grp = groups[className]
-    grp.total_value += pos.total_value
-    grp.cost_basis += pos.cost_basis
+    const usdRate = pos.usd_rate || 5.25
+    const posValBrl = pos.currency === 'USD' ? pos.total_value * usdRate : pos.total_value
+    const posCostBrl = pos.currency === 'USD' ? pos.cost_basis * usdRate : pos.cost_basis
+    const grossGainOriginal = pos.cost_basis > 0 ? (pos.cost_basis * (pos.gross_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    const netGainOriginal = pos.cost_basis > 0 ? (pos.cost_basis * (pos.net_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    const grossGainBrl = pos.currency === 'USD' ? grossGainOriginal * usdRate : grossGainOriginal
+    const netGainBrl = pos.currency === 'USD' ? netGainOriginal * usdRate : netGainOriginal
+
+    grp.total_value += posValBrl
+    grp.cost_basis += posCostBrl
     grp.target_percentage += pos.target_percentage
-    grp.gross_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.gross_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
-    grp.net_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.net_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    grp.gross_gain += grossGainBrl
+    grp.net_gain += netGainBrl
   }
 
   return Object.entries(groups).map(([name, data]) => {
@@ -578,11 +610,19 @@ export function calculateConsolidatedBySector(
     }
 
     const grp = groups[sectorName]
-    grp.total_value += pos.total_value
-    grp.cost_basis += pos.cost_basis
+    const usdRate = pos.usd_rate || 5.25
+    const posValBrl = pos.currency === 'USD' ? pos.total_value * usdRate : pos.total_value
+    const posCostBrl = pos.currency === 'USD' ? pos.cost_basis * usdRate : pos.cost_basis
+    const grossGainOriginal = pos.cost_basis > 0 ? (pos.cost_basis * (pos.gross_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    const netGainOriginal = pos.cost_basis > 0 ? (pos.cost_basis * (pos.net_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    const grossGainBrl = pos.currency === 'USD' ? grossGainOriginal * usdRate : grossGainOriginal
+    const netGainBrl = pos.currency === 'USD' ? netGainOriginal * usdRate : netGainOriginal
+
+    grp.total_value += posValBrl
+    grp.cost_basis += posCostBrl
     grp.target_percentage += pos.target_percentage
-    grp.gross_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.gross_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
-    grp.net_gain += pos.cost_basis > 0 ? (pos.cost_basis * (pos.net_yield_pct / 100)) : (pos.total_value - pos.cost_basis)
+    grp.gross_gain += grossGainBrl
+    grp.net_gain += netGainBrl
   }
 
   return Object.entries(groups).map(([name, data]) => {

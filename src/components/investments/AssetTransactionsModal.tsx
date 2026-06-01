@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrencyByCode } from '@/utils/format'
 import type { PortfolioTransaction, PortfolioOperationType } from '@/types'
 import type { AssetPosition } from '@/services/investmentEngine'
 import PortfolioTransactionFormModal from './PortfolioTransactionFormModal'
@@ -109,11 +109,12 @@ function formatDateBR(dateStr: string): string {
 interface InlineEditFormProps {
   tx: PortfolioTransaction
   portfolioId: string
+  currency?: 'BRL' | 'USD'
   onSaved: () => void
   onCancel: () => void
 }
 
-function InlineEditForm({ tx, portfolioId, onSaved, onCancel }: InlineEditFormProps) {
+function InlineEditForm({ tx, portfolioId, currency, onSaved, onCancel }: InlineEditFormProps) {
   const [operationType, setOperationType] = useState<PortfolioOperationType>(tx.operation_type)
   const [quantity, setQuantity] = useState(String(tx.quantity))
   const [price, setPrice] = useState(String(tx.price))
@@ -236,7 +237,7 @@ function InlineEditForm({ tx, portfolioId, onSaved, onCancel }: InlineEditFormPr
         {quantity && price && parseFloat(quantity) > 0 && parseFloat(price) > 0 && (
           <p className="text-[10px] text-[var(--color-text-secondary)] font-mono mb-2 text-right">
             Total: <span className="font-bold text-[var(--color-text-primary)]">
-              {formatCurrency(parseFloat(quantity) * parseFloat(price))}
+              {formatCurrencyByCode(parseFloat(quantity) * parseFloat(price), currency)}
             </span>
           </p>
         )}
@@ -492,20 +493,20 @@ export default function AssetTransactionsModal({
                 <div className="px-3 py-2.5 text-center bg-[var(--color-bg-secondary)] relative">
                   <div className="absolute right-0 top-[20%] bottom-[20%] w-px bg-[var(--color-border)]" />
                   <p className="text-[9px] uppercase font-bold tracking-widest mb-0.5 text-[var(--color-text-secondary)]">Posição</p>
-                  <p className="font-mono font-black text-sm text-[var(--color-text-primary)]">{formatCurrency(position.total_value)}</p>
+                  <p className="font-mono font-black text-sm text-[var(--color-text-primary)]">{formatCurrencyByCode(position.total_value, position.currency)}</p>
                   <p className="text-[10px] text-[var(--color-text-secondary)]">{position.quantity.toLocaleString('pt-BR')} cotas</p>
                 </div>
                 <div className="px-3 py-2.5 text-center bg-[var(--color-bg-secondary)] relative">
                   <div className="absolute right-0 top-[20%] bottom-[20%] w-px bg-[var(--color-border)]" />
                   <p className="text-[9px] uppercase font-bold tracking-widest mb-0.5 text-[var(--color-text-secondary)]">Resultado</p>
                   <p className={`font-mono font-black text-sm ${gainLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                    {gainLoss >= 0 ? '+' : ''}{formatCurrency(gainLoss)}
+                    {gainLoss >= 0 ? '+' : ''}{formatCurrencyByCode(gainLoss, position.currency)}
                   </p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)]">custo {formatCurrency(position.cost_basis)}</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)]">custo {formatCurrencyByCode(position.cost_basis, position.currency)}</p>
                 </div>
                 <div className="px-3 py-2.5 text-center bg-[var(--color-bg-secondary)]">
                   <p className="text-[9px] uppercase font-bold tracking-widest mb-0.5 text-[var(--color-text-secondary)]">Proventos</p>
-                  <p className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(metrics.totalDivs)}</p>
+                  <p className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">{formatCurrencyByCode(metrics.totalDivs, position.currency)}</p>
                   <p className="text-[10px] text-[var(--color-text-secondary)]">{metrics.divs} evento{metrics.divs !== 1 ? 's' : ''}</p>
                 </div>
               </div>
@@ -604,7 +605,7 @@ export default function AssetTransactionsModal({
                                     {tx.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
                                   </span>
                                   <span className="opacity-40 mx-1">×</span>
-                                  {formatCurrency(tx.price)}
+                                  {formatCurrencyByCode(tx.price, position.currency)}
                                 </p>
                               )}
                             </div>
@@ -619,7 +620,7 @@ export default function AssetTransactionsModal({
                                 }`}>
                                   {tx.operation_type === 'sell' ? '−' :
                                    isPortfolioIncomeType(tx.operation_type) ? '+' : ''}
-                                  {formatCurrency(total)}
+                                  {formatCurrencyByCode(total, position.currency)}
                                 </p>
                                 <p className="text-[9px] text-[var(--color-text-secondary)] uppercase tracking-wide">
                                   total
@@ -685,6 +686,7 @@ export default function AssetTransactionsModal({
                                 key={`edit-${tx.id}`}
                                 tx={tx}
                                 portfolioId={portfolioId}
+                                currency={position.currency}
                                 onSaved={handleInlineSaved}
                                 onCancel={() => setInlineEditId(null)}
                               />

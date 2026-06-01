@@ -6,7 +6,7 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
-import { isB3TickerPattern, searchB3Assets } from '@/services/priceService'
+import { isB3TickerPattern, searchB3Assets, detectDefaultCurrency } from '@/services/priceService'
 import type { PortfolioAssetDefinition, PortfolioPricingMode, PortfolioAssetIndexer } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -51,6 +51,7 @@ export default function AssetDefinitionFormModal({
   const [applicationDate, setApplicationDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [manualCurrentValue, setManualCurrentValue] = useState('')
   const [taxExempt, setTaxExempt] = useState(false)
+  const [currency, setCurrency] = useState<'BRL' | 'USD'>('BRL')
   const [assetTicker, setAssetTicker] = useState(ticker)
   const [suggestions, setSuggestions] = useState<{ ticker: string; name: string }[]>([])
   const [saving, setSaving] = useState(false)
@@ -144,6 +145,7 @@ export default function AssetDefinitionFormModal({
         setApplicationDate(existing.application_date ?? format(new Date(), 'yyyy-MM-dd'))
         setManualCurrentValue(existing.manual_current_value != null ? String(existing.manual_current_value) : '')
         setTaxExempt(existing.tax_exempt)
+        setCurrency(existing.currency || detectDefaultCurrency(upper))
 
         // Classify loaded asset category & subtype
         if (existing.pricing_mode === 'market' && !existing.is_treasury) {
@@ -188,6 +190,7 @@ export default function AssetDefinitionFormModal({
         setApplicationDate(format(new Date(), 'yyyy-MM-dd'))
         setManualCurrentValue('')
         setTaxExempt(false)
+        setCurrency(detectDefaultCurrency(upper))
       }
     }
 
@@ -245,6 +248,7 @@ export default function AssetDefinitionFormModal({
         manual_value_updated_at: pricingMode === 'manual_value' && manualCurrentValue ? new Date().toISOString() : null,
         tax_exempt: pricingMode === 'fixed_income' ? taxExempt : false,
         is_treasury: pricingMode === 'fixed_income' ? isTreasury : false,
+        currency: currency,
         updated_at: new Date().toISOString(),
       }
 
@@ -340,6 +344,17 @@ export default function AssetDefinitionFormModal({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Select
+          label="Moeda de Precificação"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value as 'BRL' | 'USD')}
+          options={[
+            { value: 'BRL', label: 'BRL - Real Brasileiro (R$)' },
+            { value: 'USD', label: 'USD - Dólar Americano ($)' },
+          ]}
+          className="rounded-xl font-semibold text-sm"
+        />
+
         {assetCategory === 'variable' ? (
           <div className="space-y-4 animate-page-enter">
             <div className="relative">
