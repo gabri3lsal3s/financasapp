@@ -121,7 +121,7 @@ describe('valuationEngine', () => {
     expect(result.positions[0].total_value).toBe(450)
   })
 
-  it('inclui cash_balance no patrimônio total', () => {
+  it('inclui cash_balance no patrimônio total, mas não no investido', () => {
     const result = calculatePortfolioValuation({
       transactions: [],
       definitions: [],
@@ -132,6 +132,8 @@ describe('valuationEngine', () => {
     })
 
     expect(result.totalValue).toBe(1500)
+    expect(result.investedValue).toBe(0)
+    expect(result.cashValue).toBe(1500)
   })
 
   it('saldo em caixa não gera rentabilidade', () => {

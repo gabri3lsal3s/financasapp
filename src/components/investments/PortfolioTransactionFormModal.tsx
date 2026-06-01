@@ -21,7 +21,9 @@ import {
   reconcileCashOffsetOnTransactionSave,
   deleteCashOffsetTransactions,
 } from '@/services/cashOffsetService'
+import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 import toast from 'react-hot-toast'
+import { PORTFOLIO_OPERATION_OPTIONS } from '@/utils/portfolioOperations'
 
 interface AssetRichData {
   name: string
@@ -39,13 +41,7 @@ interface PortfolioTransactionFormModalProps {
   zIndexClass?: string
 }
 
-const OPERATION_OPTIONS: { value: PortfolioOperationType; label: string }[] = [
-  { value: 'buy', label: 'Compra' },
-  { value: 'sell', label: 'Venda' },
-  { value: 'dividend', label: 'Provento/Div' },
-  { value: 'split', label: 'Desdobrar' },
-  { value: 'subscription', label: 'Subscrição' },
-]
+const OPERATION_OPTIONS = PORTFOLIO_OPERATION_OPTIONS
 
 function resetPricingFields(setters: {
   setPricingMode: (v: PortfolioPricingMode) => void
@@ -301,6 +297,16 @@ export default function PortfolioTransactionFormModal({
   })
 
   const isAmountBased = pricingMode !== 'market'
+  const isCorporateAction =
+    operationType === 'split' || operationType === 'reverse_split'
+
+  const quantityFieldLabel = useMemo(() => {
+    if (operationType === 'split') return 'Cotas creditadas'
+    if (operationType === 'reverse_split') return 'Cotas canceladas'
+    if (pricingMode === 'market') return 'Quantidade'
+    if (pricingMode === 'cash') return 'Valor (R$)'
+    return 'Valor aplicado (R$)'
+  }, [operationType, pricingMode])
 
   const purchaseAmount = useMemo(() => {
     const qty = isAmountBased ? 1 : parseFloat(quantity)
@@ -360,7 +366,13 @@ export default function PortfolioTransactionFormModal({
 
       if (!tickerUpper) throw new Error('Insira o ticker')
       if (isNaN(qty) || qty <= 0) throw new Error('Quantidade inválida')
-      if (isNaN(unitPrice) || unitPrice <= 0) throw new Error('Preço inválido')
+      const isCorporateAction = operationType === 'split' || operationType === 'reverse_split'
+      if (!isCorporateAction && (isNaN(unitPrice) || unitPrice <= 0)) {
+        throw new Error('Preço inválido')
+      }
+      if (isCorporateAction && isNaN(unitPrice)) {
+        throw new Error('Preço inválido')
+      }
 
       if (pricingMode === 'manual_value' && !manualCurrentValue) {
         throw new Error('Informe o valor atual para ativos manuais')
@@ -370,7 +382,7 @@ export default function PortfolioTransactionFormModal({
         ticker: tickerUpper,
         operation_type: operationType,
         quantity: qty,
-        price: unitPrice,
+        price: isCorporateAction ? 0 : unitPrice,
         date,
       }
 
@@ -480,27 +492,7 @@ export default function PortfolioTransactionFormModal({
 
       if (updatePortError) throw updatePortError
 
-      // Limpeza de definições e metas órfãs
-      const tickerUpper = editingTransaction.ticker.toUpperCase()
-      const { data: remaining } = await supabase
-        .from('portfolio_transactions')
-        .select('id')
-        .eq('portfolio_id', portfolioId)
-        .eq('ticker', tickerUpper)
-
-      if (!remaining || remaining.length === 0) {
-        await supabase
-          .from('portfolio_asset_definitions')
-          .delete()
-          .eq('portfolio_id', portfolioId)
-          .eq('ticker', tickerUpper)
-
-        await supabase
-          .from('target_allocations')
-          .delete()
-          .eq('portfolio_id', portfolioId)
-          .eq('ticker', tickerUpper)
-      }
+      await cleanupOrphanPortfolioTickers(portfolioId, [editingTransaction.ticker])
 
       window.dispatchEvent(
         new CustomEvent('local-data-changed', { detail: { entity: 'investments' } })
@@ -713,17 +705,17 @@ export default function PortfolioTransactionFormModal({
         {/* Row 6: Quantidade e Preço de Execução */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label={
-              pricingMode === 'market'
-                ? 'Quantidade'
-                : pricingMode === 'cash'
-                  ? 'Valor (R$)'
-                  : 'Valor aplicado (R$)'
-            }
+            label={quantityFieldLabel}
             type="number"
             required
             step="any"
-            placeholder={pricingMode === 'market' ? 'Ex: 10' : 'Ex: 10000'}
+            placeholder={
+              isCorporateAction
+                ? 'Ex: 12'
+                : pricingMode === 'market'
+                  ? 'Ex: 10'
+                  : 'Ex: 10000'
+            }
             value={isAmountBased ? price || quantity : quantity}
             onChange={(e) => {
               if (isAmountBased) {
@@ -736,7 +728,7 @@ export default function PortfolioTransactionFormModal({
             className="font-semibold rounded-xl text-sm"
           />
 
-          {pricingMode === 'market' && (
+          {pricingMode === 'market' && !isCorporateAction && (
             <Input
               label="Preço de execução unitário"
               type="number"

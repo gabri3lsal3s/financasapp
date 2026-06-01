@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
+import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { ASSET_DEFINITION_SELECT } from '@/constants/portfolioPricingMode'
 import {
   computeCashOffsetPreview,
@@ -315,7 +316,7 @@ export async function reconcileCashOffsetOnTransactionSave(params: {
       transactions: cleanedTransactions,
       definitions,
     })
-  } else if (operationType === 'sell' || operationType === 'dividend') {
+  } else if (operationType === 'sell' || isPortfolioIncomeType(operationType)) {
     const cleanedTransactions = excludeCashOffsetSells(transactions, transactionId)
     await applyCashOffsetAfterSellOrDividend({
       portfolioId,

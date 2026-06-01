@@ -5,11 +5,31 @@ import { supabase } from '@/lib/supabase'
 import type { PortfolioOperationType, PortfolioTransaction, PortfolioPricingMode, PortfolioAssetDefinition } from '@/types'
 import {
   parseB3Excel,
+  parseB3PositionExcel,
+  buildPositionValidation,
+  suggestPositionAdjustments,
+  isB3PositionWorkbook,
   reconcileInvestmentTransactions,
   classifyB3Item,
+  isB3SubscriptionRightsTicker,
+  computePositionsFromB3Items,
+  type B3ParseDedupeStats,
+  type B3PositionParseResult,
   type B3TransactionItem,
   type InvestmentReconciliationResult,
+  type PositionValidationResult,
+  type PositionAdjustmentSuggestion,
 } from '@/utils/investmentExcelReconciliation'
+import B3ReconciliationGuidance from '@/components/investments/B3ReconciliationGuidance'
+import B3ReconciliationStepper from '@/components/investments/B3ReconciliationStepper'
+import B3ReconciliationKpiGrid from '@/components/investments/B3ReconciliationKpiGrid'
+import B3PositionValidationPanel from '@/components/investments/B3PositionValidationPanel'
+import { computeTickerQuantity } from '@/utils/portfolioLedger'
+import {
+  isPortfolioIncomeType,
+  PORTFOLIO_OPERATION_OPTIONS,
+  portfolioOperationLabel,
+} from '@/utils/portfolioOperations'
 import { isB3TickerPattern } from '@/services/priceService'
 import { formatCurrency } from '@/utils/format'
 import {
@@ -24,7 +44,7 @@ import {
   getPreferredCashTicker,
 } from '@/utils/cashBalanceApplication'
 import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
-import { Upload, FileCheck, ArrowRight, Layers, Check, AlertCircle } from 'lucide-react'
+import { Upload, FileCheck, ArrowRight, Layers, Check, AlertCircle, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface InvestmentReconciliationModalProps {
@@ -65,12 +85,16 @@ interface ConflictDraft {
   existing: PortfolioTransaction
 }
 
-const OPERATION_OPTIONS: { value: PortfolioOperationType; label: string }[] = [
-  { value: 'buy', label: 'Compra' },
-  { value: 'sell', label: 'Venda' },
-  { value: 'dividend', label: 'Provento/Div' },
-  { value: 'split', label: 'Desdobrar' },
-  { value: 'subscription', label: 'Subscrição' },
+const OPERATION_OPTIONS = PORTFOLIO_OPERATION_OPTIONS
+
+type ReconciliationStep = 'upload' | 'summary' | 'corrections' | 'position' | 'review'
+type CorrectionsTab = 'conflicts' | 'missing' | 'suspicious'
+
+const WIZARD_STEPS: Array<{ id: ReconciliationStep; label: string; countKey?: string }> = [
+  { id: 'summary', label: 'Resumo' },
+  { id: 'corrections', label: 'Correções' },
+  { id: 'position', label: 'Posição' },
+  { id: 'review', label: 'Fim' },
 ]
 
 export default function InvestmentReconciliationModal({
@@ -84,17 +108,39 @@ export default function InvestmentReconciliationModal({
   const [fileName, setFileName] = useState('')
   const [parseStatus, setParseStatus] = useState('')
   const [reconciliation, setReconciliation] = useState<InvestmentReconciliationResult | null>(null)
+  const [parsedEquityItems, setParsedEquityItems] = useState<B3TransactionItem[]>([])
   
   const [missingDrafts, setMissingDrafts] = useState<MissingDraft[]>([])
   const [conflictDrafts, setConflictDrafts] = useState<ConflictDraft[]>([])
   const [importedDrafts, setImportedDrafts] = useState<MissingDraft[]>([])
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<{ current: number; total: number; label: string } | null>(null)
-  const [excludedCount, setExcludedCount] = useState<{ fixedIncome: number; treasury: number }>({ fixedIncome: 0, treasury: 0 })
+  const [excludedCount, setExcludedCount] = useState<{
+    fixedIncome: number
+    treasury: number
+    ignoredByMovement: number
+    subscriptionRights: number
+    dedupe: B3ParseDedupeStats
+  }>({
+    fixedIncome: 0,
+    treasury: 0,
+    ignoredByMovement: 0,
+    subscriptionRights: 0,
+    dedupe: { ignoredInternal: 0, ignoredCorporate: 0, dedupedTrades: 0 },
+  })
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  
-  const [currentStep, setCurrentStep] = useState<'upload' | 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'>('upload')
+  const positionFileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [currentStep, setCurrentStep] = useState<ReconciliationStep>('upload')
   const [dragActive, setDragActive] = useState(false)
+  const [positionDragActive, setPositionDragActive] = useState(false)
+  const [positionFileName, setPositionFileName] = useState('')
+  const [positionParseStatus, setPositionParseStatus] = useState('')
+  const [officialPosition, setOfficialPosition] = useState<B3PositionParseResult | null>(null)
+  const [positionValidation, setPositionValidation] = useState<PositionValidationResult | null>(null)
+  const [acknowledgePositionGaps, setAcknowledgePositionGaps] = useState(false)
+  const [correctionsTab, setCorrectionsTab] = useState<CorrectionsTab>('conflicts')
+  const [selectedAdjustmentTickers, setSelectedAdjustmentTickers] = useState<Set<string>>(new Set())
   const modalTopRef = useRef<HTMLDivElement | null>(null)
 
   const scrollToTop = () => {
@@ -125,14 +171,104 @@ export default function InvestmentReconciliationModal({
       setFileName('')
       setParseStatus('')
       setReconciliation(null)
+      setParsedEquityItems([])
       setMissingDrafts([])
       setConflictDrafts([])
       setImportedDrafts([])
       setCurrentStep('upload')
       setProgress(null)
-      setExcludedCount({ fixedIncome: 0, treasury: 0 })
+      setExcludedCount({
+        fixedIncome: 0,
+        treasury: 0,
+        ignoredByMovement: 0,
+        subscriptionRights: 0,
+        dedupe: { ignoredInternal: 0, ignoredCorporate: 0, dedupedTrades: 0 },
+      })
+      setPositionFileName('')
+      setPositionParseStatus('')
+      setOfficialPosition(null)
+      setPositionValidation(null)
+      setAcknowledgePositionGaps(false)
+      setCorrectionsTab('conflicts')
+      setSelectedAdjustmentTickers(new Set())
     }
   }, [isOpen])
+
+  const wizardCounts = useMemo(
+    () => ({
+      conflicts: conflictDrafts.filter((c) => !c.applied).length,
+      missing: missingDrafts.length,
+      suspicious: reconciliation?.existingOnly.length ?? 0,
+      corrections:
+        conflictDrafts.filter((c) => !c.applied).length +
+        missingDrafts.length +
+        (reconciliation?.existingOnly.length ?? 0),
+    }),
+    [conflictDrafts, missingDrafts, reconciliation]
+  )
+
+  const positionAdjustments = useMemo((): PositionAdjustmentSuggestion[] => {
+    if (!positionValidation) return []
+    return suggestPositionAdjustments(
+      positionValidation,
+      existingTransactions,
+      parsedEquityItems
+    )
+  }, [positionValidation, existingTransactions, parsedEquityItems])
+
+  useEffect(() => {
+    if (positionAdjustments.length > 0) {
+      setSelectedAdjustmentTickers(new Set(positionAdjustments.map((a) => a.ticker)))
+    }
+  }, [positionAdjustments])
+
+  const ledgerOnlyMismatches = useMemo(
+    () =>
+      positionValidation?.rows.filter(
+        (r) => r.status !== 'ok' && r.status !== 'movements_official'
+      ).length ?? 0,
+    [positionValidation]
+  )
+
+  const goToNextStepAfter = (from: ReconciliationStep) => {
+    if (!reconciliation) return
+    const order: ReconciliationStep[] = ['summary', 'corrections', 'position', 'review']
+    const startIdx = order.indexOf(from) + 1
+    for (let i = startIdx; i < order.length; i += 1) {
+      const step = order[i]
+      if (step === 'corrections' && wizardCounts.corrections > 0) {
+        if (wizardCounts.conflicts > 0) setCorrectionsTab('conflicts')
+        else if (wizardCounts.missing > 0) setCorrectionsTab('missing')
+        else setCorrectionsTab('suspicious')
+        setCurrentStep('corrections')
+        return
+      }
+      if (step === 'position') {
+        setCurrentStep('position')
+        return
+      }
+      if (step === 'review') {
+        setCurrentStep('review')
+        return
+      }
+    }
+    setCurrentStep('review')
+  }
+
+  const stepperItems = useMemo(
+    () =>
+      WIZARD_STEPS.map((s) => ({
+        id: s.id,
+        label: s.label,
+        badge:
+          s.id === 'corrections'
+            ? wizardCounts.corrections
+            : s.id === 'position' && positionValidation && !positionValidation.allOk
+              ? ledgerOnlyMismatches || positionValidation.mismatchCount
+              : undefined,
+      })),
+    [wizardCounts.corrections, positionValidation, ledgerOnlyMismatches]
+  )
 
   const selectedMissingCount = useMemo(
     () => missingDrafts.filter((draft) => draft.selected).length,
@@ -144,29 +280,138 @@ export default function InvestmentReconciliationModal({
     [conflictDrafts]
   )
 
+  const b3ParsedPositions = useMemo(
+    () => computePositionsFromB3Items(parsedEquityItems),
+    [parsedEquityItems]
+  )
+
+  const systemPositions = useMemo(() => {
+    const tickers = new Set<string>()
+    for (const tx of existingTransactions) {
+      if (
+        tx.ticker === 'SALDO_INV' ||
+        tx.ticker === 'CAIXA' ||
+        tx.ticker === 'SALDO EM CAIXA' ||
+        tx.ticker === 'SALDO_EM_CAIXA' ||
+        tx.cash_offset_source_id
+      ) {
+        continue
+      }
+      tickers.add(tx.ticker.toUpperCase())
+    }
+    const map: Record<string, number> = {}
+    for (const ticker of tickers) {
+      const qty = computeTickerQuantity(existingTransactions, ticker)
+      if (qty > 0.000_001) map[ticker] = qty
+    }
+    return map
+  }, [existingTransactions])
+
+  const positionPreviewRows = useMemo(() => {
+    const allTickers = new Set([
+      ...Object.keys(b3ParsedPositions),
+      ...Object.keys(systemPositions),
+    ])
+    return Array.from(allTickers)
+      .sort()
+      .map((ticker) => ({
+        ticker,
+        b3: b3ParsedPositions[ticker] ?? 0,
+        system: systemPositions[ticker] ?? 0,
+      }))
+      .filter((row) => row.b3 > 0 || row.system > 0)
+  }, [b3ParsedPositions, systemPositions])
+
+  const recomputePositionValidation = (
+    official: B3PositionParseResult,
+    movements: Record<string, number>,
+    system: Record<string, number>
+  ) => {
+    const validation = buildPositionValidation(official.equity, movements, system)
+    setPositionValidation(validation)
+    setAcknowledgePositionGaps(false)
+    return validation
+  }
+
+  const processPositionFileBuffer = async (buffer: ArrayBuffer, name: string) => {
+    setPositionFileName(name)
+    setPositionParseStatus('Lendo relatório de posição...')
+    try {
+      if (!isB3PositionWorkbook(buffer)) {
+        setPositionParseStatus(
+          'Este arquivo parece ser de movimentação, não de posição. Exporte em Investimentos → Posição atual (.xlsx).'
+        )
+        return
+      }
+      const parsed = parseB3PositionExcel(buffer)
+      if (Object.keys(parsed.equity).length === 0) {
+        setPositionParseStatus('Nenhuma cota de renda variável encontrada na planilha de posição.')
+        return
+      }
+      setOfficialPosition(parsed)
+      recomputePositionValidation(parsed, b3ParsedPositions, systemPositions)
+      setPositionParseStatus('')
+      toast.success('Posição oficial carregada — validação atualizada.')
+    } catch (err: unknown) {
+      console.error(err)
+      setPositionParseStatus(
+        err instanceof Error ? err.message : 'Erro ao ler o relatório de posição.'
+      )
+    }
+  }
+
+  useEffect(() => {
+    if (!officialPosition) return
+    recomputePositionValidation(officialPosition, b3ParsedPositions, systemPositions)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recalcula quando livro-razão ou movimentações mudam
+  }, [officialPosition, b3ParsedPositions, systemPositions])
+
   // Process a loaded array buffer (from drop or input file)
   const processFileBuffer = async (buffer: ArrayBuffer, name: string) => {
     setFileName(name)
     setParseStatus('Lendo e interpretando planilha...')
     try {
-      const allParsedItems = parseB3Excel(buffer)
-      
+      if (isB3PositionWorkbook(buffer)) {
+        setParseStatus(
+          'Este arquivo é de posição atual. Na primeira etapa envie o extrato de movimentação; a posição será solicitada na validação final.'
+        )
+        return
+      }
+      const parseResult = parseB3Excel(buffer)
+      const allParsedItems = parseResult.items
+
       if (allParsedItems.length === 0) {
         setParseStatus('O arquivo enviado não contém lançamentos reconhecíveis ou está vazio.')
         return
       }
 
       // ── Filtrar apenas renda variável B3 ──
-      // Renda fixa e Tesouro Direto são excluídos da conciliação automática
       let fixedIncomeCount = 0
       let treasuryCount = 0
-      const parsedItems = allParsedItems.filter(item => {
+      let subscriptionRightsCount = 0
+      const parsedItems = allParsedItems.filter((item) => {
+        if (isB3SubscriptionRightsTicker(item.ticker)) {
+          subscriptionRightsCount++
+          return false
+        }
         const category = classifyB3Item(item.ticker, item.product_name)
-        if (category === 'treasury') { treasuryCount++; return false }
-        if (category === 'fixedIncome') { fixedIncomeCount++; return false }
-        return true // equityB3 e other passam
+        if (category === 'treasury') {
+          treasuryCount++
+          return false
+        }
+        if (category === 'fixedIncome') {
+          fixedIncomeCount++
+          return false
+        }
+        return true
       })
-      setExcludedCount({ fixedIncome: fixedIncomeCount, treasury: treasuryCount })
+      setExcludedCount({
+        fixedIncome: fixedIncomeCount,
+        treasury: treasuryCount,
+        ignoredByMovement: parseResult.ignoredByMovement,
+        subscriptionRights: subscriptionRightsCount,
+        dedupe: parseResult.dedupe,
+      })
 
       if (parsedItems.length === 0) {
         setParseStatus('O arquivo contém apenas ativos de renda fixa/Tesouro Direto, que não são conciliados automaticamente. Importe-os manualmente pelo livro-razão.')
@@ -177,7 +422,8 @@ export default function InvestmentReconciliationModal({
       const result = reconcileInvestmentTransactions(parsedItems, existingTransactions)
 
       setReconciliation(result)
-      
+      setParsedEquityItems(parsedItems)
+
       // Initialize editable missing drafts — somente renda variável B3
       setMissingDrafts(
         result.missing.map((item) => {
@@ -351,14 +597,7 @@ export default function InvestmentReconciliationModal({
       // Update our parent portfolio view
       onSaved()
       
-      // Auto advance
-      if (missingDrafts.length > 0) {
-        setCurrentStep('missing')
-      } else if (reconciliation && reconciliation.existingOnly.length > 0) {
-        setCurrentStep('suspicious')
-      } else {
-        setCurrentStep('review')
-      }
+      goToNextStepAfter('corrections')
     } catch (err) {
       console.error(err)
       toast.error('Ocorreu um erro ao aplicar as correções no banco de dados.')
@@ -474,7 +713,7 @@ export default function InvestmentReconciliationModal({
                 })
               }
             }
-          } else if (draft.operation_type === 'sell' || draft.operation_type === 'dividend') {
+          } else if (draft.operation_type === 'sell' || isPortfolioIncomeType(draft.operation_type)) {
             if (amount > 0) {
               const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
               const offsetTx = {
@@ -534,15 +773,122 @@ export default function InvestmentReconciliationModal({
       // Update parent list
       onSaved()
 
-      // Auto advance
-      if (reconciliation && reconciliation.existingOnly.length > 0) {
-        setCurrentStep('suspicious')
-      } else {
-        setCurrentStep('review')
-      }
+      goToNextStepAfter('corrections')
     } catch (err) {
       console.error(err)
       toast.error(err instanceof Error ? err.message : 'Erro ao efetuar a importação em lote.')
+    } finally {
+      setLoading(false)
+      setProgress(null)
+    }
+  }
+
+  const handleApplyPositionAdjustments = async () => {
+    const active = positionAdjustments.filter((a) => selectedAdjustmentTickers.has(a.ticker))
+    if (active.length === 0) return
+
+    const invalid = active.filter((a) => a.price <= 0)
+    if (invalid.length > 0) {
+      toast.error(
+        `Sem preço de referência para: ${invalid.map((a) => a.ticker).join(', ')}. Cadastre uma compra/venda antes do ajuste.`
+      )
+      return
+    }
+
+    if (
+      !confirm(
+        `Criar ${active.length} lançamento(s) de ajuste para igualar o livro-razão à posição B3 oficial?`
+      )
+    ) {
+      return
+    }
+
+    setLoading(true)
+    setProgress({ current: 0, total: active.length, label: 'Ajustando posições...' })
+    scrollToTop()
+    try {
+      const context = await fetchPortfolioCashContext(portfolioId)
+      let localTransactions: PortfolioTransaction[] = [...context.transactions]
+      const localDefinitions: PortfolioAssetDefinition[] = [...context.definitions]
+      const txsToInsert: Record<string, unknown>[] = []
+      const offsetsToInsert: Record<string, unknown>[] = []
+
+      for (const [index, adj] of active.entries()) {
+        setProgress({
+          current: index + 1,
+          total: active.length,
+          label: `Ajuste ${adj.ticker}`,
+        })
+        const txId = crypto.randomUUID()
+        const tickerUpper = adj.ticker.toUpperCase()
+        const newTx = {
+          id: txId,
+          portfolio_id: portfolioId,
+          ticker: tickerUpper,
+          date: adj.date,
+          quantity: adj.quantity,
+          price: adj.price,
+          operation_type: adj.operation_type,
+        }
+        txsToInsert.push(newTx)
+        localTransactions.push(newTx as PortfolioTransaction)
+
+        const amount = adj.quantity * adj.price
+        if (adj.operation_type === 'buy' && shouldApplyCashOffset('buy', 'market')) {
+          const plan = computeCashOffsetPreview(
+            amount,
+            'buy',
+            'market',
+            localTransactions,
+            localDefinitions
+          )
+          plan.sellTransactions.forEach((sell) => {
+            offsetsToInsert.push({
+              id: crypto.randomUUID(),
+              portfolio_id: portfolioId,
+              ticker: sell.ticker,
+              operation_type: 'sell',
+              quantity: sell.quantity,
+              price: sell.price,
+              date: adj.date,
+              cash_offset_source_id: txId,
+            })
+          })
+        } else if (adj.operation_type === 'sell' && amount > 0) {
+          const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
+          offsetsToInsert.push({
+            id: crypto.randomUUID(),
+            portfolio_id: portfolioId,
+            ticker: cashTicker,
+            operation_type: 'buy',
+            quantity: 1,
+            price: amount,
+            date: adj.date,
+            cash_offset_source_id: txId,
+          })
+        }
+      }
+
+      const { error: txError } = await supabase.from('portfolio_transactions').insert(txsToInsert)
+      if (txError) throw txError
+      if (offsetsToInsert.length > 0) {
+        const { error: offsetError } = await supabase.from('portfolio_transactions').insert(offsetsToInsert)
+        if (offsetError) throw offsetError
+      }
+
+      const updatedContext = await fetchPortfolioCashContext(portfolioId)
+      const finalLedgerCash = calculateLedgerCashBalance(
+        updatedContext.transactions,
+        updatedContext.definitions
+      )
+      await supabase.from('portfolios').update({ cash_balance: finalLedgerCash }).eq('id', portfolioId)
+
+      toast.success(`${active.length} ajuste(s) aplicado(s) com base na posição B3.`)
+      onSaved()
+      setAcknowledgePositionGaps(false)
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao aplicar ajustes de posição.')
     } finally {
       setLoading(false)
       setProgress(null)
@@ -589,7 +935,7 @@ export default function InvestmentReconciliationModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Conciliação de Ativos com Extrato B3"
+      title="Conciliação B3 — Movimentação e Posição"
       maxWidth="max-w-5xl"
     >
       <div className="space-y-4">
@@ -623,67 +969,34 @@ export default function InvestmentReconciliationModal({
           </div>
         )}
 
-        {/* Stepper Wizard UX */}
-        {reconciliation && (
-          <div className="flex flex-col gap-2 border-b border-primary/20 pb-4 mb-2">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
-              {[
-                { id: 'summary', label: '1. Diagnóstico', count: undefined },
-                { id: 'conflicts', label: '2. Divergências', count: conflictDrafts.filter(c => !c.applied).length },
-                { id: 'missing', label: '3. Faltando no Sistema', count: missingDrafts.length },
-                { id: 'suspicious', label: '4. Alertas Livro-Razão', count: reconciliation.existingOnly.length },
-                { id: 'review', label: '5. Resumo Final', count: undefined }
-              ].map((stepItem, index) => {
-                const isActive = currentStep === stepItem.id
-                const isCompleted = (() => {
-                  const stepOrder = ['summary', 'conflicts', 'missing', 'suspicious', 'review']
-                  const currentIdx = stepOrder.indexOf(currentStep)
-                  const itemIdx = stepOrder.indexOf(stepItem.id)
-                  return itemIdx < currentIdx
-                })()
-
-                return (
-                  <button
-                    key={stepItem.id}
-                    type="button"
-                    onClick={() => setCurrentStep(stepItem.id as any)}
-                    className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                      isActive
-                        ? 'bg-secondary text-primary border-primary'
-                        : isCompleted
-                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
-                        : 'bg-primary/10 text-secondary border-transparent hover:bg-primary/20 hover:text-primary'
-                    }`}
-                  >
-                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black ${
-                      isActive ? 'bg-primary text-secondary' : isCompleted ? 'bg-emerald-500 text-white' : 'bg-secondary text-secondary border border-primary'
-                    }`}>
-                      {isCompleted ? '✓' : index + 1}
-                    </span>
-                    <span>{stepItem.label}</span>
-                    {stepItem.count !== undefined && stepItem.count > 0 && (
-                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
-                        isActive ? 'bg-primary text-secondary' : 'bg-secondary text-secondary'
-                      }`}>
-                        {stepItem.count}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+        {reconciliation && currentStep !== 'upload' && (
+          <B3ReconciliationStepper
+            steps={stepperItems}
+            currentStepId={currentStep}
+            onStepClick={(id) => setCurrentStep(id as ReconciliationStep)}
+            footer={
+              fileName ? (
+                <p className="text-[10px] text-secondary truncate" title={fileName}>
+                  Movimentação: <span className="font-mono text-primary">{fileName}</span>
+                  {positionFileName && (
+                    <>
+                      {' · '}
+                      Posição: <span className="font-mono text-primary">{positionFileName}</span>
+                    </>
+                  )}
+                </p>
+              ) : null
+            }
+          />
         )}
 
         {/* STEP 1: Upload */}
         {currentStep === 'upload' && (
-          <div className="space-y-4 text-center">
-            <div className="max-w-md mx-auto">
-              <p className="text-sm font-semibold text-primary">Importação de Relatórios de Movimentação B3</p>
-              <p className="text-xs text-secondary mt-1">
-                Faça o upload do extrato de movimentação consolidado em Excel da B3 (.xlsx) para auditar lançamentos e manter os saldos precisos.
-              </p>
-            </div>
+          <div className="space-y-3">
+            <p className="text-xs text-secondary text-left">
+              Envie o extrato <strong className="text-primary">movimentacao-*.xlsx</strong>. O arquivo{' '}
+              <strong className="text-primary">posicao-*.xlsx</strong> será pedido na etapa de validação, com correção automática de cotas.
+            </p>
 
             <div
               onDragEnter={handleDrag}
@@ -691,7 +1004,7 @@ export default function InvestmentReconciliationModal({
               onDragLeave={handleDrag}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-3xl p-8 max-w-lg mx-auto flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 ${
+              className={`border border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
                 dragActive
                   ? 'border-indigo-500 bg-indigo-500/5 scale-[1.01]'
                   : 'border-primary/30 bg-primary/20 hover:border-indigo-500/50 hover:bg-indigo-500/5'
@@ -717,99 +1030,207 @@ export default function InvestmentReconciliationModal({
             </div>
 
             {parseStatus && (
-              <div className="text-xs text-secondary animate-pulse max-w-sm mx-auto bg-secondary border border-primary/20 px-4 py-2 rounded-xl mt-2 font-mono">
+              <p className="text-[11px] text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-left">
                 {parseStatus}
-              </div>
+              </p>
             )}
           </div>
         )}
 
         {/* STEP 2: Summary / Diagnostic */}
         {currentStep === 'summary' && reconciliation && (
-          <div className="space-y-6 text-center animate-page-enter">
-            <div className="w-14 h-14 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto shadow-sm">
-              <FileCheck size={28} />
-            </div>
-            
-            <div className="space-y-1">
-              <h4 className="text-base font-black text-primary uppercase tracking-tight">Extrato da B3 Processado com Sucesso!</h4>
-              <p className="text-xs text-secondary max-w-md mx-auto">
-                Diagnosticamos a planilha <strong>{fileName}</strong> cruzando-a com todo o histórico do Livro-Razão deste cliente:
-              </p>
+          <div className="space-y-4 animate-page-enter text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                <FileCheck size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-primary">Diagnóstico do extrato</h4>
+                <p className="text-[11px] text-secondary">Cruzamento com o livro-razão concluído.</p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto pt-2">
-              <div className="bg-emerald-500/5 border border-emerald-500/20 p-3.5 rounded-2xl">
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-secondary block">Conciliados</span>
-                <span className="text-xl font-mono font-black text-emerald-500 mt-1 block">{reconciliation.matched.length}</span>
-                <span className="text-[9px] text-secondary/70 mt-0.5 block">100% idênticos</span>
+            <B3ReconciliationKpiGrid
+              items={[
+                {
+                  label: 'OK',
+                  value: reconciliation.matched.length,
+                  hint: 'Idênticos ao extrato',
+                  tone: 'ok',
+                },
+                {
+                  label: 'Divergentes',
+                  value: conflictDrafts.filter((c) => !c.applied).length,
+                  hint: 'Corrigir na etapa seguinte',
+                  tone: 'warn',
+                },
+                {
+                  label: 'Faltando',
+                  value: missingDrafts.length,
+                  hint: 'Importar no sistema',
+                  tone: 'error',
+                },
+                {
+                  label: 'Alertas',
+                  value: reconciliation.existingOnly.length,
+                  hint: 'Só no livro-razão',
+                  tone: 'muted',
+                },
+              ]}
+            />
+
+            {positionPreviewRows.length > 0 && (
+              <div className="w-full rounded-xl border border-border/40 bg-card/40 p-3 space-y-2">
+                <p className="text-xs font-bold text-primary flex items-center gap-1.5">
+                  <Layers size={14} className="text-indigo-500" />
+                  Prévia de cotas (movimentação vs sistema)
+                </p>
+                <div className="overflow-x-auto rounded-xl border border-border/40">
+                  <table className="w-full text-[11px] font-mono">
+                    <thead>
+                      <tr className="bg-secondary/50 text-secondary uppercase text-[9px] tracking-wider">
+                        <th className="text-left px-3 py-2">Ticker</th>
+                        <th className="text-right px-3 py-2">Extrato B3</th>
+                        <th className="text-right px-3 py-2">Sistema</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {positionPreviewRows.map((row) => {
+                        const diff = Math.abs(row.b3 - row.system) > 0.0001
+                        return (
+                          <tr
+                            key={row.ticker}
+                            className={diff ? 'bg-amber-500/5' : ''}
+                          >
+                            <td className="px-3 py-1.5 font-bold text-primary">{row.ticker}</td>
+                            <td className="px-3 py-1.5 text-right">{row.b3.toLocaleString('pt-BR')}</td>
+                            <td className={`px-3 py-1.5 text-right ${diff ? 'text-amber-600 font-bold' : ''}`}>
+                              {row.system.toLocaleString('pt-BR')}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div className="bg-amber-500/5 border border-amber-500/20 p-3.5 rounded-2xl">
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-secondary block">Divergentes</span>
-                <span className="text-xl font-mono font-black text-amber-500 mt-1 block">
-                  {conflictDrafts.filter(c => !c.applied).length}
-                </span>
-                <span className="text-[9px] text-secondary/70 mt-0.5 block">Diferenças de dados</span>
-              </div>
-              <div className="bg-red-500/5 border border-red-500/20 p-3.5 rounded-2xl">
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-secondary block">Faltando</span>
-                <span className="text-xl font-mono font-black text-red-500 mt-1 block">{missingDrafts.length}</span>
-                <span className="text-[9px] text-secondary/70 mt-0.5 block">Ausentes no sistema</span>
-              </div>
-              <div className="bg-purple-500/5 border border-purple-500/20 p-3.5 rounded-2xl">
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-secondary block">Alertas Razão</span>
-                <span className="text-xl font-mono font-black text-purple-500 mt-1 block">{reconciliation.existingOnly.length}</span>
-                <span className="text-[9px] text-secondary/70 mt-0.5 block">Não constam na B3</span>
-              </div>
-            </div>
+            )}
 
             {/* Banner: itens excluídos da conciliação */}
-            {(excludedCount.fixedIncome > 0 || excludedCount.treasury > 0) && (
+            {(excludedCount.fixedIncome > 0 ||
+              excludedCount.treasury > 0 ||
+              excludedCount.ignoredByMovement > 0 ||
+              excludedCount.subscriptionRights > 0 ||
+              excludedCount.dedupe.ignoredInternal > 0 ||
+              excludedCount.dedupe.ignoredCorporate > 0 ||
+              excludedCount.dedupe.dedupedTrades > 0) && (
               <div className="max-w-2xl mx-auto w-full bg-amber-500/8 border border-amber-500/25 rounded-2xl p-3.5 text-left flex gap-3 items-start">
                 <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-amber-400">Ativos de Renda Fixa / Tesouro não conciliados</p>
+                  <p className="text-xs font-bold text-amber-400">Linhas filtradas do extrato B3</p>
                   <p className="text-[11px] text-secondary leading-relaxed">
-                    A conciliação automática com a B3 é exclusiva para <strong>renda variável</strong> (Ações, FIIs e ETFs).
+                    A conciliação automática considera apenas <strong>negociações, proventos e eventos corporativos</strong> de renda variável.
+                    {excludedCount.ignoredByMovement > 0 && (
+                      <span>
+                        {' '}
+                        <strong>{excludedCount.ignoredByMovement}</strong> linha
+                        {excludedCount.ignoredByMovement > 1 ? 's' : ''} ignorada
+                        {excludedCount.ignoredByMovement > 1 ? 's' : ''} no parse (transferências internas, empréstimos, etc.)
+                      </span>
+                    )}
+                    {excludedCount.dedupe.ignoredInternal > 0 && (
+                      <span>
+                        {' '}
+                        <strong>{excludedCount.dedupe.ignoredInternal}</strong> espelho
+                        {excludedCount.dedupe.ignoredInternal > 1 ? 's' : ''} de transferência Crédito/Débito removido
+                        {excludedCount.dedupe.ignoredInternal > 2 ? 's' : ''}.
+                      </span>
+                    )}
+                    {excludedCount.dedupe.ignoredCorporate > 0 && (
+                      <span>
+                        {' '}
+                        <strong>{excludedCount.dedupe.ignoredCorporate}</strong> cessão
+                        {excludedCount.dedupe.ignoredCorporate > 1 ? 'ões' : 'ão'} de direitos removida
+                        {excludedCount.dedupe.ignoredCorporate > 1 ? 's' : ''}.
+                      </span>
+                    )}
+                    {excludedCount.dedupe.dedupedTrades > 0 && (
+                      <span>
+                        {' '}
+                        <strong>{excludedCount.dedupe.dedupedTrades}</strong> compra/venda redundante
+                        {excludedCount.dedupe.dedupedTrades > 1 ? 's' : ''} (já coberta pela liquidação).
+                      </span>
+                    )}
+                    {excludedCount.subscriptionRights > 0 && (
+                      <span>
+                        {' '}
+                        <strong>{excludedCount.subscriptionRights}</strong> direito
+                        {excludedCount.subscriptionRights > 1 ? 's' : ''} de subscrição (ticker temporário, ex. MXRF12).
+                      </span>
+                    )}
                     {excludedCount.treasury > 0 && (
-                      <span> <strong>{excludedCount.treasury}</strong> lançamento{excludedCount.treasury > 1 ? 's' : ''} de Tesouro Direto</span>
+                      <span>
+                        {' '}
+                        <strong>{excludedCount.treasury}</strong> Tesouro Direto
+                      </span>
                     )}
-                    {excludedCount.treasury > 0 && excludedCount.fixedIncome > 0 && ' e'}
                     {excludedCount.fixedIncome > 0 && (
-                      <span> <strong>{excludedCount.fixedIncome}</strong> lançamento{excludedCount.fixedIncome > 1 ? 's' : ''} de renda fixa (CDB/LCI/LCA)</span>
+                      <span>
+                        {excludedCount.treasury > 0 ? ' e ' : ' '}
+                        <strong>{excludedCount.fixedIncome}</strong> renda fixa (CDB/LCI/LCA)
+                      </span>
                     )}
-                    {' '}foram ignorados. Adicione-os manualmente pelo Livro-Razão com as taxas contratuais para valoração correta.
+                    {(excludedCount.treasury > 0 || excludedCount.fixedIncome > 0) &&
+                      ' não entram na conciliação RV — cadastre no Livro-Razão manualmente.'}
                   </p>
                 </div>
               </div>
             )}
 
-            <div className="pt-2">
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => {
-                  if (conflictDrafts.filter(c => !c.applied).length > 0) {
-                    setCurrentStep('conflicts')
-                  } else if (missingDrafts.length > 0) {
-                    setCurrentStep('missing')
-                  } else if (reconciliation.existingOnly.length > 0) {
-                    setCurrentStep('suspicious')
-                  } else {
-                    setCurrentStep('review')
-                  }
-                }}
-                className="px-6 font-bold"
-              >
-                Iniciar Conciliação Guiada
+            <div className="flex justify-end pt-1">
+              <Button type="button" variant="primary" onClick={() => goToNextStepAfter('summary')} className="font-bold">
+                {wizardCounts.corrections > 0 ? 'Corrigir pendências' : 'Validar posição B3'}
               </Button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Conflicts Resolution */}
-        {currentStep === 'conflicts' && reconciliation && (
+        {/* Correções unificadas */}
+        {currentStep === 'corrections' && reconciliation && (
+          <div className="space-y-3 animate-page-enter">
+            <div className="flex gap-1 p-1 rounded-xl bg-primary/10 border border-border/40">
+              {(
+                [
+                  { id: 'conflicts' as const, label: 'Divergentes', count: wizardCounts.conflicts },
+                  { id: 'missing' as const, label: 'Faltando', count: wizardCounts.missing },
+                  { id: 'suspicious' as const, label: 'Alertas', count: wizardCounts.suspicious },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setCorrectionsTab(tab.id)}
+                  className={`flex-1 min-w-0 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                    correctionsTab === tab.id
+                      ? 'bg-primary text-secondary shadow-sm'
+                      : 'text-secondary hover:text-primary'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className="ml-1 opacity-80">({tab.count})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {correctionsTab === 'conflicts' && (
+          <div className="space-y-3">
           <div className="space-y-4 animate-page-enter">
+            <B3ReconciliationGuidance title="Divergências — o que fazer" variant="warning">
+              Marque os itens em que o livro-razão deve ser atualizado para coincidir com o extrato B3. Se a diferença for intencional
+              (ex.: ajuste manual documentado), desmarque e trate depois nos alertas ou na posição final.
+            </B3ReconciliationGuidance>
             <div className="flex items-center justify-between">
               <div>
                 <h5 className="text-sm font-black text-primary uppercase tracking-tight">Lançamentos Divergentes</h5>
@@ -827,6 +1248,7 @@ export default function InvestmentReconciliationModal({
                 const isPriceDiff = Math.abs(draft.existing.price - draft.official.price) > 0.0001
                 const isQtyDiff = Math.abs(draft.existing.quantity - draft.official.quantity) > 0.0001
                 const isDateDiff = draft.existing.date !== draft.official.date
+                const isOpDiff = draft.existing.operation_type !== draft.official.operation_type
 
                 return (
                   <div
@@ -854,6 +1276,12 @@ export default function InvestmentReconciliationModal({
                           Livro-Razão
                         </span>
                       </div>
+                      <p className="text-[9px] text-secondary">
+                        Tipo:{' '}
+                        <span className={`font-bold ${isOpDiff ? 'text-amber-500' : 'text-primary'}`}>
+                          {portfolioOperationLabel(draft.existing.operation_type)}
+                        </span>
+                      </p>
                       <div className="grid grid-cols-3 gap-1.5 text-secondary font-mono text-[10px]">
                         <div>
                           <span>Data</span>
@@ -886,6 +1314,15 @@ export default function InvestmentReconciliationModal({
                           B3 Oficial
                         </span>
                       </div>
+                      <p className="text-[9px] text-secondary truncate" title={draft.official.raw_operation_type}>
+                        Mov. B3: <span className="font-bold text-primary">{draft.official.raw_operation_type}</span>
+                      </p>
+                      <p className="text-[9px] text-secondary">
+                        Tipo:{' '}
+                        <span className={`font-bold ${isOpDiff ? 'text-indigo-500' : 'text-primary'}`}>
+                          {portfolioOperationLabel(draft.official.operation_type)}
+                        </span>
+                      </p>
                       <div className="grid grid-cols-3 gap-1.5 text-secondary font-mono text-[10px]">
                         <div>
                           <span>Data</span>
@@ -910,25 +1347,26 @@ export default function InvestmentReconciliationModal({
               })}
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('summary')}>
-                Voltar
-              </Button>
+            <div className="flex justify-end gap-2 pt-1">
               <Button
                 variant="primary"
+                size="sm"
                 disabled={loading || selectedConflictCount === 0}
                 onClick={handleApplySelectedConflicts}
-                className="font-bold flex items-center gap-1.5"
+                className="font-bold"
               >
-                {loading ? 'Aplicando correções...' : `Aplicar ${selectedConflictCount} Correções`}
+                {loading ? 'Aplicando...' : `Aplicar ${selectedConflictCount}`}
               </Button>
             </div>
           </div>
-        )}
+            )}
 
-        {/* STEP 4: Missing (Editable & Customizable) */}
-        {currentStep === 'missing' && (
-          <div className="space-y-4 animate-page-enter">
+            {correctionsTab === 'missing' && (
+          <div className="space-y-3">
+            <B3ReconciliationGuidance title="Faltantes — revisão antes de importar" variant="info">
+              Confira tipo de operação (compra, venda, desdobro como <strong>cotas creditadas</strong>, grupamento como cancelamento de cotas).
+              Desmarque linhas que você registrará manualmente depois.
+            </B3ReconciliationGuidance>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
               <div>
                 <h5 className="text-sm font-black text-primary uppercase tracking-tight">Lançamentos Faltantes no Livro-Razão</h5>
@@ -943,11 +1381,12 @@ export default function InvestmentReconciliationModal({
 
             {/* Customization grid / table */}
             <div className="overflow-x-auto border border-primary rounded-2xl bg-secondary/5">
-              <table className="w-full border-collapse text-left text-xs min-w-[850px]">
+              <table className="w-full border-collapse text-left text-xs min-w-[980px]">
                 <thead>
                   <tr className="bg-secondary border-b border-primary text-[10px] font-bold text-secondary uppercase tracking-wider">
                     <th className="p-3 text-center w-12">Importar</th>
                     <th className="p-3 w-28">Ticker</th>
+                    <th className="p-3 w-36">Mov. B3</th>
                     <th className="p-3 w-32">Operação</th>
                     <th className="p-3 w-32">Data</th>
                     <th className="p-3 w-24 text-right">Qtd</th>
@@ -978,6 +1417,14 @@ export default function InvestmentReconciliationModal({
                           onChange={(e) => updateMissingDraft(draft.id, 'ticker', e.target.value)}
                           className="w-full bg-primary text-primary border border-primary rounded-lg px-2 py-1 uppercase text-xs font-bold font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className="block text-[10px] text-secondary truncate max-w-[140px] font-sans"
+                          title={draft.official.raw_operation_type}
+                        >
+                          {draft.official.raw_operation_type}
+                        </span>
                       </td>
                       <td className="p-3">
                         <select
@@ -1041,25 +1488,26 @@ export default function InvestmentReconciliationModal({
               </table>
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('conflicts')}>
-                Voltar
-              </Button>
+            <div className="flex justify-end pt-1">
               <Button
                 variant="primary"
+                size="sm"
                 disabled={loading || selectedMissingCount === 0}
                 onClick={handleImportSelectedMissing}
-                className="font-bold flex items-center gap-1.5"
+                className="font-bold"
               >
-                {loading ? 'Importando...' : `Importar ${selectedMissingCount} Lançamentos`}
+                {loading ? 'Importando...' : `Importar ${selectedMissingCount}`}
               </Button>
             </div>
           </div>
-        )}
+            )}
 
-        {/* STEP 5: Suspicious (Ledger-Only Alertas) */}
-        {currentStep === 'suspicious' && reconciliation && (
-          <div className="space-y-4 animate-page-enter">
+            {correctionsTab === 'suspicious' && (
+          <div className="space-y-3">
+            <B3ReconciliationGuidance title="Correção manual necessária" variant="warning">
+              Cada item abaixo existe no livro-razão mas não foi encontrado no extrato de movimentação. Exclua duplicatas ou corrija o ticker/data.
+              Se o lançamento for legítimo fora do período do extrato, pode ignorar e seguir — a etapa de posição detectará saldo fantasma.
+            </B3ReconciliationGuidance>
             <div className="text-left">
               <h5 className="text-sm font-black text-primary uppercase tracking-tight">Lançamentos Exclusivos do Livro-Razão</h5>
               <p className="text-[10px] text-secondary">
@@ -1104,16 +1552,105 @@ export default function InvestmentReconciliationModal({
               )}
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('missing')}>
+          </div>
+            )}
+
+            <div className="flex justify-between items-center pt-2 border-t border-border/30">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep('summary')}>
+                Voltar
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
+                Validar posição B3
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 'position' && reconciliation && (
+          <div className="space-y-3 animate-page-enter">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={18} className="text-emerald-600" />
+              <h5 className="text-sm font-black text-primary">Posição oficial B3</h5>
+            </div>
+
+            <B3PositionValidationPanel
+              positionFileName={positionFileName}
+              positionParseStatus={positionParseStatus}
+              positionDragActive={positionDragActive}
+              positionValidation={positionValidation}
+              adjustments={positionAdjustments}
+              selectedAdjustmentTickers={selectedAdjustmentTickers}
+              onToggleAdjustment={(ticker) => {
+                setSelectedAdjustmentTickers((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(ticker)) next.delete(ticker)
+                  else next.add(ticker)
+                  return next
+                })
+              }}
+              onSelectAllAdjustments={(selected) => {
+                setSelectedAdjustmentTickers(
+                  selected ? new Set(positionAdjustments.map((a) => a.ticker)) : new Set()
+                )
+              }}
+              onPositionFileInputRef={(el) => {
+                positionFileInputRef.current = el
+              }}
+              onPositionDragEnter={(e) => {
+                e.preventDefault()
+                setPositionDragActive(true)
+              }}
+              onPositionDragOver={(e) => e.preventDefault()}
+              onPositionDragLeave={(e) => {
+                e.preventDefault()
+                setPositionDragActive(false)
+              }}
+              onPositionDrop={async (e) => {
+                e.preventDefault()
+                setPositionDragActive(false)
+                const file = e.dataTransfer.files?.[0]
+                if (file?.name.endsWith('.xlsx')) {
+                  await processPositionFileBuffer(await file.arrayBuffer(), file.name)
+                } else {
+                  toast.error('Envie um arquivo .xlsx de posição.')
+                }
+              }}
+              onPositionFileChange={async (file) => {
+                await processPositionFileBuffer(await file.arrayBuffer(), file.name)
+              }}
+              onApplyAdjustments={handleApplyPositionAdjustments}
+              applyingAdjustments={loading}
+              showNonEquityNote={
+                !!officialPosition &&
+                (Object.keys(officialPosition.treasury).length > 0 ||
+                  Object.keys(officialPosition.fixedIncome).length > 0)
+              }
+            />
+
+            {positionValidation && !positionValidation.allOk && ledgerOnlyMismatches === 0 && (
+              <label className="flex items-start gap-2 text-[11px] text-secondary cursor-pointer px-1">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-primary"
+                  checked={acknowledgePositionGaps}
+                  onChange={(e) => setAcknowledgePositionGaps(e.target.checked)}
+                />
+                <span>Só há divergência no extrato de movimentação; o livro-razão já confere com a B3.</span>
+              </label>
+            )}
+
+            <div className="flex justify-between items-center pt-1">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep('corrections')}>
                 Voltar
               </Button>
               <Button
                 variant="primary"
+                size="sm"
+                disabled={!positionValidation || (!positionValidation.allOk && !acknowledgePositionGaps)}
                 onClick={() => setCurrentStep('review')}
-                className="font-bold flex items-center gap-1.5"
+                className="font-bold"
               >
-                Prosseguir para Resumo
+                Concluir
               </Button>
             </div>
           </div>
@@ -1129,7 +1666,11 @@ export default function InvestmentReconciliationModal({
             <div className="space-y-1">
               <h4 className="text-base font-black text-primary uppercase tracking-tight">Revisão Final da Conciliação</h4>
               <p className="text-xs text-secondary max-w-sm mx-auto leading-relaxed">
-                Você concluiu o processo de auditoria e correção do Livro-Razão de Investimentos com a B3!
+                {positionValidation?.allOk
+                  ? 'Movimentações e posição oficial B3 estão alinhadas com o livro-razão.'
+                  : acknowledgePositionGaps
+                    ? 'Conciliação encerrada com pendências de posição — revise os tickers indicados no livro-razão.'
+                    : 'Processo de auditoria concluído.'}
               </p>
             </div>
 
@@ -1148,10 +1689,42 @@ export default function InvestmentReconciliationModal({
                     {reconciliation.matched.length + conflictDrafts.filter(c => c.applied).length}
                   </span>
                 </div>
+                {positionValidation && (
+                  <div className="flex justify-between">
+                    <span className="text-secondary">Validação de posição:</span>
+                    <span
+                      className={`font-bold flex items-center gap-1 ${
+                        positionValidation.allOk ? 'text-emerald-500' : 'text-amber-500'
+                      }`}
+                    >
+                      {positionValidation.allOk ? (
+                        <>
+                          <Check size={14} /> Integrada
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={14} /> {positionValidation.mismatchCount} pendência(s)
+                        </>
+                      )}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-primary/10 pt-2 font-sans font-black text-sm text-primary mt-3">
                    <span>Status Geral:</span>
-                   <span className="text-emerald-500 flex items-center gap-1">
-                     <Check size={16} /> 100% Sincronizado
+                   <span
+                     className={`flex items-center gap-1 ${
+                       positionValidation?.allOk !== false ? 'text-emerald-500' : 'text-amber-500'
+                     }`}
+                   >
+                     {positionValidation?.allOk !== false ? (
+                       <>
+                         <Check size={16} /> Sincronizado
+                       </>
+                     ) : (
+                       <>
+                         <AlertCircle size={16} /> Com ressalvas
+                       </>
+                     )}
                    </span>
                  </div>
                </div>
@@ -1193,7 +1766,10 @@ export default function InvestmentReconciliationModal({
                </div>
              )}
 
-             <div className="flex gap-3 justify-center pt-2">
+             <div className="flex gap-3 justify-center pt-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep('position')}>
+                Revisar Posição
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')}>
                 Conciliar Outro Extrato
               </Button>

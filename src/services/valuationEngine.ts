@@ -4,6 +4,7 @@ import type {
   PortfolioTransaction,
   TargetAllocation,
 } from '@/types'
+import { buildPortfolioLedger, type PositionLedgerEntry } from '@/utils/portfolioLedger'
 import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { calculateGrossAndNetYield } from '@/utils/incomeTaxInvestment'
 import { isB3TickerPattern } from '@/services/priceService'
@@ -32,11 +33,7 @@ export interface ValuedPosition {
   accumulated_dividends: number
 }
 
-interface PositionLedger {
-  quantity: number
-  totalCost: number
-  accumulatedDividends: number
-}
+type PositionLedger = PositionLedgerEntry
 
 function defaultDefinition(ticker: string): PortfolioAssetDefinition {
   const upper = ticker.toUpperCase()
@@ -64,36 +61,7 @@ function defaultDefinition(ticker: string): PortfolioAssetDefinition {
 }
 
 function buildPositionLedger(transactions: PortfolioTransaction[]): Record<string, PositionLedger> {
-  const map: Record<string, PositionLedger> = {}
-  const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
-
-  for (const tx of sorted) {
-    const ticker = tx.ticker.toUpperCase().trim()
-    if (!map[ticker]) {
-      map[ticker] = { quantity: 0, totalCost: 0, accumulatedDividends: 0 }
-    }
-    const pos = map[ticker]
-    const qty = Number(tx.quantity)
-    const price = Number(tx.price)
-
-    if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-      pos.quantity += qty
-      pos.totalCost += qty * price
-    } else if (tx.operation_type === 'sell') {
-      if (pos.quantity > 0) {
-        const avg = pos.totalCost / pos.quantity
-        pos.quantity = Math.max(0, pos.quantity - qty)
-        pos.totalCost = pos.quantity * avg
-      }
-    } else if (tx.operation_type === 'dividend') {
-      pos.accumulatedDividends += qty * price
-      pos.totalCost = Math.max(0, pos.totalCost - qty * price)
-    } else if (tx.operation_type === 'split') {
-      pos.quantity *= qty
-    }
-  }
-
-  return map
+  return buildPortfolioLedger(transactions)
 }
 
 function netInvestedFromLedger(ledger: PositionLedger): number {
@@ -207,6 +175,10 @@ export interface PortfolioValuationInput {
 
 export interface PortfolioValuationResult {
   positions: ValuedPosition[]
+  /** Soma de ativos investidos (exclui pricing_mode cash). */
+  investedValue: number
+  /** Saldo em caixa (posições cash + cash_balance legado quando aplicável). */
+  cashValue: number
   assetsValue: number
   totalValue: number
   cashBalance: number
@@ -247,7 +219,8 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     'current_percentage' | 'gap_financial' | 'gap_percentage'
   >[] = []
 
-  let assetsValue = 0
+  let investedValue = 0
+  let cashFromPositions = 0
 
   for (const ticker of tickers) {
     const trimmedTicker = ticker.trim()
@@ -333,7 +306,11 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
             pricingMode: definition.pricing_mode,
           })
 
-    assetsValue += currentValue
+    if (definition.pricing_mode === 'cash') {
+      cashFromPositions += currentValue
+    } else {
+      investedValue += currentValue
+    }
 
     const isCash = definition.pricing_mode === 'cash'
 
@@ -361,7 +338,9 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     })
   }
 
-  const totalValue = assetsValue + activeCashBalance
+  const cashValue = cashFromPositions + activeCashBalance
+  const assetsValue = investedValue + cashFromPositions
+  const totalValue = investedValue + cashValue
 
   const positions: ValuedPosition[] = tempPositions.map((pos) => {
     const currentPercentage = totalValue > 0 ? (pos.total_value / totalValue) * 100 : 0
@@ -378,6 +357,8 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
 
   return {
     positions,
+    investedValue: Math.round(investedValue * 100) / 100,
+    cashValue: Math.round(cashValue * 100) / 100,
     assetsValue: Math.round(assetsValue * 100) / 100,
     totalValue: Math.round(totalValue * 100) / 100,
     cashBalance,

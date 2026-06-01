@@ -12,6 +12,8 @@ import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 
 export interface PortfolioValuationBundle {
   positions: ReturnType<typeof calculatePositions>['positions']
+  investedValue: number
+  cashValue: number
   assetsValue: number
   totalValue: number
   cashBalance: number
@@ -72,7 +74,7 @@ export async function loadPortfolioValuation(
 
   const prices = marketTickers.length > 0 ? await getAssetPrices(marketTickers, { forceRefresh: options?.forceRefresh }) : {}
 
-  const { positions, assetsValue, totalValue } = calculatePositions(
+  const { positions, investedValue, cashValue, assetsValue, totalValue } = calculatePositions(
     transactions,
     targets,
     prices,
@@ -83,6 +85,8 @@ export async function loadPortfolioValuation(
 
   return {
     positions,
+    investedValue,
+    cashValue,
     assetsValue,
     totalValue,
     cashBalance,

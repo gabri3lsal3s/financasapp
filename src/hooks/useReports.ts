@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MonthlySummary, CategoryExpense, Expense } from '@/types'
+import { MonthlySummary, CategoryExpense, Expense, PortfolioOperationType } from '@/types'
 import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 'date-fns'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
@@ -116,7 +116,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
       const { data: authData } = await supabase.auth.getUser()
       let portfolioTransactions: {
         date: string
-        operation_type: 'buy' | 'sell' | 'dividend' | 'split' | 'subscription'
+        operation_type: PortfolioOperationType
         quantity: number
         price: number
       }[] = []

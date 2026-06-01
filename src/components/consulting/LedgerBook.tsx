@@ -6,7 +6,9 @@ import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check } 
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { deleteCashOffsetTransactionsMultiple, fetchPortfolioCashContext } from '@/services/cashOffsetService'
+import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
+import { isPortfolioIncomeType, portfolioOperationLabel } from '@/utils/portfolioOperations'
 import toast from 'react-hot-toast'
 
 interface LedgerBookProps {
@@ -17,7 +19,7 @@ interface LedgerBookProps {
   onSaved?: () => void
 }
 
-export default function LedgerBook({
+function LedgerBook({
   transactions,
   onOpenTxModal,
   onOpenReconciliation,
@@ -142,29 +144,8 @@ export default function LedgerBook({
 
       if (updatePortError) throw updatePortError
 
-      // Limpar definições e metas que ficaram órfãs
       setDeletingProgress('Limpando ativos órfãos...')
-      for (const tickerUpper of uniqueTickers) {
-        const { data: remaining } = await supabase
-          .from('portfolio_transactions')
-          .select('id')
-          .eq('portfolio_id', portfolioId)
-          .eq('ticker', tickerUpper)
-
-        if (!remaining || remaining.length === 0) {
-          await supabase
-            .from('portfolio_asset_definitions')
-            .delete()
-            .eq('portfolio_id', portfolioId)
-            .eq('ticker', tickerUpper)
-
-          await supabase
-            .from('target_allocations')
-            .delete()
-            .eq('portfolio_id', portfolioId)
-            .eq('ticker', tickerUpper)
-        }
-      }
+      await cleanupOrphanPortfolioTickers(portfolioId, uniqueTickers)
 
       // Disparar atualizações de dados locais
       window.dispatchEvent(
@@ -352,15 +333,11 @@ export default function LedgerBook({
             const displayTicker = isCash ? 'Caixa' : tx.ticker
             const total = Number(tx.quantity) * Number(tx.price)
 
-            const opLabel = tx.operation_type === 'buy' ? 'Compra'
-              : tx.operation_type === 'sell' ? 'Venda'
-              : tx.operation_type === 'dividend' ? 'Provento'
-              : tx.operation_type === 'subscription' ? 'Subscrição'
-              : 'Desdobro'
+            const opLabel = portfolioOperationLabel(tx.operation_type)
 
             const opColor = tx.operation_type === 'buy' || tx.operation_type === 'subscription'
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-              : tx.operation_type === 'dividend'
+              : isPortfolioIncomeType(tx.operation_type)
               ? 'bg-indigo-500/10 text-indigo-500'
               : 'bg-red-500/10 text-red-500'
 
@@ -399,7 +376,7 @@ export default function LedgerBook({
                   {!isSelectionMode && (
                     <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${
                       tx.operation_type === 'buy' || tx.operation_type === 'subscription' ? 'bg-emerald-500'
-                      : tx.operation_type === 'dividend' ? 'bg-indigo-500'
+                      : isPortfolioIncomeType(tx.operation_type) ? 'bg-indigo-500'
                       : 'bg-red-500'
                     }`} />
                   )}
@@ -506,3 +483,5 @@ export default function LedgerBook({
     </Card>
   )
 }
+
+export default LedgerBook

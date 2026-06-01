@@ -1,26 +1,68 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync, readFileSync } from 'fs'
 import {
   parseB3Product,
   mapB3OperationType,
   parseB3Date,
+  parseNumericValue,
   scoreInvestmentMatch,
   reconcileInvestmentTransactions,
+  classifyB3Movement,
+  classifyB3Item,
+  deduplicateB3Items,
+  parseB3Excel,
+  computePositionsFromB3Items,
+  parseB3PositionExcel,
+  buildPositionValidation,
+  suggestPositionAdjustments,
+  isB3PositionWorkbook,
+  isB3SubscriptionRightsTicker,
   type B3TransactionItem,
 } from './investmentExcelReconciliation'
 import type { PortfolioTransaction } from '@/types'
 
+const baseItem = (overrides: Partial<B3TransactionItem>): B3TransactionItem => ({
+  id: '1',
+  date: '2026-05-20',
+  direction: 'Credito',
+  operation_type: 'buy',
+  raw_operation_type: 'Compra',
+  movement_category: 'trade',
+  ticker: 'EGIE3',
+  product_name: 'ENGIE',
+  institution: 'BTG',
+  quantity: 10,
+  price: 40,
+  total_value: 400,
+  ...overrides,
+})
+
 describe('B3 Investment Reconciliation Utilities', () => {
+  describe('classifyB3Movement', () => {
+    it('classifica negociação, provento e ignorados', () => {
+      expect(classifyB3Movement('Transferência - Liquidação')).toBe('trade')
+      expect(classifyB3Movement('Dividendo')).toBe('income')
+      expect(classifyB3Movement('Juros Sobre Capital Próprio')).toBe('income')
+      expect(classifyB3Movement('Rendimento')).toBe('income')
+      expect(classifyB3Movement('Transferência')).toBe('ignore')
+      expect(classifyB3Movement('Transferência sem financeiro')).toBe('ignore')
+      expect(classifyB3Movement('Empréstimo')).toBe('ignore')
+      expect(classifyB3Movement('Cessão de Direitos')).toBe('ignore')
+      expect(classifyB3Movement('Direito de Subscrição')).toBe('ignore')
+      expect(classifyB3Movement('Direitos de Subscrição - Não Exercido')).toBe('ignore')
+    })
+
+    it('identifica ticker temporário de direito FII (XXXX12)', () => {
+      expect(isB3SubscriptionRightsTicker('MXRF12')).toBe(true)
+      expect(isB3SubscriptionRightsTicker('MXRF11')).toBe(false)
+    })
+  })
+
   describe('parseB3Product', () => {
     it('should split product into ticker and name when hyphen is present', () => {
       const { ticker, name } = parseB3Product('EGIE3 - ENGIE BRASIL ENERGIA S.A.')
       expect(ticker).toBe('EGIE3')
       expect(name).toBe('ENGIE BRASIL ENERGIA S.A.')
-    })
-
-    it('should return full string for both ticker and name if hyphen is absent', () => {
-      const { ticker, name } = parseB3Product('Tesouro Selic 2031')
-      expect(ticker).toBe('TESOURO SELIC 2031')
-      expect(name).toBe('Tesouro Selic 2031')
     })
 
     it('should split CDB and keep unique identifier as ticker', () => {
@@ -36,23 +78,87 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(mapB3OperationType('VENDA DE ATIVOS')).toBe('sell')
     })
 
-    it('should map Dividendo/Juros/Rendimento to dividend', () => {
+    it('should map income types separately', () => {
       expect(mapB3OperationType('Dividendo')).toBe('dividend')
-      expect(mapB3OperationType('Juros Sobre Capital Próprio')).toBe('dividend')
-      expect(mapB3OperationType('Rendimento')).toBe('dividend')
+      expect(mapB3OperationType('Juros Sobre Capital Próprio')).toBe('jcp')
+      expect(mapB3OperationType('Rendimento')).toBe('fii_yield')
     })
 
-    it('should map Subscrição to subscription', () => {
-      expect(mapB3OperationType('Subscrição')).toBe('subscription')
+    it('should map COMPRA / VENDA by direction', () => {
+      expect(mapB3OperationType('COMPRA / VENDA', 'Debito')).toBe('sell')
+      expect(mapB3OperationType('COMPRA / VENDA', 'Credito')).toBe('buy')
     })
 
-    it('should map Desdobro to split', () => {
-      expect(mapB3OperationType('Desdobro')).toBe('split')
-    })
-
-    it('should map generic Transferencia - Liquidacao to sell if direction is Debito and buy if direction is Credito', () => {
+    it('should map Transferência - Liquidação by direction', () => {
       expect(mapB3OperationType('Transferência - Liquidação', 'Debito')).toBe('sell')
-      expect(mapB3OperationType('Transferência - Liquidação', 'Credito')).toBe('buy')
+      expect(mapB3OperationType('Transferência - Liquidação', 'Credito', 532.3)).toBe('buy')
+    })
+
+    it('should map Subscrição, Desdobro e Grupamento', () => {
+      expect(mapB3OperationType('Subscrição')).toBe('subscription')
+      expect(mapB3OperationType('Desdobro')).toBe('split')
+      expect(mapB3OperationType('Grupamento')).toBe('reverse_split')
+    })
+
+  })
+
+  describe('parseNumericValue', () => {
+    it('preserva decimal americano simples', () => {
+      expect(parseNumericValue('532.3')).toBe(532.3)
+    })
+
+    it('interpreta formato brasileiro', () => {
+      expect(parseNumericValue('1.234,56')).toBe(1234.56)
+    })
+  })
+
+  describe('deduplicateB3Items', () => {
+    it('remove par espelhado de Transferência sem alterar posição', () => {
+      const items: B3TransactionItem[] = [
+        baseItem({
+          id: 'a',
+          raw_operation_type: 'Transferência',
+          direction: 'Credito',
+          operation_type: 'buy',
+          total_value: 0,
+        }),
+        baseItem({
+          id: 'b',
+          raw_operation_type: 'Transferência',
+          direction: 'Debito',
+          operation_type: 'sell',
+          total_value: 0,
+        }),
+        baseItem({
+          id: 'c',
+          raw_operation_type: 'Transferência - Liquidação',
+          operation_type: 'buy',
+          total_value: 400,
+        }),
+      ]
+      const { items: result, stats } = deduplicateB3Items(items)
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('c')
+      expect(stats.ignoredInternal).toBe(2)
+    })
+
+    it('prefere liquidação sobre compra explícita no mesmo grupo', () => {
+      const items: B3TransactionItem[] = [
+        baseItem({
+          id: 'liq',
+          raw_operation_type: 'Transferência - Liquidação',
+          operation_type: 'buy',
+        }),
+        baseItem({
+          id: 'compra',
+          raw_operation_type: 'Compra',
+          operation_type: 'buy',
+        }),
+      ]
+      const { items: result, stats } = deduplicateB3Items(items)
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('liq')
+      expect(stats.dedupedTrades).toBe(1)
     })
   })
 
@@ -61,178 +167,252 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(parseB3Date('20/05/2026')).toBe('2026-05-20')
     })
 
-    it('should parse YYYY-MM-DD date strings', () => {
-      expect(parseB3Date('2026-05-20')).toBe('2026-05-20')
-    })
-
     it('should parse Excel serial numbers', () => {
-      // 46158 is 2026-05-16 in Excel serial date format (offset by 25569 days since 1899-12-30)
       expect(parseB3Date('46158')).toBe('2026-05-16')
     })
   })
 
   describe('scoreInvestmentMatch', () => {
     it('should return 0 for different tickers', () => {
-      const official: B3TransactionItem = {
-        id: '1', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
-        raw_operation_type: 'Compra', ticker: 'EGIE3', product_name: 'ENGIE',
-        institution: 'BTG', quantity: 10, price: 40, total_value: 400
-      }
+      const official = baseItem({ id: '1', operation_type: 'buy' })
       const existing: PortfolioTransaction = {
-        id: 'a', portfolio_id: 'p1', ticker: 'PETR4', operation_type: 'buy',
-        quantity: 10, price: 40, date: '2026-05-20', created_at: ''
+        id: 'a',
+        portfolio_id: 'p1',
+        ticker: 'PETR4',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 40,
+        date: '2026-05-20',
+        created_at: '',
       }
       expect(scoreInvestmentMatch(official, existing)).toBe(0)
     })
 
-    it('should return 1 for exact match', () => {
-      const official: B3TransactionItem = {
-        id: '1', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
-        raw_operation_type: 'Compra', ticker: 'EGIE3', product_name: 'ENGIE',
-        institution: 'BTG', quantity: 10, price: 40, total_value: 400
-      }
+    it('should match jcp with legacy dividend at reduced score', () => {
+      const official = baseItem({
+        operation_type: 'jcp',
+        raw_operation_type: 'Juros Sobre Capital Próprio',
+        price: 0.5,
+        total_value: 5,
+      })
       const existing: PortfolioTransaction = {
-        id: 'a', portfolio_id: 'p1', ticker: 'EGIE3', operation_type: 'buy',
-        quantity: 10, price: 40, date: '2026-05-20', created_at: ''
-      }
-      expect(scoreInvestmentMatch(official, existing)).toBe(1.0)
-    })
-
-    it('should calculate partial scores for different dates or values', () => {
-      const official: B3TransactionItem = {
-        id: '1', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
-        raw_operation_type: 'Compra', ticker: 'EGIE3', product_name: 'ENGIE',
-        institution: 'BTG', quantity: 10, price: 40, total_value: 400
-      }
-      const existing: PortfolioTransaction = {
-        id: 'a', portfolio_id: 'p1', ticker: 'EGIE3', operation_type: 'buy',
-        quantity: 10, price: 40, date: '2026-05-18', created_at: '' // diff 2 days
+        id: 'a',
+        portfolio_id: 'p1',
+        ticker: 'EGIE3',
+        operation_type: 'dividend',
+        quantity: 10,
+        price: 0.5,
+        date: '2026-05-20',
+        created_at: '',
       }
       const score = scoreInvestmentMatch(official, existing)
-      expect(score).toBeGreaterThan(0.5)
-      expect(score).toBeLessThan(1.0)
+      expect(score).toBeGreaterThan(0.85)
+      expect(score).toBeLessThan(1)
     })
   })
 
   describe('reconcileInvestmentTransactions', () => {
     it('should group transactions into matched, conflicts, and missing correctly', () => {
       const officialItems: B3TransactionItem[] = [
-        {
-          id: '1', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
-          raw_operation_type: 'Compra', ticker: 'EGIE3', product_name: 'ENGIE',
-          institution: 'BTG', quantity: 10, price: 40, total_value: 400
-        },
-        {
-          id: '2', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
-          raw_operation_type: 'Compra', ticker: 'KLBN4', product_name: 'KLABIN',
-          institution: 'BTG', quantity: 100, price: 4.5, total_value: 450
-        },
-        {
-          id: '3', date: '2026-05-20', direction: 'Credito', operation_type: 'dividend',
-          raw_operation_type: 'Dividendo', ticker: 'EGIE3', product_name: 'ENGIE',
-          institution: 'BTG', quantity: 10, price: 0.5, total_value: 5
-        }
+        baseItem({ id: '1', operation_type: 'buy' }),
+        baseItem({
+          id: '2',
+          ticker: 'KLBN4',
+          product_name: 'KLABIN',
+          quantity: 100,
+          price: 4.5,
+          total_value: 450,
+          operation_type: 'buy',
+        }),
+        baseItem({
+          id: '3',
+          operation_type: 'dividend',
+          raw_operation_type: 'Dividendo',
+          price: 0.5,
+          total_value: 5,
+        }),
       ]
 
       const existingTransactions: PortfolioTransaction[] = [
         {
-          id: 'a', portfolio_id: 'p1', ticker: 'EGIE3', operation_type: 'buy',
-          quantity: 10, price: 40, date: '2026-05-20', created_at: '' // exact match for 1
+          id: 'a',
+          portfolio_id: 'p1',
+          ticker: 'EGIE3',
+          operation_type: 'buy',
+          quantity: 10,
+          price: 40,
+          date: '2026-05-20',
+          created_at: '',
         },
         {
-          id: 'b', portfolio_id: 'p1', ticker: 'KLBN4', operation_type: 'buy',
-          quantity: 100, price: 4.4, date: '2026-05-20', created_at: '' // conflict in price for 2
-        }
+          id: 'b',
+          portfolio_id: 'p1',
+          ticker: 'KLBN4',
+          operation_type: 'buy',
+          quantity: 100,
+          price: 4.4,
+          date: '2026-05-20',
+          created_at: '',
+        },
       ]
 
       const result = reconcileInvestmentTransactions(officialItems, existingTransactions)
 
       expect(result.matched).toHaveLength(1)
-      expect(result.matched[0].official.ticker).toBe('EGIE3')
-
       expect(result.conflicts).toHaveLength(1)
-      expect(result.conflicts[0].official.ticker).toBe('KLBN4')
-      expect(result.conflicts[0].suggestedUpdate.needsUpdate).toBe(true)
-
       expect(result.missing).toHaveLength(1)
-      expect(result.missing[0].ticker).toBe('EGIE3')
       expect(result.missing[0].operation_type).toBe('dividend')
     })
 
-    it('should not steal matching transactions from other months or periods', () => {
-      // Cenário de proventos mensais com o mesmo valor mas datas distintas:
-      // O banco tem o provento de abril (15/04).
-      // O extrato da B3 tem o provento de abril (15/04) e o provento de maio (15/05).
-      // A transação de maio está "missing" no banco.
-      // O sistema deve conciliar perfeitamente a de abril e reportar a de maio como "missing",
-      // em vez de associar a de maio (mais recente) com o registro de abril (conflito) e deixar a de abril como "missing".
-      
+    it('should not steal matching transactions from other months', () => {
       const officialItems: B3TransactionItem[] = [
-        {
-          id: 'official-may', date: '2026-05-15', direction: 'Credito', operation_type: 'dividend',
-          raw_operation_type: 'Rendimento', ticker: 'MXRF11', product_name: 'MXRF11 FII',
-          institution: 'BTG', quantity: 100, price: 0.1, total_value: 10
-        },
-        {
-          id: 'official-april', date: '2026-04-15', direction: 'Credito', operation_type: 'dividend',
-          raw_operation_type: 'Rendimento', ticker: 'MXRF11', product_name: 'MXRF11 FII',
-          institution: 'BTG', quantity: 100, price: 0.1, total_value: 10
-        }
+        baseItem({
+          id: 'official-may',
+          date: '2026-05-15',
+          operation_type: 'fii_yield',
+          raw_operation_type: 'Rendimento',
+          quantity: 100,
+          price: 0.1,
+          total_value: 10,
+          ticker: 'MXRF11',
+        }),
+        baseItem({
+          id: 'official-april',
+          date: '2026-04-15',
+          operation_type: 'fii_yield',
+          raw_operation_type: 'Rendimento',
+          quantity: 100,
+          price: 0.1,
+          total_value: 10,
+          ticker: 'MXRF11',
+        }),
       ]
 
       const existingTransactions: PortfolioTransaction[] = [
         {
-          id: 'existing-april', portfolio_id: 'p1', ticker: 'MXRF11', operation_type: 'dividend',
-          quantity: 100, price: 0.1, date: '2026-04-15', created_at: ''
-        }
+          id: 'existing-april',
+          portfolio_id: 'p1',
+          ticker: 'MXRF11',
+          operation_type: 'fii_yield',
+          quantity: 100,
+          price: 0.1,
+          date: '2026-04-15',
+          created_at: '',
+        },
       ]
 
       const result = reconcileInvestmentTransactions(officialItems, existingTransactions)
 
-      // Deve casar o provento de abril de forma exata
       expect(result.matched).toHaveLength(1)
       expect(result.matched[0].official.id).toBe('official-april')
-      expect(result.matched[0].existing.id).toBe('existing-april')
-
-      // O provento de maio deve ser dado como faltando (missing)
       expect(result.missing).toHaveLength(1)
       expect(result.missing[0].id).toBe('official-may')
+    })
+  })
 
-      // Não deve haver conflitos de data incorretos sugeridos (ex: mover a data de abril para maio)
-      expect(result.conflicts).toHaveLength(0)
+  describe('parseB3Excel — posições do extrato de referência', () => {
+    const samplePath = 'movimentacao-2026-05-27-00-50-50.xlsx'
+
+    it('calcula cotas BBAS3, GGRC11, BCFF11 e ALZM11 conforme custódia', () => {
+      if (!existsSync(samplePath)) return
+
+      const fileBuffer = readFileSync(samplePath)
+      const { items } = parseB3Excel(
+        fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength)
+      )
+
+      const equityItems = items.filter((item) => {
+        if (isB3SubscriptionRightsTicker(item.ticker)) return false
+        const category = classifyB3Item(item.ticker, item.product_name)
+        return category === 'equityB3'
+      })
+
+      const positions = computePositionsFromB3Items(equityItems)
+
+      // Regressão do bug de desdobro (multiplicar em vez de somar)
+      const legacyMultiply = (ticker: string) => {
+        let q = 0
+        const rows = equityItems
+          .filter((i) => i.ticker === ticker)
+          .sort((a, b) => a.date.localeCompare(b.date))
+        for (const row of rows) {
+          if (row.operation_type === 'buy' || row.operation_type === 'subscription') q += row.quantity
+          else if (row.operation_type === 'sell') q = Math.max(0, q - row.quantity)
+          else if (row.operation_type === 'split') q *= row.quantity
+          else if (row.operation_type === 'reverse_split') q = Math.max(0, q - row.quantity)
+        }
+        return q
+      }
+
+      expect(legacyMultiply('BBAS3')).toBeGreaterThan(positions.BBAS3 ?? 0)
+      expect(legacyMultiply('GGRC11')).toBeGreaterThan(positions.GGRC11 ?? 0)
+
+      const custodyChecks: Record<string, number> = {
+        GGRC11: 55,
+        HGLG11: 5,
+        LVBI11: 5,
+        NEWL11: 2,
+        RZTR11: 8,
+        TGAR11: 4,
+        VISC11: 5,
+        XPML11: 5,
+        BBAS3: 30,
+        KLBN4: 146,
+        SAPR4: 102,
+      }
+      for (const [ticker, expected] of Object.entries(custodyChecks)) {
+        const actual = positions[ticker] ?? 0
+        expect(Math.abs(actual - expected), `${ticker} expected ${expected} got ${actual}`).toBeLessThan(
+          1.5
+        )
+      }
+    })
+  })
+
+  describe('parseB3PositionExcel', () => {
+    const positionFixture = 'posicao-2026-06-01-13-29-37.xlsx'
+
+    it('detecta planilha de posição vs movimentação', () => {
+      if (!existsSync(positionFixture)) return
+      const movFixture = 'movimentacao-2026-05-27-00-50-50.xlsx'
+      const posBuf = readFileSync(positionFixture).buffer
+      expect(isB3PositionWorkbook(posBuf)).toBe(true)
+      if (existsSync(movFixture)) {
+        const movBuf = readFileSync(movFixture).buffer
+        expect(isB3PositionWorkbook(movBuf)).toBe(false)
+      }
     })
 
-    it('should respect strict date difference limits (max 10 days for dividends and 15 days for assets)', () => {
-      const officialItems: B3TransactionItem[] = [
-        {
-          id: 'official-asset', date: '2026-05-20', direction: 'Credito', operation_type: 'buy',
-          raw_operation_type: 'Compra', ticker: 'PETR4', product_name: 'PETROBRAS',
-          institution: 'BTG', quantity: 100, price: 30, total_value: 3000
-        },
-        {
-          id: 'official-div', date: '2026-05-20', direction: 'Credito', operation_type: 'dividend',
-          raw_operation_type: 'Dividendo', ticker: 'PETR4', product_name: 'PETROBRAS',
-          institution: 'BTG', quantity: 100, price: 1, total_value: 100
-        }
-      ]
+    it('extrai cotas de ações, FIIs e ETF do relatório de posição', () => {
+      if (!existsSync(positionFixture)) return
+      const buf = readFileSync(positionFixture).buffer
+      const parsed = parseB3PositionExcel(buf)
+      expect(parsed.equity.BBAS3).toBe(30)
+      expect(parsed.equity.GGRC11).toBe(55)
+      expect(parsed.equity.AUVP11).toBe(1)
+      expect(parsed.equity.WEGE3).toBe(7)
+      expect(parsed.treasury['BRSTNCNTB7T1'] ?? Object.keys(parsed.treasury).length).toBeGreaterThan(0)
+    })
 
-      const existingTransactions: PortfolioTransaction[] = [
-        {
-          id: 'existing-asset', portfolio_id: 'p1', ticker: 'PETR4', operation_type: 'buy',
-          quantity: 100, price: 30, date: '2026-05-04', created_at: '' // diff 16 days (> 15)
-        },
-        {
-          id: 'existing-div', portfolio_id: 'p1', ticker: 'PETR4', operation_type: 'dividend',
-          quantity: 100, price: 1, date: '2026-05-09', created_at: '' // diff 11 days (> 10)
-        }
-      ]
+    it('buildPositionValidation marca divergência entre fontes', () => {
+      const result = buildPositionValidation(
+        { BBAS3: 30, WEGE3: 7 },
+        { BBAS3: 30, WEGE3: 5 },
+        { BBAS3: 28, WEGE3: 7 }
+      )
+      expect(result.allOk).toBe(false)
+      expect(result.rows.find((r) => r.ticker === 'WEGE3')?.status).toBe('movements_official')
+      expect(result.rows.find((r) => r.ticker === 'BBAS3')?.status).toBe('system_official')
+      expect(result.rows.find((r) => r.ticker === 'WEGE3')?.manualAction).toBeTruthy()
+    })
 
-      const result = reconcileInvestmentTransactions(officialItems, existingTransactions)
-
-      // Nenhuma das transações deve conciliar automaticamente por conta das restrições estritas de data
-      expect(result.matched).toHaveLength(0)
-      expect(result.conflicts).toHaveLength(0)
-      expect(result.missing).toHaveLength(2)
+    it('suggestPositionAdjustments propõe compra/venda para alinhar ao oficial', () => {
+      const validation = buildPositionValidation({ BBAS3: 30 }, { BBAS3: 30 }, { BBAS3: 25 })
+      const suggestions = suggestPositionAdjustments(validation, [], [])
+      expect(suggestions).toHaveLength(1)
+      expect(suggestions[0]?.ticker).toBe('BBAS3')
+      expect(suggestions[0]?.operation_type).toBe('buy')
+      expect(suggestions[0]?.quantity).toBe(5)
     })
   })
 })

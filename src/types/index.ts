@@ -154,7 +154,15 @@ export interface Portfolio {
   billing_fee_rate?: number
 }
 
-export type PortfolioOperationType = 'buy' | 'sell' | 'dividend' | 'split' | 'subscription'
+export type PortfolioOperationType =
+  | 'buy'
+  | 'sell'
+  | 'dividend'
+  | 'jcp'
+  | 'fii_yield'
+  | 'split'
+  | 'reverse_split'
+  | 'subscription'
 
 export interface PortfolioTransaction {
   id: string

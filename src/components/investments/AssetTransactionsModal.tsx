@@ -25,7 +25,9 @@ import type { PortfolioTransaction, PortfolioOperationType } from '@/types'
 import type { AssetPosition } from '@/services/investmentEngine'
 import PortfolioTransactionFormModal from './PortfolioTransactionFormModal'
 import { deleteCashOffsetTransactions, fetchPortfolioCashContext } from '@/services/cashOffsetService'
+import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
+import { isPortfolioIncomeType, PORTFOLIO_OPERATION_OPTIONS } from '@/utils/portfolioOperations'
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
@@ -51,7 +53,21 @@ const OP_CONFIG: Record<PortfolioOperationType, {
     icon: <ArrowDownRight size={13} />,
   },
   dividend: {
-    label: 'Provento',
+    label: 'Dividendo',
+    textCls: 'text-emerald-700 dark:text-emerald-400',
+    bgCls: 'bg-emerald-50 dark:bg-emerald-500/10',
+    borderCls: 'border-emerald-200 dark:border-emerald-500/25',
+    icon: <Gift size={13} />,
+  },
+  jcp: {
+    label: 'JCP',
+    textCls: 'text-emerald-700 dark:text-emerald-400',
+    bgCls: 'bg-emerald-50 dark:bg-emerald-500/10',
+    borderCls: 'border-emerald-200 dark:border-emerald-500/25',
+    icon: <Gift size={13} />,
+  },
+  fii_yield: {
+    label: 'Rendimento (FII)',
     textCls: 'text-emerald-700 dark:text-emerald-400',
     bgCls: 'bg-emerald-50 dark:bg-emerald-500/10',
     borderCls: 'border-emerald-200 dark:border-emerald-500/25',
@@ -64,6 +80,13 @@ const OP_CONFIG: Record<PortfolioOperationType, {
     borderCls: 'border-amber-200 dark:border-amber-500/25',
     icon: <Scissors size={13} />,
   },
+  reverse_split: {
+    label: 'Grupamento',
+    textCls: 'text-orange-700 dark:text-orange-400',
+    bgCls: 'bg-orange-50 dark:bg-orange-500/10',
+    borderCls: 'border-orange-200 dark:border-orange-500/25',
+    icon: <Scissors size={13} />,
+  },
   subscription: {
     label: 'Subscrição',
     textCls: 'text-violet-700 dark:text-violet-400',
@@ -73,13 +96,7 @@ const OP_CONFIG: Record<PortfolioOperationType, {
   },
 }
 
-const OP_OPTIONS: { value: PortfolioOperationType; label: string }[] = [
-  { value: 'buy', label: 'Compra' },
-  { value: 'sell', label: 'Venda' },
-  { value: 'dividend', label: 'Provento' },
-  { value: 'split', label: 'Desdobramento' },
-  { value: 'subscription', label: 'Subscrição' },
-]
+const OP_OPTIONS = PORTFOLIO_OPERATION_OPTIONS
 
 function formatDateBR(dateStr: string): string {
   if (!dateStr) return '—'
@@ -323,7 +340,7 @@ export default function AssetTransactionsModal({
 
   const metrics = useMemo(() => {
     const buys  = assetTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
-    const divs  = assetTxs.filter(t => t.operation_type === 'dividend')
+    const divs  = assetTxs.filter(t => isPortfolioIncomeType(t.operation_type))
     const totalDivs = divs.reduce((s, t) => s + t.quantity * t.price, 0)
     return { buys: buys.length, divs: divs.length, totalDivs }
   }, [assetTxs])
@@ -342,14 +359,7 @@ export default function AssetTransactionsModal({
       const ctx = await fetchPortfolioCashContext(portfolioId)
       const finalCash = calculateLedgerCashBalance(ctx.transactions, ctx.definitions)
       await supabase.from('portfolios').update({ cash_balance: finalCash }).eq('id', portfolioId)
-      const { data: remaining } = await supabase.from('portfolio_transactions')
-        .select('id').eq('portfolio_id', portfolioId).eq('ticker', tx.ticker.toUpperCase())
-      if (!remaining || remaining.length === 0) {
-        await supabase.from('portfolio_asset_definitions').delete()
-          .eq('portfolio_id', portfolioId).eq('ticker', tx.ticker.toUpperCase())
-        await supabase.from('target_allocations').delete()
-          .eq('portfolio_id', portfolioId).eq('ticker', tx.ticker.toUpperCase())
-      }
+      await cleanupOrphanPortfolioTickers(portfolioId, [tx.ticker])
       window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'portfolio_transactions' } }))
       toast.success('Transação excluída!')
       onSaved()
@@ -574,7 +584,19 @@ export default function AssetTransactionsModal({
                               </div>
                               {tx.operation_type === 'split' ? (
                                 <p className="text-xs font-mono text-[var(--color-text-secondary)]">
-                                  Fator <span className="font-bold text-[var(--color-text-primary)]">{tx.quantity}×</span>
+                                  +{' '}
+                                  <span className="font-bold text-[var(--color-text-primary)]">
+                                    {tx.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                                  </span>{' '}
+                                  cotas creditadas
+                                </p>
+                              ) : tx.operation_type === 'reverse_split' ? (
+                                <p className="text-xs font-mono text-[var(--color-text-secondary)]">
+                                  −{' '}
+                                  <span className="font-bold text-[var(--color-text-primary)]">
+                                    {tx.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                                  </span>{' '}
+                                  cotas canceladas
                                 </p>
                               ) : (
                                 <p className="text-xs font-mono text-[var(--color-text-secondary)] truncate">
@@ -591,12 +613,12 @@ export default function AssetTransactionsModal({
                             <div className="flex items-center gap-1.5 shrink-0">
                               <div className="text-right mr-1">
                                 <p className={`text-sm font-black font-mono leading-none ${
-                                  tx.operation_type === 'sell'     ? 'text-rose-600 dark:text-rose-400' :
-                                  tx.operation_type === 'dividend' ? 'text-emerald-600 dark:text-emerald-400' :
+                                  tx.operation_type === 'sell' ? 'text-rose-600 dark:text-rose-400' :
+                                  isPortfolioIncomeType(tx.operation_type) ? 'text-emerald-600 dark:text-emerald-400' :
                                   'text-[var(--color-text-primary)]'
                                 }`}>
                                   {tx.operation_type === 'sell' ? '−' :
-                                   tx.operation_type === 'dividend' ? '+' : ''}
+                                   isPortfolioIncomeType(tx.operation_type) ? '+' : ''}
                                   {formatCurrency(total)}
                                 </p>
                                 <p className="text-[9px] text-[var(--color-text-secondary)] uppercase tracking-wide">

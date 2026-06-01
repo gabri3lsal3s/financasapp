@@ -1,4 +1,5 @@
 import type { PortfolioOperationType, PortfolioTransaction } from '@/types'
+import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 
 /** Impacto no caixa do mês: compras/subscrições aumentam o total investido; vendas/proventos reduzem. */
 export function transactionInvestmentAmount(
@@ -12,7 +13,7 @@ export function transactionInvestmentAmount(
   if (operationType === 'buy' || operationType === 'subscription') {
     return gross
   }
-  if (operationType === 'sell' || operationType === 'dividend') {
+  if (operationType === 'sell' || isPortfolioIncomeType(operationType)) {
     return -gross
   }
   return 0

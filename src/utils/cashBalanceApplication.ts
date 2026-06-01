@@ -1,4 +1,5 @@
 import type { PortfolioAssetDefinition, PortfolioTransaction, PortfolioPricingMode } from '@/types'
+import { buildSimplePositionLedger } from '@/utils/portfolioLedger'
 
 interface PositionLedger {
   quantity: number
@@ -34,35 +35,7 @@ export function resolvePricingMode(
 function buildPositionLedger(
   transactions: PortfolioTransaction[]
 ): Record<string, PositionLedger> {
-  const map: Record<string, PositionLedger> = {}
-  const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
-
-  for (const tx of sorted) {
-    const ticker = tx.ticker.toUpperCase().trim()
-    if (!map[ticker]) {
-      map[ticker] = { quantity: 0, totalCost: 0 }
-    }
-    const pos = map[ticker]
-    const qty = Number(tx.quantity)
-    const price = Number(tx.price)
-
-    if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-      pos.quantity += qty
-      pos.totalCost += qty * price
-    } else if (tx.operation_type === 'sell') {
-      if (pos.quantity > 0) {
-        const avg = pos.totalCost / pos.quantity
-        pos.quantity = Math.max(0, pos.quantity - qty)
-        pos.totalCost = pos.quantity * avg
-      }
-    } else if (tx.operation_type === 'dividend') {
-      pos.totalCost = Math.max(0, pos.totalCost - qty * price)
-    } else if (tx.operation_type === 'split') {
-      pos.quantity *= qty
-    }
-  }
-
-  return map
+  return buildSimplePositionLedger(transactions)
 }
 
 /** Lista saldos disponíveis em ativos com pricing_mode cash. */

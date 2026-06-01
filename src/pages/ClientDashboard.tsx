@@ -127,7 +127,7 @@ export default function ClientDashboard() {
         )
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
-        setPortfolioValue(valuation.totalValue)
+        setPortfolioValue(valuation.investedValue)
         setAssetDefinitions(valuation.definitions)
         setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
@@ -144,7 +144,7 @@ export default function ClientDashboard() {
 
         finalPrices = valuation.prices
         finalPositions = valuation.positions
-        finalPortfolioValue = valuation.totalValue
+        finalPortfolioValue = valuation.investedValue
         finalDefinitions = valuation.definitions
         finalIndexRates = valuation.indexRatesByIndexer
       } else {

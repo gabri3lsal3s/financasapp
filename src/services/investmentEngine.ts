@@ -1,4 +1,5 @@
 import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
+import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
 import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 
@@ -40,7 +41,14 @@ export function calculatePositions(
   cashBalance: number,
   definitions: PortfolioAssetDefinition[] = [],
   indexRatesByIndexer: Record<string, IndexRateMap> = {}
-): { positions: AssetPosition[]; assetsValue: number; totalValue: number; cashBalance: number } {
+): {
+  positions: AssetPosition[]
+  investedValue: number
+  cashValue: number
+  assetsValue: number
+  totalValue: number
+  cashBalance: number
+} {
   const result = calculatePortfolioValuation({
     transactions,
     definitions,
@@ -53,6 +61,8 @@ export function calculatePositions(
 
   return {
     positions: result.positions,
+    investedValue: result.investedValue,
+    cashValue: result.cashValue,
     assetsValue: result.assetsValue,
     totalValue: result.totalValue,
     cashBalance: result.cashBalance,
@@ -220,11 +230,13 @@ export function calculateShareHistory(
         if (currentPortfolio[ticker]) {
           currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - (pricingMode === 'cash' ? amount : qty))
         }
-      } else if (tx.operation_type === 'dividend') {
+      } else if (isPortfolioIncomeType(tx.operation_type)) {
         currentCash += amount
       } else if (tx.operation_type === 'split') {
+        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + qty
+      } else if (tx.operation_type === 'reverse_split') {
         if (currentPortfolio[ticker]) {
-          currentPortfolio[ticker] = currentPortfolio[ticker] * qty
+          currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - qty)
         }
       } else if (tx.operation_type === 'subscription') {
         currentCash -= amount

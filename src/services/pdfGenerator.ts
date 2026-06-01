@@ -59,7 +59,9 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   } = data
 
   const attentionAssets = positions.filter(p => Math.abs(p.current_percentage - p.target_percentage) > 5)
-  const portfolioValue = positions.reduce((sum, p) => sum + p.total_value, 0) + cashBalance
+  const portfolioValue = positions
+    .filter((p) => p.pricing_mode !== 'cash')
+    .reduce((sum, p) => sum + p.total_value, 0)
   const totalYieldPct = shareHistory.length > 0 ? (shareHistory[shareHistory.length - 1].shareValue - 1) * 100 : 0
   const competenceMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()
 
@@ -254,7 +256,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFontSize(7.5)
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
   doc.setFont('Helvetica', 'normal')
-  doc.text('PATRIMÔNIO LÍQUIDO', 24, 37)
+  doc.text('PATRIMÔNIO INVESTIDO', 24, 37)
   doc.setFontSize(10)
   doc.setTextColor(COLOR_PRIMARY[0], COLOR_PRIMARY[1], COLOR_PRIMARY[2])
   doc.setFont('Helvetica', 'bold')

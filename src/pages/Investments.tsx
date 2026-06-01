@@ -41,6 +41,8 @@ export default function Investments() {
   // Dados da carteira sob consultoria
   const [portfolioData, setPortfolioData] = useState<{
     cashBalance: number
+    investedValue: number
+    cashValue: number
     totalValue: number
     positions: AssetPosition[]
     consolidatedClass: ConsolidatedGroup[]
@@ -262,6 +264,8 @@ export default function Investments() {
       if (finalTransactions.length === 0) {
         const emptyPortfolio = {
           cashBalance: 0,
+          investedValue: 0,
+          cashValue: 0,
           totalValue: 0,
           positions: [],
           consolidatedClass: [],
@@ -289,12 +293,14 @@ export default function Investments() {
 
       setAssetDefinitions(valuation.definitions)
 
-      const { positions, totalValue } = valuation
+      const { positions, investedValue, cashValue, totalValue } = valuation
       const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, finalGroupTargets)
       const consolidatedSector = calculateConsolidatedBySector(positions, totalValue, finalGroupTargets)
 
       const nextPortfolioData = {
         cashBalance: valuation.cashBalance,
+        investedValue,
+        cashValue,
         totalValue,
         positions,
         consolidatedClass,
@@ -450,9 +456,7 @@ export default function Investments() {
               const consolidatedGain = totalCurrent - totalCost
               const isPositive = consolidatedYield >= 0
 
-              const totalCash = portfolioData.positions
-                .filter(p => p.ticker === 'SALDO_INV' || p.ticker === 'CAIXA' || p.pricing_mode === 'cash')
-                .reduce((sum, p) => sum + p.total_value, 0)
+              const totalCash = portfolioData.cashValue
 
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -460,9 +464,9 @@ export default function Investments() {
                     className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
                     style={{ borderLeftColor: 'var(--color-income)' }}
                   >
-                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Líquido</p>
+                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Investido</p>
                     <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
-                      {formatCurrency(portfolioData.totalValue)}
+                      {formatCurrency(portfolioData.investedValue)}
                     </p>
                     <p className="hidden sm:block text-xs text-secondary mt-1">Valor total de investimentos</p>
                   </Card>

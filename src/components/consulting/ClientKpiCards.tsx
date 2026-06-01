@@ -44,7 +44,7 @@ export default function ClientKpiCards({
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
       <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-emerald-500 flex items-center justify-between shadow-sm transition-all hover:border-l-emerald-400">
         <div className="text-left">
-          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">Patrimônio Líquido</span>
+          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">Patrimônio Investido</span>
           <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
             {formatCurrency(portfolioValue)}
           </strong>
