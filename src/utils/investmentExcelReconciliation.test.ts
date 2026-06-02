@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'fs'
+import * as XLSX from 'xlsx'
 import {
   parseB3Product,
   mapB3OperationType,
@@ -72,10 +73,25 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(name).toBe('ENGIE BRASIL ENERGIA S.A.')
     })
 
-    it('should split CDB and keep unique identifier as ticker', () => {
+    it('should split CDB and keep bank name as ticker and code as name', () => {
       const { ticker, name } = parseB3Product('CDB - CDBA2375JUX - BANCO XP S/A')
-      expect(ticker).toBe('CDB - CDBA2375JUX')
-      expect(name).toBe('BANCO XP S/A')
+      expect(ticker).toBe('CDB - BANCO XP S/A')
+      expect(name).toBe('CDBA2375JUX')
+    })
+
+    it('should split LCI and keep bank name as ticker and code as name, protecting BTG Pactual from corporate mapping', () => {
+      const { ticker, name } = parseB3Product('LCI - 24F02320359 - BANCO BTG PACTUAL S/A - 29/12/2025')
+      expect(ticker).toBe('LCI - BANCO BTG PACTUAL S/A')
+      expect(name).toBe('24F02320359')
+    })
+
+    it('should format Direct Treasury tickers without prefix', () => {
+      const { ticker: t1, name: n1 } = parseB3Product('TESOURO SELIC 2029 - Tesouro Selic 2029')
+      expect(t1).toBe('SELIC 29')
+      expect(n1).toBe('Tesouro Selic 2029')
+
+      const { ticker: t2, name: n2 } = parseB3Product('TESOURO IPCA+ 2035')
+      expect(t2).toBe('IPCA 35')
     })
   })
 
@@ -452,15 +468,43 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(suggestions[0]?.quantity).toBe(5)
     })
 
-    it('suggestPositionAdjustments ignora Renda Fixa privada', () => {
+    it('suggestPositionAdjustments propõe ajustes para Renda Fixa privada', () => {
       const validation = buildPositionValidation(
         { 'CDB - BANCO MASTER': 1000, 'PETR4': 100 },
         { 'CDB - BANCO MASTER': 1000, 'PETR4': 100 },
         { 'CDB - BANCO MASTER': 800, 'PETR4': 80 }
       )
       const suggestions = suggestPositionAdjustments(validation, [], [])
-      expect(suggestions).toHaveLength(1)
-      expect(suggestions[0]?.ticker).toBe('PETR4') // Apenas Renda Variável proposta para ajuste
+      expect(suggestions).toHaveLength(2)
+      expect(suggestions[0]?.ticker).toBe('CDB - BANCO MASTER')
+      expect(suggestions[1]?.ticker).toBe('PETR4')
+    })
+  })
+
+  describe('parseB3Excel - tratamento de Renda Fixa zerada', () => {
+    it('ignora movimentações de renda fixa zeradas', () => {
+      const headers = ['Data', 'Movimentação', 'Produto', 'Instituição', 'Quantidade', 'Preço unitário', 'Valor da Operação', 'Entrada/Saída']
+      const rows = [
+        headers,
+        // Transação de Renda Fixa válida
+        ['20/05/2026', 'Aplicação', 'CDB - CDB12300ZTB - BANCO MASTER', 'BTG', '3500', '1.00', '3500.00', 'Credito'],
+        // Transação de Renda Fixa zerada (preço e total zerados)
+        ['20/05/2026', 'Aplicação', 'CDB - CDB12300ZTB - BANCO MASTER', 'BTG', '3500', '0.00', '0.00', 'Credito'],
+        // Outra transação zerada (valor total zerado)
+        ['20/05/2026', 'Aplicação', 'CDB - CDB12300ZTB - BANCO MASTER', 'BTG', '3500', '1.00', '0.00', 'Credito'],
+        // Transação de Renda Variável válida (para garantir que outras continuam funcionando)
+        ['20/05/2026', 'Compra', 'WEGE3', 'BTG', '10', '40.00', '400.00', 'Credito']
+      ]
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Movimentações')
+      const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+      
+      const { items } = parseB3Excel(buffer)
+      expect(items).toHaveLength(2) // Apenas a Renda Fixa de 3500 e o WEGE3 de 10
+      expect(items[0].ticker).toBe('CDB - BANCO MASTER')
+      expect(items[0].price).toBe(1)
+      expect(items[1].ticker).toBe('WEGE3')
     })
   })
 })

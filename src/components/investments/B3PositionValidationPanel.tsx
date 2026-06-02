@@ -153,71 +153,6 @@ export default function B3PositionValidationPanel({
             </B3ReconciliationGuidance>
           )}
 
-          {/* Premium Audit Grid */}
-          <div className="overflow-x-auto rounded-2xl border border-border/40 bg-card/20 backdrop-blur-md shadow-sm">
-            <table className="w-full text-[11px] border-collapse">
-              <thead>
-                <tr className="bg-secondary/40 text-secondary text-[9px] uppercase tracking-wider border-b border-border/30">
-                  <th className="text-left px-4 py-3 font-extrabold">Ativo / Ticker</th>
-                  <th className="text-right px-4 py-3 font-extrabold">Custódia B3</th>
-                  {!positionOnlyMode && (
-                    <th className="text-right px-4 py-3 font-extrabold hidden sm:table-cell">Histórico Mov.</th>
-                  )}
-                  <th className="text-right px-4 py-3 font-extrabold">Livro-Razão</th>
-                  <th className="text-right px-4 py-3 font-extrabold">Desvio ($\Delta$)</th>
-                  <th className="text-left px-4 py-3 font-extrabold">Parecer</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono divide-y divide-border/20">
-                {visibleRows.map((row) => {
-                  const delta = row.official - row.system
-                  const isOk = row.status === 'ok'
-                  return (
-                    <tr 
-                      key={row.ticker} 
-                      className={`transition-colors duration-200 hover:bg-primary/5 ${
-                        isOk ? '' : 'bg-amber-500/[0.02]'
-                      }`}
-                    >
-                      <td className="px-4 py-2.5 font-bold text-primary text-xs tracking-wide">
-                        {row.ticker}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
-                        {row.official}
-                      </td>
-                      {!positionOnlyMode && (
-                        <td className="px-4 py-2.5 text-right text-secondary/80 tabular-nums hidden sm:table-cell">
-                          {row.fromMovements}
-                        </td>
-                      )}
-                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
-                        {row.system}
-                      </td>
-                      <td
-                        className={`px-4 py-2.5 text-right tabular-nums font-black ${
-                          isOk ? 'text-secondary/60' : delta > 0 ? 'text-emerald-500' : 'text-red-500'
-                        }`}
-                      >
-                        {isOk ? '—' : `${delta > 0 ? '+' : ''}${delta}`}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
-                            isOk 
-                              ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/10' 
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/10'
-                          }`}
-                        >
-                          {statusLabel(row)}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
           {/* Magical Automatic Adjustments Panel */}
           {adjustments.length > 0 && (
             <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.03] backdrop-blur-md p-4 space-y-3 hover:shadow-lg hover:shadow-indigo-500/5 group transition-all duration-300">
@@ -301,6 +236,80 @@ export default function B3PositionValidationPanel({
             </div>
           )}
 
+          {/* Premium Audit Grid */}
+          {showNonEquityNote && (
+            <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-2.5 border border-border/30 items-center mb-1 animate-page-enter">
+              <AlertCircle size={14} className="shrink-0 text-indigo-500" />
+              <span className="leading-normal">
+                Ativos de <strong>Renda Fixa e Tesouro Direto</strong> lidos apenas para mapeamento cadastral e rentabilidade.
+              </span>
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-2xl border border-border/40 bg-card/20 backdrop-blur-md shadow-sm">
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr className="bg-secondary/40 text-secondary text-[9px] uppercase tracking-wider border-b border-border/30">
+                  <th className="text-left px-4 py-3 font-extrabold">Ativo / Ticker</th>
+                  <th className="text-right px-4 py-3 font-extrabold">Custódia B3</th>
+                  {!positionOnlyMode && (
+                    <th className="text-right px-4 py-3 font-extrabold hidden sm:table-cell">Histórico Mov.</th>
+                  )}
+                  <th className="text-right px-4 py-3 font-extrabold">Livro-Razão</th>
+                  <th className="text-right px-4 py-3 font-extrabold">Desvio ($\Delta$)</th>
+                  <th className="text-left px-4 py-3 font-extrabold">Parecer</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono divide-y divide-border/20">
+                {visibleRows.map((row) => {
+                  const delta = row.official - row.system
+                  const isOk = row.status === 'ok'
+                  return (
+                    <tr 
+                      key={row.ticker} 
+                      className={`transition-colors duration-200 hover:bg-primary/5 ${
+                        isOk ? '' : 'bg-amber-500/[0.02]'
+                      }`}
+                    >
+                      <td className="px-4 py-2.5 font-bold text-primary text-xs tracking-wide">
+                        {row.ticker}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
+                        {row.official}
+                      </td>
+                      {!positionOnlyMode && (
+                        <td className="px-4 py-2.5 text-right text-secondary/80 tabular-nums hidden sm:table-cell">
+                          {row.fromMovements}
+                        </td>
+                      )}
+                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
+                        {row.system}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 text-right tabular-nums font-black ${
+                          isOk ? 'text-secondary/60' : delta > 0 ? 'text-emerald-500' : 'text-red-500'
+                        }`}
+                      >
+                        {isOk ? '—' : `${delta > 0 ? '+' : ''}${delta}`}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
+                            isOk 
+                              ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/10' 
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/10'
+                          }`}
+                        >
+                          {statusLabel(row)}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
           {!positionOnlyMode && mismatchRows.some((r) => r.status === 'movements_official') && (
             <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-3 border border-border/30 items-start">
               <AlertCircle size={15} className="shrink-0 text-amber-500 mt-0.5 animate-pulse" />
@@ -312,11 +321,6 @@ export default function B3PositionValidationPanel({
         </>
       )}
 
-      {showNonEquityNote && (
-        <p className="text-[9.5px] text-secondary/60 italic text-right">
-          * Ativos de Renda Fixa e Tesouro Direto lidos apenas para mapeamento cadastral.
-        </p>
-      )}
     </div>
   )
 }

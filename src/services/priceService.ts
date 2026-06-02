@@ -264,7 +264,8 @@ export async function getAssetPrices(
       t.toUpperCase().includes('TESOURO') ||
       t.toUpperCase().startsWith('LFT') ||
       t.toUpperCase().startsWith('NTN') ||
-      t.toUpperCase().startsWith('LTN')
+      t.toUpperCase().startsWith('LTN') ||
+      /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
     )
     if (hasTreasury) {
       await fetchB3TreasuryPrices()
@@ -278,7 +279,8 @@ export async function getAssetPrices(
       const isTreasury = ticker.toUpperCase().includes('TESOURO') ||
                          ticker.toUpperCase().startsWith('LFT') ||
                          ticker.toUpperCase().startsWith('NTN') ||
-                         ticker.toUpperCase().startsWith('LTN')
+                         ticker.toUpperCase().startsWith('LTN') ||
+                         /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(ticker)
 
       // Se achou no cache e NÃO estamos forçando atualização, aproveita
       if (found && !forceRefresh) {
@@ -321,8 +323,8 @@ export async function getAssetPrices(
         if (b3Treasury[normTicker]) {
           foundPrice = b3Treasury[normTicker].price
         } else {
-          // Match inteligente por palavras-chave
-          const words = normTicker.split(' ').filter(w => w.length > 2)
+          // Match inteligente por palavras-chave (preservando o ano de 2 dígitos)
+          const words = normTicker.split(' ').filter(w => w.length > 2 || /^\d{2}$/.test(w))
           const matched = Object.values(b3Treasury).find(item => {
             const itemUpper = item.name.toUpperCase()
             return words.every(w => itemUpper.includes(w))

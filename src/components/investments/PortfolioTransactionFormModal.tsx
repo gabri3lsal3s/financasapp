@@ -115,7 +115,7 @@ export default function PortfolioTransactionFormModal({
 
   const tUpper = ticker.trim().toUpperCase()
   const isB3Var = isB3TickerPattern(tUpper) && !tUpper.includes('TESOURO')
-  const isFixedInc = tUpper.startsWith('CDB') || tUpper.startsWith('LCI') || tUpper.startsWith('LCA') || tUpper.startsWith('CRI') || tUpper.startsWith('CRA') || tUpper.includes('TESOURO') || tUpper.includes('DEBENTURE') || tUpper.includes('DEBÊNTURE')
+  const isFixedInc = tUpper.startsWith('CDB') || tUpper.startsWith('LCI') || tUpper.startsWith('LCA') || tUpper.startsWith('CRI') || tUpper.startsWith('CRA') || tUpper.includes('TESOURO') || tUpper.includes('DEBENTURE') || tUpper.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tUpper)
   const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(tUpper)
 
   const isPricingModeLocked = isB3Var || isFixedInc || isCash
@@ -126,7 +126,7 @@ export default function PortfolioTransactionFormModal({
     if (!t) return
 
     const isB3 = isB3TickerPattern(t) && !t.includes('TESOURO')
-    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE')
+    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
     const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(t)
 
     if (isB3) {
@@ -136,7 +136,7 @@ export default function PortfolioTransactionFormModal({
     } else if (isFixed) {
       setPricingMode('fixed_income')
       setIsB3Linked(false)
-      setIsTreasury(t.includes('TESOURO'))
+      setIsTreasury(t.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t))
     } else if (isCash) {
       setPricingMode('cash')
       setIsB3Linked(false)
@@ -292,7 +292,7 @@ export default function PortfolioTransactionFormModal({
       pricingMode === 'manual_value' && manualCurrentValue ? Number(manualCurrentValue) : null,
     manual_value_updated_at: manualCurrentValue ? new Date().toISOString() : null,
     tax_exempt: taxExempt,
-    is_treasury: pricingMode === 'market' ? isTreasury || tickerUpper.includes('TESOURO') : false,
+    is_treasury: pricingMode === 'market' ? isTreasury || tickerUpper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tickerUpper) : false,
     updated_at: new Date().toISOString(),
   })
 

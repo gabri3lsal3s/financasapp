@@ -35,7 +35,15 @@ export function classifyB3Item(ticker: string, productName?: string): B3AssetCat
   const p = (productName ?? '').trim().toUpperCase()
   const combined = t + ' ' + p
 
-  if (combined.includes('TESOURO') || t.startsWith('LFT') || t.startsWith('NTN') || t.startsWith('LTN')) {
+  if (
+    combined.includes('TESOURO') ||
+    t.startsWith('LFT') ||
+    t.startsWith('NTN') ||
+    t.startsWith('LTN') ||
+    t.startsWith('TES ') ||
+    t.startsWith('TESOURO') ||
+    /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
+  ) {
     return 'treasury'
   }
 
@@ -221,13 +229,18 @@ export const parseB3Product = (rawProduct: string) => {
   let name = ''
 
   const parts = clean.split(' - ')
-  if (parts.length >= 2) {
-    const firstPart = parts[0].trim()
-    const isCdbOrSimilar = /^(cdb|lci|lca|lc|cri|cra|debenture|debentures)$/i.test(firstPart)
+  const firstPart = parts[0]?.trim() || ''
+  const isCdbOrSimilar = /^(cdb|lci|lca|lc|cri|cra|debenture|debentures)$/i.test(firstPart)
 
+  if (parts.length >= 2) {
     if (isCdbOrSimilar && parts.length >= 3) {
-      ticker = `${firstPart} - ${parts[1].trim()}`
-      name = parts.slice(2).join(' - ').trim()
+      // Extrai o nome do banco emissor (parts[2]) e remove a data de vencimento se estiver na 4ª parte (ex: "29/12/2025")
+      let issuer = parts[2].trim()
+      if (parts.length >= 4 && /\b\d{2}[/-]\d{2}[/-]\d{4}\b/.test(parts[3])) {
+        issuer = parts[2].trim()
+      }
+      ticker = `${firstPart} - ${issuer}`
+      name = parts[1].trim() // Armazena o código (ex: 24F02320359) no name para fins de histórico e conciliação
     } else if (isCdbOrSimilar) {
       ticker = clean
       name = clean
@@ -240,21 +253,24 @@ export const parseB3Product = (rawProduct: string) => {
     name = clean
   }
 
-  if (!/^[A-Z]{4}[0-9]{1,2}$/i.test(ticker)) {
-    const b3Match = clean.match(/\b([A-Z]{4}[0-9]{1,2})(F)?\b/i)
-    if (b3Match) {
-      ticker = b3Match[1]
-      name = clean
-    }
-  }
-
-  if (!/^[A-Z]{4}[0-9]{1,2}$/i.test(ticker)) {
-    const normalizedClean = clean.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    for (const [kw, tck] of Object.entries(CORPORATE_NAME_TO_TICKER)) {
-      if (normalizedClean.includes(kw)) {
-        ticker = tck
+  // Apenas tenta casar ticker padrão B3 ou nome corporativo se NÃO for CDB/LCI/LCA/etc.
+  if (!isCdbOrSimilar) {
+    if (!/^[A-Z]{4}[0-9]{1,2}$/i.test(ticker)) {
+      const b3Match = clean.match(/\b([A-Z]{4}[0-9]{1,2})(F)?\b/i)
+      if (b3Match) {
+        ticker = b3Match[1]
         name = clean
-        break
+      }
+    }
+
+    if (!/^[A-Z]{4}[0-9]{1,2}$/i.test(ticker)) {
+      const normalizedClean = clean.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      for (const [kw, tck] of Object.entries(CORPORATE_NAME_TO_TICKER)) {
+        if (normalizedClean.includes(kw)) {
+          ticker = tck
+          name = clean
+          break
+        }
       }
     }
   }
@@ -270,7 +286,7 @@ export const parseB3Product = (rawProduct: string) => {
     else if (finalTicker.includes('IPCA')) type = 'IPCA'
     const yearMatch = finalTicker.match(/\b(20[2-5][0-9])\b/)
     const yearSuffix = yearMatch ? yearMatch[1].slice(-2) : ''
-    finalTicker = `TES ${type} ${yearSuffix}`.trim()
+    finalTicker = `${type} ${yearSuffix}`.trim()
   }
   if (finalTicker.length > 50) {
     finalTicker = finalTicker.slice(0, 50).trim()
@@ -461,6 +477,26 @@ export const deduplicateB3Items = (items: B3TransactionItem[]): { items: B3Trans
     }
   }
 
+  // 4. Remover duplicatas exatas de movimentações/compras/vendas e ativos de Renda Fixa/Tesouro
+  const seenExact = new Set<string>()
+  for (const item of items) {
+    if (removeIds.has(item.id)) continue
+    const category = classifyB3Item(item.ticker, item.product_name)
+    const isTradeOrRF = ['buy', 'sell', 'subscription'].includes(item.operation_type) || 
+                        category === 'fixedIncome' || 
+                        category === 'treasury'
+                        
+    if (isTradeOrRF) {
+      const key = `${item.date}|${item.ticker.toUpperCase()}|${item.operation_type}|${item.quantity}|${item.price}`
+      if (seenExact.has(key)) {
+        removeIds.add(item.id)
+        stats.dedupedTrades += 1
+      } else {
+        seenExact.add(key)
+      }
+    }
+  }
+
   const filtered = items.filter((item) => !removeIds.has(item.id))
   return { items: filtered, stats }
 }
@@ -531,10 +567,28 @@ export const parseB3Excel = (fileBuffer: ArrayBuffer): B3ParseResult => {
       : ('Credito' as const)
 
     const rawTotalVal = mapping.totalValue >= 0 ? row[mapping.totalValue] : undefined
-    const quantity = mapping.quantity >= 0 ? parseNumericValue(row[mapping.quantity]) : 1
+    let quantity = mapping.quantity >= 0 ? parseNumericValue(row[mapping.quantity]) : 1
     let price = mapping.price >= 0 ? parseNumericValue(row[mapping.price]) : 0
     const totalValue =
       mapping.totalValue >= 0 ? parseNumericValue(rawTotalVal) : quantity * price
+
+    const category = classifyB3Item(ticker, name)
+    const isRFOrTreasury = category === 'fixedIncome' || category === 'treasury'
+
+    if (quantity <= 0.000_001 && totalValue > 0.000_001 && isRFOrTreasury) {
+      quantity = 1
+      price = totalValue
+    }
+
+    if (isRFOrTreasury && (price <= 0.000_001 || totalValue <= 0.000_001)) {
+      ignoredByMovement += 1
+      return
+    }
+
+    if (quantity <= 0.000_001 && totalValue <= 0.000_001) {
+      ignoredByMovement += 1
+      return
+    }
 
     let operationType: PortfolioOperationType
     try {
@@ -833,11 +887,6 @@ export function suggestPositionAdjustments(
 
   return validation.rows
     .filter((row) => !qtyEqual(row.official, row.system))
-    .filter((row) => {
-      // Ignorar Renda Fixa Privada na sugestão automática de ajustes de quantidade/cotas
-      const category = classifyB3Item(row.ticker)
-      return category !== 'fixedIncome'
-    })
     .map((row) => {
       const delta = row.official - row.system
       const operation_type = delta > 0 ? ('buy' as const) : ('sell' as const)
@@ -965,7 +1014,20 @@ export const parseB3PositionExcel = (fileBuffer: ArrayBuffer): B3PositionParseRe
       if (!row || row.length === 0 || isPositionTotalRow(row)) return
 
       let ticker = ''
-      if (codeIdx >= 0) {
+      
+      // Para Renda Fixa e Tesouro, priorizamos o nome do produto para extrair o ticker
+      // humanamente legível compatível com as movimentações e livro-razão.
+      if (category !== 'equityB3' && productIdx >= 0) {
+        const productRaw = String(row[productIdx] ?? '').trim()
+        const parsed = parseB3Product(productRaw)
+        ticker = parsed.ticker
+        if (!ticker && productRaw) {
+          ticker = productRaw.slice(0, 80)
+        }
+      }
+
+      // Fallback ou Renda Variável (onde o código oficial ex: BBAS3 é soberano)
+      if (!ticker && codeIdx >= 0) {
         const code = String(row[codeIdx] ?? '').trim().toUpperCase()
         if (/^[A-Z]{4}\d{1,2}$/.test(code)) {
           ticker = code
@@ -973,6 +1035,7 @@ export const parseB3PositionExcel = (fileBuffer: ArrayBuffer): B3PositionParseRe
           ticker = code
         }
       }
+
       if (!ticker && productIdx >= 0) {
         const productRaw = String(row[productIdx] ?? '').trim()
         const parsed = parseB3Product(productRaw)
@@ -981,6 +1044,7 @@ export const parseB3PositionExcel = (fileBuffer: ArrayBuffer): B3PositionParseRe
           ticker = productRaw.slice(0, 80)
         }
       }
+
       if (!ticker) return
 
       if (isB3SubscriptionRightsTicker(ticker)) return

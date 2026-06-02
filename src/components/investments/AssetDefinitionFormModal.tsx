@@ -59,7 +59,7 @@ export default function AssetDefinitionFormModal({
 
   const upperTicker = assetTicker.trim().toUpperCase()
   const isB3Variable = isB3TickerPattern(upperTicker) && !upperTicker.includes('TESOURO')
-  const isFixedIncomePrefix = upperTicker.startsWith('CDB') || upperTicker.startsWith('LCI') || upperTicker.startsWith('LCA') || upperTicker.startsWith('CRI') || upperTicker.startsWith('CRA') || upperTicker.includes('TESOURO') || upperTicker.includes('DEBENTURE') || upperTicker.includes('DEBÊNTURE')
+  const isFixedIncomePrefix = upperTicker.startsWith('CDB') || upperTicker.startsWith('LCI') || upperTicker.startsWith('LCA') || upperTicker.startsWith('CRI') || upperTicker.startsWith('CRA') || upperTicker.includes('TESOURO') || upperTicker.includes('DEBENTURE') || upperTicker.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(upperTicker)
   const isCashType = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(upperTicker)
 
   // Re-classify dynamically as the user types
@@ -68,14 +68,14 @@ export default function AssetDefinitionFormModal({
     if (!t) return
 
     const isB3 = isB3TickerPattern(t) && !t.includes('TESOURO')
-    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE')
+    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
     const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(t)
 
     if (isB3) {
       setAssetCategory('variable')
     } else if (isFixed) {
       setAssetCategory('fixed_or_other')
-      if (t.includes('TESOURO')) {
+      if (t.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)) {
         setFixedSubtype('treasury')
       } else {
         setFixedSubtype('fixed_income_standard')
@@ -164,7 +164,7 @@ export default function AssetDefinitionFormModal({
         }
       } else {
         const isB3 = isB3TickerPattern(upper)
-        const isTreasuryAsset = upper.includes('TESOURO')
+        const isTreasuryAsset = upper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(upper)
         
         if (isB3 && !isTreasuryAsset) {
           setAssetCategory('variable')

@@ -338,8 +338,16 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
       total_value: Math.round(currentValue * 100) / 100,
       cost_basis: Math.round(costBasis * 100) / 100,
       target_percentage: targetPct,
-      asset_class: definition.pricing_mode === 'cash' ? 'Saldo em caixa' : priceObj?.asset_class,
-      sector: definition.pricing_mode === 'cash' ? 'Caixa' : priceObj?.sector,
+      asset_class: definition.pricing_mode === 'cash'
+        ? 'Saldo em caixa'
+        : definition.pricing_mode === 'fixed_income' || definition.is_treasury
+          ? 'Renda Fixa'
+          : priceObj?.asset_class,
+      sector: definition.pricing_mode === 'cash'
+        ? 'Caixa'
+        : definition.pricing_mode === 'fixed_income' || definition.is_treasury
+          ? 'Títulos Públicos/Privados'
+          : priceObj?.sector,
       pricing_mode: definition.pricing_mode,
       is_b3_linked: definition.is_b3_linked,
       valuation_source: valuationSource,

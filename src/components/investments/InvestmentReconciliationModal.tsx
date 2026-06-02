@@ -92,15 +92,8 @@ interface ConflictDraft {
 
 const OPERATION_OPTIONS = PORTFOLIO_OPERATION_OPTIONS
 
-type ReconciliationStep = 'upload' | 'summary' | 'corrections' | 'position' | 'review'
+type ReconciliationStep = 'upload' | 'summary' | 'corrections' | 'yield_config' | 'position' | 'review'
 type CorrectionsTab = 'conflicts' | 'missing' | 'suspicious'
-
-const WIZARD_STEPS: Array<{ id: ReconciliationStep; label: string; countKey?: string }> = [
-  { id: 'summary', label: 'Resumo' },
-  { id: 'corrections', label: 'Correções' },
-  { id: 'position', label: 'Posição' },
-  { id: 'review', label: 'Fim' },
-]
 
 export default function InvestmentReconciliationModal({
   isOpen,
@@ -166,10 +159,30 @@ export default function InvestmentReconciliationModal({
   }, [currentStep, isOpen])
 
   const manualYieldRequiredAssets = useMemo(() => {
-    return importedDrafts.filter(draft => 
-      draft.pricing_mode === 'fixed_income' || draft.pricing_mode === 'manual_value'
+    const list = importedDrafts.filter(draft => 
+      draft.pricing_mode === 'fixed_income' || draft.pricing_mode === 'manual_value' || draft.isTreasury
+    )
+    
+    // Group by unique ticker to avoid duplicate cards in the Step 3 UI
+    const uniqueMap = new Map<string, typeof list[0]>()
+    for (const draft of list) {
+      const tickerUpper = draft.ticker.toUpperCase().trim()
+      if (!uniqueMap.has(tickerUpper)) {
+        uniqueMap.set(tickerUpper, draft)
+      } else {
+        const existing = uniqueMap.get(tickerUpper)!
+        // Keep the one with indexer/maturity configured if any
+        if (existing.indexer === 'none' && draft.indexer !== 'none') {
+          uniqueMap.set(tickerUpper, draft)
+        }
+      }
+    }
+    
+    return Array.from(uniqueMap.values()).sort((a, b) => 
+      a.date.localeCompare(b.date) || a.ticker.localeCompare(b.ticker)
     )
   }, [importedDrafts])
+
 
   const existingSystemTickers = useMemo(() => {
     const tickers = new Set<string>()
@@ -251,9 +264,16 @@ export default function InvestmentReconciliationModal({
     [positionValidation]
   )
 
-  const goToNextStepAfter = (from: ReconciliationStep) => {
+  const goToNextStepAfter = (from: ReconciliationStep, newlyImported?: MissingDraft[]) => {
     if (!reconciliation) return
-    const order: ReconciliationStep[] = ['summary', 'corrections', 'position', 'review']
+    const order: ReconciliationStep[] = ['summary', 'corrections', 'yield_config', 'position', 'review']
+    
+    // Check if yield configuration is required using already imported drafts plus any newly imported ones
+    const allYieldDrafts = [...importedDrafts, ...(newlyImported || [])]
+    const activeYieldRequired = allYieldDrafts.filter((draft) => 
+      draft.pricing_mode === 'fixed_income' || draft.pricing_mode === 'manual_value' || draft.isTreasury
+    )
+
     const startIdx = order.indexOf(from) + 1
     for (let i = startIdx; i < order.length; i += 1) {
       const step = order[i]
@@ -262,6 +282,10 @@ export default function InvestmentReconciliationModal({
         else if (wizardCounts.missing > 0) setCorrectionsTab('missing')
         else setCorrectionsTab('suspicious')
         setCurrentStep('corrections')
+        return
+      }
+      if (step === 'yield_config' && activeYieldRequired.length > 0) {
+        setCurrentStep('yield_config')
         return
       }
       if (step === 'position') {
@@ -276,9 +300,22 @@ export default function InvestmentReconciliationModal({
     setCurrentStep('review')
   }
 
+  const wizardSteps = useMemo(() => {
+    const steps = [
+      { id: 'summary' as ReconciliationStep, label: 'Resumo' },
+      { id: 'corrections' as ReconciliationStep, label: 'Correções' },
+    ]
+    if (manualYieldRequiredAssets.length > 0) {
+      steps.push({ id: 'yield_config' as ReconciliationStep, label: 'Rentabilidade' })
+    }
+    steps.push({ id: 'position' as ReconciliationStep, label: 'Posição' })
+    steps.push({ id: 'review' as ReconciliationStep, label: 'Fim' })
+    return steps
+  }, [manualYieldRequiredAssets])
+
   const stepperItems = useMemo(
     () =>
-      WIZARD_STEPS.map((s) => ({
+      wizardSteps.map((s) => ({
         id: s.id,
         label: s.label,
         badge:
@@ -286,9 +323,11 @@ export default function InvestmentReconciliationModal({
             ? wizardCounts.corrections
             : s.id === 'position' && positionValidation && !positionValidation.allOk
               ? ledgerOnlyMismatches || positionValidation.mismatchCount
-              : undefined,
+              : s.id === 'yield_config'
+                ? manualYieldRequiredAssets.length
+                : undefined,
       })),
-    [wizardCounts.corrections, positionValidation, ledgerOnlyMismatches]
+    [wizardSteps, wizardCounts.corrections, positionValidation, ledgerOnlyMismatches, manualYieldRequiredAssets]
   )
 
   const selectedMissingCount = useMemo(
@@ -319,9 +358,10 @@ export default function InvestmentReconciliationModal({
         continue
       }
       const upper = tx.ticker.toUpperCase()
-      // Ativos internacionais (USD), cripto e outros fora do padrão B3 não constam
-      // na custódia B3 — excluímos para evitar falsos positivos de "ghost_system"
-      if (!isB3TickerPattern(upper)) continue
+      // Ativos B3, renda fixa ou tesouro direto constam na custódia B3
+      const category = classifyB3Item(upper)
+      const isB3 = isB3TickerPattern(upper) || category === 'fixedIncome' || category === 'treasury'
+      if (!isB3) continue
       tickers.add(upper)
     }
     const map: Record<string, number> = {}
@@ -339,7 +379,10 @@ export default function InvestmentReconciliationModal({
     for (const tx of existingTransactions) {
       if (cashTickers.has(tx.ticker) || tx.cash_offset_source_id) continue
       const upper = tx.ticker.toUpperCase()
-      if (isB3TickerPattern(upper)) continue // já coberto pela validação de posição
+      
+      const category = classifyB3Item(upper)
+      const isB3 = isB3TickerPattern(upper) || category === 'fixedIncome' || category === 'treasury'
+      if (isB3) continue // já coberto pela validação de posição
       tickers.add(upper)
     }
     const map: Record<string, number> = {}
@@ -370,7 +413,12 @@ export default function InvestmentReconciliationModal({
     movements: Record<string, number>,
     system: Record<string, number>
   ) => {
-    const validation = buildPositionValidation(official.equity, movements, system)
+    const combinedOfficial = {
+      ...official.equity,
+      ...official.treasury,
+      ...official.fixedIncome,
+    }
+    const validation = buildPositionValidation(combinedOfficial, movements, system)
     setPositionValidation(validation)
     return validation
   }
@@ -386,8 +434,9 @@ export default function InvestmentReconciliationModal({
         return
       }
       const parsed = parseB3PositionExcel(buffer)
-      if (Object.keys(parsed.equity).length === 0) {
-        setPositionParseStatus('Nenhuma cota de renda variável encontrada na planilha de posição.')
+      const totalKeys = Object.keys(parsed.equity).length + Object.keys(parsed.treasury).length + Object.keys(parsed.fixedIncome).length
+      if (totalKeys === 0) {
+        setPositionParseStatus('Nenhum ativo de Renda Variável, Tesouro ou Renda Fixa encontrado na planilha de posição.')
         return
       }
       setOfficialPosition(parsed)
@@ -608,8 +657,8 @@ export default function InvestmentReconciliationModal({
           
           if (key === 'ticker') {
             const tick = String(value).toUpperCase()
-            next.isB3Linked = isB3TickerPattern(tick)
-            next.isTreasury = tick.includes('TESOURO')
+            next.isB3Linked = isB3TickerPattern(tick) || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tick)
+            next.isTreasury = tick.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tick)
           }
           
           return next
@@ -624,6 +673,17 @@ export default function InvestmentReconciliationModal({
 
         return draft
       })
+    })
+  }
+
+  const updateImportedDraft = <K extends keyof MissingDraft>(id: string, key: K, value: MissingDraft[K]) => {
+    setImportedDrafts((prev) => {
+      const targetDraft = prev.find(d => d.id === id)
+      if (!targetDraft) return prev
+      const tickerUpper = targetDraft.ticker.toUpperCase().trim()
+      return prev.map((draft) => 
+        draft.ticker.toUpperCase().trim() === tickerUpper ? { ...draft, [key]: value } : draft
+      )
     })
   }
 
@@ -698,7 +758,11 @@ export default function InvestmentReconciliationModal({
       // Update our parent portfolio view
       onSaved()
       
-      goToNextStepAfter('corrections')
+      if (manualYieldRequiredAssets.length > 0) {
+        setCurrentStep('yield_config')
+      } else {
+        goToNextStepAfter('corrections')
+      }
     } catch (err) {
       console.error(err)
       toast.error('Ocorreu um erro ao aplicar as correções no banco de dados.')
@@ -879,13 +943,43 @@ export default function InvestmentReconciliationModal({
       // Update parent list
       onSaved()
 
-      goToNextStepAfter('corrections')
+      const hasYieldAssets = activeMissing.some((draft) => 
+        draft.pricing_mode === 'fixed_income' || draft.pricing_mode === 'manual_value' || draft.isTreasury
+      )
+      if (hasYieldAssets || manualYieldRequiredAssets.length > 0) {
+        setCurrentStep('yield_config')
+      } else {
+        goToNextStepAfter('corrections', activeMissing)
+      }
     } catch (err) {
       console.error(err)
       toast.error(err instanceof Error ? err.message : 'Erro ao efetuar a importação em lote.')
     } finally {
       setLoading(false)
       setProgress(null)
+    }
+  }
+
+  const handleSaveAssetYield = async (asset: MissingDraft) => {
+    try {
+      const { error } = await supabase
+        .from('portfolio_asset_definitions')
+        .update({
+          indexer: asset.indexer,
+          indexer_percent: asset.indexer !== 'none' ? (parseFloat(asset.indexer_percent) || 100) : 100,
+          contract_rate: asset.indexer === 'none' ? (parseFloat(asset.contract_rate) || null) : null,
+          maturity_date: asset.maturity_date || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('portfolio_id', portfolioId)
+        .eq('ticker', asset.ticker.toUpperCase().trim())
+
+      if (error) throw error
+      toast.success(`Rentabilidade de ${asset.ticker} salva com sucesso!`)
+      onSaved()
+    } catch (err) {
+      console.error(err)
+      toast.error(`Erro ao salvar rentabilidade de ${asset.ticker}`)
     }
   }
 
@@ -1306,14 +1400,19 @@ export default function InvestmentReconciliationModal({
 
           return (
             <div className="space-y-4 animate-page-enter text-left">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                  <FileCheck size={20} />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                    <FileCheck size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-primary uppercase tracking-tight">Diagnóstico Eletrônico</h4>
+                    <p className="text-[11px] text-secondary">cruzamento de lançamentos e históricos finalizado.</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-primary uppercase tracking-tight">Diagnóstico Eletrônico</h4>
-                  <p className="text-[11px] text-secondary">cruzamento de lançamentos e históricos finalizado.</p>
-                </div>
+                <Button type="button" variant="primary" onClick={() => goToNextStepAfter('summary')} className="font-bold shrink-0 self-end sm:self-auto">
+                  {wizardCounts.corrections > 0 ? 'Corrigir pendências →' : 'Validar posição B3 →'}
+                </Button>
               </div>
 
               {/* Glassmorphic Match Rate Panel */}
@@ -1515,11 +1614,6 @@ export default function InvestmentReconciliationModal({
                 </div>
               )}
 
-              <div className="flex justify-end pt-2 border-t border-border/20">
-                <Button type="button" variant="primary" onClick={() => goToNextStepAfter('summary')} className="font-bold">
-                  {wizardCounts.corrections > 0 ? 'Corrigir pendências' : 'Validar posição B3'}
-                </Button>
-              </div>
             </div>
           )
         })()}
@@ -1527,6 +1621,26 @@ export default function InvestmentReconciliationModal({
         {/* Correções unificadas */}
         {currentStep === 'corrections' && reconciliation && (
           <div className="space-y-3 animate-page-enter">
+            <div className="flex justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl gap-3">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep('summary')} className="font-bold">
+                ← Voltar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if (manualYieldRequiredAssets.length > 0) {
+                    setCurrentStep('yield_config')
+                  } else {
+                    goToNextStepAfter('corrections')
+                  }
+                }}
+                className="font-bold shadow-md shadow-indigo-500/10"
+              >
+                {manualYieldRequiredAssets.length > 0 ? 'Avançar para Rentabilidade →' : 'Validar posição B3 →'}
+              </Button>
+            </div>
+
             <div className="flex gap-1.5 p-1 rounded-2xl bg-card/40 border border-border/30 backdrop-blur-md">
               {(
                 [
@@ -1566,16 +1680,28 @@ export default function InvestmentReconciliationModal({
               Marque os itens em que o livro-razão deve ser atualizado para coincidir com o extrato B3. Se a diferença for intencional
               (ex.: ajuste manual documentado), desmarque e trate depois nos alertas ou na posição final.
             </B3ReconciliationGuidance>
-            <div className="flex items-center justify-between">
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-left bg-amber-500/[0.03] p-4.5 rounded-2xl border border-amber-500/20 shadow-sm mb-1.5">
               <div>
-                <h5 className="text-sm font-black text-primary uppercase tracking-tight">Lançamentos Divergentes</h5>
-                <p className="text-[10px] text-secondary">
+                <h5 className="text-xs font-black text-primary uppercase tracking-tight">Lançamentos Divergentes</h5>
+                <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
                   Lançamentos encontrados com valores ou datas que não batem com o extrato oficial B3.
                 </p>
               </div>
-              <span className="text-xs text-secondary font-bold">
-                {selectedConflictCount} selecionados de {conflictDrafts.filter(c => !c.applied).length}
-              </span>
+              <div className="flex items-center gap-3.5 shrink-0 self-end md:self-auto">
+                <span className="text-xs text-secondary font-bold font-mono">
+                  {selectedConflictCount} de {conflictDrafts.filter(c => !c.applied).length} selecionados
+                </span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={loading || selectedConflictCount === 0}
+                  onClick={handleApplySelectedConflicts}
+                  className="font-bold shadow-md shadow-amber-500/10 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {loading ? 'Aplicando...' : `Aplicar Selecionados`}
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
@@ -1682,17 +1808,6 @@ export default function InvestmentReconciliationModal({
               })}
             </div>
 
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={loading || selectedConflictCount === 0}
-                onClick={handleApplySelectedConflicts}
-                className="font-bold"
-              >
-                {loading ? 'Aplicando...' : `Aplicar ${selectedConflictCount}`}
-              </Button>
-            </div>
           </div>
             )}
 
@@ -1702,16 +1817,27 @@ export default function InvestmentReconciliationModal({
               Confira tipo de operação (compra, venda, desdobro como <strong>cotas creditadas</strong>, grupamento como cancelamento de cotas).
               Desmarque linhas que você registrará manualmente depois.
             </B3ReconciliationGuidance>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-left bg-secondary/20 p-4.5 rounded-2xl border border-border/40 shadow-sm mb-1.5">
               <div>
-                <h5 className="text-sm font-black text-primary uppercase tracking-tight">Lançamentos Faltantes no Livro-Razão</h5>
-                <p className="text-[10px] text-secondary">
-                  Movimentações presentes na B3 que ainda não foram inseridas no sistema. <span className="text-amber-500 font-bold">Você pode editar os campos antes de importar caso falte algum dado ou queira personalizar!</span>
+                <h5 className="text-xs font-black text-primary uppercase tracking-tight">Lançamentos Faltantes no Livro-Razão</h5>
+                <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
+                  Movimentações presentes na B3 que ainda não foram inseridas no sistema. <span className="text-amber-500 font-bold">Você pode editar os campos antes de importar!</span>
                 </p>
               </div>
-              <span className="text-xs text-secondary font-bold shrink-0">
-                {selectedMissingCount} de {missingDrafts.length} selecionados
-              </span>
+              <div className="flex items-center gap-3.5 shrink-0 self-end md:self-auto">
+                <span className="text-xs text-secondary font-bold">
+                  {selectedMissingCount} de {missingDrafts.length} selecionados
+                </span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={loading || selectedMissingCount === 0}
+                  onClick={handleImportSelectedMissing}
+                  className="font-bold shadow-md shadow-indigo-500/10 shrink-0"
+                >
+                  {loading ? 'Importando...' : `Importar Selecionados`}
+                </Button>
+              </div>
             </div>
 
             {/* Customization grid / table */}
@@ -1844,17 +1970,7 @@ export default function InvestmentReconciliationModal({
               </table>
             </div>
 
-            <div className="flex justify-end pt-1">
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={loading || selectedMissingCount === 0}
-                onClick={handleImportSelectedMissing}
-                className="font-bold"
-              >
-                {loading ? 'Importando...' : `Importar ${selectedMissingCount}`}
-              </Button>
-            </div>
+
           </div>
             )}
 
@@ -1911,20 +2027,193 @@ export default function InvestmentReconciliationModal({
           </div>
             )}
 
-            <div className="flex justify-between items-center pt-2 border-t border-border/30">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('summary')}>
-                Voltar
+          </div>
+        )}
+
+        {currentStep === 'yield_config' && (
+          <div className="space-y-4 animate-page-enter">
+            <div className="flex justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl gap-3">
+              <Button variant="outline" size="sm" onClick={() => setCurrentStep('corrections')} className="font-bold">
+                ← Voltar
               </Button>
-              <Button variant="primary" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
-                Validar posição B3
+              <Button variant="primary" size="sm" onClick={() => setCurrentStep('position')} className="font-bold shadow-md shadow-indigo-500/15">
+                Avançar para Custódia B3 →
               </Button>
             </div>
+
+            <B3ReconciliationGuidance title="Rentabilidade dos Novos Aportes" variant="info">
+              Configure as taxas contratadas (ex: % do CDI ou taxa pré-fixada a.a.) e datas de vencimento para cada aporte de Renda Fixa importado. Isso garante a precisão do cálculo de rendimento.
+            </B3ReconciliationGuidance>
+
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {manualYieldRequiredAssets.map((asset) => {
+                const isFixed = asset.pricing_mode === 'fixed_income' || asset.isTreasury
+                return (
+                  <div 
+                    key={asset.id} 
+                    className="bg-card/65 p-4 rounded-2xl border border-border/40 space-y-3 text-left hover:border-indigo-500/20 transition-all duration-200 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between border-b border-border/20 pb-2">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <strong className="text-primary font-mono font-black text-sm block">
+                            {asset.ticker}
+                          </strong>
+                          <span className="text-[9px] text-secondary font-bold uppercase tracking-wider mt-0.5 block">
+                            {asset.isTreasury ? '🏛️ Tesouro Direto' : isFixed ? '💰 Renda Fixa' : '📝 Valor Manual'}
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-lg text-[9px] uppercase font-bold font-mono">
+                          Aporte: {asset.date}
+                        </span>
+                        <span className="px-2 py-0.5 bg-secondary text-secondary rounded-lg text-[9px] font-bold font-mono">
+                          Qtd: {asset.quantity} • {formatCurrency(parseFloat(asset.price))}
+                        </span>
+                      </div>
+
+                      {!isFixed && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onOpenAssetConfig(asset.ticker)}
+                          className="flex items-center gap-1 border-indigo-500/25 text-indigo-400 hover:bg-indigo-500/10 py-1.5 px-3 font-bold text-[10px] shrink-0"
+                        >
+                          Configurar Ativo
+                        </Button>
+                      )}
+                    </div>
+
+                    {isFixed && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5 text-[11px] pt-1">
+                        <div>
+                          <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Indexador</label>
+                          <select
+                            value={asset.indexer}
+                            onChange={(e) => updateImportedDraft(asset.id, 'indexer', e.target.value as PortfolioAssetIndexer)}
+                            className="w-full h-8 bg-card border border-border/50 rounded-xl px-2.5 font-semibold text-[11px] focus:border-indigo-500 focus:outline-none cursor-pointer shadow-sm text-primary"
+                          >
+                            <option value="none">Pré-fixado (taxa contratada)</option>
+                            <option value="cdi">CDI</option>
+                            <option value="selic">SELIC</option>
+                            <option value="ipca">IPCA</option>
+                          </select>
+                        </div>
+
+                        {asset.indexer !== 'none' ? (
+                          <div className="animate-page-enter">
+                            <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">% do Indexador</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={asset.indexer_percent}
+                                onChange={(e) => updateImportedDraft(asset.id, 'indexer_percent', e.target.value)}
+                                placeholder="100"
+                                className="w-full h-8 bg-card border border-border/50 rounded-xl pl-2.5 pr-6 font-semibold text-[11px] focus:border-indigo-500 focus:outline-none shadow-sm text-primary"
+                              />
+                              <span className="absolute right-2.5 text-secondary font-bold text-[10px]">%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="animate-page-enter">
+                            <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Taxa Contratada</label>
+                            <div className="relative flex items-center">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={asset.contract_rate}
+                                onChange={(e) => updateImportedDraft(asset.id, 'contract_rate', e.target.value)}
+                                placeholder="Ex: 12.5"
+                                className="w-full h-8 bg-card border border-border/50 rounded-xl pl-2.5 pr-10 font-semibold text-[11px] focus:border-indigo-500 focus:outline-none shadow-sm text-primary"
+                              />
+                              <span className="absolute right-2.5 text-secondary font-bold text-[10px]">% a.a.</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Vencimento</label>
+                          <input
+                            type="date"
+                            value={asset.maturity_date}
+                            onChange={(e) => updateImportedDraft(asset.id, 'maturity_date', e.target.value)}
+                            className="w-full h-8 bg-card border border-border/50 rounded-xl px-2.5 font-semibold text-[11px] focus:border-indigo-500 focus:outline-none shadow-sm text-primary"
+                          />
+                        </div>
+
+                        <div className="flex items-end">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleSaveAssetYield(asset)}
+                            className="w-full h-8 flex items-center justify-center gap-1 font-bold text-[11px] shadow-sm shadow-indigo-500/10"
+                          >
+                            💾 Salvar Rentabilidade
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
           </div>
         )}
 
         {currentStep === 'position' && (reconciliation || positionOnlyMode) && (
           <div className="space-y-3 animate-page-enter">
-            <div className="flex items-center gap-2">
+            <div className="flex justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => positionOnlyMode ? setCurrentStep('upload') : setCurrentStep('corrections')}
+                className="font-bold"
+              >
+                ← Voltar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!positionValidation}
+                onClick={() => positionOnlyMode ? onClose() : setCurrentStep('review')}
+                className="font-bold shadow-md shadow-indigo-500/15"
+              >
+                {positionOnlyMode ? 'Concluir Validação ✓' : 'Avançar para Conclusão →'}
+              </Button>
+            </div>
+
+            {/* Banner: ativos fora do padrão B3 cadastrados no livro-razão */}
+            {Object.keys(nonB3SystemPositions).length > 0 && (
+              <div className="flex gap-3 items-start bg-indigo-500/8 border border-indigo-500/25 rounded-2xl px-3.5 py-3 text-left">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertCircle size={14} className="text-indigo-500" />
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <p className="text-xs font-bold text-primary">
+                    {Object.keys(nonB3SystemPositions).length} ativo{Object.keys(nonB3SystemPositions).length > 1 ? 's' : ''} internacional/cripto não constam na custódia B3
+                  </p>
+                  <p className="text-[10px] text-secondary leading-relaxed">
+                    Os ativos abaixo estão cadastrados no livro-razão mas não aparecem no arquivo de posição B3, pois são negociados em bolsas estrangeiras ou fora da B3. Verifique manualmente se as quantidades estão corretas.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {Object.entries(nonB3SystemPositions)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([ticker, qty]) => (
+                        <span
+                          key={ticker}
+                          className="inline-flex items-center gap-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2 py-0.5 text-[10px] font-mono"
+                        >
+                          <span className="font-bold text-indigo-600">{ticker}</span>
+                          <span className="text-secondary">{qty % 1 === 0 ? qty : qty.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} un</span>
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
               <ShieldCheck size={18} className="text-emerald-600" />
               <h5 className="text-sm font-black text-primary">Posição oficial B3</h5>
             </div>
@@ -1983,64 +2272,25 @@ export default function InvestmentReconciliationModal({
                   Object.keys(officialPosition.fixedIncome).length > 0)
               }
             />
-
-            {/* Banner: ativos fora do padrão B3 cadastrados no livro-razão */}
-            {Object.keys(nonB3SystemPositions).length > 0 && (
-              <div className="flex gap-3 items-start bg-indigo-500/8 border border-indigo-500/25 rounded-2xl px-3.5 py-3 text-left">
-                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                  <AlertCircle size={14} className="text-indigo-500" />
-                </div>
-                <div className="space-y-1.5 min-w-0">
-                  <p className="text-xs font-bold text-primary">
-                    {Object.keys(nonB3SystemPositions).length} ativo{Object.keys(nonB3SystemPositions).length > 1 ? 's' : ''} internacional/cripto não constam na custódia B3
-                  </p>
-                  <p className="text-[10px] text-secondary leading-relaxed">
-                    Os ativos abaixo estão cadastrados no livro-razão mas não aparecem no arquivo de posição B3, pois são negociados em bolsas estrangeiras ou fora da B3. Verifique manualmente se as quantidades estão corretas.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {Object.entries(nonB3SystemPositions)
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([ticker, qty]) => (
-                        <span
-                          key={ticker}
-                          className="inline-flex items-center gap-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2 py-0.5 text-[10px] font-mono"
-                        >
-                          <span className="font-bold text-indigo-600">{ticker}</span>
-                          <span className="text-secondary">{qty % 1 === 0 ? qty : qty.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} un</span>
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-
-
-            <div className="flex justify-between items-center pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => positionOnlyMode ? setCurrentStep('upload') : setCurrentStep('corrections')}
-              >
-                Voltar
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!positionValidation}
-                onClick={() => positionOnlyMode ? onClose() : setCurrentStep('review')}
-                className="font-bold"
-              >
-                {positionOnlyMode ? 'Concluir Validação' : 'Concluir'}
-              </Button>
-            </div>
           </div>
         )}
 
         {/* STEP 5: Review */}
         {currentStep === 'review' && reconciliation && (
           <div className="space-y-5 text-center animate-page-enter max-w-xl mx-auto py-4 text-left">
+            <div className="flex flex-wrap gap-3 justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
+                  ← Revisar Custódia B3
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')} className="font-bold">
+                  🔄 Outro Extrato
+                </Button>
+              </div>
+              <Button variant="primary" size="sm" onClick={onClose} className="font-bold shadow-md shadow-emerald-500/15 bg-emerald-600 hover:bg-emerald-700 text-white">
+                ✓ Concluir Conciliação
+              </Button>
+            </div>
             {/* Animated Celebration Gauge */}
             <div className="flex flex-col items-center justify-center text-center space-y-3">
               <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-scale-fade-in scale-105">
@@ -2113,58 +2363,8 @@ export default function InvestmentReconciliationModal({
                </div>
             </div>
 
-            {/* Fixed Income Action Required Panel */}
-            {manualYieldRequiredAssets.length > 0 && (
-              <div className="bg-amber-500/[0.03] border border-amber-500/20 p-4.5 rounded-3xl space-y-3.5">
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5 animate-pulse" />
-                  <div className="space-y-0.5">
-                    <h6 className="font-black text-xs text-primary uppercase tracking-wider">Ajuste de Rentabilidade de Renda Fixa</h6>
-                    <p className="text-[10px] text-secondary leading-relaxed">
-                      Novos ativos de Renda Fixa ou de valorização manual foram importados. Configure a taxa acordada (ex: % do CDI) para garantir a evolução patrimonial exata:
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-2 pt-1">
-                  {manualYieldRequiredAssets.map((asset) => (
-                    <div 
-                      key={asset.ticker} 
-                      className="flex items-center justify-between bg-card/60 p-3 rounded-2xl border border-border/40 text-xs hover:border-indigo-500/25 transition-all duration-200"
-                    >
-                      <div className="overflow-hidden mr-2">
-                        <strong className="text-primary font-mono font-bold block truncate max-w-[200px]" title={asset.ticker}>
-                          {asset.ticker}
-                        </strong>
-                        <span className="text-[9.5px] text-secondary block font-sans font-medium uppercase mt-0.5 tracking-wider opacity-80">
-                          {asset.pricing_mode === 'fixed_income' ? 'Renda Fixa' : 'Valor Manual'}
-                        </span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onOpenAssetConfig(asset.ticker)}
-                        className="flex items-center gap-1 border-indigo-500/25 text-indigo-400 hover:bg-indigo-500/10 py-1.5 px-3 font-bold text-[10px] shrink-0"
-                      >
-                        Configurar Ativo
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className="flex flex-wrap gap-3 justify-center pt-3 border-t border-border/20">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
-                Revisar Custódia B3
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')} className="font-bold">
-                Conciliar Outro Extrato
-              </Button>
-              <Button variant="primary" onClick={onClose} className="font-bold shadow-md shadow-indigo-500/15">
-                Concluir Conciliação
-              </Button>
-            </div>
+
           </div>
         )}
 
