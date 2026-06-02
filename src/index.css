@@ -12,6 +12,8 @@
   --ds-color-text-primary: #000000;
   --ds-color-text-secondary: #111827;
   --ds-color-border-default: #d1d5db;
+  --floating-btn-border: rgba(0, 0, 0, 0.10);
+  --floating-btn-border-hover: rgba(0, 0, 0, 0.22);
   --ds-color-accent-primary: #0ea5e9;
   --ds-color-accent-primary-strong: #0284c7;
   --ds-color-accent-primary-soft: #bae6fd;
@@ -66,6 +68,9 @@
   --color-income: var(--ds-color-data-income);
   --color-expense: var(--ds-color-data-expense);
   --color-balance: var(--ds-color-data-balance);
+  --color-income-text: var(--ds-color-data-income-text, var(--ds-color-data-income));
+  --color-expense-text: var(--ds-color-data-expense-text, var(--ds-color-data-expense));
+  --color-balance-text: var(--ds-color-data-balance-text, var(--ds-color-data-balance));
   --transition-fast: var(--ds-motion-duration-fast);
   --transition-normal: var(--ds-motion-duration-normal);
   --easing-standard: var(--ds-motion-easing-standard);
@@ -264,15 +269,15 @@
   }
 
   .text-income {
-    color: var(--color-income);
+    color: var(--color-income-text);
   }
 
   .text-expense {
-    color: var(--color-expense);
+    color: var(--color-expense-text);
   }
 
   .text-balance {
-    color: var(--color-balance);
+    color: var(--color-balance-text);
   }
 
   .text-warning {
@@ -1053,4 +1058,92 @@ nav.glass-bottom-nav {
 
 .glass-pulse {
   animation: none;
+}
+
+/* Custom overrides to resolve Tailwind utility naming collisions for text colors */
+.text-primary {
+  color: var(--color-text-primary) !important;
+}
+
+.text-secondary {
+  color: var(--color-text-secondary) !important;
+}
+
+/* Efeito de mola elástica física para abas e botões flutuantes */
+.motion-spring {
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Brilho neon sutil, elegante e ajustado aos temas HSL ativos */
+.glass-glow-button-primary {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.12), 0 0 6px 1px color-mix(in srgb, var(--ds-color-accent-primary-soft) 12%, transparent);
+}
+.glass-glow-button-primary:hover {
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.15), 0 0 10px 1px color-mix(in srgb, var(--ds-color-accent-primary) 35%, transparent);
+}
+
+.glass-glow-button-income {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.12), 0 0 6px 1px rgba(16, 185, 129, 0.12);
+}
+.glass-glow-button-income:hover {
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.15), 0 0 10px 1px rgba(16, 185, 129, 0.35);
+}
+
+.glass-glow-button-expense {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.12), 0 0 6px 1px rgba(239, 68, 68, 0.12);
+}
+.glass-glow-button-expense:hover {
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.15), 0 0 10px 1px rgba(239, 68, 68, 0.35);
+}
+
+.glass-glow-button-balance {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.12), 0 0 6px 1px rgba(59, 130, 246, 0.12);
+}
+.glass-glow-button-balance:hover {
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.15), 0 0 10px 1px rgba(59, 130, 246, 0.35);
+}
+
+.glass-glow-button-warning {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.12), 0 0 6px 1px rgba(245, 158, 11, 0.12);
+}
+.glass-glow-button-warning:hover {
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.15), 0 0 10px 1px rgba(245, 158, 11, 0.35);
+}
+
+.glass-glow-button-neutral {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--floating-btn-border);
+}
+.glass-glow-button-neutral:hover {
+  box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--floating-btn-border-hover);
+}
+
+/* Keyframes e animações para modais expandindo a partir dos botões flutuantes (lateral direita) */
+@keyframes modal-open-from-right {
+  from {
+    opacity: 0;
+    transform: translate(25%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes modal-close-to-right {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(25%, -50%) scale(0.9);
+  }
+}
+
+.animate-modal-open-right {
+  animation: modal-open-from-right 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-modal-close-right {
+  animation: modal-close-to-right 240ms cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
 }

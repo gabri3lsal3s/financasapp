@@ -196,7 +196,7 @@ function CreditCardTimeline({
     paid: 'bg-income/10 border-income/30 text-income',
     empty: 'bg-secondary border-primary text-secondary',
     overdue: 'bg-expense/10 border-expense/30 text-expense',
-    near_due: 'bg-amber-500/10 border-amber-500/30 text-amber-600',
+    near_due: 'bg-warning/10 border-warning/30 text-warning',
     closed: '',
     open: '',
   }
@@ -214,7 +214,7 @@ function CreditCardTimeline({
     paid: 'bg-income/5 border-income/20',
     empty: 'bg-secondary/50 border-primary/30',
     overdue: 'bg-expense/5 border-expense/20',
-    near_due: 'bg-amber-500/5 border-amber-500/20',
+    near_due: 'bg-warning/5 border-warning/20',
     closed: '',
     open: '',
   }
@@ -229,7 +229,7 @@ function CreditCardTimeline({
   const config = {
     paid: {
       label: 'Paga',
-      icon: <CheckCircle2 size={13} className="text-emerald-500" />,
+      icon: <CheckCircle2 size={13} className="text-income" />,
       message: 'Fatura totalmente paga! Limite restabelecido.',
     },
     empty: {
@@ -239,12 +239,12 @@ function CreditCardTimeline({
     },
     overdue: {
       label: 'Vencida',
-      icon: <AlertCircle size={13} className="text-red-500" />,
+      icon: <AlertCircle size={13} className="text-expense" />,
       message: `ATENÇÃO: Fatura vencida em ${formatDate(dueDate)}. Regularize para evitar juros.`,
     },
     near_due: {
       label: 'Vence em Breve',
-      icon: <Clock size={13} className="text-amber-500" />,
+      icon: <Clock size={13} className="text-warning" />,
       message: `Atenção: Fatura fecha dia ${formatDate(closingDate)} e vence dia ${formatDate(dueDate)}. Pague logo!`,
     },
     closed: {
@@ -1925,7 +1925,7 @@ export default function CreditCards() {
               <p className="text-sm text-primary">
                 Deseja realmente excluir o cartão <strong>{editingCard?.name}</strong>?
               </p>
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 text-xs leading-relaxed">
+              <div className="p-3 rounded-lg bg-expense/10 border border-expense/30 text-expense text-xs leading-relaxed">
                 <p className="font-semibold mb-1">Aviso:</p>
                 <p>Esta ação é irreversível e removerá permanentemente o histórico de faturas e pagamentos deste cartão.</p>
               </div>

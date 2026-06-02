@@ -327,21 +327,21 @@ export default function AssetDefinitionFormModal({
 
       {/* Badges de classificação inteligente */}
       {isB3Variable && (
-        <div className="mb-4 p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
+        <div className="mb-4 p-2.5 bg-balance/10 border border-balance/20 text-balance text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
           <span>📈 Ativo de Renda Variável Detectado (B3)</span>
-          <span className="text-[10px] bg-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase">Mercado</span>
+          <span className="text-[10px] bg-balance/20 px-2 py-0.5 rounded-full font-bold uppercase">Mercado</span>
         </div>
       )}
       {isFixedIncomePrefix && (
-        <div className="mb-4 p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
+        <div className="mb-4 p-2.5 bg-warning/10 border border-warning/20 text-warning text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
           <span>💰 Ativo de Renda Fixa Detectado</span>
-          <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full font-bold uppercase">{upperTicker.includes('TESOURO') ? 'Tesouro Direto' : 'Renda Fixa'}</span>
+          <span className="text-[10px] bg-warning/20 px-2 py-0.5 rounded-full font-bold uppercase">{upperTicker.includes('TESOURO') ? 'Tesouro Direto' : 'Renda Fixa'}</span>
         </div>
       )}
       {isCashType && (
-        <div className="mb-4 p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
+        <div className="mb-4 p-2.5 bg-income/10 border border-income/20 text-income text-xs rounded-xl flex items-center justify-between font-medium animate-page-enter">
           <span>🏦 Saldo em Caixa Detectado</span>
-          <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold uppercase">Caixa</span>
+          <span className="text-[10px] bg-income/20 px-2 py-0.5 rounded-full font-bold uppercase">Caixa</span>
         </div>
       )}
 
@@ -379,7 +379,7 @@ export default function AssetDefinitionFormModal({
                         setIsB3Linked(isB3TickerPattern(s.ticker))
                         setSuggestions([])
                       }}
-                      className="w-full text-left px-4 py-2.5 text-xs hover:bg-indigo-500/10 text-primary flex items-center justify-between transition-colors"
+                      className="w-full text-left px-4 py-2.5 text-xs hover:bg-balance/10 text-primary flex items-center justify-between transition-colors"
                     >
                       <span className="font-bold text-sm text-primary tracking-wide">{s.ticker}</span>
                       <span className="text-[10px] text-secondary font-medium truncate max-w-[180px]">{s.name}</span>
@@ -428,7 +428,7 @@ export default function AssetDefinitionFormModal({
         )}
 
         {pricingMode === 'cash' && (
-          <p className="text-xs text-secondary bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-3.5 font-sans leading-relaxed animate-page-enter">
+          <p className="text-xs text-secondary bg-balance/5 border border-balance/10 rounded-2xl p-3.5 font-sans leading-relaxed animate-page-enter font-medium">
             Saldo em caixa não possui rentabilidade — o valor acompanha apenas as movimentações manuais de entrada e saída.
           </p>
         )}

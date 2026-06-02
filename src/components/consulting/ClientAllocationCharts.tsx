@@ -34,7 +34,7 @@ export default function ClientAllocationCharts({
   return (
     <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-        <TrendingUp size={16} className="text-indigo-500" />
+        <TrendingUp size={16} className="text-balance" />
         Distribuição de Ativos por Classe
       </h3>
 
@@ -92,11 +92,11 @@ export default function ClientAllocationCharts({
                 let devIcon = <Minus size={11} className="text-secondary/50" />
                 let devColor = 'text-secondary/60 bg-muted/30 border-border/10'
                 if (deviation > 0.5) {
-                  devIcon = <ArrowUpRight size={11} className="text-emerald-500" />
-                  devColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                  devIcon = <ArrowUpRight size={11} className="text-income" />
+                  devColor = 'text-income bg-income/10 border-income/20'
                 } else if (deviation < -0.5) {
-                  devIcon = <ArrowDownRight size={11} className="text-red-500" />
-                  devColor = 'text-red-500 bg-red-500/10 border-red-500/20'
+                  devIcon = <ArrowDownRight size={11} className="text-expense" />
+                  devColor = 'text-expense bg-expense/10 border-expense/20'
                 }
 
                 return (

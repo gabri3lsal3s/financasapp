@@ -62,7 +62,7 @@ export function ConflictResolutionModal() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Card className="flex flex-col p-4">
-                        <h4 className="font-semibold mb-2 text-indigo-600 dark:text-indigo-400">Versão do Servidor</h4>
+                        <h4 className="font-semibold mb-2 text-balance">Versão do Servidor</h4>
                         <div className="mb-4 flex-1 space-y-1 break-all text-xs text-primary">
                             <pre className="whitespace-pre-wrap">{JSON.stringify(currentConflict.serverData, null, 2)}</pre>
                         </div>
@@ -71,8 +71,8 @@ export function ConflictResolutionModal() {
                         </Button>
                     </Card>
 
-                    <Card className="flex flex-col p-4 border border-indigo-200 dark:border-indigo-800">
-                        <h4 className="font-semibold mb-2 text-emerald-600 dark:text-emerald-400">Sua Versão (Offline)</h4>
+                    <Card className="flex flex-col p-4 border border-balance/30">
+                        <h4 className="font-semibold mb-2 text-income">Sua Versão (Offline)</h4>
                         <div className="mb-4 flex-1 space-y-1 break-all text-xs text-primary">
                             <pre className="whitespace-pre-wrap">{JSON.stringify(currentConflict.queueItem.payload, null, 2)}</pre>
                         </div>

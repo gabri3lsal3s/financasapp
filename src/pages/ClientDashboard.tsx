@@ -341,15 +341,15 @@ export default function ClientDashboard() {
         action={headerAction}
       />
 
-      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 rounded-3xl border border-emerald-800/30 text-white shadow-xl text-left">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-primary/15 via-secondary/70 to-secondary/40 rounded-3xl border border-primary/30 text-primary shadow-xl text-left surface-glass">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 font-sans">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full uppercase tracking-wider mb-3">
-            <CheckCircle size={12} className="text-emerald-400" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-income/10 border border-income/20 text-income text-xs font-bold rounded-full uppercase tracking-wider mb-3">
+            <CheckCircle size={12} className="text-income" />
             Carteira sob assessoria
           </div>
-          <h2 className="text-2xl lg:text-3xl font-black text-white">Meu Painel de Investimentos</h2>
-          <p className="text-sm text-slate-300 mt-1">
+          <h2 className="text-2xl lg:text-3xl font-black text-primary">Meu Painel de Investimentos</h2>
+          <p className="text-sm text-secondary mt-1">
             Acompanhamento e rebalanceamento em tempo real do seu patrimônio
           </p>
         </div>
@@ -395,7 +395,7 @@ export default function ClientDashboard() {
               {/* Gráfico de Exposição Recharts */}
               <Card className="p-5 lg:p-6 flex flex-col justify-between">
                 <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-                  <TrendingUp size={16} className="text-indigo-500" />
+                  <TrendingUp size={16} className="text-balance" />
                   Distribuição de Ativos por Classe
                 </h3>
                 <div className="h-64 w-full flex items-center justify-center">
@@ -423,22 +423,22 @@ export default function ClientDashboard() {
                   </ResponsiveContainer>
                 </div>
               </Card>
-
+ 
               {/* Guia de Ação de Rebalanceamento */}
               <Card className="p-5 lg:p-6">
                 <h3 className="font-bold text-base text-primary mb-3 flex items-center gap-2">
-                  <AlertCircle size={16} className="text-indigo-500" />
+                  <AlertCircle size={16} className="text-balance" />
                   Ações de Rebalanceamento Recomendadas
                 </h3>
                 <p className="text-[11px] text-secondary mb-4">Trades sugeridos para aproximar sua alocação real do alvo desenhado pelo seu consultor</p>
                 <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
                   {rebalancingTrades.length === 0 ? (
-                    <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-center text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <div className="p-4 bg-income/5 border border-income/10 rounded-xl text-center text-xs text-income font-semibold">
                       Sua carteira está perfeitamente alinhada com as metas de alocação recomendadas! 🎉
                     </div>
                   ) : (
                     rebalancingTrades.map(trade => (
-                      <div key={trade.ticker} className="p-3 bg-secondary border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-indigo-500/20">
+                      <div key={trade.ticker} className="p-3 bg-secondary border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-balance/20">
                         <div>
                           <div className="flex items-center gap-2">
                             <strong className="text-primary font-bold">{trade.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : trade.ticker}</strong>
@@ -474,11 +474,11 @@ export default function ClientDashboard() {
               </Card>
             </div>
           )}
-
+ 
           <div className="space-y-6 lg:gap-8 text-left">
             {portfolio?.notes && (
-              <Card className="p-5 bg-gradient-to-br from-secondary to-background border-l-4 border-l-indigo-500 shadow-sm">
-                <h4 className="font-bold text-sm text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5 mb-2.5">
+              <Card className="p-5 bg-gradient-to-br from-secondary to-background border-l-4 border-l-primary shadow-sm">
+                <h4 className="font-bold text-sm accent-primary flex items-center gap-1.5 mb-2.5">
                   <ShieldCheck size={16} />
                   Notas do assessor
                 </h4>
@@ -487,10 +487,10 @@ export default function ClientDashboard() {
                 </p>
               </Card>
             )}
-
+ 
             <Card className="p-5 lg:p-6">
               <h3 className="font-bold text-lg text-primary mb-4">Composição de Ativos & Exposição</h3>
-
+ 
               {positions.length === 0 ? (
                 <p className="text-center py-8 text-sm text-secondary">Aguardando inserção dos lançamentos iniciais pelo seu consultor.</p>
               ) : (
@@ -519,7 +519,7 @@ export default function ClientDashboard() {
                             })
                           return Object.entries(positionsByClass).map(([className, classPositions]) => (
                             <div key={className} style={{ display: 'contents' }}>
-                              <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
+                              <tr className="bg-muted/10 border-l-4 border-l-income font-extrabold text-xs tracking-wider">
                                 <td colSpan={6} className="p-3 text-secondary uppercase font-extrabold">
                                   {className}
                                 </td>
@@ -527,7 +527,7 @@ export default function ClientDashboard() {
                               {classPositions.map(pos => (
                                 <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
                                   <td className="p-3.5 pl-6 font-extrabold text-primary flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-income"></span>
                                     {pos.ticker === 'SALDO_INV' ? 'Saldo para Investimento' : pos.ticker}
                                     <span className="text-[10px] text-secondary font-normal font-sans">({pos.sector || 'Outros'})</span>
                                   </td>
@@ -538,7 +538,7 @@ export default function ClientDashboard() {
                                     <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-secondary">{pos.current_percentage}%</span>
                                   </td>
                                   <td className="p-3.5 text-center">
-                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold">{pos.target_percentage}%</span>
+                                    <span className="px-2 py-0.5 bg-income/10 text-income rounded text-xs font-bold">{pos.target_percentage}%</span>
                                   </td>
                                 </tr>
                               ))}
@@ -548,7 +548,7 @@ export default function ClientDashboard() {
                       </tbody>
                     </table>
                   </div>
-
+ 
                   {/* 2. Visualização em Cards para Mobile */}
                   <div className="block md:hidden space-y-4">
                     {(() => {
@@ -561,7 +561,7 @@ export default function ClientDashboard() {
                         })
                       return Object.entries(positionsByClass).map(([className, classPositions]) => (
                         <div key={className} className="space-y-2">
-                          <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-muted/10 border-l-4 border-l-emerald-500 px-3 py-1.5 rounded-lg select-none">
+                          <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-muted/10 border-l-4 border-l-income px-3 py-1.5 rounded-lg select-none">
                             {className}
                           </div>
                           
@@ -573,7 +573,7 @@ export default function ClientDashboard() {
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="w-2 h-2 rounded-full bg-income shrink-0" />
                                     <span className="font-mono font-bold text-primary text-sm">
                                       {pos.ticker === 'SALDO_INV' ? 'Saldo Investimento' : pos.ticker}
                                     </span>
@@ -586,7 +586,7 @@ export default function ClientDashboard() {
                                     </span>
                                   </div>
                                 </div>
-
+ 
                                 <div className="grid grid-cols-2 gap-3 text-left bg-secondary/35 p-2.5 rounded-xl border border-primary/5">
                                   <div>
                                     <span className="text-[9px] uppercase font-extrabold text-secondary block">Qtd</span>
@@ -601,7 +601,7 @@ export default function ClientDashboard() {
                                     </span>
                                   </div>
                                 </div>
-
+ 
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between text-[10px]">
                                     <div className="flex items-center gap-1">
@@ -610,18 +610,18 @@ export default function ClientDashboard() {
                                     </div>
                                     <div className="flex items-center gap-1">
                                       <span className="text-secondary font-medium">Recomendado:</span>
-                                      <span className="font-mono font-bold text-emerald-500">{pos.target_percentage}%</span>
+                                      <span className="font-mono font-bold text-income">{pos.target_percentage}%</span>
                                     </div>
                                   </div>
                                   
                                   <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
                                     <div 
-                                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                      className="h-full bg-income rounded-full transition-all duration-500"
                                       style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
                                     />
                                     {pos.target_percentage > 0 && (
                                       <div 
-                                        className="absolute top-0 bottom-0 w-0.5 bg-emerald-300 dark:bg-emerald-700"
+                                        className="absolute top-0 bottom-0 w-0.5 bg-income/40 dark:bg-income/70"
                                         style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
                                       />
                                     )}
@@ -637,10 +637,10 @@ export default function ClientDashboard() {
                 </>
               )}
             </Card>
-
+ 
             <Card className="p-5 lg:p-6">
               <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-4">
-                <TrendingUp size={18} className="text-emerald-500" />
+                <TrendingUp size={18} className="text-income" />
                 Por que possuo estes ativos?
               </h3>
               <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
@@ -649,9 +649,9 @@ export default function ClientDashboard() {
                 ) : (
                   positions.filter(pos => displayTheses[pos.ticker]).map(pos => (
                     <div key={pos.ticker} className="p-3 bg-muted/20 border border-border/30 rounded-lg space-y-1">
-                      <div className="flex items-center justify-between text-xs font-bold text-primary">
+                       <div className="flex items-center justify-between text-xs font-bold text-primary">
                         <span>{pos.ticker}</span>
-                        <span className="text-[10px] text-emerald-500 font-semibold">{pos.target_percentage}% alvo</span>
+                        <span className="text-[10px] text-income font-semibold">{pos.target_percentage}% alvo</span>
                       </div>
                       <p className="text-[11px] text-secondary leading-relaxed pt-1">
                         {displayTheses[pos.ticker]}

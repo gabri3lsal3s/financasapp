@@ -1,8 +1,11 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
+import { useAppSettings } from '@/hooks/useAppSettings'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 interface PageHeaderProps {
-  title: string
+  title?: string
   subtitle?: string
   /** @deprecated Use `subtitle` */
   context?: string
@@ -15,57 +18,48 @@ interface PageHeaderProps {
 }
 
 export default function PageHeader({
-  title,
-  subtitle,
-  context,
-  breadcrumb,
   action,
-  responsiveStack = true,
-  breadcrumbs,
   className,
 }: PageHeaderProps) {
-  const resolvedSubtitle = subtitle ?? context
-  const resolvedBreadcrumbs = breadcrumbs ?? (
-    breadcrumb?.length ? <span>{breadcrumb.join(' / ')}</span> : undefined
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(() =>
+    typeof document !== 'undefined' ? document.getElementById('page-actions-portal-root') : null
+  )
+  const { floatingButtonsDesktopPosition, floatingButtonsMobilePosition } = useAppSettings()
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  useEffect(() => {
+    if (!portalRoot) {
+      setPortalRoot(document.getElementById('page-actions-portal-root'))
+    }
+  }, [portalRoot])
+
+  if (!action) return null
+
+  const activePosition = isDesktop ? floatingButtonsDesktopPosition : floatingButtonsMobilePosition
+
+  const containerClasses = cn(
+    'fixed z-40 pointer-events-none transition-all duration-300 animate-in fade-in-0 duration-300',
+    activePosition === 'top'
+      ? 'right-8 top-0'
+      : activePosition === 'left'
+      ? 'left-0 top-32 lg:top-40'
+      : 'right-0 top-32 lg:top-40',
+    className
   )
 
-  return (
-    <header
-      className={cn(
-        'surface-glass relative z-30 border-b border-glass safe-area-top motion-standard',
-        className
-      )}
-    >
-      <div
-        className={cn(
-          'px-4 py-3 lg:px-6',
-          responsiveStack
-            ? 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4'
-            : 'flex items-center justify-between gap-4'
-        )}
-      >
-        <div className="min-w-0 flex-1">
-          {resolvedBreadcrumbs ? (
-            <div className="mb-1 hidden text-xs text-secondary lg:block">{resolvedBreadcrumbs}</div>
-          ) : null}
-          <h1 className="truncate text-lg font-bold tracking-tight text-primary sm:text-xl">{title}</h1>
-          {resolvedSubtitle ? (
-            <p className="mt-0.5 truncate text-xs text-secondary sm:text-sm">{resolvedSubtitle}</p>
-          ) : null}
-        </div>
-        {action ? (
-          <div
-            className={cn(
-              'flex shrink-0 items-center gap-2',
-              responsiveStack && 'w-full sm:w-auto'
-            )}
-          >
-            {action}
-          </div>
-        ) : null}
-      </div>
-    </header>
+  const content = (
+    <div className={containerClasses} style={{ transform: 'translate(0px, 0px)' }}>
+      {action}
+    </div>
   )
+
+  if (portalRoot) {
+    return createPortal(content, portalRoot)
+  }
+
+  return content
 }
 
 export { PageHeaderActions } from '@/components/PageHeaderActions'
+
+

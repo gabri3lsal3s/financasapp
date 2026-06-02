@@ -12,8 +12,8 @@ const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'S
 
 function cellTone(pct: number | null): string {
   if (pct == null) return 'bg-muted/20 text-secondary'
-  if (pct >= 2) return 'bg-emerald-500/25 text-emerald-600'
-  if (pct > 0) return 'bg-emerald-500/10 text-emerald-600'
+  if (pct >= 2) return 'bg-income/25 text-income'
+  if (pct > 0) return 'bg-income/10 text-income'
   if (pct <= -2) return 'bg-expense/20 text-expense'
   if (pct < 0) return 'bg-expense/10 text-expense'
   return 'bg-muted/30 text-secondary'

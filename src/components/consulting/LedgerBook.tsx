@@ -178,7 +178,7 @@ function LedgerBook({
       {deleting && (
         <div className="absolute inset-0 bg-secondary/65 backdrop-blur-[1px] flex items-center justify-center z-20">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
+            <div className="w-8 h-8 rounded-full border-4 border-balance border-t-transparent animate-spin" />
             <span className="text-xs font-bold text-primary animate-pulse">{deletingProgress || 'Excluindo transações...'}</span>
           </div>
         </div>
@@ -187,7 +187,7 @@ function LedgerBook({
       {/* Header principal */}
       <div className="flex flex-row items-center justify-between gap-2 mb-4 pb-3 border-b border-primary/5">
         <h3 className="font-bold text-base text-primary flex items-center gap-2 select-none min-w-0 truncate">
-          <Wallet size={18} className="text-emerald-500 shrink-0" />
+          <Wallet size={18} className="text-income shrink-0" />
           <span className="truncate">Livro-Razão</span>
         </h3>
 
@@ -199,7 +199,7 @@ function LedgerBook({
                 size="sm"
                 variant="outline"
                 onClick={onOpenReconciliation}
-                className="hidden sm:flex items-center gap-1 text-xs py-1 px-2.5 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 dark:hover:text-emerald-300 font-semibold"
+                className="hidden sm:flex items-center gap-1 text-xs py-1 px-2.5 border-income/20 text-income hover:bg-income/10 dark:hover:text-income font-semibold"
               >
                 <FileSpreadsheet size={12} />
                 Conciliar B3
@@ -211,7 +211,7 @@ function LedgerBook({
                 size="sm"
                 variant="outline"
                 onClick={() => setIsSelectionMode(true)}
-                className="hidden sm:flex items-center gap-1.5 text-xs py-1 px-2.5 border-red-500/10 text-red-500 hover:bg-red-500/10 dark:hover:text-red-300 font-semibold"
+                className="hidden sm:flex items-center gap-1.5 text-xs py-1 px-2.5 border-expense/10 text-expense hover:bg-expense/10 dark:hover:text-expense font-semibold"
               >
                 <Trash2 size={12} />
                 Excluir em Massa
@@ -222,7 +222,7 @@ function LedgerBook({
               size="sm"
               variant="outline"
               onClick={() => onOpenTxModal()}
-              className="flex items-center gap-1 text-xs py-1 px-3 border-indigo-500/30 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold"
+              className="flex items-center gap-1 text-xs py-1 px-3 border-balance/30 bg-balance/10 text-balance hover:bg-balance/20 dark:text-balance dark:hover:text-balance font-bold"
             >
               <Plus size={13} />
               Lançar
@@ -230,7 +230,7 @@ function LedgerBook({
           </div>
         ) : (
           /* Em modo seleção: o header só mostra o título (controles ficam no bloco abaixo) */
-          <span className="text-[10px] font-black font-mono text-red-500 bg-red-500/10 px-2 py-1 rounded-lg shrink-0">
+          <span className="text-[10px] font-black font-mono text-expense bg-expense/10 px-2 py-1 rounded-lg shrink-0">
             {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
           </span>
         )}
@@ -238,13 +238,13 @@ function LedgerBook({
 
       {/* Bloco de controle de exclusão em massa */}
       {isSelectionMode && (
-        <div className="mb-3 border border-red-500/20 rounded-2xl overflow-hidden animate-page-enter">
+        <div className="mb-3 border border-expense/20 rounded-2xl overflow-hidden animate-page-enter">
 
           {/* Cabeçalho do bloco */}
-          <div className="flex items-center justify-between px-3 py-2 bg-red-500/[0.06] border-b border-red-500/10">
+          <div className="flex items-center justify-between px-3 py-2 bg-expense/[0.06] border-b border-expense/10">
             <div className="flex items-center gap-1.5">
-              <Trash2 size={12} className="text-red-500" />
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-red-500">Selecionar para excluir</span>
+              <Trash2 size={12} className="text-expense" />
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-expense">Selecionar para excluir</span>
             </div>
             <button
               type="button"
@@ -258,7 +258,7 @@ function LedgerBook({
 
           {/* Chips de mês com scroll horizontal */}
           {distinctMonths.length > 0 && (
-            <div className="px-3 py-2 border-b border-red-500/10">
+            <div className="px-3 py-2 border-b border-expense/10">
               <p className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-1.5">Marcar por mês</p>
               <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
                 {distinctMonths.map((m) => {
@@ -271,8 +271,8 @@ function LedgerBook({
                       onClick={() => handleSelectMonthYear(m.value)}
                       className={`flex-shrink-0 flex flex-col items-center px-2.5 py-1.5 rounded-xl border text-center transition-all ${
                         allSelected
-                          ? 'bg-indigo-500 border-indigo-500 text-white'
-                          : 'border-primary/25 bg-primary hover:border-indigo-500/40 hover:bg-indigo-500/5 hover:text-indigo-500 text-secondary'
+                          ? 'bg-balance border-balance text-white'
+                          : 'border-primary/25 bg-primary hover:border-balance/40 hover:bg-balance/5 hover:text-balance text-secondary'
                       }`}
                     >
                       <span className="text-[10px] font-black font-mono leading-none">{m.label}</span>
@@ -287,14 +287,14 @@ function LedgerBook({
           )}
 
           {/* Rodapé do bloco: selecionar todos + excluir */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-red-500/[0.03]">
+          <div className="flex items-center gap-2 px-3 py-2 bg-expense/[0.03]">
             <button
               type="button"
               onClick={handleToggleSelectAll}
               className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-xl border transition-all ${
                 isAllSelected
-                  ? 'bg-indigo-500 border-indigo-500 text-white'
-                  : 'border-indigo-500/30 text-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/10'
+                  ? 'bg-balance border-balance text-white'
+                  : 'border-balance/30 text-balance bg-balance/5 hover:bg-balance/10'
               }`}
             >
               {isAllSelected ? <CheckSquare size={11} /> : <Square size={11} />}
@@ -303,7 +303,7 @@ function LedgerBook({
 
             <div className="ml-auto flex items-center gap-2">
               {selectedIds.size > 0 && (
-                <span className="text-[10px] font-black text-red-500 font-mono bg-red-500/10 px-2 py-1 rounded-lg">
+                <span className="text-[10px] font-black text-expense font-mono bg-expense/10 px-2 py-1 rounded-lg">
                   {selectedIds.size} de {visibleTransactions.length}
                 </span>
               )}
@@ -311,7 +311,7 @@ function LedgerBook({
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={handleBulkDelete}
-                className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-xl bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+                className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-xl bg-expense text-white hover:bg-expense/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <Trash2 size={11} />
                 Excluir
@@ -336,15 +336,15 @@ function LedgerBook({
             const opLabel = portfolioOperationLabel(tx.operation_type)
 
             const opColor = tx.operation_type === 'buy' || tx.operation_type === 'subscription'
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              ? 'bg-income/10 text-income'
               : isPortfolioIncomeType(tx.operation_type)
-              ? 'bg-indigo-500/10 text-indigo-500'
-              : 'bg-red-500/10 text-red-500'
+              ? 'bg-balance/10 text-balance'
+              : 'bg-expense/10 text-expense'
 
             const borderColor = isSelected
-              ? 'border-indigo-500 bg-indigo-500/5'
+              ? 'border-balance bg-balance/5'
               : isExpanded
-              ? 'border-indigo-500/40 bg-secondary/40'
+              ? 'border-balance/40 bg-secondary/40'
               : 'border-border/30 hover:border-border/60'
 
             return (
@@ -366,7 +366,7 @@ function LedgerBook({
                   {/* Checkbox em modo seleção */}
                   {isSelectionMode && (
                     <div className={`w-3.5 h-3.5 rounded-full border shrink-0 flex items-center justify-center transition-all ${
-                      isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-primary/40'
+                      isSelected ? 'bg-balance border-balance text-white' : 'border-primary/40'
                     }`}>
                       {isSelected && <Check size={9} strokeWidth={4} />}
                     </div>
@@ -375,9 +375,9 @@ function LedgerBook({
                   {/* Badge de operação (bolinha colorida) */}
                   {!isSelectionMode && (
                     <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-                      tx.operation_type === 'buy' || tx.operation_type === 'subscription' ? 'bg-emerald-500'
-                      : isPortfolioIncomeType(tx.operation_type) ? 'bg-indigo-500'
-                      : 'bg-red-500'
+                      tx.operation_type === 'buy' || tx.operation_type === 'subscription' ? 'bg-income'
+                      : isPortfolioIncomeType(tx.operation_type) ? 'bg-balance'
+                      : 'bg-expense'
                     }`} />
                   )}
 
@@ -430,7 +430,7 @@ function LedgerBook({
                       </div>
 
                       {/* Total destacado */}
-                      <div className="flex items-center justify-between bg-indigo-500/5 border border-indigo-500/10 rounded-lg px-3 py-1.5">
+                      <div className="flex items-center justify-between bg-balance/5 border border-balance/10 rounded-lg px-3 py-1.5">
                         <span className="text-[10px] font-bold text-secondary">Total movimentado</span>
                         <span className="font-mono font-black text-sm text-primary">{formatCurrency(total)}</span>
                       </div>
@@ -439,7 +439,7 @@ function LedgerBook({
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpenTxModal(tx) }}
-                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 rounded-lg border border-indigo-500/25 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all"
+                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 rounded-lg border border-balance/25 text-balance hover:bg-balance/10 transition-all"
                       >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -462,7 +462,7 @@ function LedgerBook({
             <button
               type="button"
               onClick={onOpenReconciliation}
-              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 px-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 px-3 rounded-xl border border-income/25 bg-income/5 text-income hover:bg-income/10 transition-all"
             >
               <FileSpreadsheet size={13} />
               Conciliar B3
@@ -472,7 +472,7 @@ function LedgerBook({
             <button
               type="button"
               onClick={() => setIsSelectionMode(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 px-3 rounded-xl border border-red-500/15 bg-red-500/5 text-red-500 hover:bg-red-500/10 transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 px-3 rounded-xl border border-expense/15 bg-expense/5 text-expense hover:bg-expense/10 transition-all"
             >
               <Trash2 size={13} />
               Excluir

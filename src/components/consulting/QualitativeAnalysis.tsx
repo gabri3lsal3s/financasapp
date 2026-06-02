@@ -132,7 +132,7 @@ export default function QualitativeAnalysis({
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           {/* Ícone + Título */}
           <div className="flex items-center gap-3 flex-1">
-            <div className="p-2.5 bg-indigo-500/10 text-indigo-500 rounded-xl shrink-0">
+            <div className="p-2.5 bg-balance/10 text-balance rounded-xl shrink-0">
               <BookOpen size={20} />
             </div>
             <div>
@@ -163,7 +163,7 @@ export default function QualitativeAnalysis({
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 22}`}
                   strokeDashoffset={`${2 * Math.PI * 22 * (1 - progressPct / 100)}`}
-                  className="text-indigo-500 transition-all duration-700"
+                  className="text-balance transition-all duration-700"
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
@@ -175,7 +175,7 @@ export default function QualitativeAnalysis({
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold font-sans">
                 {thesesFilledCount === totalPositions && totalPositions > 0 ? (
-                  <CheckCircle2 size={12} className="text-emerald-500" />
+                  <CheckCircle2 size={12} className="text-income" />
                 ) : (
                   <Circle size={12} className="text-muted" />
                 )}
@@ -185,21 +185,21 @@ export default function QualitativeAnalysis({
               </div>
               <div className="flex items-center gap-1.5 text-[10px] font-semibold font-sans">
                 {hasSummary ? (
-                  <CheckCircle2 size={12} className="text-emerald-500" />
+                  <CheckCircle2 size={12} className="text-income" />
                 ) : (
                   <Circle size={12} className="text-muted" />
                 )}
-                <span className={hasSummary ? 'text-emerald-600 font-bold' : 'text-secondary'}>
+                <span className={hasSummary ? 'text-income font-bold' : 'text-secondary'}>
                   Sumário {hasSummary ? '✓' : '∅'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[10px] font-semibold font-sans">
                 {hasPlan ? (
-                  <CheckCircle2 size={12} className="text-emerald-500" />
+                  <CheckCircle2 size={12} className="text-income" />
                 ) : (
                   <Circle size={12} className="text-muted" />
                 )}
-                <span className={hasPlan ? 'text-emerald-600 font-bold' : 'text-secondary'}>
+                <span className={hasPlan ? 'text-income font-bold' : 'text-secondary'}>
                   Planejamento {hasPlan ? '✓' : '∅'}
                 </span>
               </div>
@@ -212,7 +212,7 @@ export default function QualitativeAnalysis({
       <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <TrendingUp size={16} className="text-indigo-500" />
+            <TrendingUp size={16} className="text-balance" />
             <h4 className="font-black text-sm text-primary">Teses Fundamentalistas por Ativo</h4>
           </div>
           {editingThesisTicker && (
@@ -250,10 +250,10 @@ export default function QualitativeAnalysis({
                       key={ticker}
                       className={`group relative rounded-xl border transition-all duration-200 ${
                         isEditing
-                          ? 'border-indigo-500/50 bg-indigo-500/5 shadow-sm'
+                          ? 'border-balance/50 bg-balance/5 shadow-sm'
                           : hasThesis
-                          ? 'border-emerald-500/20 bg-emerald-500/3 hover:border-emerald-500/40'
-                          : 'border-border/30 bg-muted/5 hover:border-indigo-500/20 hover:bg-indigo-500/3'
+                          ? 'border-income/20 bg-income/[0.03] hover:border-income/40'
+                          : 'border-border/30 bg-muted/5 hover:border-balance/20 hover:bg-balance/3'
                       }`}
                     >
                       <button
@@ -263,7 +263,7 @@ export default function QualitativeAnalysis({
                       >
                         {/* Status dot */}
                         <span className={`w-2 h-2 rounded-full shrink-0 transition-colors ${
-                          hasThesis ? 'bg-emerald-500' : 'bg-muted/50 group-hover:bg-indigo-400'
+                          hasThesis ? 'bg-income' : 'bg-muted/50 group-hover:bg-balance'
                         }`} />
 
                         {/* Ticker + meta */}
@@ -271,7 +271,7 @@ export default function QualitativeAnalysis({
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-primary font-mono">{ticker}</span>
                             {hasThesis && (
-                              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                              <span className="text-[9px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-full">
                                 ✓ com tese
                               </span>
                             )}
@@ -287,7 +287,7 @@ export default function QualitativeAnalysis({
                         <Edit3
                           size={12}
                           className={`shrink-0 transition-colors ${
-                            isEditing ? 'text-indigo-500' : 'text-muted group-hover:text-indigo-400'
+                            isEditing ? 'text-balance' : 'text-muted group-hover:text-balance'
                           }`}
                         />
                       </button>
@@ -365,7 +365,7 @@ export default function QualitativeAnalysis({
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] uppercase font-extrabold tracking-wider text-secondary font-sans">
                       Editando tese de{' '}
-                      <span className="text-indigo-500 font-mono">{editingThesisTicker}</span>
+                      <span className="text-balance font-mono">{editingThesisTicker}</span>
                     </p>
                     <span className="text-[10px] text-secondary font-mono font-semibold">
                       {charCount(thesisText)} chars
@@ -401,8 +401,8 @@ export default function QualitativeAnalysis({
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center py-10 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-3">
-                    <Edit3 size={22} className="text-indigo-400" />
+                  <div className="w-12 h-12 rounded-2xl bg-balance/10 flex items-center justify-center mb-3">
+                    <Edit3 size={22} className="text-balance" />
                   </div>
                   <p className="text-sm font-bold text-primary mb-1">Selecione um ativo</p>
                   <p className="text-[11px] text-secondary font-sans max-w-[200px]">
@@ -419,7 +419,7 @@ export default function QualitativeAnalysis({
       <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <FileText size={16} className="text-indigo-500" />
+            <FileText size={16} className="text-balance" />
             <h4 className="font-black text-sm text-primary">Relatório do Período</h4>
           </div>
           <Button
@@ -443,7 +443,7 @@ export default function QualitativeAnalysis({
               </label>
               <div className="flex items-center gap-2">
                 {hasSummary && (
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[9px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-full">
                     ✓ preenchido
                   </span>
                 )}
@@ -473,7 +473,7 @@ export default function QualitativeAnalysis({
               </label>
               <div className="flex items-center gap-2">
                 {hasPlan && (
-                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[9px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-full">
                     ✓ preenchido
                   </span>
                 )}
@@ -499,10 +499,10 @@ export default function QualitativeAnalysis({
 
       {/* ─── SEÇÃO D: Exportação PDF ────────────────────────────────────── */}
       <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute right-0 top-0 w-48 h-48 bg-balance/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex items-center gap-2 mb-5">
-          <Download size={16} className="text-indigo-500" />
+          <Download size={16} className="text-balance" />
           <h4 className="font-black text-sm text-primary">Exportar Relatório Institucional</h4>
         </div>
 
@@ -552,7 +552,7 @@ export default function QualitativeAnalysis({
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-xs font-sans">
                   {item.ok ? (
-                    <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                    <CheckCircle2 size={14} className="text-income shrink-0" />
                   ) : (
                     <Circle size={14} className="text-muted shrink-0" />
                   )}
@@ -570,10 +570,10 @@ export default function QualitativeAnalysis({
             <div className="p-4 bg-muted/20 rounded-xl border border-border/40">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] uppercase font-extrabold tracking-wider text-secondary flex items-center gap-1 font-sans">
-                  <Percent size={11} className="text-indigo-500" />
+                  <Percent size={11} className="text-balance" />
                   Taxa de Gestão Mensal
                 </label>
-                <span className="text-sm font-black text-indigo-500 font-mono">
+                <span className="text-sm font-black text-balance font-mono">
                   {formatNumberBR(billingFeeRate, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                 </span>
               </div>
@@ -584,7 +584,7 @@ export default function QualitativeAnalysis({
                 step="0.01"
                 value={billingFeeRate}
                 onChange={e => setBillingFeeRate(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-indigo-500 transition-all hover:bg-muted/80 focus:outline-none mb-1"
+                className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-balance transition-all hover:bg-muted/80 focus:outline-none mb-1"
               />
               <div className="flex justify-between text-[9px] text-secondary font-medium font-sans mb-3">
                 <span>0.05%</span>
@@ -612,14 +612,14 @@ export default function QualitativeAnalysis({
               onClick={onExportPDF}
               variant="primary"
               fullWidth
-              className="font-black shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 py-3 transition-all text-sm"
+              className="font-black shadow-md shadow-balance/20 flex items-center justify-center gap-2 py-3 transition-all text-sm"
             >
               <Download size={18} />
               Gerar Relatório PDF
             </Button>
 
-            <div className="flex gap-2 p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 text-[10px] text-secondary font-sans leading-relaxed">
-              <Info size={13} className="text-indigo-400 shrink-0 mt-0.5" />
+            <div className="flex gap-2 p-3 bg-balance/5 rounded-xl border border-balance/10 text-[10px] text-secondary font-sans leading-relaxed">
+              <Info size={13} className="text-balance shrink-0 mt-0.5" />
               <span>
                 O relatório é gerado localmente em alta resolução vetorial, incluindo todos os dados preenchidos acima.
               </span>

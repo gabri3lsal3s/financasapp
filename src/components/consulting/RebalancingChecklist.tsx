@@ -21,19 +21,19 @@ export default function RebalancingChecklist({
   return (
     <Card className="p-5 flex flex-col border border-border/40 shadow-sm text-left h-full">
       <h3 className="font-bold text-base text-primary mb-3 flex items-center gap-2">
-        <AlertCircle size={16} className="text-indigo-500" />
+        <AlertCircle size={16} className="text-balance" />
         Diretrizes de Rebalanceamento
       </h3>
       <p className="text-[11px] text-secondary mb-4">Trades sugeridos para alinhar a alocação atual do cliente com as metas de exposição indicadas</p>
       
       <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 flex-1">
         {rebalancingTrades.length === 0 ? (
-          <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-center text-xs text-emerald-600 dark:text-emerald-400 font-semibold h-full flex items-center justify-center">
+          <div className="p-4 bg-income/5 border border-income/10 rounded-xl text-center text-xs text-income font-semibold h-full flex items-center justify-center">
             A carteira deste cliente está perfeitamente rebalanceada! 🎉
           </div>
         ) : (
           rebalancingTrades.map(trade => (
-            <div key={trade.ticker} className="p-3 bg-secondary border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-indigo-500/20">
+            <div key={trade.ticker} className="p-3 bg-secondary border border-primary rounded-xl flex items-center justify-between text-xs transition-all hover:border-balance/20">
               <div>
                 <div className="flex items-center gap-2">
                   <strong className="text-primary font-bold">{trade.ticker}</strong>

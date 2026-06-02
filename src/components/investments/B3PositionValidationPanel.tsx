@@ -89,10 +89,10 @@ export default function B3PositionValidationPanel({
         onClick={() => document.getElementById('b3-position-file-input')?.click()}
         className={`relative overflow-hidden border border-dashed rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-4 cursor-pointer backdrop-blur-md transition-all duration-300 ${
           positionDragActive
-            ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01] shadow-lg shadow-emerald-500/5'
+            ? 'border-income bg-income/10 scale-[1.01] shadow-lg shadow-income/5'
             : positionFileName
-              ? 'border-emerald-500/30 bg-emerald-500/[0.02] hover:border-emerald-500/50 hover:bg-emerald-500/5'
-              : 'border-primary/30 bg-primary/20 hover:border-emerald-500/40 hover:bg-emerald-500/[0.03]'
+              ? 'border-income/30 bg-income/[0.02] hover:border-income/50 hover:bg-income/5'
+              : 'border-primary/30 bg-primary/20 hover:border-income/40 hover:bg-income/[0.03]'
         } group`}
       >
         <input
@@ -107,14 +107,14 @@ export default function B3PositionValidationPanel({
           }}
         />
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
-          positionFileName ? 'bg-emerald-500/10 text-emerald-500' : 'bg-primary/30 text-secondary'
+          positionFileName ? 'bg-income/10 text-income' : 'bg-primary/30 text-secondary'
         } group-hover:scale-105`}>
           <Upload size={20} className={positionDragActive ? 'animate-bounce' : ''} />
         </div>
         <div className="min-w-0 flex-1 text-center sm:text-left">
           <p className="text-xs font-black text-primary truncate tracking-tight">
             {positionFileName ? (
-              <span className="text-emerald-500 font-mono">{positionFileName}</span>
+              <span className="text-income font-mono">{positionFileName}</span>
             ) : (
               'Planilha de Posição de Custódia Oficial (.xlsx)'
             )}
@@ -127,14 +127,14 @@ export default function B3PositionValidationPanel({
         </div>
         {positionFileName && (
           <span className="absolute top-2 right-2 flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-income/40 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-income"></span>
           </span>
         )}
       </div>
 
       {positionParseStatus && (
-        <p className="text-[11px] text-amber-500 bg-amber-500/5 border border-amber-500/15 rounded-xl px-4 py-2.5">
+        <p className="text-[11px] text-warning bg-warning/5 border border-warning/15 rounded-xl px-4 py-2.5">
           {positionParseStatus}
         </p>
       )}
@@ -155,10 +155,10 @@ export default function B3PositionValidationPanel({
 
           {/* Magical Automatic Adjustments Panel */}
           {adjustments.length > 0 && (
-            <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.03] backdrop-blur-md p-4 space-y-3 hover:shadow-lg hover:shadow-indigo-500/5 group transition-all duration-300">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-500/15 pb-2.5">
+            <div className="rounded-2xl border border-balance/25 bg-balance/[0.03] backdrop-blur-md p-4 space-y-3 hover:shadow-lg hover:shadow-balance/5 group transition-all duration-300">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-balance/15 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-indigo-400 animate-pulse" />
+                  <Sparkles size={16} className="text-balance/80 animate-pulse" />
                   <p className="text-xs font-black text-primary uppercase tracking-tight">
                     Central de Ajuste Mágico (Custódia B3)
                   </p>
@@ -166,7 +166,7 @@ export default function B3PositionValidationPanel({
                 <label className="flex items-center gap-2 text-[10px] font-bold text-secondary cursor-pointer hover:text-primary transition-colors">
                   <input
                     type="checkbox"
-                    className="h-3.5 w-3.5 rounded border-indigo-500/30 bg-primary text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 focus:outline-none cursor-pointer"
+                    className="h-3.5 w-3.5 rounded border-balance/30 bg-primary text-balance focus:ring-balance focus:ring-offset-0 focus:outline-none cursor-pointer"
                     checked={selectedCount === adjustments.length}
                     onChange={(e) => onSelectAllAdjustments(e.target.checked)}
                   />
@@ -188,13 +188,13 @@ export default function B3PositionValidationPanel({
                       onClick={() => onToggleAdjustment(adj.ticker)}
                       className={`flex items-start gap-3 text-[11px] border rounded-xl px-3.5 py-2.5 cursor-pointer transition-all duration-200 ${
                         isChecked
-                          ? 'border-indigo-500/30 bg-indigo-500/[0.04] shadow-sm'
-                          : 'border-border/30 bg-card/40 hover:border-indigo-500/20'
+                          ? 'border-balance/30 bg-balance/[0.04] shadow-sm'
+                          : 'border-border/30 bg-card/40 hover:border-balance/20'
                       }`}
                     >
                       <input
                         type="checkbox"
-                        className="mt-0.5 h-3.5 w-3.5 rounded border-primary bg-primary text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 focus:outline-none cursor-pointer shrink-0"
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-primary bg-primary text-balance focus:ring-balance focus:ring-offset-0 focus:outline-none cursor-pointer shrink-0"
                         checked={isChecked}
                         readOnly
                       />
@@ -203,8 +203,8 @@ export default function B3PositionValidationPanel({
                           <span className="font-mono font-bold text-primary text-xs">{adj.ticker}</span>
                           <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded-md ${
                             adj.operation_type === 'buy' 
-                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/10'
-                              : 'bg-red-500/10 text-red-500 border border-red-500/10'
+                              ? 'bg-income/10 text-income border border-income/10'
+                              : 'bg-expense/10 text-expense border border-expense/10'
                           }`}>
                             {adj.operation_type === 'buy' ? 'Aporte de Ajuste' : 'Retirada de Ajuste'}
                           </span>
@@ -218,7 +218,7 @@ export default function B3PositionValidationPanel({
                 })}
               </ul>
               
-              <div className="pt-2 border-t border-indigo-500/10 flex justify-end">
+              <div className="pt-2 border-t border-balance/10 flex justify-end">
                 <Button
                   type="button"
                   variant="primary"
@@ -239,7 +239,7 @@ export default function B3PositionValidationPanel({
           {/* Premium Audit Grid */}
           {showNonEquityNote && (
             <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-2.5 border border-border/30 items-center mb-1 animate-page-enter">
-              <AlertCircle size={14} className="shrink-0 text-indigo-500" />
+              <AlertCircle size={14} className="shrink-0 text-balance" />
               <span className="leading-normal">
                 Ativos de <strong>Renda Fixa e Tesouro Direto</strong> lidos apenas para mapeamento cadastral e rentabilidade.
               </span>
@@ -268,7 +268,7 @@ export default function B3PositionValidationPanel({
                     <tr 
                       key={row.ticker} 
                       className={`transition-colors duration-200 hover:bg-primary/5 ${
-                        isOk ? '' : 'bg-amber-500/[0.02]'
+                        isOk ? '' : 'bg-warning/[0.02]'
                       }`}
                     >
                       <td className="px-4 py-2.5 font-bold text-primary text-xs tracking-wide">
@@ -287,7 +287,7 @@ export default function B3PositionValidationPanel({
                       </td>
                       <td
                         className={`px-4 py-2.5 text-right tabular-nums font-black ${
-                          isOk ? 'text-secondary/60' : delta > 0 ? 'text-emerald-500' : 'text-red-500'
+                          isOk ? 'text-secondary/60' : delta > 0 ? 'text-income' : 'text-expense'
                         }`}
                       >
                         {isOk ? '—' : `${delta > 0 ? '+' : ''}${delta}`}
@@ -296,8 +296,8 @@ export default function B3PositionValidationPanel({
                         <span
                           className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
                             isOk 
-                              ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/10' 
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/10'
+                              ? 'bg-income/10 text-income border border-income/10' 
+                              : 'bg-warning/10 text-warning border border-warning/10'
                           }`}
                         >
                           {statusLabel(row)}
@@ -312,7 +312,7 @@ export default function B3PositionValidationPanel({
 
           {!positionOnlyMode && mismatchRows.some((r) => r.status === 'movements_official') && (
             <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-3 border border-border/30 items-start">
-              <AlertCircle size={15} className="shrink-0 text-amber-500 mt-0.5 animate-pulse" />
+              <AlertCircle size={15} className="shrink-0 text-warning mt-0.5 animate-pulse" />
               <span className="leading-relaxed">
                 <strong>Observação de Auditoria:</strong> Alguns ativos exibem a marcação &quot;Extrato incompleto&quot;. Isso indica que as quantidades finais no livro-razão coincidem com a B3, mas a planilha de movimentações carregada não possui histórico suficiente para justificar a evolução do saldo.
               </span>

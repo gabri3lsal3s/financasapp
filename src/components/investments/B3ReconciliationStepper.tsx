@@ -40,7 +40,7 @@ export default function B3ReconciliationStepper({
         
         {/* Connector Line Active Progress - Mathematically Centered */}
         <div 
-          className="absolute h-[3px] bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500 -z-10 rounded-full transition-all duration-500 ease-out top-[20px]"
+          className="absolute h-[3px] bg-gradient-to-r from-balance via-primary to-income -z-10 rounded-full transition-all duration-500 ease-out top-[20px]"
           style={{ 
             left: `${offsetPercent}%`, 
             width: `${activeWidth}%` 
@@ -59,7 +59,7 @@ export default function B3ReconciliationStepper({
                 isActive
                   ? 'text-primary'
                   : isDone
-                    ? 'text-emerald-500'
+                    ? 'text-income'
                     : 'text-secondary hover:text-primary'
               }`}
             >
@@ -67,9 +67,9 @@ export default function B3ReconciliationStepper({
               <span
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all duration-300 shadow-sm border shrink-0 ${
                   isActive
-                    ? 'bg-gradient-to-br from-indigo-500 to-sky-500 text-white border-transparent scale-110 shadow-lg shadow-indigo-500/20 ring-4 ring-indigo-500/10'
+                    ? 'bg-primary text-primary-foreground border-transparent scale-110 shadow-lg shadow-primary/20 ring-4 ring-primary/10'
                     : isDone
-                      ? 'bg-emerald-500 text-white border-transparent scale-100'
+                      ? 'bg-income text-white border-transparent scale-100'
                       : 'bg-card text-secondary border-border/60 group-hover:border-primary/50 group-hover:text-primary'
                 }`}
               >
@@ -86,10 +86,10 @@ export default function B3ReconciliationStepper({
                   <span
                     className={`min-w-[1.2rem] h-[1.2rem] px-1.5 rounded-full text-[9px] font-black flex items-center justify-center transition-all duration-300 ${
                       isActive 
-                        ? 'bg-indigo-500/20 text-indigo-400' 
+                        ? 'bg-balance/20 text-balance' 
                         : isDone
-                          ? 'bg-emerald-500/20 text-emerald-500'
-                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-500'
+                          ? 'bg-income/20 text-income'
+                          : 'bg-warning/15 text-warning'
                     }`}
                   >
                     {step.badge}

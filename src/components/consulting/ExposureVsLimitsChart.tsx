@@ -41,7 +41,7 @@ export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsCha
           x={0}
           y={15}
           textAnchor="middle"
-          fill={isHighDeviation ? 'rgb(239, 68, 68)' : 'var(--color-text-secondary, rgb(148, 163, 184))'}
+          fill={isHighDeviation ? 'var(--color-expense)' : 'var(--color-text-secondary, rgb(148, 163, 184))'}
           fontSize={11}
           fontWeight={isHighDeviation ? 'bold' : 'normal'}
           className="font-mono font-semibold"
@@ -56,11 +56,11 @@ export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsCha
     <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <h3 className="font-bold text-base text-primary flex items-center gap-2">
-          <BarChart3 size={16} className="text-indigo-500" />
+          <BarChart3 size={16} className="text-balance" />
           Exposição Real vs Meta por Ativo (Top 10 Desvios)
         </h3>
-        <span className="text-[10px] uppercase font-extrabold tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-md font-sans">
-          Destacado em vermelho se desvio &gt; 5%
+        <span className="text-[10px] uppercase font-extrabold tracking-wider bg-expense/10 text-expense border border-expense/20 px-2 py-0.5 rounded-md font-sans">
+          Destacado se desvio &gt; 5%
         </span>
       </div>
 
@@ -108,8 +108,8 @@ export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsCha
                 fontSize={11}
                 wrapperStyle={{ fontSize: 11 }}
               />
-              <Bar dataKey="current_percentage" name="Exposição Real (%)" fill="rgb(59, 130, 246)" radius={[4, 4, 0, 0]} barSize={14} />
-              <Bar dataKey="target_percentage" name="Meta Alocação (%)" fill="rgb(16, 185, 129)" radius={[4, 4, 0, 0]} barSize={14} />
+              <Bar dataKey="current_percentage" name="Exposição Real (%)" fill="var(--color-balance)" radius={[4, 4, 0, 0]} barSize={14} />
+              <Bar dataKey="target_percentage" name="Meta Alocação (%)" fill="var(--color-income)" radius={[4, 4, 0, 0]} barSize={14} />
             </BarChart>
           </ResponsiveContainer>
         )}

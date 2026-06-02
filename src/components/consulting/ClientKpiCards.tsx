@@ -44,7 +44,7 @@ export default function ClientKpiCards({
     overallYieldPct !== undefined ? overallYieldPct : (effectiveShare - 1) * 100
   const hasYieldBasis = totalShares > 0
   const accumulatedAmount = hasYieldBasis ? totalValue - totalShares : 0
-  const yieldPctClass = yieldsPercentage >= 0 ? 'text-emerald-500' : 'text-expense'
+  const yieldPctClass = yieldsPercentage >= 0 ? 'text-income' : 'text-expense'
 
   const yieldLabel = 'Rentabilidade Total'
 
@@ -58,7 +58,7 @@ export default function ClientKpiCards({
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
-      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-emerald-500 flex items-center justify-between shadow-sm transition-all hover:border-l-emerald-400">
+      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
         <div className="text-left">
           <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">Patrimônio Total</span>
           <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
@@ -70,12 +70,12 @@ export default function ClientKpiCards({
             </span>
           ) : null}
         </div>
-        <div className="p-1.5 sm:p-2 bg-emerald-500/10 text-emerald-500 rounded-lg shrink-0 flex items-center justify-center">
+        <div className="p-1.5 sm:p-2 bg-balance/10 text-balance rounded-lg shrink-0 flex items-center justify-center">
           <Wallet size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
         </div>
       </Card>
  
-      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-purple-500 flex items-center justify-between shadow-sm transition-all hover:border-l-purple-400">
+      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
         <div className="text-left">
           <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">{yieldLabel}</span>
           <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
@@ -83,7 +83,7 @@ export default function ClientKpiCards({
             {yieldSecondary}
           </strong>
         </div>
-        <div className="p-1.5 sm:p-2 bg-purple-500/10 text-purple-500 rounded-lg shrink-0 flex items-center justify-center">
+        <div className="p-1.5 sm:p-2 bg-income/10 text-income rounded-lg shrink-0 flex items-center justify-center">
           <TrendingUp size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
         </div>
       </Card>

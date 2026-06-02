@@ -3,6 +3,9 @@ import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { formatNumberBR, roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
+import { cn } from '@/lib/utils'
+import { useAppSettings } from '@/hooks/useAppSettings'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
@@ -303,6 +306,12 @@ interface FloatingCalculatorProps {
 export default function FloatingCalculator({ isHidden = false }: FloatingCalculatorProps) {
   const [isMobile, setIsMobile] = useState(() => isMobileViewport(window.innerWidth))
   const [customTopY, setCustomTopY] = useState(() => Number(window.localStorage.getItem('floating-calculator-custom-top') || '160'))
+  const {
+    floatingButtonsDesktopPosition,
+    floatingButtonsMobilePosition,
+  } = useAppSettings()
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const activeSide = isDesktop ? floatingButtonsDesktopPosition : floatingButtonsMobilePosition
   const location = useLocation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [expression, setExpression] = useState(DEFAULT_STATE.expression)
@@ -337,7 +346,15 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   }, [panelRect])
 
   useEffect(() => {
+    const handleReset = () => {
+      setCustomTopY(160)
+      setIconOrigin('bottom-right')
+      setIconOffset({ x: 0, y: 0 })
+      setPanelRect(getDefaultPanelRect())
+    }
+    window.addEventListener('app-settings-reset', handleReset)
     return () => {
+      window.removeEventListener('app-settings-reset', handleReset)
       if (iconReturnTimeoutRef.current) {
         window.clearTimeout(iconReturnTimeoutRef.current)
       }
@@ -1055,7 +1072,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
       {isExpanded && !isHidden && (
         <div
-          className="fixed z-[1001] rounded-2xl border border-primary bg-primary/95 backdrop-blur-xl p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
+          className="fixed z-[1001] rounded-2xl border border-glass surface-glass-strong p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
           onPointerDown={startDrag}
           style={{
             left: panelRect.left,
@@ -1248,12 +1265,25 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
       {!isExpanded && !isHidden && (
         <div
-          className={
+          className={cn(
             iconOrigin === 'top-right'
-              ? 'fixed right-0 z-[1001] w-10 safe-area-right'
-              : 'fixed right-4 z-[1001] h-10 w-10 safe-area-right bottom-[calc(6.2rem+env(safe-area-inset-bottom))] lg:bottom-8 safe-area-bottom'
-          }
-          style={iconOrigin === 'top-right' ? { top: `${customTopY}px`, touchAction: 'none' } : { touchAction: 'none' }}
+              ? activeSide === 'top'
+                ? 'fixed top-0 right-48 z-[1001] pointer-events-none'
+                : activeSide === 'left'
+                ? 'fixed left-0 z-[1001] pointer-events-none'
+                : 'fixed right-0 z-[1001] pointer-events-none'
+              : activeSide === 'left'
+              ? 'fixed left-4 z-[1001] h-11 w-11 sm:h-12 sm:w-12 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] lg:bottom-8 safe-area-bottom pointer-events-none'
+              : 'fixed right-4 z-[1001] h-11 w-11 sm:h-12 sm:w-12 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] lg:bottom-8 safe-area-bottom pointer-events-none',
+            isIconReturning && 'transition-transform duration-300 ease-out'
+          )}
+          style={{
+            ...(iconOrigin === 'top-right' && activeSide !== 'top' ? { top: `${customTopY}px` } : {}),
+            transform: iconOrigin === 'top-right' && activeSide === 'top'
+              ? `translate(${iconOffset.x}px, 0px)`
+              : `translate(${iconOffset.x}px, ${iconOrigin === 'top-right' ? 0 : iconOffset.y}px)`,
+            touchAction: 'none',
+          }}
         >
           {/* Old drag limits indicator omitted in cyberpunk mode for cleaner interaction */}
           {(isDraggingIcon || isIconReturning) && (
@@ -1273,23 +1303,43 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
             onPointerDown={startIconDrag}
             onClick={handleIconClick}
             aria-label="Abrir calculadora flutuante"
-            style={{
-              transform: `translate(${iconOffset.x}px, ${iconOrigin === 'top-right' ? 0 : iconOffset.y}px)`,
-              touchAction: 'none',
-            }}
             className={
               iconOrigin === 'top-right'
-                ? `h-12 w-10 rounded-l-2xl rounded-r-none border-y border-l border-glass surface-glass-strong text-primary hover:text-accent press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                    isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
-                  } transition-all duration-300 hover:-translate-x-1.5 hover:w-11 shadow-lg flex items-center justify-center`
-                : `h-10 w-10 rounded-full border border-glass surface-glass-strong text-primary hover:text-accent press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                    isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
-                  } ${
+                ? activeSide === 'top'
+                  ? cn(
+                      'group relative flex items-center justify-start h-10 rounded-b-2xl rounded-t-none border-x border-b border-t-0 shadow-lg transition-all duration-300 -translate-y-2 hover:translate-y-0 pt-2.5 pb-2 px-4 select-none pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]',
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
+                      'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral motion-spring'
+                    )
+                  : activeSide === 'left'
+                  ? cn(
+                      'group relative flex items-center justify-start h-10 rounded-r-2xl rounded-l-none border-y border-r border-l-0 shadow-lg transition-all duration-300 -translate-x-2 hover:translate-x-0 pl-6 pr-4 select-none pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]',
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
+                      'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral motion-spring'
+                    )
+                  : cn(
+                      'group relative flex items-center justify-start h-10 rounded-l-2xl rounded-r-none border-y border-l border-r-0 shadow-lg transition-all duration-300 translate-x-2 hover:translate-x-0 pl-4 pr-6 select-none pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]',
+                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
+                      'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral motion-spring'
+                    )
+                : cn(
+                    'h-10 w-10 rounded-full border shadow-lg flex items-center justify-center pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-all duration-300 hover:scale-110',
+                    isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
+                    'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral',
                     isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
-                  } shadow-lg flex items-center justify-center`
+                  )
             }
           >
-            <Calculator size={17} className="mx-auto" />
+            {iconOrigin === 'top-right' ? (
+              <>
+                <Calculator size={isDesktop ? 18 : 16} className="shrink-0 text-[var(--ds-color-accent-primary)]" aria-hidden />
+                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5 transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
+                  Calculadora
+                </span>
+              </>
+            ) : (
+              <Calculator size={isDesktop ? 18 : 16} className="mx-auto text-[var(--ds-color-accent-primary)]" />
+            )}
           </button>
         </div>
       )}

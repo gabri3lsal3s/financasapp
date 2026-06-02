@@ -5,7 +5,7 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
   class="space-y-2"
 >
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-primary/25 bg-primary text-primary-foreground shadow-sm hover:opacity-90 h-10 px-4 py-2 min-h-10"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] shadow-sm hover:opacity-90 h-10 px-4 py-2 min-h-10"
   >
     Primário
   </button>
@@ -30,7 +30,7 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
     Despesa
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-income/25 bg-income text-primary-foreground shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-income/25 bg-income text-[var(--color-success-foreground)] shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
     Sucesso
   </button>
@@ -102,7 +102,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
   <div
     aria-describedby="radix-:r4:"
     aria-labelledby="radix-:r3:"
-    class="fixed left-[50%] top-[50%] z-[1000] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-glass surface-glass-strong p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 surface-glass-strong sm:w-full"
+    class="fixed left-[50%] top-[50%] z-[1000] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-glass surface-glass-strong p-6 shadow-lg duration-200 data-[state=open]:animate-modal-open-right data-[state=closed]:animate-modal-close-right rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 surface-glass-strong sm:w-full"
     data-state="open"
     id="radix-:r2:"
     role="dialog"
@@ -248,37 +248,16 @@ exports[`UI primitives snapshots > ModalActionFooter renders with delete action 
 `;
 
 exports[`UI primitives snapshots > PageHeader renders title, subtitle and action consistently 1`] = `
-<header
-  class="surface-glass relative z-30 border-b border-glass safe-area-top motion-standard"
+<div
+  class="fixed z-40 pointer-events-none transition-all duration-300 animate-in fade-in-0 duration-300 right-0 top-32 lg:top-40"
+  style="transform: translate(0px, 0px);"
 >
-  <div
-    class="px-4 py-3 lg:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+  <button
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
-    <div
-      class="min-w-0 flex-1"
-    >
-      <h1
-        class="truncate text-lg font-bold tracking-tight text-primary sm:text-xl"
-      >
-        Relatórios
-      </h1>
-      <p
-        class="mt-0.5 truncate text-xs text-secondary sm:text-sm"
-      >
-        Resumo anual e mensal
-      </p>
-    </div>
-    <div
-      class="flex shrink-0 items-center gap-2 w-full sm:w-auto"
-    >
-      <button
-        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-primary/25 bg-primary text-primary-foreground shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
-      >
-        Exportar
-      </button>
-    </div>
-  </div>
-</header>
+    Exportar
+  </button>
+</div>
 `;
 
 exports[`UI primitives snapshots > Select renders options and error state consistently 1`] = `

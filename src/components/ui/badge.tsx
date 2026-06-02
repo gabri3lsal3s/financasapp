@@ -7,8 +7,8 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary text-primary-foreground hover:opacity-90',
-        secondary: 'border-glass bg-secondary text-secondary-foreground',
+        default: 'border-transparent bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] hover:opacity-90',
+        secondary: 'border-glass bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))]',
         destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground border-glass',
         success: 'border-transparent bg-[color-mix(in_srgb,var(--color-income)_15%,transparent)] text-income',

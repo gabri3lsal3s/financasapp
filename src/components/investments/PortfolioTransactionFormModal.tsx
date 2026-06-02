@@ -530,7 +530,7 @@ export default function PortfolioTransactionFormModal({
             onChange={(e) => handleTickerChange(e.target.value)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             onFocus={() => ticker.length >= 2 && setShowSuggestions(true)}
-            className="uppercase font-semibold tracking-wider text-base focus:ring-2 focus:ring-indigo-500 rounded-xl"
+            className="uppercase font-semibold tracking-wider text-base focus:ring-2 focus:ring-primary rounded-xl"
           />
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute z-[1001] w-full mt-1 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-border/40 animate-page-enter">
@@ -544,7 +544,7 @@ export default function PortfolioTransactionFormModal({
                     setIsB3Linked(isB3TickerPattern(s.ticker))
                     setShowSuggestions(false)
                   }}
-                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-indigo-500/10 text-primary flex items-center justify-between transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-xs hover:bg-balance/10 text-primary flex items-center justify-between transition-colors"
                 >
                   <span className="font-bold text-sm text-primary tracking-wide">{s.ticker}</span>
                   <span className="text-[10px] text-secondary font-medium truncate max-w-[180px]">{s.name}</span>
@@ -572,28 +572,28 @@ export default function PortfolioTransactionFormModal({
         {isPricingModeLocked && (
           <div className="animate-page-enter">
             {isB3Var && (
-              <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs rounded-xl flex items-center justify-between font-medium">
+              <div className="p-2.5 bg-balance/10 border border-balance/20 text-balance text-xs rounded-xl flex items-center justify-between font-medium">
                 <span>📈 Ativo B3: Renda Variável (Precificação a Mercado)</span>
-                <span className="text-[10px] bg-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase">B3</span>
+                <span className="text-[10px] bg-balance/20 px-2 py-0.5 rounded-full font-bold uppercase">B3</span>
               </div>
             )}
             {isFixedInc && (
-              <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs rounded-xl flex items-center justify-between font-medium">
+              <div className="p-2.5 bg-warning/10 border border-warning/20 text-warning text-xs rounded-xl flex items-center justify-between font-medium">
                 <span>💰 Renda Fixa: Taxa e Vencimento Contratados</span>
-                <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded-full font-bold uppercase">{tUpper.includes('TESOURO') ? 'Tesouro Direto' : 'Renda Fixa'}</span>
+                <span className="text-[10px] bg-warning/20 px-2 py-0.5 rounded-full font-bold uppercase">{tUpper.includes('TESOURO') ? 'Tesouro Direto' : 'Renda Fixa'}</span>
               </div>
             )}
             {isCash && (
-              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl flex items-center justify-between font-medium">
+              <div className="p-2.5 bg-income/10 border border-income/20 text-income text-xs rounded-xl flex items-center justify-between font-medium">
                 <span>🏦 Caixa: Saldo e Transações de Aporte/Retirada</span>
-                <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded-full font-bold uppercase">Caixa</span>
+                <span className="text-[10px] bg-income/20 px-2 py-0.5 rounded-full font-bold uppercase">Caixa</span>
               </div>
             )}
           </div>
         )}
 
         {pricingMode === 'cash' && (
-          <p className="text-xs text-secondary bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-3.5 font-sans leading-relaxed">
+          <p className="text-xs text-secondary bg-balance/5 border border-balance/10 rounded-2xl p-3.5 font-sans leading-relaxed font-medium">
             Saldo em caixa não gera rentabilidade — o valor permanece idêntico aos montantes de depósitos/retiradas registradas.
           </p>
         )}
@@ -607,7 +607,7 @@ export default function PortfolioTransactionFormModal({
             <select
               value={operationType}
               onChange={(e) => setOperationType(e.target.value as PortfolioOperationType)}
-              className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {OPERATION_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -632,21 +632,21 @@ export default function PortfolioTransactionFormModal({
         )}
 
         {richData && pricingMode === 'market' && (
-          <div className="p-3.5 bg-gradient-to-br from-indigo-500/5 to-emerald-500/5 border border-border rounded-2xl text-xs space-y-2 text-secondary shadow-sm relative overflow-hidden animate-fade-in text-left">
+          <div className="p-3.5 bg-gradient-to-br from-balance/5 to-income/5 border border-border rounded-2xl text-xs space-y-2 text-secondary shadow-sm relative overflow-hidden animate-fade-in text-left">
             <div className="flex justify-between items-center">
               <div className="overflow-hidden pr-2">
                 <strong className="text-primary font-bold text-sm block truncate max-w-[240px]">{richData.name}</strong>
                 <span className="text-[10px] text-secondary tracking-wide uppercase font-semibold">Yahoo Finance B3</span>
               </div>
               <div className="text-right">
-                <span className="text-emerald-500 font-mono font-black text-base block">{formatCurrency(richData.price)}</span>
+                <span className="text-income font-mono font-black text-base block">{formatCurrency(richData.price)}</span>
                 <span className="text-[9px] uppercase font-extrabold text-income tracking-wider">Cotação Atual</span>
               </div>
             </div>
             {richData.dividendYield !== undefined && (
               <div className="flex justify-between items-center text-[10px] opacity-80 pt-2 border-t border-primary/10 font-mono">
                 <span>Dividend Yield Anual (DY):</span>
-                <span className="text-indigo-500 font-bold text-xs">{formatNumberBR(richData.dividendYield, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
+                <span className="text-balance font-bold text-xs">{formatNumberBR(richData.dividendYield, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
               </div>
             )}
           </div>
@@ -768,7 +768,7 @@ export default function PortfolioTransactionFormModal({
                 <div className="h-[1px] bg-primary/10 my-1" />
                 <div className="flex justify-between text-sm font-black">
                   <span>Total gasto do caixa:</span>
-                  <span className="text-indigo-500">{formatCurrency(purchaseAmount)}</span>
+                  <span className="text-balance">{formatCurrency(purchaseAmount)}</span>
                 </div>
               </div>
               <p className="text-[10px] text-secondary italic opacity-75 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
@@ -777,8 +777,8 @@ export default function PortfolioTransactionFormModal({
             </div>
           ) : (
             /* Modo novo lançamento: mostra cálculo prospectivo de aporte */
-            <div className="p-4 bg-indigo-500/[0.03] border border-indigo-500/10 rounded-2xl text-xs space-y-2.5 text-secondary text-left animate-page-enter">
-              <h5 className="font-black text-indigo-600 dark:text-indigo-400 text-[10px] uppercase tracking-wider mb-1">Cálculo de Aporte com Caixa</h5>
+            <div className="p-4 bg-balance/5 border border-balance/10 rounded-2xl text-xs space-y-2.5 text-secondary text-left animate-page-enter">
+              <h5 className="font-black text-balance text-[10px] uppercase tracking-wider mb-1">Cálculo de Aporte com Caixa</h5>
               <div className="space-y-1.5 font-mono text-xs">
                 <div className="flex justify-between">
                   <span>Valor do Aporte:</span>
@@ -786,12 +786,12 @@ export default function PortfolioTransactionFormModal({
                 </div>
                 <div className="flex justify-between">
                   <span>(-) Saldo em Caixa:</span>
-                  <span className="font-bold text-indigo-500">{formatCurrency(totalAvailableCash)}</span>
+                  <span className="font-bold text-balance">{formatCurrency(totalAvailableCash)}</span>
                 </div>
                 <div className="h-[1px] bg-primary/10 my-1" />
                 <div className="flex justify-between text-sm font-black">
                   <span>Aporte Líquido:</span>
-                  <span className={netContribution > 0 ? 'text-income' : 'text-emerald-500'}>
+                  <span className={netContribution > 0 ? 'text-income' : 'text-income'}>
                     {formatCurrency(netContribution)}
                   </span>
                 </div>

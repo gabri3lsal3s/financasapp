@@ -658,12 +658,12 @@ export default function CreditCardCsvReconciliationPanel({
                     isActive
                       ? 'bg-secondary text-primary border-primary'
                       : isCompleted
-                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                      ? 'bg-income/10 text-income border-income/20 hover:bg-income/20'
                       : 'bg-primary/10 text-secondary border-transparent hover:bg-primary/20 hover:text-primary'
                   }`}
                 >
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black ${
-                    isActive ? 'bg-primary text-secondary' : isCompleted ? 'bg-emerald-500 text-white' : 'bg-secondary text-secondary border border-primary'
+                    isActive ? 'bg-primary text-secondary' : isCompleted ? 'bg-income text-white' : 'bg-secondary text-secondary border border-primary'
                   }`}>
                     {isCompleted ? '✓' : index + 1}
                   </span>
@@ -734,23 +734,23 @@ export default function CreditCardCsvReconciliationPanel({
           </div>
           
           <div className="grid grid-cols-3 gap-3 max-w-md mx-auto pt-2">
-            <div className="bg-emerald-500/5 border border-emerald-500/20 p-3 rounded-xl">
+            <div className="bg-income/5 border border-income/20 p-3 rounded-xl">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conciliados</p>
-              <p className="text-lg font-bold text-emerald-500">{reconciliation.matched.length}</p>
+              <p className="text-lg font-bold text-income">{reconciliation.matched.length}</p>
             </div>
-            <div className="bg-red-500/5 border border-red-500/20 p-3 rounded-xl">
+            <div className="bg-expense/5 border border-expense/20 p-3 rounded-xl">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Faltando</p>
-              <p className="text-lg font-bold text-red-500">{reconciliation.missing.length}</p>
+              <p className="text-lg font-bold text-expense">{reconciliation.missing.length}</p>
             </div>
-            <div className="bg-amber-500/5 border border-amber-500/20 p-3 rounded-xl">
+            <div className="bg-warning/5 border border-warning/20 p-3 rounded-xl">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Conflitos</p>
-              <p className="text-lg font-bold text-amber-500">{reconciliation.conflicts.length}</p>
+              <p className="text-lg font-bold text-warning">{reconciliation.conflicts.length}</p>
             </div>
           </div>
 
           {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length > 0 && (
-            <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl max-w-md mx-auto">
-              <p className="text-xs text-amber-600 dark:text-amber-400 leading-normal">
+            <div className="bg-warning/5 border border-warning/10 p-3 rounded-xl max-w-md mx-auto">
+              <p className="text-xs text-warning leading-normal font-semibold">
                 ⚠ Identificamos {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length} lançamentos no sistema que não constam no arquivo oficial.
               </p>
             </div>
@@ -827,8 +827,8 @@ export default function CreditCardCsvReconciliationPanel({
               onClick={() => setFilterTab('missing')}
               className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
                 filterTab === 'missing'
-                  ? 'bg-red-500/15 text-red-500 border border-red-500/30'
-                  : 'bg-red-500/5 text-red-500/60 hover:text-red-500 hover:bg-red-500/10'
+                  ? 'bg-expense/15 text-expense border border-expense/30'
+                  : 'bg-expense/5 text-expense/60 hover:text-expense hover:bg-expense/10'
               }`}
             >
               Faltando ({comparisonRows.filter((r) => r.status === 'faltando').length})
@@ -838,8 +838,8 @@ export default function CreditCardCsvReconciliationPanel({
               onClick={() => setFilterTab('conflicts')}
               className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
                 filterTab === 'conflicts'
-                  ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                  : 'bg-amber-500/5 text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10'
+                  ? 'bg-warning/15 text-warning border border-warning/30'
+                  : 'bg-warning/5 text-warning/60 hover:text-warning hover:bg-warning/10'
               }`}
             >
               Conflitos ({comparisonRows.filter((r) => r.status === 'conflitante').length})
@@ -849,8 +849,8 @@ export default function CreditCardCsvReconciliationPanel({
               onClick={() => setFilterTab('matched')}
               className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 ${
                 filterTab === 'matched'
-                  ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                  : 'bg-emerald-500/5 text-emerald-500/60 hover:text-emerald-500 hover:bg-emerald-500/10'
+                  ? 'bg-income/15 text-income border border-income/30'
+                  : 'bg-income/5 text-income/60 hover:text-income hover:bg-income/10'
               }`}
             >
               Conciliados ({comparisonRows.filter((r) => r.status === 'conciliado').length})
@@ -936,9 +936,9 @@ export default function CreditCardCsvReconciliationPanel({
           </div>
 
           {conflictDrafts.length === 0 ? (
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6 text-center space-y-2">
-              <span className="text-2xl text-emerald-500">✓</span>
-              <h4 className="font-bold text-emerald-500 text-sm">Nenhum conflito encontrado!</h4>
+            <div className="bg-income/5 border border-income/20 rounded-xl p-6 text-center space-y-2">
+              <span className="text-2xl text-income font-bold">✓</span>
+              <h4 className="font-bold text-income text-sm">Nenhum conflito encontrado!</h4>
               <p className="text-xs text-secondary">
                 Todos os lançamentos nesta fatura possuem datas e valores consistentes com o sistema.
               </p>
@@ -973,15 +973,15 @@ export default function CreditCardCsvReconciliationPanel({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider">
+                            <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[9px] font-bold uppercase tracking-wider">
                               Conflito
                             </span>
                             {draft.applied ? (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-bold uppercase tracking-wider">
+                              <span className="px-1.5 py-0.5 rounded bg-income/10 text-income text-[9px] font-bold uppercase tracking-wider">
                                 ✓ Ajuste aplicado
                               </span>
                             ) : draft.autoResolvedByInstallment ? (
-                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase tracking-wider">
+                              <span className="px-1.5 py-0.5 rounded bg-balance/10 text-balance text-[9px] font-bold uppercase tracking-wider">
                                 Resolvido automático
                               </span>
                             ) : null}
@@ -1111,9 +1111,9 @@ export default function CreditCardCsvReconciliationPanel({
           </div>
 
           {missingDrafts.length === 0 ? (
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6 text-center space-y-2">
-              <span className="text-2xl text-emerald-500">✓</span>
-              <h4 className="font-bold text-emerald-500 text-sm">Nenhuma despesa faltando!</h4>
+            <div className="bg-income/5 border border-income/20 rounded-xl p-6 text-center space-y-2">
+              <span className="text-2xl text-income font-bold">✓</span>
+              <h4 className="font-bold text-income text-sm">Nenhuma despesa faltando!</h4>
               <p className="text-xs text-secondary">
                 Todas as despesas da fatura oficial já constam no sistema.
               </p>
@@ -1140,11 +1140,11 @@ export default function CreditCardCsvReconciliationPanel({
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[9px] font-bold uppercase tracking-wider">
+                          <span className="px-1.5 py-0.5 rounded bg-expense/10 text-expense text-[9px] font-bold uppercase tracking-wider">
                             Faltando
                           </span>
                           {draft.learnedSuggestion.enabled && (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-bold uppercase tracking-wider" title={`Confiança: ${Math.round((draft.learnedSuggestion.confidence || 0) * 100)}%`}>
+                            <span className="px-1.5 py-0.5 rounded bg-income/10 text-income text-[9px] font-bold uppercase tracking-wider" title={`Confiança: ${Math.round((draft.learnedSuggestion.confidence || 0) * 100)}%`}>
                               Sugestão inteligente
                             </span>
                           )}
@@ -1263,9 +1263,9 @@ export default function CreditCardCsvReconciliationPanel({
           </div>
 
           {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length === 0 ? (
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-6 text-center space-y-2">
-              <span className="text-2xl text-emerald-500">✓</span>
-              <h4 className="font-bold text-emerald-500 text-sm">Nenhum lançamento suspeito!</h4>
+            <div className="bg-income/5 border border-income/20 rounded-xl p-6 text-center space-y-2">
+              <span className="text-2xl text-income font-bold">✓</span>
+              <h4 className="font-bold text-income text-sm">Nenhum lançamento suspeito!</h4>
               <p className="text-xs text-secondary">
                 Não há lançamentos no sistema para este cartão que não constam no arquivo oficial da fatura.
               </p>
@@ -1275,7 +1275,7 @@ export default function CreditCardCsvReconciliationPanel({
               {suspiciousItems
                 .filter((item) => !fixedSuspiciousIds.has(String(item.id || '')))
                 .map((item) => (
-                  <div key={item.id} className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-3 animate-stagger-item">
+                  <div key={item.id} className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-3 animate-stagger-item">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-primary break-words font-sans">
                         {item.description || 'Sem descrição'}
@@ -1287,7 +1287,7 @@ export default function CreditCardCsvReconciliationPanel({
                           ? ` • Parcela ${item.installment_number}/${item.installment_total}`
                           : ''}
                       </p>
-                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 bg-yellow-500/10 p-2.5 rounded-lg border border-yellow-500/20 leading-normal">
+                      <p className="text-xs text-warning mt-2 bg-warning/10 p-2.5 rounded-lg border border-warning/20 leading-normal">
                         ⚠ Este lançamento está vinculado ao cartão mas não foi encontrado no arquivo de fatura oficial enviado.
                         Ele pode ter sido cadastrado no cartão incorreto ou pertencer a outro mês.
                       </p>
@@ -1328,7 +1328,7 @@ export default function CreditCardCsvReconciliationPanel({
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="flex-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-500"
+                              className="flex-1 border-balance/30 hover:bg-balance/10 text-balance"
                               onClick={async () => {
                                 const baseDate = new Date(item.date + 'T12:00:00')
                                 const newMonth = format(addMonths(baseDate, purchaseDay >= 25 ? 1 : -1), 'yyyy-MM')
@@ -1396,7 +1396,7 @@ export default function CreditCardCsvReconciliationPanel({
                 Pular / Avançar →
               </Button>
             ) : (
-              <div className="text-xs font-semibold text-emerald-500 flex items-center gap-1 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-sans">
+              <div className="text-xs font-semibold text-income flex items-center gap-1 bg-income/10 px-3 py-1.5 rounded-lg border border-income/20 font-sans">
                 ✓ Pronto para Fechar
               </div>
             )}

@@ -9,13 +9,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'border border-primary/25 bg-primary text-primary-foreground shadow-sm hover:opacity-90',
+          'border border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] shadow-sm hover:opacity-90',
         destructive:
           'border border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90',
         outline:
           'border border-glass bg-transparent text-primary hover:bg-accent hover:text-primary',
         secondary:
-          'border border-glass bg-secondary text-secondary-foreground hover:bg-secondary/80',
+          'border border-glass bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--secondary))]/80',
         ghost: 'border border-transparent text-secondary hover:bg-accent hover:text-primary',
         link: 'border-transparent text-secondary hover:text-primary underline-offset-4 hover:underline font-medium',
         income:
@@ -27,9 +27,9 @@ const buttonVariants = cva(
         warning:
           'border border-glass bg-transparent text-warning hover:bg-warning/10 hover:text-warning',
         success:
-          'border border-income/25 bg-income text-primary-foreground shadow-sm hover:opacity-90',
+          'border border-income/25 bg-income text-[var(--color-success-foreground)] shadow-sm hover:opacity-90',
         'warning-solid':
-          'border border-warning/25 bg-warning text-primary-foreground shadow-sm hover:opacity-90',
+          'border border-warning/25 bg-warning text-[var(--color-warning-solid-foreground)] shadow-sm hover:opacity-90',
         'ghost-success':
           'border border-transparent text-income hover:bg-income/10 hover:text-income',
         'ghost-danger':

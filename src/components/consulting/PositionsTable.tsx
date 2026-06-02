@@ -142,7 +142,7 @@ export default function PositionsTable({
                     <button
                       type="button"
                       onClick={() => onDeleteGroupTarget(gt.id)}
-                      className="text-secondary hover:text-red-500 transition-colors ml-1 font-bold text-sm"
+                      className="text-secondary hover:text-expense transition-colors ml-1 font-bold text-sm"
                       title="Remover limite"
                     >
                       &times;
@@ -179,7 +179,7 @@ export default function PositionsTable({
                 {Object.entries(positionsByClass).map(([className, classPositions]) => (
                   <React.Fragment key={className}>
                     {/* Linha de cabeçalho do grupo de classe */}
-                    <tr className="bg-muted/10 border-l-4 border-l-emerald-500 font-extrabold text-xs tracking-wider">
+                    <tr className="bg-muted/10 border-l-4 border-l-income font-extrabold text-xs tracking-wider">
                       <td colSpan={8} className="p-3 text-secondary uppercase font-extrabold select-none">
                         {className}
                       </td>
@@ -187,7 +187,7 @@ export default function PositionsTable({
                     {classPositions.map(pos => (
                       <tr key={pos.ticker} className="hover:bg-muted/10 transition-colors">
                         <td className="p-3 pl-6 font-bold text-primary flex items-center gap-1.5 flex-wrap">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-income shrink-0"></span>
                           <span className="font-mono">{pos.ticker}</span>
                           {(pos.valuation_source === 'hybrid' ||
                             pos.valuation_source === 'fixed_income') && (
@@ -201,13 +201,13 @@ export default function PositionsTable({
                           <span className="text-[10px] text-secondary font-normal font-sans">({pos.sector || 'Outros'})</span>
                           <button
                             onClick={() => onEditAssetClassification(pos.ticker, pos.asset_class || 'Renda Fixa', pos.sector || 'Outros')}
-                            className="text-secondary hover:text-emerald-500 transition-colors p-0.5 ml-1"
+                            className="text-secondary hover:text-income transition-colors p-0.5 ml-1"
                             title="Editar classificação"
                           >
                             <Edit size={11} />
                           </button>
                           {assetTheses[pos.ticker.toUpperCase()] && (
-                            <span className="w-2 h-2 rounded-full bg-indigo-500 ml-1 shrink-0" title="Tese cadastrada" />
+                            <span className="w-2 h-2 rounded-full bg-balance ml-1 shrink-0" title="Tese cadastrada" />
                           )}
                         </td>
                         <td className="p-3 text-right font-medium text-secondary font-mono">
@@ -230,7 +230,7 @@ export default function PositionsTable({
                           <span className="px-2 py-0.5 bg-muted rounded text-xs font-semibold text-secondary font-mono">{pos.current_percentage}%</span>
                         </td>
                         <td className="p-3 text-center">
-                          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-xs font-bold font-mono">{pos.target_percentage}%</span>
+                          <span className="px-2 py-0.5 bg-income/10 text-income rounded text-xs font-bold font-mono">{pos.target_percentage}%</span>
                         </td>
                         <td className="p-3 text-center">
                           <button
@@ -255,7 +255,7 @@ export default function PositionsTable({
             {Object.entries(positionsByClass).map(([className, classPositions]) => (
               <div key={className} className="space-y-2">
                 {/* Cabeçalho do Grupo de Classe */}
-                <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-muted/10 border-l-4 border-l-emerald-500 px-3 py-1.5 rounded-lg select-none">
+                <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-muted/10 border-l-4 border-l-income px-3 py-1.5 rounded-lg select-none">
                   {className}
                 </div>
                 
@@ -271,14 +271,14 @@ export default function PositionsTable({
                         {/* Cabeçalho do Ativo */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-income shrink-0" />
                             <span className="font-mono font-bold text-primary text-sm">{pos.ticker}</span>
                             <span className="text-[10px] text-secondary font-medium">({pos.sector || 'Outros'})</span>
                             
                             {/* Editar Classificação */}
                             <button
                               onClick={() => onEditAssetClassification(pos.ticker, pos.asset_class || 'Renda Fixa', pos.sector || 'Outros')}
-                              className="text-secondary hover:text-emerald-500 transition-colors p-1"
+                              className="text-secondary hover:text-income transition-colors p-1"
                               title="Editar classificação"
                             >
                               <Edit size={12} />
@@ -287,7 +287,7 @@ export default function PositionsTable({
                             {/* Indicador de Tese */}
                             {hasThesis && (
                               <span 
-                                className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[8px] font-extrabold bg-indigo-500/10 text-indigo-500 tracking-wider uppercase"
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[8px] font-extrabold bg-balance/10 text-balance tracking-wider uppercase"
                                 title="Tese cadastrada"
                               >
                                 Tese
@@ -335,19 +335,19 @@ export default function PositionsTable({
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="text-secondary font-medium">Meta:</span>
-                              <span className="font-mono font-bold text-emerald-500">{pos.target_percentage}%</span>
+                              <span className="font-mono font-bold text-income">{pos.target_percentage}%</span>
                             </div>
                           </div>
                           
                           {/* Barra de Progresso elegante */}
                           <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
                             <div 
-                              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                              className="h-full bg-income rounded-full transition-all duration-500"
                               style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
                             />
                             {pos.target_percentage > 0 && (
                               <div 
-                                className="absolute top-0 bottom-0 w-0.5 bg-emerald-300 dark:bg-emerald-700"
+                                className="absolute top-0 bottom-0 w-0.5 bg-income/30 dark:bg-income/70"
                                 style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
                               />
                             )}

@@ -18,10 +18,10 @@ export default function AdvisorNotes({
 }: AdvisorNotesProps) {
   return (
     <Card className="p-5 lg:p-6 text-left relative overflow-hidden border border-border/40 shadow-sm">
-      <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute right-0 top-0 w-32 h-32 bg-balance/10 rounded-full blur-3xl pointer-events-none" />
       
       <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-3">
-        <ShieldCheck size={18} className="text-indigo-500" />
+        <ShieldCheck size={18} className="text-balance" />
         Notas da Assessoria
       </h3>
       <p className="text-[11px] text-secondary mb-4 font-sans">Anote as metas de vida, reuniões e recomendações específicas do cliente</p>

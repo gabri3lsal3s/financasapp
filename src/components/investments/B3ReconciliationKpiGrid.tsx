@@ -11,28 +11,28 @@ interface B3ReconciliationKpiGridProps {
 
 const toneStyles: Record<KpiItem['tone'], { text: string; bg: string; border: string; glow: string }> = {
   ok: {
-    text: 'text-emerald-500',
-    bg: 'bg-emerald-500/5',
-    border: 'border-emerald-500/20 hover:border-emerald-500/40',
-    glow: 'group-hover:shadow-emerald-500/5',
+    text: 'text-income',
+    bg: 'bg-income/5',
+    border: 'border-income/20 hover:border-income/40',
+    glow: 'group-hover:shadow-income/5',
   },
   warn: {
-    text: 'text-amber-500',
-    bg: 'bg-amber-500/5',
-    border: 'border-amber-500/20 hover:border-amber-500/40',
-    glow: 'group-hover:shadow-amber-500/5',
+    text: 'text-warning',
+    bg: 'bg-warning/5',
+    border: 'border-warning/20 hover:border-warning/40',
+    glow: 'group-hover:shadow-warning/5',
   },
   error: {
-    text: 'text-red-500',
-    bg: 'bg-red-500/5',
-    border: 'border-red-500/20 hover:border-red-500/40',
-    glow: 'group-hover:shadow-red-500/5',
+    text: 'text-expense',
+    bg: 'bg-expense/5',
+    border: 'border-expense/20 hover:border-expense/40',
+    glow: 'group-hover:shadow-expense/5',
   },
   muted: {
-    text: 'text-indigo-400',
-    bg: 'bg-indigo-500/5',
-    border: 'border-indigo-500/20 hover:border-indigo-500/40',
-    glow: 'group-hover:shadow-indigo-500/5',
+    text: 'text-balance',
+    bg: 'bg-balance/5',
+    border: 'border-balance/20 hover:border-balance/40',
+    glow: 'group-hover:shadow-balance/5',
   },
 }
 

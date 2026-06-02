@@ -207,7 +207,7 @@ export default function ContributionSimulator({
   return (
     <Card className="p-5 lg:p-6 bg-gradient-to-br from-card to-background border border-border/80 shadow-lg">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+        <div className="p-2 bg-income/10 text-income rounded-lg">
           <ArrowUpRight size={22} />
         </div>
         <div>
@@ -215,7 +215,7 @@ export default function ContributionSimulator({
           <p className="text-sm text-secondary">Direcionamento automático para ativos abaixo da meta de alocação</p>
         </div>
       </div>
-
+ 
       <form onSubmit={handleSimulate} className="flex flex-col sm:flex-row gap-3 mb-6 items-end">
         <div className="flex-1 w-full text-left">
           <div className="flex justify-between items-center mb-1.5">
@@ -224,7 +224,7 @@ export default function ContributionSimulator({
               <button
                 type="button"
                 onClick={() => setContributionAmount(formatMoneyInput(currentCash))}
-                className="text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors flex items-center gap-1 font-mono"
+                className="text-xs font-bold text-balance hover:text-balance/80 transition-colors flex items-center gap-1 font-mono"
                 title="Clique para preencher com o saldo em caixa disponível"
               >
                 Usar Caixa: {formatCurrency(currentCash)}
@@ -252,21 +252,21 @@ export default function ContributionSimulator({
           </Button>
         </div>
       </form>
-
+ 
       {error && (
-        <div className="p-3 mb-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2.5 text-red-500 text-sm">
+        <div className="p-3 mb-4 bg-expense/10 border border-expense/20 rounded-lg flex items-center gap-2.5 text-expense text-sm">
           <AlertCircle size={16} />
           <span>{error}</span>
         </div>
       )}
-
+ 
       {success && (
-        <div className="p-3.5 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center gap-2.5 text-emerald-600 text-sm font-semibold animate-pulse">
-          <Check size={18} className="p-0.5 bg-emerald-500/20 rounded-full" />
+        <div className="p-3.5 mb-4 bg-income/10 border border-income/20 rounded-lg flex items-center gap-2.5 text-income text-sm font-semibold animate-pulse">
+          <Check size={18} className="p-0.5 bg-income/20 rounded-full" />
           <span>Aporte executado e ordens gravadas com sucesso no livro-razão!</span>
         </div>
       )}
-
+ 
       {simulatedRows.length > 0 && (
         <div className="space-y-5 animate-page-enter">
           <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/50">
@@ -286,13 +286,13 @@ export default function ContributionSimulator({
                   <tr
                     key={row.ticker}
                     className={`hover:bg-muted/10 transition-colors ${
-                      row.operation === 'Comprar' ? 'bg-emerald-500/[0.015]' : ''
+                      row.operation === 'Comprar' ? 'bg-income/[0.015]' : ''
                     }`}
                   >
                     <td className="p-3.5 font-bold text-primary">{row.ticker}</td>
                     <td className="p-3.5 text-center text-secondary font-medium">{row.currentPercentage}%</td>
-                    <td className="p-3.5 text-center text-emerald-500 font-bold">{row.targetPercentage}%</td>
-                    <td className={`p-3.5 text-right font-semibold ${row.gap > 0 ? 'text-red-400' : 'text-emerald-500'}`}>
+                    <td className="p-3.5 text-center text-income font-bold">{row.targetPercentage}%</td>
+                    <td className={`p-3.5 text-right font-semibold ${row.gap > 0 ? 'text-expense/90' : 'text-income'}`}>
                       {row.gap > 0 ? formatCurrency(row.gap) : 'Zerar/Excedente'}
                     </td>
                     <td className="p-3.5 text-right font-extrabold text-primary">
@@ -307,7 +307,7 @@ export default function ContributionSimulator({
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase ${
                           row.operation === 'Comprar'
-                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                            ? 'bg-income/10 text-income border border-income/20'
                             : 'bg-muted text-secondary border border-border/40'
                         }`}
                       >

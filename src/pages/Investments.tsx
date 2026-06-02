@@ -560,7 +560,7 @@ export default function Investments() {
                 className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
               >
                 <div className="flex items-start gap-2.5">
-                  <Layers size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+                  <Layers size={18} className="text-balance shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-sm font-black text-primary">Limites de Exposição</h4>
                     <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
@@ -571,7 +571,7 @@ export default function Investments() {
                 
                 {/* Indicador de expansão */}
                 <div className="flex items-center gap-2 text-secondary shrink-0">
-                  <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono">
+                  <span className="text-[10px] font-black bg-balance/10 text-balance px-2 py-0.5 rounded-full font-mono">
                     {groupTargets.filter((gt) => gt.group_type === consolidationView).length}
                   </span>
                   <Plus 
@@ -591,7 +591,7 @@ export default function Investments() {
                     <div 
                       key={gt.id} 
                       onClick={() => handleEditGroupTarget(gt)}
-                      className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-indigo-500/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                      className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-balance/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col text-left">
@@ -605,18 +605,18 @@ export default function Investments() {
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="h-6 w-[1px] bg-primary/25" />
-                        <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
+                        <span className="font-mono text-balance font-black text-sm">{gt.target_percentage}%</span>
                         <IconButton
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          icon={<Trash2 size={13} />}
-                          label="Remover limite"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteGroupTarget(gt.id)
-                          }}
-                          className="!rounded-xl"
+                           type="button"
+                           variant="danger"
+                           size="sm"
+                           icon={<Trash2 size={13} />}
+                           label="Remover limite"
+                           onClick={(e) => {
+                             e.stopPropagation()
+                             handleDeleteGroupTarget(gt.id)
+                           }}
+                           className="!rounded-xl"
                         />
                       </div>
                     </div>
@@ -632,9 +632,9 @@ export default function Investments() {
                       setGroupTargetPct('');
                       setShowGroupTargetForm(true);
                     }}
-                    className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-indigo-500/35 hover:border-indigo-500/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 hover:scale-[1.01]"
+                    className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-balance/35 hover:border-balance/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-balance hover:bg-balance/5 hover:scale-[1.01]"
                   >
-                    <Plus size={15} className="text-indigo-500" />
+                    <Plus size={15} className="text-balance" />
                     <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
                   </div>
                 )}
@@ -647,9 +647,9 @@ export default function Investments() {
                 <div className="flex items-center justify-between gap-3 mb-3 pb-2 border-b border-primary/5">
                   <div className="flex items-center gap-2">
                     {consolidationView === 'class' ? (
-                      <Layers size={18} className="text-indigo-500 shrink-0 transition-colors duration-300" />
+                      <Layers size={18} className="text-balance shrink-0 transition-colors duration-300" />
                     ) : (
-                      <Briefcase size={18} className="text-emerald-500 shrink-0 transition-colors duration-300" />
+                      <Briefcase size={18} className="text-income shrink-0 transition-colors duration-300" />
                     )}
                     <h3 className="text-sm sm:text-base font-bold text-primary leading-tight transition-all duration-300">
                       {consolidationView === 'class' ? 'Consolidação por Classes' : 'Consolidação por Setores'}
@@ -662,8 +662,8 @@ export default function Investments() {
                     <div 
                       className={`absolute top-[2px] bottom-[2px] rounded-full transition-all duration-300 ease-out ${
                         consolidationView === 'class'
-                          ? 'left-[2px] w-[calc(50%-2px)] bg-indigo-500 shadow-md'
-                          : 'left-[calc(50%)] w-[calc(50%-2px)] bg-emerald-500 shadow-md'
+                          ? 'left-[2px] w-[calc(50%-2px)] bg-balance shadow-md'
+                          : 'left-[calc(50%)] w-[calc(50%-2px)] bg-income shadow-md'
                       }`}
                     />
                     
@@ -753,13 +753,13 @@ export default function Investments() {
                   variant="outline"
                   onClick={handleForceRefresh}
                   disabled={refreshing || portfolioLoading}
-                  className="flex sm:hidden items-center justify-center h-8 w-8 p-0 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 font-bold"
+                  className="flex sm:hidden items-center justify-center h-8 w-8 p-0 border-warning/20 text-warning hover:bg-warning/10 font-bold"
                   title="Atualizar cotações"
                 >
                   {refreshing ? (
-                    <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-warning border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <TrendingUp size={15} className="text-amber-500" />
+                    <TrendingUp size={15} className="text-warning" />
                   )}
                 </Button>
               </div>
@@ -803,7 +803,7 @@ export default function Investments() {
                                   <div className="flex items-center gap-2 flex-wrap">
                                     {pos.ticker}
                                     {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
                                         Cotação Desatualizada
                                       </span>
                                     )}
@@ -827,7 +827,7 @@ export default function Investments() {
                                            if (e.key === 'Escape') setEditingPriceTicker(null)
                                          }}
                                          disabled={savingPrice}
-                                         className="!w-20 !py-0.5 !px-1.5 text-xs text-right !border-indigo-500 font-mono"
+                                         className="!w-20 !py-0.5 !px-1.5 text-xs text-right !border-balance font-mono"
                                          autoFocus
                                        />
                                        <IconButton
@@ -954,7 +954,7 @@ export default function Investments() {
                                   </div>
                                 </div>
                               </div>
-
+ 
                               {/* Conteúdo Expandido */}
                               {isExpanded && (
                                 <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10">
@@ -980,7 +980,7 @@ export default function Investments() {
                                               if (e.key === 'Escape') setEditingPriceTicker(null)
                                             }}
                                             disabled={savingPrice}
-                                            className="!w-16 !py-0.5 !px-1.5 text-xs !border-indigo-500 font-mono"
+                                            className="!w-16 !py-0.5 !px-1.5 text-xs !border-balance font-mono"
                                             autoFocus
                                           />
                                           <IconButton
@@ -1041,7 +1041,7 @@ export default function Investments() {
                                       </div>
                                     </div>
                                   </div>
-
+ 
                                   {/* Progresso de Metas de Exposição */}
                                   <div className="space-y-1.5">
                                     <div className="flex items-center justify-between text-[10px]">
@@ -1063,18 +1063,18 @@ export default function Investments() {
                                       />
                                       {pos.target_percentage > 0 && (
                                         <div 
-                                          className="absolute top-0 bottom-0 w-0.5 bg-indigo-300 dark:bg-indigo-700"
+                                          className="absolute top-0 bottom-0 w-0.5 bg-balance/40 dark:bg-balance/80"
                                           style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
                                         />
                                       )}
                                     </div>
                                   </div>
-
+ 
                                   {/* Precificação e Ações rápidas */}
                                   <div className="flex justify-between items-center pt-2 border-t border-primary/5">
                                     <div>
                                       {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                        <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                        <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
                                           Cotação Desatualizada
                                         </span>
                                       )}
@@ -1088,7 +1088,7 @@ export default function Investments() {
                                           e.stopPropagation()
                                           handleOpenAssetTxModal(pos)
                                         }}
-                                        className="!min-h-0 text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 font-bold"
+                                        className="!min-h-0 text-[10px] text-income border-income/20 bg-income/5 hover:bg-income/10 font-bold"
                                       >
                                         <BarChart2 size={12} />
                                         <span>Transações</span>

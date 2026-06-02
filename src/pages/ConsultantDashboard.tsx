@@ -1405,7 +1405,7 @@ export default function ConsultantDashboard() {
                     className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
                   >
                     <div className="flex items-start gap-2.5">
-                      <Layers size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+                      <Layers size={18} className="text-balance shrink-0 mt-0.5" />
                       <div>
                         <h4 className="text-sm font-black text-primary">Limites de Exposição</h4>
                         <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
@@ -1416,7 +1416,7 @@ export default function ConsultantDashboard() {
                     
                     {/* Indicador de expansão */}
                     <div className="flex items-center gap-2 text-secondary shrink-0">
-                      <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono">
+                      <span className="text-[10px] font-black bg-balance/10 text-balance px-2 py-0.5 rounded-full font-mono">
                         {groupTargets.length}
                       </span>
                       <Plus 
@@ -1425,7 +1425,7 @@ export default function ConsultantDashboard() {
                       />
                     </div>
                   </div>
-
+ 
                   {/* Grid de Limites (Listagem + Botão Novo Limite) */}
                   <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
                     limitsCollapsed ? 'hidden' : 'grid'
@@ -1434,7 +1434,7 @@ export default function ConsultantDashboard() {
                       <div 
                         key={gt.id} 
                         onClick={() => handleEditGroupTarget(gt)}
-                        className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-indigo-500/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                        className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-balance/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
                       >
                         <div className="flex items-center gap-3">
                           <div className="flex flex-col text-left">
@@ -1448,7 +1448,7 @@ export default function ConsultantDashboard() {
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="h-6 w-[1px] bg-primary/25" />
-                          <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
+                          <span className="font-mono text-balance font-black text-sm">{gt.target_percentage}%</span>
                           <IconButton
                             type="button"
                             icon={<Trash2 size={13} />}
@@ -1464,7 +1464,7 @@ export default function ConsultantDashboard() {
                         </div>
                       </div>
                     ))}
-
+ 
                     {/* Adicionar Limite Card Button */}
                     <div 
                       onClick={() => {
@@ -1474,9 +1474,9 @@ export default function ConsultantDashboard() {
                         setGroupTargetPct('');
                         setShowGroupTargetForm(true);
                       }}
-                      className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-indigo-500/35 hover:border-indigo-500/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/5 hover:scale-[1.01]"
+                      className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-balance/35 hover:border-balance/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-balance hover:bg-balance/5 hover:scale-[1.01]"
                     >
-                      <Plus size={15} className="text-indigo-500" />
+                      <Plus size={15} className="text-balance" />
                       <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
                     </div>
                   </div>
@@ -1792,16 +1792,16 @@ export default function ConsultantDashboard() {
           return (
             <form onSubmit={handleDeleteClient} className="space-y-4 text-left">
               {isProvisional ? (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
+                <div className="bg-expense/10 border border-expense/20 text-expense p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-expense" />
                   <div>
                     <strong className="font-bold block mb-1">Atenção! Esta ação é irreversível.</strong>
                     Ao confirmar, todos os dados da carteira provisória, metas e transações do e-mail provisório **{clientToDelete.email}** serão excluídos permanentemente do banco de dados.
                   </div>
                 </div>
               ) : (
-                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
-                  <ShieldCheck size={16} className="shrink-0 mt-0.5 text-amber-500" />
+                <div className="bg-warning/10 border border-warning/20 text-warning p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
+                  <ShieldCheck size={16} className="shrink-0 mt-0.5 text-warning" />
                   <div>
                     <strong className="font-bold block mb-1">Desvinculação de Assessoria (Seguro)</strong>
                     Esta é uma conta de cliente real. Ao confirmar, o sistema **apenas removerá o seu acesso como consultor** a esta carteira patrimonial.

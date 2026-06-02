@@ -11,16 +11,16 @@ interface B3ReconciliationGuidanceProps {
 
 const variantStyles: Record<GuidanceVariant, { box: string; icon: string }> = {
   info: {
-    box: 'bg-indigo-500/8 border-indigo-500/25',
-    icon: 'text-indigo-500',
+    box: 'bg-balance/8 border-balance/25',
+    icon: 'text-balance',
   },
   warning: {
-    box: 'bg-amber-500/8 border-amber-500/25',
-    icon: 'text-amber-500',
+    box: 'bg-warning/8 border-warning/25',
+    icon: 'text-warning',
   },
   success: {
-    box: 'bg-emerald-500/8 border-emerald-500/25',
-    icon: 'text-emerald-500',
+    box: 'bg-income/8 border-income/25',
+    icon: 'text-income',
   },
 }
 

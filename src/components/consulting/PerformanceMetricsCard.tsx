@@ -12,24 +12,24 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
 
   // Sharpe interpretation
   let sharpeInterpretation = 'Neutro'
-  let sharpeColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-  let sharpeGaugeColor = 'rgb(245, 158, 11)'
+  let sharpeColor = 'text-warning bg-warning/10 border-warning/20'
+  let sharpeGaugeColor = 'var(--color-warning)'
   if (sharpe_ratio >= 2.0) {
     sharpeInterpretation = 'Excelente'
-    sharpeColor = 'text-teal-500 bg-teal-500/10 border-teal-500/20'
-    sharpeGaugeColor = 'rgb(20, 184, 166)'
+    sharpeColor = 'text-income bg-income/10 border-income/20'
+    sharpeGaugeColor = 'var(--color-income)'
   } else if (sharpe_ratio >= 1.0) {
     sharpeInterpretation = 'Muito Atrativo'
-    sharpeColor = 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20'
-    sharpeGaugeColor = 'rgb(99, 102, 241)'
+    sharpeColor = 'text-balance bg-balance/10 border-balance/20'
+    sharpeGaugeColor = 'var(--color-balance)'
   } else if (sharpe_ratio > 0) {
     sharpeInterpretation = 'Moderado'
-    sharpeColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-    sharpeGaugeColor = 'rgb(16, 185, 129)'
+    sharpeColor = 'text-income bg-income/10 border-income/20'
+    sharpeGaugeColor = 'var(--color-income)'
   } else {
     sharpeInterpretation = 'Subtítulo/Abaixo CDI'
-    sharpeColor = 'text-red-500 bg-red-500/10 border-red-500/20'
-    sharpeGaugeColor = 'rgb(239, 68, 68)'
+    sharpeColor = 'text-expense bg-expense/10 border-expense/20'
+    sharpeGaugeColor = 'var(--color-expense)'
   }
 
   // Calculate SVG gauge stroke dashoffset
@@ -49,7 +49,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
     <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
       <div>
         <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-          <Gauge size={16} className="text-indigo-500" />
+          <Gauge size={16} className="text-balance" />
           Indicadores de Performance e Risco
         </h3>
 
@@ -101,7 +101,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
           <div className="space-y-3">
             <div className="flex items-center justify-between p-2 bg-muted/10 border border-border/10 rounded-lg">
               <div className="flex items-center gap-1.5 text-secondary">
-                <Percent size={13} className="text-indigo-500" />
+                <Percent size={13} className="text-balance" />
                 <span className="text-xs font-semibold font-sans">Volatilidade Mensal</span>
               </div>
               <span className="text-xs font-bold text-primary font-mono">
@@ -111,7 +111,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
 
             <div className="flex items-center justify-between p-2 bg-muted/10 border border-border/10 rounded-lg">
               <div className="flex items-center gap-1.5 text-secondary">
-                <TrendingUp size={13} className="text-emerald-500" />
+                <TrendingUp size={13} className="text-income" />
                 <span className="text-xs font-semibold font-sans">Retorno Médio Mensal</span>
               </div>
               <span className="text-xs font-bold text-primary font-mono">
@@ -166,7 +166,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
           </p>
         )}
         <div className="flex items-start gap-2 text-[10px] text-secondary italic font-sans leading-relaxed">
-          <Shield size={14} className="shrink-0 text-indigo-500 mt-0.5" />
+          <Shield size={14} className="shrink-0 text-balance mt-0.5" />
           <span>
             {sharpe_ratio >= 1.0
               ? 'A carteira tem demonstrado excelente retorno ajustado ao risco histórico.'

@@ -72,6 +72,11 @@ export default function Settings() {
     setFloatingCalculatorEnabled,
     biometricLockTimeout,
     setBiometricLockTimeout,
+    floatingButtonsDesktopPosition,
+    setFloatingButtonsDesktopPosition,
+    floatingButtonsMobilePosition,
+    setFloatingButtonsMobilePosition,
+    resetAllSettings,
   } = useAppSettings()
 
   const fetchUsers = async () => {
@@ -105,6 +110,11 @@ export default function Settings() {
     setBiometricAvailable(isBiometricAvailable())
     setBiometricRegistered(isBiometricRegistered())
   }, [])
+
+  const handleResetSettings = () => {
+    resetAllSettings()
+    toast.success('Posições dos botões e configurações resetadas com sucesso!')
+  }
 
   if (isLoading) {
     return (
@@ -503,6 +513,59 @@ export default function Settings() {
                   title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
                 />
               </SettingRow>
+
+              <div className="border-t border-primary" />
+
+              <SettingRow
+                title="Posição dos botões no Desktop"
+                description="Define o alinhamento das abas flutuantes e da calculadora em telas grandes."
+              >
+                <Select
+                  value={floatingButtonsDesktopPosition}
+                  onChange={(e) => setFloatingButtonsDesktopPosition(e.target.value as any)}
+                  options={[
+                    { value: 'right', label: 'Lateral Direita (Abas)' },
+                    { value: 'top', label: 'Topo Superior (Barra)' }
+                  ]}
+                  className="min-w-[200px]"
+                />
+              </SettingRow>
+
+              <div className="border-t border-primary" />
+
+              <SettingRow
+                title="Posição dos botões no Mobile"
+                description="Define o lado em que os botões e calculadora flutuam em celulares."
+              >
+                <Select
+                  value={floatingButtonsMobilePosition}
+                  onChange={(e) => setFloatingButtonsMobilePosition(e.target.value as any)}
+                  options={[
+                    { value: 'right', label: 'Lado Direito' },
+                    { value: 'left', label: 'Lado Esquerdo' }
+                  ]}
+                  className="min-w-[200px]"
+                />
+              </SettingRow>
+
+              <div className="border-t border-primary pt-4" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-primary">Resetar layout dos botões</h4>
+                  <p className="text-xs text-secondary mt-0.5">
+                    Restaura as abas flutuantes, ativador e painel da calculadora para as posições e tamanhos originais.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResetSettings}
+                  className="text-primary border-glass hover:bg-accent flex items-center gap-2 justify-center"
+                >
+                  Resetar Posição
+                </Button>
+              </div>
             </div>
           </Card>
         </section>

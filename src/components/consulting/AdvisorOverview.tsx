@@ -38,11 +38,11 @@ export default function AdvisorOverview({
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
       {/* Banner de Gestão de Consultoria */}
-      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 rounded-3xl border border-indigo-900/30 text-white shadow-xl text-left">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 rounded-3xl border border-balance/30 text-white shadow-xl text-left">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-balance/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 font-sans">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold rounded-full uppercase tracking-wider mb-3">
-            <Star size={12} className="text-indigo-400" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-balance/10 border border-balance/20 text-balance text-xs font-bold rounded-full uppercase tracking-wider mb-3">
+            <Star size={12} className="text-balance" />
             Painel do Gestor de Patrimônio
           </div>
           <h2 className="text-2xl lg:text-3xl font-black text-white">Consolidação Geral da Consultoria</h2>
@@ -53,26 +53,26 @@ export default function AdvisorOverview({
       {/* Cards de KPIs Globais */}
       {globalAumData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 text-left animate-page-enter">
-          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-indigo-500 flex items-center justify-between shadow-sm transition-all hover:border-l-indigo-400">
+          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
             <div>
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">AUM Total Sob Gestão</span>
               <strong className="text-2xl font-black text-primary mt-1.5 block">
                 {formatCurrency(globalAumData.totalAum)}
               </strong>
             </div>
-            <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
+            <div className="p-3 bg-balance/10 text-balance rounded-xl">
               <Wallet size={24} />
             </div>
           </Card>
 
-          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-emerald-500 flex items-center justify-between shadow-sm transition-all hover:border-l-emerald-400">
+          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
             <div>
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Total de Contas Clientes</span>
               <strong className="text-2xl font-black text-primary mt-1.5 block">
                 {globalAumData.clientCount} Contas Ativas
               </strong>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+            <div className="p-3 bg-income/10 text-income rounded-xl">
               <UserPlus size={24} />
             </div>
           </Card>
@@ -82,7 +82,7 @@ export default function AdvisorOverview({
       {/* Tabela de Contas Clientes */}
       <Card className="p-5 lg:p-6 text-left">
         <h3 className="font-bold text-lg text-primary mb-4 flex items-center gap-2">
-          <Star size={18} className="text-indigo-500 fill-indigo-500" />
+          <Star size={18} className="text-balance fill-balance" />
           Monitoramento Ativo de Carteiras Clientes
         </h3>
 
@@ -116,8 +116,8 @@ export default function AdvisorOverview({
                         <td className="p-3.5 text-center">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                             isHighDev 
-                              ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
-                              : 'bg-emerald-500/10 text-emerald-600'
+                              ? 'bg-warning/10 text-warning' 
+                              : 'bg-income/10 text-income'
                           }`}>
                             {formatNumberBR(row.deviationPct)}% {isHighDev && '⚠️'}
                           </span>
@@ -179,8 +179,8 @@ export default function AdvisorOverview({
                       </div>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase shrink-0 ${
                         isHighDev 
-                          ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' 
-                          : 'bg-emerald-500/10 text-emerald-600'
+                          ? 'bg-warning/10 text-warning' 
+                          : 'bg-income/10 text-income'
                       }`}>
                         Desvio: {formatNumberBR(row.deviationPct)}% {isHighDev && '⚠️'}
                       </span>

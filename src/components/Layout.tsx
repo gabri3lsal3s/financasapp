@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut, Users } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import Button from '@/components/Button'
-import { Button as UiButton } from '@/components/ui/button'
+
 import {
   Sheet,
   SheetContent,
@@ -179,23 +179,11 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-secondary relative">
+      <div id="page-actions-portal-root" className="fixed inset-0 pointer-events-none z-40" />
       <div className="app-shell-glow" aria-hidden="true" />
       <div className="relative z-10">
       <div className="lg:hidden">
-        {/* Sleek Top Header with Settings shortcut on mobile */}
-        <header className="absolute top-0 inset-x-0 z-[100] surface-glass border-b border-glass safe-area-top">
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="h-14 flex items-center justify-between relative">
-              <span className="w-10"></span> {/* Spacer */}
-              <h1 className="text-sm font-black text-primary text-center uppercase tracking-wider">Finanças</h1>
-              <UiButton variant="outline" size="icon" className="h-9 w-9 rounded-full border-glass" asChild>
-                <Link to="/settings" aria-label="Configurações">
-                  <Settings size={18} />
-                </Link>
-              </UiButton>
-            </div>
-          </div>
-        </header>
+
 
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
           <SheetContent side="bottom" showCloseButton={false} className="max-h-[85vh] rounded-t-3xl border-glass surface-glass-strong safe-area-bottom p-0">
@@ -313,9 +301,9 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* Main Content Area with Bottom Padding to avoid navigation overlay */}
-        <main className="relative pt-[calc(3.5rem+env(safe-area-inset-top))] glass-main-padding min-h-screen">
+        <main className="relative pt-[calc(1rem+env(safe-area-inset-top))] glass-main-padding min-h-screen">
           <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-6">
-            <section key={location.pathname} className="animate-page-enter">
+            <section key={location.pathname} className="relative animate-page-enter">
               {children}
             </section>
           </div>
@@ -442,7 +430,7 @@ export default function Layout({ children }: LayoutProps) {
 
         <main className="relative safe-area-bottom">
           <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-8">
-            <section key={location.pathname} className="animate-page-enter">
+            <section key={location.pathname} className="relative animate-page-enter">
               {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
           </div>
