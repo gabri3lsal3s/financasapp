@@ -1,4 +1,11 @@
-import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
+import {
+  PortfolioTransaction,
+  TargetAllocation,
+  AssetPrice,
+  PortfolioGroupTarget,
+  PortfolioAssetDefinition,
+  PortfolioPeriodSnapshotRow,
+} from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
 import { calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
@@ -17,12 +24,15 @@ export interface PortfolioSummary {
   total_shares: number // Quantidade atual de cotas
 }
 
+export type PerformanceMetricsDataSource = 'snapshots' | 'share_history' | 'insufficient'
+
 export interface PerformanceMetrics {
   sharpe_ratio: number
   beta_ibov: number
   beta_sp500: number
   volatility_monthly: number
   return_monthly_avg: number
+  data_source: PerformanceMetricsDataSource
 }
 
 // Histórico mensal estático simplificado de retornos de benchmarks (2025-2026) para cálculo de Beta real
@@ -424,9 +434,29 @@ export function calculateShareHistory(
 /**
  * Calcula indicadores de Risco e Sharpe/Beta para o relatório.
  */
+function monthlyReturnsFromSnapshots(
+  snapshots: PortfolioPeriodSnapshotRow[],
+): number[] {
+  const monthly = snapshots
+    .filter((s) => s.period_type === 'month' && s.period_return != null)
+    .sort((a, b) => a.period_key.localeCompare(b.period_key))
+
+  return monthly.map((s) => Number(s.period_return))
+}
+
 export function calculatePerformanceMetrics(
-  shareHistory: { date: string; shareValue: number }[]
+  shareHistory: { date: string; shareValue: number }[],
+  periodSnapshots?: PortfolioPeriodSnapshotRow[],
 ): PerformanceMetrics {
+  const snapshotReturns =
+    periodSnapshots && periodSnapshots.length > 0
+      ? monthlyReturnsFromSnapshots(periodSnapshots)
+      : []
+
+  if (snapshotReturns.length >= 2) {
+    return buildPerformanceMetricsFromReturns(snapshotReturns, 'snapshots')
+  }
+
   // Retorna métricas padrão caso o histórico seja curto
   if (shareHistory.length < 2) {
     return {
@@ -434,7 +464,8 @@ export function calculatePerformanceMetrics(
       beta_ibov: 1.0,
       beta_sp500: 1.0,
       volatility_monthly: 0,
-      return_monthly_avg: 0
+      return_monthly_avg: 0,
+      data_source: 'insufficient',
     }
   }
 
@@ -485,21 +516,37 @@ export function calculatePerformanceMetrics(
       beta_ibov: 0.95,
       beta_sp500: 0.88,
       volatility_monthly: Math.round(volMonthly * 10000) / 100,
-      return_monthly_avg: Math.round(avgMonthly * 10000) / 100
+      return_monthly_avg: Math.round(avgMonthly * 10000) / 100,
+      data_source: 'share_history',
     }
   }
 
-  // 2. Cálculos clássicos mensais
+  if (monthlyReturns.length === 0) {
+    return {
+      sharpe_ratio: 0,
+      beta_ibov: 1.0,
+      beta_sp500: 1.0,
+      volatility_monthly: 0,
+      return_monthly_avg: 0,
+      data_source: 'insufficient',
+    }
+  }
+
+  return buildPerformanceMetricsFromReturns(monthlyReturns, 'share_history')
+}
+
+function buildPerformanceMetricsFromReturns(
+  monthlyReturns: number[],
+  dataSource: PerformanceMetricsDataSource,
+): PerformanceMetrics {
   const avgReturn = average(monthlyReturns)
   const volMonthly = stdDev(monthlyReturns, avgReturn)
-  const riskFreeRate = 0.0085 // CDI mensal base (~10.75% a.a.)
+  const riskFreeRate = 0.0085
   const sharpe = volMonthly > 0 ? (avgReturn - riskFreeRate) / volMonthly : 0
 
-  // 3. Cálculo do Beta em relação aos benchmarks (Covariância / Variância)
   const bReturnsIbov = BENCHMARK_RETURNS.IBOV.slice(0, monthlyReturns.length)
   const bReturnsSp500 = BENCHMARK_RETURNS.SP500.slice(0, monthlyReturns.length)
 
-  // Preenche fallbacks caso o tamanho seja diferente
   while (bReturnsIbov.length < monthlyReturns.length) bReturnsIbov.push(0.01)
   while (bReturnsSp500.length < monthlyReturns.length) bReturnsSp500.push(0.015)
 
@@ -511,7 +558,8 @@ export function calculatePerformanceMetrics(
     beta_ibov: Math.round(betaIbov * 100) / 100,
     beta_sp500: Math.round(betaSp500 * 100) / 100,
     volatility_monthly: Math.round(volMonthly * 10000) / 100,
-    return_monthly_avg: Math.round(avgReturn * 10000) / 100
+    return_monthly_avg: Math.round(avgReturn * 10000) / 100,
+    data_source: dataSource,
   }
 }
 

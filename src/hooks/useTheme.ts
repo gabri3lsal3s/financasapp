@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import type { Theme, VisualStyle } from '@/contexts/ThemeContext'
+import type { Theme, ColorPalette, AccentTone } from '@/contexts/ThemeContext'
 import { ThemeContext } from '@/contexts/themeSharedContext'
 
 export function useTheme() {
@@ -12,5 +12,4 @@ export function useTheme() {
   return context
 }
 
-export type { Theme, VisualStyle }
-
+export type { Theme, ColorPalette, AccentTone }

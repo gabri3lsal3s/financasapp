@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import type { PortfolioOperationType, PortfolioTransaction } from '@/types'
+import type { PortfolioAssetDefinition, PortfolioOperationType, PortfolioTransaction } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { buildPortfolioLedger } from '@/utils/portfolioLedger'
 
@@ -878,6 +878,13 @@ export interface PositionAdjustmentSuggestion {
   date: string
   price: number
   label: string
+  requiresManualPrice?: boolean
+}
+
+export interface PositionAdjustmentOptions {
+  asOfDate?: string
+  definitions?: PortfolioAssetDefinition[]
+  marketPrices?: Record<string, { current_price?: number }>
 }
 
 /** Ajustes de compra/venda para alinhar o livro-razão à posição oficial B3. */
@@ -885,9 +892,11 @@ export function suggestPositionAdjustments(
   validation: PositionValidationResult,
   transactions: PortfolioTransaction[],
   movementItems: B3TransactionItem[],
-  asOfDate?: string
+  options?: PositionAdjustmentOptions | string,
 ): PositionAdjustmentSuggestion[] {
-  const fallbackDate = asOfDate ?? new Date().toISOString().slice(0, 10)
+  const opts: PositionAdjustmentOptions =
+    typeof options === 'string' ? { asOfDate: options } : (options ?? {})
+  const fallbackDate = opts.asOfDate ?? new Date().toISOString().slice(0, 10)
 
   return validation.rows
     .filter((row) => !qtyEqual(row.official, row.system))
@@ -895,7 +904,13 @@ export function suggestPositionAdjustments(
       const delta = row.official - row.system
       const operation_type = delta > 0 ? ('buy' as const) : ('sell' as const)
       const quantity = Math.round(Math.abs(delta) * 1_000_000) / 1_000_000
-      const price = resolveAdjustmentPrice(transactions, row.ticker)
+      const price = resolveAdjustmentPrice(
+        transactions,
+        row.ticker,
+        opts.definitions,
+        opts.marketPrices,
+      )
+      const requiresManualPrice = price <= 0
       const date = resolveAdjustmentDate(transactions, movementItems, row.ticker, fallbackDate)
       const label =
         row.official <= 0.000_001
@@ -913,6 +928,7 @@ export function suggestPositionAdjustments(
         date,
         price,
         label,
+        requiresManualPrice,
       }
     })
     .filter((s) => s.quantity > 0.000_001)
@@ -939,7 +955,12 @@ function resolveAdjustmentDate(
   return maxDate || fallback
 }
 
-function resolveAdjustmentPrice(transactions: PortfolioTransaction[], ticker: string): number {
+function resolveAdjustmentPrice(
+  transactions: PortfolioTransaction[],
+  ticker: string,
+  definitions?: PortfolioAssetDefinition[],
+  marketPrices?: Record<string, { current_price?: number }>,
+): number {
   const upper = ticker.toUpperCase()
   const relevant = transactions
     .filter(
@@ -947,7 +968,7 @@ function resolveAdjustmentPrice(transactions: PortfolioTransaction[], ticker: st
         tx.ticker.toUpperCase() === upper &&
         !tx.cash_offset_source_id &&
         tx.price > 0 &&
-        (tx.operation_type === 'buy' || tx.operation_type === 'sell')
+        (tx.operation_type === 'buy' || tx.operation_type === 'sell'),
     )
     .sort((a, b) => b.date.localeCompare(a.date))
 
@@ -956,7 +977,17 @@ function resolveAdjustmentPrice(transactions: PortfolioTransaction[], ticker: st
   const anyPriced = transactions
     .filter((tx) => tx.ticker.toUpperCase() === upper && tx.price > 0)
     .sort((a, b) => b.date.localeCompare(a.date))
-  return anyPriced[0]?.price ?? 0
+  if (anyPriced[0]?.price) return anyPriced[0].price
+
+  const def = definitions?.find((d) => d.ticker.toUpperCase() === upper)
+  if (def?.manual_current_value && def.manual_current_value > 0) {
+    return def.manual_current_value
+  }
+
+  const market = marketPrices?.[upper]?.current_price
+  if (market && market > 0) return market
+
+  return 0
 }
 
 const POSITION_EQUITY_SHEETS = new Set([

@@ -29,8 +29,9 @@ export default function ReturnHeatmap({ snapshots }: ReturnHeatmapProps) {
           <Grid3x3 size={16} />
           Matriz de rentabilidade
         </h3>
-        <p className="text-xs text-secondary italic">
-          Execute fechamentos mensais para popular o heatmap.
+        <p className="text-xs text-secondary leading-relaxed">
+          Ainda não há fechamentos mensais registrados para esta carteira. O assessor pode gerar
+          snapshots em Investimentos (fechamento de mês); após isso, os retornos aparecem aqui.
         </p>
       </Card>
     )

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
 import Loader from '@/components/Loader'
@@ -50,14 +51,12 @@ import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
-import { useTheme } from '@/hooks/useTheme'
 import { chartAnimProps } from '@/types/recharts'
 import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
 export default function Dashboard() {
-  const { visualStyle } = useTheme()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
@@ -397,7 +396,7 @@ export default function Dashboard() {
     return series
   }, [currentMonth, incomes, expenses, portfolioTransactions])
 
-  const animProps = useMemo(() => chartAnimProps(visualStyle), [visualStyle])
+  const animProps = useMemo(() => chartAnimProps(), [])
 
   const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) return null
@@ -405,7 +404,7 @@ export default function Dashboard() {
     const isDayLabel = typeof label === 'string' && /^\d{1,2}$/.test(label)
 
     return (
-      <div className="rounded-lg border border-primary bg-primary px-3 py-2 shadow-sm">
+      <div className="rounded-xl border border-glass surface-glass-strong px-3 py-2 shadow-lg">
         {label && <p className="text-xs text-secondary mb-1">{isDayLabel ? `Dia ${label}` : label}</p>}
         <div className="space-y-1">
           {payload.map((entry, index) => (
@@ -482,18 +481,16 @@ export default function Dashboard() {
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
+          <PageHeaderActions>
+            <PageHeaderActionButton
+              intent="primary"
+              icon={Plus}
+              label="Lançamento"
+              compactOnMobile={false}
               onClick={() => setIsSelectorOpen(true)}
-              className="flex items-center gap-2"
               disabled={categories.length === 0 && incomeCategories.length === 0}
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Lançamento</span>
-            </Button>
-          </div>
+            />
+          </PageHeaderActions>
         }
       />
 
@@ -557,15 +554,6 @@ export default function Dashboard() {
                       <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário (mês)</h3>
                       <ResponsiveContainer width="100%" height={280}>
                         <LineChart data={dailyFlowData}>
-                          <defs>
-                            <filter id="cyberGlowLine" x="-20%" y="-20%" width="140%" height="140%">
-                              <feGaussianBlur stdDeviation="2.5" result="blur" />
-                              <feMerge>
-                                <feMergeNode in="blur" />
-                                <feMergeNode in="SourceGraphic" />
-                              </feMerge>
-                            </filter>
-                          </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                           <XAxis dataKey="day" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} minTickGap={14} />
                           <YAxis
@@ -576,9 +564,9 @@ export default function Dashboard() {
                           />
                           <Tooltip content={chartTooltip} />
                           <Legend content={renderInteractiveLegend} />
-                          <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={visualStyle === 'cyberpunk' ? 2.5 : 2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlowLine)' : undefined} {...animProps} />
-                          <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={visualStyle === 'cyberpunk' ? 2.5 : 2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlowLine)' : undefined} {...animProps} />
-                          <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={visualStyle === 'cyberpunk' ? 2.5 : 2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlowLine)' : undefined} {...animProps} />
+                          <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} {...animProps} />
+                          <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} {...animProps} />
+                          <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} {...animProps} />
                         </LineChart>
                       </ResponsiveContainer>
                     </Card>
@@ -621,18 +609,14 @@ export default function Dashboard() {
                           </div>
 
                           <div className="mt-4 space-y-3">
-                            {prioritizedExpenseCategoryItems.map((item, index) => {
-                              const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
-                              return (
+                            {prioritizedExpenseCategoryItems.map((item) => (
                                 <ExpenseCategoryRowButton
                                   key={item.name}
                                   item={item}
                                   totalExpenses={totalExpenses}
-                                  staggerClass={staggerClass}
                                   onOpen={openExpenseCategoryDetails}
                                 />
-                              )
-                            })}
+                            ))}
                           </div>
                         </>
                       )}
@@ -734,16 +718,17 @@ export default function Dashboard() {
         isOpen={Boolean(selectedExpenseCategory)}
         onClose={() => setSelectedExpenseCategory(null)}
         title={selectedExpenseCategory ? `Detalhamento: ${selectedExpenseCategory.name}` : 'Detalhamento'}
+        size="lg"
       >
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação mensal</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-lg border border-primary bg-secondary p-3">
+              <div className="rounded-xl border border-glass surface-glass p-3">
                 <p className="text-xs text-secondary">Total em {formatMonth(currentMonth)}</p>
                 <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.currentTotal ?? 0)}</p>
               </div>
-              <div className="rounded-lg border border-primary bg-secondary p-3">
+              <div className="rounded-xl border border-glass surface-glass p-3">
                 <p className="text-xs text-secondary">Total em {formatMonth(previousMonth)}</p>
                 <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.previousTotal ?? 0)}</p>
               </div>
@@ -753,7 +738,7 @@ export default function Dashboard() {
           {selectedExpenseCategoryLimitDetails && (
             <div className="space-y-2">
               <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do mês</p>
-              <div className="rounded-lg border border-primary bg-secondary p-3">
+              <div className="rounded-xl border border-glass surface-glass p-3">
                 <p className="text-sm text-primary">Limite: {formatCurrency(selectedExpenseCategoryLimitDetails.limitAmount)}</p>
                 <p className="text-sm text-primary">Gasto: {formatCurrency(selectedExpenseCategoryLimitDetails.currentTotal)}</p>
                 <p className={`text-sm font-medium ${selectedExpenseCategoryLimitDetails.isExceeded ? 'text-expense' : 'text-income'}`}>
@@ -769,15 +754,14 @@ export default function Dashboard() {
 
           {selectedExpenseCategoryDetails && selectedExpenseCategoryDetails.currentItems.length > 0 ? (
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-              {selectedExpenseCategoryDetails.currentItems.map((item, index) => {
+              {selectedExpenseCategoryDetails.currentItems.map((item) => {
                 const reportAmount = expenseAmountForDashboard(item.amount, item.report_weight)
                 const showOriginal = Math.abs(reportAmount - item.amount) > 0.009
-                const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
                 return (
                   <div
                     key={item.id}
-                    className={`rounded-lg border border-primary bg-primary p-3 animate-stagger-item ${staggerClass}`}
+                    className="rounded-xl border border-glass surface-glass p-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

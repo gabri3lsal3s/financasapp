@@ -18,16 +18,16 @@ export default function DashboardKpis({
   const isBalancePositive = balance >= 0
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 items-stretch xl:grid-cols-4">
       {/* Rendas KPI */}
       <Card 
-        className="p-3 sm:p-5 flex flex-col justify-between border-l-4 h-full animate-stagger-item delay-50"
+        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
         style={{ borderLeftColor: 'var(--color-income)' }}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Rendas</p>
-            <p className="text-fluid-lg sm:text-fluid-xl font-black text-primary mt-1 font-mono truncate">
+            <p className="mt-1 font-mono text-sm font-black tabular-nums text-primary sm:text-base lg:text-lg xl:text-xl">
               {formatCurrency(totalIncomes)}
             </p>
           </div>
@@ -40,13 +40,13 @@ export default function DashboardKpis({
 
       {/* Despesas KPI */}
       <Card 
-        className="p-3 sm:p-5 flex flex-col justify-between border-l-4 h-full animate-stagger-item delay-100"
+        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
         style={{ borderLeftColor: 'var(--color-expense)' }}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Despesas</p>
-            <p className="text-fluid-lg sm:text-fluid-xl font-black text-primary mt-1 font-mono truncate">
+            <p className="mt-1 font-mono text-sm font-black tabular-nums text-primary sm:text-base lg:text-lg xl:text-xl">
               {formatCurrency(totalExpenses)}
             </p>
           </div>
@@ -59,13 +59,13 @@ export default function DashboardKpis({
 
       {/* Investimentos KPI */}
       <Card 
-        className="p-3 sm:p-5 flex flex-col justify-between border-l-4 h-full animate-stagger-item delay-150"
+        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
         style={{ borderLeftColor: 'var(--color-balance)' }}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Investimentos</p>
-            <p className="text-fluid-lg sm:text-fluid-xl font-black text-primary mt-1 font-mono truncate">
+            <p className="mt-1 font-mono text-sm font-black tabular-nums text-primary sm:text-base lg:text-lg xl:text-xl">
               {formatCurrency(totalInvestments)}
             </p>
           </div>
@@ -78,7 +78,7 @@ export default function DashboardKpis({
 
       {/* Saldo KPI */}
       <Card
-        className="p-3 sm:p-5 flex flex-col justify-between border-l-4 h-full animate-stagger-item delay-200"
+        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
         style={{
           borderLeftColor: isBalancePositive ? 'var(--color-income)' : 'var(--color-expense)',
         }}
@@ -87,7 +87,7 @@ export default function DashboardKpis({
           <div className="flex-1 min-w-0">
             <p className="text-fluid-xs font-bold text-secondary tracking-wider uppercase truncate">Saldo Líquido</p>
             <p
-              className={`text-fluid-lg sm:text-fluid-xl font-black mt-1 font-mono truncate ${
+              className={`mt-1 font-mono text-sm font-black tabular-nums sm:text-base lg:text-lg xl:text-xl ${
                 isBalancePositive ? 'text-income' : 'text-expense'
               }`}
             >

@@ -26,10 +26,12 @@ import type { PortfolioTransaction } from '@/types'
 import type { ChartTooltipEntry } from '@/types/recharts'
 import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
 import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
+import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatChartYAxisCurrency, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Scale, Loader2 } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   BarChart,
   Bar,
@@ -402,8 +404,10 @@ export default function Reports() {
 
   const getAmountByMode = useCallback(
     (entry: { amount: number; report_weight?: number | null }) =>
-      includeReportWeights ? entry.amount * (entry.report_weight ?? 1) : entry.amount,
-    [includeReportWeights]
+      includeReportWeights
+        ? getWeightedReportAmount(entry.amount, entry.report_weight)
+        : entry.amount,
+    [includeReportWeights],
   )
 
   const monthlyData = useMemo(
@@ -1153,9 +1157,6 @@ export default function Reports() {
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0
 
-  const controlButtonVariant = (mode: ViewMode) =>
-    viewMode === mode ? 'secondary' : 'outline'
-
   const renderPieCard = (title: string, data: PieDatum[]) => (
     <Card className="h-full flex flex-col chart-interactive-layer">
       <h3 className="text-lg font-semibold text-primary mb-4">{title}</h3>
@@ -1229,30 +1230,16 @@ export default function Reports() {
       <PageHeader title={PAGE_HEADERS.reports.title} subtitle={PAGE_HEADERS.reports.description} />
 
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
-        <Card className="relative z-20 overflow-visible">
+        <Card className="relative z-20 overflow-visible glass-glow-card">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
             <div>
               <label className="block text-sm font-medium text-primary mb-2">Visualização</label>
-              <div className="flex items-center gap-2 w-full">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={controlButtonVariant('month')}
-                  className="w-full"
-                  onClick={() => setViewMode('month')}
-                >
-                  Mês
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={controlButtonVariant('year')}
-                  className="w-full"
-                  onClick={() => setViewMode('year')}
-                >
-                  Ano
-                </Button>
-              </div>
+              <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="month" className="text-xs">Mês</TabsTrigger>
+                  <TabsTrigger value="year" className="text-xs">Ano</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
             <div>

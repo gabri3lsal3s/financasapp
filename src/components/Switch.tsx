@@ -1,8 +1,12 @@
 import type { ButtonHTMLAttributes } from 'react'
+import { Switch as ShadcnSwitch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 
-interface SwitchProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'role'> {
+interface SwitchProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'role' | 'onChange'> {
   checked: boolean
   label?: string
+  onChange?: () => void
+  onCheckedChange?: (checked: boolean) => void
 }
 
 export default function Switch({
@@ -10,25 +14,23 @@ export default function Switch({
   label,
   className = '',
   title,
+  onClick,
+  onChange,
+  onCheckedChange,
   ...props
 }: SwitchProps) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
+    <ShadcnSwitch
+      checked={checked}
       title={title ?? label}
       aria-label={label}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] ${
-        checked ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-disabled)]'
-      } ${className}`}
+      className={cn(className)}
+      onCheckedChange={(value) => {
+        onCheckedChange?.(value)
+        onChange?.()
+      }}
+      onClick={onClick}
       {...props}
-    >
-      <span
-        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[var(--color-bg-primary)] shadow ring-0 transition duration-200 ease-in-out ${
-          checked ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
+    />
   )
 }

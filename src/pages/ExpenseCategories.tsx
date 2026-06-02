@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
@@ -109,17 +110,16 @@ export default function ExpenseCategories() {
         title={PAGE_HEADERS.expenseCategories.title}
         subtitle={PAGE_HEADERS.expenseCategories.description}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2"
-            disabled={categories.length >= 15}
-            title={categories.length >= 15 ? 'Limite de 15 categorias atingido' : ''}
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Adicionar</span>
-          </Button>
+          <PageHeaderActions>
+            <PageHeaderActionButton
+              intent="primary"
+              icon={Plus}
+              label="Adicionar"
+              onClick={() => handleOpenModal()}
+              disabled={categories.length >= 15}
+              title={categories.length >= 15 ? 'Limite de 15 categorias atingido' : ''}
+            />
+          </PageHeaderActions>
         }
       />
 

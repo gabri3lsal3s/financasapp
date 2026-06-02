@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
+import SectionHeader from '@/components/SectionHeader'
 import Card from '@/components/Card'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import { useAppSettings, type BiometricLockTimeout } from '@/hooks/useAppSettings'
-import { useTheme } from '@/hooks/useTheme'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
@@ -25,9 +25,8 @@ import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Switch from '@/components/Switch'
-import VisualStyleOptionCard from '@/components/settings/VisualStyleOptionCard'
-
-
+import AccentToneSwitcher from '@/components/AccentToneSwitcher'
+import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
 
 
 type SettingsView = 'appearance' | 'security' | 'admin'
@@ -74,8 +73,6 @@ export default function Settings() {
     biometricLockTimeout,
     setBiometricLockTimeout,
   } = useAppSettings()
-
-  const { visualStyle, setVisualStyle } = useTheme()
 
   const fetchUsers = async () => {
     if (!isAdmin) return
@@ -338,23 +335,24 @@ export default function Settings() {
         {/* Admin Panel */}
         {isAdmin && (
           <section className={activeSettingsView === 'admin' ? 'space-y-4' : 'hidden'}>
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <h2 className="text-xl font-semibold text-primary">Painel Administrativo</h2>
-                <p className="text-secondary text-sm">Gerencie solicitações de acesso ao sistema</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={fetchUsers}
-                disabled={adminLoading}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw size={14} className={adminLoading ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">Atualizar</span>
-              </Button>
-            </div>
+            <SectionHeader
+              title="Painel administrativo"
+              description="Gerencie solicitações de acesso ao sistema"
+              className="mb-1"
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchUsers}
+                  disabled={adminLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw size={14} className={adminLoading ? 'animate-spin' : ''} />
+                  <span className="hidden sm:inline">Atualizar</span>
+                </Button>
+              }
+            />
 
 
             <Card className="animate-stagger-item delay-75 border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5">
@@ -482,42 +480,18 @@ export default function Settings() {
 
         {/* Aparência */}
         <section className={activeSettingsView === 'appearance' ? 'space-y-4' : 'hidden'}>
-          <div>
-            <h2 className="text-xl font-semibold text-primary mb-1">Aparência</h2>
-            <p className="text-secondary text-sm">Personalize a estrutura e tema visual da interface</p>
-          </div>
-
-          {/* Seletor de Estilo Visual */}
-          <Card className="animate-stagger-item delay-75">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-primary mb-1">Estilo Visual</h3>
-                <p className="text-secondary text-sm">Escolha a experiência estrutural e estética do app</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <VisualStyleOptionCard
-                  selected={visualStyle === 'classic'}
-                  onSelect={() => setVisualStyle('classic')}
-                  icon={<ShieldCheck size={18} className="accent-primary" />}
-                  title="Clássico"
-                  description="Interface clássica sólida, limpa e profissional com layout fixo."
-                />
-                <VisualStyleOptionCard
-                  selected={visualStyle === 'cyberpunk'}
-                  onSelect={() => setVisualStyle('cyberpunk')}
-                  icon={<Sparkles size={18} className="text-indigo-400" />}
-                  title="Cyber-Minimalista"
-                  description="Bento Grid com cantos arredondados, vidro translúcido, acentos neon e layout flutuante."
-                  iconWrapClassName="bg-indigo-500/10 border border-indigo-500/20"
-                />
-              </div>
-            </div>
-          </Card>
+          <SectionHeader
+            title="Aparência"
+            description="Tema, cor de destaque e paleta dos dados financeiros"
+          />
 
           <ThemeSwitcher />
 
-          <Card className="animate-stagger-item delay-100">
+          <AccentToneSwitcher />
+
+          <ColorPaletteSwitcher />
+
+          <Card>
             <div className="space-y-5">
               <SettingRow
                 title="Calculadora flutuante"
@@ -535,10 +509,10 @@ export default function Settings() {
 
         {/* Segurança */}
         <section className={activeSettingsView === 'security' ? 'space-y-4' : 'hidden'}>
-          <div className="animate-stagger-item delay-150">
-            <h2 className="text-xl font-semibold text-primary mb-1">Segurança</h2>
-            <p className="text-secondary text-sm">Gerencie o acesso biométrico ao app neste dispositivo</p>
-          </div>
+          <SectionHeader
+            title="Segurança"
+            description="Gerencie o acesso biométrico ao app neste dispositivo"
+          />
 
           <Card className="animate-stagger-item delay-200">
             <div className="space-y-5">

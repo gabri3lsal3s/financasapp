@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, Fragment } from 'react'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
@@ -35,6 +36,7 @@ import {
 } from '@/services/investmentEngine'
 
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
+import { nonCashPortfolioPerformance } from '@/utils/portfolioDisplayMetrics'
 import { usePortfolioClose } from '@/hooks/usePortfolioClose'
 import { getAssetPrices } from '@/services/priceService'
 import type {
@@ -458,54 +460,40 @@ export default function Investments() {
         title={PAGE_HEADERS.investments.title}
         subtitle={PAGE_HEADERS.investments.description}
         action={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
+          <PageHeaderActions>
+            <PageHeaderActionButton
+              intent="balance"
+              icon={BarChart2}
+              label={closingPortfolio ? 'Fechando...' : 'Atualizar fechamento'}
+              compactOnMobile={false}
               onClick={handleDailyClose}
               disabled={closingPortfolio || portfolioLoading || !portfolioId}
-              className="hidden sm:flex items-center gap-2 border-purple-500/20 text-purple-600 hover:bg-purple-500/10 font-bold"
-            >
-              {closingPortfolio ? (
-                <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <BarChart2 size={16} className="text-purple-500" />
-              )}
-              <span>{closingPortfolio ? 'Fechando...' : 'Atualizar fechamento'}</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+              className="hidden sm:inline-flex"
+            />
+            <PageHeaderActionButton
+              intent="warning"
+              icon={TrendingUp}
+              label={refreshing ? 'Atualizando...' : 'Atualizar cotações'}
+              compactOnMobile={false}
               onClick={handleForceRefresh}
               disabled={refreshing || portfolioLoading}
-              className="hidden sm:flex items-center gap-2 border-amber-500/20 text-amber-600 hover:bg-amber-500/10 font-bold"
-            >
-              {refreshing ? (
-                <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <TrendingUp size={16} className="text-amber-500" />
-              )}
-              <span>{refreshing ? 'Atualizando...' : 'Atualizar Cotações'}</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+              className="hidden sm:inline-flex"
+            />
+            <PageHeaderActionButton
+              intent="income"
+              icon={FileSpreadsheet}
+              label="Conciliação B3"
+              compactOnMobile={false}
               onClick={() => setIsReconciliationOpen(true)}
-              className="hidden sm:inline-flex items-center gap-2 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10 font-bold animate-pulse-subtle"
-            >
-              <FileSpreadsheet size={16} className="text-emerald-500" />
-              <span>Conciliação B3</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+              className="hidden sm:inline-flex"
+            />
+            <PageHeaderActionButton
+              intent="primary"
+              icon={Plus}
+              label="Lançar transação"
               onClick={() => handleOpenTxModal()}
-              className="flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold"
-            >
-              <Plus size={16} className="text-indigo-500" />
-              <span className="hidden sm:inline">Lançar Transação</span>
-            </Button>
-          </div>
+            />
+          </PageHeaderActions>
         }
       />
 
@@ -516,19 +504,9 @@ export default function Investments() {
           <div className="space-y-6 animate-fade-in">
             {/* Cards de KPIs da Consultoria */}
             {(() => {
-              const nonCashPositions = portfolioData.positions.filter(p => p.pricing_mode !== 'cash')
-              const totalCost = nonCashPositions.reduce((sum, p) => {
-                const rate = p.usd_rate || 5.25
-                return sum + (p.currency === 'USD' ? p.cost_basis * rate : p.cost_basis)
-              }, 0)
-              const totalCurrent = nonCashPositions.reduce((sum, p) => {
-                const rate = p.usd_rate || 5.25
-                return sum + (p.currency === 'USD' ? p.total_value * rate : p.total_value)
-              }, 0)
-              const consolidatedYield = totalCost > 0 ? ((totalCurrent - totalCost) / totalCost) * 100 : 0
-              const consolidatedGain = totalCurrent - totalCost
+              const { yieldPct: consolidatedYield, gainBrl: consolidatedGain } =
+                nonCashPortfolioPerformance(portfolioData.positions, 'gross')
               const isPositive = consolidatedYield >= 0
-
               const totalCash = portfolioData.cashValue
 
               return (
@@ -1124,7 +1102,7 @@ export default function Investments() {
                                           setAssetDefTicker(pos.ticker)
                                           setAssetDefModalOpen(true)
                                         }}
-                                        className="!min-h-0 text-[10px] text-indigo-600 dark:text-indigo-400 border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
+                                        className="!min-h-0 text-[10px] font-bold"
                                       >
                                         <Settings2 size={12} />
                                         <span>Configurar</span>

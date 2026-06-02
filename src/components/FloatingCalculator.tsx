@@ -3,7 +3,6 @@ import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { formatNumberBR, roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
-import { useTheme } from '@/hooks/useTheme'
 
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
@@ -302,7 +301,6 @@ interface FloatingCalculatorProps {
 }
 
 export default function FloatingCalculator({ isHidden = false }: FloatingCalculatorProps) {
-  const { visualStyle } = useTheme()
   const [isMobile, setIsMobile] = useState(() => isMobileViewport(window.innerWidth))
   const [customTopY, setCustomTopY] = useState(() => Number(window.localStorage.getItem('floating-calculator-custom-top') || '160'))
   const location = useLocation()
@@ -1258,7 +1256,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
           style={iconOrigin === 'top-right' ? { top: `${customTopY}px`, touchAction: 'none' } : { touchAction: 'none' }}
         >
           {/* Old drag limits indicator omitted in cyberpunk mode for cleaner interaction */}
-          {visualStyle !== 'cyberpunk' && (isDraggingIcon || isIconReturning) && (
+          {(isDraggingIcon || isIconReturning) && (
             <div
               className={`pointer-events-none absolute rounded-full border border-primary ${isDraggingIcon ? 'opacity-80' : 'opacity-0'} motion-emphasis`}
               style={{
@@ -1280,25 +1278,15 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
               touchAction: 'none',
             }}
             className={
-              visualStyle === 'cyberpunk'
-                ? iconOrigin === 'top-right'
-                  ? `h-12 w-10 rounded-l-2xl rounded-r-none border-y border-l border-emerald-500/20 dark:border-emerald-400/10 bg-white/10 dark:bg-black/45 backdrop-blur-md text-emerald-400 dark:text-emerald-400 hover:text-emerald-300 hover:bg-white/20 dark:hover:bg-black/60 press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
-                    } transition-all duration-300 hover:-translate-x-1.5 hover:w-11 shadow-[0_8px_24px_rgba(0,255,136,0.15)] flex items-center justify-center`
-                  : `h-10 w-10 rounded-full border border-emerald-500/20 dark:border-emerald-400/10 bg-white/10 dark:bg-black/45 backdrop-blur-md text-emerald-400 dark:text-emerald-400 hover:text-emerald-300 hover:bg-white/20 dark:hover:bg-black/60 press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
-                    } ${
-                      isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
-                    } shadow-[0_8px_24px_rgba(0,255,136,0.15)] flex items-center justify-center`
-                : iconOrigin === 'top-right'
-                  ? `h-12 w-10 rounded-l-2xl rounded-r-none border-y border-l border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
-                    } transition-all duration-300 hover:-translate-x-1.5 hover:w-11 shadow-[0_8px_24px_rgba(0,0,0,0.12)] flex items-center justify-center`
-                  : `h-10 w-10 rounded-full border border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
-                    } ${
-                      isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
-                    } flex items-center justify-center`
+              iconOrigin === 'top-right'
+                ? `h-12 w-10 rounded-l-2xl rounded-r-none border-y border-l border-glass surface-glass-strong text-primary hover:text-accent press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
+                  } transition-all duration-300 hover:-translate-x-1.5 hover:w-11 shadow-lg flex items-center justify-center`
+                : `h-10 w-10 rounded-full border border-glass surface-glass-strong text-primary hover:text-accent press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
+                    isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab'
+                  } ${
+                    isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
+                  } shadow-lg flex items-center justify-center`
             }
           >
             <Calculator size={17} className="mx-auto" />

@@ -1,4 +1,6 @@
 import { CSSProperties, ReactNode } from 'react'
+import { Card as ShadcnCard } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface CardProps {
   children: ReactNode
@@ -17,11 +19,14 @@ export default function Card({ children, className = '', onClick, style }: CardP
   }
 
   return (
-    <div
-      className={`bg-primary rounded-lg shadow-sm border border-primary p-4 motion-standard ${onClick
-          ? 'cursor-pointer hover:shadow-md hover-lift-subtle press-subtle hover:bg-tertiary active:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
-          : ''
-        } ${className}`}
+    <ShadcnCard
+      className={cn(
+        'p-4',
+        onClick
+          ? 'cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+          : '',
+        className
+      )}
       style={style}
       onClick={onClick}
       onKeyDown={handleCardKeyDown}
@@ -29,6 +34,6 @@ export default function Card({ children, className = '', onClick, style }: CardP
       tabIndex={onClick ? 0 : undefined}
     >
       {children}
-    </div>
+    </ShadcnCard>
   )
 }

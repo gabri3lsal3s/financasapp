@@ -4,10 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
 import { Profile, Portfolio, PortfolioTransaction, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
 import { getCache, setCache } from '@/services/offlineCache'
-import { calculatePositions, calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
-import { getAssetPrices } from '@/services/priceService'
-import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
+import { calculateShareHistory, calculatePerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector, AssetPosition } from '@/services/investmentEngine'
+import { loadPortfolioValuation, prepareBatchValuationContext, valuatePortfolioSync } from '@/utils/portfolioValuationLoader'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
+import { useRebalancingTrades } from '@/hooks/useRebalancingTrades'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
@@ -17,7 +17,9 @@ import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Modal from '@/components/Modal'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { PAGE_HEADERS } from '@/constants/pages'
 import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText, Layers, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
@@ -65,6 +67,9 @@ type ConsultantPortfolioCache = {
   assetPrices?: Record<string, AssetPrice>
   positions?: AssetPosition[]
   portfolioValue?: number
+  investedValue?: number
+  cashValue?: number
+  totalValue?: number
   assetDefinitions?: PortfolioAssetDefinition[]
   indexRatesByIndexer?: Record<string, IndexRateMap>
   shareValue?: number
@@ -147,7 +152,9 @@ export default function ConsultantDashboard() {
 
   // Estados de cálculo
   const [positions, setPositions] = useState<AssetPosition[]>([])
-  const [portfolioValue, setPortfolioValue] = useState<number>(0)
+  const [investedValue, setInvestedValue] = useState<number>(0)
+  const [cashValue, setCashValue] = useState<number>(0)
+  const [totalValue, setTotalValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
   const [totalShares, setTotalShares] = useState<number>(0)
   const [yieldBasis, setYieldBasis] = useState<ClientKpiYieldBasis>('gross')
@@ -222,7 +229,9 @@ export default function ConsultantDashboard() {
       setPortfolio(null)
       setTransactions([])
       setPositions([])
-      setPortfolioValue(0)
+      setInvestedValue(0)
+      setCashValue(0)
+      setTotalValue(0)
       loadGlobalOverview()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: reage só a selectedClientId; loaders recriados a cada render
@@ -437,14 +446,15 @@ export default function ConsultantDashboard() {
 
       const definitionsList = (allDefinitions || []) as PortfolioAssetDefinition[]
 
-      const tickers = Array.from(new Set([
-        ...transactionsList.map(t => t.ticker.toUpperCase()),
-        ...targetsList.map(t => t.ticker.toUpperCase()),
-        ...definitionsList.map(d => d.ticker.toUpperCase()),
-      ]))
-
-      const prices = tickers.length > 0 ? await getAssetPrices(tickers, { forceRefresh: options?.forceRefresh }) : {}
-      setAssetPrices(prices)
+      const batchContext = await prepareBatchValuationContext(
+        definitionsList,
+        transactionsList,
+        {
+          forceRefresh: options?.forceRefresh,
+          extraTickers: targetsList.map((t) => t.ticker.toUpperCase()),
+        },
+      )
+      setAssetPrices(batchContext.prices)
 
       let overallAum = 0
       let overallCash = 0
@@ -456,16 +466,20 @@ export default function ConsultantDashboard() {
           : 'Sem nome'
         const clientTxs = transactionsList.filter(t => t.portfolio_id === port.id)
         const clientTargets = targetsList.filter(t => t.portfolio_id === port.id)
-        const clientDefinitions = definitionsList.filter(d => d.portfolio_id === port.id)
+        const clientDefinitions = batchContext.normalizedDefinitions.filter(
+          (d) => d.portfolio_id === port.id,
+        )
         const cashVal = Number(port.cash_balance) || 0
 
-        const { positions: calcPositions, totalValue, cashValue } = calculatePositions(
-          clientTxs,
-          clientTargets,
-          prices,
-          cashVal,
-          clientDefinitions
-        )
+        const { positions: calcPositions, totalValue, cashValue } = valuatePortfolioSync({
+          transactions: clientTxs,
+          targets: clientTargets,
+          definitions: clientDefinitions,
+          cashBalance: cashVal,
+          prices: batchContext.prices,
+          indexRatesByIndexer: batchContext.indexRatesByIndexer,
+          vnaMap: batchContext.vnaMap,
+        })
 
         overallAum += totalValue
         overallCash += cashValue
@@ -506,44 +520,7 @@ export default function ConsultantDashboard() {
     }
   }
 
-  const rebalancingTrades = React.useMemo(() => {
-    if (positions.length === 0 || portfolioValue === 0) return []
-
-    const trades: Array<{
-      ticker: string
-      action: 'buy' | 'sell' | 'hold'
-      amount: number
-      shares: number
-      currentPct: number
-      targetPct: number
-    }> = []
-
-    positions.forEach(pos => {
-      const diffPct = pos.target_percentage - pos.current_percentage
-      const diffAmount = (diffPct / 100) * portfolioValue
-      const action = diffPct > 1.0 ? 'buy' : diffPct < -1.0 ? 'sell' : 'hold'
-      const price = pos.current_price || 50.00
-      const shares = Math.round(diffAmount / price)
-
-      if (action !== 'hold' && Math.abs(shares) > 0) {
-        trades.push({
-          ticker: pos.ticker,
-          action,
-          amount: Math.abs(diffAmount),
-          shares: Math.abs(shares),
-          currentPct: pos.current_percentage,
-          targetPct: pos.target_percentage
-        })
-      }
-    })
-
-    return trades.sort((a, b) => {
-      if (a.action !== b.action) {
-        return a.action === 'buy' ? -1 : 1
-      }
-      return b.amount - a.amount
-    })
-  }, [positions, portfolioValue])
+  const rebalancingTrades = useRebalancingTrades(positions, totalValue)
 
   const classChartData = React.useMemo(() => {
     const dataMap: Record<string, { name: string; value: number; color: string }> = {}
@@ -574,8 +551,8 @@ export default function ConsultantDashboard() {
 
   // Métricas de performance (metrics)
   const performanceMetrics = React.useMemo(() => {
-    return calculatePerformanceMetrics(shareHistoryData)
-  }, [shareHistoryData])
+    return calculatePerformanceMetrics(shareHistoryData, periodSnapshots)
+  }, [shareHistoryData, periodSnapshots])
 
   // Rentabilidade real consolidada da carteira com base nos ativos
   const overallYieldPct = React.useMemo(() => {
@@ -607,13 +584,13 @@ export default function ConsultantDashboard() {
 
   // Consolidado por classe de ativos (consolidatedClass)
   const consolidatedClassData = React.useMemo(() => {
-    return calculateConsolidatedByClass(positions, portfolioValue, groupTargets)
-  }, [positions, portfolioValue, groupTargets])
+    return calculateConsolidatedByClass(positions, totalValue, groupTargets)
+  }, [positions, totalValue, groupTargets])
 
   // Consolidado por setor econômico (consolidatedSector)
   const consolidatedSectorData = React.useMemo(() => {
-    return calculateConsolidatedBySector(positions, portfolioValue, groupTargets)
-  }, [positions, portfolioValue, groupTargets])
+    return calculateConsolidatedBySector(positions, totalValue, groupTargets)
+  }, [positions, totalValue, groupTargets])
 
   const handleSavePortfolioSettings = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -651,7 +628,13 @@ export default function ConsultantDashboard() {
         if (cached.groupTargets) setGroupTargets(cached.groupTargets)
         if (cached.assetPrices) setAssetPrices(cached.assetPrices)
         if (cached.positions) setPositions(cached.positions)
-        if (cached.portfolioValue !== undefined) setPortfolioValue(cached.portfolioValue)
+        if (cached.investedValue !== undefined) setInvestedValue(cached.investedValue)
+        if (cached.cashValue !== undefined) setCashValue(cached.cashValue)
+        if (cached.totalValue !== undefined) setTotalValue(cached.totalValue)
+        else if (cached.portfolioValue !== undefined) {
+          setInvestedValue(cached.portfolioValue)
+          setTotalValue(cached.portfolioValue)
+        }
         if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
         if (cached.indexRatesByIndexer) setIndexRatesByIndexer(cached.indexRatesByIndexer)
         if (cached.shareValue !== undefined) setShareValue(cached.shareValue)
@@ -758,7 +741,9 @@ export default function ConsultantDashboard() {
 
       let finalPrices = {}
       let finalPositions: AssetPosition[] = []
-      let finalPortfolioValue = 0
+      let finalInvested = 0
+      let finalCash = 0
+      let finalTotal = 0
       let finalDefinitions: PortfolioAssetDefinition[] = []
       let finalIndexRates: Record<string, IndexRateMap> = {}
       let currentShareValue = 1.0
@@ -774,7 +759,9 @@ export default function ConsultantDashboard() {
         )
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
-        setPortfolioValue(valuation.investedValue)
+        setInvestedValue(valuation.investedValue)
+        setCashValue(valuation.cashValue)
+        setTotalValue(valuation.totalValue)
         setAssetDefinitions(valuation.definitions)
         setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
@@ -791,12 +778,16 @@ export default function ConsultantDashboard() {
 
         finalPrices = valuation.prices
         finalPositions = valuation.positions
-        finalPortfolioValue = valuation.investedValue
+        finalInvested = valuation.investedValue
+        finalCash = valuation.cashValue
+        finalTotal = valuation.totalValue
         finalDefinitions = valuation.definitions
         finalIndexRates = valuation.indexRatesByIndexer
       } else {
         setPositions([])
-        setPortfolioValue(0)
+        setInvestedValue(0)
+        setCashValue(0)
+        setTotalValue(0)
         setShareValue(1.0)
         setTotalShares(0)
         setAssetDefinitions([])
@@ -812,7 +803,9 @@ export default function ConsultantDashboard() {
         groupTargets: currentGroupTargets,
         assetPrices: finalPrices,
         positions: finalPositions,
-        portfolioValue: finalPortfolioValue,
+        investedValue: finalInvested,
+        cashValue: finalCash,
+        totalValue: finalTotal,
         assetDefinitions: finalDefinitions,
         indexRatesByIndexer: finalIndexRates,
         shareValue: currentShareValue,
@@ -1222,7 +1215,7 @@ export default function ConsultantDashboard() {
     toast.loading('Gerando relatório PDF de alta qualidade...', { id: 'pdf-toast' })
     try {
       const { shareHistory } = calculateShareHistory(transactions, assetPrices, assetDefinitions, indexRatesByIndexer)
-      const metrics = calculatePerformanceMetrics(shareHistory)
+      const metrics = calculatePerformanceMetrics(shareHistory, periodSnapshots)
 
       await generateConsultingPDF({
         clientName: resolveProfileDisplayName(client),
@@ -1232,6 +1225,8 @@ export default function ConsultantDashboard() {
         metrics,
         theses: assetTheses,
         cashBalance: Number(portfolio.cash_balance) || 0,
+        totalValue,
+        investedValue,
         groupTargets: groupTargets,
         executiveSummary: executiveSummary || undefined,
         nextMonthPlan: nextMonthPlan || undefined,
@@ -1247,7 +1242,7 @@ export default function ConsultantDashboard() {
   }
 
   const headerAction = (
-    <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
+    <PageHeaderActions className="justify-between sm:justify-end">
       {loadingClients ? (
         <span className="text-xs text-secondary font-semibold uppercase font-sans">Carregando clientes...</span>
       ) : (
@@ -1270,30 +1265,22 @@ export default function ConsultantDashboard() {
           </div>
         </div>
       )}
-      <Button
-        size="sm"
+      <PageHeaderActionButton
+        intent="warning"
+        icon={RefreshCw}
+        label={refreshing ? 'Atualizando...' : 'Atualizar'}
+        compactOnMobile={false}
         onClick={handleForceRefresh}
         disabled={refreshing || loadingPortfolio}
-        variant="outline"
-        className="flex items-center gap-1 text-xs shrink-0 font-bold h-[42px] px-3.5 border-amber-500/20 text-amber-600 hover:bg-amber-500/10"
-      >
-        {refreshing ? (
-          <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <RefreshCw size={14} className="text-amber-500" />
-        )}
-        <span>{refreshing ? 'Atualizando...' : 'Atualizar'}</span>
-      </Button>
-      <Button
-        size="sm"
+      />
+      <PageHeaderActionButton
+        intent="primary"
+        icon={UserPlus}
+        label="Novo cliente"
+        compactOnMobile={false}
         onClick={() => setIsClientModalOpen(true)}
-        variant="primary"
-        className="flex items-center gap-1 text-xs shrink-0 font-bold h-[42px] px-3.5"
-      >
-        <UserPlus size={14} />
-        <span>Novo</span>
-      </Button>
-    </div>
+      />
+    </PageHeaderActions>
   )
 
   const selectedClient = clients.find(c => c.id === selectedClientId)
@@ -1303,10 +1290,13 @@ export default function ConsultantDashboard() {
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
       <PageHeader
-        title="Consultoria de Investimentos"
-        subtitle={selectedClient ? `Assessoria ativa para o cliente: ${resolveProfileDisplayName(selectedClient)}` : 'Gestão patrimonial institucional e metodologia de alocação'}
+        title={PAGE_HEADERS.consulting.title}
+        subtitle={
+          selectedClient
+            ? `Cliente: ${resolveProfileDisplayName(selectedClient)}`
+            : PAGE_HEADERS.consulting.description
+        }
         action={headerAction}
-        responsiveStack={true}
       />
 
       {/* Cabeçalho do Cliente Selecionado */}
@@ -1325,7 +1315,7 @@ export default function ConsultantDashboard() {
 
       {/* Menu de Personalização de Visualização (Abas Premium) */}
       {portfolio && selectedClient && (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-card border border-border/40 p-3 sm:p-4 rounded-3xl shadow-sm text-left animate-page-enter">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 surface-glass-strong border border-glass p-3 sm:p-4 rounded-3xl shadow-sm text-left animate-page-enter glass-glow-card">
           {/* Título da seção */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[10px] sm:text-xs uppercase font-extrabold text-secondary tracking-wider block font-sans">
@@ -1353,8 +1343,8 @@ export default function ConsultantDashboard() {
                   onClick={() => setActiveTab(tab.id as ConsultantTab)}
                   className={`flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl transition-all w-full md:w-auto ${
                     isActive 
-                      ? 'shadow-md shadow-indigo-500/10' 
-                      : 'hover:bg-muted/10'
+                      ? 'nav-item-active shadow-md' 
+                      : 'border-glass hover:bg-muted/10'
                   }`}
                 >
                   <Icon size={14} className="shrink-0" />
@@ -1379,7 +1369,9 @@ export default function ConsultantDashboard() {
                   <span>Visão líquida (IR estimado)</span>
                 </div>
                 <ClientKpiCards
-                  portfolioValue={portfolioValue}
+                  investedValue={investedValue}
+                  cashValue={cashValue}
+                  totalValue={totalValue}
                   shareValue={shareValue}
                   totalShares={totalShares}
                   overallYieldPct={overallYieldPct}
@@ -1468,7 +1460,6 @@ export default function ConsultantDashboard() {
                               e.stopPropagation()
                               handleDeleteGroupTarget(gt.id)
                             }}
-                            className="!rounded-xl hover:bg-red-500/10"
                           />
                         </div>
                       </div>
@@ -1574,7 +1565,7 @@ export default function ConsultantDashboard() {
                 setNextMonthPlan={setNextMonthPlan}
                 savingReport={savingReport}
                 onSaveReport={handleSaveReport}
-                portfolioValue={portfolioValue}
+                portfolioValue={totalValue}
                 billingFeeRate={billingFeeRate}
                 setBillingFeeRate={handleSaveFeeRate}
                 onExportPDF={handleExportPDF}
@@ -1718,7 +1709,7 @@ export default function ConsultantDashboard() {
                   type="submit"
                   disabled={linking}
                   variant="primary"
-                  className="font-bold text-xs px-5 shadow-md shadow-indigo-500/10"
+                  className="font-bold text-xs px-5"
                 >
                   {linking ? 'Vinculando...' : 'Vincular Carteira'}
                 </Button>
@@ -1852,12 +1843,8 @@ export default function ConsultantDashboard() {
                 <Button
                   type="submit"
                   disabled={deletingClientState || deleteConfirmEmail.trim() !== clientToDelete.email}
-                  variant={isProvisional ? "danger" : "primary"}
-                  className={`font-bold text-xs px-5 shadow-md flex items-center gap-1.5 ${
-                    isProvisional 
-                      ? 'bg-red-600 hover:bg-red-700 text-white disabled:opacity-40 disabled:hover:bg-red-600' 
-                      : 'shadow-md shadow-indigo-500/10'
-                  }`}
+                  variant={isProvisional ? 'danger' : 'primary'}
+                  className="font-bold text-xs px-5 flex items-center gap-1.5"
                 >
                   <Trash2 size={13} />
                   {deletingClientState 

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { Portfolio, PortfolioGroupTarget, AssetPrice, PortfolioTransaction } from '@/types'
 import { AssetPosition, PerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector } from '@/services/investmentEngine'
+import { totalValueFromPositions } from '@/utils/portfolioDisplayMetrics'
 
 interface PDFData {
   clientName: string          // nome para exibição (display name)
@@ -10,6 +11,9 @@ interface PDFData {
   metrics: PerformanceMetrics
   theses: Record<string, string>
   cashBalance: number
+  /** Patrimônio total (ativos + caixa). Se omitido, soma posições em BRL. */
+  totalValue?: number
+  investedValue?: number
   groupTargets?: PortfolioGroupTarget[]
   executiveSummary?: string
   nextMonthPlan?: string
@@ -58,9 +62,10 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   } = data
 
   const attentionAssets = positions.filter(p => Math.abs(p.current_percentage - p.target_percentage) > 5)
-  const portfolioValue = positions
-    .filter((p) => p.pricing_mode !== 'cash')
-    .reduce((sum, p) => sum + p.total_value, 0)
+  const portfolioValue =
+    data.totalValue != null && data.totalValue > 0
+      ? data.totalValue
+      : totalValueFromPositions(positions)
   const totalYieldPct = shareHistory.length > 0 ? (shareHistory[shareHistory.length - 1].shareValue - 1) * 100 : 0
   const competenceMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()
 

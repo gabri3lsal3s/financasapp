@@ -128,7 +128,7 @@ export default function AdvisorOverview({
                               size="sm"
                               onClick={() => onSelectClient(row.id)}
                               variant="outline"
-                              className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-xl border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 dark:hover:text-indigo-300 font-semibold shadow-sm transition-all"
+                              className="text-xs flex items-center gap-1.5 font-semibold"
                             >
                               <Eye size={12} />
                               Visualizar
@@ -145,8 +145,8 @@ export default function AdvisorOverview({
                                       onDeleteClient(cl)
                                     }
                                   }}
-                                  variant="outline"
-                                  className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-xl border-red-500/20 text-red-600 hover:bg-red-500/10 dark:hover:text-red-300 font-semibold shadow-sm transition-all"
+                                  variant="expense"
+                                  className="text-xs flex items-center gap-1.5 font-semibold"
                                 >
                                   <Trash2 size={12} />
                                   Excluir
@@ -204,7 +204,7 @@ export default function AdvisorOverview({
                         size="sm"
                         onClick={() => onSelectClient(row.id)}
                         variant="outline"
-                        className="flex-1 text-xs justify-center items-center gap-1.5 py-2 rounded-xl border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 dark:hover:text-indigo-300 font-bold shadow-sm"
+                        className="flex-1 text-xs justify-center items-center gap-1.5 font-bold"
                       >
                         <Eye size={13} />
                         Visualizar
@@ -221,8 +221,8 @@ export default function AdvisorOverview({
                                 onDeleteClient(cl)
                               }
                             }}
-                            variant="outline"
-                            className="flex-1 text-xs justify-center items-center gap-1.5 py-2 rounded-xl border-red-500/20 text-red-600 hover:bg-red-500/10 dark:hover:text-red-300 font-bold shadow-sm"
+                            variant="expense"
+                            className="flex-1 text-xs justify-center items-center gap-1.5 font-bold"
                           >
                             <Trash2 size={13} />
                             Excluir

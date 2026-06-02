@@ -556,12 +556,12 @@ export type ReconciliationConflict = {
   }
 }
 
+/** Cross-card / PIX matching é feito na UI (CreditCardCsvReconciliationPanel) com janela estendida de despesas. */
 export type ReconciliationResult = {
   matched: Array<{ official: OfficialInvoiceItem; existing: BillExpenseItem; score: number }>
   missing: OfficialInvoiceItem[]
   conflicts: ReconciliationConflict[]
   existingOnly: BillExpenseItem[]
-  potentialCrossCardMatches: Array<{ official: OfficialInvoiceItem; existing: BillExpenseItem; score: number }>
 }
 
 export interface InvoiceTotals {
@@ -708,10 +708,6 @@ export const reconcileCreditCardBill = (
     })
   })
 
-  // Identificar possíveis lançamentos que estão em OUTRO cartão ou DEBITO/PIX
-  const potentialCrossCardMatches: ReconciliationResult['potentialCrossCardMatches'] = []
-  // Esta lógica será alimentada pela UI passando nearbyExpenses estendido
-
   const existingOnly = candidates.filter((item) => {
     const isUnused = !usedExistingIds.has(String(item.id || ''))
     const isTargetMonth = String(item.bill_competence) === targetMonth
@@ -723,7 +719,6 @@ export const reconcileCreditCardBill = (
     missing,
     conflicts,
     existingOnly,
-    potentialCrossCardMatches,
   }
 }
 

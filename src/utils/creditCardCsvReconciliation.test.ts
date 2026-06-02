@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   parseCreditCardInvoiceCsv,
   reconcileCreditCardBill,
+  calculateInvoiceTotals,
+  analyzeInstallments,
 } from '@/utils/creditCardCsvReconciliation'
 
 describe('creditCardCsvReconciliation', () => {
@@ -182,6 +184,76 @@ describe('creditCardCsvReconciliation', () => {
 
     expect(parsed.supported).toBe(true)
     expect(parsed.items).toHaveLength(2)
+  })
+
+  it('calculateInvoiceTotals soma oficial, identificado e diferença', () => {
+    const official = [
+      { id: 'o1', date: '2026-03-05', description: 'Loja', amount: 100, installmentNumber: null, installmentTotal: null, isRefund: false, kind: 'purchase' as const },
+      { id: 'o2', date: '2026-03-10', description: 'Mercado', amount: 50, installmentNumber: null, installmentTotal: null, isRefund: false, kind: 'purchase' as const },
+    ]
+    const reconciliation = reconcileCreditCardBill(official, [
+      {
+        id: 'e1',
+        credit_card_id: 'c1',
+        amount: 100,
+        base_amount: 100,
+        date: '2026-03-05',
+        description: 'Loja',
+      },
+    ], '2026-03')
+
+    const totals = calculateInvoiceTotals(reconciliation, official)
+    expect(totals.officialTotal).toBe(150)
+    expect(totals.matchedTotal).toBe(100)
+    expect(totals.missingTotal).toBe(50)
+    expect(totals.difference).toBe(50)
+  })
+
+  it('analyzeInstallments detecta parcelas faltantes na sequência', () => {
+    const analysis = analyzeInstallments({
+      officialItem: {
+        id: 'o1',
+        date: '2026-03-05',
+        description: 'Assinatura X',
+        amount: 30,
+        installmentNumber: 2,
+        installmentTotal: 3,
+        isRefund: false,
+        kind: 'purchase',
+      },
+      existingItem: {
+        id: 'e1',
+        credit_card_id: 'c1',
+        amount: 30,
+        base_amount: 30,
+        date: '2026-02-05',
+        description: 'Assinatura X',
+        installment_number: 1,
+        installment_total: 3,
+      },
+      nearbyExpenses: [
+        {
+          id: 'e1',
+          amount: 30,
+          date: '2026-02-05',
+          description: 'Assinatura X',
+          installmentNumber: 1,
+          installmentTotal: 3,
+        },
+        {
+          id: 'e2',
+          amount: 30,
+          date: '2026-03-05',
+          description: 'Assinatura X',
+          installmentNumber: 2,
+          installmentTotal: 3,
+        },
+      ],
+    })
+
+    expect(analysis.status).toBe('missing')
+    expect(analysis.missingNumbers).toContain(3)
+    expect(analysis.foundNumbers).toEqual(expect.arrayContaining([1, 2]))
   })
 
   it('mantém total líquido esperado para a fatura exemplo (ignora pagamento e considera estorno)', () => {

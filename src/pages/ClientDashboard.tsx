@@ -11,13 +11,16 @@ import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { getAllocationClassColor } from '@/utils/categoryColors'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
 import Loader from '@/components/Loader'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { PAGE_HEADERS } from '@/constants/pages'
 import ClientKpiCards, { type ClientKpiYieldBasis } from '@/components/consulting/ClientKpiCards'
 import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
 import OrganicVsContributionsChart from '@/components/consulting/OrganicVsContributionsChart'
+import ClientAdvisoryReportSection from '@/components/consulting/ClientAdvisoryReportSection'
 import { usePortfolioClose } from '@/hooks/usePortfolioClose'
+import { useRebalancingTrades } from '@/hooks/useRebalancingTrades'
 import type { PortfolioPeriodSnapshotRow } from '@/types'
 import Switch from '@/components/Switch'
 import {
@@ -36,6 +39,9 @@ type ClientDashboardCache = {
   indexRatesByIndexer?: Record<string, IndexRateMap>
   positions?: AssetPosition[]
   portfolioValue?: number
+  investedValue?: number
+  cashValue?: number
+  totalValue?: number
   shareValue?: number
   totalShares?: number
 }
@@ -52,11 +58,15 @@ export default function ClientDashboard() {
 
   // Estados calculados
   const [positions, setPositions] = useState<AssetPosition[]>([])
-  const [portfolioValue, setPortfolioValue] = useState<number>(0)
+  const [investedValue, setInvestedValue] = useState<number>(0)
+  const [cashValue, setCashValue] = useState<number>(0)
+  const [totalValue, setTotalValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
   const [totalShares, setTotalShares] = useState<number>(0)
   const [yieldBasis, setYieldBasis] = useState<ClientKpiYieldBasis>('gross')
   const [periodSnapshots, setPeriodSnapshots] = useState<PortfolioPeriodSnapshotRow[]>([])
+  const [executiveSummary, setExecutiveSummary] = useState('')
+  const [nextMonthPlan, setNextMonthPlan] = useState('')
   const { loadPeriodSnapshots } = usePortfolioClose()
 
   useEffect(() => {
@@ -80,7 +90,13 @@ export default function ClientDashboard() {
         if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
         if (cached.indexRatesByIndexer) setIndexRatesByIndexer(cached.indexRatesByIndexer)
         if (cached.positions) setPositions(cached.positions)
-        if (cached.portfolioValue) setPortfolioValue(cached.portfolioValue)
+        if (cached.investedValue !== undefined) setInvestedValue(cached.investedValue)
+        if (cached.cashValue !== undefined) setCashValue(cached.cashValue)
+        if (cached.totalValue !== undefined) setTotalValue(cached.totalValue)
+        else if (cached.portfolioValue) {
+          setInvestedValue(cached.portfolioValue)
+          setTotalValue(cached.portfolioValue)
+        }
         if (cached.shareValue) setShareValue(cached.shareValue)
         if (cached.totalShares) setTotalShares(cached.totalShares)
       }
@@ -129,6 +145,10 @@ export default function ClientDashboard() {
           for (const item of thesesData) {
             mappedTheses[item.ticker.toUpperCase()] = item.thesis
           }
+          setExecutiveSummary(mappedTheses['__EXECUTIVE_SUMMARY__'] || '')
+          setNextMonthPlan(mappedTheses['__NEXT_MONTH_PLAN__'] || '')
+          delete mappedTheses['__EXECUTIVE_SUMMARY__']
+          delete mappedTheses['__NEXT_MONTH_PLAN__']
           setAssetTheses(mappedTheses)
         }
       }
@@ -136,7 +156,9 @@ export default function ClientDashboard() {
       // 5. Busca cotações dos ativos para os cálculos
       let finalPrices = {}
       let finalPositions: AssetPosition[] = []
-      let finalPortfolioValue = 0
+      let finalInvested = 0
+      let finalCash = 0
+      let finalTotal = 0
       let finalDefinitions: PortfolioAssetDefinition[] = []
       let finalIndexRates: Record<string, IndexRateMap> = {}
       let currentShareValue = 1.0
@@ -151,7 +173,9 @@ export default function ClientDashboard() {
         )
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
-        setPortfolioValue(valuation.investedValue)
+        setInvestedValue(valuation.investedValue)
+        setCashValue(valuation.cashValue)
+        setTotalValue(valuation.totalValue)
         setAssetDefinitions(valuation.definitions)
         setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
@@ -168,12 +192,16 @@ export default function ClientDashboard() {
 
         finalPrices = valuation.prices
         finalPositions = valuation.positions
-        finalPortfolioValue = valuation.investedValue
+        finalInvested = valuation.investedValue
+        finalCash = valuation.cashValue
+        finalTotal = valuation.totalValue
         finalDefinitions = valuation.definitions
         finalIndexRates = valuation.indexRatesByIndexer
       } else {
         setPositions([])
-        setPortfolioValue(0)
+        setInvestedValue(0)
+        setCashValue(0)
+        setTotalValue(0)
         setShareValue(1.0)
         setTotalShares(0)
         setAssetDefinitions([])
@@ -189,7 +217,9 @@ export default function ClientDashboard() {
         assetDefinitions: finalDefinitions,
         indexRatesByIndexer: finalIndexRates,
         positions: finalPositions,
-        portfolioValue: finalPortfolioValue,
+        investedValue: finalInvested,
+        cashValue: finalCash,
+        totalValue: finalTotal,
         shareValue: currentShareValue,
         totalShares: sharesOutstanding
       })
@@ -207,7 +237,7 @@ export default function ClientDashboard() {
     toast.loading('Compilando seu relatório premium...', { id: 'client-report' })
     try {
       const { shareHistory } = calculateShareHistory(transactions, assetPrices, assetDefinitions, indexRatesByIndexer)
-      const metrics = calculatePerformanceMetrics(shareHistory)
+      const metrics = calculatePerformanceMetrics(shareHistory, periodSnapshots)
 
       await generateConsultingPDF({
         clientName: user?.email?.split('@')[0].toUpperCase() || 'CLIENTE',
@@ -216,7 +246,9 @@ export default function ClientDashboard() {
         shareHistory,
         metrics,
         theses: assetTheses,
-        cashBalance: Number(portfolio.cash_balance) || 0
+        cashBalance: Number(portfolio.cash_balance) || 0,
+        totalValue,
+        investedValue,
       })
     } catch (err) {
       console.error(err)
@@ -224,46 +256,17 @@ export default function ClientDashboard() {
     }
   }
 
-  // Lógica de cálculo de rebalanceamento
-  const rebalancingTrades = useMemo(() => {
-    if (positions.length === 0 || portfolioValue === 0) return []
+  const rebalancingTrades = useRebalancingTrades(positions, totalValue)
 
-    const trades: Array<{
-      ticker: string
-      action: 'buy' | 'sell' | 'hold'
-      amount: number
-      shares: number
-      currentPct: number
-      targetPct: number
-    }> = []
-
-    positions.forEach(pos => {
-      const diffPct = pos.target_percentage - pos.current_percentage
-      const diffAmount = (diffPct / 100) * portfolioValue
-      const action = diffPct > 1.0 ? 'buy' : diffPct < -1.0 ? 'sell' : 'hold'
-      const price = pos.current_price || 50.00
-      const shares = Math.round(diffAmount / price)
-
-      if (action !== 'hold' && Math.abs(shares) > 0) {
-        trades.push({
-          ticker: pos.ticker,
-          action,
-          amount: Math.abs(diffAmount),
-          shares: Math.abs(shares),
-          currentPct: pos.current_percentage,
-          targetPct: pos.target_percentage
-        })
-      }
-    })
-
-    // Ordenar compras primeiro, maiores necessidades primeiro
-    return trades.sort((a, b) => {
-      if (a.action !== b.action) {
-        return a.action === 'buy' ? -1 : 1
-      }
-      return b.amount - a.amount
-    })
-  }, [positions, portfolioValue])
+  const displayTheses = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(assetTheses).filter(
+          ([ticker]) => !ticker.startsWith('__') && ticker.trim().length > 0,
+        ),
+      ),
+    [assetTheses],
+  )
 
   // Rentabilidade consolidada ponderada dos ativos em carteira
   const overallYieldPct = useMemo(() => {
@@ -308,22 +311,23 @@ export default function ClientDashboard() {
   }, [positions])
 
   const headerAction = portfolio ? (
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={handleDownloadReport}
-      className="flex items-center gap-2 border-indigo-500/20 text-indigo-600 hover:bg-indigo-500/10 font-bold w-full sm:w-auto"
-    >
-      <FileText size={16} />
-      <span className="hidden sm:inline">Baixar Relatório PDF</span>
-      <span className="sm:hidden">Relatório PDF</span>
-    </Button>
+    <PageHeaderActions>
+      <PageHeaderActionButton
+        intent="balance"
+        icon={FileText}
+        label="Relatório PDF"
+        onClick={handleDownloadReport}
+      />
+    </PageHeaderActions>
   ) : undefined
 
   if (loading) {
     return (
       <div className="space-y-6 lg:space-y-8 animate-page-enter">
-        <PageHeader title="Minha Consultoria" subtitle="Página de Consultoria de Investimentos" />
+        <PageHeader
+          title={PAGE_HEADERS.clientConsulting.title}
+          subtitle={PAGE_HEADERS.clientConsulting.description}
+        />
         <Loader text="Carregando sua carteira..." className="py-24" />
       </div>
     )
@@ -332,8 +336,8 @@ export default function ClientDashboard() {
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
       <PageHeader
-        title="Minha Consultoria"
-        subtitle="Página de Consultoria de Investimentos"
+        title={PAGE_HEADERS.clientConsulting.title}
+        subtitle={PAGE_HEADERS.clientConsulting.description}
         action={headerAction}
       />
 
@@ -364,13 +368,20 @@ export default function ClientDashboard() {
             </div>
           </div>
           <ClientKpiCards
-            portfolioValue={portfolioValue}
+            investedValue={investedValue}
+            cashValue={cashValue}
+            totalValue={totalValue}
             shareValue={shareValue}
             totalShares={totalShares}
             yieldVariant="accumulated"
             overallYieldPct={overallYieldPct}
             yieldBasis={yieldBasis}
             netShareValue={netShareValue}
+          />
+
+          <ClientAdvisoryReportSection
+            executiveSummary={executiveSummary}
+            nextMonthPlan={nextMonthPlan}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -633,17 +644,17 @@ export default function ClientDashboard() {
                 Por que possuo estes ativos?
               </h3>
               <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
-                {positions.filter(pos => assetTheses[pos.ticker]).length === 0 ? (
+                {positions.filter(pos => displayTheses[pos.ticker]).length === 0 ? (
                   <p className="text-xs text-secondary text-center py-4">Seu consultor ainda não anexou teses qualitativas este mês.</p>
                 ) : (
-                  positions.filter(pos => assetTheses[pos.ticker]).map(pos => (
+                  positions.filter(pos => displayTheses[pos.ticker]).map(pos => (
                     <div key={pos.ticker} className="p-3 bg-muted/20 border border-border/30 rounded-lg space-y-1">
                       <div className="flex items-center justify-between text-xs font-bold text-primary">
                         <span>{pos.ticker}</span>
                         <span className="text-[10px] text-emerald-500 font-semibold">{pos.target_percentage}% alvo</span>
                       </div>
                       <p className="text-[11px] text-secondary leading-relaxed pt-1">
-                        {assetTheses[pos.ticker]}
+                        {displayTheses[pos.ticker]}
                       </p>
                     </div>
                   ))

@@ -1165,7 +1165,7 @@ export default function InvestmentReconciliationModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Conciliação B3 — Movimentação e Posição"
-      maxWidth="max-w-5xl"
+      size="2xl"
     >
       <div className="space-y-4">
         {/* Invisible anchor for scrolling to top */}
@@ -1398,7 +1398,7 @@ export default function InvestmentReconciliationModal({
                     setPositionOnlyMode(true)
                     setCurrentStep('position')
                   }}
-                  className="font-bold gap-1.5 shadow-md shadow-indigo-500/15 animate-pulse-slow"
+                  className="font-bold gap-1.5 animate-pulse-slow"
                 >
                   Continuar Apenas com Posição <ArrowRight size={14} />
                 </Button>
@@ -1410,7 +1410,7 @@ export default function InvestmentReconciliationModal({
                   onClick={() => {
                     setCurrentStep('summary')
                   }}
-                  className="font-bold gap-1.5 shadow-lg shadow-indigo-500/20 hover:scale-102 transition-all duration-300"
+                  className="font-bold gap-1.5 hover:scale-102 transition-all duration-300"
                 >
                   {positionFileName ? 'Iniciar Auditoria Completa' : 'Iniciar Auditoria de Movimentações'} <ArrowRight size={14} />
                 </Button>
@@ -1665,7 +1665,7 @@ export default function InvestmentReconciliationModal({
                     goToNextStepAfter('corrections')
                   }
                 }}
-                className="font-bold shadow-md shadow-indigo-500/10"
+                className="font-bold"
               >
                 {manualYieldRequiredAssets.length > 0 ? 'Avançar para Rentabilidade →' : 'Validar posição B3 →'}
               </Button>
@@ -1723,11 +1723,11 @@ export default function InvestmentReconciliationModal({
                   {selectedConflictCount} de {conflictDrafts.filter(c => !c.applied).length} selecionados
                 </span>
                 <Button
-                  variant="primary"
+                  variant="warning-solid"
                   size="sm"
                   disabled={loading || selectedConflictCount === 0}
                   onClick={handleApplySelectedConflicts}
-                  className="font-bold shadow-md shadow-amber-500/10 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                  className="font-bold shrink-0"
                 >
                   {loading ? 'Aplicando...' : `Aplicar Selecionados`}
                 </Button>
@@ -1863,7 +1863,7 @@ export default function InvestmentReconciliationModal({
                   size="sm"
                   disabled={loading || selectedMissingCount === 0}
                   onClick={handleImportSelectedMissing}
-                  className="font-bold shadow-md shadow-indigo-500/10 shrink-0"
+                  className="font-bold shrink-0"
                 >
                   {loading ? 'Importando...' : `Importar Selecionados`}
                 </Button>
@@ -2043,9 +2043,9 @@ export default function InvestmentReconciliationModal({
                     </div>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="expense"
                       onClick={() => handleDeleteLedgerOnlyTransaction(tx.id)}
-                      className="border-red-500/20 text-red-500 hover:bg-red-500/10 hover:text-white px-3 font-semibold text-xs py-1"
+                      className="px-3 text-xs font-semibold"
                     >
                       Excluir Lançamento
                     </Button>
@@ -2066,7 +2066,7 @@ export default function InvestmentReconciliationModal({
               <Button variant="outline" size="sm" onClick={() => setCurrentStep('corrections')} className="font-bold">
                 ← Voltar
               </Button>
-              <Button variant="primary" size="sm" onClick={() => setCurrentStep('position')} className="font-bold shadow-md shadow-indigo-500/15">
+              <Button variant="primary" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
                 Avançar para Custódia B3 →
               </Button>
             </div>
@@ -2106,7 +2106,7 @@ export default function InvestmentReconciliationModal({
                           size="sm"
                           variant="outline"
                           onClick={() => onOpenAssetConfig(asset.ticker)}
-                          className="flex items-center gap-1 border-indigo-500/25 text-indigo-400 hover:bg-indigo-500/10 py-1.5 px-3 font-bold text-[10px] shrink-0"
+                          className="flex items-center gap-1 py-1.5 px-3 font-bold text-[10px] shrink-0"
                         >
                           Configurar Ativo
                         </Button>
@@ -2176,7 +2176,7 @@ export default function InvestmentReconciliationModal({
                             size="sm"
                             variant="primary"
                             onClick={() => handleSaveAssetYield(asset)}
-                            className="w-full h-8 flex items-center justify-center gap-1 font-bold text-[11px] shadow-sm shadow-indigo-500/10"
+                            className="w-full h-8 flex items-center justify-center gap-1 font-bold text-[11px]"
                           >
                             💾 Salvar Rentabilidade
                           </Button>
@@ -2207,7 +2207,7 @@ export default function InvestmentReconciliationModal({
                 size="sm"
                 disabled={!positionValidation}
                 onClick={() => positionOnlyMode ? onClose() : setCurrentStep('review')}
-                className="font-bold shadow-md shadow-indigo-500/15"
+                className="font-bold"
               >
                 {positionOnlyMode ? 'Concluir Validação ✓' : 'Avançar para Conclusão →'}
               </Button>
@@ -2317,7 +2317,7 @@ export default function InvestmentReconciliationModal({
                   🔄 Outro Extrato
                 </Button>
               </div>
-              <Button variant="primary" size="sm" onClick={onClose} className="font-bold shadow-md shadow-emerald-500/15 bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button variant="success" size="sm" onClick={onClose} className="font-bold">
                 ✓ Concluir Conciliação
               </Button>
             </div>

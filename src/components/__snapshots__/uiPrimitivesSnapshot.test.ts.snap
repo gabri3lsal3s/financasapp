@@ -5,26 +5,41 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
   class="space-y-2"
 >
   <button
-    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90 px-4 py-2 text-base min-h-10  "
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-primary/25 bg-primary text-primary-foreground shadow-sm hover:opacity-90 h-10 px-4 py-2 min-h-10"
   >
     Primário
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-primary bg-primary text-secondary hover:text-primary hover:bg-tertiary px-4 py-2 text-base min-h-10  "
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-primary hover:bg-accent hover:text-primary h-10 px-4 py-2 min-h-10"
   >
     Outline
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-danger)] bg-[var(--color-danger)] text-white hover:opacity-90 px-3 py-1.5 text-sm min-h-9  "
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
     Danger
+  </button>
+  <button
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-income hover:bg-income/10 hover:text-income h-9 rounded-lg px-3 min-h-9"
+  >
+    Renda
+  </button>
+  <button
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense h-9 rounded-lg px-3 min-h-9"
+  >
+    Despesa
+  </button>
+  <button
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-income/25 bg-income text-primary-foreground shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+  >
+    Sucesso
   </button>
 </div>
 `;
 
 exports[`UI primitives snapshots > Card renders clickable state consistently 1`] = `
 <div
-  class="rounded-lg p-4 motion-standard bg-primary shadow-sm border border-primary cursor-pointer hover:shadow-md hover-lift-subtle press-subtle hover:bg-tertiary active:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] "
+  class="rounded-2xl border border-glass surface-glass text-card-foreground shadow-sm motion-standard p-4 cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
   role="button"
   tabindex="0"
 >
@@ -39,7 +54,7 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
   class="w-full"
 >
   <label
-    class="block text-sm font-medium text-primary mb-1"
+    class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-primary mb-1 block"
     for=":r0:"
   >
     Valor
@@ -48,13 +63,13 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
     class="relative"
   >
     <input
-      class="w-full px-4 py-2 border rounded-lg bg-primary text-primary placeholder-[var(--color-text-secondary)] hover:border-[var(--color-focus)] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:border-transparent transition-all duration-[var(--transition-fast)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] border-[var(--color-danger)] "
+      class="flex h-10 w-full rounded-xl border border-glass bg-[var(--glass-input-bg)] px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 backdrop-blur-sm transition-all motion-standard border-destructive"
       id=":r0:"
       value="1.000,00"
     />
   </div>
   <p
-    class="mt-1 text-sm text-[var(--color-danger)]"
+    class="mt-1 text-sm text-destructive"
   >
     Campo obrigatório
   </p>
@@ -63,39 +78,63 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
 
 exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
 <body
-  style="overflow: hidden;"
+  data-scroll-locked="1"
+  style="pointer-events: none;"
 >
-  <div />
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
   <div
-    class="fixed inset-0 z-[999] flex items-end sm:items-center justify-center p-0 sm:p-4 safe-area-top safe-area-bottom overflow-hidden"
+    aria-hidden="true"
+    data-aria-hidden="true"
+  />
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-[999]"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r4:"
+    aria-labelledby="radix-:r3:"
+    class="fixed left-[50%] top-[50%] z-[1000] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-glass surface-glass-strong p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 surface-glass-strong sm:w-full"
+    data-state="open"
+    id="radix-:r2:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
   >
     <div
-      class="fixed inset-0 bg-black/60 backdrop-blur-[1px]"
-      role="presentation"
-      style="opacity: 0;"
-    />
-    <div
-      aria-labelledby=":r1:"
-      aria-modal="true"
-      class="bg-primary w-full shadow-2xl border-t sm:border border-primary overflow-hidden flex flex-col z-[1000] relative max-h-[90vh] sm:max-h-[calc(100vh-4rem)] rounded-2xl max-w-md"
-      role="dialog"
-      style="opacity: 0; transform: translateY(12px) scale(0.95);"
+      class="flex flex-col space-y-1.5 text-center sm:text-left space-y-0"
     >
+      <h2
+        class="text-lg font-semibold leading-none tracking-tight text-primary sr-only"
+        id="radix-:r3:"
+      >
+        Editar lançamento
+      </h2>
       <div
-        class="flex items-center justify-between px-5 py-4 border-b border-primary shrink-0"
+        class="modal-glass-header flex shrink-0 items-start justify-between gap-3"
       >
         <h2
-          class="text-lg font-black text-primary uppercase tracking-tight leading-tight"
+          class="min-w-0 flex-1 text-base font-bold uppercase tracking-tight text-primary sm:text-lg"
           id=":r1:"
         >
           Editar lançamento
         </h2>
         <button
-          class="p-1.5 rounded-full border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+          aria-label="Fechar"
+          class="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
           type="button"
         >
           <svg
-            class="lucide lucide-x text-primary"
+            aria-hidden="true"
+            class="lucide lucide-x "
             fill="none"
             height="16"
             stroke="currentColor"
@@ -115,27 +154,34 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
           </svg>
         </button>
       </div>
-      <div
-        class="overflow-y-auto p-5 text-primary flex-1"
-      >
-        <div>
-          <p>
-            Conteúdo do modal
-          </p>
-        </div>
+    </div>
+    <div
+      class="modal-glass-body min-h-0 flex-1 overflow-y-auto text-primary"
+    >
+      <div>
+        <p>
+          Conteúdo do modal
+        </p>
       </div>
     </div>
   </div>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
 </body>
 `;
 
 exports[`UI primitives snapshots > ModalActionFooter renders with delete action consistently 1`] = `
 <form>
   <div
-    class="flex pt-4 justify-center items-center gap-4"
+    class="modal-action-footer -mx-4 mt-4 flex items-center justify-center gap-4 border-t border-glass px-4 py-4 sm:-mx-5 sm:px-5"
   >
     <button
-      class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-transparent bg-transparent text-secondary hover:text-expense hover:bg-[color-mix(in_srgb,var(--color-expense)_10%,transparent)] px-4 py-2 text-base min-h-10  px-3 flex-shrink-0"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 px-4 py-2 min-h-10 px-3 flex-shrink-0"
       title="Excluir item"
       type="button"
     >
@@ -175,7 +221,7 @@ exports[`UI primitives snapshots > ModalActionFooter renders with delete action 
       </svg>
     </button>
     <button
-      class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-transparent bg-transparent text-secondary hover:text-income hover:bg-[color-mix(in_srgb,var(--color-income)_10%,transparent)] px-4 py-2 text-base min-h-10  px-3 flex-shrink-0"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 px-4 py-2 min-h-10 px-3 flex-shrink-0"
       disabled=""
       title="Salvar alterações"
       type="submit"
@@ -203,30 +249,30 @@ exports[`UI primitives snapshots > ModalActionFooter renders with delete action 
 
 exports[`UI primitives snapshots > PageHeader renders title, subtitle and action consistently 1`] = `
 <header
-  class="bg-secondary border-b border-primary safe-area-top motion-standard relative z-30"
+  class="surface-glass relative z-30 border-b border-glass safe-area-top motion-standard"
 >
   <div
-    class="px-4 py-3 lg:px-6 flex items-center justify-between gap-4 motion-standard"
+    class="px-4 py-3 lg:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
   >
     <div
-      class="flex-1 min-w-0"
+      class="min-w-0 flex-1"
     >
       <h1
-        class="text-xl sm:text-2xl font-bold text-primary truncate"
+        class="truncate text-lg font-bold tracking-tight text-primary sm:text-xl"
       >
         Relatórios
       </h1>
       <p
-        class="text-xs sm:text-sm text-secondary mt-0.5 sm:mt-1 truncate"
+        class="mt-0.5 truncate text-xs text-secondary sm:text-sm"
       >
         Resumo anual e mensal
       </p>
     </div>
     <div
-      class="flex-shrink-0 flex items-center gap-2 motion-standard"
+      class="flex shrink-0 items-center gap-2 w-full sm:w-auto"
     >
       <button
-        class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90 px-3 py-1.5 text-sm min-h-9  "
+        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-primary/25 bg-primary text-primary-foreground shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
       >
         Exportar
       </button>
@@ -250,8 +296,8 @@ exports[`UI primitives snapshots > Select renders options and error state consis
   >
     <button
       class="
-              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium
-              border-primary/20 bg-primary hover:bg-tertiary shadow-none
+              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium surface-glass
+              border-glass hover:bg-tertiary/50 shadow-none
               cursor-pointer
               border-danger/50
             "

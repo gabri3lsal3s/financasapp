@@ -55,10 +55,10 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
               if (!disabled) setIsOpen(!isOpen)
             }}
             className={`
-              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium
+              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium surface-glass
               ${isOpen 
-                ? 'border-primary bg-primary/10 ring-2 ring-primary/20 shadow-lg shadow-primary/10' 
-                : 'border-primary/20 bg-primary hover:bg-tertiary shadow-none'
+                ? 'border-primary/30 ring-2 ring-primary/20 shadow-lg' 
+                : 'border-glass hover:bg-tertiary/50 shadow-none'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : 'cursor-pointer'}
               ${error ? 'border-danger/50' : ''}
@@ -87,7 +87,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
           </button>
 
           {isOpen && (
-            <div className="absolute z-[1000] w-full mt-2 bg-primary border border-primary rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="absolute z-[1000] w-full mt-2 surface-glass-strong border border-glass rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
               <div className="max-h-60 overflow-y-auto custom-scrollbar p-1.5">
                 {options.length === 0 ? (
                   <div className="p-4 text-center text-xs text-secondary/40 italic">Nenhuma opção disponível</div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Button from '@/components/Button';
 import Modal from './Modal';
 
 interface MonthPickerModalProps {
@@ -32,20 +33,28 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-6">
         {/* Year Selector */}
-        <div className="flex items-center justify-between bg-secondary/5 p-2 rounded-xl border border-white/5">
-          <button 
+        <div className="flex items-center justify-between rounded-xl border border-glass surface-glass p-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setViewYear(viewYear - 1)}
-            className="p-2 hover:bg-white/5 rounded-lg text-secondary transition-all"
+            className="h-9 w-9 min-h-9 p-0"
+            aria-label="Ano anterior"
           >
-            <ChevronLeft size={20} />
-          </button>
+            <ChevronLeft size={20} aria-hidden />
+          </Button>
           <span className="text-xl font-black text-primary tracking-tighter">{viewYear}</span>
-          <button 
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setViewYear(viewYear + 1)}
-            className="p-2 hover:bg-white/5 rounded-lg text-secondary transition-all"
+            className="h-9 w-9 min-h-9 p-0"
+            aria-label="Próximo ano"
           >
-            <ChevronRight size={20} />
-          </button>
+            <ChevronRight size={20} aria-hidden />
+          </Button>
         </div>
 
         {/* Month Grid */}
@@ -53,38 +62,34 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
           {months.map((m) => {
             const isSelected = year === viewYear && month === m.value;
             return (
-              <button
+              <Button
                 key={m.value}
+                type="button"
+                variant={isSelected ? 'secondary' : 'outline'}
                 onClick={() => handleSelect(m.value)}
-                className={`
-                  py-4 rounded-2xl border transition-all font-bold text-sm
-                  ${isSelected 
-                    ? 'bg-primary/10 border-primary-500/30 text-primary shadow-lg shadow-primary/10 scale-[1.02]' 
-                    : 'bg-secondary/5 border-white/5 text-secondary hover:border-primary/30 hover:text-primary'
-                  }
-                `}
+                className={`h-auto w-full py-4 text-sm font-bold ${isSelected ? 'scale-[1.02] shadow-lg' : ''}`}
               >
                 {m.name}
-              </button>
+              </Button>
             );
           })}
         </div>
 
         <div className="pt-2 flex flex-col items-center gap-3">
             {showLiveOption && (
-                <button 
+                <Button
+                    type="button"
+                    variant="outline"
+                    fullWidth
                     onClick={() => { onChange('live'); onClose(); }}
-                    className="w-full py-3 rounded-2xl border border-primary/30 bg-primary/5 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-primary/10 transition-all"
+                    className="py-3 text-[10px] font-black uppercase tracking-widest"
                 >
                     Copiar para Posição Atual (Live)
-                </button>
+                </Button>
             )}
-            <button 
-                onClick={onClose}
-                className="text-xs text-secondary opacity-50 hover:opacity-100 transition-opacity"
-            >
+            <Button type="button" variant="link" size="sm" onClick={onClose} className="text-xs opacity-70">
                 Cancelar
-            </button>
+            </Button>
         </div>
       </div>
     </Modal>

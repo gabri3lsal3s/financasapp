@@ -42,8 +42,9 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-primary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
-      <div className="w-full max-w-md space-y-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
+      <div className="app-shell-glow" aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-md space-y-8">
         <div>
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary">
             <KeyRound className="h-6 w-6 text-primary" />

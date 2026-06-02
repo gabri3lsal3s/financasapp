@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
@@ -210,15 +211,14 @@ export default function Expenses() {
         title={PAGE_HEADERS.expenses.title}
         subtitle={PAGE_HEADERS.expenses.description}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenModal()}
-            className="flex items-center justify-center gap-2 border-expense/30 hover:bg-expense/10 font-bold"
-          >
-            <Plus size={16} className="text-expense" />
-            <span className="hidden sm:inline">Adicionar</span>
-          </Button>
+          <PageHeaderActions>
+            <PageHeaderActionButton
+              intent="expense"
+              icon={Plus}
+              label="Adicionar"
+              onClick={() => handleOpenModal()}
+            />
+          </PageHeaderActions>
         }
       />
 

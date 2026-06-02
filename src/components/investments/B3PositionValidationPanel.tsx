@@ -225,7 +225,7 @@ export default function B3PositionValidationPanel({
                   size="sm"
                   disabled={applyingAdjustments || selectedCount === 0}
                   onClick={onApplyAdjustments}
-                  className="w-full sm:w-auto font-bold gap-1.5 shadow-md shadow-indigo-500/10 group-hover:scale-102"
+                  className="w-full sm:w-auto font-bold gap-1.5 group-hover:scale-102"
                 >
                   <Wand2 size={13} className="group-hover:rotate-12 transition-transform duration-300" />
                   {applyingAdjustments

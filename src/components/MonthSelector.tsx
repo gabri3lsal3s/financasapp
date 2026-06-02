@@ -1,5 +1,7 @@
 import { APP_START_MONTH, formatMonth, getCurrentMonthString, addMonths, clampMonthToAppStart } from '@/utils/format'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import IconButton from '@/components/IconButton'
+import Button from '@/components/Button'
 
 interface MonthSelectorProps {
   value: string
@@ -27,50 +29,45 @@ export default function MonthSelector({ value, onChange, isOnline = true, classN
   const canNavigateNext = isOnline ? true : isWithinOfflineWindow(nextMonth)
   const canReturnToCurrent = isOnline ? !isCurrentMonth : (isWithinOfflineWindow(currentMonth) && !isCurrentMonth)
 
-  const navButtonClasses = 'p-2 rounded-full border border-primary text-secondary motion-standard hover-lift-subtle press-subtle hover:text-primary hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
-  const textButtonClasses = 'text-xs text-secondary mt-1 motion-standard hover-lift-subtle press-subtle hover:text-primary hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] rounded-md px-2 py-0.5'
-
   return (
-    <div className={`flex items-center justify-between mb-4 ${className}`.trim()}>
-      <div className="w-10 h-10 flex items-center justify-center">
-        {canNavigatePrev && (
-          <button
-            type="button"
+    <div className={`mb-4 flex items-center justify-between ${className}`.trim()}>
+      <div className="flex h-10 w-10 items-center justify-center">
+        {canNavigatePrev ? (
+          <IconButton
+            size="sm"
+            icon={<ChevronLeft size={18} className="text-primary" />}
+            label="Mês anterior"
             onClick={() => onChange(prevMonth)}
-            className={`${navButtonClasses} animate-scale-fade-in`}
-            aria-label="Mês anterior"
-          >
-            <ChevronLeft size={20} className="text-accent-primary" />
-          </button>
-        )}
+          />
+        ) : null}
       </div>
 
       <div className="flex flex-col items-center">
-        <h2 className="text-lg font-semibold text-primary">{formatMonth(normalizedValue)}</h2>
-        <div className="h-6 flex items-center justify-center">
-          {canReturnToCurrent && (
-            <button
+        <p className="text-base font-semibold text-primary sm:text-lg">{formatMonth(normalizedValue)}</p>
+        <div className="flex h-8 items-center justify-center">
+          {canReturnToCurrent ? (
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => onChange(currentMonth)}
-              className={`${textButtonClasses} animate-scale-fade-in`}
+              className="h-auto px-2 py-0.5 text-xs text-secondary"
             >
               Voltar ao mês atual
-            </button>
-          )}
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      <div className="w-10 h-10 flex items-center justify-center">
-        {canNavigateNext && (
-          <button
-            type="button"
+      <div className="flex h-10 w-10 items-center justify-center">
+        {canNavigateNext ? (
+          <IconButton
+            size="sm"
+            icon={<ChevronRight size={18} className="text-primary" />}
+            label="Próximo mês"
             onClick={() => onChange(nextMonth)}
-            className={`${navButtonClasses} animate-scale-fade-in`}
-            aria-label="Próximo mês"
-          >
-            <ChevronRight size={20} className="text-accent-primary" />
-          </button>
-        )}
+          />
+        ) : null}
       </div>
     </div>
   )

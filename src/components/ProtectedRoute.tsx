@@ -149,13 +149,15 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           </p>
 
           <div className="space-y-4 pt-4">
-            <button
+            <Button
+              type="button"
+              variant="link"
               onClick={handleLogout}
-              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+              className="mx-auto pt-2 flex items-center justify-center gap-1.5 text-sm"
             >
-              <LogOut size={16} />
+              <LogOut size={16} aria-hidden />
               Sair da Conta
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -207,13 +209,15 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
               Tentar Novamente
             </Button>
 
-            <button
+            <Button
+              type="button"
+              variant="link"
               onClick={handleLogout}
-              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+              className="mx-auto pt-2 flex items-center justify-center gap-1.5 text-sm"
             >
-              <LogOut size={16} />
+              <LogOut size={16} aria-hidden />
               Sair da Conta
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -243,13 +247,15 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           <div className="space-y-4 pt-4">
 
 
-            <button
+            <Button
+              type="button"
+              variant="link"
               onClick={handleLogout}
-              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+              className="mx-auto pt-2 flex items-center justify-center gap-1.5 text-sm"
             >
-              <LogOut size={16} />
+              <LogOut size={16} aria-hidden />
               Sair da Conta
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -261,8 +267,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isLocked) {
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
-        <div className="w-full max-w-md space-y-8 text-center p-8 bg-[var(--color-bg-primary)] rounded-2xl shadow-xl border border-[var(--color-border)]">
+      <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4">
+        <div className="app-shell-glow" aria-hidden="true" />
+        <div className="relative z-10 w-full max-w-md space-y-8 text-center p-8 surface-glass-strong rounded-2xl border border-glass shadow-xl animate-page-enter">
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tertiary border-2 border-primary">
             <Fingerprint className="h-12 w-12 text-primary animate-pulse" />
           </div>
@@ -294,13 +301,15 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
               {unlocking ? 'Verificando...' : 'Desbloquear App'}
             </Button>
 
-            <button
+            <Button
+              type="button"
+              variant="link"
               onClick={handleLogout}
-              className="text-sm text-secondary hover:text-primary motion-standard flex items-center justify-center gap-1.5 mx-auto pt-2"
+              className="mx-auto pt-2 flex items-center justify-center gap-1.5 text-sm"
             >
-              <LogOut size={16} />
+              <LogOut size={16} aria-hidden />
               Acessar com E-mail e Senha
-            </button>
+            </Button>
           </div>
         </div>
       </div>

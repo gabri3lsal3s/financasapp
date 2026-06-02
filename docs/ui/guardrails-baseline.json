@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-02T19:13:58.105Z",
+  "generatedAt": "2026-06-02T20:00:00.000Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -15,41 +15,5 @@
       "description": "Evitar controles nativos em páginas; preferir primitives compartilhadas."
     }
   ],
-  "violations": [
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/reports/ReportsContent.tsx|1058|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/reports/ReportsContent.tsx",
-      "line": 1058,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/reports/ReportsContent.tsx|1236|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/reports/ReportsContent.tsx",
-      "line": 1236,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/reports/ReportsContent.tsx|1633|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/reports/ReportsContent.tsx",
-      "line": 1633,
-      "match": "<button"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/reports/ReportsContent.tsx|1725|<input",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/reports/ReportsContent.tsx",
-      "line": 1725,
-      "match": "<input"
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/reports/ReportsContent.tsx|1767|<button",
-      "ruleId": "ui-no-native-control-in-pages",
-      "file": "src/pages/reports/ReportsContent.tsx",
-      "line": 1767,
-      "match": "<button"
-    }
-  ]
+  "violations": []
 }

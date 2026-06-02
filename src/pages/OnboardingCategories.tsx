@@ -40,8 +40,9 @@ export default function OnboardingCategories() {
   const canFinish = categories.length > 0 && incomeCategories.length > 0
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-primary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
-      <div className="w-full max-w-xl space-y-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
+      <div className="app-shell-glow" aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-xl space-y-8">
         <div>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-tertiary">
             <Tags className="h-8 w-8 text-primary" />

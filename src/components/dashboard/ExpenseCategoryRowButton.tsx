@@ -31,7 +31,7 @@ export default function ExpenseCategoryRowButton({
       type="button"
       variant="outline"
       onClick={() => onOpen(item.categoryId, item.name)}
-      className={`w-full h-auto text-left flex-col items-stretch p-3 md:p-4 animate-stagger-item ${staggerClass}`}
+      className={`h-auto w-full flex-col items-stretch p-3 text-left md:p-4 ${staggerClass}`}
     >
       <div className="flex items-center justify-between gap-3 w-full">
         <div className="flex items-center gap-2.5 min-w-0">

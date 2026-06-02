@@ -37,9 +37,9 @@ export default function ClientOverviewHeader({
           {!isClientAdmin && !isSelfPortfolio && (
             <Button
               size="sm"
-              variant="outline"
+              variant="expense"
               onClick={onDeleteClick}
-              className="text-xs border-red-500/20 text-red-600 hover:bg-red-500/10 dark:hover:text-red-300 font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition-all"
+              className="text-xs font-bold gap-1.5"
             >
               <Trash2 size={13} />
               Excluir Cliente
@@ -57,8 +57,8 @@ export default function ClientOverviewHeader({
           <Button
             size="sm"
             onClick={onLinkClick}
-            variant="outline"
-            className="border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300 font-bold text-xs self-start sm:self-center py-1.5 px-3.5 shrink-0 transition-all"
+            variant="warning"
+            className="font-bold text-xs self-start sm:self-center shrink-0"
           >
             Vincular Conta Real
           </Button>

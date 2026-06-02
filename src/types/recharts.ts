@@ -29,13 +29,10 @@ export type ChartAnimProps = {
   animationEasing: AnimationTiming
 }
 
-export function chartAnimProps(visualStyle: string, durationCyber = 1200, durationClassic = 700): ChartAnimProps {
-  const easing = visualStyle === 'cyberpunk'
-    ? ('cubic-bezier(0.34, 1.56, 0.64, 1)' as unknown as AnimationTiming)
-    : 'ease-out'
+export function chartAnimProps(_visualStyle?: string, durationGlass = 1200): ChartAnimProps {
   return {
     isAnimationActive: true,
-    animationDuration: visualStyle === 'cyberpunk' ? durationCyber : durationClassic,
-    animationEasing: easing,
+    animationDuration: durationGlass,
+    animationEasing: 'ease-out' as AnimationTiming,
   }
 }

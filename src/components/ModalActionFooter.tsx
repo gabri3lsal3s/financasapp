@@ -21,7 +21,7 @@ export default function ModalActionFooter({
   onSubmit,
 }: ModalActionFooterProps) {
   return (
-    <div className="flex pt-4 justify-center items-center gap-4">
+    <div className="modal-action-footer -mx-4 mt-4 flex items-center justify-center gap-4 border-t border-glass px-4 py-4 sm:-mx-5 sm:px-5">
       {onDelete && deleteLabel && (
         <Button
           type="button"

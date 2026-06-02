@@ -468,6 +468,29 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(suggestions[0]?.quantity).toBe(5)
     })
 
+    it('suggestPositionAdjustments usa preço de mercado quando não há histórico de trade', () => {
+      const validation = buildPositionValidation({ NOVO3: 10 }, { NOVO3: 0 }, { NOVO3: 0 })
+      const suggestions = suggestPositionAdjustments(validation, [], [], {
+        marketPrices: { NOVO3: { current_price: 25.5 } },
+      })
+      expect(suggestions).toHaveLength(1)
+      expect(suggestions[0]?.price).toBe(25.5)
+      expect(suggestions[0]?.requiresManualPrice).toBe(false)
+    })
+
+    it('suggestPositionAdjustments marca requiresManualPrice sem fonte de preço', () => {
+      const validation = buildPositionValidation({ XYZ9: 5 }, { XYZ9: 0 }, { XYZ9: 0 })
+      const suggestions = suggestPositionAdjustments(validation, [], [])
+      expect(suggestions[0]?.price).toBe(0)
+      expect(suggestions[0]?.requiresManualPrice).toBe(true)
+    })
+
+    it('buildPositionValidation identifica ghost_system', () => {
+      const result = buildPositionValidation({ PETR4: 0 }, { PETR4: 0 }, { PETR4: 100 })
+      const row = result.rows.find((r) => r.ticker === 'PETR4')
+      expect(row?.status).toBe('ghost_system')
+    })
+
     it('suggestPositionAdjustments propõe ajustes para Renda Fixa privada', () => {
       const validation = buildPositionValidation(
         { 'CDB - BANCO MASTER': 1000, 'PETR4': 100 },

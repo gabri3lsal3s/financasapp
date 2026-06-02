@@ -356,17 +356,19 @@ export default function PositionsTable({
 
                         {/* Ações rápidas */}
                         <div className="flex justify-end pt-2 border-t border-primary/5">
-                          <button
+                          <Button
                             type="button"
+                            size="xs"
+                            variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
                               onOpenAssetConfig(pos.ticker);
                             }}
-                            className="flex items-center gap-1.5 text-[10px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition-all py-1.5 px-3 border border-indigo-500/20 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
+                            className="gap-1.5 text-[10px] font-bold"
                           >
-                            <Settings2 size={12} />
+                            <Settings2 size={12} aria-hidden />
                             <span>Configurar Ativo</span>
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     );

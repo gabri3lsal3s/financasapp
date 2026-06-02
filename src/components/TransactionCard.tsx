@@ -1,4 +1,5 @@
 import { RefreshCw, Pencil, Trash2, ChevronDown } from 'lucide-react'
+import Button from '@/components/Button'
 import Card from '@/components/Card'
 import { formatCurrency } from '@/utils/format'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -56,7 +57,7 @@ export default function TransactionCard({
   return (
     <Card
       onClick={handleCardClick}
-      className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-primary transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col ${staggerClass}`}
+      className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col glass-glow-card ${staggerClass}`}
     >
       <div className="flex bg-primary flex-1 h-full flex-col">
         <div className="flex flex-1 items-stretch">
@@ -193,30 +194,34 @@ export default function TransactionCard({
               {/* Action buttons row */}
               <div className="flex items-center gap-2 justify-end pt-1">
                 {onDelete && (
-                  <button
+                  <Button
                     type="button"
+                    size="xs"
+                    variant="expense"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDelete()
                     }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 rounded-xl text-red-500 font-extrabold text-[9px] uppercase tracking-wider motion-standard hover-lift-subtle press-subtle select-none"
+                    className="gap-1.5 select-none"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={12} aria-hidden />
                     <span>Excluir</span>
-                  </button>
+                  </Button>
                 )}
                 {onEdit && (
-                  <button
+                  <Button
                     type="button"
+                    size="xs"
+                    variant="outline"
                     onClick={(e) => {
                       e.stopPropagation()
                       onEdit()
                     }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-secondary border border-primary hover:border-indigo-500/35 rounded-xl text-primary font-extrabold text-[9px] uppercase tracking-wider motion-standard hover-lift-subtle press-subtle select-none"
+                    className="gap-1.5 select-none"
                   >
-                    <Pencil size={12} />
+                    <Pencil size={12} aria-hidden />
                     <span>Editar</span>
-                  </button>
+                  </Button>
                 )}
               </div>
             </motion.div>

@@ -38,24 +38,17 @@ const RADIAN = Math.PI / 180;
 const SECTION_SPACING = 24; 
 
 export default function ReportCharts({ assets, macroSectors, sectors, historyReports, totalBalance, compositionDescription }: Props) {
-  const { visualStyle, colorPalette } = useTheme();
+  const { colorPalette } = useTheme();
 
-  // Cores dinâmicas para a distribuição de ativos baseadas em temas/estilos
   const chartPalette = useMemo(() => {
     if (colorPalette === 'monochrome') {
       return Array.from({ length: 6 }, (_, i) => `var(--chart-mono-${i})`)
     }
-    if (visualStyle === 'cyberpunk') {
-      return [
-        'var(--ds-color-accent-primary)',
-        ...Array.from({ length: 6 }, (_, i) => `var(--chart-cyber-${i})`),
-      ]
-    }
     return [
       'var(--color-primary)',
-      ...Array.from({ length: 6 }, (_, i) => `var(--chart-vivid-${i})`),
+      ...Array.from({ length: 6 }, (_, i) => `var(--chart-glass-${i})`),
     ]
-  }, [visualStyle, colorPalette]);
+  }, [colorPalette]);
 
   const macroComposition = useMemo(() => {
     return macroSectors.map((m) => {
@@ -112,7 +105,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
     }));
   }, [historyReports]);
 
-  const animProps = useMemo(() => chartAnimProps(visualStyle), [visualStyle]);
+  const animProps = useMemo(() => chartAnimProps(), []);
 
   // Renderizador de percentual nas fatias (adaptável para contraste de temas)
   const renderLabel = ({ cx, cy, midAngle, outerRadius, pct }: PieLabelProps) => {
@@ -269,7 +262,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                 <XAxis dataKey="month" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => formatAxisCurrencyThousands(Number(v))} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlow)' : undefined} {...animProps} />
+                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} filter="url(#cyberGlow)" {...animProps} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

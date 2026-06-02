@@ -149,13 +149,30 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-border/40 flex items-start gap-2 text-[10px] text-secondary italic font-sans leading-relaxed">
-        <Shield size={14} className="shrink-0 text-indigo-500 mt-0.5" />
-        <span>
-          {sharpe_ratio >= 1.0 
-            ? 'A carteira tem demonstrado excelente retorno ajustado ao risco histórico.' 
-            : 'Recomenda-se diversificar classes de ativos para mitigar volatilidade e melhorar o Sharpe.'}
-        </span>
+      <div className="mt-4 pt-3 border-t border-border/40 space-y-2">
+        {metrics.data_source === 'insufficient' && (
+          <p className="text-[10px] text-secondary italic font-sans leading-relaxed">
+            Histórico insuficiente para métricas confiáveis. Execute fechamentos mensais na carteira.
+          </p>
+        )}
+        {metrics.data_source === 'share_history' && (
+          <p className="text-[10px] text-secondary italic font-sans leading-relaxed">
+            Beta calculado com benchmarks de referência simplificados; retornos derivados da série de cotas diária.
+          </p>
+        )}
+        {metrics.data_source === 'snapshots' && (
+          <p className="text-[10px] text-secondary italic font-sans leading-relaxed">
+            Retornos mensais a partir de fechamentos oficiais da carteira; Beta ainda usa benchmarks de referência.
+          </p>
+        )}
+        <div className="flex items-start gap-2 text-[10px] text-secondary italic font-sans leading-relaxed">
+          <Shield size={14} className="shrink-0 text-indigo-500 mt-0.5" />
+          <span>
+            {sharpe_ratio >= 1.0
+              ? 'A carteira tem demonstrado excelente retorno ajustado ao risco histórico.'
+              : 'Recomenda-se diversificar classes de ativos para mitigar volatilidade e melhorar o Sharpe.'}
+          </span>
+        </div>
       </div>
     </Card>
   )

@@ -1,8 +1,15 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut, Users } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
 import FloatingCalculator from '@/components/FloatingCalculator'
+import Button from '@/components/Button'
+import { Button as UiButton } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
@@ -32,7 +39,7 @@ function OfflinePlaceholder() {
       </p>
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-medium hover:opacity-90 transition-all active:scale-95"
+        className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium motion-standard hover-lift-subtle press-subtle bg-primary text-primary-foreground"
       >
         <ArrowLeft size={20} />
         Voltar para o Início
@@ -51,12 +58,15 @@ export default function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
   const isSettingsPage = location.pathname === '/settings'
-  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const desktopMenuRef = useRef<HTMLElement | null>(null)
   const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null)
-  const activeItemClasses = 'bg-tertiary accent-primary'
-  const inactiveItemClasses = 'text-primary hover:bg-tertiary'
+  const activeItemClasses = 'nav-item-active'
+  const inactiveItemClasses = 'text-secondary hover:bg-accent/50 border border-transparent hover:text-primary'
+  const mobileTabClass = (isActive: boolean) =>
+    `relative flex flex-col items-center justify-center w-14 h-12 overflow-visible rounded-xl motion-standard ${
+      isActive ? 'nav-item-active font-semibold' : 'font-medium text-secondary hover:text-primary'
+    }`
 
   const handleLogout = async () => {
     try {
@@ -135,9 +145,8 @@ export default function Layout({ children }: LayoutProps) {
       if (!target) return
 
       if (isMobileMenuOpen) {
-        const clickedMobileMenu = mobileMenuRef.current?.contains(target)
         const clickedMobileToggle = mobileMenuButtonRef.current?.contains(target)
-        if (!clickedMobileMenu && !clickedMobileToggle) {
+        if (!clickedMobileToggle) {
           setIsMobileMenuOpen(false)
         }
       }
@@ -169,217 +178,142 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   return (
-    <div className="min-h-screen bg-secondary">
+    <div className="min-h-screen bg-secondary relative">
+      <div className="app-shell-glow" aria-hidden="true" />
+      <div className="relative z-10">
       <div className="lg:hidden">
         {/* Sleek Top Header with Settings shortcut on mobile */}
-        <header className="absolute top-0 inset-x-0 z-[100] bg-secondary/95 backdrop-blur-md border-b border-primary safe-area-top">
+        <header className="absolute top-0 inset-x-0 z-[100] surface-glass border-b border-glass safe-area-top">
           <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="h-14 flex items-center justify-between relative">
               <span className="w-10"></span> {/* Spacer */}
               <h1 className="text-sm font-black text-primary text-center uppercase tracking-wider">Finanças</h1>
-              <Link
-                to="/settings"
-                aria-label="Configurações"
-                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-              >
-                <Settings size={20} />
-              </Link>
+              <UiButton variant="outline" size="icon" className="h-9 w-9 rounded-full border-glass" asChild>
+                <Link to="/settings" aria-label="Configurações">
+                  <Settings size={18} />
+                </Link>
+              </UiButton>
             </div>
           </div>
         </header>
 
-        {/* Dynamic Bottom Sheet Menu via AnimatePresence */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <>
-              {/* Blur backdrop overlay */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-[2px]"
-                onClick={() => setIsMobileMenuOpen(false)}
-              />
-
-              {/* Bottom Sheet Menu Container */}
-              <motion.div
-                ref={mobileMenuRef}
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 26, stiffness: 220 }}
-                className="fixed bottom-0 left-0 right-0 mx-auto max-w-md w-full z-[120] bg-secondary border-t border-primary rounded-t-3xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh] safe-area-bottom"
-              >
-                {/* Visual drag indicator */}
-                <div className="w-12 h-1.5 bg-primary/20 rounded-full mx-auto my-3 shrink-0" />
-                
-                <div className="px-5 pb-3.5 pt-1 border-b border-primary flex items-center justify-between shrink-0">
-                  <h2 className="text-sm font-black text-primary uppercase tracking-widest">Mais Opções</h2>
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-1.5 rounded-full border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle"
+        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+          <SheetContent side="bottom" showCloseButton={false} className="max-h-[85vh] rounded-t-3xl border-glass surface-glass-strong safe-area-bottom p-0">
+            <div className="w-12 h-1.5 bg-muted rounded-full mx-auto my-3 shrink-0" />
+            <SheetHeader className="px-5 pb-3.5 pt-1 border-b border-glass text-left">
+              <SheetTitle className="text-sm font-black uppercase tracking-widest">Mais Opções</SheetTitle>
+            </SheetHeader>
+            <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
+              <div className="grid grid-cols-2 gap-3">
+                {!(!isOnline) && (
+                  <Link
+                    to="/credit-cards"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
                   >
-                    <X size={16} />
-                  </button>
-                </div>
+                    <CreditCard size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Cartões</span>
+                  </Link>
+                )}
+                {!(!isOnline) && (
+                  <Link
+                    to="/reports"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                  >
+                    <BarChart3 size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Relatórios</span>
+                  </Link>
+                )}
+                {!(!isOnline) && (
+                  <Link
+                    to="/categories"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                  >
+                    <Tags size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Categorias</span>
+                  </Link>
+                )}
+                <Link
+                  to="/settings"
+                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                >
+                  <Settings size={20} className="text-secondary mb-2" />
+                  <span className="text-xs font-bold text-primary">Ajustes</span>
+                </Link>
+                {hasAdvisoryLink && (
+                  <Link
+                    to="/my-consulting"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2 glass-glow-card"
+                  >
+                    <Users size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Minha Consultoria</span>
+                  </Link>
+                )}
+                {profile?.role === 'consultant' && (
+                  <Link
+                    to="/consulting"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2 glass-glow-card"
+                  >
+                    <Users size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Consultoria</span>
+                  </Link>
+                )}
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false)
+                    void handleLogout()
+                  }}
+                  className="col-span-2 mt-2 uppercase tracking-wider text-xs"
+                >
+                  <LogOut size={16} />
+                  Sair do App
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
 
-                <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Cartões */}
-                    {!(!isOnline) && (
-                      <Link
-                        to="/credit-cards"
-                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-                      >
-                        <CreditCard size={20} className="text-secondary mb-2" />
-                        <span className="text-xs font-bold text-primary">Cartões</span>
-                      </Link>
-                    )}
-
-                    {/* Relatórios */}
-                    {!(!isOnline) && (
-                      <Link
-                        to="/reports"
-                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-                      >
-                        <BarChart3 size={20} className="text-secondary mb-2" />
-                        <span className="text-xs font-bold text-primary">Relatórios</span>
-                      </Link>
-                    )}
-
-                    {/* Categorias */}
-                    {!(!isOnline) && (
-                      <Link
-                        to="/categories"
-                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-                      >
-                        <Tags size={20} className="text-secondary mb-2" />
-                        <span className="text-xs font-bold text-primary">Categorias</span>
-                      </Link>
-                    )}
-
-                    {/* Configurações */}
-                    <Link
-                      to="/settings"
-                      className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-                    >
-                      <Settings size={20} className="text-secondary mb-2" />
-                      <span className="text-xs font-bold text-primary">Ajustes</span>
-                    </Link>
-
-                    {/* Minha Consultoria (se aplicável) */}
-                    {hasAdvisoryLink && (
-                      <Link
-                        to="/my-consulting"
-                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2"
-                      >
-                        <Users size={20} className="text-secondary mb-2" />
-                        <span className="text-xs font-bold text-primary">Minha Consultoria</span>
-                      </Link>
-                    )}
-
-                    {/* Consultoria do Assessor (se aplicável) */}
-                    {profile?.role === 'consultant' && (
-                      <Link
-                        to="/consulting"
-                        className="flex flex-col items-center justify-center p-4 bg-primary border border-primary/60 hover:border-indigo-500/40 rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2"
-                      >
-                        <Users size={20} className="text-secondary mb-2" />
-                        <span className="text-xs font-bold text-primary">Consultoria</span>
-                      </Link>
-                    )}
-
-                    {/* Botão Sair */}
-                    <button
-                      onClick={() => {
-                        setIsMobileMenuOpen(false)
-                        void handleLogout()
-                      }}
-                      className="col-span-2 w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 rounded-2xl motion-standard hover-lift-subtle press-subtle font-extrabold text-red-500 text-xs uppercase tracking-wider mt-2"
-                    >
-                      <LogOut size={16} />
-                      <span>Sair do App</span>
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
-        {/* Fixed Premium Bottom Tab Bar */}
-        <nav className="fixed bottom-0 inset-x-0 z-[100] bg-secondary/95 backdrop-blur-md border-t border-primary safe-area-bottom flex items-center justify-around h-16 shadow-lg px-2">
+        <nav className="glass-bottom-nav fixed bottom-0 inset-x-0 z-[100] safe-area-bottom flex items-center justify-around shadow-lg px-2">
           {/* Home Tab */}
-          <Link
-            to="/"
-            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
-              location.pathname === '/'
-                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
-                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
-            }`}
-          >
-            <Home size={18} className={location.pathname === '/' ? 'text-[var(--color-primary)]' : ''} />
+          <Link to="/" className={mobileTabClass(location.pathname === '/')}>
+            <Home size={18} aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Início</span>
           </Link>
 
           {/* Expenses Tab */}
-          <Link
-            to="/expenses"
-            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
-              location.pathname === '/expenses'
-                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
-                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
-            }`}
-          >
-            <TrendingDown size={18} className={location.pathname === '/expenses' ? 'text-[var(--color-primary)]' : ''} />
+          <Link to="/expenses" className={mobileTabClass(location.pathname === '/expenses')}>
+            <TrendingDown size={18} aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Despesas</span>
           </Link>
 
           {/* Incomes Tab */}
-          <Link
-            to="/incomes"
-            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
-              location.pathname === '/incomes'
-                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
-                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
-            }`}
-          >
-            <TrendingUp size={18} className={location.pathname === '/incomes' ? 'text-[var(--color-primary)]' : ''} />
+          <Link to="/incomes" className={mobileTabClass(location.pathname === '/incomes')}>
+            <TrendingUp size={18} aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Rendas</span>
           </Link>
 
           {/* Investments Tab */}
-          <Link
-            to="/investments"
-            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
-              location.pathname === '/investments'
-                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
-                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
-            }`}
-          >
-            <PiggyBank size={18} className={location.pathname === '/investments' ? 'text-[var(--color-primary)]' : ''} />
+          <Link to="/investments" className={mobileTabClass(location.pathname === '/investments')}>
+            <PiggyBank size={18} aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Carteira</span>
           </Link>
 
           {/* "Mais" Menu Tab Button */}
           <button
+            ref={mobileMenuButtonRef}
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all duration-200 ${
+            className={mobileTabClass(
               isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname)
-                ? 'text-accent-primary accent-primary scale-105 font-extrabold'
-                : 'text-primary opacity-65 hover:opacity-100 font-semibold'
-            }`}
+            )}
           >
-            <Menu size={18} className={isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname) ? 'text-[var(--color-primary)]' : ''} />
+            <Menu size={18} aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Mais</span>
           </button>
         </nav>
 
         {/* Main Content Area with Bottom Padding to avoid navigation overlay */}
-        <main className="relative pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(5.5rem+env(safe-area-inset-bottom))] min-h-screen">
+        <main className="relative pt-[calc(3.5rem+env(safe-area-inset-top))] glass-main-padding min-h-screen">
           <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-6">
             <section key={location.pathname} className="animate-page-enter">
               {children}
@@ -388,14 +322,22 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      <div className="hidden lg:grid min-h-screen grid-cols-[auto_1fr]">
+      <div className="hidden lg:grid min-h-screen grid-cols-[auto_1fr] p-5 gap-5">
         <aside
           ref={desktopMenuRef}
-          className={`sticky top-0 h-screen bg-secondary border-r border-primary overflow-y-auto motion-emphasis ${isDesktopMenuExpanded ? 'w-72' : 'w-20'
+          className={`glass-sidebar sticky top-5 h-[calc(100vh-2.5rem)] overflow-y-auto motion-emphasis ${isDesktopMenuExpanded ? 'w-72' : 'w-20'
             }`}
         >
-          <div className={`h-16 px-3 border-b border-primary flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
-            {isDesktopMenuExpanded && <h2 className="text-lg font-bold text-primary">Finanças</h2>}
+          <div className={`px-3 py-4 border-b border-glass flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
+            {isDesktopMenuExpanded && (
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest text-secondary">Bem-vindo</p>
+                <h2 className="text-lg font-bold text-primary truncate">Finanças</h2>
+                {profile?.email && (
+                  <p className="text-xs text-secondary truncate">{profile.email}</p>
+                )}
+              </div>
+            )}
             <button
               ref={desktopMenuButtonRef}
               type="button"
@@ -410,7 +352,7 @@ export default function Layout({ children }: LayoutProps) {
           <nav className="p-3">
             <div className="space-y-2">
               {isDesktopMenuExpanded && (
-                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Páginas principais</p>
+                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Visão geral</p>
               )}
               {mainItemsList.map((item) => {
                 const Icon = item.icon
@@ -423,7 +365,7 @@ export default function Layout({ children }: LayoutProps) {
                       <Link
                         to={item.path}
                         title={item.label}
-                        className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                        className={`flex items-center rounded-xl motion-standard hover-lift-subtle ${isDesktopMenuExpanded
                           ? 'justify-between px-4 py-3'
                           : 'justify-center p-3'
                           } ${isActive
@@ -447,7 +389,7 @@ export default function Layout({ children }: LayoutProps) {
 
             <div className="space-y-2">
               {isDesktopMenuExpanded && (
-                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Configurações</p>
+                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Outros</p>
               )}
               {settingsItemsList.map((item) => {
                 const Icon = item.icon
@@ -460,7 +402,7 @@ export default function Layout({ children }: LayoutProps) {
                       <Link
                         to={item.path}
                         title={item.label}
-                        className={`flex items-center rounded-lg motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                        className={`flex items-center rounded-xl motion-standard hover-lift-subtle ${isDesktopMenuExpanded
                           ? 'justify-between px-4 py-3'
                           : 'justify-center p-3'
                           } ${isActive
@@ -508,6 +450,7 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator isHidden={isMobileMenuOpen} />}
+      </div>
     </div>
   )
 }

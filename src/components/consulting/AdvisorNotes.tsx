@@ -43,7 +43,7 @@ export default function AdvisorNotes({
           disabled={savingSettings}
           variant="primary"
           fullWidth
-          className="text-xs py-2 font-bold shadow-md shadow-indigo-500/10"
+          className="text-xs py-2 font-bold"
         >
           {savingSettings ? 'Salvando...' : 'Salvar Alterações'}
         </Button>

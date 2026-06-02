@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { endOfMonth, format, subMonths } from 'date-fns'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
@@ -1646,31 +1647,24 @@ export default function CreditCards() {
       <PageHeader
         title={PAGE_HEADERS.creditCards.title}
         subtitle={PAGE_HEADERS.creditCards.description}
-        action={(
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
+        action={
+          <PageHeaderActions>
+            <PageHeaderActionButton
+              intent="neutral"
+              icon={Scale}
+              label={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              compactOnMobile={false}
               onClick={() => setCreditCardsWeightsEnabled(!creditCardsWeightsEnabled)}
-              title={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              className="hidden sm:inline-flex items-center gap-2 font-bold"
-            >
-              <Scale size={16} />
-              <span>
-                {creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              </span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
+              className="hidden sm:inline-flex"
+            />
+            <PageHeaderActionButton
+              intent="primary"
+              icon={Plus}
+              label="Novo cartão"
               onClick={openCreateCardModal}
-              className="flex items-center gap-2 font-bold"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Novo cartão</span>
-            </Button>
-          </div>
-        )}
+            />
+          </PageHeaderActions>
+        }
       />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">

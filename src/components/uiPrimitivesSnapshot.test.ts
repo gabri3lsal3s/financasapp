@@ -17,6 +17,9 @@ describe('UI primitives snapshots', () => {
         createElement(Button, { variant: 'primary', children: 'Primário' }),
         createElement(Button, { variant: 'outline', children: 'Outline' }),
         createElement(Button, { variant: 'danger', size: 'sm', children: 'Danger' }),
+        createElement(Button, { variant: 'income', size: 'sm', children: 'Renda' }),
+        createElement(Button, { variant: 'expense', size: 'sm', children: 'Despesa' }),
+        createElement(Button, { variant: 'success', size: 'sm', children: 'Sucesso' }),
       ),
     )
 

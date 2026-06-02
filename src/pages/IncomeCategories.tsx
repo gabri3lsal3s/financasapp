@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
@@ -105,15 +106,14 @@ export default function IncomeCategories() {
         title={PAGE_HEADERS.incomeCategories.title}
         subtitle={PAGE_HEADERS.incomeCategories.description}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenModal()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Adicionar</span>
-          </Button>
+          <PageHeaderActions>
+            <PageHeaderActionButton
+              intent="income"
+              icon={Plus}
+              label="Adicionar"
+              onClick={() => handleOpenModal()}
+            />
+          </PageHeaderActions>
         }
       />
 

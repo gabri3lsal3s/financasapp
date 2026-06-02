@@ -50,19 +50,20 @@ export function ConflictResolutionModal() {
             isOpen={true}
             onClose={() => { }}
             title="Conflito de Sincronização"
+            size="xl"
         >
             <div className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-secondary">
                     Detectamos que uma alteração que você fez offline em '{currentConflict.queueItem.entity}' conflita com uma versão mais recente salva no servidor.
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-secondary">
                     Você alterou este item offline, mas outra modificação ocorreu no servidor no mesmo período. Qual versão você deseja manter?
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Card className="flex flex-col p-4">
                         <h4 className="font-semibold mb-2 text-indigo-600 dark:text-indigo-400">Versão do Servidor</h4>
-                        <div className="text-xs space-y-1 mb-4 text-gray-700 dark:text-gray-300 flex-1 break-all">
+                        <div className="mb-4 flex-1 space-y-1 break-all text-xs text-primary">
                             <pre className="whitespace-pre-wrap">{JSON.stringify(currentConflict.serverData, null, 2)}</pre>
                         </div>
                         <Button variant="outline" onClick={handleKeepServer} className="mt-auto">
@@ -72,7 +73,7 @@ export function ConflictResolutionModal() {
 
                     <Card className="flex flex-col p-4 border border-indigo-200 dark:border-indigo-800">
                         <h4 className="font-semibold mb-2 text-emerald-600 dark:text-emerald-400">Sua Versão (Offline)</h4>
-                        <div className="text-xs space-y-1 mb-4 text-gray-700 dark:text-gray-300 flex-1 break-all">
+                        <div className="mb-4 flex-1 space-y-1 break-all text-xs text-primary">
                             <pre className="whitespace-pre-wrap">{JSON.stringify(currentConflict.queueItem.payload, null, 2)}</pre>
                         </div>
                         <Button onClick={handleForceLocal} className="mt-auto">
@@ -82,7 +83,7 @@ export function ConflictResolutionModal() {
                 </div>
 
                 {conflicts.length > 1 && (
-                    <p className="text-xs text-center text-gray-500 mt-4">
+                    <p className="mt-4 text-center text-xs text-secondary">
                         +{conflicts.length - 1} outro(s) conflito(s) pendente(s).
                     </p>
                 )}
