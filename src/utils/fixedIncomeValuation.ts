@@ -1,4 +1,4 @@
-import { eachBusinessDayBetween, calendarDaysBetween } from '@/utils/businessDays'
+import { countBusinessDaysBetween, eachBusinessDayBetween } from '@/utils/businessDays'
 import type { PortfolioAssetIndexer, PortfolioTransaction, PortfolioAssetDefinition } from '@/types'
 
 export interface IndexRateMap {
@@ -13,6 +13,10 @@ export interface FixedIncomeValuationInput {
   applicationDate: string
   asOfDate: string
   indexRates: IndexRateMap
+  /** VNA na data do aporte (Tesouro IPCA+). */
+  vnaAtPurchase?: number | null
+  /** VNA na data de valoração. */
+  vnaToday?: number | null
 }
 
 function dailyRateFromAnnualPercent(annualPercent: number, businessDaysInYear = 252): number {
@@ -42,6 +46,7 @@ function accumulatePostFixed(
   return value
 }
 
+/** Pré-fixado: VF = VP × (1 + i)^(n/252) com n = dias úteis. */
 function accumulatePreFixed(
   principal: number,
   applicationDate: string,
@@ -49,9 +54,27 @@ function accumulatePreFixed(
   contractRateAnnual: number
 ): number {
   if (principal <= 0) return 0
-  const days = calendarDaysBetween(applicationDate, asOfDate)
+  const n = countBusinessDaysBetween(applicationDate, asOfDate)
+  if (n <= 0) return principal
   const annualDecimal = contractRateAnnual / 100
-  return principal * Math.pow(1 + annualDecimal, days / 365)
+  return principal * Math.pow(1 + annualDecimal, n / 252)
+}
+
+/** Tesouro IPCA+: VF = VP × (VNA_hoje / VNA_compra) × (1 + i)^(n/252). */
+function accumulateIpcaPlusTreasury(
+  principal: number,
+  applicationDate: string,
+  asOfDate: string,
+  contractRateAnnual: number,
+  vnaAtPurchase: number,
+  vnaToday: number
+): number {
+  if (principal <= 0 || vnaAtPurchase <= 0 || vnaToday <= 0) return principal
+  const n = countBusinessDaysBetween(applicationDate, asOfDate)
+  const vnaFactor = vnaToday / vnaAtPurchase
+  const annualDecimal = contractRateAnnual / 100
+  const rateFactor = n > 0 ? Math.pow(1 + annualDecimal, n / 252) : 1
+  return principal * vnaFactor * rateFactor
 }
 
 /**
@@ -66,17 +89,45 @@ export function calculateFixedIncomeValue(input: FixedIncomeValuationInput): num
     applicationDate,
     asOfDate,
     indexRates,
+    vnaAtPurchase,
+    vnaToday,
   } = input
 
   if (principal <= 0) return 0
 
+  const isIpcaTreasury =
+    indexer === 'ipca' &&
+    vnaAtPurchase != null &&
+    vnaAtPurchase > 0 &&
+    vnaToday != null &&
+    vnaToday > 0 &&
+    contractRateAnnual != null &&
+    contractRateAnnual > 0
+
+  if (isIpcaTreasury) {
+    return Math.round(
+      accumulateIpcaPlusTreasury(
+        principal,
+        applicationDate,
+        asOfDate,
+        contractRateAnnual,
+        vnaAtPurchase,
+        vnaToday
+      ) * 100
+    ) / 100
+  }
+
   if (indexer !== 'none') {
     const businessDays = eachBusinessDayBetween(applicationDate, asOfDate)
-    return Math.round(accumulatePostFixed(principal, businessDays, indexer, indexerPercent, indexRates) * 100) / 100
+    return Math.round(
+      accumulatePostFixed(principal, businessDays, indexer, indexerPercent, indexRates) * 100
+    ) / 100
   }
 
   if (contractRateAnnual !== null && contractRateAnnual > 0) {
-    return Math.round(accumulatePreFixed(principal, applicationDate, asOfDate, contractRateAnnual) * 100) / 100
+    return Math.round(
+      accumulatePreFixed(principal, applicationDate, asOfDate, contractRateAnnual) * 100
+    ) / 100
   }
 
   return principal
@@ -92,37 +143,45 @@ export function calculateLotBasedFixedIncomeValue({
   definition,
   asOfDate,
   indexRates,
+  vnaToday,
 }: {
   transactions: PortfolioTransaction[]
   ticker: string
   definition: PortfolioAssetDefinition
   asOfDate: string
   indexRates: IndexRateMap
+  vnaToday?: number | null
 }): number {
   const upperTicker = ticker.toUpperCase().trim()
 
-  // 1. Filtra as operações de compra/subscrição para este ticker
   const buyLots = transactions
     .filter(
       (t) =>
         t.ticker.toUpperCase().trim() === upperTicker &&
-        (t.operation_type === 'buy' || t.operation_type === 'subscription')
+        (t.operation_type === 'buy' || t.operation_type === 'subscription') &&
+        (t.settlement_status ?? 'settled') === 'settled'
     )
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((t) => ({
       date: t.date,
       quantity: Number(t.quantity),
       price: Number(t.price),
-      contract_rate: t.contract_rate !== undefined && t.contract_rate !== null ? Number(t.contract_rate) : null,
+      contract_rate:
+        t.contract_rate !== undefined && t.contract_rate !== null ? Number(t.contract_rate) : null,
+      vna_at_purchase:
+        t.vna_at_purchase !== undefined && t.vna_at_purchase !== null
+          ? Number(t.vna_at_purchase)
+          : null,
     }))
 
-  // 2. Filtra as operações de venda
   const sales = transactions.filter(
-    (t) => t.ticker.toUpperCase().trim() === upperTicker && t.operation_type === 'sell'
+    (t) =>
+      t.ticker.toUpperCase().trim() === upperTicker &&
+      t.operation_type === 'sell' &&
+      (t.settlement_status ?? 'settled') === 'settled'
   )
   let totalQuantitySold = sales.reduce((sum, t) => sum + Number(t.quantity), 0)
 
-  // 3. Aplica FIFO para reduzir as quantidades dos lotes de compra
   for (const lot of buyLots) {
     if (totalQuantitySold <= 0) break
     if (lot.quantity <= totalQuantitySold) {
@@ -134,7 +193,6 @@ export function calculateLotBasedFixedIncomeValue({
     }
   }
 
-  // 4. Calcula o valor acumulado de cada lote ativo remanescente
   let totalTheoreticalValue = 0
   for (const lot of buyLots) {
     if (lot.quantity <= 0) continue
@@ -148,6 +206,8 @@ export function calculateLotBasedFixedIncomeValue({
       applicationDate: lot.date,
       asOfDate,
       indexRates,
+      vnaAtPurchase: lot.vna_at_purchase ?? undefined,
+      vnaToday: vnaToday ?? undefined,
     })
     totalTheoreticalValue += lotValue
   }

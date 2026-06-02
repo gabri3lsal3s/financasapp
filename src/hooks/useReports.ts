@@ -177,7 +177,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
               category_id: catId,
               category_name: cat?.name ?? 'Sem categoria',
               total: 0,
-              color: cat?.color ?? '#6b7280',
+              color: cat?.color ?? 'var(--category-fallback-neutral)',
             })
           }
           categoryMap.get(catId)!.total += getWeightedAmount(exp)
@@ -197,7 +197,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
               category_id: catId,
               category_name: cat?.name ?? 'Sem categoria',
               total: 0,
-              color: cat?.color ?? '#6b7280',
+              color: cat?.color ?? 'var(--category-fallback-neutral)',
             })
           }
           annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
@@ -210,7 +210,7 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
     } finally {
       setLoading(false)
     }
-  }, [targetYear, includeReportWeights])
+  }, [targetYear, includeReportWeights, isOnline])
 
   useEffect(() => {
     loadReports()

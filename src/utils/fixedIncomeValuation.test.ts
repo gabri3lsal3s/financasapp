@@ -3,7 +3,7 @@ import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue } from '@/
 import type { PortfolioTransaction, PortfolioAssetDefinition } from '@/types'
 
 describe('fixedIncomeValuation', () => {
-  it('calcula pré-fixado com base 365 dias corridos', () => {
+  it('calcula pré-fixado com base 252 dias úteis', () => {
     const value = calculateFixedIncomeValue({
       principal: 10000,
       contractRateAnnual: 12,

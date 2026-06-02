@@ -24,7 +24,7 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
 
 exports[`UI primitives snapshots > Card renders clickable state consistently 1`] = `
 <div
-  class="bg-primary rounded-lg shadow-sm border border-primary p-4 motion-standard cursor-pointer hover:shadow-md hover-lift-subtle press-subtle hover:bg-tertiary active:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] "
+  class="rounded-lg p-4 motion-standard bg-primary shadow-sm border border-primary cursor-pointer hover:shadow-md hover-lift-subtle press-subtle hover:bg-tertiary active:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] "
   role="button"
   tabindex="0"
 >

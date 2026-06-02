@@ -152,6 +152,11 @@ export interface Portfolio {
   consultant?: Profile
   notes?: string
   billing_fee_rate?: number
+  total_shares?: number
+  last_share_value?: number
+  last_close_date?: string | null
+  last_gross_pl?: number | null
+  last_net_pl?: number | null
 }
 
 export type PortfolioOperationType =
@@ -176,6 +181,8 @@ export interface PortfolioTransaction {
   /** Compra/subscrição que originou venda automática de caixa. */
   cash_offset_source_id?: string | null
   contract_rate?: number | null
+  settlement_status?: 'pending' | 'settled'
+  vna_at_purchase?: number | null
 }
 
 export interface TargetAllocation {
@@ -207,6 +214,8 @@ export type PortfolioPricingMode = 'market' | 'fixed_income' | 'manual_value' | 
 
 export type PortfolioAssetIndexer = 'none' | 'cdi' | 'selic' | 'ipca'
 
+export type PortfolioValuationMode = 'curve' | 'market'
+
 export interface PortfolioAssetDefinition {
   id: string
   portfolio_id: string
@@ -226,6 +235,31 @@ export interface PortfolioAssetDefinition {
   created_at: string
   updated_at: string
   currency?: 'BRL' | 'USD'
+  valuation_mode?: PortfolioValuationMode
+}
+
+export interface PortfolioShareDailyRow {
+  portfolio_id: string
+  rate_date: string
+  share_value: number
+  gross_pl: number
+  net_pl: number
+  total_shares: number
+}
+
+export interface PortfolioPeriodSnapshotRow {
+  id: string
+  portfolio_id: string
+  period_type: 'month' | 'year'
+  period_key: string
+  cota_abertura: number
+  cota_fechamento: number
+  somatorio_aportes: number
+  somatorio_resgates: number
+  dividendos_recebidos: number
+  drawdown_maximo: number
+  period_return: number | null
+  created_at: string
 }
 
 export interface IndexRateRow {

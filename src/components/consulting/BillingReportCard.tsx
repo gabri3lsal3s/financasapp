@@ -1,4 +1,5 @@
 import Card from '@/components/Card'
+import { formatCurrency, formatPercentBR } from '@/utils/format'
 import { BarChart3, Percent } from 'lucide-react'
 
 interface BillingReportCardProps {
@@ -27,13 +28,13 @@ export default function BillingReportCard({
       <div className="p-4 bg-muted/20 rounded-xl border border-border/40 mb-4">
         <div className="flex items-center justify-between text-[10px] text-secondary uppercase tracking-wider mb-1 font-sans">
           <span>Taxa de Gestão Mensal Aplicada</span>
-          <span className="font-bold text-emerald-500 font-mono">{billingFeeRate.toFixed(2)}%</span>
+          <span className="font-bold text-emerald-500 font-mono">{formatPercentBR(billingFeeRate, 2)}</span>
         </div>
         <strong className="text-2xl font-black text-primary block font-mono">
-          R$ {monthlyFeeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          {formatCurrency(monthlyFeeAmount)}
         </strong>
         <span className="text-[10px] text-emerald-500 font-medium block mt-1 font-sans">
-          {annualFeeRate.toFixed(1)}% ao ano sobre o patrimônio sob gestão (Fee-Based)
+          {formatPercentBR(annualFeeRate, 1)} ao ano sobre o patrimônio sob gestão (Fee-Based)
         </span>
       </div>
 

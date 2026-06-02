@@ -57,6 +57,7 @@ export function useAdvisoryPortfolioLink(): AdvisoryPortfolioLinkState {
     return () => {
       mounted = false
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: bootstrap por user.id; user muda referência sem mudar identidade
   }, [user?.id, isConsultant])
 
   return { hasAdvisoryLink, loading }

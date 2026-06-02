@@ -27,6 +27,7 @@ export function useIncomeCategoryExpectations(month: string) {
     }
     window.addEventListener('offline-queue-processed', onQueueProcessed)
     return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: listener de sync offline; month já está nas deps
   }, [month])
 
   const getCacheKey = () => `income_category_expectations-${month}`

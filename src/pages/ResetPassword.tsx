@@ -5,6 +5,7 @@ import { Lock, AlertCircle, KeyRound } from 'lucide-react';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -33,8 +34,8 @@ export default function ResetPassword() {
       setTimeout(() => {
         navigate('/login');
       }, 3000);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao atualizar a senha');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Falha ao atualizar a senha'));
     } finally {
       setLoading(false);
     }

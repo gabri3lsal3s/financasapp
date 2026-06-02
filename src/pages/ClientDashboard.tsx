@@ -9,17 +9,36 @@ import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
+import { getAllocationClassColor } from '@/utils/categoryColors'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
 import PageHeader from '@/components/PageHeader'
-import ClientKpiCards from '@/components/consulting/ClientKpiCards'
+import ClientKpiCards, { type ClientKpiYieldBasis } from '@/components/consulting/ClientKpiCards'
+import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
+import OrganicVsContributionsChart from '@/components/consulting/OrganicVsContributionsChart'
+import { usePortfolioClose } from '@/hooks/usePortfolioClose'
+import type { PortfolioPeriodSnapshotRow } from '@/types'
+import Switch from '@/components/Switch'
 import {
   TrendingUp, FileText, CheckCircle,
   AlertCircle, ArrowUpRight, ArrowDownRight, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+
+type ClientDashboardCache = {
+  portfolio?: Portfolio
+  transactions?: PortfolioTransaction[]
+  assetPrices?: Record<string, AssetPrice>
+  assetTheses?: Record<string, string>
+  assetDefinitions?: PortfolioAssetDefinition[]
+  indexRatesByIndexer?: Record<string, IndexRateMap>
+  positions?: AssetPosition[]
+  portfolioValue?: number
+  shareValue?: number
+  totalShares?: number
+}
 
 export default function ClientDashboard() {
   const { user } = useAuth()
@@ -36,11 +55,15 @@ export default function ClientDashboard() {
   const [portfolioValue, setPortfolioValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
   const [totalShares, setTotalShares] = useState<number>(0)
+  const [yieldBasis, setYieldBasis] = useState<ClientKpiYieldBasis>('gross')
+  const [periodSnapshots, setPeriodSnapshots] = useState<PortfolioPeriodSnapshotRow[]>([])
+  const { loadPeriodSnapshots } = usePortfolioClose()
 
   useEffect(() => {
     if (user) {
       loadClientData()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: bootstrap por user; loadClientData recriada a cada render
   }, [user])
 
   const loadClientData = async () => {
@@ -48,7 +71,7 @@ export default function ClientDashboard() {
     const cacheKey = `client-dashboard-data-${user.id}`
 
     try {
-      const cached = await getCache<any>(cacheKey)
+      const cached = await getCache<ClientDashboardCache>(cacheKey)
       if (cached && !portfolio) {
         if (cached.portfolio) setPortfolio(cached.portfolio)
         if (cached.transactions) setTransactions(cached.transactions)
@@ -80,6 +103,7 @@ export default function ClientDashboard() {
       }
 
       setPortfolio(portData)
+      void loadPeriodSnapshots(portData.id).then(setPeriodSnapshots)
 
       // 2. Carrega as transações da carteira do cliente
       const txs = await fetchAllPortfolioTransactions(portData.id, { orderField: 'date', ascending: true })
@@ -94,7 +118,7 @@ export default function ClientDashboard() {
       if (targetsError) throw targetsError
 
       // 4. Carrega as teses de investimentos do consultor vinculadas
-      let mappedTheses: Record<string, string> = {}
+      const mappedTheses: Record<string, string> = {}
       if (portData.consultant_id) {
         const { data: thesesData, error: thesesError } = await supabase
           .from('asset_theses')
@@ -244,9 +268,30 @@ export default function ClientDashboard() {
   // Rentabilidade consolidada ponderada dos ativos em carteira
   const overallYieldPct = useMemo(() => {
     const totalCostBasis = positions.reduce((sum, p) => sum + p.cost_basis, 0)
-    const totalGrossGain = positions.reduce((sum, p) => sum + p.cost_basis * (p.gross_yield_pct / 100), 0)
-    return totalCostBasis > 0 ? (totalGrossGain / totalCostBasis) * 100 : 0
-  }, [positions])
+    if (totalCostBasis <= 0) return 0
+    if (yieldBasis === 'net') {
+      const totalNetGain = positions.reduce(
+        (sum, p) => sum + p.cost_basis * (p.net_yield_pct / 100),
+        0
+      )
+      return (totalNetGain / totalCostBasis) * 100
+    }
+    const totalGrossGain = positions.reduce(
+      (sum, p) => sum + p.cost_basis * (p.gross_yield_pct / 100),
+      0
+    )
+    return (totalGrossGain / totalCostBasis) * 100
+  }, [positions, yieldBasis])
+
+  const netShareValue = useMemo(() => {
+    const totalCost = positions.reduce((s, p) => s + p.cost_basis, 0)
+    const totalNet = positions.reduce(
+      (s, p) => s + p.cost_basis * (1 + p.net_yield_pct / 100),
+      0
+    )
+    if (totalCost <= 0 || shareValue <= 0) return shareValue
+    return Math.round(shareValue * (totalNet / totalCost) * 10000) / 10000
+  }, [positions, shareValue])
 
   // Processar dados de exposição por classe para gráfico
   const classChartData = useMemo(() => {
@@ -254,15 +299,7 @@ export default function ClientDashboard() {
     positions.forEach(pos => {
       const cls = pos.asset_class || 'Renda Fixa'
       if (!dataMap[cls]) {
-        let color = '#3b82f6' // Azul padrão
-        if (cls.includes('Ações Nacionais')) color = '#6366f1' // Roxo Indigo
-        else if (cls.includes('Fundos')) color = '#10b981' // Verde Esmeralda
-        else if (cls.includes('Cripto')) color = '#f59e0b' // Laranja Amber
-        else if (cls.includes('Renda Fixa')) color = '#ec4899' // Rosa
-        else if (cls.includes('Internacionais')) color = '#06b6d4' // Ciano
-        else if (cls.includes('ETFs')) color = '#8b5cf6' // Violeta
-        
-        dataMap[cls] = { name: cls, value: 0, color }
+        dataMap[cls] = { name: cls, value: 0, color: getAllocationClassColor(cls) }
       }
       dataMap[cls].value += pos.total_value
     })
@@ -316,13 +353,30 @@ export default function ClientDashboard() {
 
       {portfolio ? (
         <>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-secondary">
+              <Switch
+                checked={yieldBasis === 'net'}
+                onClick={() => setYieldBasis((b) => (b === 'gross' ? 'net' : 'gross'))}
+                label="Visão líquida (IR estimado)"
+              />
+              <span>Visão líquida (IR estimado)</span>
+            </div>
+          </div>
           <ClientKpiCards
             portfolioValue={portfolioValue}
             shareValue={shareValue}
             totalShares={totalShares}
             yieldVariant="accumulated"
             overallYieldPct={overallYieldPct}
+            yieldBasis={yieldBasis}
+            netShareValue={netShareValue}
           />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ReturnHeatmap snapshots={periodSnapshots} />
+            <OrganicVsContributionsChart snapshots={periodSnapshots} />
+          </div>
 
           {/* Seção Gráfica e Rebalanceamento */}
           {positions.length > 0 && (
@@ -351,7 +405,7 @@ export default function ClientDashboard() {
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Patrimônio']} 
+                        formatter={(value: number | string) => [formatCurrency(Number(value)), 'Patrimônio']} 
                       />
                       <Legend verticalAlign="bottom" height={36} iconType="circle" fontSize={11} />
                     </PieChart>
@@ -394,7 +448,7 @@ export default function ClientDashboard() {
                         <div className="text-right flex items-center gap-2">
                           <div className="text-[11px] font-semibold text-primary">
                             {trade.action === 'buy' ? '+' : '-'}{trade.shares} cotas
-                            <div className="text-[9px] text-secondary font-medium">Est: R$ {trade.amount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</div>
+                            <div className="text-[9px] text-secondary font-medium">Est: {formatCurrency(trade.amount)}</div>
                           </div>
                           {trade.action === 'buy' ? (
                             <ArrowUpRight size={16} className="text-income" />

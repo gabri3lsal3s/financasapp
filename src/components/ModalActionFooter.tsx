@@ -8,7 +8,7 @@ interface ModalActionFooterProps {
   onDelete?: () => void
   onCancel?: () => void
   cancelLabel?: string
-  onSubmit?: (e?: any) => void
+  onSubmit?: (e?: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 export default function ModalActionFooter({

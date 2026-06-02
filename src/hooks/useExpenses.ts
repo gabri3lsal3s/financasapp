@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Expense } from '@/types'
+import { Expense, Category, CreditCard } from '@/types'
 import { addMonths, format } from 'date-fns'
 import { resolveBillCompetence, splitAmountIntoInstallments } from '@/utils/creditCardBilling'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -311,12 +311,12 @@ export function useExpenses(month?: string) {
           })
         })
 
-        let currentCategories: any[] = []
-        let currentCards: any[] = []
+        let currentCategories: Category[] = []
+        let currentCards: CreditCard[] = []
         try {
           const [catCached, cardCached] = await Promise.all([
-            getCache<any[]>('categories-all'),
-            getCache<any[]>('credit_cards-all')
+            getCache<Category[]>('categories-all'),
+            getCache<CreditCard[]>('credit_cards-all')
           ])
           currentCategories = catCached || []
           currentCards = cardCached || []
@@ -350,7 +350,7 @@ export function useExpenses(month?: string) {
             category: matchedCategory ? {
               id: matchedCategory.id,
               name: matchedCategory.name,
-              color: matchedCategory.color || '#9ca3af',
+              color: matchedCategory.color || 'var(--category-fallback-muted)',
             } : undefined,
             credit_card: matchedCard ? {
               id: matchedCard.id,

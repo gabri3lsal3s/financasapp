@@ -10,11 +10,19 @@ export function usePaletteColors() {
   const colorPalettes = {
     vivid: {
       name: 'Vivid',
-      colors: ['#10b981', '#ef4444', '#3b82f6'],
+      colors: [
+        'var(--palette-preview-vivid-0)',
+        'var(--palette-preview-vivid-1)',
+        'var(--palette-preview-vivid-2)',
+      ],
     },
     monochrome: {
       name: 'Monocromática',
-      colors: ['#e5e5e5', '#a3a3a3', '#737373'],
+      colors: [
+        'var(--palette-preview-mono-0)',
+        'var(--palette-preview-mono-1)',
+        'var(--palette-preview-mono-2)',
+      ],
     },
   }
 

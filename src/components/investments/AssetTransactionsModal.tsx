@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
-import { formatCurrencyByCode } from '@/utils/format'
+import { formatCurrencyByCode, formatQuantityBR, formatSignedPercentBR } from '@/utils/format'
 import type { PortfolioTransaction, PortfolioOperationType } from '@/types'
 import type { AssetPosition } from '@/services/investmentEngine'
 import PortfolioTransactionFormModal from './PortfolioTransactionFormModal'
@@ -467,7 +467,7 @@ export default function AssetTransactionsModal({
                       </h2>
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${accentBg} ${accentBorder} ${accentText}`}>
                         {isPositive ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
-                        {isPositive ? '+' : ''}{position.gross_yield_pct.toFixed(2)}%
+                        {formatSignedPercentBR(position.gross_yield_pct)}
                       </span>
                     </div>
                     <p className="text-[11px] mt-0.5 truncate max-w-[260px] text-[var(--color-text-secondary)]">
@@ -494,7 +494,7 @@ export default function AssetTransactionsModal({
                   <div className="absolute right-0 top-[20%] bottom-[20%] w-px bg-[var(--color-border)]" />
                   <p className="text-[9px] uppercase font-bold tracking-widest mb-0.5 text-[var(--color-text-secondary)]">Posição</p>
                   <p className="font-mono font-black text-sm text-[var(--color-text-primary)]">{formatCurrencyByCode(position.total_value, position.currency)}</p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)]">{position.quantity.toLocaleString('pt-BR')} cotas</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)]">{formatQuantityBR(position.quantity)} cotas</p>
                 </div>
                 <div className="px-3 py-2.5 text-center bg-[var(--color-bg-secondary)] relative">
                   <div className="absolute right-0 top-[20%] bottom-[20%] w-px bg-[var(--color-border)]" />
@@ -587,7 +587,7 @@ export default function AssetTransactionsModal({
                                 <p className="text-xs font-mono text-[var(--color-text-secondary)]">
                                   +{' '}
                                   <span className="font-bold text-[var(--color-text-primary)]">
-                                    {tx.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                                    {formatQuantityBR(tx.quantity, 6)}
                                   </span>{' '}
                                   cotas creditadas
                                 </p>
@@ -595,14 +595,14 @@ export default function AssetTransactionsModal({
                                 <p className="text-xs font-mono text-[var(--color-text-secondary)]">
                                   −{' '}
                                   <span className="font-bold text-[var(--color-text-primary)]">
-                                    {tx.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                                    {formatQuantityBR(tx.quantity, 6)}
                                   </span>{' '}
                                   cotas canceladas
                                 </p>
                               ) : (
                                 <p className="text-xs font-mono text-[var(--color-text-secondary)] truncate">
                                   <span className="font-semibold text-[var(--color-text-primary)]">
-                                    {tx.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 6 })}
+                                    {formatQuantityBR(tx.quantity, 6)}
                                   </span>
                                   <span className="opacity-40 mx-1">×</span>
                                   {formatCurrencyByCode(tx.price, position.currency)}

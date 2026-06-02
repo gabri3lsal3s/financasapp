@@ -65,11 +65,11 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   const competenceMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()
 
   // Cores institucionais do relatório
-  const COLOR_PRIMARY = [6, 95, 70]     // Verde primário #065f46
-  const COLOR_SECONDARY = [30, 41, 59]   // Slate Escuro #1e293b
-  const COLOR_ACCENT = [217, 119, 6]    // Dourado/Amber #d97706
-  const COLOR_MUTED = [100, 116, 139]    // Slate Muted #64748b
-  const COLOR_BG_LIGHT = [248, 250, 252] // Cinza Fundo #f8fafc
+  const COLOR_PRIMARY = [6, 95, 70]     // Verde primário RGB
+  const COLOR_SECONDARY = [30, 41, 59]   // Slate escuro RGB
+  const COLOR_ACCENT = [217, 119, 6]    // Dourado/amber RGB
+  const COLOR_MUTED = [100, 116, 139]    // Slate muted RGB
+  const COLOR_BG_LIGHT = [248, 250, 252] // Cinza de fundo RGB
 
   // --- 1. Cálculos de Rentabilidade Temporal ---
   // Rentabilidade total desde o início: totalYieldPct

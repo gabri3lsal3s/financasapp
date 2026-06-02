@@ -1,7 +1,7 @@
 import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
-import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { detectDefaultCurrency } from '@/services/priceService'
 
 export type AssetPosition = ValuedPosition
@@ -41,7 +41,8 @@ export function calculatePositions(
   prices: Record<string, AssetPrice>,
   cashBalance: number,
   definitions: PortfolioAssetDefinition[] = [],
-  indexRatesByIndexer: Record<string, IndexRateMap> = {}
+  indexRatesByIndexer: Record<string, IndexRateMap> = {},
+  vnaMap: Record<string, number> = {}
 ): {
   positions: AssetPosition[]
   investedValue: number
@@ -57,6 +58,7 @@ export function calculatePositions(
     prices,
     cashBalance,
     indexRatesByIndexer,
+    vnaMap,
     fallbackPrice: FALLBACK_PRICE,
   })
 
@@ -151,8 +153,11 @@ export function calculateShareHistory(
     return p1 + (p2 - p1) * fraction
   }
 
+  /** WHY: blueprint v2 sugere cota inicial 10,00; mantemos 1,00 para compatibilidade com histórico e KPIs existentes. */
+  const INITIAL_SHARE_VALUE = 1.0
+
   let totalShares = 0
-  let shareValue = 1.00 // Cota inicial é sempre R$ 1,00
+  let shareValue = INITIAL_SHARE_VALUE
   const currentPortfolio: Record<string, number> = {} // ticker -> quantidade
   let currentCash = 0
   
@@ -275,7 +280,7 @@ export function calculateShareHistory(
     // Se houve fluxo de capital externo (Aporte/Saque), ajusta o número de cotas
     if (netCapitalFlow !== 0) {
       if (totalShares === 0) {
-        shareValue = 1.00
+        shareValue = INITIAL_SHARE_VALUE
         totalShares = netCapitalFlow // 1 cota = 1 real
       } else {
         const newShares = netCapitalFlow / shareValue
@@ -537,7 +542,7 @@ function calculateBeta(portfolio: number[], benchmark: number[]): number {
   return (covariance / (portfolio.length - 1)) / (varianceBench / (portfolio.length - 1))
 }
 
-function FALLBACK_PRICE(ticker: string): number {
+export function FALLBACK_PRICE(ticker: string): number {
   const defaults: Record<string, number> = {
     WEGE3: 39.50, VALE3: 63.80, PETR4: 36.20, IBOV: 125000, VOO: 475.00
   }

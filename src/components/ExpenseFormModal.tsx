@@ -10,6 +10,7 @@ import {
   APP_START_DATE,
   formatMoneyInput,
   parseMoneyInput,
+  roundToDecimals,
 } from '@/utils/format'
 
 interface ExpenseFormModalProps {
@@ -121,7 +122,7 @@ export default function ExpenseFormModal({
     }
 
     const reportWeight =
-      amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+      amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1
     const installmentTotal = Math.max(
       1,
       Math.min(60, Number(formData.installment_total || '1'))

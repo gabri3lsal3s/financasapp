@@ -5,6 +5,7 @@ import { LogIn, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -37,8 +38,8 @@ export default function Login() {
       
       sessionStorage.setItem('minhas_financas:login_bypass', 'true');
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Falha ao fazer login');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Falha ao fazer login'));
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,83 @@
 import { supabase } from '@/lib/supabase'
 import { AssetPrice } from '@/types'
 
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number
+      }
+    }>
+  }
+}
+
+type YahooSearchQuote = {
+  symbol?: string
+  shortname?: string
+  longname?: string
+}
+
+type YahooSearchResponse = {
+  quotes?: YahooSearchQuote[]
+}
+
+type YahooQuoteItem = {
+  regularMarketPrice?: number
+  shortName?: string
+  longName?: string
+  trailingAnnualDividendYield?: number
+  trailingAnnualDividendRate?: number
+}
+
+type YahooQuoteResponse = {
+  quoteResponse?: {
+    result?: YahooQuoteItem[]
+  }
+}
+
 // Cache em memória para evitar requisições repetidas no mesmo ciclo de renderização
 const memoryPriceCache: Record<string, AssetPrice> = {}
+
+/** Variação diária acima disso sem evento corporativo → Last Known Value (blueprint v2). */
+const MAX_DAILY_PRICE_MOVE_RATIO = 0.5
+
+export function guardMarketPrice(
+  newPrice: number,
+  lastPrice: number | undefined
+): { price: number; rejectedSpike: boolean } {
+  if (newPrice <= 0) {
+    return { price: lastPrice ?? 0, rejectedSpike: false }
+  }
+  if (lastPrice != null && lastPrice > 0) {
+    const change = Math.abs(newPrice - lastPrice) / lastPrice
+    if (change > MAX_DAILY_PRICE_MOVE_RATIO) {
+      return { price: lastPrice, rejectedSpike: true }
+    }
+  }
+  return { price: newPrice, rejectedSpike: false }
+}
+
+export async function recordAssetPriceDaily(
+  ticker: string,
+  priceDate: string,
+  closePrice: number,
+  source = 'yahoo'
+): Promise<void> {
+  if (closePrice <= 0) return
+  try {
+    await supabase.from('asset_price_daily').upsert(
+      {
+        ticker: ticker.toUpperCase(),
+        price_date: priceDate,
+        close_price: closePrice,
+        source,
+      },
+      { onConflict: 'ticker,price_date' }
+    )
+  } catch {
+    // tabela pode não existir em ambientes sem migration
+  }
+}
 
 // Cotações base de fallback para os ativos mais comuns brasileiras/americanas (caso APIs falhem ou estejam sem rede)
 const FALLBACK_PRICES: Record<string, number> = {
@@ -38,7 +113,7 @@ const FALLBACK_PRICES: Record<string, number> = {
  * Em caso de erro de parsing, lança um SyntaxError com o início do conteúdo recebido,
  * facilitando o diagnóstico (ex: "Edge: Too Many Requests").
  */
-async function safeJson(response: Response): Promise<any> {
+async function safeJson(response: Response): Promise<unknown> {
   const text = await response.text()
   try {
     return JSON.parse(text)
@@ -60,7 +135,7 @@ async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Resp
     (targetUrl: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
   ];
 
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (let i = 0; i < proxies.length; i++) {
     const controller = new AbortController();
@@ -135,55 +210,6 @@ async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Resp
     throw lastError || err;
   }
 }
-
-interface B3TreasuryPrice {
-  name: string
-  price: number
-  maturityDate: string
-}
-
-let cachedTreasuryPrices: Record<string, B3TreasuryPrice> | null = null
-let lastTreasuryFetchTime = 0
-
-async function fetchB3TreasuryPrices(): Promise<Record<string, B3TreasuryPrice>> {
-  const now = Date.now()
-  if (cachedTreasuryPrices && (now - lastTreasuryFetchTime < 15 * 60 * 1000)) {
-    return cachedTreasuryPrices
-  }
-
-  const url = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json'
-  try {
-    const response = await fetchWithCorsProxy(url)
-    if (!response.ok) throw new Error(`Falha ao buscar preços do Tesouro B3: ${response.status}`)
-    const data = await safeJson(response)
-    const list = data?.response?.TrsrBdTradgList
-    if (!Array.isArray(list)) throw new Error('Estrutura de resposta inválida da API do Tesouro B3')
-
-    const prices: Record<string, B3TreasuryPrice> = {}
-    for (const item of list) {
-      const bd = item.TrsrBd
-      if (!bd || !bd.nm) continue
-      const name = bd.nm.trim().toUpperCase()
-      
-      const price = Number(bd.untrRedVal || bd.untrInvstmtVal || 0)
-      
-      prices[name] = {
-        name: bd.nm,
-        price,
-        maturityDate: bd.mtrtyDt ? bd.mtrtyDt.split('T')[0] : ''
-      }
-    }
-
-    cachedTreasuryPrices = prices
-    lastTreasuryFetchTime = now
-    return prices
-  } catch (err) {
-    console.error('[fetchB3TreasuryPrices] Erro ao carregar preços oficiais do Tesouro Direto B3:', err)
-    return cachedTreasuryPrices || {}
-  }
-}
-
-
 
 /**
  * Busca cotações de uma lista de tickers de forma resiliente.
@@ -364,7 +390,7 @@ export async function getAssetPrices(
           }
 
           if (response && response.ok) {
-            const data = await safeJson(response)
+            const data = await safeJson(response) as YahooChartResponse
             const chartMeta = data?.chart?.result?.[0]?.meta
             if (chartMeta && chartMeta.regularMarketPrice !== undefined) {
               fetchedPrices[ticker] = chartMeta.regularMarketPrice
@@ -397,10 +423,12 @@ export async function getAssetPrices(
         let price = fetchedPrices[ticker]
 
         let quotationStatus: AssetPrice['quotation_status'] = 'live'
+        const oldPriceRow = supabasePrices.find((p) => p.ticker === ticker)
+        const lastKnown = oldPriceRow ? Number(oldPriceRow.current_price) : undefined
+
         if (price === undefined) {
-          const oldPrice = supabasePrices.find(p => p.ticker === ticker)
-          if (oldPrice) {
-            price = Number(oldPrice.current_price)
+          if (oldPriceRow) {
+            price = Number(oldPriceRow.current_price)
             quotationStatus = 'stale'
           } else if (FALLBACK_PRICES[ticker] !== undefined) {
             price = FALLBACK_PRICES[ticker]
@@ -408,6 +436,12 @@ export async function getAssetPrices(
           } else {
             price = 0
             quotationStatus = 'unavailable'
+          }
+        } else {
+          const guarded = guardMarketPrice(price, lastKnown)
+          if (guarded.rejectedSpike) {
+            price = guarded.price
+            quotationStatus = 'stale'
           }
         }
 
@@ -432,8 +466,13 @@ export async function getAssetPrices(
           current_price: price,
           asset_class: meta.asset_class,
           sector: meta.sector,
-          last_updated: now.toISOString() as any,
+          last_updated: now.toISOString(),
         })
+
+        if (price > 0) {
+          const priceDate = now.toISOString().slice(0, 10)
+          void recordAssetPriceDaily(ticker, priceDate, price)
+        }
       }
 
       // Salvar novas cotações de volta no cache do Supabase em background
@@ -639,14 +678,15 @@ export async function searchB3Assets(query: string): Promise<SearchedAsset[]> {
     clearTimeout(timeoutId)
 
     if (response.ok) {
-      const data = await safeJson(response)
-      if (data && data.quotes) {
+      const data = await safeJson(response) as YahooSearchResponse
+      if (data?.quotes) {
         remoteMatches = data.quotes
-          .filter((item: any) => {
+          .filter((item: YahooSearchQuote) => {
             return item.symbol && (item.symbol.endsWith('.SA') || !item.symbol.includes('.'))
           })
-          .map((item: any) => {
-            const ticker = item.symbol.replace('.SA', '').toUpperCase()
+          .map((item: YahooSearchQuote) => {
+            const symbol = item.symbol ?? ''
+            const ticker = symbol.replace('.SA', '').toUpperCase()
             return {
               ticker,
               name: item.shortname || item.longname || ticker
@@ -732,8 +772,8 @@ export async function getAssetRichData(ticker: string): Promise<AssetRichData | 
     }
     
     if (response.ok) {
-      const data = await safeJson(response)
-      if (data && data.quoteResponse && data.quoteResponse.result && data.quoteResponse.result.length > 0) {
+      const data = await safeJson(response) as YahooQuoteResponse
+      if (data?.quoteResponse?.result && data.quoteResponse.result.length > 0) {
         const item = data.quoteResponse.result[0]
         const richData: AssetRichData = {
           ticker: normTicker,

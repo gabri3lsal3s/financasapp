@@ -90,7 +90,7 @@ describe('B3 Investment Reconciliation Utilities', () => {
       expect(t1).toBe('SELIC 29')
       expect(n1).toBe('Tesouro Selic 2029')
 
-      const { ticker: t2, name: n2 } = parseB3Product('TESOURO IPCA+ 2035')
+      const { ticker: t2 } = parseB3Product('TESOURO IPCA+ 2035')
       expect(t2).toBe('IPCA 35')
     })
   })

@@ -86,8 +86,54 @@ export function formatNumberWithTwoDecimalsBR(value: number): string {
   })
 }
 
+export function formatPercentBR(value: number, fractionDigits = 2): string {
+  return `${formatNumberBR(value, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}%`
+}
+
+export function formatSignedPercentBR(value: number, fractionDigits = 2): string {
+  const numericValue = Number.isFinite(value) ? value : 0
+  const prefix = numericValue > 0 ? '+' : ''
+  return `${prefix}${formatNumberBR(numericValue, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}%`
+}
+
+export function formatQuantityBR(value: number, maximumFractionDigits = 4): string {
+  const numericValue = Number.isFinite(value) ? value : 0
+  if (numericValue % 1 === 0) {
+    return formatNumberBR(numericValue, { maximumFractionDigits: 0 })
+  }
+  return formatNumberBR(numericValue, { maximumFractionDigits })
+}
+
 export function formatCurrencyCompactBR(value: number): string {
   return `R$${formatNumberWithTwoDecimalsBR(value)}`
+}
+
+export function roundToDecimals(value: number, fractionDigits: number): number {
+  const numericValue = Number.isFinite(value) ? value : 0
+  const factor = 10 ** fractionDigits
+  return Math.round(numericValue * factor) / factor
+}
+
+/** Eixo de gráfico: valores em milhares (ex.: R$150k). */
+export function formatAxisCurrencyThousands(value: number, options?: { spaced?: boolean }): string {
+  const thousands = (Number.isFinite(value) ? value : 0) / 1000
+  const amount = formatNumberBR(thousands, { maximumFractionDigits: 0 })
+  return options?.spaced ? `R$ ${amount}k` : `R$${amount}k`
+}
+
+/** Eixo Recharts: valores abaixo de 1000 em moeda completa; acima em milhares. */
+export function formatChartYAxisCurrency(value: number): string {
+  const numericValue = Number.isFinite(value) ? value : 0
+  if (numericValue >= 1000) {
+    return formatAxisCurrencyThousands(numericValue, { spaced: true })
+  }
+  return formatCurrency(numericValue)
 }
 
 export function parseMoneyInput(value: string | number | undefined | null): number {

@@ -31,7 +31,38 @@ import {
   portfolioOperationLabel,
 } from '@/utils/portfolioOperations'
 import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatQuantityBR } from '@/utils/format'
+
+type PortfolioTransactionInsert = Omit<PortfolioTransaction, 'created_at'>
+
+function toLocalPortfolioTransaction(tx: PortfolioTransactionInsert): PortfolioTransaction {
+  return { ...tx, created_at: new Date().toISOString() }
+}
+
+function toLocalAssetDefinition(
+  payload: Partial<PortfolioAssetDefinition> & Pick<PortfolioAssetDefinition, 'portfolio_id' | 'ticker'>,
+  existing?: PortfolioAssetDefinition
+): PortfolioAssetDefinition {
+  return {
+    id: existing?.id ?? '',
+    created_at: existing?.created_at ?? new Date().toISOString(),
+    manual_current_value: existing?.manual_current_value ?? null,
+    manual_value_updated_at: existing?.manual_value_updated_at ?? null,
+    tax_exempt: existing?.tax_exempt ?? false,
+    pricing_mode: 'market',
+    is_b3_linked: false,
+    applied_amount: null,
+    contract_rate: null,
+    indexer: 'none',
+    indexer_percent: 100,
+    maturity_date: null,
+    is_treasury: false,
+    application_date: null,
+    updated_at: new Date().toISOString(),
+    ...existing,
+    ...payload,
+  }
+}
 import {
   fetchPortfolioCashContext,
   reconcileCashOffsetOnTransactionSave,
@@ -454,7 +485,6 @@ export default function InvestmentReconciliationModal({
   useEffect(() => {
     if (!officialPosition) return
     recomputePositionValidation(officialPosition, b3ParsedPositions, systemPositions)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- recalcula quando livro-razão ou movimentações mudam
   }, [officialPosition, b3ParsedPositions, systemPositions])
 
   // Process a loaded array buffer (from drop or input file)
@@ -478,21 +508,12 @@ export default function InvestmentReconciliationModal({
         return
       }
 
-      // ── Contar categorias e manter ativos de Renda Fixa e Tesouro Direto ──
-      let fixedIncomeCount = 0
-      let treasuryCount = 0
+      // ── Manter ativos de Renda Fixa e Tesouro Direto no parse (conciliação RV separada) ──
       let subscriptionRightsCount = 0
       const parsedItems = allParsedItems.filter((item) => {
         if (isB3SubscriptionRightsTicker(item.ticker)) {
           subscriptionRightsCount++
           return false
-        }
-        const category = classifyB3Item(item.ticker, item.product_name)
-        if (category === 'treasury') {
-          treasuryCount++
-        }
-        if (category === 'fixedIncome') {
-          fixedIncomeCount++
         }
         return true
       })
@@ -538,7 +559,7 @@ export default function InvestmentReconciliationModal({
 
           let indexer: PortfolioAssetIndexer = 'none'
           let indexerPercent = ''
-          let contractRate = ''
+          const contractRate = ''
           
           const tUpper = item.ticker.toUpperCase()
           const nameUpper = (item.product_name || '').toUpperCase()
@@ -610,9 +631,9 @@ export default function InvestmentReconciliationModal({
 
       setParseStatus('')
       setCurrentStep('summary')
-    } catch (err: any) {
-      console.error(err)
-      setParseStatus(err.message || 'Erro ao carregar o arquivo Excel. Verifique se o formato está correto.')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao carregar o arquivo Excel. Verifique se o formato está correto.'
+      setParseStatus(message)
     }
   }
 
@@ -793,9 +814,9 @@ export default function InvestmentReconciliationModal({
       const localTransactions: PortfolioTransaction[] = [...context.transactions]
       const localDefinitions: PortfolioAssetDefinition[] = [...context.definitions]
 
-      const txsToInsert: any[] = []
-      const defsToUpsertMap = new Map<string, any>()
-      const offsetsToInsert: any[] = []
+      const txsToInsert: PortfolioTransactionInsert[] = []
+      const defsToUpsertMap = new Map<string, Partial<PortfolioAssetDefinition> & Pick<PortfolioAssetDefinition, 'portfolio_id' | 'ticker'>>()
+      const offsetsToInsert: PortfolioTransactionInsert[] = []
       let importedCount = 0
 
       for (const [index, draft] of activeMissing.entries()) {
@@ -833,7 +854,7 @@ export default function InvestmentReconciliationModal({
           contract_rate: draft.pricing_mode === 'fixed_income' && draft.contract_rate ? parseFloat(draft.contract_rate) : null,
         }
         txsToInsert.push(newTx)
-        localTransactions.push(newTx as any)
+        localTransactions.push(toLocalPortfolioTransaction(newTx))
 
         // 2. Preparar payload de definição de ativo com suporte a Renda Fixa e Tesouro Direto
         const isFixedOrTreasury = draft.pricing_mode === 'fixed_income' || draft.isTreasury
@@ -856,9 +877,9 @@ export default function InvestmentReconciliationModal({
         // Atualizar no contexto local para que as próximas iterações leiam a definição correta
         const existingDefIndex = localDefinitions.findIndex(d => d.ticker === tickerUpper)
         if (existingDefIndex >= 0) {
-          localDefinitions[existingDefIndex] = { ...localDefinitions[existingDefIndex], ...defPayload }
+          localDefinitions[existingDefIndex] = toLocalAssetDefinition(defPayload, localDefinitions[existingDefIndex])
         } else {
-          localDefinitions.push(defPayload as any)
+          localDefinitions.push(toLocalAssetDefinition(defPayload))
         }
         defsToUpsertMap.set(tickerUpper, defPayload)
 
@@ -888,25 +909,25 @@ export default function InvestmentReconciliationModal({
                     cash_offset_source_id: txId,
                   }
                   offsetsToInsert.push(offsetTx)
-                  localTransactions.push(offsetTx as any)
+                  localTransactions.push(toLocalPortfolioTransaction(offsetTx))
                 })
               }
             }
           } else if (draft.operation_type === 'sell' || isPortfolioIncomeType(draft.operation_type)) {
             if (amount > 0) {
               const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
-              const offsetTx = {
+              const offsetTx: PortfolioTransactionInsert = {
                 id: crypto.randomUUID(),
                 portfolio_id: portfolioId,
                 ticker: cashTicker,
-                operation_type: 'buy' as const,
+                operation_type: 'buy',
                 quantity: 1,
                 price: amount,
                 date: draft.date,
                 cash_offset_source_id: txId,
               }
               offsetsToInsert.push(offsetTx)
-              localTransactions.push(offsetTx as any)
+              localTransactions.push(toLocalPortfolioTransaction(offsetTx))
             }
           }
         }
@@ -1017,7 +1038,7 @@ export default function InvestmentReconciliationModal({
     scrollToTop()
     try {
       const context = await fetchPortfolioCashContext(portfolioId)
-      let localTransactions: PortfolioTransaction[] = [...context.transactions]
+      const localTransactions: PortfolioTransaction[] = [...context.transactions]
       const localDefinitions: PortfolioAssetDefinition[] = [...context.definitions]
       const txsToInsert: Record<string, unknown>[] = []
       const offsetsToInsert: Record<string, unknown>[] = []
@@ -1536,12 +1557,12 @@ export default function InvestmentReconciliationModal({
                               }`}
                             >
                               <td className="px-4 py-2 font-bold text-primary text-xs">{row.ticker}</td>
-                              <td className="px-4 py-2 text-right tabular-nums">{row.b3.toLocaleString('pt-BR')}</td>
-                              <td className="px-4 py-2 text-right tabular-nums">{row.system.toLocaleString('pt-BR')}</td>
+                              <td className="px-4 py-2 text-right tabular-nums">{formatQuantityBR(row.b3)}</td>
+                              <td className="px-4 py-2 text-right tabular-nums">{formatQuantityBR(row.system)}</td>
                               <td className={`px-4 py-2 text-right font-black tabular-nums ${
                                 diff ? (delta > 0 ? 'text-emerald-500' : 'text-red-500') : 'text-secondary/60'
                               }`}>
-                                {diff ? `${delta > 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}` : '—'}
+                                {diff ? `${delta > 0 ? '+' : ''}${formatQuantityBR(delta)}` : '—'}
                               </td>
                             </tr>
                           )
@@ -2214,7 +2235,7 @@ export default function InvestmentReconciliationModal({
                           className="inline-flex items-center gap-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2 py-0.5 text-[10px] font-mono"
                         >
                           <span className="font-bold text-indigo-600">{ticker}</span>
-                          <span className="text-secondary">{qty % 1 === 0 ? qty : qty.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} un</span>
+                          <span className="text-secondary">{formatQuantityBR(qty)} un</span>
                         </span>
                       ))}
                   </div>

@@ -51,7 +51,7 @@ export default function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
   const isSettingsPage = location.pathname === '/settings'
-  const mobileMenuRef = useRef<HTMLElement | null>(null)
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const desktopMenuRef = useRef<HTMLElement | null>(null)
   const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -204,7 +204,7 @@ export default function Layout({ children }: LayoutProps) {
 
               {/* Bottom Sheet Menu Container */}
               <motion.div
-                ref={mobileMenuRef as any}
+                ref={mobileMenuRef}
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}

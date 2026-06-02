@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { formatNumberBR } from '@/utils/format'
+import { formatNumberBR, roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -670,7 +670,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   }
 
   const appendConstant = (constantValue: number) => {
-    const constantAsString = String(Number(constantValue.toFixed(8)))
+    const constantAsString = String(roundToDecimals(constantValue, 8))
 
     setHasError(false)
     setExpression((previousValue) => {
@@ -722,7 +722,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       return
     }
 
-    const roundedValue = String(Number(transformedValue.toFixed(8)))
+    const roundedValue = String(roundToDecimals(transformedValue, 8))
     setHasError(false)
     setExpression(roundedValue)
     setLastResult(roundedValue)

@@ -1,4 +1,5 @@
 import { usePaletteColors } from '@/hooks/usePaletteColors'
+import type { ColorPalette } from '@/contexts/ThemeContext'
 import Card from './Card'
 
 export default function ColorPaletteSwitcher() {
@@ -15,11 +16,11 @@ export default function ColorPaletteSwitcher() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(Object.entries(colorPalettes) as Array<[string, any]>).map(([key, palette]) => (
+          {(Object.entries(colorPalettes) as Array<[ColorPalette, (typeof colorPalettes)[ColorPalette]]>).map(([key, palette]) => (
             <button
               key={key}
               type="button"
-              onClick={() => setColorPalette(key as any)}
+              onClick={() => setColorPalette(key)}
               className={`p-3 rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] text-left ${
                 colorPalette === key
                   ? 'border-primary bg-tertiary accent-primary'

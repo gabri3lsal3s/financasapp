@@ -1,6 +1,7 @@
 import { addDays, format, isSaturday, isSunday, parseISO } from 'date-fns'
+import anbimaHolidayDates from '@/data/anbima-holidays-2025-2026.json'
 
-/** Feriados nacionais fixos (MM-dd). Feriados móveis exigem extensão futura. */
+/** Feriados nacionais fixos (MM-dd). */
 const FIXED_HOLIDAYS = new Set([
   '01-01',
   '04-21',
@@ -12,8 +13,11 @@ const FIXED_HOLIDAYS = new Set([
   '12-25',
 ])
 
+const ANBIMA_HOLIDAYS = new Set(anbimaHolidayDates as string[])
+
 function isHoliday(date: Date): boolean {
-  return FIXED_HOLIDAYS.has(format(date, 'MM-dd'))
+  const iso = format(date, 'yyyy-MM-dd')
+  return FIXED_HOLIDAYS.has(format(date, 'MM-dd')) || ANBIMA_HOLIDAYS.has(iso)
 }
 
 export function isBusinessDay(date: Date): boolean {

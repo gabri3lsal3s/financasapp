@@ -5,6 +5,7 @@ import { UserPlus, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -36,11 +37,16 @@ export default function Register() {
 
       if (error) throw error;
       setIsRegistered(true);
-    } catch (err: any) {
-      if (err.status === 429 || err.message?.toLowerCase().includes('rate limit')) {
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, 'Falha ao criar conta')
+      const status =
+        typeof err === 'object' && err !== null && 'status' in err
+          ? Number((err as { status?: number }).status)
+          : undefined
+      if (status === 429 || message.toLowerCase().includes('rate limit')) {
         setError('Muitas tentativas em pouco tempo. Por favor, aguarde alguns minutos antes de tentar novamente.');
       } else {
-        setError(err.message || 'Falha ao criar conta');
+        setError(message);
       }
     } finally {
       setLoading(false);

@@ -11,6 +11,7 @@ import {
   reconcileCashOffsetOnTransactionSave,
 } from '@/services/cashOffsetService'
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
+import { formatCurrency, formatMoneyInput, formatQuantityBR } from '@/utils/format'
 
 interface ContributionSimulatorProps {
   portfolio: Portfolio
@@ -222,11 +223,11 @@ export default function ContributionSimulator({
             {currentCash > 0 && (
               <button
                 type="button"
-                onClick={() => setContributionAmount(currentCash.toFixed(2))}
+                onClick={() => setContributionAmount(formatMoneyInput(currentCash))}
                 className="text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors flex items-center gap-1 font-mono"
                 title="Clique para preencher com o saldo em caixa disponível"
               >
-                Usar Caixa: R$ {currentCash.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                Usar Caixa: {formatCurrency(currentCash)}
               </button>
             )}
           </div>
@@ -292,13 +293,13 @@ export default function ContributionSimulator({
                     <td className="p-3.5 text-center text-secondary font-medium">{row.currentPercentage}%</td>
                     <td className="p-3.5 text-center text-emerald-500 font-bold">{row.targetPercentage}%</td>
                     <td className={`p-3.5 text-right font-semibold ${row.gap > 0 ? 'text-red-400' : 'text-emerald-500'}`}>
-                      {row.gap > 0 ? `R$ ${row.gap.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Zerar/Excedente'}
+                      {row.gap > 0 ? formatCurrency(row.gap) : 'Zerar/Excedente'}
                     </td>
                     <td className="p-3.5 text-right font-extrabold text-primary">
-                      {row.suggestedValue > 0 ? `R$ ${row.suggestedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00'}
+                      {row.suggestedValue > 0 ? formatCurrency(row.suggestedValue) : formatCurrency(0)}
                       {row.sharesToBuy > 0 && (
                         <span className="block text-[10px] text-secondary font-normal mt-0.5">
-                          ~ {row.sharesToBuy.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} cotas
+                          ~ {formatQuantityBR(row.sharesToBuy)} cotas
                         </span>
                       )}
                     </td>
@@ -323,7 +324,7 @@ export default function ContributionSimulator({
             <div className="text-sm text-secondary">
               O saldo sugerido será debitado do novo aporte de{' '}
               <strong className="text-primary">
-                R$ {parseFloat(contributionAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {formatCurrency(parseFloat(contributionAmount) || 0)}
               </strong>{' '}
               e distribuído automaticamente.
             </div>

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { buildCombinedIndexRates } from '@/services/bcbIndexService'
+import { loadVnaMap } from '@/services/vnaService'
 import { getAssetPrices, detectDefaultCurrency } from '@/services/priceService'
 import { calculatePositions } from '@/services/investmentEngine'
 import type {
@@ -49,7 +50,7 @@ export async function loadPortfolioValuation(
   const { data: definitionsData } = await supabase
     .from('portfolio_asset_definitions')
     .select(
-      'id, portfolio_id, ticker, pricing_mode, is_b3_linked, applied_amount, contract_rate, indexer, indexer_percent, maturity_date, manual_current_value, manual_value_updated_at, tax_exempt, is_treasury, application_date, created_at, updated_at, currency'
+      'id, portfolio_id, ticker, pricing_mode, is_b3_linked, applied_amount, contract_rate, indexer, indexer_percent, maturity_date, manual_current_value, manual_value_updated_at, tax_exempt, is_treasury, application_date, created_at, updated_at, currency, valuation_mode'
     )
     .eq('portfolio_id', portfolioId)
 
@@ -74,6 +75,7 @@ export async function loadPortfolioValuation(
   const startDate = earliestApplicationDate(definitions, transactions)
   const indexers = definitions.map((d) => d.indexer)
   const indexRatesByIndexer = await buildCombinedIndexRates(indexers, startDate, asOfDate)
+  const vnaMap = await loadVnaMap(startDate, asOfDate)
 
   const marketTickers = tickers.filter((ticker) => {
     const def = definitions.find((d) => d.ticker.toUpperCase() === ticker)
@@ -94,7 +96,8 @@ export async function loadPortfolioValuation(
     prices,
     cashBalance,
     definitions,
-    indexRatesByIndexer
+    indexRatesByIndexer,
+    vnaMap
   )
 
   return {

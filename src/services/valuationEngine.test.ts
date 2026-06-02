@@ -20,6 +20,7 @@ const baseDefinition = (overrides: Partial<PortfolioAssetDefinition>): Portfolio
   application_date: '2025-01-01',
   created_at: '',
   updated_at: '',
+  valuation_mode: 'curve',
   ...overrides,
 })
 

@@ -77,7 +77,7 @@ export default function WeeklyVariationChart({ shareHistory }: WeeklyVariationCh
               />
               <Tooltip
                 labelFormatter={(label) => `Data: ${formatDateLabel(label)}`}
-                formatter={(value: any) => [`${formatNumberBR(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, 'Rentabilidade Total']}
+                formatter={(value: number | string) => [`${formatNumberBR(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, 'Rentabilidade Total']}
               />
               <Area
                 type="monotone"

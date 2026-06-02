@@ -5,6 +5,7 @@ import { Mail, AlertCircle, KeyRound, ArrowLeft, Loader2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -29,8 +30,8 @@ export default function ForgotPassword() {
 
       if (error) throw error;
       setMessage('Verifique seu e-mail para encontrar o link de redefinição de senha.');
-    } catch (err: any) {
-      setError(err.message || 'Falha ao redefinir a senha');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Falha ao redefinir a senha'));
     } finally {
       setLoading(false);
     }

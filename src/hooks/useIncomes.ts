@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Income } from '@/types'
+import { Income, IncomeCategory } from '@/types'
 import { format } from 'date-fns'
 import { enqueueOfflineOperation, shouldQueueOffline, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -187,9 +187,9 @@ export function useIncomes(month?: string) {
           },
         })
 
-        let currentIncomeCategories: any[] = []
+        let currentIncomeCategories: IncomeCategory[] = []
         try {
-          currentIncomeCategories = await getCache<any[]>('income_categories-all') || []
+          currentIncomeCategories = await getCache<IncomeCategory[]>('income_categories-all') || []
         } catch (e) {
           console.error('Error loading categories from cache during offline create:', e)
         }
@@ -207,7 +207,7 @@ export function useIncomes(month?: string) {
           income_category: matchedCategory ? {
             id: matchedCategory.id,
             name: matchedCategory.name,
-            color: matchedCategory.color || '#9ca3af',
+            color: matchedCategory.color || 'var(--category-fallback-muted)',
           } : undefined,
         } as Income
 

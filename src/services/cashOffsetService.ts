@@ -14,6 +14,16 @@ const TRANSACTION_SELECT =
 
 let hasCashOffsetColumn = true
 
+type PortfolioTransactionInsertRow = {
+  portfolio_id: string
+  ticker: string
+  operation_type: 'sell' | 'buy'
+  quantity: number
+  price: number
+  date: string
+  cash_offset_source_id?: string
+}
+
 export interface ApplyCashOffsetResult {
   cashUsed: number
   netContribution: number
@@ -52,7 +62,7 @@ export async function fetchAllPortfolioTransactions(
     if (!data || data.length === 0) {
       hasMore = false
     } else {
-      allTransactions = [...allTransactions, ...(data as any[])]
+      allTransactions = [...allTransactions, ...(data as unknown as PortfolioTransaction[])]
       if (data.length < pageSize) {
         hasMore = false
       } else {
@@ -85,8 +95,9 @@ export async function fetchPortfolioCashContext(portfolioId: string): Promise<{
       transactions,
       definitions: (defRes.data as PortfolioAssetDefinition[]) || [],
     }
-  } catch (err: any) {
-    if (hasCashOffsetColumn && (err.code === '42703' || String(err.message).includes('cash_offset_source_id'))) {
+  } catch (err: unknown) {
+    const pgError = err as { code?: string; message?: string }
+    if (hasCashOffsetColumn && (pgError.code === '42703' || String(pgError.message).includes('cash_offset_source_id'))) {
       console.warn('[cashOffsetService] Coluna cash_offset_source_id ausente no banco remoto. Re-consultando sem offset.')
       hasCashOffsetColumn = false
       const [transactions, defRes] = await Promise.all([
@@ -198,7 +209,7 @@ export async function applyCashOffsetAfterBuy(params: {
   }
 
   const rows = plan.sellTransactions.map((sell) => {
-    const row: any = {
+    const row: PortfolioTransactionInsertRow = {
       portfolio_id: portfolioId,
       ticker: sell.ticker,
       operation_type: 'sell' as const,
@@ -216,8 +227,8 @@ export async function applyCashOffsetAfterBuy(params: {
   if (error) {
     if (hasCashOffsetColumn && (error.code === '42703' || String(error.message).includes('cash_offset_source_id'))) {
       hasCashOffsetColumn = false
-      const fallbackRows = rows.map((r: any) => {
-        const { cash_offset_source_id, ...rest } = r
+      const fallbackRows = rows.map((r: Record<string, unknown>) => {
+        const { cash_offset_source_id: _cashOffsetSourceId, ...rest } = r
         return rest
       })
       const { error: retryError } = await supabase.from('portfolio_transactions').insert(fallbackRows)
@@ -246,7 +257,7 @@ export async function applyCashOffsetAfterSellOrDividend(params: {
 
   const cashTicker = getPreferredCashTicker(transactions, definitions)
 
-  const row: any = {
+  const row: PortfolioTransactionInsertRow = {
     portfolio_id: portfolioId,
     ticker: cashTicker,
     operation_type: 'buy' as const, // Depósito de caixa
@@ -262,7 +273,7 @@ export async function applyCashOffsetAfterSellOrDividend(params: {
   if (error) {
     if (hasCashOffsetColumn && (error.code === '42703' || String(error.message).includes('cash_offset_source_id'))) {
       hasCashOffsetColumn = false
-      const { cash_offset_source_id, ...fallbackRow } = row
+      const { cash_offset_source_id: _cashOffsetSourceId, ...fallbackRow } = row
       const { error: retryError } = await supabase.from('portfolio_transactions').insert(fallbackRow)
       if (retryError) throw retryError
     } else {

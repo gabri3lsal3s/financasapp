@@ -1,0 +1,177 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`UI secondary components snapshots > Card glass variant renders 1`] = `
+<div
+  class="rounded-lg p-4 motion-standard surface-glass shadow-elevation-1  "
+>
+  Opaco alternativo
+</div>
+`;
+
+exports[`UI secondary components snapshots > CategoryBadge renders label and color 1`] = `
+<span
+  class="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4 sm:text-xs font-medium"
+  style="background-color: color-mix(in srgb, var(--color-expense) 14%, transparent); border-color: color-mix(in srgb, var(--color-expense) 28%, transparent); color: color-mix(in srgb, var(--color-expense) 92%, var(--color-text-primary) 8%);"
+  title="Alimentação"
+>
+  <span
+    class="h-1.5 w-1.5 rounded-full flex-shrink-0"
+    style="background-color: var(--color-expense);"
+  />
+  <span
+    class="truncate"
+  >
+    Alimentação
+  </span>
+</span>
+`;
+
+exports[`UI secondary components snapshots > EmptyState renders with action 1`] = `
+<div
+  class="rounded-xl p-4 motion-standard shadow-elevation-1 surface-glass  text-center py-10 px-6 "
+>
+  <div
+    class="flex justify-center mb-4 text-secondary"
+  >
+    <svg
+      class="lucide lucide-piggy-bank "
+      fill="none"
+      height="32"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="32"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z"
+      />
+      <path
+        d="M2 9v1c0 1.1.9 2 2 2h1"
+      />
+      <path
+        d="M16 11h0"
+      />
+    </svg>
+  </div>
+  <p
+    class="text-base font-semibold text-primary"
+  >
+    Sem lançamentos
+  </p>
+  <p
+    class="text-sm text-secondary mt-2 max-w-sm mx-auto"
+  >
+    Adicione o primeiro.
+  </p>
+  <button
+    class="inline-flex items-center justify-center gap-2 font-medium rounded-lg border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-button-text)] hover:opacity-90 px-6 py-3 text-lg min-h-12  mt-6"
+  >
+    Começar
+  </button>
+</div>
+`;
+
+exports[`UI secondary components snapshots > GlassCard renders children 1`] = `
+<div
+  class="rounded-xl p-4 motion-standard shadow-elevation-1 surface-glass  "
+>
+  Conteúdo
+</div>
+`;
+
+exports[`UI secondary components snapshots > HeroMetric renders balance intent 1`] = `
+<div
+  class="rounded-xl p-4 motion-standard shadow-elevation-1 surface-elevated  p-5 sm:p-6 "
+>
+  <p
+    class="text-ui-label"
+  >
+    Saldo do mês
+  </p>
+  <p
+    class="text-fluid-2xl font-black font-mono tracking-tight mt-2 text-balance"
+  >
+    R$ 1.500,50
+  </p>
+</div>
+`;
+
+exports[`UI secondary components snapshots > IconButton renders variants and sizes 1`] = `
+<div>
+  <button
+    aria-label="Adicionar"
+    class="rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-primary text-secondary hover:text-primary hover:bg-tertiary p-1.5 "
+  >
+    <svg
+      class="lucide lucide-plus "
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M5 12h14"
+      />
+      <path
+        d="M12 5v14"
+      />
+    </svg>
+  </button>
+  <button
+    aria-label="Excluir"
+    class="rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-tertiary p-2 "
+  >
+    <svg
+      class="lucide lucide-plus "
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M5 12h14"
+      />
+      <path
+        d="M12 5v14"
+      />
+    </svg>
+  </button>
+  <button
+    aria-label="Salvar"
+    class="rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--color-bg-secondary)] disabled:opacity-50 disabled:cursor-not-allowed border-[var(--color-income)] text-income hover:bg-tertiary p-2.5 "
+  >
+    <svg
+      class="lucide lucide-plus "
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M5 12h14"
+      />
+      <path
+        d="M12 5v14"
+      />
+    </svg>
+  </button>
+</div>
+`;

@@ -4,8 +4,15 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   AreaChart, Area
 } from 'recharts';
-import { formatCurrency } from '@/utils/format';
+import {
+  formatCurrency,
+  formatPercentBR,
+  formatAxisCurrencyThousands,
+  roundToDecimals,
+} from '@/utils/format';
 import { useTheme } from '@/hooks/useTheme';
+import type { PieLabelProps } from '@/types/recharts';
+import { chartAnimProps } from '@/types/recharts';
 
 interface Asset {
   asset_name: string;
@@ -36,34 +43,18 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
   // Cores dinâmicas para a distribuição de ativos baseadas em temas/estilos
   const chartPalette = useMemo(() => {
     if (colorPalette === 'monochrome') {
-      return ['#404040', '#525252', '#737373', '#a3a3a3', '#d4d4d8', '#e4e4e7'];
+      return Array.from({ length: 6 }, (_, i) => `var(--chart-mono-${i})`)
     }
-    
-    // Cores vibrantes estilo Cyberpunk
     if (visualStyle === 'cyberpunk') {
       return [
         'var(--ds-color-accent-primary)',
-        '#00d2ff', // Neon Cyan
-        '#8a2be2', // Neon Violet
-        '#ff007f', // Neon Pink
-        '#ffaa00', // Neon Amber
-        '#39ff14', // Neon Green
-        '#00f2fe',
-        '#f35588'
-      ];
+        ...Array.from({ length: 6 }, (_, i) => `var(--chart-cyber-${i})`),
+      ]
     }
-    
-    // Cores clássicas e elegantes do SaaS
     return [
       'var(--color-primary)',
-      '#4f46e5', // Indigo
-      '#0ea5e9', // Sky Blue
-      '#10b981', // Emerald Green
-      '#f59e0b', // Amber
-      '#ec4899', // Pink
-      '#8b5cf6', // Violet
-      '#f43f5e'  // Rose
-    ];
+      ...Array.from({ length: 6 }, (_, i) => `var(--chart-vivid-${i})`),
+    ]
   }, [visualStyle, colorPalette]);
 
   const macroComposition = useMemo(() => {
@@ -73,8 +64,8 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
       const currentPct = totalBalance > 0 ? (current / totalBalance) * 100 : 0;
       return {
         name: m.name.length > 15 ? m.name.slice(0, 13) + '…' : m.name,
-        'Atual (%)': parseFloat(currentPct.toFixed(2)),
-        'Alvo (%)': parseFloat((m.target_percentage * 100).toFixed(2)),
+        'Atual (%)': roundToDecimals(currentPct, 2),
+        'Alvo (%)': roundToDecimals(m.target_percentage * 100, 2),
       };
     });
   }, [assets, macroSectors, sectors, totalBalance]);
@@ -87,7 +78,11 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
       map[label] = (map[label] || 0) + a.current_balance;
     });
     return Object.entries(map)
-      .map(([name, value]) => ({ name, value, pct: totalBalance > 0 ? (value / totalBalance * 100).toFixed(1) : '0' }))
+      .map(([name, value]) => ({
+        name,
+        value,
+        pct: totalBalance > 0 ? roundToDecimals((value / totalBalance) * 100, 1) : 0,
+      }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [assets, sectors, totalBalance]);
@@ -101,7 +96,11 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
       map[label] = (map[label] || 0) + a.current_balance;
     });
     return Object.entries(map)
-      .map(([name, value]) => ({ name, value, pct: totalBalance > 0 ? (value / totalBalance * 100).toFixed(1) : '0' }))
+      .map(([name, value]) => ({
+        name,
+        value,
+        pct: totalBalance > 0 ? roundToDecimals((value / totalBalance) * 100, 1) : 0,
+      }))
       .sort((a, b) => b.value - a.value);
   }, [assets, macroSectors, sectors, totalBalance]);
 
@@ -113,15 +112,11 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
     }));
   }, [historyReports]);
 
-  const animProps = useMemo(() => ({
-    isAnimationActive: true,
-    animationDuration: visualStyle === 'cyberpunk' ? 1200 : 700,
-    animationEasing: (visualStyle === 'cyberpunk' ? 'cubic-bezier(0.34, 1.56, 0.64, 1)' : 'ease-out') as any
-  }), [visualStyle]);
+  const animProps = useMemo(() => chartAnimProps(visualStyle), [visualStyle]);
 
   // Renderizador de percentual nas fatias (adaptável para contraste de temas)
-  const renderLabel = ({ cx, cy, midAngle, outerRadius, pct }: any) => {
-    if (parseFloat(pct) < 4) return null;
+  const renderLabel = ({ cx, cy, midAngle, outerRadius, pct }: PieLabelProps) => {
+    if (parseFloat(String(pct)) < 4) return null;
     const radius = outerRadius + 8;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -134,7 +129,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
         dominantBaseline="central" 
         style={{ fontSize: 9, fontWeight: '700', fontFamily: 'inherit' }}
       >
-        {pct}%
+        {formatPercentBR(Number(pct), 1)}
       </text>
     );
   };
@@ -172,7 +167,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                    height={45}
                 />
                 <YAxis tickFormatter={v => `${v}%`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} />
+                <Tooltip formatter={(v: number) => formatPercentBR(Number(v), 2)} />
                 <Bar dataKey="Atual (%)" fill="var(--color-primary)" radius={[4, 4, 0, 0]} {...animProps} />
                 <Bar dataKey="Alvo (%)" fill="var(--color-disabled)" radius={[4, 4, 0, 0]} {...animProps} />
                 <Legend iconSize={8} wrapperStyle={{ fontSize: 9, paddingTop: 10 }} verticalAlign="bottom" />
@@ -272,7 +267,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(v) => formatAxisCurrencyThousands(Number(v))} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
                 <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} filter={visualStyle === 'cyberpunk' ? 'url(#cyberGlow)' : undefined} {...animProps} />
               </AreaChart>
@@ -289,7 +284,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sectorDist.slice(0, 6)} layout="vertical" barCategoryGap="20%" margin={{ top: 10, bottom: 10, left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <XAxis type="number" tickFormatter={(v) => formatAxisCurrencyThousands(Number(v), { spaced: true })} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 9, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]} {...animProps}>

@@ -68,7 +68,7 @@ export function useIncomeReports(year: number, includeReportWeights = true) {
         const cat = Array.isArray(income.income_categories) ? income.income_categories[0] : income.income_categories
         const categoryId = income.income_category_id
         const categoryName = cat?.name ?? 'Sem categoria'
-        const categoryColor = cat?.color ?? '#808080'
+        const categoryColor = cat?.color ?? 'var(--category-fallback-gray)'
         const monthStr = income.date.substring(0, 7)
         const weightedAmount = includeReportWeights
           ? getWeightedReportAmount(income.amount, income.report_weight)

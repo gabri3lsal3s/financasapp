@@ -7,7 +7,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
-const DEFAULT_CATEGORY_COLOR = '#9ca3af'
+const DEFAULT_CATEGORY_COLOR = 'var(--category-fallback-muted)'
 
 export function useIncomeCategories() {
   const { user } = useAuth()
@@ -28,6 +28,7 @@ export function useIncomeCategories() {
     }
     window.addEventListener('offline-queue-processed', onQueueProcessed)
     return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: listener de sync offline; re-bind só ao montar
   }, [])
 
   const getIncomeCategoryUsageCount = async (id: string): Promise<number> => {

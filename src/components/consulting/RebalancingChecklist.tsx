@@ -1,4 +1,5 @@
 import Card from '@/components/Card'
+import { formatCurrency } from '@/utils/format'
 import { AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 interface RebalancingTrade {
@@ -53,7 +54,7 @@ export default function RebalancingChecklist({
               <div className="text-right flex items-center gap-2">
                 <div className="text-[11px] font-semibold text-primary font-mono">
                   {trade.action === 'buy' ? '+' : '-'}{trade.shares} cotas
-                  <div className="text-[9px] text-secondary font-medium font-sans">Est: R$ {trade.amount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</div>
+                  <div className="text-[9px] text-secondary font-medium font-sans">Est: {formatCurrency(trade.amount)}</div>
                 </div>
                 {trade.action === 'buy' ? (
                   <ArrowUpRight size={16} className="text-income shrink-0" />

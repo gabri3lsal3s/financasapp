@@ -15,6 +15,7 @@ import {
   formatDate,
   formatMoneyInput,
   parseMoneyInput,
+  roundToDecimals,
 } from '@/utils/format'
 
 const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
@@ -206,7 +207,7 @@ export default function IncomeFormModal({
     }
 
     const reportWeight =
-      amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+      amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1
 
     const incomeData: Omit<
       Income,

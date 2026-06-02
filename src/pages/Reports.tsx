@@ -3,6 +3,10 @@ import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
+import Input from '@/components/Input'
+import DailyFlowLegend from '@/components/dashboard/DailyFlowLegend'
+import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
+import ReportsPieLegendRow, { type ReportsPieLegendItem } from '@/components/reports/ReportsPieLegendRow'
 import Select from '@/components/Select'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Loader from '@/components/Loader'
@@ -19,9 +23,11 @@ import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction } from '@/types'
+import type { ChartTooltipEntry } from '@/types/recharts'
+import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
 import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, clampMonthToAppStart, formatChartYAxisCurrency, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Scale, Loader2 } from 'lucide-react'
 import {
@@ -104,12 +110,12 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 }
 
 const PAYMENT_METHOD_COLORS: Record<string, string> = {
-  cash: '#10b981', // emerald-500
-  debit: '#3b82f6', // blue-500
-  credit_card: '#8b5cf6', // violet-500
-  pix: '#06b6d4', // cyan-500
-  transfer: '#f59e0b', // amber-500
-  other: '#6b7280', // gray-500
+  cash: 'var(--payment-method-cash)',
+  debit: 'var(--payment-method-debit)',
+  credit_card: 'var(--payment-method-credit-card)',
+  pix: 'var(--payment-method-pix)',
+  transfer: 'var(--payment-method-transfer)',
+  other: 'var(--payment-method-other)',
 }
 
 const DETAIL_ITEMS_STEP = 8
@@ -138,11 +144,11 @@ type DetailIncomeEntry = {
   } | null
 }
 
-function ChartTooltip({ active, payload, formatValue = formatCurrency }: { active?: boolean; payload?: any[]; formatValue?: (n: number) => string }) {
+function ChartTooltip({ active, payload, formatValue = formatCurrency }: { active?: boolean; payload?: ChartTooltipEntry[]; formatValue?: (n: number) => string }) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry, i: number) => (
         <p key={i} style={{ color: entry.color }} className="text-sm font-medium">
           {entry.name}: {formatValue(Number(entry.value))}
         </p>
@@ -151,14 +157,15 @@ function ChartTooltip({ active, payload, formatValue = formatCurrency }: { activ
   )
 }
 
-function PieTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
+function PieTooltip({ active, payload }: { active?: boolean; payload?: ChartTooltipEntry[] }) {
   if (!active || !payload?.[0]) return null
-  const point = payload[0].payload
+  const point = payload[0].payload as { name?: string; value?: number } | undefined
+  if (!point) return null
 
   return (
     <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
       <p className="text-sm font-medium text-primary">{point.name}</p>
-      <p className="text-sm text-secondary">{formatCurrency(point.value)}</p>
+      <p className="text-sm text-secondary">{formatCurrency(Number(point.value ?? 0))}</p>
     </div>
   )
 }
@@ -471,7 +478,7 @@ export default function Reports() {
       results.push({
         name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
         value: total,
-        color: card?.color || '#8b5cf6',
+        color: card?.color || 'var(--payment-method-credit-card)',
         categoryId: cardId,
         detailType: 'credit_card' as const,
         detailPeriod: 'year' as const,
@@ -656,7 +663,7 @@ export default function Reports() {
       results.push({
         name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
         value: total,
-        color: card?.color || '#8b5cf6',
+        color: card?.color || 'var(--payment-method-credit-card)',
         categoryId: cardId,
         detailType: 'credit_card' as const,
         detailPeriod: 'month' as const,
@@ -1029,32 +1036,9 @@ export default function Reports() {
   const renderInteractiveLegend = (
     hiddenSeries: string[],
     onToggle: (key: string) => void,
-  ) => ({ payload }: { payload?: any[] }) => {
-    if (!payload?.length) return null
-
-    return (
-      <div className="flex flex-wrap gap-2 pt-2">
-        {payload.map((entry: any) => {
-          const dataKey = String(entry.dataKey ?? entry.value ?? '')
-          const isHidden = hiddenSeries.includes(dataKey)
-
-          return (
-            <button
-              key={dataKey}
-              type="button"
-              onClick={() => onToggle(dataKey)}
-              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
-                }`}
-              aria-pressed={!isHidden}
-            >
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-primary">{entry.value}</span>
-            </button>
-          )
-        })}
-      </div>
-    )
-  }
+  ) => (props: LegendContentProps) => (
+    <DailyFlowLegend payload={props.payload} hiddenSeries={hiddenSeries} onToggle={onToggle} />
+  )
 
   const dailyConsolidatedData = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number)
@@ -1172,9 +1156,6 @@ export default function Reports() {
   const controlButtonVariant = (mode: ViewMode) =>
     viewMode === mode ? 'secondary' : 'outline'
 
-  const interactiveRowButtonClasses =
-    'w-full rounded-lg border border-primary bg-secondary text-primary px-3 py-3 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
-
   const renderPieCard = (title: string, data: PieDatum[]) => (
     <Card className="h-full flex flex-col chart-interactive-layer">
       <h3 className="text-lg font-semibold text-primary mb-4">{title}</h3>
@@ -1215,27 +1196,26 @@ export default function Reports() {
               .slice(0, 5)
               .map((item) => {
                 const total = data.reduce((sum, current) => sum + current.value, 0)
-                const pct = total > 0
-                  ? formatNumberBR((item.value / total) * 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-                  : formatNumberBR(0, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                const legendItem: ReportsPieLegendItem = {
+                  name: item.name,
+                  value: item.value,
+                  color: item.color,
+                  categoryId: item.categoryId,
+                  detailType: item.detailType,
+                  detailPeriod: item.detailPeriod,
+                }
 
                 return (
-                  <button
+                  <ReportsPieLegendRow
                     key={item.name}
-                    type="button"
-                    onClick={() => {
-                      if (item.categoryId && item.detailType) {
-                        openDetailModal(item.detailType, item.categoryId, item.name, item.detailPeriod || 'month')
+                    item={legendItem}
+                    total={total}
+                    onOpen={(row) => {
+                      if (row.categoryId && row.detailType) {
+                        openDetailModal(row.detailType, row.categoryId, row.name, row.detailPeriod || 'month')
                       }
                     }}
-                    className={`${interactiveRowButtonClasses} flex items-center justify-between gap-3 text-sm`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="text-primary truncate">{item.name}</span>
-                    </div>
-                    <span className="text-secondary flex-shrink-0">{pct}%</span>
-                  </button>
+                  />
                 )
               })}
           </div>
@@ -1447,7 +1427,7 @@ export default function Reports() {
                             stroke="var(--color-text-secondary)"
                             fontSize={12}
                             tick={{ fill: 'var(--color-text-secondary)' }}
-                            tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                            tickFormatter={(value) => formatChartYAxisCurrency(Number(value))}
                           />
                           <Tooltip content={<ChartTooltip />} />
                           <Legend 
@@ -1517,7 +1497,7 @@ export default function Reports() {
                         stroke="var(--color-text-secondary)"
                         fontSize={12}
                         tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                        tickFormatter={(value) => formatChartYAxisCurrency(Number(value))}
                       />
                       <Tooltip content={<ChartTooltip />} />
                       <Legend content={renderInteractiveLegend(hiddenDailyConsolidatedSeries, toggleDailyConsolidatedSeries)} />
@@ -1550,7 +1530,7 @@ export default function Reports() {
                           stroke="var(--color-text-secondary)"
                           fontSize={12}
                           tick={{ fill: 'var(--color-text-secondary)' }}
-                          tickFormatter={(value) => (value >= 1000 ? `R$ ${(value / 1000).toFixed(0)}k` : `R$ ${value}`)}
+                          tickFormatter={(value) => formatChartYAxisCurrency(Number(value))}
                         />
                         <Tooltip content={<ChartTooltip />} />
                         <Legend content={renderInteractiveLegend(hiddenMonthCompositionSeries, toggleMonthCompositionSeries)} />
@@ -1631,32 +1611,21 @@ export default function Reports() {
                             ? getExpenseColor(id, category.color)
                             : getIncomeColor(id, category.color)
                           const totalBase = isExpense ? monthExpenseTotal : monthIncomeTotal
-                          const pct = totalBase > 0 ? (category.total / totalBase) * 100 : 0
                           const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
                           return (
-                            <button
+                            <ReportsCategoryRowButton
                               key={id}
-                              type="button"
-                              onClick={() => openDetailModal(isExpense ? 'expense' : 'income', id, category.category_name, 'month')}
-                              className={`${interactiveRowButtonClasses} p-2.5 animate-stagger-item ${staggerClass}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-primary truncate">{category.category_name}</span>
-                                </div>
-                                <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-primary font-semibold flex-shrink-0">
-                                  {formatCurrency(category.total)}
-                                </span>
-                              </div>
-
-                              <div className="w-full h-1.5 rounded-full bg-secondary mt-2">
-                                <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-                              </div>
-
-                              <p className="text-[11px] text-secondary mt-1.5">{formatNumberWithTwoDecimalsBR(pct)}% do total</p>
-                            </button>
+                              categoryId={id}
+                              categoryName={category.category_name}
+                              total={category.total}
+                              color={color}
+                              totalBase={totalBase}
+                              staggerClass={staggerClass}
+                              onOpen={(categoryId, categoryName) =>
+                                openDetailModal(isExpense ? 'expense' : 'income', categoryId, categoryName, 'month')
+                              }
+                            />
                           )
                         })}
                     </div>
@@ -1726,12 +1695,11 @@ export default function Reports() {
 
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-secondary mb-2">Buscar lançamento</label>
-            <input
+            <Input
               type="text"
               value={detailSearch}
               onChange={(event) => setDetailSearch(event.target.value)}
               placeholder="Digite parte da descrição"
-              className="w-full px-3 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
             />
           </div>
 
@@ -1768,13 +1736,14 @@ export default function Reports() {
 
               {hasMoreDetailItems && (
                 <div className="pt-1">
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
+                    variant="outline"
                     onClick={() => setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)}
-                    className="text-xs rounded-md border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] px-2 py-1"
                   >
                     Ver mais
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

@@ -6,6 +6,7 @@ import type {
 } from '@/types'
 import { buildPortfolioLedger, type PositionLedgerEntry } from '@/utils/portfolioLedger'
 import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { resolveVnaForDate } from '@/services/vnaService'
 import { calculateGrossAndNetYield } from '@/utils/incomeTaxInvestment'
 import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
 
@@ -60,6 +61,7 @@ function defaultDefinition(ticker: string): PortfolioAssetDefinition {
     created_at: '',
     updated_at: '',
     currency: detectDefaultCurrency(upper),
+    valuation_mode: isLegacyCash ? 'curve' : 'market',
   }
 }
 
@@ -137,7 +139,8 @@ function valueTreasuryHybrid(
   applicationDate: string,
   costBasis: number,
   transactions: PortfolioTransaction[],
-  ticker: string
+  ticker: string,
+  vnaMap: Record<string, number> = {}
 ): { currentValue: number; unitPrice: number; source: ValuationSource; quotationStatus?: AssetPrice['quotation_status'] } {
   const market = valueMarketPosition(ledger, price, fallbackPrice)
   
@@ -149,12 +152,15 @@ function valueTreasuryHybrid(
 
   let theoretical = 0
   if (buyTransactions.length > 0 && ledger.quantity > 0) {
+    const vnaToday =
+      definition.indexer === 'ipca' ? resolveVnaForDate(vnaMap, asOfDate) : undefined
     theoretical = calculateLotBasedFixedIncomeValue({
       transactions,
       ticker,
       definition,
       asOfDate,
       indexRates,
+      vnaToday,
     })
   } else {
     theoretical = calculateFixedIncomeValue({
@@ -168,7 +174,11 @@ function valueTreasuryHybrid(
     })
   }
 
-  if (definition.is_b3_linked && isMarketQuoteFresh(price) && market.currentValue > 0) {
+  const preferMarket =
+    definition.valuation_mode === 'market' ||
+    (!definition.is_treasury && definition.valuation_mode !== 'curve')
+
+  if (preferMarket && definition.is_b3_linked && isMarketQuoteFresh(price) && market.currentValue > 0) {
     return market
   }
 
@@ -192,6 +202,7 @@ export interface PortfolioValuationInput {
   prices: Record<string, AssetPrice>
   cashBalance: number
   indexRatesByIndexer: Record<string, IndexRateMap>
+  vnaMap?: Record<string, number>
   asOfDate?: string
   fallbackPrice?: (ticker: string) => number
 }
@@ -215,6 +226,7 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     prices,
     cashBalance,
     indexRatesByIndexer,
+    vnaMap = {},
     asOfDate = new Date().toISOString().slice(0, 10),
     fallbackPrice = () => 0,
   } = input
@@ -285,12 +297,15 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
           (t.operation_type === 'buy' || t.operation_type === 'subscription')
       )
       if (buyTransactions.length > 0 && ledger.quantity > 0) {
+        const vnaToday =
+          definition.indexer === 'ipca' ? resolveVnaForDate(vnaMap, asOfDate) : undefined
         currentValue = calculateLotBasedFixedIncomeValue({
           transactions,
           ticker: upperTicker,
           definition,
           asOfDate,
           indexRates,
+          vnaToday,
         })
       } else {
         currentValue = ledger.quantity > 0 ? calculateFixedIncomeValue({
@@ -327,7 +342,8 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
         applicationDate,
         costBasis,
         transactions,
-        upperTicker
+        upperTicker,
+        vnaMap
       )
       currentValue = treasuryVal.currentValue
       unitPrice = treasuryVal.unitPrice

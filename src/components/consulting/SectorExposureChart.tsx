@@ -55,9 +55,9 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
                   ))}
                 </Pie>
                 <ChartTooltip
-                  formatter={(value: any, _name: any, props: any) => {
+                  formatter={(value: number | string, _name: string, props: { payload?: { percentage?: number } }) => {
                     const formattedVal = formatCurrency(Number(value))
-                    const pctVal = `(${formatNumberBR(props.payload.percentage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)`
+                    const pctVal = `(${formatNumberBR(props.payload?.percentage ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)`
                     return [`${formattedVal} ${pctVal}`, 'Alocação']
                   }}
                 />

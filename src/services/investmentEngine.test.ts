@@ -100,4 +100,51 @@ describe('investmentEngine - calculateShareHistory com Caixa', () => {
     expect(metrics.beta_ibov).toBe(0)
     expect(metrics.beta_sp500).toBe(0)
   })
+
+  it('inclui caixa e ativo de mercado no valor final da cota', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 1000,
+        date: '2026-01-01',
+        created_at: '',
+      },
+      {
+        id: 't2',
+        portfolio_id: 'p1',
+        ticker: 'PETR4',
+        operation_type: 'buy',
+        quantity: 100,
+        price: 30,
+        date: '2026-02-01',
+        created_at: '',
+      },
+    ]
+
+    const prices: Record<string, AssetPrice> = {
+      PETR4: {
+        ticker: 'PETR4',
+        current_price: 40,
+        last_updated: '2026-03-01',
+        quotation_status: 'live',
+      },
+    }
+
+    const definitions: PortfolioAssetDefinition[] = [
+      baseDefinition({ ticker: 'CAIXA' }),
+      baseDefinition({ ticker: 'PETR4', pricing_mode: 'market', application_date: '2026-02-01' }),
+    ]
+
+    const result = calculateShareHistory(transactions, prices, definitions)
+
+    // Aporte 1000 + fluxo líquido na compra PETR4 (caixa insuficiente) → 4000 cotas
+    expect(result.totalShares).toBe(4000)
+    // Valorização de PETR4 (30→40) eleva a cota; PL inclui caixa residual + ativos
+    expect(result.currentShareValue).toBeGreaterThan(1)
+    expect(result.currentShareValue * result.totalShares).toBeCloseTo(5000, 0)
+  })
 })

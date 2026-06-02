@@ -1,0 +1,358 @@
+/**
+ * Tokens de tema aplicados via classes em html (ThemeContext).
+ * Combinações: .light | .dark | .midnight × .cyberpunk (opcional) × [data-color-palette]
+ */
+
+/* --- Classic: light --- */
+html.light:not(.cyberpunk) {
+  --ds-color-surface-primary: #ffffff;
+  --ds-color-surface-secondary: #f8fafc;
+  --ds-color-surface-tertiary: #f1f5f9;
+  --ds-color-text-primary: #0f172a;
+  --ds-color-text-secondary: #475569;
+  --ds-color-border-default: #e2e8f0;
+  --ds-color-accent-primary: #0f172a;
+  --ds-color-accent-primary-strong: #020617;
+  --ds-color-accent-primary-soft: #f1f5f9;
+  --ds-color-button-text: #ffffff;
+  --ds-color-intent-success: #10b981;
+  --ds-color-intent-warning: #ca8a04;
+  --ds-color-intent-danger: #ef4444;
+  --ds-color-interaction-hover: #f8fafc;
+  --ds-color-interaction-focus: #64748b;
+  --ds-color-interaction-disabled: #e2e8f0;
+  --ds-color-interaction-active: #e2e8f0;
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+}
+
+/* --- Cyberpunk: light --- */
+html.light.cyberpunk {
+  --ds-color-surface-primary: rgba(240, 244, 255, 0.75);
+  --ds-color-surface-secondary: #f1f5f9;
+  --ds-color-surface-tertiary: rgba(226, 232, 240, 0.8);
+  --ds-color-text-primary: #0f172a;
+  --ds-color-text-secondary: #475569;
+  --ds-color-border-default: rgba(15, 23, 42, 0.08);
+  --ds-color-accent-primary: #06b6d4;
+  --ds-color-accent-primary-strong: #0891b2;
+  --ds-color-accent-primary-soft: rgba(6, 182, 212, 0.15);
+  --ds-color-button-text: #ffffff;
+  --ds-color-intent-success: #10b981;
+  --ds-color-intent-warning: #eab308;
+  --ds-color-intent-danger: #ef4444;
+  --ds-color-interaction-hover: rgba(6, 182, 212, 0.12);
+  --ds-color-interaction-focus: #06b6d4;
+  --ds-color-interaction-disabled: #e2e8f0;
+  --ds-color-interaction-active: rgba(6, 182, 212, 0.22);
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+}
+
+/* --- Classic: dark --- */
+html.dark:not(.cyberpunk) {
+  --ds-color-surface-primary: #0b0f19;
+  --ds-color-surface-secondary: #111827;
+  --ds-color-surface-tertiary: #1f2937;
+  --ds-color-text-primary: #f8fafc;
+  --ds-color-text-secondary: #94a3b8;
+  --ds-color-border-default: #1e293b;
+  --ds-color-accent-primary: #e2e8f0;
+  --ds-color-accent-primary-strong: #f8fafc;
+  --ds-color-accent-primary-soft: #334155;
+  --ds-color-button-text: #0b0f19;
+  --ds-color-intent-success: #22c55e;
+  --ds-color-intent-warning: #eab308;
+  --ds-color-intent-danger: #ef4444;
+  --ds-color-interaction-hover: #1e293b;
+  --ds-color-interaction-focus: #475569;
+  --ds-color-interaction-disabled: #1e293b;
+  --ds-color-interaction-active: #334155;
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+}
+
+/* --- Cyberpunk: dark --- */
+html.dark.cyberpunk {
+  --ds-color-surface-primary: rgba(10, 11, 22, 0.65);
+  --ds-color-surface-secondary: #040409;
+  --ds-color-surface-tertiary: rgba(20, 22, 45, 0.7);
+  --ds-color-text-primary: #fafafa;
+  --ds-color-text-secondary: #94a3b8;
+  --ds-color-border-default: rgba(0, 255, 136, 0.08);
+  --ds-color-accent-primary: #00ff88;
+  --ds-color-accent-primary-strong: #00e67a;
+  --ds-color-accent-primary-soft: rgba(0, 255, 136, 0.15);
+  --ds-color-button-text: #07080e;
+  --ds-color-intent-success: #00ff88;
+  --ds-color-intent-warning: #facc15;
+  --ds-color-intent-danger: #ff3366;
+  --ds-color-interaction-hover: rgba(0, 255, 136, 0.15);
+  --ds-color-interaction-focus: #00ff88;
+  --ds-color-interaction-disabled: #18181b;
+  --ds-color-interaction-active: rgba(0, 255, 136, 0.25);
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+}
+
+/* --- Classic: midnight --- */
+html.midnight:not(.cyberpunk) {
+  --ds-color-surface-primary: #000000;
+  --ds-color-surface-secondary: #0a0a0a;
+  --ds-color-surface-tertiary: #161616;
+  --ds-color-text-primary: #ffffff;
+  --ds-color-text-secondary: #a3a3a3;
+  --ds-color-border-default: #262626;
+  --ds-color-accent-primary: #ffffff;
+  --ds-color-accent-primary-strong: #ffffff;
+  --ds-color-accent-primary-soft: #262626;
+  --ds-color-button-text: #000000;
+  --ds-color-intent-success: #22c55e;
+  --ds-color-intent-warning: #eab308;
+  --ds-color-intent-danger: #ef4444;
+  --ds-color-interaction-hover: #0a0a0a;
+  --ds-color-interaction-focus: #737373;
+  --ds-color-interaction-disabled: #18181b;
+  --ds-color-interaction-active: #0f0f0f;
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+}
+
+/* --- Cyberpunk: midnight --- */
+html.midnight.cyberpunk {
+  --ds-color-surface-primary: rgba(5, 5, 8, 0.7);
+  --ds-color-surface-secondary: #000000;
+  --ds-color-surface-tertiary: rgba(10, 10, 15, 0.75);
+  --ds-color-text-primary: #ffffff;
+  --ds-color-text-secondary: #a3a3a3;
+  --ds-color-border-default: rgba(0, 255, 136, 0.1);
+  --ds-color-accent-primary: #00ff88;
+  --ds-color-accent-primary-strong: #ffffff;
+  --ds-color-accent-primary-soft: rgba(0, 255, 136, 0.2);
+  --ds-color-button-text: #000000;
+  --ds-color-intent-success: #00ff88;
+  --ds-color-intent-warning: #facc15;
+  --ds-color-intent-danger: #ff3366;
+  --ds-color-interaction-hover: rgba(0, 255, 136, 0.2);
+  --ds-color-interaction-focus: #00ff88;
+  --ds-color-interaction-disabled: #18181b;
+  --ds-color-interaction-active: rgba(0, 255, 136, 0.3);
+  --ds-motion-duration-fast: 200ms;
+  --ds-motion-duration-normal: 300ms;
+}
+
+/* --- Financial data colors: classic + vivid --- */
+html:not(.cyberpunk)[data-color-palette='vivid'].light,
+html:not(.cyberpunk)[data-color-palette='vivid'].system.light {
+  --ds-color-data-income: #10b981;
+  --ds-color-data-expense: #ef4444;
+  --ds-color-data-balance: #3b82f6;
+}
+
+html:not(.cyberpunk)[data-color-palette='vivid'].dark,
+html:not(.cyberpunk)[data-color-palette='vivid'].system.dark {
+  --ds-color-data-income: #10b981;
+  --ds-color-data-expense: #ef4444;
+  --ds-color-data-balance: #3b82f6;
+}
+
+html:not(.cyberpunk)[data-color-palette='vivid'].midnight {
+  --ds-color-data-income: #22c55e;
+  --ds-color-data-expense: #f43f5e;
+  --ds-color-data-balance: #3b82f6;
+}
+
+/* --- Financial data colors: classic + monochrome --- */
+html:not(.cyberpunk)[data-color-palette='monochrome'] {
+  --ds-color-data-income: #e5e5e5;
+  --ds-color-data-expense: #a3a3a3;
+  --ds-color-data-balance: #737373;
+}
+
+/* --- Financial data colors: cyberpunk + vivid --- */
+html.cyberpunk[data-color-palette='vivid'].light,
+html.cyberpunk[data-color-palette='vivid'].system.light {
+  --ds-color-data-income: #10b981;
+  --ds-color-data-expense: #ef4444;
+  --ds-color-data-balance: #06b6d4;
+}
+
+html.cyberpunk[data-color-palette='vivid'].dark,
+html.cyberpunk[data-color-palette='vivid'].midnight,
+html.cyberpunk[data-color-palette='vivid'].system.dark {
+  --ds-color-data-income: #00ff88;
+  --ds-color-data-expense: #ff3366;
+  --ds-color-data-balance: #00e5ff;
+}
+
+/* --- Financial data colors: cyberpunk + monochrome --- */
+html.cyberpunk[data-color-palette='monochrome'].light,
+html.cyberpunk[data-color-palette='monochrome'].system.light {
+  --ds-color-data-income: #e5e5e5;
+  --ds-color-data-expense: #a3a3a3;
+  --ds-color-data-balance: #737373;
+}
+
+html.cyberpunk[data-color-palette='monochrome'].dark,
+html.cyberpunk[data-color-palette='monochrome'].midnight,
+html.cyberpunk[data-color-palette='monochrome'].system.dark {
+  --ds-color-data-income: #f5f5f7;
+  --ds-color-data-expense: #a3a3a3;
+  --ds-color-data-balance: #525252;
+}
+
+/* Default palette when attribute missing */
+html:not([data-color-palette]) {
+  --ds-color-data-income: #10b981;
+  --ds-color-data-expense: #ef4444;
+  --ds-color-data-balance: #3b82f6;
+}
+
+/* Palette preview swatches (ColorPaletteSwitcher) */
+:root {
+  --palette-preview-vivid-0: var(--color-income);
+  --palette-preview-vivid-1: var(--color-expense);
+  --palette-preview-vivid-2: var(--color-balance);
+  --palette-preview-mono-0: #e5e5e5;
+  --palette-preview-mono-1: #a3a3a3;
+  --palette-preview-mono-2: #737373;
+}
+
+/* Category chart colors — vivid */
+:root {
+  --category-vivid-00: #ef4444;
+  --category-vivid-01: #f87171;
+  --category-vivid-02: #fca5a5;
+  --category-vivid-03: #f97316;
+  --category-vivid-04: #fb923c;
+  --category-vivid-05: #fed7aa;
+  --category-vivid-06: #f59e0b;
+  --category-vivid-07: #fbbf24;
+  --category-vivid-08: #fce7f3;
+  --category-vivid-09: #22c55e;
+  --category-vivid-10: #86efac;
+  --category-vivid-11: #dcfce7;
+  --category-vivid-12: #06b6d4;
+  --category-vivid-13: #67e8f9;
+  --category-vivid-14: #cffafe;
+  --category-vivid-15: #3b82f6;
+  --category-vivid-16: #93c5fd;
+  --category-vivid-17: #dbeafe;
+  --category-vivid-18: #8b5cf6;
+  --category-vivid-19: #d8b4fe;
+}
+
+/* Category chart colors — monochrome */
+:root {
+  --category-mono-00: #f5f5f5;
+  --category-mono-01: #e5e5e5;
+  --category-mono-02: #d4d4d4;
+  --category-mono-03: #cfcfcf;
+  --category-mono-04: #bdbdbd;
+  --category-mono-05: #a3a3a3;
+  --category-mono-06: #8a8a8a;
+  --category-mono-07: #737373;
+  --category-mono-08: #6b7280;
+  --category-mono-09: #5a5a5a;
+  --category-mono-10: #4b5563;
+  --category-mono-11: #444444;
+  --category-mono-12: #3a3a3a;
+  --category-mono-13: #333333;
+  --category-mono-14: #2a2a2a;
+  --category-mono-15: #242424;
+  --category-mono-16: #1f1f1f;
+  --category-mono-17: #181818;
+  --category-mono-18: #9ca3af;
+  --category-mono-19: #7c7c7c;
+  --category-mono-20: #525252;
+  --category-mono-21: #6b7280;
+  --category-mono-22: #8a8a8a;
+  --category-mono-23: #cfcfcf;
+}
+
+/* Chart series (ReportCharts) — classic */
+:root {
+  --chart-classic-0: var(--color-primary);
+  --chart-classic-1: var(--color-income);
+  --chart-classic-2: var(--color-expense);
+  --chart-classic-3: var(--color-balance);
+  --chart-classic-4: var(--color-warning);
+  --chart-classic-5: var(--color-danger);
+  --chart-classic-6: var(--color-primary-light);
+  --chart-classic-7: var(--color-focus);
+}
+
+/* Chart series — cyberpunk */
+html.cyberpunk {
+  --chart-cyber-0: #00d2ff;
+  --chart-cyber-1: #8a2be2;
+  --chart-cyber-2: #ff007f;
+  --chart-cyber-3: #ffaa00;
+  --chart-cyber-4: #39ff14;
+  --chart-cyber-5: #00f2fe;
+  --chart-cyber-6: #f35588;
+}
+
+/* Chart series — classic vivid extended */
+html:not(.cyberpunk) {
+  --chart-vivid-0: #4f46e5;
+  --chart-vivid-1: #0ea5e9;
+  --chart-vivid-2: #10b981;
+  --chart-vivid-3: #f59e0b;
+  --chart-vivid-4: #ec4899;
+  --chart-vivid-5: #8b5cf6;
+  --chart-vivid-6: #f43f5e;
+}
+
+/* Chart series — monochrome */
+html[data-color-palette='monochrome']:not(.cyberpunk) {
+  --chart-mono-0: #404040;
+  --chart-mono-1: #525252;
+  --chart-mono-2: #737373;
+  --chart-mono-3: #a3a3a3;
+  --chart-mono-4: #d4d4d8;
+  --chart-mono-5: #e4e4e7;
+}
+
+/* Theme switcher previews */
+.theme-preview-light-classic-a { background-color: var(--ds-color-surface-primary); }
+.theme-preview-light-classic-b { background-color: var(--ds-color-surface-secondary); }
+.theme-preview-light-classic-c { background-color: var(--ds-color-accent-primary); }
+.theme-preview-dark-classic-a { background-color: var(--ds-color-surface-primary); }
+.theme-preview-dark-classic-b { background-color: var(--ds-color-surface-secondary); }
+.theme-preview-dark-classic-c { background-color: var(--ds-color-accent-primary); }
+.theme-preview-midnight-classic-a { background-color: var(--ds-color-surface-primary); }
+.theme-preview-midnight-classic-b { background-color: var(--ds-color-surface-primary); }
+.theme-preview-midnight-classic-c { background-color: var(--ds-color-accent-primary); }
+.theme-preview-cyber-glass { background-color: var(--ds-color-surface-secondary); }
+.theme-preview-dot-income { background-color: var(--color-income); }
+.theme-preview-dot-expense { background-color: var(--color-expense); }
+.theme-preview-cyber-bg-light { background-color: var(--ds-color-surface-tertiary); }
+.theme-preview-cyber-bg-dark { background-color: var(--ds-color-surface-primary); }
+.theme-preview-system-split-border { border-left: 1px solid var(--color-border); }
+
+/* Alocação por classe (ClientDashboard) */
+:root {
+  --allocation-default: var(--color-balance);
+  --allocation-acoes: var(--color-primary);
+  --allocation-fundos: var(--color-income);
+  --allocation-cripto: var(--color-warning);
+  --allocation-renda-fixa: var(--color-expense);
+  --allocation-internacionais: var(--color-balance);
+  --allocation-etfs: var(--color-primary-light);
+  --category-fallback-muted: #9ca3af;
+  --category-fallback-neutral: #6b7280;
+  --category-fallback-gray: #808080;
+  --credit-card-default-color: #3b82f6;
+  --credit-card-status-paid: var(--color-income);
+  --credit-card-status-empty: var(--color-text-secondary);
+  --credit-card-status-overdue: var(--color-expense);
+  --credit-card-status-near-due: var(--color-warning);
+  --credit-card-refund-category-color: var(--color-income);
+  --payment-method-cash: #10b981;
+  --payment-method-debit: #3b82f6;
+  --payment-method-credit-card: #8b5cf6;
+  --payment-method-pix: #06b6d4;
+  --payment-method-transfer: #f59e0b;
+  --payment-method-other: #6b7280;
+}

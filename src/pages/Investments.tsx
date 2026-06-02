@@ -2,9 +2,17 @@ import { useEffect, useState, useMemo, Fragment } from 'react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import IconButton from '@/components/IconButton'
+import Input from '@/components/Input'
 import Loader from '@/components/Loader'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { formatCurrency, formatCurrencyByCode } from '@/utils/format'
+import {
+  formatCurrency,
+  formatCurrencyByCode,
+  formatPercentBR,
+  formatQuantityBR,
+  formatSignedPercentBR,
+} from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -27,27 +35,40 @@ import {
 } from '@/services/investmentEngine'
 
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
-import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
+import { usePortfolioClose } from '@/hooks/usePortfolioClose'
+import { getAssetPrices } from '@/services/priceService'
+import type {
+  PortfolioAssetDefinition,
+  PortfolioGroupTarget,
+  PortfolioTransaction,
+  TargetAllocation,
+} from '@/types'
+import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 
+type InvestmentsPortfolioData = {
+  cashBalance: number
+  investedValue: number
+  cashValue: number
+  totalValue: number
+  positions: AssetPosition[]
+  consolidatedClass: ConsolidatedGroup[]
+  consolidatedSector: ConsolidatedGroup[]
+}
 
-
-
+type PortfolioValuationCache = {
+  portfolioData?: InvestmentsPortfolioData
+  transactions?: PortfolioTransaction[]
+  groupTargets?: PortfolioGroupTarget[]
+  assetDefinitions?: PortfolioAssetDefinition[]
+}
 
 export default function Investments() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
 
   // Dados da carteira sob consultoria
-  const [portfolioData, setPortfolioData] = useState<{
-    cashBalance: number
-    investedValue: number
-    cashValue: number
-    totalValue: number
-    positions: AssetPosition[]
-    consolidatedClass: ConsolidatedGroup[]
-    consolidatedSector: ConsolidatedGroup[]
-  } | null>(null)
+  const [portfolioData, setPortfolioData] = useState<InvestmentsPortfolioData | null>(null)
   const [portfolioLoading, setPortfolioLoading] = useState(false)
 
   const [savingGroupTarget, setSavingGroupTarget] = useState<boolean>(false)
@@ -64,27 +85,31 @@ export default function Investments() {
 
   // Estados para limites de exposição por classe e setor
   const [portfolioId, setPortfolioId] = useState<string>('')
-  const [groupTargets, setGroupTargets] = useState<any[]>([])
+  const [groupTargets, setGroupTargets] = useState<PortfolioGroupTarget[]>([])
+  const [targetAllocations, setTargetAllocations] = useState<TargetAllocation[]>([])
+  const [valuationPrices, setValuationPrices] = useState<Record<string, import('@/types').AssetPrice>>({})
+  const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
+  const { closing: closingPortfolio, runClose } = usePortfolioClose()
 
   const sumClass = useMemo(() => {
     return groupTargets
-      .filter((gt: any) => gt.group_type === 'class')
-      .reduce((sum: number, gt: any) => sum + Number(gt.target_percentage || 0), 0)
+      .filter((gt) => gt.group_type === 'class')
+      .reduce((sum, gt) => sum + Number(gt.target_percentage || 0), 0)
   }, [groupTargets])
 
   const sumSector = useMemo(() => {
     return groupTargets
-      .filter((gt: any) => gt.group_type === 'sector')
-      .reduce((sum: number, gt: any) => sum + Number(gt.target_percentage || 0), 0)
+      .filter((gt) => gt.group_type === 'sector')
+      .reduce((sum, gt) => sum + Number(gt.target_percentage || 0), 0)
   }, [groupTargets])
 
   const [showGroupTargetForm, setShowGroupTargetForm] = useState<boolean>(false)
   const [groupTargetType, setGroupTargetType] = useState<'class' | 'sector'>('class')
   const [groupTargetName, setGroupTargetName] = useState<string>('Ações Nacionais')
   const [groupTargetPct, setGroupTargetPct] = useState<string>('')
-  const [editingGroupTarget, setEditingGroupTarget] = useState<any | null>(null)
+  const [editingGroupTarget, setEditingGroupTarget] = useState<PortfolioGroupTarget | null>(null)
 
-  const handleEditGroupTarget = (gt: any) => {
+  const handleEditGroupTarget = (gt: PortfolioGroupTarget) => {
     setEditingGroupTarget(gt)
     setGroupTargetType(gt.group_type)
     setGroupTargetName(gt.group_name)
@@ -188,6 +213,30 @@ export default function Investments() {
     }
   }
 
+  const handleDailyClose = async () => {
+    if (!portfolioId || transactions.length === 0) {
+      toast.error('Cadastre transações antes do fechamento.')
+      return
+    }
+    const prices =
+      Object.keys(valuationPrices).length > 0
+        ? valuationPrices
+        : await getAssetPrices(
+            Array.from(new Set(transactions.map((t) => t.ticker.toUpperCase()))),
+            { forceRefresh: true }
+          )
+    await runClose({
+      portfolioId,
+      transactions,
+      definitions: assetDefinitions,
+      targets: targetAllocations,
+      prices,
+      cashBalance: portfolioData?.cashBalance ?? 0,
+      indexRatesByIndexer,
+    })
+    await loadPortfolio({ forceRefresh: true })
+  }
+
   const handleForceRefresh = async () => {
     try {
       setRefreshing(true)
@@ -211,7 +260,7 @@ export default function Investments() {
 
       // Try cache first if not forcing refresh
       if (!options?.forceRefresh && !portfolioData) {
-        const cached = await getCache<any>(userCacheKey)
+        const cached = await getCache<PortfolioValuationCache>(userCacheKey)
         if (cached) {
           if (cached.portfolioData) setPortfolioData(cached.portfolioData)
           if (cached.transactions) setTransactions(cached.transactions)
@@ -260,6 +309,7 @@ export default function Investments() {
 
       setTransactions(finalTransactions)
       setGroupTargets(finalGroupTargets)
+      setTargetAllocations(targets || [])
 
       if (finalTransactions.length === 0) {
         const emptyPortfolio = {
@@ -292,6 +342,8 @@ export default function Investments() {
       )
 
       setAssetDefinitions(valuation.definitions)
+      setValuationPrices(valuation.prices)
+      setIndexRatesByIndexer(valuation.indexRatesByIndexer)
 
       const { positions, investedValue, cashValue, totalValue } = valuation
       const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, finalGroupTargets)
@@ -328,6 +380,7 @@ export default function Investments() {
     if (isOnline) {
       loadPortfolio()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega ao reconectar; loadPortfolio depende do estado local
   }, [isOnline])
 
 
@@ -346,14 +399,14 @@ export default function Investments() {
 
       // Validar se o limite acumulado excede 100%
       const currentSum = groupTargets
-        .filter((gt: any) => gt.group_type === groupTargetType && gt.id !== editingGroupTarget?.id)
-        .reduce((sum: number, gt: any) => sum + Number(gt.target_percentage || 0), 0)
+        .filter((gt) => gt.group_type === groupTargetType && gt.id !== editingGroupTarget?.id)
+        .reduce((sum, gt) => sum + Number(gt.target_percentage || 0), 0)
 
       if (currentSum + pct > 100) {
         throw new Error(
           `O limite total de exposição por ${
             groupTargetType === 'class' ? 'classe' : 'setor'
-          } não pode ultrapassar 100% (atual: ${currentSum.toFixed(0)}%)`
+          } não pode ultrapassar 100% (atual: ${formatPercentBR(currentSum, 0)})`
         )
       }
 
@@ -406,6 +459,20 @@ export default function Investments() {
         subtitle={PAGE_HEADERS.investments.description}
         action={
           <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDailyClose}
+              disabled={closingPortfolio || portfolioLoading || !portfolioId}
+              className="hidden sm:flex items-center gap-2 border-purple-500/20 text-purple-600 hover:bg-purple-500/10 font-bold"
+            >
+              {closingPortfolio ? (
+                <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <BarChart2 size={16} className="text-purple-500" />
+              )}
+              <span>{closingPortfolio ? 'Fechando...' : 'Atualizar fechamento'}</span>
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -478,7 +545,7 @@ export default function Investments() {
                   </Card>
                   <Card 
                     className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                    style={{ borderLeftColor: '#6366f1' }}
+                    style={{ borderLeftColor: 'var(--color-balance)' }}
                   >
                     <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Saldo em Caixa</p>
                     <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
@@ -495,7 +562,7 @@ export default function Investments() {
                       <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
                         isPositive ? 'text-income' : 'text-expense'
                       }`}>
-                        {isPositive ? '+' : ''}{consolidatedYield.toFixed(2)}%
+                        {formatSignedPercentBR(consolidatedYield)}
                       </p>
                       <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
                         consolidatedGain >= 0 ? 'text-income' : 'text-expense'
@@ -527,7 +594,7 @@ export default function Investments() {
                 {/* Indicador de expansão */}
                 <div className="flex items-center gap-2 text-secondary shrink-0">
                   <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-mono">
-                    {groupTargets.filter((gt: any) => gt.group_type === consolidationView).length}
+                    {groupTargets.filter((gt) => gt.group_type === consolidationView).length}
                   </span>
                   <Plus 
                     size={16} 
@@ -541,8 +608,8 @@ export default function Investments() {
                 limitsCollapsed ? 'hidden' : 'grid'
               }`}>
                 {groupTargets
-                  .filter((gt: any) => gt.group_type === consolidationView)
-                  .map((gt: any) => (
+                  .filter((gt) => gt.group_type === consolidationView)
+                  .map((gt) => (
                     <div 
                       key={gt.id} 
                       onClick={() => handleEditGroupTarget(gt)}
@@ -561,17 +628,18 @@ export default function Investments() {
                       <div className="flex items-center gap-3">
                         <div className="h-6 w-[1px] bg-primary/25" />
                         <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
-                        <button
+                        <IconButton
                           type="button"
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={13} />}
+                          label="Remover limite"
                           onClick={(e) => {
-                            e.stopPropagation(); // Evita abrir o modal de edição ao excluir
-                            handleDeleteGroupTarget(gt.id);
+                            e.stopPropagation()
+                            handleDeleteGroupTarget(gt.id)
                           }}
-                          className="text-secondary hover:text-red-500 transition-colors p-1.5 rounded-xl hover:bg-red-500/10 flex items-center justify-center"
-                          title="Remover limite"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                          className="!rounded-xl"
+                        />
                       </div>
                     </div>
                   ))}
@@ -621,26 +689,30 @@ export default function Investments() {
                       }`}
                     />
                     
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setConsolidationView('class')}
-                      className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 flex items-center justify-center gap-1 ${
-                        consolidationView === 'class' ? 'text-white' : 'text-secondary hover:text-primary'
+                      className={`relative z-10 flex-1 !min-h-0 py-1 !px-0 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
+                        consolidationView === 'class' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
                       }`}
                     >
                       <Layers size={10} />
                       <span>Classes</span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setConsolidationView('sector')}
-                      className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 flex items-center justify-center gap-1 ${
-                        consolidationView === 'sector' ? 'text-white' : 'text-secondary hover:text-primary'
+                      className={`relative z-10 flex-1 !min-h-0 py-1 !px-0 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
+                        consolidationView === 'sector' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
                       }`}
                     >
                       <Briefcase size={10} />
                       <span>Setores</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -659,13 +731,13 @@ export default function Investments() {
                               isPositive ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
                             }`}>
                               {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                              Bruta {isPositive ? '+' : ''}{group.gross_yield_pct.toFixed(2)}%
+                              Bruta {formatSignedPercentBR(group.gross_yield_pct)}
                             </span>
                             <span className="text-[10px] text-secondary font-mono">
-                              Líq. {group.net_yield_pct >= 0 ? '+' : ''}{group.net_yield_pct.toFixed(2)}%
+                              Líq. {formatSignedPercentBR(group.net_yield_pct)}
                             </span>
                             <span className="text-xs text-secondary font-extrabold bg-primary px-2.5 py-0.5 rounded-xl border border-primary/25 font-mono">
-                              {group.current_percentage.toFixed(1)}%
+                              {formatPercentBR(group.current_percentage, 1)}
                             </span>
                           </div>
                         </div>
@@ -682,7 +754,7 @@ export default function Investments() {
                           </div>
                           <div className="flex items-center justify-between text-[10px] text-secondary font-mono">
                             <span>Atual: {formatCurrency(group.total_value)}</span>
-                            <span>Alvo recomendado: {group.target_percentage.toFixed(0)}%</span>
+                            <span>Alvo recomendado: {formatPercentBR(group.target_percentage, 0)}</span>
                           </div>
                         </div>
                       </div>
@@ -762,12 +834,12 @@ export default function Investments() {
                                 <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
                                 <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
                                 <td className="p-3 text-right text-primary font-medium">
-                                  {pos.quantity.toLocaleString('pt-BR')}
+                                  {formatQuantityBR(pos.quantity)}
                                 </td>
                                  <td className="p-3 text-right text-secondary">
                                    {editingPriceTicker === pos.ticker ? (
                                      <div className="flex items-center justify-end gap-1.5">
-                                       <input
+                                       <Input
                                          type="number"
                                          step="0.01"
                                          value={editingPriceValue}
@@ -777,68 +849,69 @@ export default function Investments() {
                                            if (e.key === 'Escape') setEditingPriceTicker(null)
                                          }}
                                          disabled={savingPrice}
-                                         className="w-20 px-1.5 py-0.5 text-xs text-right border border-indigo-500 rounded bg-primary text-primary font-mono outline-none"
+                                         className="!w-20 !py-0.5 !px-1.5 text-xs text-right !border-indigo-500 font-mono"
                                          autoFocus
                                        />
-                                       <button
+                                       <IconButton
                                          type="button"
+                                         variant="success"
+                                         size="sm"
+                                         icon={<Check size={12} />}
+                                         label="Salvar"
                                          onClick={() => handleSaveInlinePrice(pos.ticker)}
                                          disabled={savingPrice}
-                                         className="text-income hover:bg-income/10 p-0.5 rounded transition-colors"
-                                         title="Salvar"
-                                       >
-                                         <Check size={12} />
-                                       </button>
-                                       <button
+                                         className="!rounded"
+                                       />
+                                       <IconButton
                                          type="button"
+                                         variant="danger"
+                                         size="sm"
+                                         icon={<X size={12} />}
+                                         label="Cancelar"
                                          onClick={() => setEditingPriceTicker(null)}
                                          disabled={savingPrice}
-                                         className="text-expense hover:bg-expense/10 p-0.5 rounded transition-colors"
-                                         title="Cancelar"
-                                       >
-                                         <X size={12} />
-                                       </button>
+                                         className="!rounded"
+                                       />
                                      </div>
                                    ) : (
                                      <div className="group flex items-center justify-end gap-1 select-none">
                                        <span className="font-mono">{formatCurrencyByCode(pos.current_price, pos.currency)}</span>
                                        {pos.pricing_mode === 'market' && (
-                                         <button
+                                         <IconButton
                                            type="button"
+                                           size="sm"
+                                           icon={<Edit2 size={11} className="shrink-0" />}
+                                           label="Editar cotação manualmente"
                                            onClick={() => {
                                              setEditingPriceTicker(pos.ticker)
                                              setEditingPriceValue(pos.current_price.toString())
                                            }}
-                                           className="opacity-0 group-hover:opacity-100 text-secondary hover:text-indigo-500 p-0.5 rounded transition-all"
-                                           title="Editar cotação manualmente"
-                                         >
-                                           <Edit2 size={11} className="shrink-0" />
-                                         </button>
+                                           className="opacity-0 group-hover:opacity-100 !rounded transition-all"
+                                         />
                                        )}
                                      </div>
                                    )}
                                  </td>
                                 <td className="p-3 text-right text-primary font-semibold">{formatCurrencyByCode(pos.total_value, pos.currency)}</td>
                                 <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
-                                  {`${pos.gross_yield_pct >= 0 ? '+' : ''}${pos.gross_yield_pct.toFixed(2)}%`}
+                                  {formatSignedPercentBR(pos.gross_yield_pct)}
                                 </td>
-                                <td className="p-3 text-center font-bold text-primary">{pos.current_percentage.toFixed(1)}%</td>
+                                <td className="p-3 text-center font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</td>
                                 <td className="p-3 text-center font-bold text-income">
-                                  {pos.target_percentage.toFixed(0)}%
+                                  {formatPercentBR(pos.target_percentage, 0)}
                                 </td>
                                 <td className="p-3 text-center">
-                                  <button
+                                  <IconButton
                                     type="button"
+                                    size="sm"
+                                    icon={<Settings2 size={14} />}
+                                    label="Configurar Ativo"
                                     onClick={(e) => {
-                                      e.stopPropagation();
+                                      e.stopPropagation()
                                       setAssetDefTicker(pos.ticker)
                                       setAssetDefModalOpen(true)
                                     }}
-                                    className="text-secondary hover:text-primary transition-colors"
-                                    title="Configurar Ativo"
-                                  >
-                                    <Settings2 size={14} />
-                                  </button>
+                                  />
                                 </td>
                               </tr>
                             )
@@ -892,7 +965,7 @@ export default function Investments() {
                                       {formatCurrencyByCode(pos.total_value, pos.currency)}
                                     </span>
                                     <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
-                                      {isGrossPositive ? '+' : ''}{pos.gross_yield_pct.toFixed(2)}%
+                                      {formatSignedPercentBR(pos.gross_yield_pct)}
                                     </span>
                                   </div>
                                   <div className="text-secondary">
@@ -912,14 +985,14 @@ export default function Investments() {
                                     <div>
                                       <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
                                       <span className="text-xs font-bold text-primary font-mono">
-                                        {pos.quantity.toLocaleString('pt-BR')}
+                                        {formatQuantityBR(pos.quantity)}
                                       </span>
                                     </div>
                                     <div>
                                       <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
                                       {editingPriceTicker === pos.ticker ? (
                                         <div className="flex items-center gap-1 mt-0.5">
-                                          <input
+                                          <Input
                                             type="number"
                                             step="0.01"
                                             value={editingPriceValue}
@@ -929,25 +1002,29 @@ export default function Investments() {
                                               if (e.key === 'Escape') setEditingPriceTicker(null)
                                             }}
                                             disabled={savingPrice}
-                                            className="w-16 px-1.5 py-0.5 text-xs border border-indigo-500 rounded bg-primary text-primary font-mono outline-none"
+                                            className="!w-16 !py-0.5 !px-1.5 text-xs !border-indigo-500 font-mono"
                                             autoFocus
                                           />
-                                          <button
+                                          <IconButton
                                             type="button"
+                                            variant="success"
+                                            size="sm"
+                                            icon={<Check size={11} />}
+                                            label="Salvar"
                                             onClick={() => handleSaveInlinePrice(pos.ticker)}
                                             disabled={savingPrice}
-                                            className="text-income hover:bg-income/10 p-0.5 rounded transition-colors"
-                                          >
-                                            <Check size={11} />
-                                          </button>
-                                          <button
+                                            className="!rounded"
+                                          />
+                                          <IconButton
                                             type="button"
+                                            variant="danger"
+                                            size="sm"
+                                            icon={<X size={11} />}
+                                            label="Cancelar"
                                             onClick={() => setEditingPriceTicker(null)}
                                             disabled={savingPrice}
-                                            className="text-expense hover:bg-expense/10 p-0.5 rounded transition-colors"
-                                          >
-                                            <X size={11} />
-                                          </button>
+                                            className="!rounded"
+                                          />
                                         </div>
                                       ) : (
                                         <div className="flex items-center gap-1 mt-0.5">
@@ -955,17 +1032,17 @@ export default function Investments() {
                                             {formatCurrencyByCode(pos.current_price, pos.currency)}
                                           </span>
                                           {pos.pricing_mode === 'market' && (
-                                            <button
+                                            <IconButton
                                               type="button"
+                                              size="sm"
+                                              icon={<Edit2 size={10} className="shrink-0" />}
+                                              label="Editar cotação manualmente"
                                               onClick={() => {
                                                 setEditingPriceTicker(pos.ticker)
                                                 setEditingPriceValue(pos.current_price.toString())
                                               }}
-                                              className="text-secondary hover:text-indigo-500 p-0.5 rounded"
-                                              title="Editar cotação manualmente"
-                                            >
-                                              <Edit2 size={10} className="shrink-0" />
-                                            </button>
+                                              className="!rounded"
+                                            />
                                           )}
                                         </div>
                                       )}
@@ -981,7 +1058,7 @@ export default function Investments() {
                                       <div>
                                         <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
                                         <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
-                                          {isGrossPositive ? '+' : ''}{pos.gross_yield_pct.toFixed(2)}%
+                                          {formatSignedPercentBR(pos.gross_yield_pct)}
                                         </span>
                                       </div>
                                     </div>
@@ -992,11 +1069,11 @@ export default function Investments() {
                                     <div className="flex items-center justify-between text-[10px]">
                                       <div className="flex items-center gap-1">
                                         <span className="text-secondary font-medium">Real:</span>
-                                        <span className="font-mono font-bold text-primary">{pos.current_percentage.toFixed(1)}%</span>
+                                        <span className="font-mono font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <span className="text-secondary font-medium">Meta:</span>
-                                        <span className="font-mono font-bold text-income">{pos.target_percentage.toFixed(0)}%</span>
+                                        <span className="font-mono font-bold text-income">{formatPercentBR(pos.target_percentage, 0)}</span>
                                       </div>
                                     </div>
                                     
@@ -1025,29 +1102,33 @@ export default function Investments() {
                                       )}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <button
+                                      <Button
                                         type="button"
+                                        size="sm"
+                                        variant="outline"
                                         onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenAssetTxModal(pos);
+                                          e.stopPropagation()
+                                          handleOpenAssetTxModal(pos)
                                         }}
-                                        className="flex items-center gap-1.5 text-[10px] text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 transition-all py-1.5 px-3 border border-emerald-500/20 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 font-bold"
+                                        className="!min-h-0 text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 font-bold"
                                       >
                                         <BarChart2 size={12} />
                                         <span>Transações</span>
-                                      </button>
-                                      <button
+                                      </Button>
+                                      <Button
                                         type="button"
+                                        size="sm"
+                                        variant="outline"
                                         onClick={(e) => {
-                                          e.stopPropagation();
-                                          setAssetDefTicker(pos.ticker);
-                                          setAssetDefModalOpen(true);
+                                          e.stopPropagation()
+                                          setAssetDefTicker(pos.ticker)
+                                          setAssetDefModalOpen(true)
                                         }}
-                                        className="flex items-center gap-1.5 text-[10px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition-all py-1.5 px-3 border border-indigo-500/20 rounded-xl bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
+                                        className="!min-h-0 text-[10px] text-indigo-600 dark:text-indigo-400 border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 font-bold"
                                       >
                                         <Settings2 size={12} />
                                         <span>Configurar</span>
-                                      </button>
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>

@@ -1,6 +1,7 @@
 import Card from '@/components/Card'
 import { ArrowUpRight, ArrowDownRight, Award } from 'lucide-react'
 import { ConsolidatedGroup } from '@/services/investmentEngine'
+import { formatCurrency, formatPercentBR, formatSignedPercentBR } from '@/utils/format'
 import { PortfolioTransaction, AssetPrice } from '@/types'
 
 interface BenchmarkComparisonTableProps {
@@ -97,19 +98,19 @@ export default function BenchmarkComparisonTable({
                     <tr key={group.name} className="hover:bg-muted/5 transition-colors font-sans">
                       <td className="py-3 px-3 font-semibold text-primary">{group.name}</td>
                       <td className="py-3 px-3 text-right font-mono font-medium text-primary">
-                        R$ {group.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatCurrency(group.total_value)}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-secondary">
-                        {group.current_percentage.toFixed(2)}%
+                        {formatPercentBR(group.current_percentage, 2)}
                       </td>
                       <td className={`py-3 px-3 text-right font-mono font-bold ${
                         group.yield_pct >= 0 ? 'text-emerald-500' : 'text-red-500'
                       }`}>
-                        {group.yield_pct.toFixed(2)}%
+                        {formatSignedPercentBR(group.yield_pct, 2)}
                       </td>
                       <td className="py-3 px-3 text-left">
                         <span className="text-xs text-secondary font-medium font-sans block">{benchInfo.name}</span>
-                        <span className="text-[10px] text-secondary/60 font-mono block">Ref: {benchmarkRate.toFixed(2)}% ({days} dias)</span>
+                        <span className="text-[10px] text-secondary/60 font-mono block">Ref: {formatPercentBR(benchmarkRate, 2)} ({days} dias)</span>
                       </td>
                       <td className="py-3 px-3 text-right">
                         <div className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-md ${
@@ -122,7 +123,7 @@ export default function BenchmarkComparisonTable({
                           ) : (
                             <ArrowDownRight size={12} className="text-red-500" />
                           )}
-                          <span>{alpha > 0 ? '+' : ''}{alpha.toFixed(2)}%</span>
+                          <span>{formatSignedPercentBR(alpha, 2)}</span>
                         </div>
                       </td>
                     </tr>

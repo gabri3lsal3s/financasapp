@@ -21,7 +21,11 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { supabase } from '@/lib/supabase'
 import type { CreditCard } from '@/types'
-import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
+import { CREDIT_CARD_DEFAULT_COLOR, ensureHexColor } from '@/utils/colorValue'
+import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
+import CardColorField from '@/components/creditCards/CardColorField'
+import PaymentRowButton from '@/components/creditCards/PaymentRowButton'
 import {
   buildClosingDayResolver,
   filterBillExpensesForMonth,
@@ -35,7 +39,7 @@ import {
   type BillPaymentRowInput,
 } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Check, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 
@@ -115,13 +119,10 @@ const DEFAULT_FORM: CardFormState = {
   limit_total: '',
   closing_day: '8',
   due_day: '15',
-  color: '#3b82f6',
+  color: CREDIT_CARD_DEFAULT_COLOR,
   is_active: 'true',
 }
 
-function formatDateBR(date: Date) {
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-}
 
 function getSafeDate(year: number, month: number, day: number) {
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
@@ -188,17 +189,41 @@ function CreditCardTimeline({
     }
   }
 
-  const themeColor = card.color || '#3b82f6'
+  const themeColor = card.color ? ensureHexColor(card.color) : 'var(--credit-card-default-color)'
 
-  // Semantic/dynamic color mapping based on status
-  const statusColor = {
-    paid: '#10b981',
-    empty: '#6b7280',
-    overdue: '#ef4444',
-    near_due: '#f59e0b',
-    closed: themeColor,
-    open: themeColor,
-  }[status]
+  const statusBadgeClass: Record<typeof status, string> = {
+    paid: 'bg-income/10 border-income/30 text-income',
+    empty: 'bg-secondary border-primary text-secondary',
+    overdue: 'bg-expense/10 border-expense/30 text-expense',
+    near_due: 'bg-amber-500/10 border-amber-500/30 text-amber-600',
+    closed: '',
+    open: '',
+  }
+
+  const usesThemeAccent = status === 'closed' || status === 'open'
+  const themeAccentStyle = usesThemeAccent
+    ? {
+        backgroundColor: `color-mix(in srgb, ${themeColor} 7%, transparent)`,
+        borderColor: `color-mix(in srgb, ${themeColor} 16%, transparent)`,
+        color: themeColor,
+      }
+    : undefined
+
+  const statusBannerClass: Record<typeof status, string> = {
+    paid: 'bg-income/5 border-income/20',
+    empty: 'bg-secondary/50 border-primary/30',
+    overdue: 'bg-expense/5 border-expense/20',
+    near_due: 'bg-amber-500/5 border-amber-500/20',
+    closed: '',
+    open: '',
+  }
+
+  const themeBannerStyle = usesThemeAccent
+    ? {
+        backgroundColor: `color-mix(in srgb, ${themeColor} 5%, transparent)`,
+        borderColor: `color-mix(in srgb, ${themeColor} 10%, transparent)`,
+      }
+    : undefined
 
   const config = {
     paid: {
@@ -214,22 +239,22 @@ function CreditCardTimeline({
     overdue: {
       label: 'Vencida',
       icon: <AlertCircle size={13} className="text-red-500" />,
-      message: `ATENÇÃO: Fatura vencida em ${formatDateBR(dueDate)}. Regularize para evitar juros.`,
+      message: `ATENÇÃO: Fatura vencida em ${formatDate(dueDate)}. Regularize para evitar juros.`,
     },
     near_due: {
       label: 'Vence em Breve',
       icon: <Clock size={13} className="text-amber-500" />,
-      message: `Atenção: Fatura fecha dia ${formatDateBR(closingDate)} e vence dia ${formatDateBR(dueDate)}. Pague logo!`,
+      message: `Atenção: Fatura fecha dia ${formatDate(closingDate)} e vence dia ${formatDate(dueDate)}. Pague logo!`,
     },
     closed: {
       label: 'Fechada',
       icon: <Lock size={13} style={{ color: themeColor }} />,
-      message: `Fatura fechada em ${formatDateBR(closingDate)}. Aguardando pagamento até ${formatDateBR(dueDate)}.`,
+      message: `Fatura fechada em ${formatDate(closingDate)}. Aguardando pagamento até ${formatDate(dueDate)}.`,
     },
     open: {
       label: 'Em Aberto',
       icon: <CreditCardIcon size={13} style={{ color: themeColor }} />,
-      message: `Fatura aberta para compras. Fechamento previsto em ${formatDateBR(closingDate)}.`,
+      message: `Fatura aberta para compras. Fechamento previsto em ${formatDate(closingDate)}.`,
     },
   }[status]
 
@@ -259,13 +284,6 @@ function CreditCardTimeline({
     }
   }
 
-  // Dynamic styling based on status color and card theme color
-  const badgeStyle = {
-    backgroundColor: `${statusColor}12`,
-    borderColor: `${statusColor}28`,
-    color: statusColor,
-  }
-
   const containerHoverStyle = {
     '--timeline-border-hover': `${themeColor}22`,
   } as React.CSSProperties
@@ -278,12 +296,7 @@ function CreditCardTimeline({
   const nodeRingStyle = {
     backgroundColor: themeColor,
     boxShadow: `0 0 0 4px ${themeColor}28`,
-    borderColor: '#ffffff',
-  }
-
-  const bannerStyle = {
-    backgroundColor: `${statusColor}08`,
-    borderColor: `${statusColor}18`,
+    borderColor: 'var(--color-bg-primary)',
   }
 
   return (
@@ -295,8 +308,8 @@ function CreditCardTimeline({
       <div className="flex justify-end">
         {/* State Badge with dynamic colors */}
         <span
-          className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all duration-300"
-          style={badgeStyle}
+          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all duration-300 ${statusBadgeClass[status]}`}
+          style={themeAccentStyle}
         >
           {config.icon}
           {config.label}
@@ -346,7 +359,7 @@ function CreditCardTimeline({
               Início do Ciclo
             </span>
             <span className="text-[10px] text-secondary font-bold font-mono mt-0.5">
-              ({formatDateBR(startDate)})
+              ({formatDate(startDate)})
             </span>
             <p className="text-[9px] text-secondary mt-1 leading-normal max-w-[120px]">
               Compras começam a contar.
@@ -359,7 +372,7 @@ function CreditCardTimeline({
               Fechamento
             </span>
             <span className="text-[10px] text-secondary font-bold font-mono mt-0.5">
-              ({formatDateBR(closingDate)})
+              ({formatDate(closingDate)})
             </span>
             <p className="text-[9px] text-secondary mt-1 leading-normal max-w-[120px]">
               Fatura encerrada para compras.
@@ -372,7 +385,7 @@ function CreditCardTimeline({
               Vencimento
             </span>
             <span className="text-[10px] text-secondary font-bold font-mono mt-0.5">
-              ({formatDateBR(dueDate)})
+              ({formatDate(dueDate)})
             </span>
             <p className="text-[9px] text-secondary mt-1 leading-normal max-w-[120px]">
               Vencimento da fatura.
@@ -459,7 +472,7 @@ function CreditCardTimeline({
           <div className="text-left flex flex-col justify-center">
             <div className="flex flex-wrap items-baseline gap-1">
               <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Início do Ciclo</span>
-              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDateBR(startDate)})</span>
+              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDate(startDate)})</span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Compras começam a contar.</p>
           </div>
@@ -487,7 +500,7 @@ function CreditCardTimeline({
           <div className="text-left flex flex-col justify-center">
             <div className="flex flex-wrap items-baseline gap-1">
               <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Fechamento</span>
-              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDateBR(closingDate)})</span>
+              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDate(closingDate)})</span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Fatura encerrada para compras.</p>
           </div>
@@ -515,7 +528,7 @@ function CreditCardTimeline({
           <div className="text-left flex flex-col justify-center">
             <div className="flex flex-wrap items-baseline gap-1">
               <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Vencimento</span>
-              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDateBR(dueDate)})</span>
+              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDate(dueDate)})</span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Vencimento da fatura.</p>
           </div>
@@ -524,8 +537,8 @@ function CreditCardTimeline({
 
       {/* Dynamic Insight Banner */}
       <div
-        className="flex gap-2 p-2.5 rounded-lg text-[10px] text-secondary font-sans border transition-all duration-300 leading-relaxed items-center"
-        style={bannerStyle}
+        className={`flex gap-2 p-2.5 rounded-lg text-[10px] text-secondary font-sans border transition-all duration-300 leading-relaxed items-center ${statusBannerClass[status]}`}
+        style={themeBannerStyle}
       >
         <span className="shrink-0">{config.icon}</span>
         <span>{config.message}</span>
@@ -614,7 +627,7 @@ export default function CreditCards() {
       limit_total: card.limit_total ? String(card.limit_total) : '',
       closing_day: String(card.closing_day),
       due_day: String(card.due_day),
-      color: card.color || '#3b82f6',
+      color: card.color || CREDIT_CARD_DEFAULT_COLOR,
       is_active: card.is_active === false ? 'false' : 'true',
     })
     setIsCardModalOpen(true)
@@ -770,7 +783,7 @@ export default function CreditCards() {
       .from('income_categories')
       .insert([{
         name: REFUND_INCOME_CATEGORY_NAME,
-        color: '#16a34a',
+        color: 'var(--credit-card-refund-category-color)',
       }])
       .select('id')
       .single()
@@ -924,7 +937,7 @@ export default function CreditCards() {
           refundTotal += Math.abs(item.amount)
         }
       })
-      totalRefundByCard[cardId] = Number(refundTotal.toFixed(2))
+      totalRefundByCard[cardId] = roundToDecimals(refundTotal, 2)
     })
 
     const finalExpensesByCard: Record<string, number> = {}
@@ -935,18 +948,18 @@ export default function CreditCards() {
       const refundAmt = totalRefundByCard[cardId] || 0
       
       // O Previsto deve ser o líquido (Gastos - Estornos)
-      finalExpensesByCard[cardId] = Number((summarizedBill.expensesByCard[cardId] - refundAmt).toFixed(2))
+      finalExpensesByCard[cardId] = roundToDecimals(summarizedBill.expensesByCard[cardId] - refundAmt, 2)
       
       // O Pago deve conter apenas pagamentos REAIS.
       // Como o summarizedBill.paymentsByCard incluiu todos os registros da tabela de pagamentos 
       // (incluindo estornos registrados como pagamentos de ajuste), precisamos SUBTRAIR o refundAmt 
       // para isolar apenas o que foi pagamento de fatura real.
-      finalPaymentsByCard[cardId] = Number((summarizedBill.paymentsByCard[cardId] - refundAmt).toFixed(2))
+      finalPaymentsByCard[cardId] = roundToDecimals(summarizedBill.paymentsByCard[cardId] - refundAmt, 2)
       
       // Calcular base total (sem pesos)
       const cardExpenses = summarizedBill.billItemsByCard[cardId] || []
       const baseTotal = cardExpenses.reduce((sum, item) => sum + (item.base_amount || 0), 0)
-      finalBaseExpensesByCard[cardId] = Number((baseTotal - refundAmt).toFixed(2))
+      finalBaseExpensesByCard[cardId] = roundToDecimals(baseTotal - refundAmt, 2)
     })
 
     return {
@@ -1018,7 +1031,7 @@ export default function CreditCards() {
     return activeCards.some((card) => {
       const totalPrevisto = Number(snapshot.expensesByCard[card.id] || 0)
       const totalPago = Number(snapshot.paymentsByCard[card.id] || 0)
-      return Number((totalPrevisto - totalPago).toFixed(2)) > 0.009
+      return roundToDecimals(totalPrevisto - totalPago, 2) > 0.009
     })
   }
 
@@ -1335,7 +1348,7 @@ export default function CreditCards() {
       return
     }
 
-    const reportWeight = amount > 0 ? Number((reportAmount / amount).toFixed(4)) : 1
+    const reportWeight = amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1
     const description = refundIncomeEditForm.description.trim() || `Estorno de compra (${currentMonth})`
 
     const { error: incomeUpdateError } = await supabase
@@ -1591,7 +1604,7 @@ export default function CreditCards() {
 
     const isRefund = Number(editingExpenseItem.base_amount ?? editingExpenseItem.amount ?? 0) < 0
     const signedAmount = isRefund ? -Math.abs(amountBase) : amountBase
-    const reportWeight = amountBase > 0 ? Number((reportAmount / amountBase).toFixed(4)) : 1
+    const reportWeight = amountBase > 0 ? roundToDecimals(reportAmount / amountBase, 4) : 1
 
     const { error } = await updateExpense(editingExpenseItem.id, {
       amount: signedAmount,
@@ -1683,7 +1696,7 @@ export default function CreditCards() {
             {activeCards.map((card, index) => {
               const totalPrevisto = Number(expensesByCard[card.id] || 0)
               const totalPago = Number(paymentsByCard[card.id] || 0)
-              const saldoAberto = Number((totalPrevisto - totalPago).toFixed(2))
+              const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
               const billItems = billItemsByCard[card.id] || []
               const monthlyCycle = monthlyCyclesByCard[card.id]
               const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
@@ -1772,64 +1785,14 @@ export default function CreditCards() {
                         <p className="text-sm text-secondary">Sem lançamentos neste cartão para a competência selecionada.</p>
                       ) : (
                         <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                          {billItems.map((item) => {
-                            const isRefund = item.amount < 0
-                            const installmentLabel =
-                              Number(item.installment_total || 1) > 1
-                                ? `Parcela ${item.installment_number || 1}/${item.installment_total}`
-                                : ''
-
-                            return (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => openExpenseEditModal(item)}
-                                className="w-full rounded-lg border border-primary bg-primary p-2.5 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                              >
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <p className="text-sm font-medium text-primary truncate">
-                                        {item.description || (isRefund ? 'Estorno' : item.category_name || 'Despesa')}
-                                      </p>
-                                      {(item as any).competence_source === 'manual' && (
-                                        <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-[9px] text-primary font-medium flex items-center gap-0.5" title="Definido manualmente">
-                                          <Check size={8} /> Fatura fixa
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-xs text-secondary mt-0.5">
-                                      {formatDate(item.date)}
-                                      {installmentLabel ? ` • ${installmentLabel}` : ''}
-                                      {isRefund ? ' • Estorno' : ''}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex flex-col gap-1.5 sm:items-end">
-                                    <p className={`text-sm font-semibold ${Number(item.base_amount ?? item.amount ?? 0) < 0 ? 'text-income' : 'text-primary'}`}>
-                                      {formatCurrency(item.amount)}
-                                    </p>
-
-                                    {(() => {
-                                      const baseAmount = Number(item.base_amount ?? item.amount ?? 0)
-                                      const weightedAmount = Number((baseAmount * Number(item.report_weight ?? 1)).toFixed(2))
-                                      const hasDifference = Math.abs(weightedAmount - baseAmount) > 0.009
-
-                                      if (!hasDifference) return null
-
-                                      return (
-                                        <p className="text-xs text-secondary">
-                                          {creditCardsWeightsEnabled
-                                            ? `Sem pesos: ${formatCurrency(baseAmount)}`
-                                            : `Com pesos: ${formatCurrency(weightedAmount)}`}
-                                        </p>
-                                      )
-                                    })()}
-                                  </div>
-                                </div>
-                              </button>
-                            )
-                          })}
+                          {billItems.map((item) => (
+                            <BillExpenseRowButton
+                              key={item.id}
+                              item={item}
+                              creditCardsWeightsEnabled={creditCardsWeightsEnabled}
+                              onOpen={openExpenseEditModal}
+                            />
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1841,39 +1804,33 @@ export default function CreditCards() {
                         </p>
 
                         <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
-                          {(paymentItemsByCard[card.id] || []).map((payment) => (
-                            <button
-                              key={payment.id}
-                              type="button"
-                              onClick={() => {
-                                void handleOpenPaymentItem(payment)
-                              }}
-                              className="w-full rounded-lg border border-primary bg-primary p-2.5 text-left motion-standard hover-lift-subtle press-subtle hover:bg-tertiary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  {(() => {
-                                    const refundMeta = parseRefundNote(payment.note)
+                          {(paymentItemsByCard[card.id] || []).map((payment) => {
+                            const refundMeta = parseRefundNote(payment.note)
 
-                                    return (
-                                      <>
-                                        <p className="text-sm font-medium text-primary truncate">
-                                          {refundMeta.isRefund
-                                            ? (refundMeta.description || 'Estorno de compra')
-                                            : (payment.note || 'Pagamento de fatura')}
-                                        </p>
-                                        <p className="text-xs text-secondary mt-0.5">
-                                          {formatDate(payment.payment_date)}
-                                          {refundMeta.isRefund ? ' • Estorno' : ''}
-                                        </p>
-                                      </>
-                                    )
-                                  })()}
+                            return (
+                              <PaymentRowButton
+                                key={payment.id}
+                                onClick={() => {
+                                  void handleOpenPaymentItem(payment)
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-3 w-full">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-primary truncate">
+                                      {refundMeta.isRefund
+                                        ? (refundMeta.description || 'Estorno de compra')
+                                        : (payment.note || 'Pagamento de fatura')}
+                                    </p>
+                                    <p className="text-xs text-secondary mt-0.5">
+                                      {formatDate(payment.payment_date)}
+                                      {refundMeta.isRefund ? ' • Estorno' : ''}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm font-semibold text-income">{formatCurrency(payment.amount)}</p>
                                 </div>
-                                <p className="text-sm font-semibold text-income">{formatCurrency(payment.amount)}</p>
-                              </div>
-                            </button>
-                          ))}
+                              </PaymentRowButton>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -1938,11 +1895,9 @@ export default function CreditCards() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="Cor"
-              type="color"
+            <CardColorField
               value={cardForm.color}
-              onChange={(event) => setCardForm((prev) => ({ ...prev, color: event.target.value }))}
+              onChange={(color) => setCardForm((prev) => ({ ...prev, color }))}
             />
             <Select
               label="Status"

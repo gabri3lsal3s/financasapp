@@ -3,6 +3,12 @@ import {
   APP_START_MONTH,
   clampMonthToAppStart,
   formatCurrency,
+  formatAxisCurrencyThousands,
+  formatChartYAxisCurrency,
+  formatPercentBR,
+  formatQuantityBR,
+  formatSignedPercentBR,
+  roundToDecimals,
   getCurrentMonthString,
   parseMoneyInput,
 } from '@/utils/format'
@@ -26,4 +32,28 @@ describe('format', () => {
   it('getCurrentMonthString retorna yyyy-MM', () => {
     expect(getCurrentMonthString()).toMatch(/^\d{4}-\d{2}$/)
   })
+
+  it('formatPercentBR e formatSignedPercentBR formatam percentuais', () => {
+    expect(formatPercentBR(12.345, 1)).toContain('%')
+    expect(formatSignedPercentBR(5.5)).toMatch(/^\+/)
+    expect(formatSignedPercentBR(-2)).toContain('-')
+  })
+
+  it('formatQuantityBR omite decimais para inteiros', () => {
+    expect(formatQuantityBR(100)).not.toContain(',')
+    expect(formatQuantityBR(10.5, 4)).toContain(',')
+  })
+
+  it('roundToDecimals e formatAxisCurrencyThousands', () => {
+    expect(roundToDecimals(12.3456, 2)).toBe(12.35)
+    expect(formatAxisCurrencyThousands(150_000)).toContain('k')
+    expect(formatAxisCurrencyThousands(150_000, { spaced: true })).toContain('R$ ')
+  })
+
+  it('formatChartYAxisCurrency usa milhares ou valor cheio', () => {
+    expect(formatChartYAxisCurrency(500)).toContain('R$')
+    expect(formatChartYAxisCurrency(500)).not.toContain('k')
+    expect(formatChartYAxisCurrency(2_500)).toContain('k')
+  })
 })
+

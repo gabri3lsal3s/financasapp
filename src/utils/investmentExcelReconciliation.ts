@@ -1148,8 +1148,6 @@ export function buildPositionValidation(
       status = 'ok'
     } else if (!hasOfficial && hasSystem && !hasMovements) {
       status = 'ghost_system'
-    } else if (!hasOfficial && !hasMovements && hasSystem) {
-      status = 'ghost_system'
     } else if (!officialMovements && !officialSystem && !movementsSystem) {
       status = 'all_differ'
     } else if (!officialMovements && officialSystem) {

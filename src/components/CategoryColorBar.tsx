@@ -9,7 +9,7 @@ interface CategoryColorBarProps {
 
 export default function CategoryColorBar({ color, size = 'md', className = '' }: CategoryColorBarProps) {
   const { colorPalette } = usePaletteColors()
-  const mappedColor = getCategoryColorForPalette(color, colorPalette as any)
+  const mappedColor = getCategoryColorForPalette(color, colorPalette)
 
   const sizeClasses = {
     sm: 'w-1 h-5',

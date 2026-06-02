@@ -8,6 +8,12 @@ interface ExposureVsLimitsChartProps {
   positions: AssetPosition[]
 }
 
+type CustomXAxisTickProps = {
+  x?: number
+  y?: number
+  payload?: { value: string }
+}
+
 export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsChartProps) {
   // Ordena por maior desvio absoluto
   const sortedData = [...positions]
@@ -23,9 +29,9 @@ export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsCha
     .slice(0, 10)
 
   // Custom tick para o XAxis destacar tickers com desvio > 5% em vermelho
-  const CustomXAxisTick = (props: any) => {
-    const { x, y, payload } = props
-    const ticker = payload.value
+  const CustomXAxisTick = (props: CustomXAxisTickProps) => {
+    const { x = 0, y = 0, payload } = props
+    const ticker = payload?.value ?? ''
     const item = sortedData.find(d => d.ticker === ticker)
     const isHighDeviation = item ? item.deviation > 5 : false
 
@@ -88,7 +94,7 @@ export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsCha
                 tickLine={false}
               />
               <Tooltip
-                formatter={(value: any, name: any) => [`${formatNumberBR(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, name]}
+                formatter={(value: number | string, name: string) => [`${formatNumberBR(Number(value), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, name]}
                 contentStyle={{
                   backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
                   borderColor: 'var(--color-border, rgb(51, 65, 85))',

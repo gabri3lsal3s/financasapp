@@ -63,7 +63,7 @@ export default function ClientAllocationCharts({
                   ))}
                 </Pie>
                 <ChartTooltip 
-                  formatter={(value: any) => [formatCurrency(Number(value)), 'Patrimônio']} 
+                  formatter={(value: number | string) => [formatCurrency(Number(value)), 'Patrimônio']} 
                   contentStyle={{
                     backgroundColor: 'var(--color-bg-secondary, rgb(30, 41, 59))',
                     borderColor: 'var(--color-border, rgb(51, 65, 85))',

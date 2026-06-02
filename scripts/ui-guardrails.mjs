@@ -159,6 +159,14 @@ function main() {
   const baselineEntries = loadBaseline()
   const baselineKeys = new Set(baselineEntries.map((item) => item.key))
 
+  if (baselineEntries.length > 0) {
+    printViolations(baselineEntries, 'Violações ainda registradas na baseline (esperado: lista vazia)')
+    console.error(
+      '\nFalha de governança UI: a baseline deve estar vazia (`violations: []`). Corrija o código e execute `npm run guardrails:ui:baseline` após zerar as ocorrências.',
+    )
+    process.exit(1)
+  }
+
   const newViolations = currentViolations.filter((item) => !baselineKeys.has(item.key))
 
   printViolations(newViolations, 'Novas violações de UI guardrails')
@@ -168,7 +176,13 @@ function main() {
     process.exit(1)
   }
 
-  console.log('UI guardrails OK: nenhuma nova violação além da baseline.')
+  if (currentViolations.length > 0) {
+    printViolations(currentViolations, 'Violações atuais de UI guardrails')
+    console.error('\nFalha de governança UI: existem ocorrências no código. Corrija antes do merge.')
+    process.exit(1)
+  }
+
+  console.log('UI guardrails OK: zero ocorrências e baseline vazia.')
 }
 
 main()

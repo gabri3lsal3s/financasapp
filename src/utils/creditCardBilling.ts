@@ -18,6 +18,7 @@ export type BillExpenseItem = {
   description?: string | null
   installment_number?: number | null
   installment_total?: number | null
+  competence_source?: 'manual' | 'auto'
 }
 
 export const resolveExpenseBillCompetence = (

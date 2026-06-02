@@ -13,6 +13,7 @@ import ContributionSimulator from '@/components/ContributionSimulator'
 import Card from '@/components/Card'
 import Loader from '@/components/Loader'
 import Button from '@/components/Button'
+import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Modal from '@/components/Modal'
@@ -25,7 +26,12 @@ import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGrou
 // Componentes Modulares
 import AdvisorOverview from '@/components/consulting/AdvisorOverview'
 import ClientOverviewHeader from '@/components/consulting/ClientOverviewHeader'
-import ClientKpiCards from '@/components/consulting/ClientKpiCards'
+import ClientKpiCards, { type ClientKpiYieldBasis } from '@/components/consulting/ClientKpiCards'
+import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
+import OrganicVsContributionsChart from '@/components/consulting/OrganicVsContributionsChart'
+import { usePortfolioClose } from '@/hooks/usePortfolioClose'
+import Switch from '@/components/Switch'
+import type { PortfolioPeriodSnapshotRow } from '@/types'
 import ClientAllocationCharts from '@/components/consulting/ClientAllocationCharts'
 import RebalancingChecklist from '@/components/consulting/RebalancingChecklist'
 import PositionsTable from '@/components/consulting/PositionsTable'
@@ -47,6 +53,36 @@ import {
   isProvisionalClientEmail,
 } from '@/constants/provisionalClient'
 import { profileSelectSublabel, resolveProfileDisplayName } from '@/utils/profileDisplayName'
+
+type ConsultantTab = 'overview' | 'allocation' | 'rebalancing' | 'positions' | 'ledger' | 'qualitative'
+
+type ConsultantPortfolioCache = {
+  portfolio?: Portfolio
+  clientNotes?: string
+  billingFeeRate?: number
+  transactions?: PortfolioTransaction[]
+  groupTargets?: PortfolioGroupTarget[]
+  assetPrices?: Record<string, AssetPrice>
+  positions?: AssetPosition[]
+  portfolioValue?: number
+  assetDefinitions?: PortfolioAssetDefinition[]
+  indexRatesByIndexer?: Record<string, IndexRateMap>
+  shareValue?: number
+  totalShares?: number
+  assetTheses?: Record<string, string>
+  executiveSummary?: string
+  nextMonthPlan?: string
+}
+
+type PortfolioTransactionInsert = {
+  id: string
+  portfolio_id: string
+  ticker: string
+  operation_type: 'buy'
+  quantity: number
+  price: number
+  date: string
+}
 
 function parseJoinedProfile(raw: unknown): Profile | null {
   if (!raw) return null
@@ -79,7 +115,7 @@ export default function ConsultantDashboard() {
   const [loadingClients, setLoadingClients] = useState<boolean>(true)
   
   // Estado para Personalização de Layout & Billing
-  const [activeTab, setActiveTab] = useState<'overview' | 'allocation' | 'rebalancing' | 'positions' | 'ledger' | 'qualitative'>('overview')
+  const [activeTab, setActiveTab] = useState<ConsultantTab>('overview')
   const [billingFeeRate, setBillingFeeRate] = useState<number>(0.10)
 
   // Estado para Visão Geral de AUM Consolidado do Consultor
@@ -114,7 +150,10 @@ export default function ConsultantDashboard() {
   const [portfolioValue, setPortfolioValue] = useState<number>(0)
   const [shareValue, setShareValue] = useState<number>(1.0)
   const [totalShares, setTotalShares] = useState<number>(0)
-  
+  const [yieldBasis, setYieldBasis] = useState<ClientKpiYieldBasis>('gross')
+  const [periodSnapshots, setPeriodSnapshots] = useState<PortfolioPeriodSnapshotRow[]>([])
+  const { loadPeriodSnapshots } = usePortfolioClose()
+
   // Estado para cadastrar novo cliente
   const [isClientModalOpen, setIsClientModalOpen] = useState<boolean>(false)
   const [newClientName, setNewClientName] = useState<string>('')
@@ -173,6 +212,7 @@ export default function ConsultantDashboard() {
 
   useEffect(() => {
     loadClients()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: bootstrap único ao montar o painel
   }, [])
 
   useEffect(() => {
@@ -185,6 +225,7 @@ export default function ConsultantDashboard() {
       setPortfolioValue(0)
       loadGlobalOverview()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: reage só a selectedClientId; loaders recriados a cada render
   }, [selectedClientId])
 
   useEffect(() => {
@@ -388,9 +429,18 @@ export default function ConsultantDashboard() {
       if (targetsErr) throw targetsErr
       const targetsList = allTargets || []
 
+      const { data: allDefinitions } = await supabase
+        .from('portfolio_asset_definitions')
+        .select(
+          'id, portfolio_id, ticker, pricing_mode, is_b3_linked, applied_amount, contract_rate, indexer, indexer_percent, maturity_date, manual_current_value, manual_value_updated_at, tax_exempt, is_treasury, application_date, created_at, updated_at, currency, valuation_mode'
+        )
+
+      const definitionsList = (allDefinitions || []) as PortfolioAssetDefinition[]
+
       const tickers = Array.from(new Set([
         ...transactionsList.map(t => t.ticker.toUpperCase()),
-        ...targetsList.map(t => t.ticker.toUpperCase())
+        ...targetsList.map(t => t.ticker.toUpperCase()),
+        ...definitionsList.map(d => d.ticker.toUpperCase()),
       ]))
 
       const prices = tickers.length > 0 ? await getAssetPrices(tickers, { forceRefresh: options?.forceRefresh }) : {}
@@ -406,17 +456,19 @@ export default function ConsultantDashboard() {
           : 'Sem nome'
         const clientTxs = transactionsList.filter(t => t.portfolio_id === port.id)
         const clientTargets = targetsList.filter(t => t.portfolio_id === port.id)
+        const clientDefinitions = definitionsList.filter(d => d.portfolio_id === port.id)
         const cashVal = Number(port.cash_balance) || 0
 
-        const { positions: calcPositions, totalValue } = calculatePositions(
+        const { positions: calcPositions, totalValue, cashValue } = calculatePositions(
           clientTxs,
           clientTargets,
           prices,
-          cashVal
+          cashVal,
+          clientDefinitions
         )
 
         overallAum += totalValue
-        overallCash += cashVal
+        overallCash += cashValue
 
         let deviationPct = 0
         if (totalValue > 0) {
@@ -432,7 +484,7 @@ export default function ConsultantDashboard() {
           name: clientName,
           email: clientProfile?.email || '',
           aum: totalValue,
-          cash: cashVal,
+          cash: cashValue,
           assetsCount: calcPositions.length,
           deviationPct: Math.round(deviationPct * 10) / 10
         }
@@ -528,9 +580,30 @@ export default function ConsultantDashboard() {
   // Rentabilidade real consolidada da carteira com base nos ativos
   const overallYieldPct = React.useMemo(() => {
     const totalCostBasis = positions.reduce((sum, p) => sum + p.cost_basis, 0)
-    const totalGrossGain = positions.reduce((sum, p) => sum + p.cost_basis * (p.gross_yield_pct / 100), 0)
-    return totalCostBasis > 0 ? (totalGrossGain / totalCostBasis) * 100 : 0
-  }, [positions])
+    if (totalCostBasis <= 0) return 0
+    if (yieldBasis === 'net') {
+      const totalNetGain = positions.reduce(
+        (sum, p) => sum + p.cost_basis * (p.net_yield_pct / 100),
+        0
+      )
+      return (totalNetGain / totalCostBasis) * 100
+    }
+    const totalGrossGain = positions.reduce(
+      (sum, p) => sum + p.cost_basis * (p.gross_yield_pct / 100),
+      0
+    )
+    return (totalGrossGain / totalCostBasis) * 100
+  }, [positions, yieldBasis])
+
+  const netShareValue = React.useMemo(() => {
+    const totalCost = positions.reduce((s, p) => s + p.cost_basis, 0)
+    const totalNet = positions.reduce(
+      (s, p) => s + p.cost_basis * (1 + p.net_yield_pct / 100),
+      0
+    )
+    if (totalCost <= 0 || shareValue <= 0) return shareValue
+    return Math.round(shareValue * (totalNet / totalCost) * 10000) / 10000
+  }, [positions, shareValue])
 
   // Consolidado por classe de ativos (consolidatedClass)
   const consolidatedClassData = React.useMemo(() => {
@@ -569,7 +642,7 @@ export default function ConsultantDashboard() {
   const loadPortfolioData = async (clientId: string, options?: { forceRefresh?: boolean }) => {
     const cacheKey = `consultant-portfolio-data-${clientId}`
     try {
-      const cached = await getCache<any>(cacheKey)
+      const cached = await getCache<ConsultantPortfolioCache>(cacheKey)
       if (cached && !options?.forceRefresh) {
         if (cached.portfolio) setPortfolio(cached.portfolio)
         if (cached.clientNotes !== undefined) setClientNotes(cached.clientNotes)
@@ -639,6 +712,7 @@ export default function ConsultantDashboard() {
       }
 
       setPortfolio(portData)
+      void loadPeriodSnapshots(portData.id).then(setPeriodSnapshots)
       const currentNotes = portData ? portData.notes || '' : ''
       setClientNotes(currentNotes)
       const currentFee = portData && portData.billing_fee_rate !== undefined && portData.billing_fee_rate !== null ? Number(portData.billing_fee_rate) : 0.85
@@ -662,7 +736,7 @@ export default function ConsultantDashboard() {
       const currentGroupTargets = groupTargetsData || []
       setGroupTargets(currentGroupTargets)
 
-      let mappedTheses: Record<string, string> = {}
+      const mappedTheses: Record<string, string> = {}
       let execSummary = ''
       let monthPlan = ''
 
@@ -908,7 +982,7 @@ export default function ConsultantDashboard() {
 
         if (userInvestments && userInvestments.length > 0) {
           let extraCash = 0
-          const txsToInsert: any[] = []
+          const txsToInsert: PortfolioTransactionInsert[] = []
           const investmentsToUpdate: { id: string; transaction_id: string }[] = []
 
           for (const inv of userInvestments) {
@@ -1276,7 +1350,7 @@ export default function ConsultantDashboard() {
                   key={tab.id}
                   variant={isActive ? 'primary' : 'outline'}
                   size="sm"
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as ConsultantTab)}
                   className={`flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl transition-all w-full md:w-auto ${
                     isActive 
                       ? 'shadow-md shadow-indigo-500/10' 
@@ -1296,12 +1370,26 @@ export default function ConsultantDashboard() {
           <div className="space-y-6 animate-page-enter">
             {activeTab === 'overview' && (
               <div className="space-y-6">
+                <div className="flex items-center gap-2 text-sm text-secondary">
+                  <Switch
+                    checked={yieldBasis === 'net'}
+                    onClick={() => setYieldBasis((b) => (b === 'gross' ? 'net' : 'gross'))}
+                    label="Visão líquida"
+                  />
+                  <span>Visão líquida (IR estimado)</span>
+                </div>
                 <ClientKpiCards
                   portfolioValue={portfolioValue}
                   shareValue={shareValue}
                   totalShares={totalShares}
                   overallYieldPct={overallYieldPct}
+                  yieldBasis={yieldBasis}
+                  netShareValue={netShareValue}
                 />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <ReturnHeatmap snapshots={periodSnapshots} />
+                  <OrganicVsContributionsChart snapshots={periodSnapshots} />
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
                   <WeeklyVariationChart shareHistory={shareHistoryData} />
                   <PerformanceMetricsCard metrics={performanceMetrics} />
@@ -1350,7 +1438,7 @@ export default function ConsultantDashboard() {
                   <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
                     limitsCollapsed ? 'hidden' : 'grid'
                   }`}>
-                    {groupTargets.map((gt: any) => (
+                    {groupTargets.map((gt) => (
                       <div 
                         key={gt.id} 
                         onClick={() => handleEditGroupTarget(gt)}
@@ -1369,17 +1457,19 @@ export default function ConsultantDashboard() {
                         <div className="flex items-center gap-3">
                           <div className="h-6 w-[1px] bg-primary/25" />
                           <span className="font-mono text-indigo-500 font-black text-sm">{gt.target_percentage}%</span>
-                          <button
+                          <IconButton
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Evita abrir o modal de edição ao excluir
-                              handleDeleteGroupTarget(gt.id);
-                            }}
-                            className="text-secondary hover:text-red-500 transition-colors p-1.5 rounded-xl hover:bg-red-500/10 flex items-center justify-center"
+                            icon={<Trash2 size={13} />}
+                            variant="danger"
+                            size="sm"
+                            label="Remover limite"
                             title="Remover limite"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteGroupTarget(gt.id)
+                            }}
+                            className="!rounded-xl hover:bg-red-500/10"
+                          />
                         </div>
                       </div>
                     ))}

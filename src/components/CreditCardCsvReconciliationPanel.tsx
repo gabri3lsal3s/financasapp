@@ -20,6 +20,9 @@ import {
   learnFromCreditCardCsvInsertion,
   suggestFromCreditCardCsvLearning,
 } from '@/utils/creditCardCsvLearning'
+
+type ReconciliationWizardStep = 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'
+const WIZARD_STEPS: ReconciliationWizardStep[] = ['summary', 'conflicts', 'missing', 'suspicious', 'review']
 import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput } from '@/utils/format'
 
 interface CategoryOption {
@@ -650,7 +653,7 @@ export default function CreditCardCsvReconciliationPanel({
                 <button
                   key={stepItem.id}
                   type="button"
-                  onClick={() => setCurrentStep(stepItem.id as any)}
+                  onClick={() => setCurrentStep(stepItem.id as ReconciliationWizardStep)}
                   className={`flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border ${
                     isActive
                       ? 'bg-secondary text-primary border-primary'
@@ -1364,8 +1367,8 @@ export default function CreditCardCsvReconciliationPanel({
             variant="ghost"
             size="sm"
             onClick={() => {
-              const stepOrder = ['summary', 'conflicts', 'missing', 'suspicious', 'review'] as const
-              const currentIdx = stepOrder.indexOf(currentStep as any)
+              const stepOrder = WIZARD_STEPS
+              const currentIdx = stepOrder.indexOf(currentStep as ReconciliationWizardStep)
               if (currentIdx > 0) {
                 setCurrentStep(stepOrder[currentIdx - 1])
               }
@@ -1383,8 +1386,8 @@ export default function CreditCardCsvReconciliationPanel({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const stepOrder = ['summary', 'conflicts', 'missing', 'suspicious', 'review'] as const
-                  const currentIdx = stepOrder.indexOf(currentStep as any)
+                  const stepOrder = WIZARD_STEPS
+                  const currentIdx = stepOrder.indexOf(currentStep as ReconciliationWizardStep)
                   if (currentIdx < stepOrder.length - 1) {
                     setCurrentStep(stepOrder[currentIdx + 1])
                   }

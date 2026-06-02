@@ -10,6 +10,7 @@ import { Fingerprint, LogOut, AlertCircle, ShieldCheck } from 'lucide-react';
 
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -101,8 +102,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           setError(result.error || 'Autenticação cancelada ou falhou.');
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao desbloquear');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Erro ao desbloquear'));
     } finally {
       setUnlocking(false);
     }

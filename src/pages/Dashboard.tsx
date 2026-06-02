@@ -13,9 +13,13 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberBR, getCurrentMonthString } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import Button from '@/components/Button'
+import DailyFlowLegend from '@/components/dashboard/DailyFlowLegend'
+import ExpenseCategoryRowButton from '@/components/dashboard/ExpenseCategoryRowButton'
+import MobileChartSwitcher from '@/components/dashboard/MobileChartSwitcher'
+import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { supabase } from '@/lib/supabase'
@@ -47,6 +51,8 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useTheme } from '@/hooks/useTheme'
+import { chartAnimProps } from '@/types/recharts'
+import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
@@ -391,11 +397,7 @@ export default function Dashboard() {
     return series
   }, [currentMonth, incomes, expenses, portfolioTransactions])
 
-  const animProps = useMemo(() => ({
-    isAnimationActive: true,
-    animationDuration: visualStyle === 'cyberpunk' ? 1200 : 700,
-    animationEasing: (visualStyle === 'cyberpunk' ? 'cubic-bezier(0.34, 1.56, 0.64, 1)' : 'ease-out') as any
-  }), [visualStyle])
+  const animProps = useMemo(() => chartAnimProps(visualStyle), [visualStyle])
 
   const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) return null
@@ -466,32 +468,13 @@ export default function Dashboard() {
     )
   }
 
-  const renderInteractiveLegend = ({ payload }: { payload?: any[] }) => {
-    if (!payload?.length) return null
-
-    return (
-      <div className="flex flex-wrap gap-2 pt-2">
-        {payload.map((entry: any) => {
-          const dataKey = String(entry.dataKey ?? entry.value ?? '')
-          const isHidden = hiddenDailyFlowSeries.includes(dataKey)
-
-          return (
-            <button
-              key={dataKey}
-              type="button"
-              onClick={() => toggleDailyFlowSeries(dataKey)}
-              className={`px-2 py-1 rounded-md border border-primary text-xs flex items-center gap-2 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${isHidden ? 'opacity-50 bg-secondary text-secondary' : 'bg-primary text-primary'
-                }`}
-              aria-pressed={!isHidden}
-            >
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-primary">{entry.value}</span>
-            </button>
-          )
-        })}
-      </div>
-    )
-  }
+  const renderInteractiveLegend = ({ payload }: LegendContentProps) => (
+    <DailyFlowLegend
+      payload={payload}
+      hiddenSeries={hiddenDailyFlowSeries}
+      onToggle={toggleDailyFlowSeries}
+    />
+  )
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
@@ -545,30 +528,7 @@ export default function Dashboard() {
 
                 <div className="mt-4 space-y-4">
                   {/* Selector of charts in mobile */}
-                  <div className="flex xl:hidden justify-center bg-secondary border border-primary p-1 rounded-xl max-w-[260px] mx-auto mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveMobileChart('panorama')}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        activeMobileChart === 'panorama'
-                          ? 'bg-primary text-primary shadow-sm'
-                          : 'text-secondary opacity-70'
-                      }`}
-                    >
-                      Panorama
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveMobileChart('flow')}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                        activeMobileChart === 'flow'
-                          ? 'bg-primary text-primary shadow-sm'
-                          : 'text-secondary opacity-70'
-                      }`}
-                    >
-                      Fluxo Diário
-                    </button>
-                  </div>
+                  <MobileChartSwitcher activeView={activeMobileChart} onChange={setActiveMobileChart} />
 
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
                     <Card className={`${activeMobileChart === 'panorama' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
@@ -662,39 +622,15 @@ export default function Dashboard() {
 
                           <div className="mt-4 space-y-3">
                             {prioritizedExpenseCategoryItems.map((item, index) => {
-                              const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
                               const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
-                              const interactiveRowButtonClasses = "w-full text-left bg-secondary border border-primary rounded-xl p-3 md:p-4 motion-standard hover-lift press-subtle group focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-colors"
                               return (
-                                <button
+                                <ExpenseCategoryRowButton
                                   key={item.name}
-                                  type="button"
-                                  onClick={() => openExpenseCategoryDetails(item.categoryId, item.name)}
-                                  className={`${interactiveRowButtonClasses} animate-stagger-item ${staggerClass}`}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                                      <span className="text-primary truncate">{item.name}</span>
-                                    </div>
-                                    <div className="flex items-center justify-end gap-2.5 flex-shrink-0">
-                                      {item.alertPriority > 0 && (
-                                        <span className={`text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary ${item.alertStatusClass}`}>
-                                          {item.alertStatusLabel}
-                                        </span>
-                                      )}
-                                      <span className="text-xs px-2 py-0.5 rounded-full border border-primary bg-secondary text-secondary">
-                                        {formatNumberWithTwoDecimalsBR(percentage)}%
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <div className="w-full h-1.5 rounded-full bg-secondary mt-3">
-                                    <div className="h-1.5 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }} />
-                                  </div>
-
-                                  <p className="text-xs text-secondary mt-2 text-center sm:text-left truncate">Total: {formatCurrency(item.value)}</p>
-                                </button>
+                                  item={item}
+                                  totalExpenses={totalExpenses}
+                                  staggerClass={staggerClass}
+                                  onOpen={openExpenseCategoryDetails}
+                                />
                               )
                             })}
                           </div>
@@ -714,33 +650,31 @@ export default function Dashboard() {
         <div className="space-y-4 py-2">
           <p className="text-sm text-secondary text-center mb-4">Escolha o tipo de lançamento que deseja adicionar:</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
+            <QuickLaunchOption
+              label="Renda"
+              icon={<TrendingUp size={24} />}
+              borderHoverClass="hover:border-income"
+              iconWrapClass="bg-income/10 text-income"
               onClick={() => {
                 setIsSelectorOpen(false)
                 setIsIncomeOpen(true)
               }}
-              className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-income rounded-2xl hover:shadow-lg transition-all group duration-150"
-            >
-              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-income/10 text-income mb-3 group-hover:scale-110 transition-transform">
-                <TrendingUp size={24} />
-              </div>
-              <span className="font-semibold text-primary">Renda</span>
-            </button>
-            
-            <button
+            />
+            <QuickLaunchOption
+              label="Despesa"
+              icon={<TrendingDown size={24} />}
+              borderHoverClass="hover:border-expense"
+              iconWrapClass="bg-expense/10 text-expense"
               onClick={() => {
                 setIsSelectorOpen(false)
                 setIsExpenseOpen(true)
               }}
-              className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-expense rounded-2xl hover:shadow-lg transition-all group duration-150"
-            >
-              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-expense/10 text-expense mb-3 group-hover:scale-110 transition-transform">
-                <TrendingDown size={24} />
-              </div>
-              <span className="font-semibold text-primary">Despesa</span>
-            </button>
-
-            <button
+            />
+            <QuickLaunchOption
+              label="Investimento"
+              icon={<PiggyBank size={24} />}
+              borderHoverClass="hover:border-balance"
+              iconWrapClass="bg-balance/10 text-balance"
               onClick={() => {
                 setIsSelectorOpen(false)
                 if (isOnline && !portfolioId) {
@@ -748,13 +682,7 @@ export default function Dashboard() {
                 }
                 setIsInvestmentOpen(true)
               }}
-              className="flex flex-col items-center justify-center p-6 bg-secondary border border-primary hover:border-balance rounded-2xl hover:shadow-lg transition-all group duration-150"
-            >
-              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-balance/10 text-balance mb-3 group-hover:scale-110 transition-transform">
-                <PiggyBank size={24} />
-              </div>
-              <span className="font-semibold text-primary">Investimento</span>
-            </button>
+            />
           </div>
         </div>
       </Modal>

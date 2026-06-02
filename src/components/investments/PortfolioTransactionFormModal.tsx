@@ -13,7 +13,7 @@ import type {
   PortfolioPricingMode,
   PortfolioAssetDefinition,
 } from '@/types'
-import { formatCurrency, formatNumberBR } from '@/utils/format'
+import { formatCurrency, formatMoneyInput, formatNumberBR, formatQuantityBR } from '@/utils/format'
 import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
 import { computeCashOffsetPreview, excludeCashOffsetSells, calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import {
@@ -144,7 +144,7 @@ export default function PortfolioTransactionFormModal({
     }
   }, [ticker])
 
-  const pricingSetters = {
+  const pricingSetters = useMemo(() => ({
     setPricingMode,
     setIsB3Linked,
     setContractRate,
@@ -152,7 +152,7 @@ export default function PortfolioTransactionFormModal({
     setManualCurrentValue,
     setTaxExempt,
     setIsTreasury,
-  }
+  }), [setPricingMode, setIsB3Linked, setContractRate, setIndexer, setManualCurrentValue, setTaxExempt, setIsTreasury])
 
   useEffect(() => {
     if (!isOpen) return
@@ -175,7 +175,7 @@ export default function PortfolioTransactionFormModal({
     setSuggestions([])
     setShowSuggestions(false)
     setRichData(null)
-  }, [isOpen, editingTransaction, defaultTicker])
+  }, [isOpen, editingTransaction, defaultTicker, pricingSetters])
 
   useEffect(() => {
     if (!isOpen || !portfolioId) return
@@ -214,7 +214,7 @@ export default function PortfolioTransactionFormModal({
         setIsB3Linked(isB3TickerPattern(tickerUpper))
       }
     }
-  }, [isOpen, ticker, portfolioDefinitions, portfolioId])
+  }, [isOpen, ticker, portfolioDefinitions, portfolioId, pricingSetters])
 
   useEffect(() => {
     if (!isOpen || ticker.length < 3 || pricingMode !== 'market') {
@@ -229,7 +229,7 @@ export default function PortfolioTransactionFormModal({
         if (data) {
           setRichData(data as AssetRichData)
           if (!editingTransaction && (!price || price === '0')) {
-            setPrice(data.price.toFixed(2))
+            setPrice(formatMoneyInput(data.price))
           }
         } else {
           setRichData(null)
@@ -758,7 +758,7 @@ export default function PortfolioTransactionFormModal({
                 <div className="flex justify-between">
                   <span>Quantidade:</span>
                   <span className="font-bold text-primary">
-                    {isAmountBased ? '—' : parseFloat(quantity || '0').toLocaleString('pt-BR')}
+                    {isAmountBased ? '—' : formatQuantityBR(parseFloat(quantity || '0'))}
                   </span>
                 </div>
                 <div className="flex justify-between">

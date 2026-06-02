@@ -189,6 +189,15 @@ export default function PositionsTable({
                         <td className="p-3 pl-6 font-bold text-primary flex items-center gap-1.5 flex-wrap">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                           <span className="font-mono">{pos.ticker}</span>
+                          {(pos.valuation_source === 'hybrid' ||
+                            pos.valuation_source === 'fixed_income') && (
+                            <span
+                              className="text-[9px] text-secondary font-normal cursor-help"
+                              title="Valoração na curva pela taxa contratada; não reflete o valor de resgate antecipado a mercado."
+                            >
+                              (na curva)
+                            </span>
+                          )}
                           <span className="text-[10px] text-secondary font-normal font-sans">({pos.sector || 'Outros'})</span>
                           <button
                             onClick={() => onEditAssetClassification(pos.ticker, pos.asset_class || 'Renda Fixa', pos.sector || 'Outros')}

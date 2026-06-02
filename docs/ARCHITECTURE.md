@@ -137,3 +137,37 @@ O sistema de cores do aplicativo é totalmente configurado via variáveis HSL em
 * Evite cores sólidas como `bg-red-500` ou `bg-blue-600`.
 * Sempre use as classes temáticas: `text-primary`, `bg-secondary`, `border-primary`, `bg-tertiary` ou classes semânticas `text-expense`, `text-income`.
 * A conformidade de estilos é verificada a cada commit pelo validador de guardrails (`npm run guardrails:ui`).
+
+---
+
+## 6. Motor de rentabilidade (carteira / consultoria)
+
+O fechamento patrimonial e a cota líquida são calculados em TypeScript puro, testável sem browser, com persistência opcional no Supabase.
+
+### Contrato estável (`runDailyClose`)
+
+Entrada (`DailyCloseInput`): `portfolioId`, `transactions`, `definitions`, `targets`, `prices`, `cashBalance`, `indexRatesByIndexer`, `asOfDate?`.
+
+Saída (`DailyCloseResult`): `grossPl`, `netPl`, `shareValue`, `totalShares`, `lotCount`.
+
+Orquestração em `src/services/returns/closePipeline.ts` (cálculo) e `src/services/returns/portfolioCloseService.ts` (persistência + snapshot mensal).
+
+### Módulos de valoração
+
+| Módulo | Arquivo | Regra |
+|--------|---------|--------|
+| Mercado (RV) | `priceService.ts` | Yahoo + guard de spike 50% → Last Known Value |
+| RF / Tesouro na curva | `fixedIncomeValuation.ts` | Pré: 252 DU; IPCA+: fator VNA; lotes FIFO |
+| IR por lote | `taxProvision.ts` | Tabela regressiva / 15% mercado |
+| TWR mensal | `periodReturns.ts` | `Rm = cota_fech / cota_abertura - 1` |
+
+### Tabelas (migration `20260602140000_portfolio_returns_engine.sql`)
+
+- `portfolio_share_daily` — histórico de cota
+- `portfolio_period_snapshots` — fechamentos mensais/anuais
+- `asset_price_daily`, `vna_daily` — séries de mercado e VNA
+
+### Disparo no SPA
+
+- Botão **Atualizar fechamento** em `Investments.tsx` → `usePortfolioClose().runClose`
+- Futuro backend próprio deve importar as mesmas funções (`computeDailyClose` / `runDailyClose`) sem alterar contratos.

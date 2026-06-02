@@ -80,7 +80,16 @@ function App() {
           <SupabaseWarning />
           <NetworkStatusToast />
           <ConflictResolutionModal />
-          <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff' } }} />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: 'var(--color-bg-tertiary)',
+                color: 'var(--color-text-primary)',
+              },
+            }}
+          />
           <Routes>
             {/* Rotas Públicas */}
             <Route path="/login" element={<Login />} />

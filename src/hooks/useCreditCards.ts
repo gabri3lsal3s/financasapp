@@ -54,6 +54,7 @@ export function useCreditCards() {
     }
     window.addEventListener('offline-queue-processed', onQueueProcessed)
     return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: listener de sync offline; re-bind só ao montar
   }, [])
 
   const createCreditCard = async (payload: Omit<CreditCard, 'id' | 'created_at'>) => {

@@ -4,6 +4,7 @@ import { TrendingDown, TrendingUp, ArrowRight, Check } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import Input from '@/components/Input'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
@@ -15,7 +16,7 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { assignUniquePaletteColors, getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput } from '@/utils/format'
+import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 
 export default function Categories() {
@@ -179,7 +180,7 @@ export default function Categories() {
       return
     }
 
-    const amount = rawValue ? Number(parsed.toFixed(2)) : null
+    const amount = rawValue ? roundToDecimals(parsed, 2) : null
 
     setSavingExpenseLimitIds((prev) => [...prev, categoryId])
     const { error } = await setCategoryLimit(categoryId, amount)
@@ -205,7 +206,7 @@ export default function Categories() {
       return
     }
 
-    const amount = rawValue ? Number(parsed.toFixed(2)) : null
+    const amount = rawValue ? roundToDecimals(parsed, 2) : null
 
     setSavingIncomeExpectationIds((prev) => [...prev, incomeCategoryId])
     const { error } = await setIncomeCategoryExpectation(incomeCategoryId, amount)
@@ -308,7 +309,7 @@ export default function Categories() {
                           </p>
 
                           <div className="flex flex-col sm:flex-row gap-2">
-                            <input
+                            <Input
                               type="text"
                               inputMode="decimal"
                               value={expenseLimitInputs[category.id] || ''}
@@ -319,7 +320,7 @@ export default function Categories() {
                                 }))
                               }
                               placeholder="Ex: 1200,00"
-                              className="w-full sm:max-w-[220px] px-3 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                              className="w-full sm:max-w-[220px]"
                             />
                             <Button
                               type="button"
@@ -388,7 +389,7 @@ export default function Categories() {
                           </p>
 
                           <div className="flex flex-col sm:flex-row gap-2">
-                            <input
+                            <Input
                               type="text"
                               inputMode="decimal"
                               value={incomeExpectationInputs[category.id] || ''}
@@ -399,7 +400,7 @@ export default function Categories() {
                                 }))
                               }
                               placeholder="Ex: 2000,00"
-                              className="w-full sm:max-w-[220px] px-3 py-2 border border-primary rounded-lg bg-primary text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                              className="w-full sm:max-w-[220px]"
                             />
                             <Button
                               type="button"

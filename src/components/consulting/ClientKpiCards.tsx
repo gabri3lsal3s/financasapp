@@ -3,6 +3,7 @@ import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { Wallet, TrendingUp } from 'lucide-react'
 
 export type ClientKpiYieldVariant = 'share' | 'accumulated'
+export type ClientKpiYieldBasis = 'gross' | 'net'
 
 interface ClientKpiCardsProps {
   portfolioValue: number
@@ -12,6 +13,9 @@ interface ClientKpiCardsProps {
   /** `share`: valor da cota (consultor). `accumulated`: ganho acumulado em R$ + % (cliente) */
   yieldVariant?: ClientKpiYieldVariant
   overallYieldPct?: number
+  /** Bruto (padrão) ou líquido após IR estimado */
+  yieldBasis?: ClientKpiYieldBasis
+  netShareValue?: number
 }
 
 function formatSignedYieldPct(yieldsPercentage: number): string {
@@ -24,8 +28,13 @@ export default function ClientKpiCards({
   shareValue,
   totalShares = 0,
   overallYieldPct,
+  yieldBasis = 'gross',
+  netShareValue,
 }: ClientKpiCardsProps) {
-  const yieldsPercentage = overallYieldPct !== undefined ? overallYieldPct : (shareValue - 1) * 100
+  const effectiveShare =
+    yieldBasis === 'net' && netShareValue != null && netShareValue > 0 ? netShareValue : shareValue
+  const yieldsPercentage =
+    overallYieldPct !== undefined ? overallYieldPct : (effectiveShare - 1) * 100
   const hasYieldBasis = totalShares > 0
   const accumulatedAmount = hasYieldBasis ? portfolioValue - totalShares : 0
   const yieldPctClass = yieldsPercentage >= 0 ? 'text-emerald-500' : 'text-expense'

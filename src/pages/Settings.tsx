@@ -5,12 +5,13 @@ import Card from '@/components/Card'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
-import { useAppSettings } from '@/hooks/useAppSettings'
+import { useAppSettings, type BiometricLockTimeout } from '@/hooks/useAppSettings'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
 import { ADMIN_EMAIL, isPrimaryAdminEmail, isPrimaryAdminProfile } from '@/constants/adminProfile'
+import { getErrorMessage } from '@/utils/errorMessage'
 import type { Profile } from '@/types'
 import {
   isBiometricAvailable,
@@ -23,6 +24,8 @@ import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import Switch from '@/components/Switch'
+import VisualStyleOptionCard from '@/components/settings/VisualStyleOptionCard'
 
 
 
@@ -98,6 +101,7 @@ export default function Settings() {
     if (activeSettingsView === 'admin') {
       fetchUsers()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: recarrega usuários só ao entrar na aba admin
   }, [activeSettingsView])
 
   useEffect(() => {
@@ -265,46 +269,15 @@ export default function Settings() {
 
       // 3. Redirecionar será automático pelo ProtectedRoute ao perder a sessão
       alert('Sua conta e todos os dados foram excluídos permanentemente.')
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting account:', err)
-      alert(`Erro ao excluir conta: ${err.message || 'Verifique se a função do banco de dados foi configurada.'}`)
+      alert(`Erro ao excluir conta: ${getErrorMessage(err, 'Verifique se a função do banco de dados foi configurada.')}`)
     } finally {
       setDeletingAccount(false)
       setIsDeleteModalOpen(false)
       setDeleteConfirmationText('')
     }
   }
-
-  const ToggleSwitch = ({
-    checked,
-    onChange,
-    title,
-  }: {
-    checked: boolean
-    onChange: () => void
-    title?: string
-  }) => (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      title={title}
-      className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-all duration-300 ${
-        checked 
-          ? 'bg-[var(--color-primary)] border-[var(--color-primary)]' 
-          : 'bg-secondary border-primary'
-      }`}
-    >
-      <span
-        className={`inline-block h-5 w-5 transform rounded-full shadow-sm transition-all duration-300 ease-in-out ${
-          checked 
-            ? 'translate-x-6 bg-[var(--color-bg-primary)]' 
-            : 'translate-x-1 bg-[var(--color-text-secondary)]'
-        }`}
-      />
-    </button>
-  )
 
   const SettingRow = ({
     title,
@@ -523,41 +496,21 @@ export default function Settings() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setVisualStyle('classic')}
-                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-36 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                    visualStyle === 'classic'
-                      ? 'border-primary bg-tertiary accent-primary'
-                      : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                    <ShieldCheck size={18} className="accent-primary" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[14px] text-primary leading-tight">Clássico</h4>
-                    <p className="text-[11px] leading-tight text-secondary mt-1">Interface clássica sólida, limpa e profissional com layout fixo.</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setVisualStyle('cyberpunk')}
-                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-36 motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] ${
-                    visualStyle === 'cyberpunk'
-                      ? 'border-primary bg-tertiary accent-primary'
-                      : 'border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                    <Sparkles size={18} className="text-indigo-400" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[14px] text-primary leading-tight">Cyber-Minimalista</h4>
-                    <p className="text-[11px] leading-tight text-secondary mt-1">Bento Grid com cantos arredondados, vidro translúcido, acentos neon e layout flutuante.</p>
-                  </div>
-                </button>
+                <VisualStyleOptionCard
+                  selected={visualStyle === 'classic'}
+                  onSelect={() => setVisualStyle('classic')}
+                  icon={<ShieldCheck size={18} className="accent-primary" />}
+                  title="Clássico"
+                  description="Interface clássica sólida, limpa e profissional com layout fixo."
+                />
+                <VisualStyleOptionCard
+                  selected={visualStyle === 'cyberpunk'}
+                  onSelect={() => setVisualStyle('cyberpunk')}
+                  icon={<Sparkles size={18} className="text-indigo-400" />}
+                  title="Cyber-Minimalista"
+                  description="Bento Grid com cantos arredondados, vidro translúcido, acentos neon e layout flutuante."
+                  iconWrapClassName="bg-indigo-500/10 border border-indigo-500/20"
+                />
               </div>
             </div>
           </Card>
@@ -570,7 +523,7 @@ export default function Settings() {
                 title="Calculadora flutuante"
                 description="Exibe uma calculadora flutuante acessível em qualquer página do app."
               >
-                <ToggleSwitch
+                <Switch
                   checked={floatingCalculatorEnabled}
                   onChange={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
                   title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
@@ -695,7 +648,7 @@ export default function Settings() {
                   >
                   <Select
                     value={String(biometricLockTimeout)}
-                    onChange={(e) => setBiometricLockTimeout(Number(e.target.value) as any)}
+                    onChange={(e) => setBiometricLockTimeout(Number(e.target.value) as BiometricLockTimeout)}
                     options={[
                       { value: '0', label: 'Imediatamente / Desligar Tela' },
                       { value: '1', label: 'Após 1 minuto' },
