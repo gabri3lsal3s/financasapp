@@ -78,7 +78,7 @@ export async function loadPortfolioValuation(
   const marketTickers = tickers.filter((ticker) => {
     const def = definitions.find((d) => d.ticker.toUpperCase() === ticker)
     if (!def) return true
-    return def.pricing_mode === 'market' || def.is_treasury
+    return def.pricing_mode === 'market'
   })
 
   const hasUsdAssets = definitions.some(d => d.currency === 'USD') || tickers.some(t => detectDefaultCurrency(t) === 'USD')

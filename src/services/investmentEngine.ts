@@ -1,7 +1,7 @@
 import { PortfolioTransaction, TargetAllocation, AssetPrice, PortfolioGroupTarget, PortfolioAssetDefinition } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
-import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { detectDefaultCurrency } from '@/services/priceService'
 
 export type AssetPosition = ValuedPosition
@@ -179,33 +179,39 @@ export function calculateShareHistory(
 
       if (pricingMode === 'fixed_income') {
         const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
-        const appDate = def?.application_date || (tickerTxs.length > 0 ? tickerTxs[0].date : date)
-        
-        let principal = 0
-        let buyQty = 0
-        for (const tx of tickerTxs) {
-          if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-            principal += Number(tx.quantity) * Number(tx.price)
-            buyQty += Number(tx.quantity)
-          } else if (tx.operation_type === 'sell') {
-            if (buyQty > 0) {
-              const avg = principal / buyQty
-              buyQty = Math.max(0, buyQty - Number(tx.quantity))
-              principal = buyQty * avg
-            }
-          }
-        }
-
+        const buyTransactions = tickerTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
         const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-        val = principal > 0 ? calculateFixedIncomeValue({
-          principal,
-          contractRateAnnual: def?.contract_rate ?? null,
-          indexer: def?.indexer || 'none',
-          indexerPercent: def?.indexer_percent || 100,
-          applicationDate: appDate,
-          asOfDate: date,
-          indexRates,
-        }) : 0
+
+        if (buyTransactions.length > 0) {
+          const actualDef: PortfolioAssetDefinition = def || {
+            id: '',
+            portfolio_id: '',
+            ticker: ticker.toUpperCase(),
+            pricing_mode: 'fixed_income',
+            is_b3_linked: false,
+            applied_amount: null,
+            contract_rate: null,
+            indexer: 'none',
+            indexer_percent: 100,
+            maturity_date: null,
+            manual_current_value: null,
+            manual_value_updated_at: null,
+            tax_exempt: false,
+            is_treasury: false,
+            application_date: null,
+            created_at: '',
+            updated_at: '',
+          }
+          val = calculateLotBasedFixedIncomeValue({
+            transactions: tickerTxs,
+            ticker,
+            definition: actualDef,
+            asOfDate: date,
+            indexRates,
+          })
+        } else {
+          val = 0
+        }
       } else if (pricingMode === 'manual_value') {
         val = qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
@@ -286,33 +292,39 @@ export function calculateShareHistory(
 
       if (pricingMode === 'fixed_income') {
         const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
-        const appDate = def?.application_date || (tickerTxs.length > 0 ? tickerTxs[0].date : date)
-        
-        let principal = 0
-        let buyQty = 0
-        for (const tx of tickerTxs) {
-          if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-            principal += Number(tx.quantity) * Number(tx.price)
-            buyQty += Number(tx.quantity)
-          } else if (tx.operation_type === 'sell') {
-            if (buyQty > 0) {
-              const avg = principal / buyQty
-              buyQty = Math.max(0, buyQty - Number(tx.quantity))
-              principal = buyQty * avg
-            }
-          }
-        }
-
+        const buyTransactions = tickerTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
         const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-        val = principal > 0 ? calculateFixedIncomeValue({
-          principal,
-          contractRateAnnual: def?.contract_rate ?? null,
-          indexer: def?.indexer || 'none',
-          indexerPercent: def?.indexer_percent || 100,
-          applicationDate: appDate,
-          asOfDate: date,
-          indexRates,
-        }) : 0
+
+        if (buyTransactions.length > 0) {
+          const actualDef: PortfolioAssetDefinition = def || {
+            id: '',
+            portfolio_id: '',
+            ticker: ticker.toUpperCase(),
+            pricing_mode: 'fixed_income',
+            is_b3_linked: false,
+            applied_amount: null,
+            contract_rate: null,
+            indexer: 'none',
+            indexer_percent: 100,
+            maturity_date: null,
+            manual_current_value: null,
+            manual_value_updated_at: null,
+            tax_exempt: false,
+            is_treasury: false,
+            application_date: null,
+            created_at: '',
+            updated_at: '',
+          }
+          val = calculateLotBasedFixedIncomeValue({
+            transactions: tickerTxs,
+            ticker,
+            definition: actualDef,
+            asOfDate: date,
+            indexRates,
+          })
+        } else {
+          val = 0
+        }
       } else if (pricingMode === 'manual_value') {
         val = qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
@@ -346,33 +358,39 @@ export function calculateShareHistory(
 
     if (pricingMode === 'fixed_income') {
       const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase())
-      const appDate = def?.application_date || (tickerTxs.length > 0 ? tickerTxs[0].date : todayStr)
-      
-      let principal = 0
-      let buyQty = 0
-      for (const tx of tickerTxs) {
-        if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-          principal += Number(tx.quantity) * Number(tx.price)
-          buyQty += Number(tx.quantity)
-        } else if (tx.operation_type === 'sell') {
-          if (buyQty > 0) {
-            const avg = principal / buyQty
-            buyQty = Math.max(0, buyQty - Number(tx.quantity))
-            principal = buyQty * avg
-          }
-        }
-      }
-
+      const buyTransactions = tickerTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
       const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-      val = principal > 0 ? calculateFixedIncomeValue({
-        principal,
-        contractRateAnnual: def?.contract_rate ?? null,
-        indexer: def?.indexer || 'none',
-        indexerPercent: def?.indexer_percent || 100,
-        applicationDate: appDate,
-        asOfDate: todayStr,
-        indexRates,
-      }) : 0
+
+      if (buyTransactions.length > 0) {
+        const actualDef: PortfolioAssetDefinition = def || {
+          id: '',
+          portfolio_id: '',
+          ticker: ticker.toUpperCase(),
+          pricing_mode: 'fixed_income',
+          is_b3_linked: false,
+          applied_amount: null,
+          contract_rate: null,
+          indexer: 'none',
+          indexer_percent: 100,
+          maturity_date: null,
+          manual_current_value: null,
+          manual_value_updated_at: null,
+          tax_exempt: false,
+          is_treasury: false,
+          application_date: null,
+          created_at: '',
+          updated_at: '',
+        }
+        val = calculateLotBasedFixedIncomeValue({
+          transactions: tickerTxs,
+          ticker,
+          definition: actualDef,
+          asOfDate: todayStr,
+          indexRates,
+        })
+      } else {
+        val = 0
+      }
     } else if (pricingMode === 'manual_value') {
       val = qty * (def?.manual_current_value ?? (prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)))
     } else if (pricingMode === 'cash') {

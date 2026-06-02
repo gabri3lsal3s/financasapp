@@ -133,6 +133,7 @@ export interface B3TransactionItem {
   quantity: number
   price: number
   total_value: number
+  maturity_date?: string | null
 }
 
 export type B3FieldKey =
@@ -223,10 +224,11 @@ const CORPORATE_NAME_TO_TICKER: Record<string, string> = {
 
 export const parseB3Product = (rawProduct: string) => {
   const clean = String(rawProduct || '').trim()
-  if (!clean) return { ticker: '', name: '' }
+  if (!clean) return { ticker: '', name: '', maturityDate: null }
 
   let ticker = ''
   let name = ''
+  let maturityDate: string | null = null
 
   const parts = clean.split(' - ')
   const firstPart = parts[0]?.trim() || ''
@@ -238,6 +240,7 @@ export const parseB3Product = (rawProduct: string) => {
       let issuer = parts[2].trim()
       if (parts.length >= 4 && /\b\d{2}[/-]\d{2}[/-]\d{4}\b/.test(parts[3])) {
         issuer = parts[2].trim()
+        maturityDate = parseB3Date(parts[3].trim())
       }
       ticker = `${firstPart} - ${issuer}`
       name = parts[1].trim() // Armazena o código (ex: 24F02320359) no name para fins de histórico e conciliação
@@ -292,7 +295,7 @@ export const parseB3Product = (rawProduct: string) => {
     finalTicker = finalTicker.slice(0, 50).trim()
   }
 
-  return { ticker: finalTicker, name }
+  return { ticker: finalTicker, name, maturityDate }
 }
 
 export const mapB3OperationType = (
@@ -554,7 +557,7 @@ export const parseB3Excel = (fileBuffer: ArrayBuffer): B3ParseResult => {
       return
     }
 
-    const { ticker, name } = parseB3Product(productStr)
+    const { ticker, name, maturityDate } = parseB3Product(productStr)
 
     if (isB3SubscriptionRightsTicker(ticker)) {
       ignoredByMovement += 1
@@ -618,6 +621,7 @@ export const parseB3Excel = (fileBuffer: ArrayBuffer): B3ParseResult => {
       quantity,
       price,
       total_value: totalValue,
+      maturity_date: maturityDate,
     })
   })
 

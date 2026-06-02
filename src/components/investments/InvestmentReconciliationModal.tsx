@@ -526,9 +526,9 @@ export default function InvestmentReconciliationModal({
           let isB3Linked = isB3
           
           if (category === 'treasury') {
-            pricingMode = 'market'
+            pricingMode = 'fixed_income'
             isTreasury = true
-            isB3Linked = true
+            isB3Linked = false
           } else if (category === 'fixedIncome') {
             pricingMode = 'fixed_income'
             isB3Linked = false
@@ -557,10 +557,17 @@ export default function InvestmentReconciliationModal({
             }
           }
 
-          let maturityDate = ''
-          const yearMatch = combined.match(/\b(202[6-9]|203[0-9]|204[0-9])\b/)
-          if (yearMatch) {
-            maturityDate = `${yearMatch[1]}-12-31`
+          let maturityDate = item.maturity_date || ''
+          if (!maturityDate) {
+            const year4Match = combined.match(/\b(202[4-9]|203[0-9]|204[0-9]|205[0-9])\b/)
+            if (year4Match) {
+              maturityDate = `${year4Match[1]}-12-31`
+            } else {
+              const year2Match = combined.match(/\b(2[4-9]|3[0-9]|4[0-9]|5[0-9])\b/)
+              if (year2Match) {
+                maturityDate = `20${year2Match[1]}-12-31`
+              }
+            }
           }
 
           return {
@@ -823,11 +830,13 @@ export default function InvestmentReconciliationModal({
           quantity: qty,
           price: prc,
           operation_type: draft.operation_type,
+          contract_rate: draft.pricing_mode === 'fixed_income' && draft.contract_rate ? parseFloat(draft.contract_rate) : null,
         }
         txsToInsert.push(newTx)
         localTransactions.push(newTx as any)
 
         // 2. Preparar payload de definição de ativo com suporte a Renda Fixa e Tesouro Direto
+        const isFixedOrTreasury = draft.pricing_mode === 'fixed_income' || draft.isTreasury
         const defPayload = {
           portfolio_id: portfolioId,
           ticker: tickerUpper,
@@ -835,11 +844,11 @@ export default function InvestmentReconciliationModal({
           is_b3_linked: draft.pricing_mode === 'market' ? draft.isB3Linked : false,
           applied_amount: draft.pricing_mode !== 'market' ? prc * qty : null,
           application_date: draft.date,
-          is_treasury: draft.pricing_mode === 'market' ? draft.isTreasury : false,
-          indexer: draft.pricing_mode === 'fixed_income' ? (draft.indexer || 'none') : 'none',
-          indexer_percent: draft.pricing_mode === 'fixed_income' && (draft.indexer || 'none') !== 'none' ? (parseFloat(draft.indexer_percent) || 100) : 100,
-          contract_rate: draft.pricing_mode === 'fixed_income' ? (parseFloat(draft.contract_rate) || null) : null,
-          maturity_date: draft.pricing_mode === 'fixed_income' && draft.maturity_date ? draft.maturity_date : null,
+          is_treasury: draft.isTreasury,
+          indexer: isFixedOrTreasury ? (draft.indexer || 'none') : 'none',
+          indexer_percent: isFixedOrTreasury && (draft.indexer || 'none') !== 'none' ? (parseFloat(draft.indexer_percent) || 100) : 100,
+          contract_rate: isFixedOrTreasury && draft.contract_rate ? (parseFloat(draft.contract_rate) || null) : null,
+          maturity_date: isFixedOrTreasury && draft.maturity_date ? draft.maturity_date : null,
           currency: detectDefaultCurrency(tickerUpper),
           updated_at: new Date().toISOString(),
         }
@@ -967,7 +976,7 @@ export default function InvestmentReconciliationModal({
         .update({
           indexer: asset.indexer,
           indexer_percent: asset.indexer !== 'none' ? (parseFloat(asset.indexer_percent) || 100) : 100,
-          contract_rate: asset.indexer === 'none' ? (parseFloat(asset.contract_rate) || null) : null,
+          contract_rate: asset.contract_rate ? (parseFloat(asset.contract_rate) || null) : null,
           maturity_date: asset.maturity_date || null,
           updated_at: new Date().toISOString(),
         })

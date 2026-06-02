@@ -259,17 +259,7 @@ export async function getAssetPrices(
 
     const pricesToFetchFromApi: string[] = []
 
-    // Buscar cotações do Tesouro B3 uma única vez em background se houver algum ticker de Tesouro pendente
-    const hasTreasury = missingInCache.some(t =>
-      t.toUpperCase().includes('TESOURO') ||
-      t.toUpperCase().startsWith('LFT') ||
-      t.toUpperCase().startsWith('NTN') ||
-      t.toUpperCase().startsWith('LTN') ||
-      /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
-    )
-    if (hasTreasury) {
-      await fetchB3TreasuryPrices()
-    }
+
 
     // Mapeia o que achou no Supabase e identifica direitos de subscrição
     for (const ticker of missingInCache) {
@@ -315,46 +305,18 @@ export async function getAssetPrices(
         result[ticker] = assetPrice
         memoryPriceCache[ticker] = assetPrice
       } else if (isTreasury) {
-        // Obter da API B3 do Tesouro Direto (que já foi carregada em cache)
-        let foundPrice = 0
-        const b3Treasury = cachedTreasuryPrices || {}
-        const normTicker = ticker.toUpperCase().replace(/\s+/g, ' ').trim()
-        
-        if (b3Treasury[normTicker]) {
-          foundPrice = b3Treasury[normTicker].price
-        } else {
-          // Match inteligente por palavras-chave (preservando o ano de 2 dígitos)
-          const words = normTicker.split(' ').filter(w => w.length > 2 || /^\d{2}$/.test(w))
-          const matched = Object.values(b3Treasury).find(item => {
-            const itemUpper = item.name.toUpperCase()
-            return words.every(w => itemUpper.includes(w))
-          })
-          if (matched) foundPrice = matched.price
-        }
-
-        const price = foundPrice || (found && Number(found.current_price)) || 0
+        // Ativos do Tesouro Direto são tratados estritamente como Renda Fixa no motor e não consultam APIs externas
+        const price = (found && Number(found.current_price)) || 0
         const assetPrice: AssetPrice = {
           ticker,
           current_price: price,
           last_updated: now.toISOString(),
           asset_class: 'Renda Fixa',
           sector: 'Títulos Públicos/Privados',
-          quotation_status: price > 0 ? 'live' : 'unavailable',
+          quotation_status: 'manual',
         }
         result[ticker] = assetPrice
         memoryPriceCache[ticker] = assetPrice
-        
-        if (price > 0) {
-          supabase.from('asset_prices').upsert({
-            ticker,
-            current_price: price,
-            asset_class: 'Renda Fixa',
-            sector: 'Títulos Públicos/Privados',
-            last_updated: now.toISOString() as any,
-          }).then(({ error }) => {
-            if (error) console.error('Erro ao salvar preço do Tesouro no Supabase:', error)
-          })
-        }
       } else {
         pricesToFetchFromApi.push(ticker)
       }

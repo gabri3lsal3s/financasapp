@@ -5,8 +5,8 @@ import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 
 const BCB_SERIES: Record<'cdi' | 'selic' | 'ipca', number> = {
   cdi: 12,
-  selic: 432,
-  ipca: 433,
+  selic: 11, // SGS 11: SELIC diária em percentual
+  ipca: 433, // SGS 433: IPCA mensal em percentual
 }
 
 function formatBcbDate(isoDate: string): string {
@@ -35,17 +35,38 @@ async function fetchBcbSeries(
   }
 
   const data = (await response.json()) as { data: string; valor: string }[]
-  return data.map((row) => ({
-    rate_date: parseBcbDate(row.data),
-    indexer,
-    daily_rate: Number(row.valor),
-  }))
+  return data.map((row) => {
+    let rate = Number(row.valor)
+    
+    // Auto-correção: Converte taxa anualizada (ex: 10.75 a.a.) para taxa diária equivalente
+    if ((indexer === 'selic' || indexer === 'cdi') && rate > 1.0) {
+      rate = (Math.pow(1 + rate / 100, 1 / 252) - 1) * 100
+    } else if (indexer === 'ipca' && rate > 0.0) {
+      // Converte taxa IPCA mensal (ex: 0.35%) para taxa diária equivalente (~22 dias úteis)
+      rate = (Math.pow(1 + rate / 100, 1 / 22) - 1) * 100
+    }
+
+    return {
+      rate_date: parseBcbDate(row.data),
+      indexer,
+      daily_rate: rate,
+    }
+  })
 }
 
 function rowsToMap(rows: IndexRateRow[]): IndexRateMap {
   const map: IndexRateMap = {}
   for (const row of rows) {
-    map[row.rate_date] = row.daily_rate
+    let rate = row.daily_rate
+    
+    // Auto-correção para dados legados já salvos no banco ou no cache local
+    if ((row.indexer === 'selic' || row.indexer === 'cdi') && rate > 1.0) {
+      rate = (Math.pow(1 + rate / 100, 1 / 252) - 1) * 100
+    } else if (row.indexer === 'ipca' && rate > 0.0) {
+      rate = (Math.pow(1 + rate / 100, 1 / 22) - 1) * 100
+    }
+
+    map[row.rate_date] = rate
   }
   return map
 }

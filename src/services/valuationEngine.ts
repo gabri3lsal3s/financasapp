@@ -5,7 +5,7 @@ import type {
   TargetAllocation,
 } from '@/types'
 import { buildPortfolioLedger, type PositionLedgerEntry } from '@/utils/portfolioLedger'
-import { calculateFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { calculateGrossAndNetYield } from '@/utils/incomeTaxInvestment'
 import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
 
@@ -135,18 +135,38 @@ function valueTreasuryHybrid(
   indexRates: IndexRateMap,
   asOfDate: string,
   applicationDate: string,
-  costBasis: number
+  costBasis: number,
+  transactions: PortfolioTransaction[],
+  ticker: string
 ): { currentValue: number; unitPrice: number; source: ValuationSource; quotationStatus?: AssetPrice['quotation_status'] } {
   const market = valueMarketPosition(ledger, price, fallbackPrice)
-  const theoretical = calculateFixedIncomeValue({
-    principal: costBasis,
-    contractRateAnnual: definition.contract_rate,
-    indexer: definition.indexer,
-    indexerPercent: definition.indexer_percent,
-    applicationDate,
-    asOfDate,
-    indexRates,
-  })
+  
+  const buyTransactions = transactions.filter(
+    (t) =>
+      t.ticker.toUpperCase().trim() === ticker.toUpperCase().trim() &&
+      (t.operation_type === 'buy' || t.operation_type === 'subscription')
+  )
+
+  let theoretical = 0
+  if (buyTransactions.length > 0 && ledger.quantity > 0) {
+    theoretical = calculateLotBasedFixedIncomeValue({
+      transactions,
+      ticker,
+      definition,
+      asOfDate,
+      indexRates,
+    })
+  } else {
+    theoretical = calculateFixedIncomeValue({
+      principal: costBasis,
+      contractRateAnnual: definition.contract_rate,
+      indexer: definition.indexer,
+      indexerPercent: definition.indexer_percent,
+      applicationDate,
+      asOfDate,
+      indexRates,
+    })
+  }
 
   if (definition.is_b3_linked && isMarketQuoteFresh(price) && market.currentValue > 0) {
     return market
@@ -259,15 +279,30 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     let quotationStatus = priceObj?.quotation_status
 
     if (definition.pricing_mode === 'fixed_income') {
-      currentValue = ledger.quantity > 0 ? calculateFixedIncomeValue({
-        principal: costBasis,
-        contractRateAnnual: definition.contract_rate,
-        indexer: definition.indexer,
-        indexerPercent: definition.indexer_percent,
-        applicationDate,
-        asOfDate,
-        indexRates,
-      }) : 0
+      const buyTransactions = transactions.filter(
+        (t) =>
+          t.ticker.toUpperCase().trim() === upperTicker &&
+          (t.operation_type === 'buy' || t.operation_type === 'subscription')
+      )
+      if (buyTransactions.length > 0 && ledger.quantity > 0) {
+        currentValue = calculateLotBasedFixedIncomeValue({
+          transactions,
+          ticker: upperTicker,
+          definition,
+          asOfDate,
+          indexRates,
+        })
+      } else {
+        currentValue = ledger.quantity > 0 ? calculateFixedIncomeValue({
+          principal: costBasis,
+          contractRateAnnual: definition.contract_rate,
+          indexer: definition.indexer,
+          indexerPercent: definition.indexer_percent,
+          applicationDate,
+          asOfDate,
+          indexRates,
+        }) : 0
+      }
       unitPrice = ledger.quantity > 0 ? currentValue / ledger.quantity : 0
       valuationSource = 'fixed_income'
       quotationStatus = 'manual'
@@ -290,7 +325,9 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
         indexRates,
         asOfDate,
         applicationDate,
-        costBasis
+        costBasis,
+        transactions,
+        upperTicker
       )
       currentValue = treasuryVal.currentValue
       unitPrice = treasuryVal.unitPrice

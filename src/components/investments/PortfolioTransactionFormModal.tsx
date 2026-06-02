@@ -163,6 +163,7 @@ export default function PortfolioTransactionFormModal({
       setQuantity(String(editingTransaction.quantity))
       setPrice(String(editingTransaction.price))
       setDate(editingTransaction.date)
+      setContractRate(editingTransaction.contract_rate != null ? String(editingTransaction.contract_rate) : '')
     } else {
       setTicker(defaultTicker || '')
       setOperationType('buy')
@@ -277,24 +278,28 @@ export default function PortfolioTransactionFormModal({
     tickerUpper: string,
     unitPrice: number,
     qty: number
-  ) => ({
-    portfolio_id: portfolioId,
-    ticker: tickerUpper,
-    pricing_mode: pricingMode,
-    is_b3_linked: pricingMode === 'market' ? isB3Linked : false,
-    applied_amount:
-      pricingMode === 'fixed_income' || pricingMode === 'manual_value' ? unitPrice * qty : null,
-    contract_rate: pricingMode === 'fixed_income' && contractRate ? Number(contractRate) : null,
-    indexer: pricingMode === 'fixed_income' || isTreasury ? indexer : 'none',
-    indexer_percent: 100,
-    application_date: date,
-    manual_current_value:
-      pricingMode === 'manual_value' && manualCurrentValue ? Number(manualCurrentValue) : null,
-    manual_value_updated_at: manualCurrentValue ? new Date().toISOString() : null,
-    tax_exempt: taxExempt,
-    is_treasury: pricingMode === 'market' ? isTreasury || tickerUpper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tickerUpper) : false,
-    updated_at: new Date().toISOString(),
-  })
+  ) => {
+    const isFixedOrTreasury = pricingMode === 'fixed_income' || isTreasury || tickerUpper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tickerUpper)
+    const isTr = isTreasury || tickerUpper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tickerUpper)
+    return {
+      portfolio_id: portfolioId,
+      ticker: tickerUpper,
+      pricing_mode: pricingMode,
+      is_b3_linked: pricingMode === 'market' ? isB3Linked : false,
+      applied_amount:
+        pricingMode === 'fixed_income' || pricingMode === 'manual_value' ? unitPrice * qty : null,
+      contract_rate: isFixedOrTreasury && contractRate ? Number(contractRate) : null,
+      indexer: isFixedOrTreasury ? indexer : 'none',
+      indexer_percent: 100,
+      application_date: date,
+      manual_current_value:
+        pricingMode === 'manual_value' && manualCurrentValue ? Number(manualCurrentValue) : null,
+      manual_value_updated_at: manualCurrentValue ? new Date().toISOString() : null,
+      tax_exempt: taxExempt,
+      is_treasury: isTr,
+      updated_at: new Date().toISOString(),
+    }
+  }
 
   const isAmountBased = pricingMode !== 'market'
   const isCorporateAction =
@@ -384,6 +389,7 @@ export default function PortfolioTransactionFormModal({
         quantity: qty,
         price: isCorporateAction ? 0 : unitPrice,
         date,
+        contract_rate: pricingMode === 'fixed_income' && contractRate ? Number(contractRate) : null,
       }
 
       let buyTransactionId: string

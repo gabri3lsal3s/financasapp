@@ -175,6 +175,7 @@ export interface PortfolioTransaction {
   created_at: string
   /** Compra/subscrição que originou venda automática de caixa. */
   cash_offset_source_id?: string | null
+  contract_rate?: number | null
 }
 
 export interface TargetAllocation {

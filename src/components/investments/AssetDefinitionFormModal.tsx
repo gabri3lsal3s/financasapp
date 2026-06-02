@@ -232,6 +232,8 @@ export default function AssetDefinitionFormModal({
 
     setSaving(true)
     try {
+      const isFixedOrTreasury = pricingMode === 'fixed_income' || isTreasury || normTicker.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(normTicker)
+      const isTr = isTreasury || normTicker.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(normTicker)
       const payload = {
         portfolio_id: portfolioId,
         ticker: normTicker,
@@ -239,15 +241,15 @@ export default function AssetDefinitionFormModal({
         is_b3_linked: pricingMode === 'market' ? isB3Linked : false,
         applied_amount:
           pricingMode === 'market' || pricingMode === 'cash' ? null : appliedAmount ? Number(appliedAmount) : null,
-        contract_rate: pricingMode === 'fixed_income' && contractRate ? Number(contractRate) : null,
-        indexer: pricingMode === 'fixed_income' ? indexer : 'none',
-        indexer_percent: pricingMode === 'fixed_income' ? (Number(indexerPercent) || 100) : 100,
-        maturity_date: pricingMode === 'fixed_income' ? (maturityDate || null) : null,
+        contract_rate: isFixedOrTreasury && contractRate ? Number(contractRate) : null,
+        indexer: isFixedOrTreasury ? indexer : 'none',
+        indexer_percent: isFixedOrTreasury ? (Number(indexerPercent) || 100) : 100,
+        maturity_date: isFixedOrTreasury ? (maturityDate || null) : null,
         application_date: pricingMode === 'market' ? null : (applicationDate || null),
         manual_current_value: pricingMode === 'manual_value' ? (manualCurrentValue ? Number(manualCurrentValue) : null) : null,
         manual_value_updated_at: pricingMode === 'manual_value' && manualCurrentValue ? new Date().toISOString() : null,
         tax_exempt: pricingMode === 'fixed_income' ? taxExempt : false,
-        is_treasury: pricingMode === 'fixed_income' ? isTreasury : false,
+        is_treasury: isTr,
         currency: currency,
         updated_at: new Date().toISOString(),
       }
