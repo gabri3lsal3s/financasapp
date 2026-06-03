@@ -1028,7 +1028,9 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
         if (moveEvent.target instanceof Element) {
           try {
             moveEvent.target.releasePointerCapture(pointerId)
-          } catch {}
+          } catch {
+            // Ignorar erro se o elemento já tiver sido desmontado
+          }
         }
 
         iconReturnTimeoutRef.current = window.setTimeout(() => {

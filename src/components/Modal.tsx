@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sheet'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { cn } from '@/lib/utils'
+import { isCalculatorElement } from '@/utils/calculator'
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
 
@@ -123,17 +124,6 @@ function ModalScrollBody({
     >
       <div className="modal-body-inner w-full text-left">{children}</div>
     </div>
-  )
-}
-
-export function isCalculatorElement(target: unknown): boolean {
-  return (
-    target instanceof Element &&
-    !!(
-      target.closest('.calculator-element') ||
-      target.closest('.calculator-origin-button') ||
-      target.closest('.calculator-icon-drag')
-    )
   )
 }
 

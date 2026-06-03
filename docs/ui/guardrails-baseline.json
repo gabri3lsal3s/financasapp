@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-03T03:46:06.635Z",
+  "generatedAt": "2026-06-03T12:54:09.568Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -23,13 +23,5 @@
       "description": "Evitar painéis ad hoc em modais; preferir modal-info-panel, modal-summary-panel ou modal-panel-glass."
     }
   ],
-  "violations": [
-    {
-      "key": "ui-no-inline-modal-panel-styles|src/components/consulting/ClientPickerModal.tsx|119|border-primary/35",
-      "ruleId": "ui-no-inline-modal-panel-styles",
-      "file": "src/components/consulting/ClientPickerModal.tsx",
-      "line": 119,
-      "match": "border-primary/35"
-    }
-  ]
+  "violations": []
 }

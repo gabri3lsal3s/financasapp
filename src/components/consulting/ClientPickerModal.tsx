@@ -116,7 +116,7 @@ export default function ClientPickerModal({
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
                     isSelected
-                      ? 'border-primary/35 bg-accent/50'
+                      ? 'border-primary bg-accent/50'
                       : 'border-transparent hover:border-glass hover:bg-accent/40'
                   )}
                 >

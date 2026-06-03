@@ -5,7 +5,7 @@ import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
-import { isCalculatorElement } from '@/components/Modal'
+import { isCalculatorElement } from '@/utils/calculator'
 
 import {
   Sheet,
