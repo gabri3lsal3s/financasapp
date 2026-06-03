@@ -14,6 +14,7 @@ import { clampMonthToAppStart, formatDate, getCurrentMonthString } from '@/utils
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
+import MonthTransitionView from '@/components/MonthTransitionView'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -108,8 +109,9 @@ export default function Incomes() {
         title={PAGE_HEADERS.incomes.title}
         subtitle={PAGE_HEADERS.incomes.description}
         action={
-          <PageHeaderActions>
+          <PageHeaderActions launchModalOpen={isModalOpen}>
             <PageHeaderActionButton
+              actionRole="launch"
               intent="income"
               icon={Plus}
               label="Adicionar"
@@ -121,10 +123,7 @@ export default function Incomes() {
 
       <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
-        <div
-          key={currentMonth}
-          className="animate-month-change"
-        >
+        <MonthTransitionView month={currentMonth}>
           {loading && incomes.length === 0 ? (
             <Loader text="Carregando rendas..." className="py-12" />
           ) : incomes.length === 0 ? (
@@ -177,7 +176,7 @@ export default function Incomes() {
               })}
             </div>
           )}
-        </div>
+        </MonthTransitionView>
       </div>
 
       <IncomeFormModal

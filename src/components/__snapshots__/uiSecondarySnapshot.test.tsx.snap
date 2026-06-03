@@ -22,7 +22,7 @@ exports[`UI secondary components snapshots > IconButton renders variants and siz
 <div>
   <button
     aria-label="Adicionar"
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-primary hover:bg-accent hover:text-primary h-10 w-10 min-h-10 rounded-full h-8 w-8 min-h-8"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-primary hover:bg-accent hover:text-primary rounded-full h-8 w-8 min-h-8"
     type="button"
   >
     <svg
@@ -47,7 +47,7 @@ exports[`UI secondary components snapshots > IconButton renders variants and siz
   </button>
   <button
     aria-label="Excluir"
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 w-10 min-h-10 rounded-full h-10 w-10 min-h-10"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense rounded-full h-10 w-10 min-h-10"
     type="button"
   >
     <svg
@@ -72,7 +72,7 @@ exports[`UI secondary components snapshots > IconButton renders variants and siz
   </button>
   <button
     aria-label="Salvar"
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-income hover:bg-income/10 hover:text-income h-10 w-10 min-h-10 rounded-full h-11 w-11 min-h-11"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-income hover:bg-income/10 hover:text-income rounded-full h-11 w-11 min-h-11"
     type="button"
   >
     <svg

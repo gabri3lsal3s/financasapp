@@ -3,9 +3,9 @@ import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import Modal from '@/components/Modal'
 import ModalForm from '@/components/ModalForm'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalFooter from '@/components/ModalFooter'
+import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Loader from '@/components/Loader'
@@ -14,7 +14,7 @@ import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { IncomeCategory } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
 
 export default function IncomeCategories() {
   const { incomeCategories, loading, createIncomeCategory, updateIncomeCategory, deleteIncomeCategory, getIncomeCategoryUsageCount } = useIncomeCategories()
@@ -162,7 +162,7 @@ export default function IncomeCategories() {
         title={editingCategory ? 'Editar categoria de renda' : 'Adicionar categoria de renda'}
         onSubmit={handleSubmit}
         footer={(formId) => (
-          <ModalActionFooter
+          <ModalFooter
             formId={formId}
             onCancel={handleCloseModal}
             submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
@@ -182,52 +182,42 @@ export default function IncomeCategories() {
         />
       </ModalForm>
 
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
         title="Excluir Categoria de Renda"
-        footer={
-          <div className="modal-button-footer justify-center">
-            <Button
-              variant="ghost-danger"
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="px-4"
-              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
-            >
-              <Trash2 size={24} />
-            </Button>
-          </div>
-        }
+        confirmLabel={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
+        confirmVariant="danger"
+        confirmDisabled={isDeleting}
+        loading={isDeleting}
+        onConfirm={() => void confirmDelete()}
       >
-        <div className="modal-body-stack w-full text-primary">
-          {deleteUsageCount > 0 ? (
-            <>
-              <p className="text-sm">
-                A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
-                <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
-              </p>
-              <p className="modal-intro text-sm">
-                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>Sem categoria</em>.
-              </p>
-              <Select
-                value={targetCategoryId}
-                onChange={(e) => setTargetCategoryId(e.target.value)}
-                options={[
-                  { value: '', label: 'Sem categoria (Padrão)' },
-                  ...incomeCategories
-                    .filter((c) => c.id !== categoryToDelete?.id && c.name !== 'Sem categoria')
-                    .map((c) => ({ value: c.id, label: c.name })),
-                ]}
-              />
-            </>
-          ) : (
+        {deleteUsageCount > 0 ? (
+          <>
             <p className="text-sm">
-              Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
+              A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
+              <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
             </p>
-          )}
-        </div>
-      </Modal>
+            <p className="modal-intro text-sm">
+              Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>Sem categoria</em>.
+            </p>
+            <Select
+              value={targetCategoryId}
+              onChange={(e) => setTargetCategoryId(e.target.value)}
+              options={[
+                { value: '', label: 'Sem categoria (Padrão)' },
+                ...incomeCategories
+                  .filter((c) => c.id !== categoryToDelete?.id && c.name !== 'Sem categoria')
+                  .map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
+          </>
+        ) : (
+          <p className="text-sm">
+            Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
+          </p>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

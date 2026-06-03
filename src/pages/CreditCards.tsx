@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { endOfMonth, format, subMonths } from 'date-fns'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
@@ -7,9 +7,12 @@ import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Modal from '@/components/Modal'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalForm from '@/components/ModalForm'
+import ModalFooter from '@/components/ModalFooter'
+import ConfirmModal from '@/components/ConfirmModal'
 import Select from '@/components/Select'
 import MonthSelector from '@/components/MonthSelector'
+import MonthTransitionView from '@/components/MonthTransitionView'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
@@ -549,13 +552,6 @@ function CreditCardTimeline({
 }
 
 export default function CreditCards() {
-  const cardModalFormId = useId()
-  const cycleModalFormId = useId()
-  const expenseEditModalFormId = useId()
-  const paymentEditModalFormId = useId()
-  const refundIncomeEditModalFormId = useId()
-  const refundModalFormId = useId()
-  const paymentModalFormId = useId()
   const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
@@ -1684,7 +1680,7 @@ export default function CreditCards() {
         {loading || !hasResolvedInitialMonth || loadingBills ? (
           <Loader text="Carregando cartões e faturas..." className="py-8" />
         ) : (
-          <div key={currentMonth} className="animate-month-change">
+          <MonthTransitionView month={currentMonth}>
             {activeCards.length === 0 ? (
               <Card className="text-center py-8 space-y-3">
                 <p className="text-secondary">Nenhum cartão ativo cadastrado.</p>
@@ -1841,26 +1837,26 @@ export default function CreditCards() {
             })}
           </div>
           )}
-          </div>
+          </MonthTransitionView>
         )}
       </div>
 
-      <Modal
+      <ModalForm
         isOpen={isCardModalOpen}
         onClose={closeCardModal}
         title={editingCard ? 'Editar cartão de crédito' : 'Novo cartão de crédito'}
-        footer={
-          <ModalActionFooter
-            formId={cardModalFormId}
+        onSubmit={handleSubmitCard}
+        footer={(formId) => (
+          <ModalFooter
+            formId={formId}
             onCancel={closeCardModal}
             submitLabel={editingCard ? 'Salvar alterações' : 'Salvar cartão'}
             submitDisabled={loading}
             onDelete={editingCard ? handleStartDelete : undefined}
             deleteLabel="Excluir cartão"
           />
-        }
+        )}
       >
-        <form id={cardModalFormId} onSubmit={handleSubmitCard} className="modal-form-stack w-full text-left">
           <Input
             label="Nome"
             value={cardForm.name}
@@ -1920,72 +1916,59 @@ export default function CreditCards() {
               ]}
             />
           </div>
-        </form>
-      </Modal>
+      </ModalForm>
 
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteConfirmModalOpen}
         onClose={handleCancelDelete}
         title={deleteStep === 1 ? 'Excluir cartão' : 'Migrar despesas'}
-        footer={
-          <div className="modal-actions-stacked sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={handleCancelDelete} className="w-full sm:w-auto" disabled={isDeleting}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant={deleteStep === 1 ? 'primary' : 'danger'}
-              onClick={handleConfirmDelete}
-              className="w-full sm:w-auto"
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Processando...' : deleteStep === 1 ? 'Próximo' : 'Confirmar Exclusão'}
-            </Button>
-          </div>
-        }
+        confirmLabel={isDeleting ? 'Processando...' : deleteStep === 1 ? 'Próximo' : 'Confirmar Exclusão'}
+        confirmVariant={deleteStep === 2 ? 'danger' : 'primary'}
+        loading={isDeleting}
+        onConfirm={handleConfirmDelete}
       >
-        <div className="modal-body-stack w-full text-left">
-          {deleteStep === 1 ? (
-            <>
-              <p className="text-sm text-primary">
-                Deseja realmente excluir o cartão <strong>{editingCard?.name}</strong>?
-              </p>
-              <div className="modal-alert modal-alert--danger text-xs leading-relaxed">
-                <p className="mb-1 font-semibold">Aviso:</p>
-                <p>Esta ação é irreversível e removerá permanentemente o histórico de faturas e pagamentos deste cartão.</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="modal-intro text-sm">
-                Existem despesas vinculadas a este cartão. O que deseja fazer?
-              </p>
-              <Select
-                label="Migrar despesas para:"
-                value={migrationTargetCardId}
-                onChange={(e) => setMigrationTargetCardId(e.target.value)}
-                options={[
-                  { value: '', label: "Apenas desvincular (método 'Outro')" },
-                  ...creditCards
-                    .filter((c) => c.id !== editingCard?.id && c.is_active !== false)
-                    .map((c) => ({ value: c.id, label: c.name })),
-                ]}
-              />
-              {migrationTargetCardId === '' && (
-                <p className="text-xs italic text-secondary">* As despesas se tornarão avulsas e não pertencerão a nenhuma fatura.</p>
-              )}
-            </>
-          )}
-        </div>
-      </Modal>
+        {deleteStep === 1 ? (
+          <>
+            <p className="text-sm text-primary">
+              Deseja realmente excluir o cartão <strong>{editingCard?.name}</strong>?
+            </p>
+            <div className="modal-alert modal-alert--danger text-xs leading-relaxed">
+              <p className="mb-1 font-semibold">Aviso:</p>
+              <p>Esta ação é irreversível e removerá permanentemente o histórico de faturas e pagamentos deste cartão.</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="modal-intro text-sm">
+              Existem despesas vinculadas a este cartão. O que deseja fazer?
+            </p>
+            <Select
+              label="Migrar despesas para:"
+              value={migrationTargetCardId}
+              onChange={(e) => setMigrationTargetCardId(e.target.value)}
+              options={[
+                { value: '', label: "Apenas desvincular (método 'Outro')" },
+                ...creditCards
+                  .filter((c) => c.id !== editingCard?.id && c.is_active !== false)
+                  .map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
+            {migrationTargetCardId === '' && (
+              <p className="text-xs italic text-secondary">* As despesas se tornarão avulsas e não pertencerão a nenhuma fatura.</p>
+            )}
+          </>
+        )}
+      </ConfirmModal>
 
-      <Modal
+      <ModalForm
         isOpen={isCycleModalOpen}
         onClose={closeCycleModal}
         title={`Ajustar fechamento e vencimento (${currentMonth})`}
-        footer={<ModalActionFooter formId={cycleModalFormId} onCancel={closeCycleModal} submitLabel="Salvar ajuste" />}
+        onSubmit={handleSubmitCycle}
+        footer={(formId) => (
+          <ModalFooter formId={formId} onCancel={closeCycleModal} submitLabel="Salvar ajuste" />
+        )}
       >
-        <form id={cycleModalFormId} onSubmit={handleSubmitCycle} className="modal-form-stack w-full text-left">
           <div className="modal-field-row">
             <Input
               label="Fechamento do mês"
@@ -2014,25 +1997,24 @@ export default function CreditCards() {
           <Button type="button" variant="outline" fullWidth onClick={handleResetCycleToCardDefault}>
             Usar padrão do cartão neste mês
           </Button>
-        </form>
-      </Modal>
+      </ModalForm>
 
-      <Modal
+      <ModalForm
         isOpen={isExpenseEditModalOpen}
         onClose={closeExpenseEditModal}
         title="Editar despesa"
-        footer={
-          <ModalActionFooter
-            formId={expenseEditModalFormId}
+        onSubmit={handleSubmitEditExpense}
+        footer={(formId) => (
+          <ModalFooter
+            formId={formId}
             onCancel={closeExpenseEditModal}
             submitLabel="Salvar alterações"
             submitDisabled={!expenseEditForm.category_id}
             deleteLabel="Excluir despesa"
             onDelete={handleDeleteExpense}
           />
-        }
+        )}
       >
-        <form id={expenseEditModalFormId} onSubmit={handleSubmitEditExpense} className="modal-form-stack w-full text-left">
           <Input
             label="Valor"
             type="text"
@@ -2130,24 +2112,23 @@ export default function CreditCards() {
             placeholder="Ex: Almoço, Uber..."
           />
 
-        </form>
-      </Modal>
+      </ModalForm>
 
-      <Modal
+      <ModalForm
         isOpen={isPaymentEditModalOpen}
         onClose={closePaymentEditModal}
         title="Editar pagamento"
-        footer={
-          <ModalActionFooter
-            formId={paymentEditModalFormId}
+        onSubmit={handleSubmitEditPayment}
+        footer={(formId) => (
+          <ModalFooter
+            formId={formId}
             onCancel={closePaymentEditModal}
             submitLabel="Salvar pagamento"
             deleteLabel="Excluir pagamento"
             onDelete={handleDeletePayment}
           />
-        }
+        )}
       >
-        <form id={paymentEditModalFormId} onSubmit={handleSubmitEditPayment} className="modal-form-stack w-full text-left">
           <Input
             label="Valor pago"
             type="number"
@@ -2172,24 +2153,23 @@ export default function CreditCards() {
             onChange={(event) => setPaymentEditNote(event.target.value)}
           />
 
-        </form>
-      </Modal>
+      </ModalForm>
 
-      <Modal
+      <ModalForm
         isOpen={isRefundIncomeEditModalOpen}
         onClose={closeRefundIncomeEditModal}
         title="Editar estorno (renda)"
-        footer={
-          <ModalActionFooter
-            formId={refundIncomeEditModalFormId}
+        onSubmit={handleSubmitEditRefundIncome}
+        footer={(formId) => (
+          <ModalFooter
+            formId={formId}
             onCancel={closeRefundIncomeEditModal}
             submitLabel="Salvar alterações"
             deleteLabel="Excluir estorno"
             onDelete={handleDeleteRefundIncome}
           />
-        }
+        )}
       >
-        <form id={refundIncomeEditModalFormId} onSubmit={handleSubmitEditRefundIncome} className="modal-form-stack w-full text-left">
           <Input
             label="Valor"
             type="text"
@@ -2249,16 +2229,17 @@ export default function CreditCards() {
             placeholder="Ex: Estorno compra loja X"
           />
 
-        </form>
-      </Modal>
+      </ModalForm>
 
-      <Modal
+      <ModalForm
         isOpen={isRefundModalOpen}
         onClose={closeRefundModal}
         title={`Registrar estorno (${currentMonth})`}
-        footer={<ModalActionFooter formId={refundModalFormId} onCancel={closeRefundModal} submitLabel="Confirmar estorno" />}
+        onSubmit={(event) => handleSubmitRefund(event, refundCardId)}
+        footer={(formId) => (
+          <ModalFooter formId={formId} onCancel={closeRefundModal} submitLabel="Confirmar estorno" />
+        )}
       >
-        <form id={refundModalFormId} onSubmit={(event) => handleSubmitRefund(event, refundCardId)} className="modal-form-stack w-full text-left">
           <Input
             label="Valor do estorno"
             type="text"
@@ -2291,16 +2272,17 @@ export default function CreditCards() {
           />
 
           <p className="modal-intro">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
-        </form>
-      </Modal>
+      </ModalForm>
 
-      <Modal
+      <ModalForm
         isOpen={isPaymentModalOpen}
         onClose={closePaymentModal}
         title={`Registrar pagamento (${currentMonth})`}
-        footer={<ModalActionFooter formId={paymentModalFormId} onCancel={closePaymentModal} submitLabel="Confirmar pagamento" />}
+        onSubmit={handleSubmitPayment}
+        footer={(formId) => (
+          <ModalFooter formId={formId} onCancel={closePaymentModal} submitLabel="Confirmar pagamento" />
+        )}
       >
-        <form id={paymentModalFormId} onSubmit={handleSubmitPayment} className="modal-form-stack w-full text-left">
           <Input
             label="Valor pago"
             type="number"
@@ -2326,14 +2308,13 @@ export default function CreditCards() {
             placeholder="Observações adicionais..."
           />
 
-        </form>
-      </Modal>
+      </ModalForm>
 
       <Modal
         isOpen={!!reconciliationCardId}
         onClose={() => setReconciliationCardId('')}
         title={`Conciliação de Fatura (${currentMonth})`}
-        maxWidth="max-w-4xl"
+        size="2xl"
       >
         {reconciliationCardId && (() => {
           const card = creditCards.find((c) => c.id === reconciliationCardId)

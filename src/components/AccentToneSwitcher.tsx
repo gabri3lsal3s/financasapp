@@ -1,40 +1,54 @@
+import { Check } from 'lucide-react'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/useTheme'
 import type { AccentTone } from '@/contexts/ThemeContext'
+import { appearanceChoiceClass } from '@/components/appearanceChoice'
 
 const ACCENT_OPTIONS: Array<{
   id: AccentTone
   name: string
   description: string
-  swatchVar: string
 }> = [
   {
     id: 'white',
     name: 'Neutro',
-    description: 'Preto no Glass Claro · branco no escuro',
-    swatchVar: '--accent-tone-preview-black',
+    description: 'Preto no claro · branco no escuro',
   },
   {
     id: 'violet',
     name: 'Violeta',
-    description: 'Destaque roxo para navegação e CTAs',
-    swatchVar: '--accent-tone-preview-violet',
+    description: 'Roxo para navegação e CTAs',
   },
   {
     id: 'blue',
     name: 'Azul',
-    description: 'Destaque azul suave',
-    swatchVar: '--accent-tone-preview-blue',
+    description: 'Azul com bom contraste no escuro',
   },
   {
     id: 'emerald',
     name: 'Esmeralda',
-    description: 'Destaque verde discreto',
-    swatchVar: '--accent-tone-preview-emerald',
+    description: 'Verde discreto e legível',
+  },
+  {
+    id: 'red',
+    name: 'Vermelho',
+    description: 'Vermelho de destaque vibrante',
   },
 ]
+
+function AccentSwatch({ toneId }: { toneId: AccentTone }) {
+  if (toneId === 'white') {
+    return (
+      <div className="appearance-accent-swatch" data-accent-swatch="white" aria-hidden>
+        <span data-tone="dark" />
+        <span data-tone="light" />
+      </div>
+    )
+  }
+
+  return <div className="appearance-accent-swatch" data-accent-swatch={toneId} aria-hidden />
+}
 
 export default function AccentToneSwitcher() {
   const { accentTone, setAccentTone } = useTheme()
@@ -49,34 +63,29 @@ export default function AccentToneSwitcher() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {ACCENT_OPTIONS.map((option) => (
-            <Button
-              key={option.id}
-              type="button"
-              variant="outline"
-              onClick={() => setAccentTone(option.id)}
-              className={cn(
-                'h-auto flex-col items-stretch p-3 text-left',
-                accentTone === option.id ? 'nav-item-active' : 'border-glass text-secondary hover:text-primary'
-              )}
-            >
-              {option.id === 'white' ? (
-                <div className="mb-2 flex h-6 w-10 gap-0.5 overflow-hidden rounded-full border border-glass" aria-hidden>
-                  <span className="h-full flex-1" style={{ backgroundColor: 'var(--accent-tone-preview-black)' }} />
-                  <span className="h-full flex-1" style={{ backgroundColor: 'var(--accent-tone-preview-white)' }} />
-                </div>
-              ) : (
-                <div
-                  className="mb-2 h-6 w-6 rounded-full border border-glass"
-                  style={{ backgroundColor: `var(${option.swatchVar})` }}
-                  aria-hidden
-                />
-              )}
-              <p className="text-sm font-medium text-primary">{option.name}</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-secondary">{option.description}</p>
-            </Button>
-          ))}
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {ACCENT_OPTIONS.map((option) => {
+            const selected = accentTone === option.id
+            return (
+              <Button
+                key={option.id}
+                type="button"
+                variant="outline"
+                onClick={() => setAccentTone(option.id)}
+                className={appearanceChoiceClass(selected)}
+                aria-pressed={selected}
+              >
+                {selected && (
+                  <span className="appearance-choice__check" aria-hidden>
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                )}
+                <AccentSwatch toneId={option.id} />
+                <p className="w-full min-w-0 text-sm font-medium text-primary">{option.name}</p>
+                <p className="mt-0.5 w-full min-w-0 text-[10px] leading-snug text-secondary">{option.description}</p>
+              </Button>
+            )
+          })}
         </div>
       </div>
     </Card>

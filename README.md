@@ -7,7 +7,7 @@ Aplicação web premium de controle financeiro pessoal, projetada com foco em si
 ## 🚀 O que o app oferece
 
 - **Dashboard Unificado**: Visão instantânea de KPIs de Rendas, Despesas, Investimentos e Saldo Geral.
-- **Componentes Padronizados**: Formulários de transações encapsulados em modais reutilizáveis (`ExpenseFormModal`, `IncomeFormModal`, `InvestmentFormModal`) e exibição unificada via `TransactionCard`.
+- **Componentes Padronizados**: Formulários de transações encapsulados em modais reutilizáveis (`ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`) e exibição unificada via `TransactionCard`.
 - **Planejamento de Categorias**: Interface centralizada em `/categories` para planejar metas de limites de despesa e expectativas de renda mensal.
 - **Detalhamento de Cartões e Faturas**: Lógica avançada de competência de faturas de cartão de crédito e suporte a estornos vinculados como renda de forma automatizada.
 - **Relatórios Mensais e Anuais**: Gráficos analíticos interativos por categoria, com peso de relevância de lançamentos (`report_weight`).

@@ -2,6 +2,8 @@ import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut, Users } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
+import FloatingSideStack from '@/components/FloatingSideStack'
+import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
 
 import {
@@ -59,6 +61,7 @@ export default function Layout({ children }: LayoutProps) {
   const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
   const isSettingsPage = location.pathname === '/settings'
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const mobileMenuContentRef = useRef<HTMLDivElement | null>(null)
   const desktopMenuRef = useRef<HTMLElement | null>(null)
   const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const activeItemClasses = 'nav-item-active'
@@ -146,7 +149,8 @@ export default function Layout({ children }: LayoutProps) {
 
       if (isMobileMenuOpen) {
         const clickedMobileToggle = mobileMenuButtonRef.current?.contains(target)
-        if (!clickedMobileToggle) {
+        const clickedInsideMobileMenu = mobileMenuContentRef.current?.contains(target)
+        if (!clickedMobileToggle && !clickedInsideMobileMenu) {
           setIsMobileMenuOpen(false)
         }
       }
@@ -161,11 +165,9 @@ export default function Layout({ children }: LayoutProps) {
     }
 
     document.addEventListener('mousedown', closeOnOutsideClick)
-    document.addEventListener('touchstart', closeOnOutsideClick)
 
     return () => {
       document.removeEventListener('mousedown', closeOnOutsideClick)
-      document.removeEventListener('touchstart', closeOnOutsideClick)
     }
   }, [isMobileMenuOpen, isDesktopMenuExpanded])
 
@@ -178,15 +180,21 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   return (
+    <FloatingActionsProvider>
     <div className="min-h-screen bg-secondary relative">
-      <div id="page-actions-portal-root" className="fixed inset-0 pointer-events-none z-40" />
+      <FloatingSideStack />
       <div className="app-shell-glow" aria-hidden="true" />
       <div className="relative z-10">
       <div className="lg:hidden">
 
 
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="bottom" showCloseButton={false} className="modal-sheet-bottom max-h-[85vh] rounded-t-3xl safe-area-bottom gap-0 p-0">
+          <SheetContent
+            ref={mobileMenuContentRef}
+            side="bottom"
+            showCloseButton={false}
+            className="modal-sheet-bottom max-h-[85vh] rounded-t-3xl safe-area-bottom gap-0 p-0"
+          >
             <div className="modal-drag-handle shrink-0" />
             <SheetHeader className="modal-glass-header text-left">
               <SheetTitle className="text-base font-bold uppercase tracking-wide text-primary">Mais Opções</SheetTitle>
@@ -295,7 +303,7 @@ export default function Layout({ children }: LayoutProps) {
               isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname)
             )}
           >
-            <Menu size={18} aria-hidden />
+            <Menu size={18} className="nav-chrome-icon" aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Mais</span>
           </button>
         </nav>
@@ -304,7 +312,7 @@ export default function Layout({ children }: LayoutProps) {
         <main className="relative pt-[calc(1rem+env(safe-area-inset-top))] glass-main-padding min-h-screen">
           <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-6">
             <section key={location.pathname} className="relative animate-page-enter">
-              {children}
+              {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
           </div>
         </main>
@@ -333,7 +341,7 @@ export default function Layout({ children }: LayoutProps) {
               aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
               className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
             >
-              {isDesktopMenuExpanded ? <X size={20} /> : <Menu size={20} />}
+              {isDesktopMenuExpanded ? <X size={20} className="nav-chrome-icon" /> : <Menu size={20} className="nav-chrome-icon" />}
             </button>
           </div>
 
@@ -437,9 +445,10 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator isHidden={isMobileMenuOpen} />}
+      {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
       </div>
     </div>
+    </FloatingActionsProvider>
   )
 }
 

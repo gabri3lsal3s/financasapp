@@ -32,7 +32,7 @@ Antes de criar UI nova para transações:
 
 - Listagem: `TransactionCard`
 - KPIs: `DashboardKpis`
-- Formulários: `ExpenseFormModal`, `IncomeFormModal`, `InvestmentFormModal`
+- Formulários: `ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`
 - Consultoria: `src/components/consulting/**`
 
 ## Layout mobile-first

@@ -612,7 +612,7 @@ export default function QualitativeAnalysis({
               onClick={onExportPDF}
               variant="primary"
               fullWidth
-              className="font-black shadow-md shadow-balance/20 flex items-center justify-center gap-2 py-3 transition-all text-sm"
+              className="font-black flex items-center justify-center gap-2 py-3 transition-all text-sm"
             >
               <Download size={18} />
               Gerar Relatório PDF

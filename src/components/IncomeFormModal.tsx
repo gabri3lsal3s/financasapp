@@ -3,7 +3,8 @@ import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import Modal from '@/components/Modal'
 import ModalForm from '@/components/ModalForm'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalFooter from '@/components/ModalFooter'
+import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
@@ -62,6 +63,7 @@ export default function IncomeFormModal({
     cardName: string
     competence: string
   } | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const isRefundIncome = (income: Income | null) =>
     [REFUND_INCOME_CATEGORY_NAME, LEGACY_REFUND_INCOME_CATEGORY_NAME].includes(
@@ -238,7 +240,7 @@ export default function IncomeFormModal({
     }
   }
 
-  const handleDeleteFromModal = async () => {
+  const handleDeleteFromModal = () => {
     if (!editingIncome) return
 
     if (isRefundIncome(editingIncome)) {
@@ -246,7 +248,11 @@ export default function IncomeFormModal({
       return
     }
 
-    if (!confirm('Tem certeza que deseja excluir esta renda?')) return
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteIncome = async () => {
+    if (!editingIncome) return
 
     const { error } = await onDelete(editingIncome.id)
     if (error) {
@@ -254,6 +260,7 @@ export default function IncomeFormModal({
       return
     }
 
+    setShowDeleteConfirm(false)
     onClose()
   }
 
@@ -321,13 +328,14 @@ export default function IncomeFormModal({
   }
 
   return (
+    <>
     <ModalForm
       isOpen={isOpen}
       onClose={onClose}
       title={editingIncome ? 'Editar renda' : 'Adicionar renda'}
       onSubmit={handleSubmit}
       footer={(formId) => (
-        <ModalActionFooter
+        <ModalFooter
           formId={formId}
           onCancel={onClose}
           submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
@@ -412,5 +420,17 @@ export default function IncomeFormModal({
           />
 
     </ModalForm>
+
+    <ConfirmModal
+      isOpen={showDeleteConfirm}
+      onClose={() => setShowDeleteConfirm(false)}
+      title="Excluir renda"
+      confirmLabel="Excluir renda"
+      confirmVariant="danger"
+      onConfirm={() => void confirmDeleteIncome()}
+    >
+      <p className="text-sm text-primary">Tem certeza que deseja excluir esta renda?</p>
+    </ConfirmModal>
+    </>
   )
 }

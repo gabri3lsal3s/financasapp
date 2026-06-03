@@ -1,7 +1,10 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import Modal from '@/components/Modal'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalForm from '@/components/ModalForm'
+import ModalFooter from '@/components/ModalFooter'
+import ModalFieldRow from '@/components/ModalFieldRow'
+import ModalInfoPanel from '@/components/ModalInfoPanel'
+import ModalSummaryPanel from '@/components/ModalSummaryPanel'
 import Input from '@/components/Input'
 import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
@@ -93,7 +96,6 @@ export default function PortfolioTransactionFormModal({
   defaultTicker,
   zIndexClass,
 }: PortfolioTransactionFormModalProps) {
-  const formId = useId()
   const [ticker, setTicker] = useState('')
   const [operationType, setOperationType] = useState<PortfolioOperationType>('buy')
   const [quantity, setQuantity] = useState('')
@@ -518,24 +520,25 @@ export default function PortfolioTransactionFormModal({
   const modalTitle = editingTransaction ? 'Editar transação' : 'Lançar transação'
 
   return (
-    <Modal
+    <ModalForm
       isOpen={isOpen}
       onClose={onClose}
       title={modalTitle}
-      maxWidth="max-w-lg"
+      onSubmit={handleSubmit}
+      size="lg"
       zIndexClass={zIndexClass}
-      footer={
-        <ModalActionFooter
+      footer={(formId) => (
+        <ModalFooter
           formId={formId}
           onCancel={onClose}
           submitLabel={editingTransaction ? 'Salvar alterações' : 'Salvar'}
           submitDisabled={saving || !ticker.trim()}
+          loading={saving}
           deleteLabel={editingTransaction ? 'Excluir transação' : undefined}
           onDelete={editingTransaction ? handleDelete : undefined}
         />
-      }
+      )}
     >
-      <form id={formId} onSubmit={handleSubmit} className="modal-form-stack w-full text-left">
         {/* Row 1: Ticker / Identificador */}
         <div className="relative">
           <Input
@@ -580,7 +583,7 @@ export default function PortfolioTransactionFormModal({
               onChange={(e) => handlePricingModeChange(e.target.value as PortfolioPricingMode)}
               options={PORTFOLIO_PRICING_MODE_OPTIONS}
               disabled={isPricingModeLocked}
-              className="rounded-xl font-semibold disabled:opacity-85 disabled:bg-secondary/40"
+              className="rounded-xl font-semibold disabled:opacity-60"
             />
           </div>
         </div>
@@ -616,23 +619,14 @@ export default function PortfolioTransactionFormModal({
         )}
 
         {/* Row 3: Operação e Data */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">
-              Operação
-            </label>
-            <select
-              value={operationType}
-              onChange={(e) => setOperationType(e.target.value as PortfolioOperationType)}
-              className="w-full bg-primary text-primary text-sm font-semibold rounded-xl border border-primary p-2.5 h-[42px] focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {OPERATION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <ModalFieldRow>
+          <Select
+            label="Operação"
+            value={operationType}
+            onChange={(e) => setOperationType(e.target.value as PortfolioOperationType)}
+            options={OPERATION_OPTIONS}
+            className="font-semibold"
+          />
           <Input
             label="Data da Operação"
             type="date"
@@ -641,7 +635,7 @@ export default function PortfolioTransactionFormModal({
             onChange={(e) => setDate(e.target.value)}
             className="font-semibold rounded-xl"
           />
-        </div>
+        </ModalFieldRow>
 
         {/* Row 4: Cotação atual (Rich Data Card) */}
         {loadingRichData && (
@@ -649,7 +643,7 @@ export default function PortfolioTransactionFormModal({
         )}
 
         {richData && pricingMode === 'market' && (
-          <div className="modal-panel-glass p-3.5 bg-gradient-to-br from-balance/5 to-income/5 text-xs space-y-2 text-secondary relative overflow-hidden animate-fade-in text-left">
+          <div className="modal-panel-glass p-3.5 text-xs space-y-2 text-secondary relative overflow-hidden animate-fade-in text-left">
             <div className="flex justify-between items-center">
               <div className="overflow-hidden pr-2">
                 <strong className="text-primary font-bold text-sm block truncate max-w-[240px]">{richData.name}</strong>
@@ -661,7 +655,7 @@ export default function PortfolioTransactionFormModal({
               </div>
             </div>
             {richData.dividendYield !== undefined && (
-              <div className="flex justify-between items-center text-[10px] opacity-80 pt-2 border-t border-primary/10 font-mono">
+              <div className="flex justify-between items-center text-[10px] opacity-80 pt-2 border-t border-glass font-mono">
                 <span>Dividend Yield Anual (DY):</span>
                 <span className="text-balance font-bold text-xs">{formatNumberBR(richData.dividendYield, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
               </div>
@@ -671,18 +665,18 @@ export default function PortfolioTransactionFormModal({
 
         {/* Row 5: Configurações específicas de precificação */}
         {pricingMode === 'market' && (
-          <div className="flex flex-col gap-2.5 p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl animate-page-enter">
+          <ModalInfoPanel>
             <Checkbox
               label="Vinculado à B3"
               description="Sincroniza a cotação do ativo automaticamente a mercado"
               checked={isB3Linked}
               onChange={(e) => setIsB3Linked(e.target.checked)}
             />
-          </div>
+          </ModalInfoPanel>
         )}
 
         {pricingMode === 'fixed_income' && (
-          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl space-y-4 animate-page-enter">
+          <ModalInfoPanel className="space-y-4">
             <Input
               label="Taxa contratada (% a.a.) — pré-fixado"
               type="number"
@@ -709,11 +703,11 @@ export default function PortfolioTransactionFormModal({
               checked={taxExempt}
               onChange={(e) => setTaxExempt(e.target.checked)}
             />
-          </div>
+          </ModalInfoPanel>
         )}
 
         {pricingMode === 'manual_value' && (
-          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl animate-page-enter">
+          <ModalInfoPanel>
             <Input
               label="Valor atual estimado / Saldo atual (R$)"
               type="number"
@@ -722,11 +716,11 @@ export default function PortfolioTransactionFormModal({
               onChange={(e) => setManualCurrentValue(e.target.value)}
               className="rounded-xl font-semibold"
             />
-          </div>
+          </ModalInfoPanel>
         )}
 
         {/* Row 6: Quantidade e Preço de Execução */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <ModalFieldRow>
           <Input
             label={quantityFieldLabel}
             type="number"
@@ -763,68 +757,51 @@ export default function PortfolioTransactionFormModal({
               className="font-semibold rounded-xl text-sm"
             />
           )}
-        </div>
+        </ModalFieldRow>
 
         {/* Row 7: Valor do Caixa (edição) ou Cálculo de Aporte (novo lançamento) */}
         {pricingMode !== 'cash' && (operationType === 'buy' || operationType === 'subscription') && (
           editingTransaction ? (
-            /* Modo edição: mostra o valor real gasto nesse lançamento */
-            <div className="p-4 bg-secondary/40 border border-primary/20 rounded-2xl text-xs space-y-2.5 text-secondary text-left animate-page-enter">
-              <h5 className="font-black text-secondary text-[10px] uppercase tracking-wider mb-1">Valor do Caixa — Lançamento Cadastrado</h5>
-              <div className="space-y-1.5 font-mono text-xs">
-                <div className="flex justify-between">
-                  <span>Quantidade:</span>
-                  <span className="font-bold text-primary">
-                    {isAmountBased ? '—' : formatQuantityBR(parseFloat(quantity || '0'))}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Preço unitário:</span>
-                  <span className="font-bold text-primary">{formatCurrency(parseFloat(price || '0'))}</span>
-                </div>
-                <div className="h-[1px] bg-primary/10 my-1" />
-                <div className="flex justify-between text-sm font-black">
-                  <span>Total gasto do caixa:</span>
-                  <span className="text-balance">{formatCurrency(purchaseAmount)}</span>
-                </div>
-              </div>
-              <p className="text-[10px] text-secondary italic opacity-75 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
-                Valor registrado no lançamento original. Altere quantidade ou preço acima para recalcular.
-              </p>
-            </div>
+            <ModalSummaryPanel
+              title="Valor do Caixa — Lançamento Cadastrado"
+              intent="neutral"
+              rows={[
+                {
+                  label: 'Quantidade:',
+                  value: isAmountBased ? '—' : formatQuantityBR(parseFloat(quantity || '0')),
+                },
+                {
+                  label: 'Preço unitário:',
+                  value: formatCurrency(parseFloat(price || '0')),
+                },
+              ]}
+              total={{ label: 'Total gasto do caixa:', value: formatCurrency(purchaseAmount), valueClassName: 'text-balance' }}
+              note="Valor registrado no lançamento original. Altere quantidade ou preço acima para recalcular."
+            />
           ) : (
-            /* Modo novo lançamento: mostra cálculo prospectivo de aporte */
-            <div className="p-4 bg-balance/5 border border-balance/10 rounded-2xl text-xs space-y-2.5 text-secondary text-left animate-page-enter">
-              <h5 className="font-black text-balance text-[10px] uppercase tracking-wider mb-1">Cálculo de Aporte com Caixa</h5>
-              <div className="space-y-1.5 font-mono text-xs">
-                <div className="flex justify-between">
-                  <span>Valor do Aporte:</span>
-                  <span className="font-bold text-primary">{formatCurrency(purchaseAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>(-) Saldo em Caixa:</span>
-                  <span className="font-bold text-balance">{formatCurrency(totalAvailableCash)}</span>
-                </div>
-                <div className="h-[1px] bg-primary/10 my-1" />
-                <div className="flex justify-between text-sm font-black">
-                  <span>Aporte Líquido:</span>
-                  <span className={netContribution > 0 ? 'text-income' : 'text-income'}>
-                    {formatCurrency(netContribution)}
-                  </span>
-                </div>
-              </div>
-              {totalAvailableCash > 0 && (
-                <p className="text-[10px] text-secondary italic opacity-85 leading-normal mt-2 border-t border-primary/5 pt-1.5 font-sans">
-                  {netContribution === 0
+            <ModalSummaryPanel
+              title="Cálculo de Aporte com Caixa"
+              intent="balance"
+              rows={[
+                { label: 'Valor do Aporte:', value: formatCurrency(purchaseAmount) },
+                {
+                  label: '(-) Saldo em Caixa:',
+                  value: formatCurrency(totalAvailableCash),
+                  valueClassName: 'text-balance',
+                },
+              ]}
+              total={{ label: 'Aporte Líquido:', value: formatCurrency(netContribution) }}
+              note={
+                totalAvailableCash > 0
+                  ? netContribution === 0
                     ? 'O saldo em caixa cobre integralmente este aporte.'
-                    : `Serão utilizados ${formatCurrency(totalCashUsed)} do caixa. Os ${formatCurrency(netContribution)} restantes devem ser aportados de fora.`}
-                </p>
-              )}
-            </div>
+                    : `Serão utilizados ${formatCurrency(totalCashUsed)} do caixa. Os ${formatCurrency(netContribution)} restantes devem ser aportados de fora.`
+                  : undefined
+              }
+            />
           )
         )}
 
-      </form>
-    </Modal>
+    </ModalForm>
   )
 }

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { format, addMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import ModalForm from '@/components/ModalForm'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalFooter from '@/components/ModalFooter'
+import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { Expense, Category, CreditCard } from '@/types'
@@ -50,8 +51,7 @@ export default function ExpenseFormModal({
     description: '',
     bill_competence: '',
   })
-
-  // Sincronizar dados do formulário ao abrir
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   useEffect(() => {
     if (isOpen) {
       if (editingExpense) {
@@ -168,9 +168,13 @@ export default function ExpenseFormModal({
     }
   }
 
-  const handleDeleteFromModal = async () => {
+  const handleDeleteFromModal = () => {
     if (!editingExpense) return
-    if (!confirm('Tem certeza que deseja excluir esta despesa?')) return
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteExpense = async () => {
+    if (!editingExpense) return
 
     const { error } = await onDelete(editingExpense.id)
     if (error) {
@@ -178,17 +182,19 @@ export default function ExpenseFormModal({
       return
     }
 
+    setShowDeleteConfirm(false)
     onClose()
   }
 
   return (
+    <>
     <ModalForm
       isOpen={isOpen}
       onClose={onClose}
       title={editingExpense ? 'Editar despesa' : 'Adicionar despesa'}
       onSubmit={handleSubmit}
       footer={(formId) => (
-        <ModalActionFooter
+        <ModalFooter
           formId={formId}
           onCancel={onClose}
           submitLabel={editingExpense ? 'Salvar alterações' : 'Salvar'}
@@ -353,7 +359,7 @@ export default function ExpenseFormModal({
         />
 
         {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
-          <p className="text-xs text-secondary italic bg-secondary/50 p-2 rounded-lg border border-primary/5 mb-4">
+          <p className="modal-intro modal-panel-glass p-3">
             Esta despesa pertence ao parcelamento{' '}
             {editingExpense.installment_number || 1}/{editingExpense.installment_total}.
             A edição afeta apenas esta parcela.
@@ -361,5 +367,17 @@ export default function ExpenseFormModal({
         )}
 
     </ModalForm>
+
+    <ConfirmModal
+      isOpen={showDeleteConfirm}
+      onClose={() => setShowDeleteConfirm(false)}
+      title="Excluir despesa"
+      confirmLabel="Excluir despesa"
+      confirmVariant="danger"
+      onConfirm={() => void confirmDeleteExpense()}
+    >
+      <p className="text-sm text-primary">Tem certeza que deseja excluir esta despesa?</p>
+    </ConfirmModal>
+    </>
   )
 }

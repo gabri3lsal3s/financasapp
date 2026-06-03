@@ -5,9 +5,9 @@ import { useAuth } from '@/contexts/AuthContext'
 export type Theme = 'light' | 'dark' | 'midnight' | 'system'
 export type ColorPalette = 'vivid' | 'monochrome'
 /** Cor de destaque da UI (navegação, botões primários, anéis de foco) */
-export type AccentTone = 'white' | 'violet' | 'blue' | 'emerald'
+export type AccentTone = 'white' | 'violet' | 'blue' | 'emerald' | 'red'
 
-const VALID_ACCENT_TONES: AccentTone[] = ['white', 'violet', 'blue', 'emerald']
+const VALID_ACCENT_TONES: AccentTone[] = ['white', 'violet', 'blue', 'emerald', 'red']
 
 const VALID_THEMES: Theme[] = ['light', 'dark', 'midnight', 'system']
 const LEGACY_THEME_MAP: Record<string, Theme> = {

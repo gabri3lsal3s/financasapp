@@ -4,32 +4,32 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         default:
-          'border border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] shadow-sm hover:opacity-90',
+          'border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] hover:opacity-90',
         destructive:
-          'border border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90',
+          'border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90',
         outline:
-          'border border-glass bg-transparent text-primary hover:bg-accent hover:text-primary',
+          'border-glass bg-transparent text-primary hover:bg-accent hover:text-primary',
         secondary:
-          'border border-glass bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--secondary))]/80',
-        ghost: 'border border-transparent text-secondary hover:bg-accent hover:text-primary',
+          'border-glass bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--secondary))]/80',
+        ghost: 'border-transparent text-secondary hover:bg-accent hover:text-primary',
         link: 'border-transparent text-secondary hover:text-primary underline-offset-4 hover:underline font-medium',
         income:
-          'border border-glass bg-transparent text-income hover:bg-income/10 hover:text-income',
+          'border-glass bg-transparent text-income hover:bg-income/10 hover:text-income',
         expense:
-          'border border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense',
+          'border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense',
         balance:
-          'border border-glass bg-transparent text-balance hover:bg-balance/10 hover:text-balance',
+          'border-glass bg-transparent text-balance hover:bg-balance/10 hover:text-balance',
         warning:
-          'border border-glass bg-transparent text-warning hover:bg-warning/10 hover:text-warning',
+          'border-glass bg-transparent text-warning hover:bg-warning/10 hover:text-warning',
         success:
-          'border border-income/25 bg-income text-[var(--color-success-foreground)] shadow-sm hover:opacity-90',
+          'border-income/25 bg-income text-[var(--color-success-foreground)] hover:opacity-90',
         'warning-solid':
-          'border border-warning/25 bg-warning text-[var(--color-warning-solid-foreground)] shadow-sm hover:opacity-90',
+          'border-warning/25 bg-warning text-[var(--color-warning-solid-foreground)] hover:opacity-90',
         'ghost-success':
           'border border-transparent text-income hover:bg-income/10 hover:text-income',
         'ghost-danger':
@@ -61,7 +61,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : 'button'
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size }), className)}
         ref={ref}
         {...props}
       />

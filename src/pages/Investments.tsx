@@ -27,7 +27,8 @@ import InvestmentReconciliationModal from '@/components/investments/InvestmentRe
 import AssetTransactionsModal from '@/components/investments/AssetTransactionsModal'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
-import Modal from '@/components/Modal'
+import ModalForm from '@/components/ModalForm'
+import ModalFooter from '@/components/ModalFooter'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
@@ -460,7 +461,7 @@ export default function Investments() {
         title={PAGE_HEADERS.investments.title}
         subtitle={PAGE_HEADERS.investments.description}
         action={
-          <PageHeaderActions>
+          <PageHeaderActions launchModalOpen={isTxModalOpen}>
             <PageHeaderActionButton
               intent="balance"
               icon={BarChart2}
@@ -485,6 +486,7 @@ export default function Investments() {
               onClick={() => setIsReconciliationOpen(true)}
             />
             <PageHeaderActionButton
+              actionRole="launch"
               intent="primary"
               icon={Plus}
               label="Lançar transação"
@@ -660,8 +662,8 @@ export default function Investments() {
                     <div 
                       className={`absolute top-[2px] bottom-[2px] rounded-full transition-all duration-300 ease-out ${
                         consolidationView === 'class'
-                          ? 'left-[2px] w-[calc(50%-2px)] bg-balance shadow-md'
-                          : 'left-[calc(50%)] w-[calc(50%-2px)] bg-income shadow-md'
+                          ? 'left-[2px] w-[calc(50%-2px)] bg-balance'
+                          : 'left-[calc(50%)] w-[calc(50%-2px)] bg-income'
                       }`}
                     />
                     
@@ -1166,26 +1168,34 @@ export default function Investments() {
             portfolioId={portfolioId}
             onSaved={loadPortfolio}
           />
-          <Modal
+          <ModalForm
             isOpen={showGroupTargetForm}
             onClose={() => setShowGroupTargetForm(false)}
             title="Definir Limites de Exposição"
-            maxWidth="max-w-md"
+            size="md"
+            onSubmit={(event) => void handleSaveGroupTarget(event)}
+            footer={(formId) => (
+              <ModalFooter
+                formId={formId}
+                onCancel={() => setShowGroupTargetForm(false)}
+                submitLabel={savingGroupTarget ? 'Salvando...' : 'Salvar Limite'}
+                submitDisabled={savingGroupTarget}
+                loading={savingGroupTarget}
+              />
+            )}
           >
             <InvestmentsGroupTargetForm
               groupTargetType={groupTargetType}
               groupTargetName={groupTargetName}
               groupTargetPct={groupTargetPct}
-              savingGroupTarget={savingGroupTarget}
               onTypeChange={(type) => {
                 setGroupTargetType(type)
                 setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
               }}
               onNameChange={setGroupTargetName}
               onPctChange={setGroupTargetPct}
-              onSubmit={handleSaveGroupTarget}
             />
-          </Modal>
+          </ModalForm>
         </>
       )}
     </div>

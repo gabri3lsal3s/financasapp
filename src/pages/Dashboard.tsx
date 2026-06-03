@@ -3,6 +3,7 @@ import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
+import MonthTransitionView from '@/components/MonthTransitionView'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -22,6 +23,8 @@ import ExpenseCategoryRowButton from '@/components/dashboard/ExpenseCategoryRowB
 import MobileChartSwitcher from '@/components/dashboard/MobileChartSwitcher'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
+import ModalIntro from '@/components/ModalIntro'
+import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction } from '@/types'
@@ -481,8 +484,13 @@ export default function Dashboard() {
         title={PAGE_HEADERS.dashboard.title}
         subtitle={PAGE_HEADERS.dashboard.description}
         action={
-          <PageHeaderActions>
+          <PageHeaderActions
+            launchModalOpen={
+              isSelectorOpen || isExpenseOpen || isIncomeOpen || isInvestmentOpen
+            }
+          >
             <PageHeaderActionButton
+              actionRole="launch"
               intent="primary"
               icon={Plus}
               label="Lançamento"
@@ -497,10 +505,7 @@ export default function Dashboard() {
       <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} isOnline={isOnline} />
 
-        <div
-          key={currentMonth}
-          className="animate-month-change"
-        >
+        <MonthTransitionView month={currentMonth}>
           <div className="mt-4 lg:mt-6">
 
             {loading || isMonthTransitioning ? (
@@ -626,14 +631,14 @@ export default function Dashboard() {
               </>
             )}
           </div>
-        </div>
+        </MonthTransitionView>
       </div>
 
       {/* Selector Modal for Quick Add */}
       <Modal isOpen={isSelectorOpen} onClose={() => setIsSelectorOpen(false)} title="Novo lançamento">
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-secondary text-center mb-4">Escolha o tipo de lançamento que deseja adicionar:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="modal-body-stack">
+          <ModalIntro align="center">Escolha o tipo de lançamento que deseja adicionar:</ModalIntro>
+          <ModalChoiceGrid>
             <QuickLaunchOption
               label="Renda"
               icon={<TrendingUp size={24} />}
@@ -667,7 +672,7 @@ export default function Dashboard() {
                 setIsInvestmentOpen(true)
               }}
             />
-          </div>
+          </ModalChoiceGrid>
         </div>
       </Modal>
 

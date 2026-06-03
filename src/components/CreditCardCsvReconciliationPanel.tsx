@@ -683,7 +683,7 @@ export default function CreditCardCsvReconciliationPanel({
       )}
 
       {currentStep === 'upload' && (
-        <div className="rounded-xl border border-primary bg-primary/40 p-4 space-y-3">
+        <div className="modal-panel-glass p-4 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-primary">Importação Automática</p>
@@ -789,19 +789,19 @@ export default function CreditCardCsvReconciliationPanel({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-50">
+            <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-50">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Oficial (Fatura)</p>
               <p className="text-base font-bold text-primary">{formatCurrency(identifiedTotals?.officialTotal || 0)}</p>
             </div>
-            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-100">
+            <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-100">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Identificado (Base)</p>
               <p className="text-base font-bold text-primary">{formatCurrency(identifiedTotals?.identifiedTotal || 0)}</p>
             </div>
-            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-150">
+            <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-150">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Sugestões</p>
               <p className="text-base font-bold text-primary text-accent">{formatCurrency(identifiedTotals?.missingTotal || 0)}</p>
             </div>
-            <div className="rounded-xl border border-primary bg-primary p-3 text-center animate-stagger-item delay-200">
+            <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-200">
               <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Diferença</p>
               <p className={`text-sm font-black ${Math.abs(identifiedTotals?.difference || 0) < 0.05 ? 'text-income' : 'text-expense'}`}>
                 {formatCurrency(identifiedTotals?.difference || 0)}
@@ -873,7 +873,7 @@ export default function CreditCardCsvReconciliationPanel({
               }
 
               return (
-                <div key={row.key} className={`rounded-xl border border-primary bg-primary p-3 space-y-2 ${staggerClass}`}>
+                <div key={row.key} className={`modal-panel-glass p-3 space-y-2 ${staggerClass}`}>
                   <div className="flex items-center justify-between">
                     <span className={`text-[10px] font-black uppercase tracking-widest ${statusColorMap[row.status]}`}>
                       {row.status}

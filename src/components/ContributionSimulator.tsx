@@ -246,7 +246,7 @@ export default function ContributionSimulator({
             type="submit"
             disabled={isSimulating || isSaving}
             variant="primary"
-            className="w-full sm:w-auto px-6 font-semibold shadow-md"
+            className="w-full sm:w-auto px-6 font-semibold"
           >
             {isSimulating ? 'Calculando...' : 'Calcular Alocação'}
           </Button>
@@ -332,7 +332,7 @@ export default function ContributionSimulator({
               onClick={handleExecuteContribution}
               disabled={isSaving}
               variant="primary"
-              className="w-full sm:w-auto font-bold px-6 shadow-md flex items-center justify-center gap-2"
+              className="w-full sm:w-auto font-bold px-6 flex items-center justify-center gap-2"
             >
               {isSaving ? (
                 <>

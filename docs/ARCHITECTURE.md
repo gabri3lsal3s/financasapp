@@ -22,7 +22,7 @@ graph TD
             C_Kpis[DashboardKpis]
             C_ExpModal[ExpenseFormModal]
             C_IncModal[IncomeFormModal]
-            C_InvModal[InvestmentFormModal]
+            C_InvModal[PortfolioTransactionFormModal]
         end
         
         subgraph Hooks [Hooks Customizados & Lógica]
@@ -83,7 +83,7 @@ Para evitar redundância e garantir consistência estética extrema (em conformi
 2. **`DashboardKpis.tsx`**: Renderiza a grade padrão de KPIs do Dashboard (Rendas, Despesas, Investimentos e Saldo), com ícones e formatação monetária segura.
 3. **`ExpenseFormModal.tsx`**: Gerencia o ciclo completo (cadastro, edição e deleção) de despesas. Inclui lógica de competência de cartões (automática vs manual) e peso de inclusão em relatórios (`report_weight`).
 4. **`IncomeFormModal.tsx`**: Gerencia o ciclo de rendas. Trata de forma especial estornos automáticos de cartões de crédito (bloqueando a edição manual para manter a integridade).
-5. **`InvestmentFormModal.tsx`**: Formulário simplificado de inclusão e edição de aportes em investimentos.
+5. **`PortfolioTransactionFormModal.tsx`**: Formulário simplificado de inclusão e edição de aportes em investimentos.
 
 ---
 

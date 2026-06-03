@@ -65,9 +65,9 @@ export default function B3ReconciliationStepper({
             >
               {/* Step Circle */}
               <span
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all duration-300 shadow-sm border shrink-0 ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all duration-300 border shrink-0 ${
                   isActive
-                    ? 'bg-primary text-primary-foreground border-transparent scale-110 shadow-lg shadow-primary/20 ring-4 ring-primary/10'
+                    ? 'bg-primary text-primary-foreground border-transparent scale-110 ring-4 ring-primary/10'
                     : isDone
                       ? 'bg-income text-white border-transparent scale-100'
                       : 'bg-card text-secondary border-glass group-hover:border-primary/50 group-hover:text-primary'

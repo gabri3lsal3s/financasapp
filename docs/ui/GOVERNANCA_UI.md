@@ -81,10 +81,42 @@ Sombras tokenizadas: `--glass-shadow-elevated`, `--glass-shadow-panel`, `--glass
 | Card de escolha | `GlassChoiceCard.tsx` |
 | Footer híbrido | `ModalFooter.tsx` (ícones mobile / texto desktop) |
 | Modal shell | `Modal.tsx` + `ModalForm.tsx` |
+| Confirmação | `ConfirmModal.tsx` |
+| Picker de mês | `MonthPickerModal.tsx` (via `MonthSelector`) |
 
-**Regras:**
+**Subcomponentes visuais de modal:**
 
-- Preferir classes glass (`border-glass`, `modal-panel-glass`) em vez de `border-border/40` ou `bg-muted/*`.
+| Componente | Arquivo | Uso |
+|------------|---------|-----|
+| Intro | `ModalIntro.tsx` | Texto introdutório (picker, confirmação) |
+| Grid de escolha | `ModalChoiceGrid.tsx` | Layout para `GlassChoiceCard` |
+| Painel info | `ModalInfoPanel.tsx` | Checkbox, toggles, avisos (L2) |
+| Resumo financeiro | `ModalSummaryPanel.tsx` | Cálculos e totais (L2) |
+| Linha de campos | `ModalFieldRow.tsx` | Dois campos lado a lado |
+
+### Anatomia visual do modal
+
+```
+L0  .modal-overlay          → backdrop blur
+L1  .modal-dialog-shell    → shell glass (header + body + footer)
+L2  .modal-panel-glass     → painéis internos (info, resumo, upload)
+L3  .glass-choice-card     → cards interativos de picker
+```
+
+**Arquétipos:**
+
+| Tipo | Composição |
+|------|------------|
+| Picker | `Modal` + `ModalIntro` + `ModalChoiceGrid` + `GlassChoiceCard` |
+| Form CRUD | `ModalForm` + campos + `ModalInfoPanel` / `ModalSummaryPanel` + `ModalFooter` |
+| Confirmação | `ConfirmModal` + `modal-alert` + conteúdo livre |
+| Wizard | `Modal` size `2xl` + steps inline (exceção documentada) |
+
+Título do header: uppercase automático via `Modal`. Footer fixo fora da área rolável. Intents financeiros: `text-income`, `text-expense`, `text-balance` — adaptam-se ao tema/paleta HSL escolhida.
+
+**Regras visuais em modais:**
+
+- Preferir classes glass (`border-glass`, `modal-panel-glass`, `modal-info-panel`, `modal-summary-panel`) em vez de `bg-secondary/30`, `border-primary/40`, `from-balance/5`.
 - Inputs usam `.glass-input` (blur via `--glass-blur`, não `backdrop-blur-sm`).
 - `@media (prefers-reduced-transparency: reduce)` desativa blur e usa fundos opacos.
 
@@ -98,6 +130,8 @@ Sombras tokenizadas: `--glass-shadow-elevated`, `--glass-shadow-panel`, `--glass
 | Campo | `src/components/Input.tsx` | Estados de foco com `--color-focus` |
 | Seleção | `src/components/Select.tsx` | Listas fechadas |
 | Modal | `src/components/Modal.tsx` | Formulários e confirmações |
+| Form modal | `src/components/ModalForm.tsx` | Form com footer fixo |
+| Confirmação | `src/components/ConfirmModal.tsx` | Delete e 2-step |
 | Footer modal | `src/components/ModalFooter.tsx` | Híbrido: ícones (mobile) / texto (desktop) |
 | Card de escolha | `src/components/GlassChoiceCard.tsx` | Seletores tipo "Novo lançamento" |
 | Cabeçalho | `src/components/PageHeader.tsx` | Único `h1` por página |
@@ -109,7 +143,7 @@ Sombras tokenizadas: `--glass-shadow-elevated`, `--glass-shadow-panel`, `--glass
 
 - `TransactionCard` — linha de despesa/renda
 - `DashboardKpis` — grade de KPIs
-- `ExpenseFormModal`, `IncomeFormModal`, `InvestmentFormModal`
+- `ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`
 - `src/components/consulting/**` — assessoria
 
 ---
@@ -170,6 +204,7 @@ Executados via `npm run lint` (primeiro passo):
 | `ui-no-direct-number-formatting` | Sem `.toFixed` / `.toLocaleString` em pages/components |
 | `ui-no-raw-hex-color` | Sem `#hex` em `src/**` |
 | `ui-no-native-control-in-pages` | Sem `<input>`, `<button>`, etc. nativos em `src/pages/**` |
+| `ui-no-inline-modal-panel-styles` | Sem painéis ad hoc em `*Modal*.tsx` (`bg-secondary/`, `border-primary/`, `from-balance/`) |
 
 ### Fluxo de trabalho
 

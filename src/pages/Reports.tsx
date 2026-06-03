@@ -1641,17 +1641,17 @@ export default function Reports() {
           'Cartão de Crédito'
         } • ${detailModal.categoryName}`}
       >
-        <div className="space-y-4">
+        <div className="modal-body-stack">
           <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação Mensal</p>
-            <div className="rounded-lg border border-primary p-3 bg-secondary">
+            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação mensal</p>
+            <div className="rounded-xl border border-glass surface-glass p-3">
               <p className="text-sm text-secondary">Total em {detailModal.period === 'year' ? selectedYear : formatMonth(selectedMonth)}</p>
               <p className="text-xl font-bold text-primary">{formatCurrency(detailCurrentTotal)}</p>
               <p className="text-sm text-secondary mt-2">Comparação com {detailModal.period === 'year' ? selectedYear - 1 : formatMonth(previousMonth)}</p>
               <p className="text-sm text-primary">
                 {formatCurrency(detailPreviousTotal)}
                 {' • '}
-                <span style={{ color: detailDifference >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
+                <span className={detailDifference >= 0 ? 'text-income' : 'text-expense'}>
                   {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
                   {detailDifferencePct !== null ? ` (${detailDifferencePct >= 0 ? '+' : ''}${formatNumberWithTwoDecimalsBR(detailDifferencePct)}%)` : ''}
                 </span>
@@ -1661,8 +1661,8 @@ export default function Reports() {
 
           {detailModal.period === 'month' && (
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do Mês</p>
-              <div className="rounded-lg border border-primary p-3 bg-secondary">
+              <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do mês</p>
+              <div className="rounded-xl border border-glass surface-glass p-3">
                 {detailMonthlyGoal?.configured ? (
                   <>
                     <p className="text-sm text-primary">{detailMonthlyGoal.label}: {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}</p>
@@ -1690,7 +1690,7 @@ export default function Reports() {
             />
           </div>
 
-          <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do Mês</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do mês</p>
 
           {filteredDetailItems.length === 0 ? (
             <p className="text-sm text-secondary">
@@ -1708,7 +1708,7 @@ export default function Reports() {
               {visibleDetailItems.map((item, index) => (
                 <div
                   key={item.id}
-                  className={`rounded-lg border border-primary p-3 animate-stagger-item ${index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
+                  className={`rounded-xl border border-glass surface-glass p-3 animate-stagger-item ${index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
                     }`}
                 >
                   <div className="flex items-start justify-between gap-3">

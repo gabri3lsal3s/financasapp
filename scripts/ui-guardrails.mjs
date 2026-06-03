@@ -36,6 +36,15 @@ const RULES = [
       relativePath.startsWith('src/components/') && relativePath.endsWith('.tsx'),
     regex: /border-border\/\d+/g,
   },
+  {
+    id: 'ui-no-inline-modal-panel-styles',
+    description: 'Evitar painéis ad hoc em modais; preferir modal-info-panel, modal-summary-panel ou modal-panel-glass.',
+    appliesTo: (relativePath) =>
+      relativePath.includes('Modal') &&
+      relativePath.endsWith('.tsx') &&
+      relativePath.startsWith('src/'),
+    regex: /bg-secondary\/|border-primary\/\d+|from-balance\/|from-income\//g,
+  },
 ]
 
 function listFilesRecursively(dirPath) {

@@ -35,8 +35,10 @@ html.light {
   --glass-input-bg: var(--glass-layer-interactive);
   --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 60%, transparent);
   --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 82%, transparent);
+  --glass-modal-shell: color-mix(in srgb, var(--ds-color-surface-primary) 48%, transparent);
   --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 85%, transparent);
   --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 55%, transparent);
+  --glass-modal-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 38%, transparent);
   --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 210 40% 98%;
   --foreground: 222 47% 11%;
@@ -93,7 +95,7 @@ html.dark {
   --ds-color-button-text: #09090b;
   --ds-color-intent-success: #34d399;
   --ds-color-intent-warning: #facc15;
-  --ds-color-intent-danger: #f87171;
+  --ds-color-intent-danger: #ef4444;
   --ds-color-interaction-hover: rgba(255, 255, 255, 0.06);
   --ds-color-interaction-focus: #fafafa;
   --ds-color-interaction-disabled: #27272a;
@@ -108,8 +110,10 @@ html.dark {
   --glass-input-bg: var(--glass-layer-interactive);
   --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 50%, transparent);
   --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
+  --glass-modal-shell: color-mix(in srgb, var(--ds-color-surface-primary) 52%, transparent);
   --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 72%, transparent);
   --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
+  --glass-modal-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 32%, transparent);
   --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 240 10% 4%;
   --foreground: 0 0% 98%;
@@ -149,7 +153,7 @@ html.midnight {
   --ds-color-button-text: #000000;
   --ds-color-intent-success: #34d399;
   --ds-color-intent-warning: #facc15;
-  --ds-color-intent-danger: #f87171;
+  --ds-color-intent-danger: #ef4444;
   --ds-color-interaction-hover: rgba(255, 255, 255, 0.08);
   --ds-color-interaction-focus: #fafafa;
   --ds-color-interaction-disabled: #18181b;
@@ -164,8 +168,10 @@ html.midnight {
   --glass-input-bg: var(--glass-layer-interactive);
   --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 52%, transparent);
   --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
+  --glass-modal-shell: color-mix(in srgb, var(--ds-color-surface-primary) 52%, transparent);
   --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 72%, transparent);
   --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
+  --glass-modal-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 32%, transparent);
   --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 0 0% 0%;
   --foreground: 0 0% 100%;
@@ -230,14 +236,16 @@ html[data-accent-tone='blue'].light {
 
 html[data-accent-tone='blue'].dark,
 html[data-accent-tone='blue'].midnight {
-  --ds-color-accent-primary: #93c5fd;
-  --ds-color-accent-primary-strong: #bfdbfe;
-  --ds-color-accent-primary-soft: rgba(147, 197, 253, 0.14);
-  --ds-color-interaction-focus: #93c5fd;
-  --ambient-glow-primary: rgba(59, 130, 246, 0.16);
-  --primary: 213 94% 78%;
+  --ds-color-accent-primary: #bfdbfe;
+  --ds-color-accent-primary-strong: #dbeafe;
+  --ds-color-accent-primary-soft: rgba(191, 219, 254, 0.18);
+  --ds-color-interaction-hover: rgba(191, 219, 254, 0.12);
+  --ds-color-interaction-focus: #bfdbfe;
+  --ds-color-interaction-active: rgba(191, 219, 254, 0.24);
+  --ambient-glow-primary: rgba(59, 130, 246, 0.2);
+  --primary: 213 96% 82%;
   --primary-foreground: 240 10% 4%;
-  --ring: 213 94% 78%;
+  --ring: 213 96% 82%;
 }
 
 /* --- Accent tone: emerald --- */
@@ -253,14 +261,44 @@ html[data-accent-tone='emerald'].light {
 
 html[data-accent-tone='emerald'].dark,
 html[data-accent-tone='emerald'].midnight {
-  --ds-color-accent-primary: #6ee7b7;
-  --ds-color-accent-primary-strong: #a7f3d0;
-  --ds-color-accent-primary-soft: rgba(110, 231, 183, 0.14);
-  --ds-color-interaction-focus: #6ee7b7;
-  --ambient-glow-primary: rgba(52, 211, 153, 0.14);
-  --primary: 160 64% 68%;
+  --ds-color-accent-primary: #a7f3d0;
+  --ds-color-accent-primary-strong: #d1fae5;
+  --ds-color-accent-primary-soft: rgba(167, 243, 208, 0.18);
+  --ds-color-interaction-hover: rgba(167, 243, 208, 0.12);
+  --ds-color-interaction-focus: #a7f3d0;
+  --ds-color-interaction-active: rgba(167, 243, 208, 0.24);
+  --ambient-glow-primary: rgba(52, 211, 153, 0.18);
+  --primary: 160 76% 72%;
   --primary-foreground: 240 10% 4%;
-  --ring: 160 64% 68%;
+  --ring: 160 76% 72%;
+}
+
+/* --- Accent tone: red --- */
+html[data-accent-tone='red'].light {
+  --ds-color-accent-primary: #dc2626;
+  --ds-color-accent-primary-strong: #b91c1c;
+  --ds-color-accent-primary-soft: rgba(220, 38, 38, 0.12);
+  --ds-color-interaction-hover: rgba(220, 38, 38, 0.08);
+  --ds-color-interaction-focus: #dc2626;
+  --ds-color-interaction-active: rgba(220, 38, 38, 0.15);
+  --ambient-glow-primary: rgba(220, 38, 38, 0.14);
+  --primary: 0 72% 51%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 0 72% 51%;
+}
+
+html[data-accent-tone='red'].dark,
+html[data-accent-tone='red'].midnight {
+  --ds-color-accent-primary: #ef4444;
+  --ds-color-accent-primary-strong: #ff5252;
+  --ds-color-accent-primary-soft: rgba(239, 68, 68, 0.22);
+  --ds-color-interaction-hover: rgba(239, 68, 68, 0.14);
+  --ds-color-interaction-focus: #ef4444;
+  --ds-color-interaction-active: rgba(239, 68, 68, 0.28);
+  --ambient-glow-primary: rgba(239, 68, 68, 0.28);
+  --primary: 0 84% 60%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 0 84% 60%;
 }
 
 /* --- Financial data: vivid --- */
@@ -275,8 +313,11 @@ html[data-color-palette='vivid'].dark,
 html[data-color-palette='vivid'].system.dark,
 html[data-color-palette='vivid'].midnight {
   --ds-color-data-income: #34d399;
-  --ds-color-data-expense: #f87171;
-  --ds-color-data-balance: #60a5fa;
+  --ds-color-data-expense: #ef4444;
+  --ds-color-data-balance: #38bdf8;
+  --ds-color-data-income-text: #6ee7b7;
+  --ds-color-data-expense-text: #ff5252;
+  --ds-color-data-balance-text: #7dd3fc;
 }
 
 /* --- Financial data: monochrome --- */
@@ -311,9 +352,28 @@ html:not([data-color-palette]) {
   --accent-tone-preview-violet: #a78bfa;
   --accent-tone-preview-blue: #60a5fa;
   --accent-tone-preview-emerald: #34d399;
-  --palette-preview-vivid-0: var(--color-income);
-  --palette-preview-vivid-1: var(--color-expense);
-  --palette-preview-vivid-2: var(--color-balance);
+  --accent-tone-preview-red: #f87171;
+  /* Prévia fixa dos modos glass (seletor de tema) — independente do tema ativo */
+  --theme-preview-light-bg: #f1f5f9;
+  --theme-preview-light-surface: #ffffff;
+  --theme-preview-light-accent: #0f172a;
+  --theme-preview-dark-bg: #0a0a0f;
+  --theme-preview-dark-surface: #141223;
+  --theme-preview-dark-accent: #fafafa;
+  --theme-preview-midnight-bg: #000000;
+  --theme-preview-midnight-surface: #0c0a14;
+  --theme-preview-midnight-accent: #ffffff;
+  /* Prévia fixa das cores de destaque (seletor de acento) */
+  --accent-tone-swatch-neutral-dark: #0f172a;
+  --accent-tone-swatch-neutral-light: #fafafa;
+  --accent-tone-swatch-violet: #7c3aed;
+  --accent-tone-swatch-blue: #2563eb;
+  --accent-tone-swatch-emerald: #059669;
+  --accent-tone-swatch-red: #dc2626;
+  /* Prévia fixa dos seletores de paleta financeira — não segue a paleta ativa do app */
+  --palette-preview-vivid-0: #10b981;
+  --palette-preview-vivid-1: #ef4444;
+  --palette-preview-vivid-2: #3b82f6;
   --palette-preview-mono-0: #e5e5e5;
   --palette-preview-mono-1: #a3a3a3;
   --palette-preview-mono-2: #737373;
@@ -322,12 +382,13 @@ html:not([data-color-palette]) {
   /* L0–L3 layer stack (fallback antes de html.light/dark/midnight) */
   --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 50%, transparent);
   --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
+  --glass-modal-shell: color-mix(in srgb, var(--ds-color-surface-primary) 52%, transparent);
   --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 72%, transparent);
   --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
+  --glass-modal-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 32%, transparent);
   --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   /* Aliases legados → camadas */
   --glass-modal-overlay: var(--glass-layer-overlay);
-  --glass-modal-shell: var(--glass-layer-shell);
   --glass-modal-panel: var(--glass-layer-panel);
   --glass-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
   --glass-blur: 16px;
@@ -339,6 +400,19 @@ html:not([data-color-palette]) {
   --glass-shadow-nav: 0 8px 32px -10px var(--ambient-glow-secondary);
   --glass-shadow-tooltip: 0 12px 32px -5px var(--ambient-glow-primary);
   --glass-inset-highlight: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent);
+}
+
+html.dark,
+html.midnight {
+  --accent-tone-preview-blue: #93c5fd;
+  --accent-tone-preview-emerald: #6ee7b7;
+  --accent-tone-preview-red: #ef4444;
+  --palette-preview-vivid-0: #34d399;
+  --palette-preview-vivid-1: #ef4444;
+  --palette-preview-vivid-2: #38bdf8;
+  --palette-preview-mono-0: #f5f5f7;
+  --palette-preview-mono-1: #a3a3a3;
+  --palette-preview-mono-2: #525252;
 }
 
 :root {
@@ -398,7 +472,7 @@ html:not([data-color-palette]) {
   --chart-glass-3: #fbbf24;
   --chart-glass-4: #f472b6;
   --chart-glass-5: #818cf8;
-  --chart-glass-6: #f87171;
+  --chart-glass-6: #ef4444;
 }
 
 html {
@@ -419,22 +493,6 @@ html[data-color-palette='monochrome'] {
   --chart-mono-4: #d4d4d8;
   --chart-mono-5: #e4e4e7;
 }
-
-.theme-preview-light-classic-a { background-color: var(--ds-color-surface-primary); }
-.theme-preview-light-classic-b { background-color: var(--ds-color-surface-secondary); }
-.theme-preview-light-classic-c { background-color: var(--ds-color-accent-primary); }
-.theme-preview-dark-classic-a { background-color: var(--ds-color-surface-primary); }
-.theme-preview-dark-classic-b { background-color: var(--ds-color-surface-secondary); }
-.theme-preview-dark-classic-c { background-color: var(--ds-color-accent-primary); }
-.theme-preview-midnight-classic-a { background-color: var(--ds-color-surface-primary); }
-.theme-preview-midnight-classic-b { background-color: var(--ds-color-surface-primary); }
-.theme-preview-midnight-classic-c { background-color: var(--ds-color-accent-primary); }
-.theme-preview-cyber-glass { background-color: var(--ds-color-surface-secondary); }
-.theme-preview-dot-income { background-color: var(--color-income); }
-.theme-preview-dot-expense { background-color: var(--color-expense); }
-.theme-preview-cyber-bg-light { background-color: var(--ds-color-surface-tertiary); }
-.theme-preview-cyber-bg-dark { background-color: var(--ds-color-surface-primary); }
-.theme-preview-system-split-border { border-left: 1px solid var(--color-border); }
 
 :root {
   --allocation-default: var(--color-balance);

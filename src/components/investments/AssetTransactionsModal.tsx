@@ -238,7 +238,7 @@ function InlineEditForm({ tx, portfolioId, currency, onSaved, onCancel }: Inline
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-opacity disabled:opacity-60"
+            className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-accent-primary)]/25 bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {saving ? (
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
@@ -430,8 +430,7 @@ export default function AssetTransactionsModal({
         title={`${position.ticker} — histórico de transações`}
         header={modalHeader}
         footer={modalFooter}
-        size="lg"
-        maxWidth="max-w-[40rem]"
+        size="xl"
         bodyClassName="flex flex-col"
       >
         <div className="mb-3.5 grid w-full shrink-0 grid-cols-3 overflow-hidden rounded-xl border border-glass">

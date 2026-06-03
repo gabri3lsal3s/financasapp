@@ -58,7 +58,7 @@ export default function ModalFooter({
             variant={submitVariant}
             size="sm"
             disabled={submitDisabled || loading}
-            className="inline-flex items-center gap-1.5 font-bold shadow-md"
+            className="inline-flex items-center gap-1.5 font-bold"
             onClick={onSubmit}
           >
             {submitIcon}
@@ -71,6 +71,18 @@ export default function ModalFooter({
 
   return (
     <div className={cn('modal-footer-hybrid modal-action-footer', className)}>
+      {onCancel && !submitLabel && !onDelete ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onCancel}
+          disabled={loading}
+          className="ml-auto"
+        >
+          {cancelLabel}
+        </Button>
+      ) : null}
       {onDelete && deleteLabel ? (
         <Button
           type="button"

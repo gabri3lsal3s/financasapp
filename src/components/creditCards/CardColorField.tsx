@@ -15,7 +15,7 @@ export default function CardColorField({ value, onChange, label = 'Cor' }: CardC
         type="color"
         value={ensureHexColor(value)}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full cursor-pointer rounded-lg border border-primary bg-primary"
+        className="h-10 w-full cursor-pointer rounded-xl border border-glass glass-input"
       />
     </div>
   )

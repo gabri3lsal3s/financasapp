@@ -1,7 +1,9 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import Modal from '@/components/Modal'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalForm from '@/components/ModalForm'
+import ModalFooter from '@/components/ModalFooter'
+import ModalInfoPanel from '@/components/ModalInfoPanel'
+import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
@@ -290,50 +292,45 @@ export default function AssetDefinitionFormModal({
     }
   }
 
-  const formId = useId()
-
   return (
-    <Modal
+    <ModalForm
       isOpen={isOpen}
       onClose={onClose}
       title={`Configurar ativo ${assetTicker || ''}`}
-      maxWidth="max-w-lg"
-      footer={
-        <ModalActionFooter
+      size="lg"
+      onSubmit={handleSubmit}
+      footer={(formId) => (
+        <ModalFooter
           formId={formId}
           onCancel={onClose}
           submitLabel="Salvar"
           submitDisabled={saving}
+          loading={saving}
         />
-      }
+      )}
     >
-      {/* Categoria Principal: Renda Variável vs Renda Fixa com travas reativas */}
-      <div className="flex bg-secondary/50 border border-primary p-1 rounded-xl mb-3">
-        <button
+      <ModalInfoPanel className="flex gap-1 p-1">
+        <Button
           type="button"
+          variant={assetCategory === 'variable' ? 'primary' : 'ghost'}
+          size="sm"
           disabled={isFixedIncomePrefix || isCashType}
           onClick={() => setAssetCategory('variable')}
-          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 ${
-            assetCategory === 'variable'
-              ? 'bg-primary text-primary shadow-md font-bold'
-              : 'text-secondary hover:text-primary'
-          } ${(isFixedIncomePrefix || isCashType) ? 'opacity-40 cursor-not-allowed' : ''}`}
+          className="flex-1 py-1.5 text-xs font-semibold"
         >
           Renda Variável (Ações / FIIs)
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant={assetCategory === 'fixed_or_other' ? 'primary' : 'ghost'}
+          size="sm"
           disabled={isB3Variable}
           onClick={() => setAssetCategory('fixed_or_other')}
-          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 ${
-            assetCategory === 'fixed_or_other'
-              ? 'bg-primary text-primary shadow-md font-bold'
-              : 'text-secondary hover:text-primary'
-          } ${isB3Variable ? 'opacity-40 cursor-not-allowed' : ''}`}
+          className="flex-1 py-1.5 text-xs font-semibold"
         >
           Renda Fixa & Outros
-        </button>
-      </div>
+        </Button>
+      </ModalInfoPanel>
 
       {/* Badges de classificação inteligente */}
       {isB3Variable && (
@@ -355,7 +352,6 @@ export default function AssetDefinitionFormModal({
         </div>
       )}
 
-      <form id={formId} onSubmit={handleSubmit} className="modal-form-stack w-full text-left">
         <Select
           label="Moeda de Precificação"
           value={currency}
@@ -398,14 +394,14 @@ export default function AssetDefinitionFormModal({
                 </div>
               )}
             </div>
-            <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl">
+            <ModalInfoPanel>
               <Checkbox
                 label="Vinculado à B3"
                 description="Sincroniza a cotação do ativo automaticamente a mercado"
                 checked={isB3Linked}
                 onChange={(e) => setIsB3Linked(e.target.checked)}
               />
-            </div>
+            </ModalInfoPanel>
           </div>
         ) : (
           <div className="space-y-4 animate-page-enter">
@@ -468,7 +464,7 @@ export default function AssetDefinitionFormModal({
         )}
 
         {pricingMode === 'fixed_income' && (
-          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl space-y-4 animate-page-enter">
+          <ModalInfoPanel className="space-y-4">
             <Select
               label="Indexador"
               value={indexer}
@@ -511,11 +507,11 @@ export default function AssetDefinitionFormModal({
                 onChange={(e) => setTaxExempt(e.target.checked)}
               />
             )}
-          </div>
+          </ModalInfoPanel>
         )}
 
         {pricingMode === 'manual_value' && (
-          <div className="p-3.5 bg-secondary/30 border border-primary/40 rounded-2xl animate-page-enter">
+          <ModalInfoPanel>
             <Input
               label="Valor atual estimado / Último saldo (R$)"
               type="number"
@@ -526,10 +522,10 @@ export default function AssetDefinitionFormModal({
               placeholder="Ex: 12500"
               className="font-semibold rounded-xl text-sm"
             />
-          </div>
+          </ModalInfoPanel>
         )}
 
-        <div className="pt-3 border-t border-primary/20">
+        <div className="pt-3 border-t border-glass">
           <Input
             label="Meta de Alocação Ideal no Portfólio (%)"
             type="number"
@@ -547,7 +543,6 @@ export default function AssetDefinitionFormModal({
           A rentabilidade líquida estimada utiliza a tabela regressiva de IR para renda fixa, 15% de ganho de capital para mercado/outros, exceto se marcado como isento.
         </p>
 
-      </form>
-    </Modal>
+    </ModalForm>
   )
 }

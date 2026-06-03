@@ -311,7 +311,7 @@ function LedgerBook({
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={handleBulkDelete}
-                className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-xl bg-expense text-white hover:bg-expense/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+                className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-xl border border-expense/25 bg-expense text-white hover:bg-expense/80 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <Trash2 size={11} />
                 Excluir

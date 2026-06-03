@@ -45,4 +45,18 @@ describe('portfolioInvestmentByDay', () => {
     expect(byDay[2]).toBe(100)
     expect(byDay[0]).toBe(0)
   })
+
+  it('ignora vendas e proventos (sem valores negativos no gráfico)', () => {
+    const byDay = portfolioInvestmentByDay(
+      [
+        { date: '2026-05-03', operation_type: 'buy', quantity: 2, price: 50 },
+        { date: '2026-05-03', operation_type: 'sell', quantity: 1, price: 40 },
+        { date: '2026-05-10', operation_type: 'dividend', quantity: 1, price: 30 },
+      ],
+      '2026-05',
+      31
+    )
+    expect(byDay[2]).toBe(100)
+    expect(byDay[9]).toBe(0)
+  })
 })

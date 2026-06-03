@@ -8,6 +8,7 @@ import Input from '@/components/Input'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
+import MonthTransitionView from '@/components/MonthTransitionView'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -261,7 +262,7 @@ export default function Categories() {
         {loadingData ? (
           <Loader text="Carregando dados das categorias..." className="py-12" />
         ) : (
-          <div key={currentMonth} className="animate-month-change space-y-4 lg:space-y-6">
+          <MonthTransitionView month={currentMonth} className="space-y-4 lg:space-y-6">
             <Card>
               <div className="space-y-3">
                 <div>
@@ -421,7 +422,7 @@ export default function Categories() {
                 )}
               </div>
             </Card>
-          </div>
+          </MonthTransitionView>
         )}
       </div>
     </div>

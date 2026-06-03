@@ -26,7 +26,7 @@ Regras de negócio que agentes devem respeitar ao alterar fluxos monetários, ca
 ## Investimentos
 
 - Engine: `src/services/investmentEngine.ts`.
-- Formulário: `InvestmentFormModal`; página `Investments`.
+- Formulário: `PortfolioTransactionFormModal`; página `Investments`.
 - Vincular a transações quando migration/schema exigir (`supabase/migrations/*investments*`).
 
 ## Relatórios

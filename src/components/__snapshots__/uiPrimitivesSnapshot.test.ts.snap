@@ -5,32 +5,32 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
   class="space-y-2"
 >
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] shadow-sm hover:opacity-90 h-10 px-4 py-2 min-h-10"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] hover:opacity-90 h-10 px-4 py-2 min-h-10"
   >
     Primário
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-primary hover:bg-accent hover:text-primary h-10 px-4 py-2 min-h-10"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-primary hover:bg-accent hover:text-primary h-10 px-4 py-2 min-h-10"
   >
     Outline
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
     Danger
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-income hover:bg-income/10 hover:text-income h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-income hover:bg-income/10 hover:text-income h-9 rounded-lg px-3 min-h-9"
   >
     Renda
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense h-9 rounded-lg px-3 min-h-9"
   >
     Despesa
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-income/25 bg-income text-[var(--color-success-foreground)] shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-income/25 bg-income text-[var(--color-success-foreground)] hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
     Sucesso
   </button>
@@ -47,6 +47,146 @@ exports[`UI primitives snapshots > Card renders clickable state consistently 1`]
     Conteúdo do card
   </p>
 </div>
+`;
+
+exports[`UI primitives snapshots > ConfirmModal hybrid layout renders consistently 1`] = `
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  />
+  <div
+    aria-hidden="true"
+    class="modal-overlay fixed inset-0 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-[999] modal-overlay"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r9:"
+    aria-labelledby="radix-:r8:"
+    class="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-glass duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full"
+    data-state="open"
+    id="radix-:r7:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <div
+      class="flex flex-col sm:text-left shrink-0 space-y-0 p-0 text-left"
+    >
+      <h2
+        class="text-lg font-semibold leading-none tracking-tight text-primary sr-only"
+        id="radix-:r8:"
+      >
+        Excluir categoria
+      </h2>
+      <div
+        class="modal-glass-header flex w-full shrink-0 items-center justify-between gap-3"
+      >
+        <h2
+          class="min-w-0 flex-1 text-base font-bold uppercase tracking-tight text-primary sm:text-lg"
+          id=":r6:"
+        >
+          Excluir categoria
+        </h2>
+        <button
+          aria-label="Fechar"
+          class="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-x "
+            fill="none"
+            height="16"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="16"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M18 6 6 18"
+            />
+            <path
+              d="m6 6 12 12"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div
+      class="modal-glass-body min-h-0 flex-1 overflow-y-auto text-primary modal-body-padding"
+    >
+      <div
+        class="modal-body-inner w-full text-left"
+      >
+        <div
+          class="modal-body-stack"
+        >
+          <p>
+            Tem certeza que deseja excluir?
+          </p>
+        </div>
+      </div>
+    </div>
+    <div
+      class="modal-glass-footer shrink-0"
+    >
+      <div
+        class="modal-footer-inner"
+      >
+        <div
+          class="modal-footer-hybrid modal-action-footer"
+        >
+          <button
+            aria-label="Confirmar exclusão"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 py-2 min-h-10 px-3 flex-shrink-0"
+            title="Confirmar exclusão"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-check "
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 6 9 17l-5-5"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+</body>
 `;
 
 exports[`UI primitives snapshots > GlassChoiceCard renders consistently 1`] = `
@@ -99,7 +239,7 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
     class="relative"
   >
     <input
-      class="flex h-10 w-full rounded-xl border border-glass glass-input px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all motion-standard border-destructive"
+      class="flex h-10 w-full rounded-xl border glass-input px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all motion-standard border-destructive"
       id=":r0:"
       value="1.000,00"
     />
@@ -130,7 +270,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
   />
   <div
     aria-hidden="true"
-    class="modal-overlay fixed inset-0 z-[999] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-[999] modal-overlay"
+    class="modal-overlay fixed inset-0 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-[999] modal-overlay"
     data-aria-hidden="true"
     data-state="open"
     style="pointer-events: auto;"
@@ -138,7 +278,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
   <div
     aria-describedby="radix-:r4:"
     aria-labelledby="radix-:r3:"
-    class="fixed left-[50%] top-[50%] z-[1000] flex w-full max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col gap-0 border border-glass p-0 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full"
+    class="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-glass duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full"
     data-state="open"
     id="radix-:r2:"
     role="dialog"
@@ -146,7 +286,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
     tabindex="-1"
   >
     <div
-      class="flex flex-col space-y-1.5 text-center sm:text-left shrink-0 space-y-0 p-0 text-left"
+      class="flex flex-col sm:text-left shrink-0 space-y-0 p-0 text-left"
     >
       <h2
         class="text-lg font-semibold leading-none tracking-tight text-primary sr-only"
@@ -215,6 +355,115 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
 </body>
 `;
 
+exports[`UI primitives snapshots > ModalChoiceGrid with GlassChoiceCard renders consistently 1`] = `
+<div
+  class="modal-choice-grid"
+>
+  <button
+    class="glass-choice-card glass-choice-card--income"
+    type="button"
+  >
+    <div
+      class="glass-choice-card__icon bg-income/10 text-income"
+    >
+      <svg
+        class="lucide lucide-trending-up "
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <polyline
+          points="22 7 13.5 15.5 8.5 10.5 2 17"
+        />
+        <polyline
+          points="16 7 22 7 22 13"
+        />
+      </svg>
+    </div>
+    <span
+      class="glass-choice-card__label"
+    >
+      Renda
+    </span>
+  </button>
+  <button
+    class="glass-choice-card glass-choice-card--expense"
+    type="button"
+  >
+    <div
+      class="glass-choice-card__icon bg-expense/10 text-expense"
+    >
+      <svg
+        class="lucide lucide-trending-down "
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <polyline
+          points="22 17 13.5 8.5 8.5 13.5 2 7"
+        />
+        <polyline
+          points="16 17 22 17 22 11"
+        />
+      </svg>
+    </div>
+    <span
+      class="glass-choice-card__label"
+    >
+      Despesa
+    </span>
+  </button>
+  <button
+    class="glass-choice-card glass-choice-card--balance"
+    type="button"
+  >
+    <div
+      class="glass-choice-card__icon bg-balance/10 text-balance"
+    >
+      <svg
+        class="lucide lucide-piggy-bank "
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z"
+        />
+        <path
+          d="M2 9v1c0 1.1.9 2 2 2h1"
+        />
+        <path
+          d="M16 11h0"
+        />
+      </svg>
+    </div>
+    <span
+      class="glass-choice-card__label"
+    >
+      Investimento
+    </span>
+  </button>
+</div>
+`;
+
 exports[`UI primitives snapshots > ModalFooter renders with delete action consistently (mobile icons) 1`] = `
 <form>
   <div
@@ -222,7 +471,7 @@ exports[`UI primitives snapshots > ModalFooter renders with delete action consis
   >
     <button
       aria-label="Excluir item"
-      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 px-4 py-2 min-h-10 px-3 flex-shrink-0"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 py-2 min-h-10 px-3 flex-shrink-0"
       title="Excluir item"
       type="button"
     >
@@ -263,7 +512,7 @@ exports[`UI primitives snapshots > ModalFooter renders with delete action consis
     </button>
     <button
       aria-label="Salvar alterações"
-      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 px-4 py-2 min-h-10 px-3 flex-shrink-0"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 py-2 min-h-10 px-3 flex-shrink-0"
       disabled=""
       title="Salvar alterações"
       type="submit"
@@ -289,16 +538,130 @@ exports[`UI primitives snapshots > ModalFooter renders with delete action consis
 </form>
 `;
 
-exports[`UI primitives snapshots > PageHeader renders title, subtitle and action consistently 1`] = `
+exports[`UI primitives snapshots > ModalInfoPanel with Checkbox renders consistently 1`] = `
 <div
-  class="fixed z-40 pointer-events-none transition-all duration-300 animate-in fade-in-0 duration-300 right-0 bottom-[calc(6.5rem+env(safe-area-inset-bottom))]"
-  style="transform: translate(0px, 0px);"
+  class="modal-info-panel animate-page-enter"
 >
-  <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] shadow-sm hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+  <label
+    class="flex items-start gap-3 cursor-pointer group select-none"
+    for=":r5:"
   >
-    Exportar
-  </button>
+    <button
+      aria-checked="true"
+      class="peer h-4 w-4 shrink-0 rounded-sm border border-[var(--ds-color-accent-primary)] ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--ds-color-accent-primary)] data-[state=checked]:text-[var(--ds-color-button-text)]"
+      data-state="checked"
+      id=":r5:"
+      role="checkbox"
+      type="button"
+      value="on"
+    >
+      <span
+        class="flex items-center justify-center text-current"
+        data-state="checked"
+        style="pointer-events: none;"
+      >
+        <svg
+          class="lucide lucide-check h-4 w-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+      </span>
+    </button>
+    <div
+      class="flex flex-col"
+    >
+      <span
+        class="text-sm font-medium text-primary leading-tight"
+      >
+        Vinculado à B3
+      </span>
+      <span
+        class="text-xs text-secondary mt-0.5 leading-snug"
+      >
+        Sincroniza a cotação do ativo automaticamente a mercado
+      </span>
+    </div>
+  </label>
+</div>
+`;
+
+exports[`UI primitives snapshots > ModalIntro center alignment renders consistently 1`] = `
+<p
+  class="modal-intro modal-intro--center"
+>
+  Escolha o tipo de lançamento.
+</p>
+`;
+
+exports[`UI primitives snapshots > ModalSummaryPanel balance intent renders consistently 1`] = `
+<div
+  class="modal-summary-panel animate-page-enter modal-summary-panel--balance"
+>
+  <h5
+    class="modal-summary-panel__title"
+  >
+    Cálculo de Aporte com Caixa
+  </h5>
+  <div
+    class="modal-summary-panel__rows"
+  >
+    <div
+      class="modal-summary-panel__row"
+    >
+      <span>
+        Valor do Aporte:
+      </span>
+      <span
+        class="font-bold text-primary"
+      >
+        R$ 355,00
+      </span>
+    </div>
+    <div
+      class="modal-summary-panel__row"
+    >
+      <span>
+        (-) Saldo em Caixa:
+      </span>
+      <span
+        class="font-bold text-primary text-balance"
+      >
+        R$ 642,50
+      </span>
+    </div>
+    <div
+      aria-hidden="true"
+      class="modal-summary-panel__divider"
+    />
+    <div
+      class="modal-summary-panel__row modal-summary-panel__total"
+    >
+      <span>
+        Aporte Líquido:
+      </span>
+      <span
+        class="text-income"
+      >
+        R$ 0,00
+      </span>
+    </div>
+  </div>
+  <p
+    class="modal-summary-panel__note"
+  >
+    O saldo em caixa cobre integralmente este aporte.
+  </p>
 </div>
 `;
 

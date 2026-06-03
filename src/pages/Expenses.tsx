@@ -16,6 +16,7 @@ import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/c
 import { resolveExpenseBillCompetence } from '@/utils/creditCardBilling'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import MonthSelector from '@/components/MonthSelector'
+import MonthTransitionView from '@/components/MonthTransitionView'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -211,8 +212,9 @@ export default function Expenses() {
         title={PAGE_HEADERS.expenses.title}
         subtitle={PAGE_HEADERS.expenses.description}
         action={
-          <PageHeaderActions>
+          <PageHeaderActions launchModalOpen={isModalOpen}>
             <PageHeaderActionButton
+              actionRole="launch"
               intent="expense"
               icon={Plus}
               label="Adicionar"
@@ -224,10 +226,7 @@ export default function Expenses() {
 
       <div className="p-4 lg:p-6 animate-page-enter space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
-        <div
-          key={currentMonth}
-          className="animate-month-change"
-        >
+        <MonthTransitionView month={currentMonth}>
           {loading && expenses.length === 0 ? (
             <Loader text="Carregando despesas..." className="py-12" />
           ) : expenses.length === 0 ? (
@@ -346,7 +345,7 @@ export default function Expenses() {
               )}
             </div>
           )}
-        </div>
+        </MonthTransitionView>
       </div>
 
       <ExpenseFormModal

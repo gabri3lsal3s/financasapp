@@ -48,14 +48,17 @@ export function ConflictResolutionModal() {
     return (
         <Modal
             isOpen={true}
+            // WHY: conflito offline exige resolução explícita — fechar pelo X/backdrop deixaria fila inconsistente
             onClose={() => { }}
             title="Conflito de Sincronização"
             size="xl"
         >
             <div className="modal-body-stack w-full">
-                <p className="modal-intro text-sm">
-                    Detectamos que uma alteração que você fez offline em &apos;{currentConflict.queueItem.entity}&apos; conflita com uma versão mais recente salva no servidor.
-                </p>
+                <div className="modal-alert modal-alert--warning">
+                    <p className="text-sm">
+                        Detectamos que uma alteração offline em &apos;{currentConflict.queueItem.entity}&apos; conflita com uma versão mais recente no servidor.
+                    </p>
+                </div>
                 <p className="modal-intro text-sm">
                     Você alterou este item offline, mas outra modificação ocorreu no servidor no mesmo período. Qual versão você deseja manter?
                 </p>

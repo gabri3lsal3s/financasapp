@@ -1,38 +1,51 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import Button from '@/components/Button';
-import Modal from './Modal';
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Button from '@/components/Button'
+import Modal from './Modal'
+import ModalFooter from './ModalFooter'
 
 interface MonthPickerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  value: string; // YYYY-MM
-  onChange: (value: string) => void;
-  title?: string;
-  showLiveOption?: boolean;
+  isOpen: boolean
+  onClose: () => void
+  value: string
+  onChange: (value: string) => void
+  title?: string
+  showLiveOption?: boolean
 }
 
-export default function MonthPickerModal({ isOpen, onClose, value, onChange, title = "Selecionar Mês", showLiveOption = false }: MonthPickerModalProps) {
-  const [year, month] = value ? value.split('-').map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
-  const [viewYear, setViewYear] = useState(year);
+export default function MonthPickerModal({
+  isOpen,
+  onClose,
+  value,
+  onChange,
+  title = 'Selecionar Mês',
+  showLiveOption = false,
+}: MonthPickerModalProps) {
+  const [year, month] = value ? value.split('-').map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1]
+  const [viewYear, setViewYear] = useState(year)
 
   const months = [
     { name: 'Jan', value: 1 }, { name: 'Fev', value: 2 }, { name: 'Mar', value: 3 },
     { name: 'Abr', value: 4 }, { name: 'Mai', value: 5 }, { name: 'Jun', value: 6 },
     { name: 'Jul', value: 7 }, { name: 'Ago', value: 8 }, { name: 'Set', value: 9 },
-    { name: 'Out', value: 10 }, { name: 'Nov', value: 11 }, { name: 'Dez', value: 12 }
-  ];
+    { name: 'Out', value: 10 }, { name: 'Nov', value: 11 }, { name: 'Dez', value: 12 },
+  ]
 
   const handleSelect = (m: number) => {
-    const formattedMonth = String(m).padStart(2, '0');
-    onChange(`${viewYear}-${formattedMonth}`);
-    onClose();
-  };
+    const formattedMonth = String(m).padStart(2, '0')
+    onChange(`${viewYear}-${formattedMonth}`)
+    onClose()
+  }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="modal-form-stack w-full">
-        {/* Year Selector */}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      footer={<ModalFooter onCancel={onClose} cancelLabel="Cancelar" />}
+    >
+      <div className="modal-body-stack">
         <div className="modal-panel-glass flex items-center justify-between p-2">
           <Button
             type="button"
@@ -57,41 +70,38 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
           </Button>
         </div>
 
-        {/* Month Grid */}
         <div className="grid grid-cols-3 gap-3">
           {months.map((m) => {
-            const isSelected = year === viewYear && month === m.value;
+            const isSelected = year === viewYear && month === m.value
             return (
               <Button
                 key={m.value}
                 type="button"
                 variant={isSelected ? 'secondary' : 'outline'}
                 onClick={() => handleSelect(m.value)}
-                className={`h-auto w-full py-4 text-sm font-bold ${isSelected ? 'scale-[1.02] shadow-lg' : ''}`}
+                className={`h-auto w-full py-4 text-sm font-bold ${isSelected ? 'scale-[1.02]' : ''}`}
               >
                 {m.name}
               </Button>
-            );
+            )
           })}
         </div>
 
-        <div className="modal-field-group items-center">
-            {showLiveOption && (
-                <Button
-                    type="button"
-                    variant="outline"
-                    fullWidth
-                    onClick={() => { onChange('live'); onClose(); }}
-                    className="py-3 text-[10px] font-black uppercase tracking-widest"
-                >
-                    Copiar para Posição Atual (Live)
-                </Button>
-            )}
-            <Button type="button" variant="link" size="sm" onClick={onClose} className="text-xs opacity-70">
-                Cancelar
-            </Button>
-        </div>
+        {showLiveOption ? (
+          <Button
+            type="button"
+            variant="outline"
+            fullWidth
+            onClick={() => {
+              onChange('live')
+              onClose()
+            }}
+            className="py-3 text-[10px] font-black uppercase tracking-widest"
+          >
+            Copiar para Posição Atual (Live)
+          </Button>
+        ) : null}
       </div>
     </Modal>
-  );
+  )
 }

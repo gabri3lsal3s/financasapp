@@ -21,7 +21,7 @@ import {
 } from '@/utils/biometric'
 import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2, Crown } from 'lucide-react'
 import toast from 'react-hot-toast'
-import Modal from '@/components/Modal'
+import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Switch from '@/components/Switch'
@@ -72,11 +72,6 @@ export default function Settings() {
     setFloatingCalculatorEnabled,
     biometricLockTimeout,
     setBiometricLockTimeout,
-    floatingButtonsDesktopPosition,
-    setFloatingButtonsDesktopPosition,
-    floatingButtonsMobilePosition,
-    setFloatingButtonsMobilePosition,
-    resetAllSettings,
   } = useAppSettings()
 
   const fetchUsers = async () => {
@@ -110,11 +105,6 @@ export default function Settings() {
     setBiometricAvailable(isBiometricAvailable())
     setBiometricRegistered(isBiometricRegistered())
   }, [])
-
-  const handleResetSettings = () => {
-    resetAllSettings()
-    toast.success('Posições dos botões e configurações resetadas com sucesso!')
-  }
 
   if (isLoading) {
     return (
@@ -502,71 +492,16 @@ export default function Settings() {
           <ColorPaletteSwitcher />
 
           <Card>
-            <div className="space-y-5">
-              <SettingRow
-                title="Calculadora flutuante"
-                description="Exibe uma calculadora flutuante acessível em qualquer página do app."
-              >
-                <Switch
-                  checked={floatingCalculatorEnabled}
-                  onChange={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
-                  title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
-                />
-              </SettingRow>
-
-              <div className="border-t border-primary" />
-
-              <SettingRow
-                title="Posição dos botões no Desktop"
-                description="Define o alinhamento das abas flutuantes e da calculadora em telas grandes."
-              >
-                <Select
-                  value={floatingButtonsDesktopPosition}
-                  onChange={(e) => setFloatingButtonsDesktopPosition(e.target.value as any)}
-                  options={[
-                    { value: 'right', label: 'Lateral Direita (Abas)' },
-                    { value: 'top', label: 'Topo Superior (Barra)' }
-                  ]}
-                  className="min-w-[200px]"
-                />
-              </SettingRow>
-
-              <div className="border-t border-primary" />
-
-              <SettingRow
-                title="Posição dos botões no Mobile"
-                description="Define o lado em que os botões e calculadora flutuam em celulares."
-              >
-                <Select
-                  value={floatingButtonsMobilePosition}
-                  onChange={(e) => setFloatingButtonsMobilePosition(e.target.value as any)}
-                  options={[
-                    { value: 'right', label: 'Lado Direito' },
-                    { value: 'left', label: 'Lado Esquerdo' }
-                  ]}
-                  className="min-w-[200px]"
-                />
-              </SettingRow>
-
-              <div className="border-t border-primary pt-4" />
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-primary">Resetar layout dos botões</h4>
-                  <p className="text-xs text-secondary mt-0.5">
-                    Restaura as abas flutuantes, ativador e painel da calculadora para as posições e tamanhos originais.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleResetSettings}
-                  className="text-primary border-glass hover:bg-accent flex items-center gap-2 justify-center"
-                >
-                  Resetar Posição
-                </Button>
-              </div>
-            </div>
+            <SettingRow
+              title="Calculadora flutuante"
+              description="Exibe uma calculadora flutuante acessível em qualquer página do app. Arraste o ícone para alternar entre o canto inferior e a lateral direita."
+            >
+              <Switch
+                checked={floatingCalculatorEnabled}
+                onChange={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
+                title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
+              />
+            </SettingRow>
           </Card>
         </section>
 
@@ -733,111 +668,61 @@ export default function Settings() {
 
       </div>
 
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => !deletingAccount && setIsDeleteModalOpen(false)}
         title="Confirmar exclusão de conta"
-        footer={
-          <div className="modal-actions-stacked">
-            <Button
-              variant="primary"
-              onClick={handleDeleteAccount}
-              disabled={deleteConfirmationText !== 'DELETAR' || deletingAccount}
-              className="flex w-full items-center justify-center gap-2 bg-[var(--color-danger)] py-3 text-white hover:bg-[var(--color-danger)]/90"
-            >
-              {deletingAccount ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Excluindo...</span>
-                </>
-              ) : (
-                <>
-                  <Trash2 size={18} />
-                  <span>Sim, excluir minha conta permanentemente</span>
-                </>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setIsDeleteModalOpen(false)}
-              disabled={deletingAccount}
-              className="w-full"
-            >
-              Cancelar e voltar
-            </Button>
-          </div>
-        }
+        layout="stacked"
+        confirmLabel={deletingAccount ? 'Excluindo...' : 'Sim, excluir minha conta permanentemente'}
+        confirmVariant="danger"
+        confirmDisabled={deleteConfirmationText !== 'DELETAR'}
+        loading={deletingAccount}
+        onConfirm={handleDeleteAccount}
+        cancelLabel="Cancelar e voltar"
       >
-        <div className="modal-body-stack w-full">
-          <div className="modal-alert modal-alert--danger">
-            <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
-            <div className="text-sm text-primary">
-              <p className="font-bold">Atenção!</p>
-              <p className="mt-1">
-                Você está prestes a excluir permanentemente sua conta e todos os dados associados a ela.
-                Esta ação é irreversível.
-              </p>
-            </div>
-          </div>
-
-          <div className="modal-field-group">
-            <p className="text-sm leading-relaxed text-primary">
-              Para confirmar que deseja prosseguir com a exclusão total dos seus dados, digite{' '}
-              <strong className="text-[var(--color-danger)]">DELETAR</strong> no campo abaixo:
+        <div className="modal-alert modal-alert--danger">
+          <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
+          <div className="text-sm text-primary">
+            <p className="font-bold">Atenção!</p>
+            <p className="mt-1">
+              Você está prestes a excluir permanentemente sua conta e todos os dados associados a ela.
+              Esta ação é irreversível.
             </p>
-            <Input
-              value={deleteConfirmationText}
-              onChange={(e) => setDeleteConfirmationText(e.target.value.toUpperCase())}
-              placeholder="Digite DELETAR aqui"
-              autoFocus
-              disabled={deletingAccount}
-            />
           </div>
         </div>
-      </Modal>
 
-      <Modal
+        <div className="modal-field-group">
+          <p className="text-sm leading-relaxed text-primary">
+            Para confirmar que deseja prosseguir com a exclusão total dos seus dados, digite{' '}
+            <strong className="text-[var(--color-danger)]">DELETAR</strong> no campo abaixo:
+          </p>
+          <Input
+            value={deleteConfirmationText}
+            onChange={(e) => setDeleteConfirmationText(e.target.value.toUpperCase())}
+            placeholder="Digite DELETAR aqui"
+            autoFocus
+            disabled={deletingAccount}
+          />
+        </div>
+      </ConfirmModal>
+
+      <ConfirmModal
         isOpen={userToDelete !== null}
         onClose={() => !deletingUser && setUserToDelete(null)}
         title="Excluir usuário do sistema"
-        footer={
-          userToDelete ? (
-            <div className="modal-actions-stacked">
-              <Button
-                variant="danger"
-                onClick={handleDeleteUser}
-                disabled={
-                  deleteUserConfirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()
-                  || deletingUser
-                }
-                className="flex w-full items-center justify-center gap-2 py-3 font-bold"
-              >
-                {deletingUser ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Excluindo usuário...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={18} />
-                    <span>Excluir usuário permanentemente</span>
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setUserToDelete(null)}
-                disabled={deletingUser}
-                className="w-full"
-              >
-                Cancelar
-              </Button>
-            </div>
-          ) : undefined
+        layout="stacked"
+        confirmLabel={deletingUser ? 'Excluindo usuário...' : 'Excluir usuário permanentemente'}
+        confirmVariant="danger"
+        confirmDisabled={
+          userToDelete
+            ? deleteUserConfirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()
+            : true
         }
+        loading={deletingUser}
+        onConfirm={handleDeleteUser}
       >
         {userToDelete ? (
-          <div className="modal-body-stack w-full">
+          <>
             <div className="modal-alert modal-alert--danger">
               <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
               <div className="text-sm text-primary">
@@ -859,9 +744,9 @@ export default function Settings() {
                 disabled={deletingUser}
               />
             </div>
-          </div>
+          </>
         ) : null}
-      </Modal>
+      </ConfirmModal>
     </div>
   )
 }

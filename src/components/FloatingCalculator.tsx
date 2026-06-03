@@ -1,18 +1,34 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { formatNumberBR, roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
 import { cn } from '@/lib/utils'
-import { useAppSettings } from '@/hooks/useAppSettings'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { FloatingActionsContext } from '@/contexts/floatingActionsSharedContext'
+import {
+  CALCULATOR_SIDE_SLOT_ID,
+  FLOATING_FAB_BOTTOM,
+  FLOATING_SIDE_BUTTON_NEUTRAL,
+  FLOATING_SIDE_FAB_BASE,
+  getFloatingSideTabButtonClassName,
+  type FloatingSidePosition,
+} from '@/components/floatingSideLayout'
+import {
+  buildFlipStartTransform,
+  buildIconDragTransform,
+  captureFlipRect,
+  getCalculatorPanelOpenClass,
+  getSnapToFabThresholdY,
+  getSnapToSideThresholdY,
+} from '@/components/calculatorOriginFlip'
 
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
 const CALCULATOR_UI_KEY = 'floating-calculator-ui'
 const CALCULATOR_TARGET_CLASS = 'calculator-target-input'
 const PANEL_MARGIN = 8
-const ICON_DRAG_LIMIT = 120
 const MIN_PANEL_WIDTH = 320
 const MAX_PANEL_WIDTH = 620
 const MIN_PANEL_HEIGHT = 430
@@ -28,6 +44,7 @@ const RESIZE_MAX_VIEWPORT_HEIGHT_RATIO = 1
 const PANEL_ASPECT_RATIO = DEFAULT_PANEL_WIDTH / DEFAULT_PANEL_HEIGHT
 const RESIZE_TAP_MAX_MS = 220
 const RESIZE_DRAG_START_DISTANCE = 6
+const ORIGIN_FLIP_DURATION_MS = 520
 
 interface PersistedCalculatorState {
   expression: string
@@ -47,6 +64,22 @@ interface Point {
 }
 
 type IconOrigin = 'bottom-right' | 'top-right'
+
+function readPersistedIconOrigin(): IconOrigin {
+  try {
+    const persistedUiRaw = window.localStorage.getItem(CALCULATOR_UI_KEY)
+    if (!persistedUiRaw) return 'bottom-right'
+
+    const persistedUi = JSON.parse(persistedUiRaw) as { iconOrigin?: IconOrigin }
+    if (persistedUi.iconOrigin === 'top-right' || persistedUi.iconOrigin === 'bottom-right') {
+      return persistedUi.iconOrigin
+    }
+  } catch {
+    window.localStorage.removeItem(CALCULATOR_UI_KEY)
+  }
+
+  return 'bottom-right'
+}
 
 const DEFAULT_STATE: PersistedCalculatorState = {
   expression: '0',
@@ -286,19 +319,6 @@ function getDefaultPanelRect(): PanelRect {
   return { left, top, width, height }
 }
 
-function clampOffsetToIconLimit(offset: Point): Point {
-  const distance = Math.hypot(offset.x, offset.y)
-  if (distance <= ICON_DRAG_LIMIT) {
-    return offset
-  }
-
-  const ratio = ICON_DRAG_LIMIT / distance
-  return {
-    x: offset.x * ratio,
-    y: offset.y * ratio,
-  }
-}
-
 interface FloatingCalculatorProps {
   isHidden?: boolean
 }
@@ -306,12 +326,8 @@ interface FloatingCalculatorProps {
 export default function FloatingCalculator({ isHidden = false }: FloatingCalculatorProps) {
   const [isMobile, setIsMobile] = useState(() => isMobileViewport(window.innerWidth))
   const [customTopY, setCustomTopY] = useState(() => Number(window.localStorage.getItem('floating-calculator-custom-top') || '160'))
-  const {
-    floatingButtonsDesktopPosition,
-    floatingButtonsMobilePosition,
-  } = useAppSettings()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
-  const activeSide = isDesktop ? floatingButtonsDesktopPosition : floatingButtonsMobilePosition
+  const launchModalOpen = useContext(FloatingActionsContext)?.launchModalOpen ?? false
   const location = useLocation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [expression, setExpression] = useState(DEFAULT_STATE.expression)
@@ -328,9 +344,70 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const [iconOffset, setIconOffset] = useState<Point>({ x: 0, y: 0 })
   const [isDraggingIcon, setIsDraggingIcon] = useState(false)
   const [isIconReturning, setIsIconReturning] = useState(false)
-  const [iconOrigin, setIconOrigin] = useState<IconOrigin>('bottom-right')
+  const [isOriginFlipping, setIsOriginFlipping] = useState(false)
+  const [flipTransform, setFlipTransform] = useState<string | null>(null)
+  const [iconOrigin, setIconOrigin] = useState<IconOrigin>(() => readPersistedIconOrigin())
   const iconDragMovedRef = useRef(false)
   const iconReturnTimeoutRef = useRef<number | null>(null)
+  const iconDragWrapperRef = useRef<HTMLDivElement>(null)
+  const pendingFlipFromRef = useRef<ReturnType<typeof captureFlipRect>>(null)
+  const iconOffsetRef = useRef<Point>({ x: 0, y: 0 })
+  const isDraggingIconRef = useRef(false)
+  const [sideSlotRoot, setSideSlotRoot] = useState<HTMLElement | null>(null)
+
+  useLayoutEffect(() => {
+    setSideSlotRoot(document.getElementById(CALCULATOR_SIDE_SLOT_ID))
+  }, [])
+
+  useEffect(() => {
+    iconOffsetRef.current = iconOffset
+  }, [iconOffset])
+
+  useEffect(() => {
+    isDraggingIconRef.current = isDraggingIcon
+  }, [isDraggingIcon])
+
+  const commitIconOrigin = useCallback((nextOrigin: IconOrigin, previousOrigin: IconOrigin) => {
+    if (nextOrigin === previousOrigin) {
+      return
+    }
+
+    const captureTarget = iconDragWrapperRef.current?.querySelector('button') ?? iconDragWrapperRef.current
+    pendingFlipFromRef.current = captureFlipRect(captureTarget)
+    setIconOrigin(nextOrigin)
+  }, [])
+
+  useLayoutEffect(() => {
+    const fromRect = pendingFlipFromRef.current
+    if (!fromRect) {
+      return
+    }
+
+    const wrapper = iconDragWrapperRef.current
+    if (!wrapper) {
+      return
+    }
+
+    pendingFlipFromRef.current = null
+
+    const toElement = wrapper.querySelector('button') ?? wrapper
+    const toRect = captureFlipRect(toElement)
+    if (!toRect) {
+      return
+    }
+
+    const startTransform = buildFlipStartTransform(fromRect, toRect)
+    const endTransform = buildIconDragTransform(iconOffsetRef.current, isDraggingIconRef.current)
+
+    setFlipTransform(startTransform)
+
+    requestAnimationFrame(() => {
+      setIsOriginFlipping(true)
+      requestAnimationFrame(() => {
+        setFlipTransform(endTransform)
+      })
+    })
+  }, [iconOrigin, sideSlotRoot])
 
   useEffect(() => {
     window.localStorage.setItem('floating-calculator-custom-top', String(customTopY))
@@ -346,32 +423,10 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   }, [panelRect])
 
   useEffect(() => {
-    const handleReset = () => {
-      setCustomTopY(160)
-      setIconOrigin('bottom-right')
-      setIconOffset({ x: 0, y: 0 })
-      setPanelRect(getDefaultPanelRect())
-    }
-    window.addEventListener('app-settings-reset', handleReset)
     return () => {
-      window.removeEventListener('app-settings-reset', handleReset)
       if (iconReturnTimeoutRef.current) {
         window.clearTimeout(iconReturnTimeoutRef.current)
       }
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      const persistedUiRaw = window.localStorage.getItem(CALCULATOR_UI_KEY)
-      if (!persistedUiRaw) return
-
-      const persistedUi = JSON.parse(persistedUiRaw) as { iconOrigin?: IconOrigin }
-      if (persistedUi.iconOrigin === 'top-right' || persistedUi.iconOrigin === 'bottom-right') {
-        setIconOrigin(persistedUi.iconOrigin)
-      }
-    } catch {
-      window.localStorage.removeItem(CALCULATOR_UI_KEY)
     }
   }, [])
 
@@ -665,8 +720,8 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   const keypadRowClass = `grid grid-cols-4 ${keypadGridGapClass} flex-1 min-h-0`
   const keypadSingleRowClass = `grid grid-cols-1 ${keypadGridGapClass} flex-1 min-h-0`
-  const keypadButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-secondary text-primary ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] border border-primary/20`
-  const keypadPrimaryButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-[var(--color-primary)] text-[var(--color-button-text)] ${keypadButtonTextClass} leading-none font-medium hover:shadow-lg motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]`
+  const keypadButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-secondary text-primary ${keypadButtonTextClass} leading-none font-medium motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] border border-glass hover:bg-accent/50`
+  const keypadPrimaryButtonClass = `h-full min-h-0 rounded-xl flex items-center justify-center bg-[var(--color-primary)] text-[var(--color-button-text)] ${keypadButtonTextClass} leading-none font-medium motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] border border-[var(--ds-color-accent-primary)]/25 hover:opacity-90`
 
   const openCalculator = () => {
     const activeNumericInput = resolveTargetInput()
@@ -977,11 +1032,16 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
       // 1. If currently at bottom-right (on top of bottom nav bar / bottom corner)
       if (currentOrigin === 'bottom-right') {
-        const snapThreshold = isMobile ? window.innerHeight - 150 : window.innerHeight - 120
+        const snapThreshold = getSnapToSideThresholdY({
+          viewportHeight: window.innerHeight,
+          isMobile,
+          dragStartY: startY,
+          sideAnchorY: activeStartTopY,
+        })
         if (moveEvent.clientY < snapThreshold) {
           // Snap/switch to top-right origin (vertical dragging along side)
+          commitIconOrigin('top-right', currentOrigin)
           currentOrigin = 'top-right'
-          setIconOrigin('top-right')
           
           const initialTop = clamp(moveEvent.clientY - 20, 16, window.innerHeight - (isMobile ? 150 : 80))
           setCustomTopY(initialTop)
@@ -991,9 +1051,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
           // Clear standard offset on switch to keep motion smooth
           setIconOffset({ x: 0, y: 0 })
         } else {
-          // Standard relative offset dragging inside bottom area
-          const boundedOffset = clampOffsetToIconLimit({ x: deltaX, y: rawDeltaY })
-          setIconOffset(boundedOffset)
+          setIconOffset({ x: deltaX, y: rawDeltaY })
         }
       } 
       // 2. If currently at top-right (vertical sliding tab mode)
@@ -1006,18 +1064,21 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
         
         setCustomTopY(clampedTopY)
 
-        // If dragged all the way down near the bottom nav bar, snap back to bottom-right
-        const snapBottomThreshold = window.innerHeight - (isMobile ? 120 : 80)
+        // If dragged down into the lower half of the screen, snap back to bottom-right
+        const snapBottomThreshold = getSnapToFabThresholdY({
+          viewportHeight: window.innerHeight,
+          isMobile,
+          dragStartY: activeStartY,
+          sideAnchorY: activeStartTopY,
+        })
         if (moveEvent.clientY > snapBottomThreshold) {
+          commitIconOrigin('bottom-right', currentOrigin)
           currentOrigin = 'bottom-right'
-          setIconOrigin('bottom-right')
           // Reset starting drag positions to make bottom relative dragging smooth
           activeStartY = moveEvent.clientY
           setIconOffset({ x: deltaX, y: 0 })
         } else {
-          // Allow minor horizontal drag offset for physical spring effect
-          const boundedOffset = clampOffsetToIconLimit({ x: deltaX, y: 0 })
-          setIconOffset({ x: boundedOffset.x, y: 0 })
+          setIconOffset({ x: deltaX, y: 0 })
         }
       }
     }
@@ -1037,7 +1098,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
       iconReturnTimeoutRef.current = window.setTimeout(() => {
         setIsIconReturning(false)
-      }, 280)
+      }, ORIGIN_FLIP_DURATION_MS)
     }
 
     document.addEventListener('pointermove', onPointerMove)
@@ -1056,6 +1117,123 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     openCalculator()
   }
 
+  const isSideStackMode = iconOrigin === 'top-right'
+  const sidePosition: FloatingSidePosition = 'right'
+  const panelOpenClass = getCalculatorPanelOpenClass(iconOrigin, sidePosition)
+
+  const sideTabButtonClassName = cn(
+    getFloatingSideTabButtonClassName(sidePosition),
+    isDraggingIcon ? 'cursor-grabbing scale-[1.02] transition-none' : 'cursor-grab',
+    FLOATING_SIDE_BUTTON_NEUTRAL,
+    'calculator-origin-button',
+    isDraggingIcon && 'calculator-origin-button--dragging'
+  )
+
+  const fabButtonClassName = cn(
+    FLOATING_SIDE_FAB_BASE,
+    isDraggingIcon ? 'cursor-grabbing scale-[1.04]' : 'cursor-grab',
+    FLOATING_SIDE_BUTTON_NEUTRAL,
+    'calculator-origin-button',
+    isDraggingIcon && 'calculator-origin-button--dragging',
+    !isDraggingIcon && !isIconReturning && !isOriginFlipping && 'calculator-fab-idle'
+  )
+
+  const iconDragTransform = buildIconDragTransform(iconOffset, isDraggingIcon)
+  const wrapperTransform = flipTransform ?? iconDragTransform
+
+  const iconDragWrapperClassName = cn(
+    'calculator-icon-drag relative pointer-events-auto',
+    isDraggingIcon && !isOriginFlipping && 'calculator-icon-drag--dragging',
+    isIconReturning && !isOriginFlipping && 'calculator-icon-drag--returning',
+    isOriginFlipping && 'calculator-icon-drag--origin-flip'
+  )
+
+  const handleIconDragTransitionEnd = (event: React.TransitionEvent<HTMLDivElement>) => {
+    if (event.propertyName !== 'transform' || event.target !== iconDragWrapperRef.current) {
+      return
+    }
+
+    if (isOriginFlipping) {
+      setFlipTransform(null)
+      setIsOriginFlipping(false)
+      return
+    }
+
+    if (!isIconReturning) {
+      return
+    }
+
+    if (iconReturnTimeoutRef.current) {
+      window.clearTimeout(iconReturnTimeoutRef.current)
+      iconReturnTimeoutRef.current = null
+    }
+
+    setIsIconReturning(false)
+  }
+
+  const renderCalculatorIconButton = () => (
+    <button
+      type="button"
+      onPointerDown={startIconDrag}
+      onClick={handleIconClick}
+      aria-label="Abrir calculadora flutuante"
+      className={iconOrigin === 'top-right' ? sideTabButtonClassName : fabButtonClassName}
+    >
+      {iconOrigin === 'top-right' ? (
+        <>
+          <Calculator size={isDesktop ? 18 : 16} className="shrink-0 text-[var(--ds-color-accent-primary)]" aria-hidden />
+          <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5 transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
+            Calculadora
+          </span>
+        </>
+      ) : (
+        <Calculator size={isDesktop ? 18 : 16} className="mx-auto text-[var(--ds-color-accent-primary)]" />
+      )}
+    </button>
+  )
+
+  const renderFloatingIcon = () => {
+    if (isExpanded || isHidden || launchModalOpen) {
+      return null
+    }
+
+    const iconContent = renderCalculatorIconButton()
+
+    if (isSideStackMode) {
+      if (!sideSlotRoot) {
+        return null
+      }
+
+      const stackContent = (
+        <div
+          ref={iconDragWrapperRef}
+          className={iconDragWrapperClassName}
+          style={{ transform: wrapperTransform }}
+          onTransitionEnd={handleIconDragTransitionEnd}
+        >
+          {iconContent}
+        </div>
+      )
+
+      return createPortal(stackContent, sideSlotRoot)
+    }
+
+    return (
+      <div
+        className={cn('fixed right-4 z-[1001] safe-area-bottom pointer-events-none lg:bottom-8', FLOATING_FAB_BOTTOM)}
+      >
+        <div
+          ref={iconDragWrapperRef}
+          className={iconDragWrapperClassName}
+          style={{ transform: wrapperTransform }}
+          onTransitionEnd={handleIconDragTransitionEnd}
+        >
+          {iconContent}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       {isExpanded && isResizingPanel && resizePreviewRect && (
@@ -1072,7 +1250,10 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
       {isExpanded && !isHidden && (
         <div
-          className="fixed z-[1001] rounded-2xl border border-glass surface-glass-strong p-3 shadow-2xl animate-page-enter motion-emphasis overflow-hidden"
+          className={cn(
+            'fixed z-[1001] rounded-2xl border border-glass surface-glass-strong p-3 shadow-2xl motion-emphasis overflow-hidden',
+            panelOpenClass
+          )}
           onPointerDown={startDrag}
           style={{
             left: panelRect.left,
@@ -1263,86 +1444,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
         </div>
       )}
 
-      {!isExpanded && !isHidden && (
-        <div
-          className={cn(
-            iconOrigin === 'top-right'
-              ? activeSide === 'top'
-                ? 'fixed top-0 right-48 z-[1001] pointer-events-none'
-                : activeSide === 'left'
-                ? 'fixed left-0 z-[1001] pointer-events-none'
-                : 'fixed right-0 z-[1001] pointer-events-none'
-              : activeSide === 'left'
-              ? 'fixed left-4 z-[1001] h-11 w-11 sm:h-12 sm:w-12 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] lg:bottom-8 safe-area-bottom pointer-events-none'
-              : 'fixed right-4 z-[1001] h-11 w-11 sm:h-12 sm:w-12 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] lg:bottom-8 safe-area-bottom pointer-events-none',
-            isIconReturning && 'transition-transform duration-300 ease-out'
-          )}
-          style={{
-            ...(iconOrigin === 'top-right' && activeSide !== 'top' ? { top: `${customTopY}px` } : {}),
-            transform: iconOrigin === 'top-right' && activeSide === 'top'
-              ? `translate(${iconOffset.x}px, 0px)`
-              : `translate(${iconOffset.x}px, ${iconOrigin === 'top-right' ? 0 : iconOffset.y}px)`,
-            touchAction: 'none',
-          }}
-        >
-          {/* Old drag limits indicator omitted in cyberpunk mode for cleaner interaction */}
-          {(isDraggingIcon || isIconReturning) && (
-            <div
-              className={`pointer-events-none absolute rounded-full border border-primary ${isDraggingIcon ? 'opacity-80' : 'opacity-0'} motion-emphasis`}
-              style={{
-                width: `${ICON_DRAG_LIMIT * 2 + 40}px`,
-                height: `${ICON_DRAG_LIMIT * 2 + 40}px`,
-                left: `${-(ICON_DRAG_LIMIT + 15)}px`,
-                top: `${-(ICON_DRAG_LIMIT + 15)}px`,
-              }}
-            />
-          )}
-
-          <button
-            type="button"
-            onPointerDown={startIconDrag}
-            onClick={handleIconClick}
-            aria-label="Abrir calculadora flutuante"
-            className={
-              iconOrigin === 'top-right'
-                ? activeSide === 'top'
-                  ? cn(
-                      'group relative flex items-center justify-start h-10 rounded-b-2xl rounded-t-none border-x border-b border-t-0 shadow-lg transition-all duration-300 -translate-y-2 hover:translate-y-0 pt-2.5 pb-2 px-4 select-none pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]',
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
-                      'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral motion-spring'
-                    )
-                  : activeSide === 'left'
-                  ? cn(
-                      'group relative flex items-center justify-start h-10 rounded-r-2xl rounded-l-none border-y border-r border-l-0 shadow-lg transition-all duration-300 -translate-x-2 hover:translate-x-0 pl-6 pr-4 select-none pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]',
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
-                      'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral motion-spring'
-                    )
-                  : cn(
-                      'group relative flex items-center justify-start h-10 rounded-l-2xl rounded-r-none border-y border-l border-r-0 shadow-lg transition-all duration-300 translate-x-2 hover:translate-x-0 pl-4 pr-6 select-none pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]',
-                      isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
-                      'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral motion-spring'
-                    )
-                : cn(
-                    'h-10 w-10 rounded-full border shadow-lg flex items-center justify-center pointer-events-auto surface-glass-strong press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-all duration-300 hover:scale-110',
-                    isDraggingIcon ? 'cursor-grabbing' : 'cursor-grab',
-                    'text-primary border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/60 glass-glow-button-neutral',
-                    isIconReturning ? 'transition-transform duration-300 ease-out' : 'motion-standard hover-lift-subtle calculator-fab-idle'
-                  )
-            }
-          >
-            {iconOrigin === 'top-right' ? (
-              <>
-                <Calculator size={isDesktop ? 18 : 16} className="shrink-0 text-[var(--ds-color-accent-primary)]" aria-hidden />
-                <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5 transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
-                  Calculadora
-                </span>
-              </>
-            ) : (
-              <Calculator size={isDesktop ? 18 : 16} className="mx-auto text-[var(--ds-color-accent-primary)]" />
-            )}
-          </button>
-        </div>
-      )}
+      {renderFloatingIcon()}
     </>
   )
 }

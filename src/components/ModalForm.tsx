@@ -13,7 +13,6 @@ interface ModalFormProps {
   formClassName?: string
   bodyClassName?: string
   size?: ModalSize
-  maxWidth?: string
   zIndexClass?: string
 }
 
@@ -29,7 +28,6 @@ export default function ModalForm({
   formClassName,
   bodyClassName,
   size,
-  maxWidth,
   zIndexClass,
 }: ModalFormProps) {
   const formId = useId()
@@ -43,7 +41,6 @@ export default function ModalForm({
       footer={footer(formId)}
       bodyClassName={bodyClassName}
       size={size}
-      maxWidth={maxWidth}
       zIndexClass={zIndexClass}
     >
       <form

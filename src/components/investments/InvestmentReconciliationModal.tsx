@@ -1686,7 +1686,7 @@ export default function InvestmentReconciliationModal({
                     onClick={() => setCorrectionsTab(tab.id)}
                     className={`flex-1 min-w-0 px-3 py-2 rounded-xl text-[11px] font-black transition-all duration-300 ${
                       isActive
-                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/10 border-none scale-[1.02]'
+                        ? 'bg-primary text-primary-foreground border-none scale-[1.02]'
                         : 'text-secondary hover:text-primary hover:bg-primary/5'
                     }`}
                   >
@@ -1743,7 +1743,7 @@ export default function InvestmentReconciliationModal({
                 return (
                   <div
                     key={draft.key}
-                    className="p-3.5 bg-secondary/30 border border-primary rounded-2xl grid grid-cols-1 md:grid-cols-12 gap-3 items-center text-left"
+                    className="modal-panel-glass p-3.5 grid grid-cols-1 md:grid-cols-12 gap-3 items-center text-left"
                   >
                     <div className="md:col-span-1 flex items-center justify-center">
                       <input
@@ -1888,8 +1888,8 @@ export default function InvestmentReconciliationModal({
                   {missingDrafts.map((draft) => (
                     <tr
                       key={draft.id}
-                      className={`hover:bg-secondary/40 transition-colors ${
-                        draft.selected ? 'bg-balance/5' : 'opacity-70'
+                      className={`glass-table-row-hover transition-colors ${
+                        draft.selected ? 'modal-upload-zone--ready-balance' : 'opacity-70'
                       }`}
                     >
                       <td className="p-2.5 text-center">
@@ -2095,7 +2095,7 @@ export default function InvestmentReconciliationModal({
                         <span className="px-2 py-0.5 bg-balance/10 text-balance rounded-lg text-[9px] uppercase font-bold font-mono font-semibold">
                           Aporte: {asset.date}
                         </span>
-                        <span className="px-2 py-0.5 bg-secondary text-secondary rounded-lg text-[9px] font-bold font-mono">
+                        <span className="rounded-lg border border-glass modal-panel-glass px-2 py-0.5 text-[9px] font-bold font-mono text-secondary">
                           Qtd: {asset.quantity} • {formatCurrency(parseFloat(asset.price))}
                         </span>
                       </div>
@@ -2339,8 +2339,6 @@ export default function InvestmentReconciliationModal({
 
             {/* Financial Receipt Summary */}
             <div className="modal-panel-glass relative overflow-hidden rounded-3xl p-5 space-y-4 group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-balance/5 to-transparent rounded-full -z-10" />
-              
               <h5 className="font-black text-xs text-primary uppercase tracking-widest border-b modal-section-divider pb-2 flex items-center justify-between">
                 <span>Relatório Consolidado de Auditoria</span>
                 <span className="text-[9px] font-mono text-secondary/60">Hash: {crypto.randomUUID().slice(0, 8).toUpperCase()}</span>

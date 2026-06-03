@@ -8,9 +8,16 @@ import Select from '@/components/Select'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import PageHeader from '@/components/PageHeader'
+import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import ModalFooter from '@/components/ModalFooter'
 import GlassChoiceCard from '@/components/GlassChoiceCard'
-import { TrendingUp } from 'lucide-react'
+import ModalIntro from '@/components/ModalIntro'
+import ModalChoiceGrid from '@/components/ModalChoiceGrid'
+import ModalInfoPanel from '@/components/ModalInfoPanel'
+import ModalSummaryPanel from '@/components/ModalSummaryPanel'
+import Checkbox from '@/components/Checkbox'
+import ConfirmModal from '@/components/ConfirmModal'
+import { TrendingUp, TrendingDown, PiggyBank } from 'lucide-react'
 
 vi.mock('@/hooks/useMediaQuery', () => ({
   useMediaQuery: vi.fn(() => false),
@@ -83,16 +90,18 @@ describe('UI primitives snapshots', () => {
     expect(document.body).toMatchSnapshot()
   })
 
-  it('PageHeader renders title, subtitle and action consistently', () => {
+  it('PageHeader registers floating actions via context', () => {
     const { container } = render(
-      createElement(PageHeader, {
-        title: 'Relatórios',
-        subtitle: 'Resumo anual e mensal',
-        action: createElement(Button, { size: 'sm', children: 'Exportar' }),
-      }),
+      createElement(FloatingActionsProvider, null,
+        createElement(PageHeader, {
+          title: 'Relatórios',
+          subtitle: 'Resumo anual e mensal',
+          action: createElement(Button, { size: 'sm', children: 'Exportar' }),
+        }),
+      ),
     )
 
-    expect(container.firstChild).toMatchSnapshot()
+    expect(container.firstChild).toBeNull()
   })
 
   it('ModalFooter renders with delete action consistently (mobile icons)', () => {
@@ -122,5 +131,87 @@ describe('UI primitives snapshots', () => {
     )
 
     expect(container.firstChild).toMatchSnapshot()
+  })
+
+  it('ModalIntro center alignment renders consistently', () => {
+    const { container } = render(
+      createElement(ModalIntro, { align: 'center', children: 'Escolha o tipo de lançamento.' }),
+    )
+
+    expect(container.firstChild).toMatchSnapshot()
+  })
+
+  it('ModalChoiceGrid with GlassChoiceCard renders consistently', () => {
+    const { container } = render(
+      createElement(ModalChoiceGrid, null,
+        createElement(GlassChoiceCard, {
+          label: 'Renda',
+          icon: createElement(TrendingUp, { size: 24 }),
+          intent: 'income',
+          onClick: vi.fn(),
+        }),
+        createElement(GlassChoiceCard, {
+          label: 'Despesa',
+          icon: createElement(TrendingDown, { size: 24 }),
+          intent: 'expense',
+          onClick: vi.fn(),
+        }),
+        createElement(GlassChoiceCard, {
+          label: 'Investimento',
+          icon: createElement(PiggyBank, { size: 24 }),
+          intent: 'balance',
+          onClick: vi.fn(),
+        }),
+      ),
+    )
+
+    expect(container.firstChild).toMatchSnapshot()
+  })
+
+  it('ModalInfoPanel with Checkbox renders consistently', () => {
+    const { container } = render(
+      createElement(ModalInfoPanel, null,
+        createElement(Checkbox, {
+          label: 'Vinculado à B3',
+          description: 'Sincroniza a cotação do ativo automaticamente a mercado',
+          checked: true,
+          onChange: vi.fn(),
+        }),
+      ),
+    )
+
+    expect(container.firstChild).toMatchSnapshot()
+  })
+
+  it('ModalSummaryPanel balance intent renders consistently', () => {
+    const { container } = render(
+      createElement(ModalSummaryPanel, {
+        title: 'Cálculo de Aporte com Caixa',
+        intent: 'balance',
+        rows: [
+          { label: 'Valor do Aporte:', value: 'R$ 355,00' },
+          { label: '(-) Saldo em Caixa:', value: 'R$ 642,50', valueClassName: 'text-balance' },
+        ],
+        total: { label: 'Aporte Líquido:', value: 'R$ 0,00' },
+        note: 'O saldo em caixa cobre integralmente este aporte.',
+      }),
+    )
+
+    expect(container.firstChild).toMatchSnapshot()
+  })
+
+  it('ConfirmModal hybrid layout renders consistently', () => {
+    render(
+      createElement(ConfirmModal, {
+        isOpen: true,
+        onClose: vi.fn(),
+        title: 'Excluir categoria',
+        confirmLabel: 'Confirmar exclusão',
+        onConfirm: vi.fn(),
+        children: createElement('p', null, 'Tem certeza que deseja excluir?'),
+      }),
+    )
+
+    expect(document.body).toMatchSnapshot()
   })
 })

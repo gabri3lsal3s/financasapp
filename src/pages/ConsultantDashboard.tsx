@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
@@ -16,13 +16,12 @@ import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import Modal from '@/components/Modal'
 import ModalForm from '@/components/ModalForm'
-import ModalButtonFooter from '@/components/ModalButtonFooter'
+import ModalFooter from '@/components/ModalFooter'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText, Layers, Plus } from 'lucide-react'
+import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText, Layers, Plus, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
 import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
@@ -42,6 +41,7 @@ import PositionsTable from '@/components/consulting/PositionsTable'
 import AdvisorNotes from '@/components/consulting/AdvisorNotes'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
+import ClientPickerModal from '@/components/consulting/ClientPickerModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
@@ -56,7 +56,7 @@ import {
   buildProvisionalClientEmail,
   isProvisionalClientEmail,
 } from '@/constants/provisionalClient'
-import { profileSelectSublabel, resolveProfileDisplayName } from '@/utils/profileDisplayName'
+import { resolveProfileDisplayName } from '@/utils/profileDisplayName'
 
 type ConsultantTab = 'overview' | 'allocation' | 'rebalancing' | 'positions' | 'ledger' | 'qualitative'
 
@@ -117,10 +117,13 @@ async function ensurePersonalPortfolio(userId: string): Promise<void> {
 
 export default function ConsultantDashboard() {
   const { user } = useAuth()
-  const linkClientFormId = useId()
-  const deleteClientFormId = useId()
   const [clients, setClients] = useState<Profile[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
+  const selectedClientIdRef = useRef(selectedClientId)
+  selectedClientIdRef.current = selectedClientId
+
+  const isPortfolioLoadStale = (clientId: string) => selectedClientIdRef.current !== clientId
+  const isOverviewLoadStale = () => selectedClientIdRef.current !== ''
   const [loadingClients, setLoadingClients] = useState<boolean>(true)
   
   // Estado para Personalização de Layout & Billing
@@ -164,6 +167,8 @@ export default function ConsultantDashboard() {
   const [yieldBasis, setYieldBasis] = useState<ClientKpiYieldBasis>('gross')
   const [periodSnapshots, setPeriodSnapshots] = useState<PortfolioPeriodSnapshotRow[]>([])
   const { loadPeriodSnapshots } = usePortfolioClose()
+
+  const [isClientPickerOpen, setIsClientPickerOpen] = useState<boolean>(false)
 
   // Estado para cadastrar novo cliente
   const [isClientModalOpen, setIsClientModalOpen] = useState<boolean>(false)
@@ -220,6 +225,13 @@ export default function ConsultantDashboard() {
   const [limitsCollapsed, setLimitsCollapsed] = useState<boolean>(true)
   const [editingGroupTarget, setEditingGroupTarget] = useState<PortfolioGroupTarget | null>(null)
   const [savingGroupTarget, setSavingGroupTarget] = useState<boolean>(false)
+
+  const handleSelectedClientChange = (clientId: string) => {
+    setSelectedClientId(clientId)
+    if (!clientId) {
+      setActiveTab('overview')
+    }
+  }
 
   useEffect(() => {
     loadClients()
@@ -510,6 +522,8 @@ export default function ConsultantDashboard() {
 
       rows.sort((a, b) => b.deviationPct - a.deviationPct)
 
+      if (isOverviewLoadStale()) return
+
       setGlobalAumData({
         totalAum: overallAum,
         totalCash: overallCash,
@@ -625,6 +639,7 @@ export default function ConsultantDashboard() {
     try {
       const cached = await getCache<ConsultantPortfolioCache>(cacheKey)
       if (cached && !options?.forceRefresh) {
+        if (isPortfolioLoadStale(clientId)) return
         if (cached.portfolio) setPortfolio(cached.portfolio)
         if (cached.clientNotes !== undefined) setClientNotes(cached.clientNotes)
         if (cached.billingFeeRate !== undefined) setBillingFeeRate(cached.billingFeeRate)
@@ -655,6 +670,8 @@ export default function ConsultantDashboard() {
         .select('*')
         .eq('client_id', clientId)
         .maybeSingle()
+
+      if (isPortfolioLoadStale(clientId)) return
 
       let portData = portLookup.data
       const portError = portLookup.error
@@ -698,14 +715,22 @@ export default function ConsultantDashboard() {
         }
       }
 
+      if (isPortfolioLoadStale(clientId)) return
+
       setPortfolio(portData)
-      void loadPeriodSnapshots(portData.id).then(setPeriodSnapshots)
+      void loadPeriodSnapshots(portData.id).then((snapshots) => {
+        if (!isPortfolioLoadStale(clientId)) {
+          setPeriodSnapshots(snapshots)
+        }
+      })
       const currentNotes = portData ? portData.notes || '' : ''
       setClientNotes(currentNotes)
       const currentFee = portData && portData.billing_fee_rate !== undefined && portData.billing_fee_rate !== null ? Number(portData.billing_fee_rate) : 0.85
       setBillingFeeRate(currentFee)
 
       const txs = await fetchAllPortfolioTransactions(portData.id, { orderField: 'date', ascending: true })
+      if (isPortfolioLoadStale(clientId)) return
+
       setTransactions(txs)
 
       const { data: targetsData, error: targetsError } = await supabase
@@ -761,6 +786,8 @@ export default function ConsultantDashboard() {
           Number(portData.cash_balance) || 0,
           { forceRefresh: options?.forceRefresh }
         )
+        if (isPortfolioLoadStale(clientId)) return
+
         setAssetPrices(valuation.prices)
         setPositions(valuation.positions)
         setInvestedValue(valuation.investedValue)
@@ -1245,30 +1272,25 @@ export default function ConsultantDashboard() {
     }
   }
 
+  const selectedClient = clients.find(c => c.id === selectedClientId)
+  const isSelfPortfolio = selectedClientId !== '' && selectedClientId === user?.id
+  const isTempClient = selectedClient?.email ? isProvisionalClientEmail(selectedClient.email) : false
+  const clientPickerLabel = selectedClient
+    ? resolveProfileDisplayName(selectedClient)
+    : 'Visão Geral'
+
   const headerAction = (
     <PageHeaderActions className="justify-between sm:justify-end">
-      {loadingClients ? (
-        <span className="text-xs text-secondary font-semibold uppercase font-sans">Carregando clientes...</span>
-      ) : (
-        <div className="flex items-center gap-2 flex-1 sm:flex-initial">
-          <span className="text-xs font-semibold text-secondary uppercase tracking-wider hidden md:inline font-sans">Cliente:</span>
-          <div className="w-full sm:w-56">
-            <Select
-              value={selectedClientId}
-              onChange={e => setSelectedClientId(e.target.value)}
-              options={[
-                { value: '', label: 'Visão Geral' },
-                ...clients.map(c => ({
-                  value: c.id,
-                  label: resolveProfileDisplayName(c),
-                  sublabel: profileSelectSublabel(c, { selfUserId: user?.id }),
-                }))
-              ]}
-              placeholder="Selecionar Cliente"
-            />
-          </div>
-        </div>
-      )}
+      <PageHeaderActionButton
+        intent="balance"
+        icon={Users}
+        label={loadingClients ? 'Clientes...' : clientPickerLabel}
+        compactOnMobile={false}
+        onClick={() => setIsClientPickerOpen(true)}
+        disabled={loadingClients}
+        aria-haspopup="dialog"
+        aria-expanded={isClientPickerOpen}
+      />
       <PageHeaderActionButton
         intent="warning"
         icon={RefreshCw}
@@ -1286,10 +1308,6 @@ export default function ConsultantDashboard() {
       />
     </PageHeaderActions>
   )
-
-  const selectedClient = clients.find(c => c.id === selectedClientId)
-  const isSelfPortfolio = selectedClientId !== '' && selectedClientId === user?.id
-  const isTempClient = selectedClient?.email ? isProvisionalClientEmail(selectedClient.email) : false
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
@@ -1347,7 +1365,7 @@ export default function ConsultantDashboard() {
                   onClick={() => setActiveTab(tab.id as ConsultantTab)}
                   className={`flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl transition-all w-full md:w-auto ${
                     isActive 
-                      ? 'nav-item-active shadow-md' 
+                      ? 'nav-item-active' 
                       : 'border-glass hover:bg-muted/10'
                   }`}
                 >
@@ -1359,7 +1377,7 @@ export default function ConsultantDashboard() {
           </div>
         </div>
       )}
-      {portfolio ? (
+      {portfolio && selectedClientId ? (
         <div className={`transition-all duration-300 ${loadingPortfolio ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="space-y-6 animate-page-enter">
             {activeTab === 'overview' && (
@@ -1584,7 +1602,7 @@ export default function ConsultantDashboard() {
         <AdvisorOverview
           globalAumData={globalAumData}
           clients={clients}
-          onSelectClient={setSelectedClientId}
+          onSelectClient={handleSelectedClientChange}
           onDeleteClient={(cl) => {
             setClientToDelete(cl)
             setIsDeleteModalOpen(true)
@@ -1610,6 +1628,16 @@ export default function ConsultantDashboard() {
          E) MODAIS ADMINISTRATIVOS E DE PERSONALIZAÇÃO
          ======================================================= */}
       
+      {/* Modal: Seleção de Cliente */}
+      <ClientPickerModal
+        isOpen={isClientPickerOpen}
+        onClose={() => setIsClientPickerOpen(false)}
+        clients={clients}
+        value={selectedClientId}
+        onChange={handleSelectedClientChange}
+        selfUserId={user?.id}
+      />
+
       {/* Modal: Novo Cliente */}
       <ModalForm
         isOpen={isClientModalOpen}
@@ -1617,7 +1645,7 @@ export default function ConsultantDashboard() {
         title="Cadastrar Novo Cliente"
         onSubmit={handleCreateClient}
         footer={(formId) => (
-          <ModalButtonFooter
+          <ModalFooter
             formId={formId}
             onCancel={() => setIsClientModalOpen(false)}
             submitLabel="Cadastrar Cliente"
@@ -1650,58 +1678,51 @@ export default function ConsultantDashboard() {
       </ModalForm>
 
       {/* Modal: Vincular Provisório a Usuário Real */}
-      <Modal
+      <ModalForm
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
         title="Vincular Carteira a Usuário Real"
-        footer={
-          !loadingEligible && eligibleClients.length === 0 ? (
-            <div className="modal-button-footer">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsLinkModalOpen(false)}>
-                Fechar
-              </Button>
-            </div>
-          ) : !loadingEligible && eligibleClients.length > 0 ? (
-            <ModalButtonFooter
-              formId={linkClientFormId}
+        onSubmit={handleLinkClient}
+        footer={(formId) =>
+          loadingEligible ? undefined : eligibleClients.length === 0 ? (
+            <ModalFooter onCancel={() => setIsLinkModalOpen(false)} cancelLabel="Fechar" />
+          ) : (
+            <ModalFooter
+              formId={formId}
               onCancel={() => setIsLinkModalOpen(false)}
               submitLabel="Vincular Carteira"
               loading={linking}
               loadingLabel="Vinculando..."
             />
-          ) : undefined
+          )
         }
       >
-        <div className="modal-body-stack w-full text-left">
-          <p className="modal-intro font-sans">
-            Selecione uma conta de cliente real cadastrada no aplicativo para transferir a gestão desta carteira patrimonial de forma definitiva. O perfil provisório antigo será removido.
-          </p>
+        <p className="modal-intro font-sans">
+          Selecione uma conta de cliente real cadastrada no aplicativo para transferir a gestão desta carteira patrimonial de forma definitiva. O perfil provisório antigo será removido.
+        </p>
 
-          {loadingEligible ? (
-            <div className="modal-empty-state text-xs text-secondary">Carregando e-mails disponíveis...</div>
-          ) : eligibleClients.length === 0 ? (
-            <div className="modal-empty-state animate-page-enter">
-              <p className="text-xs text-secondary italic font-sans">Nenhuma conta de cliente real sem carteira foi encontrada no banco.</p>
-              <p className="text-[10px] text-secondary opacity-60 font-sans">Para vincular, o cliente precisa primeiro se cadastrar no aplicativo com o e-mail real dele.</p>
-            </div>
-          ) : (
-            <form id={linkClientFormId} onSubmit={handleLinkClient} className="modal-form-stack w-full text-left animate-page-enter">
-              <Select
-                label="Selecionar E-mail Real"
-                value={selectedRealClientId}
-                onChange={e => setSelectedRealClientId(e.target.value)}
-                options={eligibleClients.map(c => ({
-                  value: c.id,
-                  label: resolveProfileDisplayName(c),
-                  sublabel: c.email,
-                }))}
-                placeholder="Selecione um e-mail real..."
-                required
-              />
-            </form>
-          )}
-        </div>
-      </Modal>
+        {loadingEligible ? (
+          <div className="modal-empty-state text-xs text-secondary">Carregando e-mails disponíveis...</div>
+        ) : eligibleClients.length === 0 ? (
+          <div className="modal-empty-state animate-page-enter">
+            <p className="text-xs text-secondary italic font-sans">Nenhuma conta de cliente real sem carteira foi encontrada no banco.</p>
+            <p className="text-[10px] text-secondary opacity-60 font-sans">Para vincular, o cliente precisa primeiro se cadastrar no aplicativo com o e-mail real dele.</p>
+          </div>
+        ) : (
+          <Select
+            label="Selecionar E-mail Real"
+            value={selectedRealClientId}
+            onChange={(e) => setSelectedRealClientId(e.target.value)}
+            options={eligibleClients.map((c) => ({
+              value: c.id,
+              label: resolveProfileDisplayName(c),
+              sublabel: c.email,
+            }))}
+            placeholder="Selecione um e-mail real..."
+            required
+          />
+        )}
+      </ModalForm>
 
       {/* Modal: Edição Direta de Classificação do Ativo */}
       <ModalForm
@@ -1710,7 +1731,7 @@ export default function ConsultantDashboard() {
         title={`Editar Classificação: ${editingAssetTicker}`}
         onSubmit={handleSaveAssetClassification}
         footer={(formId) => (
-          <ModalButtonFooter
+          <ModalFooter
             formId={formId}
             onCancel={() => setIsEditAssetModalOpen(false)}
             submitLabel="Salvar Alterações"
@@ -1749,7 +1770,7 @@ export default function ConsultantDashboard() {
       </ModalForm>
 
       {/* Modal: Exclusão e Desvinculação de Cliente (Duas Etapas) */}
-      <Modal
+      <ModalForm
         isOpen={isDeleteModalOpen}
         onClose={() => {
           setIsDeleteModalOpen(false)
@@ -1757,10 +1778,11 @@ export default function ConsultantDashboard() {
           setDeleteConfirmEmail('')
         }}
         title={clientToDelete ? (isProvisionalClientEmail(clientToDelete.email) ? 'Excluir Conta Provisória' : 'Desvincular Carteira de Cliente Real') : 'Gerenciar Cliente'}
-        footer={
+        onSubmit={handleDeleteClient}
+        footer={(formId) =>
           clientToDelete ? (
-            <ModalButtonFooter
-              formId={deleteClientFormId}
+            <ModalFooter
+              formId={formId}
               onCancel={() => {
                 setIsDeleteModalOpen(false)
                 setClientToDelete(null)
@@ -1783,7 +1805,7 @@ export default function ConsultantDashboard() {
         }
       >
         {clientToDelete ? (
-          <form id={deleteClientFormId} onSubmit={handleDeleteClient} className="modal-form-stack w-full text-left">
+          <>
             {isProvisionalClientEmail(clientToDelete.email) ? (
               <div className="modal-alert modal-alert--danger font-sans">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" aria-hidden />
@@ -1816,13 +1838,13 @@ export default function ConsultantDashboard() {
                 required
                 placeholder="Digite o e-mail exato para confirmar"
                 value={deleteConfirmEmail}
-                onChange={e => setDeleteConfirmEmail(e.target.value)}
+                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
                 className="font-mono text-xs"
               />
             </div>
-          </form>
+          </>
         ) : null}
-      </Modal>
+      </ModalForm>
 
       {/* Modal: Lançamento e Edição de Transações (Premium) */}
       {portfolio && (
@@ -1862,29 +1884,40 @@ export default function ConsultantDashboard() {
 
       {/* Modal: Definir e Editar Limites de Exposição */}
       {portfolio && (
-        <Modal
+        <ModalForm
           isOpen={showGroupTargetForm}
           onClose={() => {
             setShowGroupTargetForm(false)
             setEditingGroupTarget(null)
           }}
           title="Definir Limites de Exposição"
-          maxWidth="max-w-md"
+          size="md"
+          onSubmit={(event) => void handleSaveGroupTarget(event)}
+          footer={(formId) => (
+            <ModalFooter
+              formId={formId}
+              onCancel={() => {
+                setShowGroupTargetForm(false)
+                setEditingGroupTarget(null)
+              }}
+              submitLabel={savingGroupTarget ? 'Salvando...' : 'Salvar Limite'}
+              submitDisabled={savingGroupTarget}
+              loading={savingGroupTarget}
+            />
+          )}
         >
           <InvestmentsGroupTargetForm
             groupTargetType={groupTargetType}
             groupTargetName={groupTargetName}
             groupTargetPct={groupTargetPct}
-            savingGroupTarget={savingGroupTarget}
             onTypeChange={(type) => {
               setGroupTargetType(type)
               setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
             }}
             onNameChange={setGroupTargetName}
             onPctChange={setGroupTargetPct}
-            onSubmit={handleSaveGroupTarget}
           />
-        </Modal>
+        </ModalForm>
       )}
     </div>
   )

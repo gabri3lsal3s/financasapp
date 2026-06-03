@@ -53,14 +53,11 @@ interface ModalProps {
   /** Fixo abaixo da área rolável */
   footer?: ReactNode
   bodyClassName?: string
-  /** @deprecated Prefer `size` — mantido para compatibilidade */
-  maxWidth?: string
   size?: ModalSize
   zIndexClass?: string
 }
 
-function resolveWidthClass(maxWidth?: string, size?: ModalSize): string {
-  if (maxWidth) return maxWidth
+function resolveWidthClass(size?: ModalSize): string {
   if (size) return MODAL_SIZE_CLASSES[size]
   return MODAL_SIZE_CLASSES.md
 }
@@ -137,13 +134,12 @@ export default function Modal({
   header,
   footer,
   bodyClassName,
-  maxWidth,
   size,
   zIndexClass,
 }: ModalProps) {
   const titleId = useId()
   const isMobile = useMediaQuery('(max-width: 639px)')
-  const widthClass = resolveWidthClass(maxWidth, size)
+  const widthClass = resolveWidthClass(size)
   const stack = resolveStack(zIndexClass)
 
   if (isMobile) {

@@ -1,48 +1,42 @@
 import { useTheme, type Theme } from '@/hooks/useTheme'
-import { Palette } from 'lucide-react'
+import { Check, Palette } from 'lucide-react'
 import Card from './Card'
 import Button from './Button'
-import { cn } from '@/lib/utils'
+import { appearanceChoiceClass } from '@/components/appearanceChoice'
 
-function ThemePreview({ themeId }: { themeId: Theme }) {
-  if (themeId === 'light') {
-    return (
-      <div className="flex-1 flex gap-1 relative p-1 theme-preview-cyber-bg-light">
-        <div className="flex-1 rounded-sm border border-black/5 theme-preview-light-classic-a surface-glass" />
-        <div className="absolute top-2 left-2 w-2 h-2 rounded-full theme-preview-dot-income" />
-        <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full theme-preview-dot-expense" />
-      </div>
-    )
-  }
+const THEME_PREVIEW_LABELS = {
+  bg: 'Fundo',
+  surface: 'Superfície',
+  accent: 'Destaque',
+} as const
 
-  if (themeId === 'dark') {
+function ThemeModePreview({ themeId }: { themeId: Theme }) {
+  if (themeId === 'system') {
     return (
-      <div className="flex-1 flex gap-1 relative p-1 theme-preview-cyber-bg-dark">
-        <div className="flex-1 rounded-sm border border-white/5 theme-preview-dark-classic-b surface-glass" />
-        <div className="absolute top-2 left-2 w-2 h-2 rounded-full theme-preview-dot-income" />
-        <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full theme-preview-dot-expense" />
-      </div>
-    )
-  }
-
-  if (themeId === 'midnight') {
-    return (
-      <div className="flex-1 flex gap-1 relative p-1 bg-black">
-        <div className="flex-1 rounded-sm border border-white/5 theme-preview-midnight-classic-a surface-glass" />
-        <div className="absolute top-2 left-2 w-2 h-2 rounded-full theme-preview-dot-income" />
-        <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full theme-preview-dot-expense" />
+      <div className="appearance-choice__preview" aria-hidden>
+        <div className="appearance-theme-preview appearance-theme-preview--system" data-preview="system">
+          <div className="appearance-theme-preview__half" data-half="light">
+            <span data-chip="bg" title={THEME_PREVIEW_LABELS.bg} />
+            <span data-chip="surface" title={THEME_PREVIEW_LABELS.surface} />
+            <span data-chip="accent" title={THEME_PREVIEW_LABELS.accent} />
+          </div>
+          <div className="appearance-theme-preview__half" data-half="dark">
+            <span data-chip="bg" title={THEME_PREVIEW_LABELS.bg} />
+            <span data-chip="surface" title={THEME_PREVIEW_LABELS.surface} />
+            <span data-chip="accent" title={THEME_PREVIEW_LABELS.accent} />
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 flex relative p-1 theme-preview-cyber-bg-light">
-      <div className="flex-1 rounded-sm border border-black/5 theme-preview-light-classic-a surface-glass" />
-      <div className="absolute inset-y-0 right-0 left-1/2 flex p-1 theme-preview-cyber-bg-dark theme-preview-system-split-border">
-        <div className="flex-1 rounded-sm border border-white/5 theme-preview-dark-classic-b surface-glass" />
+    <div className="appearance-choice__preview" aria-hidden>
+      <div className="appearance-theme-preview" data-preview={themeId}>
+        <span data-chip="bg" title={THEME_PREVIEW_LABELS.bg} />
+        <span data-chip="surface" title={THEME_PREVIEW_LABELS.surface} />
+        <span data-chip="accent" title={THEME_PREVIEW_LABELS.accent} />
       </div>
-      <div className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full theme-preview-dot-income" />
-      <div className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full theme-preview-dot-expense" />
     </div>
   )
 }
@@ -77,36 +71,38 @@ export default function ThemeSwitcher() {
     <Card>
       <div className="space-y-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Palette size={18} className="accent-primary" />
+          <div className="mb-1 flex items-center gap-2">
+            <Palette size={18} className="accent-primary shrink-0" />
             <h3 className="text-lg font-semibold text-primary">Tema de Cores</h3>
           </div>
-          <p className="text-secondary text-sm">Escolha o modo de visualização glass do app</p>
+          <p className="text-sm text-secondary">Escolha o modo de visualização glass do app</p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {themes.map((t) => (
-            <Button
-              key={t.id}
-              type="button"
-              variant="outline"
-              onClick={() => setTheme(t.id)}
-              className={cn(
-                'h-auto w-full flex-col items-stretch p-3 text-left',
-                theme === t.id ? 'nav-item-active' : 'border-glass text-secondary hover:text-primary'
-              )}
-            >
-              <div className="mb-3 h-14 rounded-md flex gap-1 overflow-hidden relative border border-glass">
-                <ThemePreview themeId={t.id} />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <p className="font-semibold text-[13px] text-primary leading-tight">{t.name}</p>
-                <p className="text-[10px] leading-tight text-secondary line-clamp-2">{t.description}</p>
-              </div>
-              {theme === t.id && <div className="mt-2 text-[10px] font-bold uppercase tracking-wider text-secondary">Ativo</div>}
-            </Button>
-          ))}
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+          {themes.map((t) => {
+            const selected = theme === t.id
+            return (
+              <Button
+                key={t.id}
+                type="button"
+                variant="outline"
+                onClick={() => setTheme(t.id)}
+                className={appearanceChoiceClass(selected)}
+                aria-pressed={selected}
+              >
+                {selected && (
+                  <span className="appearance-choice__check" aria-hidden>
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                )}
+                <ThemeModePreview themeId={t.id} />
+                <div className="flex w-full min-w-0 flex-col gap-0.5">
+                  <p className="text-[13px] font-semibold leading-tight text-primary">{t.name}</p>
+                  <p className="line-clamp-2 text-[10px] leading-snug text-secondary">{t.description}</p>
+                </div>
+              </Button>
+            )
+          })}
         </div>
       </div>
     </Card>
