@@ -15,10 +15,14 @@ import {
   formatSignedPercentBR,
 } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { getCache, setCache } from '@/services/offlineCache'
+import { useTheme } from '@/hooks/useTheme'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import Select from '@/components/Select'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 
 import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
@@ -69,6 +73,21 @@ type PortfolioValuationCache = {
 export default function Investments() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
+  const { colorPalette } = useTheme()
+
+  const [activeTab, setActiveTab] = useState<string>('distribution')
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all')
+  const [selectedSectorFilter, setSelectedSectorFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [hoveredPieSegment, setHoveredPieSegment] = useState<{ name: string; value: number; percent: number } | null>(null)
+  const [collapsedClasses, setCollapsedClasses] = useState<Record<string, boolean>>({})
+
+  const toggleClassCollapsed = (className: string) => {
+    setCollapsedClasses((prev) => ({
+      ...prev,
+      [className]: !prev[className],
+    }))
+  }
 
   // Dados da carteira sob consultoria
   const [portfolioData, setPortfolioData] = useState<InvestmentsPortfolioData | null>(null)
@@ -177,21 +196,96 @@ export default function Investments() {
   // Estado para transitar entre a visualização de Classes e Setores
   const [consolidationView, setConsolidationView] = useState<'class' | 'sector'>('class')
 
-  // Memoiza o agrupamento de posições por classe (exclui entradas de caixa/saldo)
-  // Usado tanto na tabela Desktop quanto nos cards Mobile — evita recálculo duplo
-  const positionsByClass = useMemo<Record<string, AssetPosition[]>>(() => {
-    if (!portfolioData?.positions) return {}
-    const displayPositions = portfolioData.positions.filter(
-      (pos) => pos.pricing_mode !== 'cash' && pos.ticker !== 'SALDO_INV' && pos.ticker !== 'CAIXA'
-    )
+  const uniqueClasses = useMemo(() => {
+    if (!portfolioData?.positions) return []
+    const classes = new Set<string>()
+    portfolioData.positions.forEach(p => {
+      if (p.asset_class && p.pricing_mode !== 'cash' && p.ticker !== 'SALDO_INV' && p.ticker !== 'CAIXA') {
+        classes.add(p.asset_class)
+      }
+    })
+    return Array.from(classes).sort()
+  }, [portfolioData?.positions])
+
+  const uniqueSectors = useMemo(() => {
+    if (!portfolioData?.positions) return []
+    const sectors = new Set<string>()
+    portfolioData.positions.forEach(p => {
+      if (p.sector && p.pricing_mode !== 'cash' && p.ticker !== 'SALDO_INV' && p.ticker !== 'CAIXA') {
+        sectors.add(p.sector)
+      }
+    })
+    return Array.from(sectors).sort()
+  }, [portfolioData?.positions])
+
+  const chartPalette = useMemo(() => {
+    if (colorPalette === 'monochrome') {
+      return Array.from({ length: 6 }, (_, i) => `var(--chart-mono-${i})`)
+    }
+    return [
+      'var(--color-primary)',
+      ...Array.from({ length: 6 }, (_, i) => `var(--chart-glass-${i})`),
+    ]
+  }, [colorPalette])
+
+  const pieData = useMemo(() => {
+    if (!portfolioData) return []
+    const groups = consolidationView === 'class' 
+      ? portfolioData.consolidatedClass 
+      : portfolioData.consolidatedSector
+    
+    return groups.filter(g => g.total_value > 0).map(g => ({
+      name: g.name,
+      value: g.total_value,
+      percent: g.current_percentage,
+      target: g.target_percentage,
+      yield_pct: g.yield_pct,
+      gross_yield_pct: g.gross_yield_pct,
+      net_yield_pct: g.net_yield_pct
+    }))
+  }, [portfolioData, consolidationView])
+
+  const filteredPositions = useMemo(() => {
+    if (!portfolioData?.positions) return []
+    return portfolioData.positions.filter((pos) => {
+      if (pos.pricing_mode === 'cash' || pos.ticker === 'SALDO_INV' || pos.ticker === 'CAIXA') {
+        return false
+      }
+
+      // Filter by class
+      if (selectedClassFilter !== 'all') {
+        const cls = pos.asset_class || 'Não classificado'
+        if (cls !== selectedClassFilter) return false
+      }
+
+      // Filter by sector
+      if (selectedSectorFilter !== 'all') {
+        const sec = pos.sector || 'Outros'
+        if (sec !== selectedSectorFilter) return false
+      }
+
+      // Search term
+      if (searchTerm.trim() !== '') {
+        const query = searchTerm.toLowerCase().trim()
+        const tickerMatch = pos.ticker.toLowerCase().includes(query)
+        const classMatch = (pos.asset_class || '').toLowerCase().includes(query)
+        const sectorMatch = (pos.sector || '').toLowerCase().includes(query)
+        if (!tickerMatch && !classMatch && !sectorMatch) return false
+      }
+
+      return true
+    })
+  }, [portfolioData?.positions, selectedClassFilter, selectedSectorFilter, searchTerm])
+
+  const filteredPositionsByClass = useMemo<Record<string, AssetPosition[]>>(() => {
     const groups: Record<string, AssetPosition[]> = {}
-    displayPositions.forEach(pos => {
+    filteredPositions.forEach(pos => {
       const cls = pos.asset_class || 'Não classificado'
       if (!groups[cls]) groups[cls] = []
       groups[cls].push(pos)
     })
     return groups
-  }, [portfolioData?.positions])
+  }, [filteredPositions])
 
   const handleSaveInlinePrice = async (ticker: string) => {
     try {
@@ -557,582 +651,821 @@ export default function Investments() {
                 </div>
               )
             })()}
-            <div className="bg-secondary/40 border border-primary p-4 rounded-2xl space-y-4">
-              {/* Cabeçalho clicável */}
-              <div 
-                onClick={() => setLimitsCollapsed(!limitsCollapsed)}
-                className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
-              >
-                <div className="flex items-start gap-2.5">
-                  <Layers size={18} className="text-balance shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-black text-primary">Limites de Exposição</h4>
-                    <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
-                      Defina limites percentuais máximos recomendados para diversificação do seu portfólio por classe e setor
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Indicador de expansão */}
-                <div className="flex items-center gap-2 text-secondary shrink-0">
-                  <span className="text-[10px] font-black bg-balance/10 text-balance px-2 py-0.5 rounded-full font-mono">
-                    {groupTargets.filter((gt) => gt.group_type === consolidationView).length}
-                  </span>
-                  <Plus 
-                    size={16} 
-                    className={`transition-transform duration-300 ${!limitsCollapsed ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
-                  />
-                </div>
-              </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-6">
+                <TabsTrigger value="distribution" className="text-xs font-bold gap-1.5">
+                  <Layers size={14} />
+                  <span>Distribuição</span>
+                </TabsTrigger>
+                <TabsTrigger value="assets" className="text-xs font-bold gap-1.5">
+                  <Briefcase size={14} />
+                  <span>Meus Ativos</span>
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-xs font-bold gap-1.5">
+                  <TrendingUp size={14} />
+                  <span>Histórico</span>
+                </TabsTrigger>
+              </TabsList>
 
-              {/* Grid de Limites (Listagem + Botão Novo Limite) */}
-              <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
-                limitsCollapsed ? 'hidden' : 'grid'
-              }`}>
-                {groupTargets
-                  .filter((gt) => gt.group_type === consolidationView)
-                  .map((gt) => (
-                    <div 
-                      key={gt.id} 
-                      onClick={() => handleEditGroupTarget(gt)}
-                      className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-balance/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col text-left">
-                          <span className="text-secondary uppercase text-[7px] font-extrabold tracking-wider leading-none">
-                            {gt.group_type === 'class' ? 'Classe' : 'Setor'}
-                          </span>
-                          <span className="text-primary font-black text-xs sm:text-sm mt-0.5 leading-tight">
-                            {gt.group_name}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="h-6 w-[1px] bg-primary/25" />
-                        <span className="font-mono text-balance font-black text-sm">{gt.target_percentage}%</span>
-                        <IconButton
-                           type="button"
-                           variant="danger"
-                           size="sm"
-                           icon={<Trash2 size={13} />}
-                           label="Remover limite"
-                           onClick={(e) => {
-                             e.stopPropagation()
-                             handleDeleteGroupTarget(gt.id)
-                           }}
-                           className="!rounded-xl"
+              {/* Aba 1: Distribuição & Alocação */}
+              <TabsContent value="distribution" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  
+                  {/* Card do Gráfico de Rosca */}
+                  <Card className="p-4 lg:p-6 flex flex-col items-center relative overflow-hidden">
+                    <div className="w-full flex items-center justify-between gap-3 mb-4 pb-2 border-b border-primary/5">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-primary">Alocação Atual</h4>
+                      
+                      {/* Switcher de Consolidação */}
+                      <div className="relative inline-flex items-center bg-secondary/50 border border-primary p-0.5 rounded-full select-none shrink-0 shadow-sm h-[32px] w-40 overflow-hidden">
+                        <div 
+                          className={`absolute top-[2px] bottom-[2px] rounded-full transition-all duration-300 ease-out ${
+                            consolidationView === 'class'
+                              ? 'left-[2px] w-[calc(50%-2px)] bg-balance'
+                              : 'left-[calc(50%)] w-[calc(50%-2px)] bg-income'
+                          }`}
                         />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConsolidationView('class')}
+                          className={`relative z-10 flex-1 !min-h-0 h-full py-1 !px-0 text-[10px] font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
+                            consolidationView === 'class' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
+                          }`}
+                        >
+                          Classes
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConsolidationView('sector')}
+                          className={`relative z-10 flex-1 !min-h-0 h-full py-1 !px-0 text-[10px] font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
+                            consolidationView === 'sector' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
+                          }`}
+                        >
+                          Setores
+                        </Button>
                       </div>
                     </div>
-                  ))}
 
-                {/* Adicionar Limite Card Button */}
-                {(consolidationView === 'class' ? sumClass < 100 : sumSector < 100) && (
-                  <div 
-                    onClick={() => {
-                      setEditingGroupTarget(null);
-                      setGroupTargetType(consolidationView);
-                      setGroupTargetName(consolidationView === 'class' ? 'Ações Nacionais' : '');
-                      setGroupTargetPct('');
-                      setShowGroupTargetForm(true);
-                    }}
-                    className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-balance/35 hover:border-balance/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-balance hover:bg-balance/5 hover:scale-[1.01]"
-                  >
-                    <Plus size={15} className="text-balance" />
-                    <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Demonstrativo Detalhado de Consolidação em Largura Total */}
-            <div className="w-full animate-fade-in">
-              <Card className="p-4 lg:p-6 space-y-4 w-full">
-                <div className="flex items-center justify-between gap-3 mb-3 pb-2 border-b border-primary/5">
-                  <div className="flex items-center gap-2">
-                    {consolidationView === 'class' ? (
-                      <Layers size={18} className="text-balance shrink-0 transition-colors duration-300" />
+                    {pieData.length === 0 ? (
+                      <div className="h-64 flex flex-col items-center justify-center text-center text-secondary italic text-xs">
+                        Nenhum ativo alocado para gerar o gráfico.
+                      </div>
                     ) : (
-                      <Briefcase size={18} className="text-income shrink-0 transition-colors duration-300" />
-                    )}
-                    <h3 className="text-sm sm:text-base font-bold text-primary leading-tight transition-all duration-300">
-                      {consolidationView === 'class' ? 'Consolidação por Classes' : 'Consolidação por Setores'}
-                    </h3>
-                  </div>
-                  
-                  {/* Switcher Discreto Unificado com Fundo Deslizante Fluido */}
-                  <div className="relative inline-flex items-center bg-secondary/50 border border-primary p-0.5 rounded-full select-none shrink-0 shadow-sm h-[30px] w-40 sm:w-44 overflow-hidden">
-                    {/* Indicador Deslizante com transição lateral e de cores */}
-                    <div 
-                      className={`absolute top-[2px] bottom-[2px] rounded-full transition-all duration-300 ease-out ${
-                        consolidationView === 'class'
-                          ? 'left-[2px] w-[calc(50%-2px)] bg-balance'
-                          : 'left-[calc(50%)] w-[calc(50%-2px)] bg-income'
-                      }`}
-                    />
-                    
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConsolidationView('class')}
-                      className={`relative z-10 flex-1 !min-h-0 py-1 !px-0 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
-                        consolidationView === 'class' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
-                      }`}
-                    >
-                      <Layers size={10} />
-                      <span>Classes</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConsolidationView('sector')}
-                      className={`relative z-10 flex-1 !min-h-0 py-1 !px-0 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
-                        consolidationView === 'sector' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
-                      }`}
-                    >
-                      <Briefcase size={10} />
-                      <span>Setores</span>
-                    </Button>
-                  </div>
-                </div>
+                      <div className="relative w-full h-80 flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={85}
+                              outerRadius={115}
+                              paddingAngle={3}
+                              dataKey="value"
+                              onMouseEnter={(_, index) => {
+                                if (pieData[index]) setHoveredPieSegment(pieData[index])
+                              }}
+                              onMouseLeave={() => setHoveredPieSegment(null)}
+                              onClick={(_, index) => {
+                                const segment = pieData[index]
+                                if (segment) {
+                                  if (consolidationView === 'class') {
+                                    setSelectedClassFilter(segment.name)
+                                    setSelectedSectorFilter('all')
+                                  } else {
+                                    setSelectedSectorFilter(segment.name)
+                                    setSelectedClassFilter('all')
+                                  }
+                                  setActiveTab('assets')
+                                }
+                              }}
+                            >
+                              {pieData.map((_, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={chartPalette[index % chartPalette.length]} 
+                                  stroke="var(--color-border)" 
+                                  strokeWidth={1} 
+                                  className="outline-none"
+                                />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
 
-                <div className="space-y-4 transition-all duration-300">
-                  {(consolidationView === 'class' 
-                    ? portfolioData.consolidatedClass 
-                    : portfolioData.consolidatedSector
-                  ).map((group) => {
-                    const isPositive = group.yield_pct >= 0
-                    return (
-                      <div key={group.name} className="p-3.5 bg-secondary border border-primary rounded-2xl space-y-3.5 text-left transition-all duration-250 hover:border-primary/80">
-                        <div className="flex items-center justify-between flex-wrap gap-2.5">
-                          <span className="font-bold text-primary text-sm tracking-wide">{group.name}</span>
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
-                              isPositive ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
-                            }`}>
-                              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                              Bruta {formatSignedPercentBR(group.gross_yield_pct)}
+                        {/* Texto no Centro do Donut */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+                          <div className="max-w-[150px] text-center flex flex-col items-center justify-center">
+                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-secondary leading-tight line-clamp-2">
+                              {hoveredPieSegment ? hoveredPieSegment.name : 'Patrimônio Total'}
                             </span>
-                            <span className="text-[10px] text-secondary font-mono">
-                              Líq. {formatSignedPercentBR(group.net_yield_pct)}
+                            <span className="text-base sm:text-lg font-black text-primary font-mono mt-1.5 leading-tight">
+                              {hoveredPieSegment 
+                                ? formatCurrency(hoveredPieSegment.value)
+                                : formatCurrency(portfolioData.totalValue)}
                             </span>
-                            <span className="text-xs text-secondary font-extrabold bg-primary px-2.5 py-0.5 rounded-xl border border-primary/25 font-mono">
-                              {formatPercentBR(group.current_percentage, 1)}
+                            <span className="text-[10px] font-bold text-income mt-1 font-mono leading-none">
+                              {hoveredPieSegment 
+                                ? `${formatPercentBR(hoveredPieSegment.percent, 1)}`
+                                : '100.0%'}
                             </span>
                           </div>
                         </div>
+                      </div>
+                    )}
+                  </Card>
 
-                        {/* Progress Bar com Alvo vs Atual */}
-                        <div className="space-y-2">
-                          <div className="w-full h-2 rounded-full bg-primary relative overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                consolidationView === 'class' ? 'bg-balance' : 'bg-income'
-                              }`} 
-                              style={{ width: `${Math.min(group.current_percentage, 100)}%` }} 
+                  {/* Card de Rebalanceamento */}
+                  <Card className="p-4 lg:p-6 flex flex-col text-left">
+                    <div className="flex items-center justify-between pb-2 border-b border-primary/5 mb-4">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-primary">Rebalanceamento de Carteira</h4>
+                      <span className="text-[9px] font-black text-secondary uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-full">
+                        Meta Recomendada
+                      </span>
+                    </div>
+
+                    <div className="space-y-3.5 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+                      {(consolidationView === 'class' 
+                        ? portfolioData.consolidatedClass 
+                        : portfolioData.consolidatedSector
+                      ).map((group, index) => {
+                        const targetPct = group.target_percentage || 0
+                        const currentPct = group.current_percentage || 0
+                        const devPct = currentPct - targetPct
+                        const diffValue = portfolioData.totalValue * (targetPct / 100) - group.total_value
+
+                        let statusColor = 'text-secondary'
+                        let statusBg = 'bg-secondary/40'
+                        let statusText = 'Sem meta'
+
+                        if (targetPct > 0) {
+                          if (devPct > 1.5) {
+                            statusColor = 'text-expense'
+                            statusBg = 'bg-expense/10'
+                            statusText = `Venda sugerida: -${formatCurrency(Math.abs(diffValue))}`
+                          } else if (devPct < -1.5) {
+                            statusColor = 'text-income'
+                            statusBg = 'bg-income/10'
+                            statusText = `Aporte sugerido: +${formatCurrency(diffValue)}`
+                          } else {
+                            statusColor = 'text-primary'
+                            statusBg = 'bg-primary border border-primary/30'
+                            statusText = 'Alinhado'
+                          }
+                        }
+
+                        return (
+                          <div 
+                            key={group.name} 
+                            onClick={() => {
+                              if (consolidationView === 'class') {
+                                setSelectedClassFilter(group.name)
+                                setSelectedSectorFilter('all')
+                              } else {
+                                setSelectedSectorFilter(group.name)
+                                setSelectedClassFilter('all')
+                              }
+                              setActiveTab('assets')
+                            }}
+                            className="p-3 bg-secondary/50 border border-primary rounded-xl flex flex-col gap-2 text-left cursor-pointer hover:border-primary/80 transition-all select-none"
+                          >
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span 
+                                  className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                  style={{ backgroundColor: chartPalette[index % chartPalette.length] }} 
+                                />
+                                <span className="font-bold text-primary text-xs tracking-wide truncate">{group.name}</span>
+                              </div>
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${statusBg} ${statusColor} shrink-0`}>
+                                {statusText}
+                              </span>
+                            </div>
+
+                            {/* Barra horizontal de alocação vs alvo */}
+                            <div className="space-y-1">
+                              <div className="w-full h-1.5 rounded-full bg-primary relative overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    consolidationView === 'class' ? 'bg-balance' : 'bg-income'
+                                  }`} 
+                                  style={{ width: `${Math.min(group.current_percentage, 100)}%` }} 
+                                />
+                                {targetPct > 0 && (
+                                  <div 
+                                    className="absolute top-0 bottom-0 w-0.5 bg-primary-dark/60 dark:bg-white/60"
+                                    style={{ left: `${Math.min(targetPct, 99)}%` }}
+                                  />
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between text-[9px] text-secondary font-mono leading-none">
+                                <span>Real: {formatPercentBR(group.current_percentage, 1)} ({formatCurrency(group.total_value)})</span>
+                                <span>Alvo: {formatPercentBR(targetPct, 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Limites de Exposição - Fica no rodapé da Distribuição */}
+                <div className="bg-secondary/40 border border-primary p-4 rounded-2xl space-y-4">
+                  <div 
+                    onClick={() => setLimitsCollapsed(!limitsCollapsed)}
+                    className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <Layers size={18} className="text-balance shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-black text-primary">Configurar Limites de Exposição Alvo</h4>
+                        <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
+                          Defina metas de exposição percentuais para equilibrar e guiar o rebalanceamento automático da sua carteira.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-secondary shrink-0">
+                      <span className="text-[10px] font-black bg-balance/10 text-balance px-2 py-0.5 rounded-full font-mono">
+                        {groupTargets.filter((gt) => gt.group_type === consolidationView).length}
+                      </span>
+                      <Plus 
+                        size={16} 
+                        className={`transition-transform duration-300 ${!limitsCollapsed ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
+                      />
+                    </div>
+                  </div>
+
+                  <div className={`pt-3 border-t border-primary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 text-left w-full ${
+                    limitsCollapsed ? 'hidden' : 'grid'
+                  }`}>
+                    {groupTargets
+                      .filter((gt) => gt.group_type === consolidationView)
+                      .map((gt) => (
+                        <div 
+                          key={gt.id} 
+                          onClick={() => handleEditGroupTarget(gt)}
+                          className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-balance/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col text-left">
+                              <span className="text-secondary uppercase text-[7px] font-extrabold tracking-wider leading-none">
+                                {gt.group_type === 'class' ? 'Classe' : 'Setor'}
+                              </span>
+                              <span className="text-primary font-black text-xs sm:text-sm mt-0.5 leading-tight">
+                                {gt.group_name}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="h-6 w-[1px] bg-primary/25" />
+                            <span className="font-mono text-balance font-black text-sm">{gt.target_percentage}%</span>
+                            <IconButton
+                               type="button"
+                               variant="danger"
+                               size="sm"
+                               icon={<Trash2 size={13} />}
+                               label="Remover limite"
+                               onClick={(e) => {
+                                 e.stopPropagation()
+                                 handleDeleteGroupTarget(gt.id)
+                               }}
+                               className="!rounded-xl"
                             />
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-secondary font-mono">
-                            <span>Atual: {formatCurrency(group.total_value)}</span>
-                            <span>Alvo recomendado: {formatPercentBR(group.target_percentage, 0)}</span>
-                          </div>
                         </div>
+                      ))}
+
+                    {(consolidationView === 'class' ? sumClass < 100 : sumSector < 100) && (
+                      <div 
+                        onClick={() => {
+                          setEditingGroupTarget(null);
+                          setGroupTargetType(consolidationView);
+                          setGroupTargetName(consolidationView === 'class' ? 'Ações Nacionais' : '');
+                          setGroupTargetPct('');
+                          setShowGroupTargetForm(true);
+                        }}
+                        className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-balance/35 hover:border-balance/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-balance hover:bg-balance/5 hover:scale-[1.01]"
+                      >
+                        <Plus size={15} className="text-balance" />
+                        <span className="text-xs font-black uppercase tracking-wider">Novo Limite</span>
                       </div>
-                    )
-                  })}
+                    )}
+                  </div>
                 </div>
-              </Card>
-            </div>
+              </TabsContent>
 
-            {/* Lista Detalhada de Ativos */}
-            <Card className="p-4 lg:p-6 space-y-4">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <h3 className="text-sm sm:text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
-                
-                {/* Botão de atualizar cotações */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleForceRefresh}
-                  disabled={refreshing || portfolioLoading}
-                  className="flex items-center gap-1.5 h-8 px-2.5 border-warning/20 text-warning hover:bg-warning/10 font-bold text-xs"
-                  title="Atualizar cotações"
-                >
-                  {refreshing ? (
-                    <div className="w-4 h-4 border-2 border-warning border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <TrendingUp size={14} className="text-warning" />
-                  )}
-                  <span className="hidden sm:inline">{refreshing ? 'Atualizando...' : 'Atualizar cotações'}</span>
-                </Button>
-              </div>
+              {/* Aba 2: Detalhamento de Ativos */}
+              <TabsContent value="assets" className="space-y-4">
+                <Card className="p-4 lg:p-6 space-y-4">
+                  
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm sm:text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleForceRefresh}
+                        disabled={refreshing || portfolioLoading}
+                        className="flex items-center gap-1.5 h-8 px-2.5 border-warning/20 text-warning hover:bg-warning/10 font-bold text-xs"
+                        title="Atualizar cotações"
+                      >
+                        {refreshing ? (
+                          <div className="w-4 h-4 border-2 border-warning border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <TrendingUp size={14} className="text-warning" />
+                        )}
+                        <span className="hidden sm:inline">{refreshing ? 'Atualizando...' : 'Atualizar cotações'}</span>
+                      </Button>
+                    </div>
 
-              {/* 1. Tabela para Desktop */}
-              <div className="hidden md:block overflow-x-auto border border-primary rounded-xl">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="bg-secondary border-b border-primary text-xs font-bold text-secondary uppercase tracking-wider">
-                      <th className="p-3">Ativo</th>
-                      <th className="p-3">Classe</th>
-                      <th className="p-3">Setor</th>
-                      <th className="p-3 text-right">Qtd</th>
-                      <th className="p-3 text-right">Preço Atual</th>
-                      <th className="p-3 text-right">Valor Total</th>
-                      <th className="p-3 text-right">Rent. bruta</th>
-                      <th className="p-3 text-center">Part. Real</th>
-                      <th className="p-3 text-center">Part. Alvo</th>
-                      <th className="p-3 text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-primary">
-                    {Object.entries(positionsByClass).map(([className, classPositions]) => (
-                        <Fragment key={className}>
-                          {/* Linha de cabeçalho do grupo de classe */}
-                          <tr className="bg-secondary/60 font-bold border-l-4 border-l-[var(--color-income)] text-primary text-xs tracking-wider">
-                            <td colSpan={10} className="p-3.5 uppercase font-extrabold text-secondary">
-                              {className}
+                    {/* Barra de Filtros e Busca */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+                      {/* Busca por Ticker */}
+                      <div className="relative w-full">
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
+                        <Input
+                          type="text"
+                          placeholder="Buscar ativo por ticker..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="!pl-10 text-sm font-semibold !py-2.5 w-full bg-secondary/20"
+                        />
+                        {searchTerm && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setSearchTerm('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary p-1 !min-h-0 h-auto w-auto"
+                          >
+                            <X size={14} />
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Filtro por Classe */}
+                      <Select
+                        value={selectedClassFilter}
+                        onChange={(e) => setSelectedClassFilter(e.target.value)}
+                        options={[
+                          { value: 'all', label: 'Todas as Classes' },
+                          ...uniqueClasses.map((cls) => ({ value: cls, label: cls })),
+                        ]}
+                        placeholder="Filtrar por classe..."
+                        className="w-full"
+                      />
+
+                      {/* Filtro por Setor */}
+                      <Select
+                        value={selectedSectorFilter}
+                        onChange={(e) => setSelectedSectorFilter(e.target.value)}
+                        options={[
+                          { value: 'all', label: 'Todos os Setores' },
+                          ...uniqueSectors.map((sec) => ({ value: sec, label: sec })),
+                        ]}
+                        placeholder="Filtrar por setor..."
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Banner de filtros ativos */}
+                    {(selectedClassFilter !== 'all' || selectedSectorFilter !== 'all') && (
+                      <div className="flex items-center justify-between p-3 bg-balance/5 border border-balance/25 rounded-2xl animate-fade-in select-none text-left">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <Briefcase size={14} className="text-balance shrink-0" />
+                          <span className="text-xs text-primary leading-tight truncate">
+                            Filtros ativos:{' '}
+                            {selectedClassFilter !== 'all' && (
+                              <span>Classe: <strong className="font-extrabold text-balance">{selectedClassFilter}</strong></span>
+                            )}
+                            {selectedClassFilter !== 'all' && selectedSectorFilter !== 'all' && ' | '}
+                            {selectedSectorFilter !== 'all' && (
+                              <span>Setor: <strong className="font-extrabold text-balance">{selectedSectorFilter}</strong></span>
+                            )}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedClassFilter('all')
+                            setSelectedSectorFilter('all')
+                          }}
+                          className="text-xs text-secondary hover:text-primary font-bold flex items-center gap-1 leading-none hover:bg-secondary/40 px-2.5 py-1 rounded-xl transition-all shrink-0"
+                        >
+                          <X size={12} />
+                          Limpar Filtros
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 1. Tabela para Desktop */}
+                  <div className="hidden md:block overflow-x-auto border border-primary rounded-xl">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="bg-secondary border-b border-primary text-xs font-bold text-secondary uppercase tracking-wider">
+                          <th className="p-3">Ativo</th>
+                          <th className="p-3">Classe</th>
+                          <th className="p-3">Setor</th>
+                          <th className="p-3 text-right">Qtd</th>
+                          <th className="p-3 text-right">Preço Atual</th>
+                          <th className="p-3 text-right">Valor Total</th>
+                          <th className="p-3 text-right">Rent. bruta</th>
+                          <th className="p-3 text-center">Part. Real</th>
+                          <th className="p-3 text-center">Part. Alvo</th>
+                          <th className="p-3 text-center">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-primary">
+                        {Object.entries(filteredPositionsByClass).length === 0 ? (
+                          <tr>
+                            <td colSpan={10} className="p-6 text-center text-secondary italic text-xs">
+                              Nenhum ativo encontrado para os filtros ativos.
                             </td>
                           </tr>
-                          {classPositions.map((pos) => {
-                            const isPositive = pos.gross_yield_pct >= 0
+                        ) : (
+                          Object.entries(filteredPositionsByClass).map(([className, classPositions]) => {
+                            const isCollapsed = !!collapsedClasses[className]
                             return (
-                              <tr
-                                key={pos.ticker}
-                                className="hover:bg-secondary/40 transition-colors cursor-pointer"
-                                onClick={() => handleOpenAssetTxModal(pos)}
-                                title="Ver transações do ativo"
-                              >
-                                <td className={`p-3 pl-6 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {pos.ticker}
-                                    {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
-                                        Cotação Desatualizada
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
-                                <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
-                                <td className="p-3 text-right text-primary font-medium">
-                                  {formatQuantityBR(pos.quantity)}
-                                </td>
-                                 <td className="p-3 text-right text-secondary">
-                                   {editingPriceTicker === pos.ticker ? (
-                                     <div className="flex items-center justify-end gap-1.5">
-                                       <Input
-                                         type="number"
-                                         step="0.01"
-                                         value={editingPriceValue}
-                                         onChange={(e) => setEditingPriceValue(e.target.value)}
-                                         onKeyDown={(e) => {
-                                           if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
-                                           if (e.key === 'Escape') setEditingPriceTicker(null)
-                                         }}
-                                         disabled={savingPrice}
-                                         className="!w-20 !py-0.5 !px-1.5 text-xs text-right !border-balance font-mono"
-                                         autoFocus
-                                       />
-                                       <IconButton
-                                         type="button"
-                                         variant="success"
-                                         size="sm"
-                                         icon={<Check size={12} />}
-                                         label="Salvar"
-                                         onClick={() => handleSaveInlinePrice(pos.ticker)}
-                                         disabled={savingPrice}
-                                         className="!rounded"
-                                       />
-                                       <IconButton
-                                         type="button"
-                                         variant="danger"
-                                         size="sm"
-                                         icon={<X size={12} />}
-                                         label="Cancelar"
-                                         onClick={() => setEditingPriceTicker(null)}
-                                         disabled={savingPrice}
-                                         className="!rounded"
-                                       />
-                                     </div>
-                                   ) : (
-                                     <div className="group flex items-center justify-end gap-1 select-none">
-                                       <span className="font-mono">{formatCurrencyByCode(pos.current_price, pos.currency)}</span>
-                                       {pos.pricing_mode === 'market' && (
-                                         <IconButton
-                                           type="button"
-                                           size="sm"
-                                           icon={<Edit2 size={11} className="shrink-0" />}
-                                           label="Editar cotação manualmente"
-                                           onClick={() => {
-                                             setEditingPriceTicker(pos.ticker)
-                                             setEditingPriceValue(pos.current_price.toString())
-                                           }}
-                                           className="opacity-0 group-hover:opacity-100 !rounded transition-all"
-                                         />
-                                       )}
-                                     </div>
-                                   )}
-                                 </td>
-                                <td className="p-3 text-right text-primary font-semibold">{formatCurrencyByCode(pos.total_value, pos.currency)}</td>
-                                <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
-                                  {formatSignedPercentBR(pos.gross_yield_pct)}
-                                </td>
-                                <td className="p-3 text-center font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</td>
-                                <td className="p-3 text-center font-bold text-income">
-                                  {formatPercentBR(pos.target_percentage, 0)}
-                                </td>
-                                <td className="p-3 text-center">
-                                  <IconButton
-                                    type="button"
-                                    size="sm"
-                                    icon={<Settings2 size={14} />}
-                                    label="Configurar Ativo"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setAssetDefTicker(pos.ticker)
-                                      setAssetDefModalOpen(true)
-                                    }}
-                                  />
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 2. Visualização em Cards para Mobile */}
-              <div className="block md:hidden space-y-4">
-                {Object.entries(positionsByClass).map(([className, classPositions]) => (
-                    <div key={className} className="space-y-2">
-                      {/* Cabeçalho do Grupo de Classe */}
-                      <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-1.5 rounded-lg select-none text-left">
-                        {className}
-                      </div>
-
-                      {/* Cards de Ativos */}
-                      <div className="space-y-3">
-                        {classPositions.map((pos) => {
-                          const isGrossPositive = pos.gross_yield_pct >= 0;
-                          const isExpanded = !!expandedAssets[pos.ticker];
-                          
-                          return (
-                            <div 
-                              key={pos.ticker}
-                              className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl transition-all animate-page-enter overflow-hidden glass-card-interactive`}
-                            >
-                              {/* Cabeçalho compacto clicável */}
-                              <div 
-                                onClick={() => toggleAssetExpanded(pos.ticker)}
-                                className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
-                                  <div className="text-left">
-                                    <span className="font-mono font-black text-primary text-sm block leading-tight">
-                                      {pos.ticker}
-                                    </span>
-                                    <span className="text-[10px] text-secondary font-medium block">
-                                      {pos.sector || 'Outros'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-3 text-right">
-                                  <div>
-                                    <span className="text-xs font-black text-primary font-mono block leading-tight">
-                                      {formatCurrencyByCode(pos.total_value, pos.currency)}
-                                    </span>
-                                    <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
-                                      {formatSignedPercentBR(pos.gross_yield_pct)}
-                                    </span>
-                                  </div>
-                                  <div className="text-secondary">
-                                    <Plus 
-                                      size={15} 
-                                      className={`transition-transform duration-300 ${isExpanded ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
-                                    />
-                                  </div>
-                                </div>
-                              </div>
- 
-                              {/* Conteúdo Expandido */}
-                              {isExpanded && (
-                                <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10">
-                                  {/* Grid de Métricas */}
-                                  <div className="grid grid-cols-2 gap-3 text-left bg-secondary/30 p-2.5 rounded-xl border border-primary/10">
-                                    <div>
-                                      <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
-                                      <span className="text-xs font-bold text-primary font-mono">
-                                        {formatQuantityBR(pos.quantity)}
-                                      </span>
+                              <Fragment key={className}>
+                                {/* Linha de cabeçalho do grupo de classe (Clicável para recolher) */}
+                                <tr 
+                                  onClick={() => toggleClassCollapsed(className)}
+                                  className="bg-secondary/60 font-bold border-l-4 border-l-[var(--color-income)] text-primary text-xs tracking-wider cursor-pointer hover:bg-secondary transition-colors select-none"
+                                >
+                                  <td colSpan={10} className="p-3.5 uppercase font-extrabold text-secondary">
+                                    <div className="flex items-center justify-between">
+                                      <span>{className}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-semibold bg-primary px-2.5 py-0.5 rounded-full border border-primary/25 text-secondary">
+                                          {classPositions.length} {classPositions.length === 1 ? 'ativo' : 'ativos'}
+                                        </span>
+                                        <ChevronDown
+                                          size={14}
+                                          className={`text-secondary transition-transform duration-250 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                                        />
+                                      </div>
                                     </div>
-                                    <div>
-                                      <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
-                                      {editingPriceTicker === pos.ticker ? (
-                                        <div className="flex items-center gap-1 mt-0.5">
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            value={editingPriceValue}
-                                            onChange={(e) => setEditingPriceValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
-                                              if (e.key === 'Escape') setEditingPriceTicker(null)
-                                            }}
-                                            disabled={savingPrice}
-                                            className="!w-16 !py-0.5 !px-1.5 text-xs !border-balance font-mono"
-                                            autoFocus
-                                          />
-                                          <IconButton
-                                            type="button"
-                                            variant="success"
-                                            size="sm"
-                                            icon={<Check size={11} />}
-                                            label="Salvar"
-                                            onClick={() => handleSaveInlinePrice(pos.ticker)}
-                                            disabled={savingPrice}
-                                            className="!rounded"
-                                          />
-                                          <IconButton
-                                            type="button"
-                                            variant="danger"
-                                            size="sm"
-                                            icon={<X size={11} />}
-                                            label="Cancelar"
-                                            onClick={() => setEditingPriceTicker(null)}
-                                            disabled={savingPrice}
-                                            className="!rounded"
-                                          />
-                                        </div>
-                                      ) : (
-                                        <div className="flex items-center gap-1 mt-0.5">
-                                          <span className="text-xs font-bold text-primary font-mono">
-                                            {formatCurrencyByCode(pos.current_price, pos.currency)}
-                                          </span>
-                                          {pos.pricing_mode === 'market' && (
-                                            <IconButton
-                                              type="button"
-                                              size="sm"
-                                              icon={<Edit2 size={10} className="shrink-0" />}
-                                              label="Editar cotação manualmente"
-                                              onClick={() => {
-                                                setEditingPriceTicker(pos.ticker)
-                                                setEditingPriceValue(pos.current_price.toString())
-                                              }}
-                                              className="!rounded"
-                                            />
+                                  </td>
+                                </tr>
+                                
+                                {/* Linhas de posições do grupo */}
+                                {!isCollapsed && classPositions.map((pos) => {
+                                  const isPositive = pos.gross_yield_pct >= 0
+                                  return (
+                                    <tr
+                                      key={pos.ticker}
+                                      className="hover:bg-secondary/40 transition-colors cursor-pointer"
+                                      onClick={() => handleOpenAssetTxModal(pos)}
+                                      title="Ver transações do ativo"
+                                    >
+                                      <td className={`p-3 pl-6 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          {pos.ticker}
+                                          {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
+                                            <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                              Cotação Desatualizada
+                                            </span>
                                           )}
                                         </div>
-                                      )}
+                                      </td>
+                                      <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
+                                      <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
+                                      <td className="p-3 text-right text-primary font-medium">
+                                        {formatQuantityBR(pos.quantity)}
+                                      </td>
+                                      <td className="p-3 text-right text-secondary">
+                                        {editingPriceTicker === pos.ticker ? (
+                                          <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              value={editingPriceValue}
+                                              onChange={(e) => setEditingPriceValue(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
+                                                if (e.key === 'Escape') setEditingPriceTicker(null)
+                                              }}
+                                              disabled={savingPrice}
+                                              className="!w-20 !py-0.5 !px-1.5 text-xs text-right !border-balance font-mono"
+                                              autoFocus
+                                            />
+                                            <IconButton
+                                              type="button"
+                                              variant="success"
+                                              size="sm"
+                                              icon={<Check size={12} />}
+                                              label="Salvar"
+                                              onClick={() => handleSaveInlinePrice(pos.ticker)}
+                                              disabled={savingPrice}
+                                              className="!rounded"
+                                            />
+                                            <IconButton
+                                              type="button"
+                                              variant="danger"
+                                              size="sm"
+                                              icon={<X size={12} />}
+                                              label="Cancelar"
+                                              onClick={() => setEditingPriceTicker(null)}
+                                              disabled={savingPrice}
+                                              className="!rounded"
+                                            />
+                                          </div>
+                                        ) : (
+                                          <div className="group flex items-center justify-end gap-1 select-none" onClick={(e) => e.stopPropagation()}>
+                                            <span className="font-mono">{formatCurrencyByCode(pos.current_price, pos.currency)}</span>
+                                            {pos.pricing_mode === 'market' && (
+                                              <IconButton
+                                                type="button"
+                                                size="sm"
+                                                icon={<Edit2 size={11} className="shrink-0" />}
+                                                label="Editar cotação manualmente"
+                                                onClick={() => {
+                                                  setEditingPriceTicker(pos.ticker)
+                                                  setEditingPriceValue(pos.current_price.toString())
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 !rounded transition-all"
+                                              />
+                                            )}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="p-3 text-right text-primary font-semibold">{formatCurrencyByCode(pos.total_value, pos.currency)}</td>
+                                      <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
+                                        {formatSignedPercentBR(pos.gross_yield_pct)}
+                                      </td>
+                                      <td className="p-3 text-center font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</td>
+                                      <td className="p-3 text-center font-bold text-income">
+                                        {formatPercentBR(pos.target_percentage, 0)}
+                                      </td>
+                                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <IconButton
+                                          type="button"
+                                          size="sm"
+                                          icon={<Settings2 size={14} />}
+                                          label="Configurar Ativo"
+                                          onClick={() => {
+                                            setAssetDefTicker(pos.ticker)
+                                            setAssetDefModalOpen(true)
+                                          }}
+                                        />
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </Fragment>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 2. Visualização em Cards para Mobile */}
+                  <div className="block md:hidden space-y-4">
+                    {Object.entries(filteredPositionsByClass).length === 0 ? (
+                      <p className="text-center py-6 text-xs text-secondary italic">
+                        Nenhum ativo encontrado para os filtros ativos.
+                      </p>
+                    ) : (
+                      Object.entries(filteredPositionsByClass).map(([className, classPositions]) => (
+                        <div key={className} className="space-y-2 text-left">
+                          {/* Cabeçalho do Grupo de Classe */}
+                          <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-1.5 rounded-lg select-none text-left">
+                            {className}
+                          </div>
+
+                          {/* Cards de Ativos */}
+                          <div className="space-y-3">
+                            {classPositions.map((pos) => {
+                              const isGrossPositive = pos.gross_yield_pct >= 0;
+                              const isExpanded = !!expandedAssets[pos.ticker];
+                              
+                              return (
+                                <div 
+                                  key={pos.ticker}
+                                  className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl transition-all animate-page-enter overflow-hidden glass-card-interactive`}
+                                >
+                                  {/* Cabeçalho compacto clicável */}
+                                  <div 
+                                    onClick={() => toggleAssetExpanded(pos.ticker)}
+                                    className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
+                                      <div className="text-left min-w-0">
+                                        <span className="font-mono font-black text-primary text-sm block leading-tight truncate">
+                                          {pos.ticker}
+                                        </span>
+                                        <span className="text-[10px] text-secondary font-medium block truncate">
+                                          {pos.sector || 'Outros'}
+                                        </span>
+                                      </div>
                                     </div>
-                                    <div className="col-span-2">
-                                      <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
-                                      <span className="text-xs font-bold text-primary font-mono">
-                                        {formatCurrencyByCode(pos.cost_basis, pos.currency)}
-                                      </span>
-                                    </div>
-                                    
-                                    <div className="col-span-2 pt-2 border-t border-primary/10 text-xs">
+
+                                    <div className="flex items-center gap-3 text-right shrink-0">
                                       <div>
-                                        <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
-                                        <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                        <span className="text-xs font-black text-primary font-mono block leading-tight">
+                                          {formatCurrencyByCode(pos.total_value, pos.currency)}
+                                        </span>
+                                        <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
                                           {formatSignedPercentBR(pos.gross_yield_pct)}
                                         </span>
                                       </div>
-                                    </div>
-                                  </div>
- 
-                                  {/* Progresso de Metas de Exposição */}
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between text-[10px]">
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-secondary font-medium">Real:</span>
-                                        <span className="font-mono font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-secondary font-medium">Meta:</span>
-                                        <span className="font-mono font-bold text-income">{formatPercentBR(pos.target_percentage, 0)}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Barra de Progresso elegante */}
-                                    <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
-                                      <div 
-                                        className="h-full bg-income rounded-full transition-all duration-500"
-                                        style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
-                                      />
-                                      {pos.target_percentage > 0 && (
-                                        <div 
-                                          className="absolute top-0 bottom-0 w-0.5 bg-balance/40 dark:bg-balance/80"
-                                          style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
+                                      <div className="text-secondary">
+                                        <Plus 
+                                          size={15} 
+                                          className={`transition-transform duration-300 ${isExpanded ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
                                         />
-                                      )}
+                                      </div>
                                     </div>
                                   </div>
- 
-                                  {/* Precificação e Ações rápidas */}
-                                  <div className="flex justify-between items-center pt-2 border-t border-primary/5">
-                                    <div>
-                                      {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                        <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
-                                          Cotação Desatualizada
-                                        </span>
-                                      )}
+      
+                                  {/* Conteúdo Expandido */}
+                                  {isExpanded && (
+                                    <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10 text-left">
+                                      {/* Grid de Métricas */}
+                                      <div className="grid grid-cols-2 gap-3 bg-secondary/30 p-2.5 rounded-xl border border-primary/10">
+                                        <div>
+                                          <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
+                                          <span className="text-xs font-bold text-primary font-mono">
+                                            {formatQuantityBR(pos.quantity)}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
+                                          {editingPriceTicker === pos.ticker ? (
+                                            <div className="flex items-center gap-1 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={editingPriceValue}
+                                                onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
+                                                  if (e.key === 'Escape') setEditingPriceTicker(null)
+                                                }}
+                                                disabled={savingPrice}
+                                                className="!w-16 !py-0.5 !px-1.5 text-xs !border-balance font-mono"
+                                                autoFocus
+                                              />
+                                              <IconButton
+                                                type="button"
+                                                variant="success"
+                                                size="sm"
+                                                icon={<Check size={11} />}
+                                                label="Salvar"
+                                                onClick={() => handleSaveInlinePrice(pos.ticker)}
+                                                disabled={savingPrice}
+                                                className="!rounded"
+                                              />
+                                              <IconButton
+                                                type="button"
+                                                variant="danger"
+                                                size="sm"
+                                                icon={<X size={11} />}
+                                                label="Cancelar"
+                                                onClick={() => setEditingPriceTicker(null)}
+                                                disabled={savingPrice}
+                                                className="!rounded"
+                                              />
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-1 mt-0.5">
+                                              <span className="text-xs font-bold text-primary font-mono">
+                                                {formatCurrencyByCode(pos.current_price, pos.currency)}
+                                              </span>
+                                              {pos.pricing_mode === 'market' && (
+                                                <IconButton
+                                                  type="button"
+                                                  size="sm"
+                                                  icon={<Edit2 size={10} className="shrink-0" />}
+                                                  label="Editar cotação manualmente"
+                                                  onClick={() => {
+                                                    setEditingPriceTicker(pos.ticker)
+                                                    setEditingPriceValue(pos.current_price.toString())
+                                                  }}
+                                                  className="!rounded"
+                                                />
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="col-span-2">
+                                          <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
+                                          <span className="text-xs font-bold text-primary font-mono">
+                                            {formatCurrencyByCode(pos.cost_basis, pos.currency)}
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="col-span-2 pt-2 border-t border-primary/10 text-xs">
+                                          <div>
+                                            <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
+                                            <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                              {formatSignedPercentBR(pos.gross_yield_pct)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+      
+                                      {/* Progresso de Metas de Exposição */}
+                                      <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-[10px]">
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-secondary font-medium">Real:</span>
+                                            <span className="font-mono font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-secondary font-medium">Meta:</span>
+                                            <span className="font-mono font-bold text-income">{formatPercentBR(pos.target_percentage, 0)}</span>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Barra de Progresso elegante */}
+                                        <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
+                                          <div 
+                                            className="h-full bg-income rounded-full transition-all duration-500"
+                                            style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
+                                          />
+                                          {pos.target_percentage > 0 && (
+                                            <div 
+                                              className="absolute top-0 bottom-0 w-0.5 bg-balance/40 dark:bg-balance/80"
+                                              style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+      
+                                      {/* Precificação e Ações rápidas */}
+                                      <div className="flex justify-between items-center pt-2 border-t border-primary/5">
+                                        <div>
+                                          {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
+                                            <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                              Cotação Desatualizada
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleOpenAssetTxModal(pos)
+                                            }}
+                                            className="!min-h-0 text-[10px] text-income border-income/20 bg-income/5 hover:bg-income/10 font-bold"
+                                          >
+                                            <BarChart2 size={12} />
+                                            <span>Transações</span>
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setAssetDefTicker(pos.ticker)
+                                              setAssetDefModalOpen(true)
+                                            }}
+                                            className="!min-h-0 text-[10px] font-bold"
+                                          >
+                                            <Settings2 size={12} />
+                                            <span>Configurar</span>
+                                          </Button>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleOpenAssetTxModal(pos)
-                                        }}
-                                        className="!min-h-0 text-[10px] text-income border-income/20 bg-income/5 hover:bg-income/10 font-bold"
-                                      >
-                                        <BarChart2 size={12} />
-                                        <span>Transações</span>
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          setAssetDefTicker(pos.ticker)
-                                          setAssetDefModalOpen(true)
-                                        }}
-                                        className="!min-h-0 text-[10px] font-bold"
-                                      >
-                                        <Settings2 size={12} />
-                                        <span>Configurar</span>
-                                      </Button>
-                                    </div>
-                                  </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                ))}
-              </div>
-            </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Card>
+              </TabsContent>
 
-            {/* Card de Transações do Livro-Razão */}
-            <LedgerBook
-              transactions={transactions}
-              onOpenTxModal={handleOpenTxModal}
-              onOpenReconciliation={() => setIsReconciliationOpen(true)}
-              portfolioId={portfolioId}
-              onSaved={loadPortfolio}
-            />
+              {/* Aba 3: Histórico de Transações */}
+              <TabsContent value="history">
+                <LedgerBook
+                  transactions={transactions}
+                  onOpenTxModal={handleOpenTxModal}
+                  onOpenReconciliation={() => setIsReconciliationOpen(true)}
+                  portfolioId={portfolioId}
+                  onSaved={loadPortfolio}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </div>

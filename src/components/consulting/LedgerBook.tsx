@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { PortfolioTransaction } from '@/types'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check } from 'lucide-react'
+import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check, Search } from 'lucide-react'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { deleteCashOffsetTransactionsMultiple, fetchPortfolioCashContext } from '@/services/cashOffsetService'
@@ -10,6 +10,8 @@ import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import { isPortfolioIncomeType, portfolioOperationLabel } from '@/utils/portfolioOperations'
 import toast from 'react-hot-toast'
+import Input from '@/components/Input'
+import Select from '@/components/Select'
 
 interface LedgerBookProps {
   transactions: PortfolioTransaction[]
@@ -32,10 +34,36 @@ function LedgerBook({
   const [deleting, setDeleting] = useState(false)
   const [deletingProgress, setDeletingProgress] = useState('')
 
+  const [ledgerSearch, setLedgerSearch] = useState('')
+  const [ledgerOpType, setLedgerOpType] = useState('all')
+  const [ledgerMonth, setLedgerMonth] = useState('all')
+
   // Filtra as transações para exibir apenas movimentações manuais no livro-razão
   const visibleTransactions = useMemo(() => {
     return transactions.filter((tx) => !tx.cash_offset_source_id)
   }, [transactions])
+
+  const filteredVisibleTransactions = useMemo(() => {
+    return visibleTransactions.filter((tx) => {
+      // 1. Filtro por ticker
+      if (ledgerSearch.trim() !== '') {
+        const query = ledgerSearch.toLowerCase().trim()
+        if (!tx.ticker.toLowerCase().includes(query)) return false
+      }
+
+      // 2. Filtro por tipo de operação
+      if (ledgerOpType !== 'all') {
+        if (tx.operation_type !== ledgerOpType) return false
+      }
+
+      // 3. Filtro por mês/ano
+      if (ledgerMonth !== 'all') {
+        if (!tx.date || !tx.date.startsWith(ledgerMonth)) return false
+      }
+
+      return true
+    })
+  }, [visibleTransactions, ledgerSearch, ledgerOpType, ledgerMonth])
 
   const distinctMonths = useMemo(() => {
     const months = new Set<string>()
@@ -57,7 +85,7 @@ function LedgerBook({
 
   const handleSelectMonthYear = (monthYear: string) => {
     if (!monthYear) return
-    const matches = visibleTransactions.filter((tx) => tx.date.startsWith(monthYear)).map((tx) => tx.id)
+    const matches = filteredVisibleTransactions.filter((tx) => tx.date.startsWith(monthYear)).map((tx) => tx.id)
     setSelectedIds((prev) => {
       const next = new Set(prev)
       matches.forEach((id) => next.add(id))
@@ -80,10 +108,10 @@ function LedgerBook({
 
   // Toggle select all
   const handleToggleSelectAll = () => {
-    if (selectedIds.size === visibleTransactions.length) {
+    if (selectedIds.size === filteredVisibleTransactions.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(visibleTransactions.map((tx) => tx.id)))
+      setSelectedIds(new Set(filteredVisibleTransactions.map((tx) => tx.id)))
     }
   }
 
@@ -171,7 +199,7 @@ function LedgerBook({
     }
   }
 
-  const isAllSelected = visibleTransactions.length > 0 && selectedIds.size === visibleTransactions.length
+  const isAllSelected = filteredVisibleTransactions.length > 0 && selectedIds.size === filteredVisibleTransactions.length
 
   return (
     <Card className="p-5 lg:p-6 text-left relative overflow-hidden">
@@ -206,7 +234,7 @@ function LedgerBook({
               </Button>
             )}
             {/* Excluir em Massa — visível apenas em desktop no header */}
-            {portfolioId && visibleTransactions.length > 0 && (
+            {portfolioId && filteredVisibleTransactions.length > 0 && (
               <Button
                 size="sm"
                 variant="outline"
@@ -236,6 +264,56 @@ function LedgerBook({
         )}
       </div>
 
+      {/* Barra de Filtros do Livro-Razão */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="relative w-full">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Buscar por ticker..."
+            value={ledgerSearch}
+            onChange={(e) => setLedgerSearch(e.target.value)}
+            className="!pl-9 text-xs font-semibold !py-2 w-full bg-secondary/20"
+          />
+          {ledgerSearch && (
+            <button
+              type="button"
+              onClick={() => setLedgerSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary hover:text-primary p-0.5"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        <Select
+          value={ledgerOpType}
+          onChange={(e) => setLedgerOpType(e.target.value)}
+          options={[
+            { value: 'all', label: 'Todas as Operações' },
+            { value: 'buy', label: 'Compra' },
+            { value: 'sell', label: 'Venda' },
+            { value: 'subscription', label: 'Subscrição' },
+            { value: 'dividend', label: 'Dividendos' },
+            { value: 'jcp', label: 'JCP' },
+            { value: 'yield', label: 'Rendimentos' },
+          ]}
+          placeholder="Filtrar por operação..."
+          className="text-xs !py-0"
+        />
+
+        <Select
+          value={ledgerMonth}
+          onChange={(e) => setLedgerMonth(e.target.value)}
+          options={[
+            { value: 'all', label: 'Todos os Meses' },
+            ...distinctMonths.map((m) => ({ value: m.value, label: m.label })),
+          ]}
+          placeholder="Filtrar por mês..."
+          className="text-xs !py-0"
+        />
+      </div>
+
       {/* Bloco de controle de exclusão em massa */}
       {isSelectionMode && (
         <div className="mb-3 border border-expense/20 rounded-2xl overflow-hidden animate-page-enter">
@@ -262,7 +340,7 @@ function LedgerBook({
               <p className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-1.5">Marcar por mês</p>
               <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
                 {distinctMonths.map((m) => {
-                  const monthTxs = visibleTransactions.filter(tx => tx.date.startsWith(m.value))
+                  const monthTxs = filteredVisibleTransactions.filter(tx => tx.date.startsWith(m.value))
                   const allSelected = monthTxs.every(tx => selectedIds.has(tx.id))
                   return (
                     <button
@@ -304,7 +382,7 @@ function LedgerBook({
             <div className="ml-auto flex items-center gap-2">
               {selectedIds.size > 0 && (
                 <span className="text-[10px] font-black text-expense font-mono bg-expense/10 px-2 py-1 rounded-lg">
-                  {selectedIds.size} de {visibleTransactions.length}
+                  {selectedIds.size} de {filteredVisibleTransactions.length}
                 </span>
               )}
               <button
@@ -323,10 +401,10 @@ function LedgerBook({
 
       {/* Lista de transações */}
       <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-0.5">
-        {visibleTransactions.length === 0 ? (
-          <p className="text-center py-6 text-xs text-secondary italic">Nenhuma transação registrada no livro-razão.</p>
+        {filteredVisibleTransactions.length === 0 ? (
+          <p className="text-center py-6 text-xs text-secondary italic">Nenhuma transação encontrada com os filtros selecionados.</p>
         ) : (
-          [...visibleTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(tx => {
+          [...filteredVisibleTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(tx => {
             const isSelected = selectedIds.has(tx.id)
             const isExpanded = expandedId === tx.id && !isSelectionMode
             const isCash = tx.ticker === 'SALDO_INV' || tx.ticker === 'CAIXA' || tx.ticker === 'SALDO EM CAIXA' || tx.ticker === 'SALDO_EM_CAIXA'
@@ -468,7 +546,7 @@ function LedgerBook({
               Conciliar B3
             </button>
           )}
-          {portfolioId && visibleTransactions.length > 0 && (
+          {portfolioId && filteredVisibleTransactions.length > 0 && (
             <button
               type="button"
               onClick={() => setIsSelectionMode(true)}
