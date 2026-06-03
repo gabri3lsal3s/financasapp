@@ -737,41 +737,13 @@ export default function Settings() {
         isOpen={isDeleteModalOpen}
         onClose={() => !deletingAccount && setIsDeleteModalOpen(false)}
         title="Confirmar exclusão de conta"
-      >
-        <div className="space-y-4">
-          <div className="rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger)]/10 p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-[var(--color-danger)] flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-primary">
-                <p className="font-bold">Atenção!</p>
-                <p className="mt-1">
-                  Você está prestes a excluir permanentemente sua conta e todos os dados associados a ela.
-                  Esta ação é irreversível.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-sm text-primary leading-relaxed">
-              Para confirmar que deseja prosseguir com a exclusão total dos seus dados, digite <strong className="text-[var(--color-danger)]">DELETAR</strong> no campo abaixo:
-            </p>
-
-            <Input
-              value={deleteConfirmationText}
-              onChange={(e) => setDeleteConfirmationText(e.target.value.toUpperCase())}
-              placeholder="Digite DELETAR aqui"
-              autoFocus
-              disabled={deletingAccount}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2 pt-2">
+        footer={
+          <div className="modal-actions-stacked">
             <Button
               variant="primary"
               onClick={handleDeleteAccount}
               disabled={deleteConfirmationText !== 'DELETAR' || deletingAccount}
-              className="bg-[var(--color-danger)] hover:bg-[var(--color-danger)]/90 text-white w-full py-3 flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 bg-[var(--color-danger)] py-3 text-white hover:bg-[var(--color-danger)]/90"
             >
               {deletingAccount ? (
                 <>
@@ -794,6 +766,33 @@ export default function Settings() {
               Cancelar e voltar
             </Button>
           </div>
+        }
+      >
+        <div className="modal-body-stack w-full">
+          <div className="modal-alert modal-alert--danger">
+            <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
+            <div className="text-sm text-primary">
+              <p className="font-bold">Atenção!</p>
+              <p className="mt-1">
+                Você está prestes a excluir permanentemente sua conta e todos os dados associados a ela.
+                Esta ação é irreversível.
+              </p>
+            </div>
+          </div>
+
+          <div className="modal-field-group">
+            <p className="text-sm leading-relaxed text-primary">
+              Para confirmar que deseja prosseguir com a exclusão total dos seus dados, digite{' '}
+              <strong className="text-[var(--color-danger)]">DELETAR</strong> no campo abaixo:
+            </p>
+            <Input
+              value={deleteConfirmationText}
+              onChange={(e) => setDeleteConfirmationText(e.target.value.toUpperCase())}
+              placeholder="Digite DELETAR aqui"
+              autoFocus
+              disabled={deletingAccount}
+            />
+          </div>
         </div>
       </Modal>
 
@@ -801,36 +800,9 @@ export default function Settings() {
         isOpen={userToDelete !== null}
         onClose={() => !deletingUser && setUserToDelete(null)}
         title="Excluir usuário do sistema"
-      >
-        {userToDelete && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger)]/10 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-[var(--color-danger)] flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-primary">
-                  <p className="font-bold">Ação irreversível</p>
-                  <p className="mt-1">
-                    A conta <strong>{userToDelete.email}</strong> será removida permanentemente,
-                    incluindo lançamentos, categorias, cartões e carteira de investimentos vinculada.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm text-primary leading-relaxed">
-                Digite o e-mail do usuário para confirmar:
-              </p>
-              <Input
-                value={deleteUserConfirmEmail}
-                onChange={(e) => setDeleteUserConfirmEmail(e.target.value)}
-                placeholder={userToDelete.email}
-                autoFocus
-                disabled={deletingUser}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2 pt-2">
+        footer={
+          userToDelete ? (
+            <div className="modal-actions-stacked">
               <Button
                 variant="danger"
                 onClick={handleDeleteUser}
@@ -838,7 +810,7 @@ export default function Settings() {
                   deleteUserConfirmEmail.trim().toLowerCase() !== userToDelete.email.toLowerCase()
                   || deletingUser
                 }
-                className="w-full py-3 flex items-center justify-center gap-2 font-bold"
+                className="flex w-full items-center justify-center gap-2 py-3 font-bold"
               >
                 {deletingUser ? (
                   <>
@@ -861,8 +833,34 @@ export default function Settings() {
                 Cancelar
               </Button>
             </div>
+          ) : undefined
+        }
+      >
+        {userToDelete ? (
+          <div className="modal-body-stack w-full">
+            <div className="modal-alert modal-alert--danger">
+              <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
+              <div className="text-sm text-primary">
+                <p className="font-bold">Ação irreversível</p>
+                <p className="mt-1">
+                  A conta <strong>{userToDelete.email}</strong> será removida permanentemente,
+                  incluindo lançamentos, categorias, cartões e carteira de investimentos vinculada.
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-field-group">
+              <p className="text-sm leading-relaxed text-primary">Digite o e-mail do usuário para confirmar:</p>
+              <Input
+                value={deleteUserConfirmEmail}
+                onChange={(e) => setDeleteUserConfirmEmail(e.target.value)}
+                placeholder={userToDelete.email}
+                autoFocus
+                disabled={deletingUser}
+              />
+            </div>
           </div>
-        )}
+        ) : null}
       </Modal>
     </div>
   )

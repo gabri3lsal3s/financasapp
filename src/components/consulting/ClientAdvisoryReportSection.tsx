@@ -15,7 +15,7 @@ export default function ClientAdvisoryReportSection({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {executiveSummary.trim() ? (
-        <Card className="p-5 border border-border/40 text-left">
+        <Card className="p-5 text-left">
           <h3 className="font-bold text-base text-primary mb-3 flex items-center gap-2">
             <FileText size={16} className="text-balance" />
             Sumário executivo
@@ -26,7 +26,7 @@ export default function ClientAdvisoryReportSection({
         </Card>
       ) : null}
       {nextMonthPlan.trim() ? (
-        <Card className="p-5 border border-border/40 text-left">
+        <Card className="p-5 text-left">
           <h3 className="font-bold text-base text-primary mb-3 flex items-center gap-2">
             <Calendar size={16} className="text-income" />
             Plano do próximo mês

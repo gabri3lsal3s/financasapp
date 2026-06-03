@@ -31,9 +31,9 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-6">
+      <div className="modal-form-stack w-full">
         {/* Year Selector */}
-        <div className="flex items-center justify-between rounded-xl border border-glass surface-glass p-2">
+        <div className="modal-panel-glass flex items-center justify-between p-2">
           <Button
             type="button"
             variant="ghost"
@@ -75,7 +75,7 @@ export default function MonthPickerModal({ isOpen, onClose, value, onChange, tit
           })}
         </div>
 
-        <div className="pt-2 flex flex-col items-center gap-3">
+        <div className="modal-field-group items-center">
             {showLiveOption && (
                 <Button
                     type="button"

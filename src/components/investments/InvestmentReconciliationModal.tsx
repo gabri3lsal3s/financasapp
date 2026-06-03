@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import { supabase } from '@/lib/supabase'
@@ -1167,7 +1168,7 @@ export default function InvestmentReconciliationModal({
       title="Conciliação B3 — Movimentação e Posição"
       size="2xl"
     >
-      <div className="space-y-4">
+      <div className="modal-form-stack w-full text-left">
         {/* Invisible anchor for scrolling to top */}
         <div ref={modalTopRef} />
         
@@ -1194,7 +1195,7 @@ export default function InvestmentReconciliationModal({
         
         {/* ── Progress Overlay ── */}
         {loading && progress && (
-          <div className="rounded-2xl bg-balance/10 border border-balance/25 p-4 space-y-2.5 animate-pulse-slow">
+          <div className="modal-panel-glass space-y-2.5 p-4 animate-pulse-slow border-balance/25">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-balance flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1251,9 +1252,9 @@ export default function InvestmentReconciliationModal({
 
         {/* STEP 1: Dual Upload Center */}
         {currentStep === 'upload' && (
-          <div className="space-y-4 text-left animate-page-enter">
+          <div className="modal-form-stack w-full text-left animate-page-enter">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-balance/10 flex items-center justify-center text-balance shrink-0">
+              <div className="modal-panel-glass flex h-10 w-10 shrink-0 items-center justify-center text-balance">
                 <Upload size={20} className="animate-pulse" />
               </div>
               <div>
@@ -1270,17 +1271,18 @@ export default function InvestmentReconciliationModal({
                 onDragLeave={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative overflow-hidden border border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 cursor-pointer backdrop-blur-md transition-all duration-300 ${
-                  dragActive
-                    ? 'border-balance bg-balance/10 scale-[1.01] shadow-lg shadow-balance/5'
-                    : fileName
-                      ? 'border-balance/30 bg-balance/[0.02] hover:border-balance/50 hover:bg-balance/5'
-                      : 'border-primary/30 bg-primary/20 hover:border-balance/40 hover:bg-balance/[0.03]'
-                } group`}
+                className={cn(
+                  'modal-upload-zone group',
+                  dragActive && 'modal-upload-zone--active-balance',
+                  !dragActive && fileName && 'modal-upload-zone--ready-balance'
+                )}
               >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                  fileName ? 'bg-balance/15 text-balance' : 'bg-primary/30 text-secondary'
-                } group-hover:scale-105`}>
+                <div
+                  className={cn(
+                    'modal-upload-zone__icon',
+                    fileName && 'modal-upload-zone__icon--balance'
+                  )}
+                >
                   <Upload size={24} className={dragActive ? 'animate-bounce' : ''} />
                 </div>
                 
@@ -1300,13 +1302,11 @@ export default function InvestmentReconciliationModal({
                 </div>
 
                 {fileName ? (
-                  <div className="flex items-center gap-1 bg-income/10 border border-income/20 text-income text-[9px] font-black uppercase px-2 py-0.5 rounded-full mt-1">
-                    <Check size={10} /> Pronto
-                  </div>
-                ) : (
-                  <span className="text-[8.5px] font-mono text-secondary/60 bg-secondary/50 px-2 py-0.5 rounded border border-border/30 mt-1">
-                    Padrão oficial B3 (.xlsx)
+                  <span className="modal-chip modal-chip--success">
+                    <Check size={10} aria-hidden /> Pronto
                   </span>
+                ) : (
+                  <span className="modal-chip">Padrão oficial B3 (.xlsx)</span>
                 )}
               </div>
 
@@ -1336,17 +1336,18 @@ export default function InvestmentReconciliationModal({
                   }
                 }}
                 onClick={() => document.getElementById('b3-position-file-input-step1')?.click()}
-                className={`relative overflow-hidden border border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 cursor-pointer backdrop-blur-md transition-all duration-300 ${
-                  positionDragActive
-                    ? 'border-income bg-income/10 scale-[1.01] shadow-lg shadow-income/5'
-                    : positionFileName
-                      ? 'border-income/30 bg-income/[0.02] hover:border-income/50 hover:bg-income/5'
-                      : 'border-primary/30 bg-primary/20 hover:border-income/40 hover:bg-income/[0.03]'
-                } group`}
+                className={cn(
+                  'modal-upload-zone group',
+                  positionDragActive && 'modal-upload-zone--active-income',
+                  !positionDragActive && positionFileName && 'modal-upload-zone--ready-income'
+                )}
               >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                  positionFileName ? 'bg-income/15 text-income' : 'bg-primary/30 text-secondary'
-                } group-hover:scale-105`}>
+                <div
+                  className={cn(
+                    'modal-upload-zone__icon',
+                    positionFileName && 'modal-upload-zone__icon--income'
+                  )}
+                >
                   <Upload size={24} className={positionDragActive ? 'animate-bounce' : ''} />
                 </div>
                 
@@ -1366,20 +1367,18 @@ export default function InvestmentReconciliationModal({
                 </div>
 
                 {positionFileName ? (
-                  <div className="flex items-center gap-1 bg-income/10 border border-income/20 text-income text-[9px] font-black uppercase px-2 py-0.5 rounded-full mt-1">
-                    <Check size={10} /> Pronto
-                  </div>
-                ) : (
-                  <span className="text-[8.5px] font-mono text-secondary/60 bg-secondary/50 px-2 py-0.5 rounded border border-border/30 mt-1">
-                    Opcional no início (.xlsx)
+                  <span className="modal-chip modal-chip--success">
+                    <Check size={10} aria-hidden /> Pronto
                   </span>
+                ) : (
+                  <span className="modal-chip">Opcional no início (.xlsx)</span>
                 )}
               </div>
             </div>
 
             {/* Parsing error message */}
             {(parseStatus || positionParseStatus) && (
-              <div className="p-3 bg-warning/5 border border-warning/15 rounded-2xl text-[11px] text-warning flex items-start gap-2.5">
+              <div className="modal-panel-glass flex items-start gap-2.5 p-3 text-[11px] text-warning">
                 <AlertCircle size={15} className="shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   {parseStatus && <p>{parseStatus}</p>}
@@ -1389,7 +1388,7 @@ export default function InvestmentReconciliationModal({
             )}
 
             {/* Action buttons */}
-            <div className="flex justify-end gap-3 pt-2 border-t border-border/20">
+            <div className="modal-section-divider flex justify-end gap-3 border-t pt-2">
               {positionFileName && !fileName && (
                 <Button
                   type="button"
@@ -1430,7 +1429,7 @@ export default function InvestmentReconciliationModal({
 
           return (
             <div className="space-y-4 animate-page-enter text-left">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/20 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b modal-section-divider pb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-income/10 flex items-center justify-center text-income shrink-0">
                     <FileCheck size={20} />
@@ -1446,9 +1445,9 @@ export default function InvestmentReconciliationModal({
               </div>
 
               {/* Glassmorphic Match Rate Panel */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-card/40 border border-border/40 rounded-2xl p-4 backdrop-blur-md">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center modal-panel-glass p-4">
                 {/* SVG Progress Ring Gauge */}
-                <div className="md:col-span-4 flex flex-col items-center justify-center py-2 border-b md:border-b-0 md:border-r border-border/30">
+                <div className="md:col-span-4 flex flex-col items-center justify-center py-2 border-b md:border-b-0 md:border-r modal-section-divider">
                   <div className="relative w-28 h-28 flex items-center justify-center">
                     <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                       {/* Gray track circle */}
@@ -1530,15 +1529,15 @@ export default function InvestmentReconciliationModal({
               />
 
               {positionPreviewRows.length > 0 && (
-                <div className="w-full rounded-2xl border border-border/40 bg-card/20 p-4 backdrop-blur-md space-y-3">
+                <div className="modal-panel-glass w-full p-4 space-y-3">
                   <p className="text-xs font-black text-primary flex items-center gap-1.5 uppercase tracking-tight">
                     <Layers size={14} className="text-balance" />
                     Auditoria Preliminar de Cotas de Custódia
                   </p>
-                  <div className="overflow-x-auto rounded-xl border border-border/40 bg-card/10">
+                  <div className="modal-table-shell rounded-xl">
                     <table className="w-full text-[11px] font-mono border-collapse">
                       <thead>
-                        <tr className="bg-secondary/40 text-secondary uppercase text-[9px] tracking-wider border-b border-border/30">
+                        <tr className="modal-table-head text-secondary uppercase text-[9px] tracking-wider">
                           <th className="text-left px-4 py-2.5 font-extrabold">Ticker</th>
                           <th className="text-right px-4 py-2.5 font-extrabold">Extrato B3</th>
                           <th className="text-right px-4 py-2.5 font-extrabold">Sistema (Livro-Razão)</th>
@@ -1651,7 +1650,7 @@ export default function InvestmentReconciliationModal({
         {/* Correções unificadas */}
         {currentStep === 'corrections' && reconciliation && (
           <div className="space-y-3 animate-page-enter">
-            <div className="flex justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl gap-3">
+            <div className="modal-toolbar gap-3">
               <Button variant="outline" size="sm" onClick={() => setCurrentStep('summary')} className="font-bold">
                 ← Voltar
               </Button>
@@ -1671,7 +1670,7 @@ export default function InvestmentReconciliationModal({
               </Button>
             </div>
 
-            <div className="flex gap-1.5 p-1 rounded-2xl bg-card/40 border border-border/30 backdrop-blur-md">
+            <div className="modal-tab-bar">
               {(
                 [
                   { id: 'conflicts' as const, label: 'Divergentes', count: wizardCounts.conflicts },
@@ -1760,7 +1759,7 @@ export default function InvestmentReconciliationModal({
                     </div>
 
                     {/* Livro-Razão (Atual) */}
-                    <div className="md:col-span-5 bg-card border border-border/40 p-2.5 rounded-xl text-xs space-y-1">
+                    <div className="md:col-span-5 modal-panel-glass p-2.5 text-xs space-y-1">
                       <div className="flex justify-between items-center mb-1">
                         <strong className="text-primary font-bold">{draft.existing.ticker}</strong>
                         <span className="px-1.5 py-0.2 bg-expense/10 text-expense rounded text-[9px] uppercase font-bold">
@@ -1847,7 +1846,7 @@ export default function InvestmentReconciliationModal({
               Confira tipo de operação (compra, venda, desdobro como <strong>cotas creditadas</strong>, grupamento como cancelamento de cotas).
               Desmarque linhas que você registrará manualmente depois.
             </B3ReconciliationGuidance>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-left bg-secondary/20 p-4.5 rounded-2xl border border-border/40 shadow-sm mb-1.5">
+            <div className="modal-panel-glass flex flex-col md:flex-row md:items-center justify-between gap-4 text-left p-4.5 mb-1.5">
               <div>
                 <h5 className="text-xs font-black text-primary uppercase tracking-tight">Lançamentos Faltantes no Livro-Razão</h5>
                 <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
@@ -1871,10 +1870,10 @@ export default function InvestmentReconciliationModal({
             </div>
 
             {/* Customization grid / table */}
-            <div className="overflow-x-auto border border-border/40 rounded-2xl bg-card/20 backdrop-blur-md shadow-sm">
+            <div className="modal-table-shell">
               <table className="w-full border-collapse text-left text-xs min-w-[980px]">
                 <thead>
-                  <tr className="bg-secondary/40 border-b border-border/30 text-[9px] font-extrabold text-secondary uppercase tracking-wider">
+                  <tr className="modal-table-head text-[9px] font-extrabold text-secondary uppercase tracking-wider">
                     <th className="p-3.5 text-center w-12">Importar</th>
                     <th className="p-3.5 w-28">Ticker</th>
                     <th className="p-3.5 w-36">Mov. B3</th>
@@ -1896,7 +1895,7 @@ export default function InvestmentReconciliationModal({
                       <td className="p-2.5 text-center">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-border bg-card text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none cursor-pointer"
+                          className="h-4 w-4 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
                           checked={draft.selected}
                           onChange={(e) => updateMissingDraft(draft.id, 'selected', e.target.checked)}
                         />
@@ -1907,7 +1906,7 @@ export default function InvestmentReconciliationModal({
                             type="text"
                             value={draft.ticker}
                             onChange={(e) => updateMissingDraft(draft.id, 'ticker', e.target.value)}
-                            className="w-full h-8 bg-card/60 text-primary border border-border/50 rounded-xl px-2.5 uppercase text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                            className="modal-input-compact w-full text-primary px-2.5 uppercase text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
                           />
                           {existingSystemTickers.length > 0 && (
                             <select
@@ -1917,7 +1916,7 @@ export default function InvestmentReconciliationModal({
                                   updateMissingDraft(draft.id, 'ticker', e.target.value)
                                 }
                               }}
-                              className="w-9 h-8 bg-card/60 text-secondary border border-border/50 rounded-xl px-1 text-xs focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none cursor-pointer transition-all duration-300 hover:bg-card shadow-sm text-center"
+                              className="modal-input-compact w-9 px-1 text-xs text-secondary text-center cursor-pointer"
                               title="Vincular a um ativo existente na carteira"
                             >
                               <option value="">🔗</option>
@@ -1944,7 +1943,7 @@ export default function InvestmentReconciliationModal({
                           onChange={(e) =>
                             updateMissingDraft(draft.id, 'operation_type', e.target.value as PortfolioOperationType)
                           }
-                          className="w-full h-8 bg-card/60 text-primary border border-border/50 rounded-xl px-2.5 text-[11px] font-bold focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm cursor-pointer font-sans"
+                          className="modal-input-compact w-full text-primary px-2.5 text-[11px] font-bold focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm cursor-pointer font-sans"
                         >
                           {OPERATION_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -1958,7 +1957,7 @@ export default function InvestmentReconciliationModal({
                           type="date"
                           value={draft.date}
                           onChange={(e) => updateMissingDraft(draft.id, 'date', e.target.value)}
-                          className="w-full h-8 bg-card/60 text-primary border border-border/50 rounded-xl px-2.5 text-[11px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                          className="modal-input-compact w-full text-primary px-2.5 text-[11px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
                         />
                       </td>
                       <td className="p-2.5 text-right">
@@ -1967,7 +1966,7 @@ export default function InvestmentReconciliationModal({
                           step="any"
                           value={draft.quantity}
                           onChange={(e) => updateMissingDraft(draft.id, 'quantity', e.target.value)}
-                          className="w-full h-8 bg-card/60 text-primary border border-border/50 rounded-xl px-2.5 text-right text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                          className="modal-input-compact w-full text-primary px-2.5 text-right text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
                         />
                       </td>
                       <td className="p-2.5 text-right">
@@ -1976,7 +1975,7 @@ export default function InvestmentReconciliationModal({
                           step="any"
                           value={draft.price}
                           onChange={(e) => updateMissingDraft(draft.id, 'price', e.target.value)}
-                          className="w-full h-8 bg-card/60 text-primary border border-border/50 rounded-xl px-2.5 text-right text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                          className="modal-input-compact w-full text-primary px-2.5 text-right text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
                         />
                       </td>
                       <td className="p-2.5 text-left">
@@ -1985,7 +1984,7 @@ export default function InvestmentReconciliationModal({
                           onChange={(e) =>
                             updateMissingDraft(draft.id, 'pricing_mode', e.target.value as PortfolioPricingMode)
                           }
-                          className="w-full h-8 bg-card/60 text-primary border border-border/50 rounded-xl px-2.5 text-[11px] font-bold focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm cursor-pointer font-sans"
+                          className="modal-input-compact w-full text-primary px-2.5 text-[11px] font-bold focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm cursor-pointer font-sans"
                         >
                           {PORTFOLIO_PRICING_MODE_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -2062,7 +2061,7 @@ export default function InvestmentReconciliationModal({
 
         {currentStep === 'yield_config' && (
           <div className="space-y-4 animate-page-enter">
-            <div className="flex justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl gap-3">
+            <div className="modal-toolbar gap-3">
               <Button variant="outline" size="sm" onClick={() => setCurrentStep('corrections')} className="font-bold">
                 ← Voltar
               </Button>
@@ -2081,9 +2080,9 @@ export default function InvestmentReconciliationModal({
                 return (
                   <div 
                     key={asset.id} 
-                    className="bg-card/65 p-4 rounded-2xl border border-border/40 space-y-3 text-left hover:border-balance/20 transition-all duration-200 shadow-sm"
+                    className="modal-panel-glass p-4 space-y-3 text-left hover:border-balance/20 transition-all duration-200"
                   >
-                    <div className="flex items-center justify-between border-b border-border/20 pb-2">
+                    <div className="flex items-center justify-between border-b modal-section-divider pb-2">
                       <div className="flex items-center gap-3">
                         <div>
                           <strong className="text-primary font-mono font-black text-sm block">
@@ -2120,7 +2119,7 @@ export default function InvestmentReconciliationModal({
                           <select
                             value={asset.indexer}
                             onChange={(e) => updateImportedDraft(asset.id, 'indexer', e.target.value as PortfolioAssetIndexer)}
-                            className="w-full h-8 bg-card border border-border/50 rounded-xl px-2.5 font-semibold text-[11px] focus:border-balance focus:outline-none cursor-pointer shadow-sm text-primary"
+                            className="modal-input-compact w-full px-2.5 font-semibold text-[11px] focus:border-balance focus:outline-none cursor-pointer shadow-sm text-primary"
                           >
                             <option value="none">Pré-fixado (taxa contratada)</option>
                             <option value="cdi">CDI</option>
@@ -2139,7 +2138,7 @@ export default function InvestmentReconciliationModal({
                                 value={asset.indexer_percent}
                                 onChange={(e) => updateImportedDraft(asset.id, 'indexer_percent', e.target.value)}
                                 placeholder="100"
-                                className="w-full h-8 bg-card border border-border/50 rounded-xl pl-2.5 pr-6 font-semibold text-[11px] focus:border-balance focus:outline-none shadow-sm text-primary"
+                                className="modal-input-compact w-full pl-2.5 pr-6 font-semibold text-[11px] text-primary"
                               />
                               <span className="absolute right-2.5 text-secondary font-bold text-[10px]">%</span>
                             </div>
@@ -2154,7 +2153,7 @@ export default function InvestmentReconciliationModal({
                                 value={asset.contract_rate}
                                 onChange={(e) => updateImportedDraft(asset.id, 'contract_rate', e.target.value)}
                                 placeholder="Ex: 12.5"
-                                className="w-full h-8 bg-card border border-border/50 rounded-xl pl-2.5 pr-10 font-semibold text-[11px] focus:border-balance focus:outline-none shadow-sm text-primary"
+                                className="modal-input-compact w-full pl-2.5 pr-10 font-semibold text-[11px] text-primary"
                               />
                               <span className="absolute right-2.5 text-secondary font-bold text-[10px]">% a.a.</span>
                             </div>
@@ -2167,7 +2166,7 @@ export default function InvestmentReconciliationModal({
                             type="date"
                             value={asset.maturity_date}
                             onChange={(e) => updateImportedDraft(asset.id, 'maturity_date', e.target.value)}
-                            className="w-full h-8 bg-card border border-border/50 rounded-xl px-2.5 font-semibold text-[11px] focus:border-balance focus:outline-none shadow-sm text-primary"
+                            className="modal-input-compact w-full px-2.5 font-semibold text-[11px] focus:border-balance focus:outline-none shadow-sm text-primary"
                           />
                         </div>
 
@@ -2193,7 +2192,7 @@ export default function InvestmentReconciliationModal({
 
         {currentStep === 'position' && (reconciliation || positionOnlyMode) && (
           <div className="space-y-3 animate-page-enter">
-            <div className="flex justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl gap-3">
+            <div className="modal-toolbar gap-3">
               <Button
                 variant="outline"
                 size="sm"
@@ -2308,7 +2307,7 @@ export default function InvestmentReconciliationModal({
         {/* STEP 5: Review */}
         {currentStep === 'review' && reconciliation && (
           <div className="space-y-5 text-center animate-page-enter max-w-xl mx-auto py-4 text-left">
-            <div className="flex flex-wrap gap-3 justify-between items-center bg-secondary/10 border border-border/30 p-2.5 rounded-2xl">
+            <div className="modal-toolbar flex-wrap gap-3">
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
                   ← Revisar Custódia B3
@@ -2339,10 +2338,10 @@ export default function InvestmentReconciliationModal({
             </div>
 
             {/* Financial Receipt Summary */}
-            <div className="relative overflow-hidden bg-card/40 border border-border/40 rounded-3xl p-5 backdrop-blur-md space-y-4 shadow-sm group">
+            <div className="modal-panel-glass relative overflow-hidden rounded-3xl p-5 space-y-4 group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-balance/5 to-transparent rounded-full -z-10" />
               
-              <h5 className="font-black text-xs text-primary uppercase tracking-widest border-b border-border/20 pb-2 flex items-center justify-between">
+              <h5 className="font-black text-xs text-primary uppercase tracking-widest border-b modal-section-divider pb-2 flex items-center justify-between">
                 <span>Relatório Consolidado de Auditoria</span>
                 <span className="text-[9px] font-mono text-secondary/60">Hash: {crypto.randomUUID().slice(0, 8).toUpperCase()}</span>
               </h5>
@@ -2361,7 +2360,7 @@ export default function InvestmentReconciliationModal({
                   </span>
                 </div>
                 {positionValidation && (
-                  <div className="flex justify-between border-t border-border/20 pt-2.5">
+                  <div className="flex justify-between border-t modal-section-divider pt-2.5">
                     <span className="text-secondary/70 uppercase text-[10px]">Auditoria de Custódia:</span>
                     <span
                       className={`font-black flex items-center gap-1 uppercase text-[10px] ${

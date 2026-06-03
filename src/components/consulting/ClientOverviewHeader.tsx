@@ -24,7 +24,7 @@ export default function ClientOverviewHeader({
 
   return (
     <div className="space-y-4">
-      <div className="bg-card border border-border/40 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left shadow-sm min-w-0">
+      <div className="surface-glass-strong border-glass p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left min-w-0">
         <div className="min-w-0 flex-1">
           <h3 className="font-extrabold text-sm text-primary flex items-center gap-2">
             <ShieldCheck size={16} className="text-balance animate-pulse shrink-0" />

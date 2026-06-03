@@ -15,7 +15,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-[999] bg-black/40 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'modal-overlay fixed inset-0 z-[999] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className
     )}
     {...props}
@@ -37,7 +37,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-[1000] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-glass surface-glass-strong p-6 shadow-lg duration-200 data-[state=open]:animate-modal-open-right data-[state=closed]:animate-modal-close-right rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4',
+        'fixed left-[50%] top-[50%] z-[1000] flex w-full max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col gap-0 border border-glass p-0 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4',
         className
       )}
       {...props}

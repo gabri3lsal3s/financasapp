@@ -17,7 +17,7 @@ export default function AdvisorNotes({
   savingSettings,
 }: AdvisorNotesProps) {
   return (
-    <Card className="p-5 lg:p-6 text-left relative overflow-hidden border border-border/40 shadow-sm">
+    <Card className="p-5 lg:p-6 text-left relative overflow-hidden">
       <div className="absolute right-0 top-0 w-32 h-32 bg-balance/10 rounded-full blur-3xl pointer-events-none" />
       
       <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-3">

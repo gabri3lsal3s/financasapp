@@ -38,7 +38,7 @@ export default function WeeklyVariationChart({ shareHistory }: WeeklyVariationCh
   const yDomain = [Math.floor(minVal - 1), Math.ceil(maxVal + 1)]
 
   return (
-    <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
+    <Card className="p-5 flex flex-col justify-between text-left h-full">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
         <LineIcon size={16} className="accent-primary" />
         Evolução da Rentabilidade Total dos Ativos

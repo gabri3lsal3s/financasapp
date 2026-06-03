@@ -36,14 +36,19 @@ export default function PageHeader({
   if (!action) return null
 
   const activePosition = isDesktop ? floatingButtonsDesktopPosition : floatingButtonsMobilePosition
+  const mobileSideAnchor = 'bottom-[calc(6.5rem+env(safe-area-inset-bottom))]'
 
   const containerClasses = cn(
     'fixed z-40 pointer-events-none transition-all duration-300 animate-in fade-in-0 duration-300',
     activePosition === 'top'
       ? 'right-8 top-0'
       : activePosition === 'left'
-      ? 'left-0 top-32 lg:top-40'
-      : 'right-0 top-32 lg:top-40',
+      ? isDesktop
+        ? 'left-0 top-32 lg:top-40'
+        : cn('left-0', mobileSideAnchor)
+      : isDesktop
+        ? 'right-0 top-32 lg:top-40'
+        : cn('right-0', mobileSideAnchor),
     className
   )
 

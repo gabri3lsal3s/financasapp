@@ -302,7 +302,7 @@ function CreditCardTimeline({
 
   return (
     <div
-      className="bg-gradient-to-r from-card/50 via-background/40 to-card/50 border border-border/40 rounded-xl p-4.5 space-y-4 shadow-sm text-left transition-all duration-300 hover:border-[var(--timeline-border-hover)] animate-page-enter"
+      className="glass-timeline-card p-4.5 space-y-4 text-left transition-all duration-300 animate-page-enter"
       style={containerHoverStyle}
     >
       {/* Top Header */}
@@ -1843,7 +1843,7 @@ export default function CreditCards() {
         onClose={closeCardModal}
         title={editingCard ? 'Editar cartão de crédito' : 'Novo cartão de crédito'}
       >
-        <form onSubmit={handleSubmitCard} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleSubmitCard} className="modal-form-stack w-full text-left">
           <Input
             label="Nome"
             value={cardForm.name}
@@ -1919,7 +1919,7 @@ export default function CreditCards() {
         onClose={handleCancelDelete}
         title={deleteStep === 1 ? 'Excluir cartão' : 'Migrar despesas'}
       >
-        <div className="space-y-4">
+        <div className="modal-form-stack w-full text-left">
           {deleteStep === 1 ? (
             <div className="space-y-3">
               <p className="text-sm text-primary">
@@ -1977,7 +1977,7 @@ export default function CreditCards() {
         onClose={closeCycleModal}
         title={`Ajustar fechamento e vencimento (${currentMonth})`}
       >
-        <form onSubmit={handleSubmitCycle} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleSubmitCycle} className="modal-form-stack w-full text-left">
           <div className="grid grid-cols-2 gap-2">
             <Input
               label="Fechamento do mês"
@@ -2016,7 +2016,7 @@ export default function CreditCards() {
         onClose={closeExpenseEditModal}
         title="Editar despesa"
       >
-        <form onSubmit={handleSubmitEditExpense} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleSubmitEditExpense} className="modal-form-stack w-full text-left">
           <Input
             label="Valor"
             type="text"
@@ -2129,7 +2129,7 @@ export default function CreditCards() {
         onClose={closePaymentEditModal}
         title="Editar pagamento"
       >
-        <form onSubmit={handleSubmitEditPayment} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleSubmitEditPayment} className="modal-form-stack w-full text-left">
           <Input
             label="Valor pago"
             type="number"
@@ -2168,7 +2168,7 @@ export default function CreditCards() {
         onClose={closeRefundIncomeEditModal}
         title="Editar estorno (renda)"
       >
-        <form onSubmit={handleSubmitEditRefundIncome} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleSubmitEditRefundIncome} className="modal-form-stack w-full text-left">
           <Input
             label="Valor"
             type="text"
@@ -2242,7 +2242,7 @@ export default function CreditCards() {
         onClose={closeRefundModal}
         title={`Registrar estorno (${currentMonth})`}
       >
-        <form onSubmit={(event) => handleSubmitRefund(event, refundCardId)} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={(event) => handleSubmitRefund(event, refundCardId)} className="modal-form-stack w-full text-left">
           <Input
             label="Valor do estorno"
             type="text"
@@ -2285,7 +2285,7 @@ export default function CreditCards() {
         onClose={closePaymentModal}
         title={`Registrar pagamento (${currentMonth})`}
       >
-        <form onSubmit={handleSubmitPayment} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleSubmitPayment} className="modal-form-stack w-full text-left">
           <Input
             label="Valor pago"
             type="number"

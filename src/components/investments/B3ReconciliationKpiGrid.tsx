@@ -52,7 +52,7 @@ export default function B3ReconciliationKpiGrid({ items }: B3ReconciliationKpiGr
         return (
           <div
             key={item.label}
-            className={`rounded-2xl border ${styles.border} ${styles.bg} px-4 py-3.5 text-left backdrop-blur-md transition-all duration-300 hover-lift-subtle hover:shadow-lg ${styles.glow} group animate-stagger-item ${delayClass}`}
+            className={`modal-panel-glass rounded-2xl border ${styles.border} ${styles.bg} px-4 py-3.5 text-left transition-all duration-300 hover-lift-subtle hover:shadow-lg ${styles.glow} group animate-stagger-item ${delayClass}`}
           >
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-secondary/70">

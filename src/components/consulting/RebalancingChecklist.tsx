@@ -19,7 +19,7 @@ export default function RebalancingChecklist({
   rebalancingTrades,
 }: RebalancingChecklistProps) {
   return (
-    <Card className="p-5 flex flex-col border border-border/40 shadow-sm text-left h-full">
+    <Card className="p-5 flex flex-col text-left h-full">
       <h3 className="font-bold text-base text-primary mb-3 flex items-center gap-2">
         <AlertCircle size={16} className="text-balance" />
         Diretrizes de Rebalanceamento

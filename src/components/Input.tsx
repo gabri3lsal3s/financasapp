@@ -16,9 +16,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? generatedId
 
     return (
-      <div className="w-full">
+      <div className="modal-field w-full">
         {label && (
-          <Label htmlFor={inputId} className="mb-1 block">
+          <Label htmlFor={inputId} className="block">
             {label}
           </Label>
         )}
@@ -40,9 +40,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error ? (
-          <p className="mt-1 text-sm text-destructive">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         ) : helperText ? (
-          <p className="mt-1 text-xs text-secondary opacity-60">{helperText}</p>
+          <p className="text-xs text-secondary opacity-80">{helperText}</p>
         ) : null}
       </div>
     )

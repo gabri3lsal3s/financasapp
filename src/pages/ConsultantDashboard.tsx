@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect'
@@ -17,6 +17,8 @@ import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Modal from '@/components/Modal'
+import ModalForm from '@/components/ModalForm'
+import ModalButtonFooter from '@/components/ModalButtonFooter'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import { PAGE_HEADERS } from '@/constants/pages'
@@ -115,6 +117,8 @@ async function ensurePersonalPortfolio(userId: string): Promise<void> {
 
 export default function ConsultantDashboard() {
   const { user } = useAuth()
+  const linkClientFormId = useId()
+  const deleteClientFormId = useId()
   const [clients, setClients] = useState<Profile[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [loadingClients, setLoadingClients] = useState<boolean>(true)
@@ -1607,82 +1611,81 @@ export default function ConsultantDashboard() {
          ======================================================= */}
       
       {/* Modal: Novo Cliente */}
-      <Modal
+      <ModalForm
         isOpen={isClientModalOpen}
         onClose={() => setIsClientModalOpen(false)}
         title="Cadastrar Novo Cliente"
+        onSubmit={handleCreateClient}
+        footer={(formId) => (
+          <ModalButtonFooter
+            formId={formId}
+            onCancel={() => setIsClientModalOpen(false)}
+            submitLabel="Cadastrar Cliente"
+            loading={creatingClient}
+            loadingLabel="Cadastrando..."
+          />
+        )}
       >
-        <div className="space-y-4 text-left">
-          <p className="text-xs text-secondary mb-4 font-sans">
-            O perfil do cliente será criado diretamente no banco. Quando ele se registrar no app com o mesmo e-mail, terá acesso instantâneo.
-          </p>
-
-          <form onSubmit={handleCreateClient} className="space-y-4">
-            <Input
-              label="Nome Completo"
-              type="text"
-              required
-              placeholder="Nome do cliente"
-              value={newClientName}
-              onChange={e => setNewClientName(e.target.value)}
-              className="text-sm font-semibold"
-            />
-
-            <Input
-              label="E-mail de Acesso (Opcional)"
-              type="email"
-              placeholder="cliente@email.com"
-              value={newClientEmail}
-              onChange={e => setNewClientEmail(e.target.value)}
-              helperText="Deixe em branco se deseja criar um perfil provisório e associar a um e-mail posteriormente."
-              className="text-sm font-semibold font-mono"
-            />
-
-            <div className="flex gap-2 justify-end pt-4 border-t border-primary/20">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsClientModalOpen(false)}
-                className="text-xs font-semibold"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={creatingClient}
-                variant="primary"
-                className="font-bold text-xs px-5 shadow-md"
-              >
-                {creatingClient ? 'Cadastrando...' : 'Cadastrar Cliente'}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </Modal>
+        <p className="modal-intro font-sans">
+          O perfil do cliente será criado diretamente no banco. Quando ele se registrar no app com o mesmo e-mail, terá acesso instantâneo.
+        </p>
+        <Input
+          label="Nome Completo"
+          type="text"
+          required
+          placeholder="Nome do cliente"
+          value={newClientName}
+          onChange={e => setNewClientName(e.target.value)}
+          className="text-sm font-semibold"
+        />
+        <Input
+          label="E-mail de Acesso (Opcional)"
+          type="email"
+          placeholder="cliente@email.com"
+          value={newClientEmail}
+          onChange={e => setNewClientEmail(e.target.value)}
+          helperText="Deixe em branco se deseja criar um perfil provisório e associar a um e-mail posteriormente."
+          className="text-sm font-semibold font-mono"
+        />
+      </ModalForm>
 
       {/* Modal: Vincular Provisório a Usuário Real */}
       <Modal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
         title="Vincular Carteira a Usuário Real"
+        footer={
+          !loadingEligible && eligibleClients.length === 0 ? (
+            <div className="modal-button-footer">
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsLinkModalOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+          ) : !loadingEligible && eligibleClients.length > 0 ? (
+            <ModalButtonFooter
+              formId={linkClientFormId}
+              onCancel={() => setIsLinkModalOpen(false)}
+              submitLabel="Vincular Carteira"
+              loading={linking}
+              loadingLabel="Vinculando..."
+            />
+          ) : undefined
+        }
       >
-        <div className="space-y-4 text-left">
-          <p className="text-xs text-secondary mb-4 font-sans">
+        <div className="modal-body-stack w-full text-left">
+          <p className="modal-intro font-sans">
             Selecione uma conta de cliente real cadastrada no aplicativo para transferir a gestão desta carteira patrimonial de forma definitiva. O perfil provisório antigo será removido.
           </p>
 
           {loadingEligible ? (
-            <div className="text-center py-6 text-xs text-secondary">Carregando e-mails disponíveis...</div>
+            <div className="modal-empty-state text-xs text-secondary">Carregando e-mails disponíveis...</div>
           ) : eligibleClients.length === 0 ? (
-            <div className="text-center py-6 space-y-2 animate-page-enter">
+            <div className="modal-empty-state animate-page-enter">
               <p className="text-xs text-secondary italic font-sans">Nenhuma conta de cliente real sem carteira foi encontrada no banco.</p>
               <p className="text-[10px] text-secondary opacity-60 font-sans">Para vincular, o cliente precisa primeiro se cadastrar no aplicativo com o e-mail real dele.</p>
-              <div className="pt-4 border-t border-primary/20 flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => setIsLinkModalOpen(false)}>Fechar</Button>
-              </div>
             </div>
           ) : (
-            <form onSubmit={handleLinkClient} className="space-y-4 animate-page-enter">
+            <form id={linkClientFormId} onSubmit={handleLinkClient} className="modal-form-stack w-full text-left animate-page-enter">
               <Select
                 label="Selecionar E-mail Real"
                 value={selectedRealClientId}
@@ -1695,87 +1698,55 @@ export default function ConsultantDashboard() {
                 placeholder="Selecione um e-mail real..."
                 required
               />
-
-              <div className="flex gap-2 justify-end pt-4 border-t border-primary/20">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsLinkModalOpen(false)}
-                  className="text-xs font-semibold"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={linking}
-                  variant="primary"
-                  className="font-bold text-xs px-5"
-                >
-                  {linking ? 'Vinculando...' : 'Vincular Carteira'}
-                </Button>
-              </div>
             </form>
           )}
         </div>
       </Modal>
 
       {/* Modal: Edição Direta de Classificação do Ativo */}
-      <Modal
+      <ModalForm
         isOpen={isEditAssetModalOpen}
         onClose={() => setIsEditAssetModalOpen(false)}
         title={`Editar Classificação: ${editingAssetTicker}`}
+        onSubmit={handleSaveAssetClassification}
+        footer={(formId) => (
+          <ModalButtonFooter
+            formId={formId}
+            onCancel={() => setIsEditAssetModalOpen(false)}
+            submitLabel="Salvar Alterações"
+            loading={savingAssetClass}
+            loadingLabel="Salvando..."
+          />
+        )}
       >
-        <form onSubmit={handleSaveAssetClassification} className="space-y-4 text-left">
-          <p className="text-xs text-secondary mb-4 font-sans">
-            Altere manualmente a classe e o setor econômico do ativo **{editingAssetTicker}** no banco de dados. Essas configurações serão aplicadas imediatamente a todos os relatórios e carteiras que contêm este ativo.
-          </p>
-
-          <Select
-            label="Classe de Ativo"
-            value={editingAssetClass}
-            onChange={e => setEditingAssetClass(e.target.value)}
-            options={[
-              { value: 'Ações Nacionais', label: 'Ações Nacionais' },
-              { value: 'Ações Internacionais', label: 'Ações Internacionais' },
-              { value: 'Fundos Imobiliários', label: 'Fundos Imobiliários' },
-              { value: 'ETFs Nacionais', label: 'ETFs Nacionais' },
-              { value: 'ETFs Internacionais', label: 'ETFs Internacionais' },
-              { value: 'Criptoativos', label: 'Criptoativos' },
-              { value: 'Renda Fixa', label: 'Renda Fixa' }
-            ]}
-            required
-          />
-
-          <Input
-            label="Setor Econômico"
-            type="text"
-            required
-            placeholder="Ex: Petróleo e Gás"
-            value={editingAssetSector}
-            onChange={e => setEditingAssetSector(e.target.value)}
-            className="text-sm font-semibold"
-          />
-
-          <div className="flex gap-2 justify-end pt-4 border-t border-primary/20">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsEditAssetModalOpen(false)}
-              className="text-xs font-semibold"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={savingAssetClass}
-              variant="primary"
-              className="font-bold text-xs px-5 shadow-md"
-            >
-              {savingAssetClass ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        <p className="modal-intro font-sans">
+          Altere manualmente a classe e o setor econômico do ativo <strong>{editingAssetTicker}</strong> no banco de dados. Essas configurações serão aplicadas imediatamente a todos os relatórios e carteiras que contêm este ativo.
+        </p>
+        <Select
+          label="Classe de Ativo"
+          value={editingAssetClass}
+          onChange={e => setEditingAssetClass(e.target.value)}
+          options={[
+            { value: 'Ações Nacionais', label: 'Ações Nacionais' },
+            { value: 'Ações Internacionais', label: 'Ações Internacionais' },
+            { value: 'Fundos Imobiliários', label: 'Fundos Imobiliários' },
+            { value: 'ETFs Nacionais', label: 'ETFs Nacionais' },
+            { value: 'ETFs Internacionais', label: 'ETFs Internacionais' },
+            { value: 'Criptoativos', label: 'Criptoativos' },
+            { value: 'Renda Fixa', label: 'Renda Fixa' },
+          ]}
+          required
+        />
+        <Input
+          label="Setor Econômico"
+          type="text"
+          required
+          placeholder="Ex: Petróleo e Gás"
+          value={editingAssetSector}
+          onChange={e => setEditingAssetSector(e.target.value)}
+          className="text-sm font-semibold"
+        />
+      </ModalForm>
 
       {/* Modal: Exclusão e Desvinculação de Cliente (Duas Etapas) */}
       <Modal
@@ -1786,75 +1757,71 @@ export default function ConsultantDashboard() {
           setDeleteConfirmEmail('')
         }}
         title={clientToDelete ? (isProvisionalClientEmail(clientToDelete.email) ? 'Excluir Conta Provisória' : 'Desvincular Carteira de Cliente Real') : 'Gerenciar Cliente'}
+        footer={
+          clientToDelete ? (
+            <ModalButtonFooter
+              formId={deleteClientFormId}
+              onCancel={() => {
+                setIsDeleteModalOpen(false)
+                setClientToDelete(null)
+                setDeleteConfirmEmail('')
+              }}
+              submitLabel={
+                isProvisionalClientEmail(clientToDelete.email)
+                  ? 'Sim, Excluir Definitivamente'
+                  : 'Sim, Desvincular Assessoria'
+              }
+              submitVariant={isProvisionalClientEmail(clientToDelete.email) ? 'danger' : 'primary'}
+              submitIcon={<Trash2 size={13} aria-hidden />}
+              submitDisabled={deleteConfirmEmail.trim() !== clientToDelete.email}
+              loading={deletingClientState}
+              loadingLabel={
+                isProvisionalClientEmail(clientToDelete.email) ? 'Excluindo...' : 'Desvinculando...'
+              }
+            />
+          ) : undefined
+        }
       >
-        {clientToDelete && (() => {
-          const isProvisional = isProvisionalClientEmail(clientToDelete.email)
-          return (
-            <form onSubmit={handleDeleteClient} className="space-y-4 text-left">
-              {isProvisional ? (
-                <div className="bg-expense/10 border border-expense/20 text-expense p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-expense" />
-                  <div>
-                    <strong className="font-bold block mb-1">Atenção! Esta ação é irreversível.</strong>
-                    Ao confirmar, todos os dados da carteira provisória, metas e transações do e-mail provisório **{clientToDelete.email}** serão excluídos permanentemente do banco de dados.
-                  </div>
+        {clientToDelete ? (
+          <form id={deleteClientFormId} onSubmit={handleDeleteClient} className="modal-form-stack w-full text-left">
+            {isProvisionalClientEmail(clientToDelete.email) ? (
+              <div className="modal-alert modal-alert--danger font-sans">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" aria-hidden />
+                <div>
+                  <strong className="mb-1 block font-bold">Atenção! Esta ação é irreversível.</strong>
+                  Ao confirmar, todos os dados da carteira provisória, metas e transações do e-mail provisório{' '}
+                  <strong>{clientToDelete.email}</strong> serão excluídos permanentemente do banco de dados.
                 </div>
-              ) : (
-                <div className="bg-warning/10 border border-warning/20 text-warning p-4 rounded-xl flex items-start gap-2.5 text-xs font-sans">
-                  <ShieldCheck size={16} className="shrink-0 mt-0.5 text-warning" />
-                  <div>
-                    <strong className="font-bold block mb-1">Desvinculação de Assessoria (Seguro)</strong>
-                    Esta é uma conta de cliente real. Ao confirmar, o sistema **apenas removerá o seu acesso como consultor** a esta carteira patrimonial.
-                    Os dados cadastrados, investimentos pessoais e a conta do cliente **não serão apagados** e continuarão intactos para acesso pessoal dele.
-                  </div>
+              </div>
+            ) : (
+              <div className="modal-alert modal-alert--warning font-sans">
+                <ShieldCheck size={16} className="shrink-0 mt-0.5" aria-hidden />
+                <div>
+                  <strong className="mb-1 block font-bold">Desvinculação de Assessoria (Seguro)</strong>
+                  Esta é uma conta de cliente real. Ao confirmar, o sistema apenas removerá o seu acesso como consultor a esta carteira patrimonial.
+                  Os dados cadastrados, investimentos pessoais e a conta do cliente não serão apagados e continuarão intactos para acesso pessoal dele.
                 </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block font-sans">
-                  Para prosseguir, digite o e-mail do cliente abaixo:
-                </label>
-                <p className="text-xs text-primary font-mono select-all bg-muted/30 p-2 rounded-lg border border-border/30 inline-block">
-                  {clientToDelete.email}
-                </p>
-                <Input
-                  type="email"
-                  required
-                  placeholder="Digite o e-mail exato para confirmar"
-                  value={deleteConfirmEmail}
-                  onChange={e => setDeleteConfirmEmail(e.target.value)}
-                  className="font-mono text-xs"
-                />
               </div>
+            )}
 
-              <div className="flex gap-2 justify-end pt-4 border-t border-primary/20">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsDeleteModalOpen(false)
-                    setClientToDelete(null)
-                    setDeleteConfirmEmail('')
-                  }}
-                  className="text-xs font-semibold"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={deletingClientState || deleteConfirmEmail.trim() !== clientToDelete.email}
-                  variant={isProvisional ? 'danger' : 'primary'}
-                  className="font-bold text-xs px-5 flex items-center gap-1.5"
-                >
-                  <Trash2 size={13} />
-                  {deletingClientState 
-                    ? (isProvisional ? 'Excluindo...' : 'Desvinculando...') 
-                    : (isProvisional ? 'Sim, Excluir Definitivamente' : 'Sim, Desvincular Assessoria')}
-                </Button>
-              </div>
-            </form>
-          )
-        })()}
+            <div className="modal-field-group">
+              <label className="block font-sans text-[10px] font-extrabold uppercase tracking-wider text-secondary">
+                Para prosseguir, digite o e-mail do cliente abaixo:
+              </label>
+              <p className="modal-panel-glass inline-block select-all p-2 font-mono text-xs text-primary">
+                {clientToDelete.email}
+              </p>
+              <Input
+                type="email"
+                required
+                placeholder="Digite o e-mail exato para confirmar"
+                value={deleteConfirmEmail}
+                onChange={e => setDeleteConfirmEmail(e.target.value)}
+                className="font-mono text-xs"
+              />
+            </div>
+          </form>
+        ) : null}
       </Modal>
 
       {/* Modal: Lançamento e Edição de Transações (Premium) */}

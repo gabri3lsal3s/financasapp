@@ -153,7 +153,7 @@ function InlineEditForm({ tx, portfolioId, currency, onSaved, onCancel }: Inline
 
   return (
     <div className="overflow-hidden">
-      <div className="mx-3 mb-2 rounded-xl border border-glass surface-glass p-3">
+      <div className="mx-3 mb-2 rounded-xl border border-glass modal-panel-glass p-3">
         <div className="mb-2 grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-secondary">
@@ -406,7 +406,7 @@ export default function AssetTransactionsModal({
   )
 
   const modalFooter = (
-    <div className="flex items-center justify-between gap-3 px-5 py-3">
+    <div className="modal-footer-info">
       <p className="text-[11px] text-secondary">
         {assetTxs.length} transaç{assetTxs.length === 1 ? 'ão' : 'ões'}
         {metrics.buys > 0 && (
@@ -432,10 +432,10 @@ export default function AssetTransactionsModal({
         footer={modalFooter}
         size="lg"
         maxWidth="max-w-[40rem]"
-        bodyClassName="flex flex-col p-0"
+        bodyClassName="flex flex-col"
       >
-        <div className="mx-4 mb-3.5 grid shrink-0 grid-cols-3 overflow-hidden rounded-xl border border-glass">
-          <div className="relative border-glass surface-glass px-3 py-2.5 text-center">
+        <div className="mb-3.5 grid w-full shrink-0 grid-cols-3 overflow-hidden rounded-xl border border-glass">
+          <div className="relative border-glass modal-panel-glass px-3 py-2.5 text-center">
             <div className="absolute bottom-[20%] right-0 top-[20%] w-px bg-[var(--glass-border)]" />
             <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-secondary">Posição</p>
             <p className="font-mono text-sm font-black text-primary">
@@ -443,7 +443,7 @@ export default function AssetTransactionsModal({
             </p>
             <p className="text-[10px] text-secondary">{formatQuantityBR(position.quantity)} cotas</p>
           </div>
-          <div className="relative border-glass surface-glass px-3 py-2.5 text-center">
+          <div className="relative border-glass modal-panel-glass px-3 py-2.5 text-center">
             <div className="absolute bottom-[20%] right-0 top-[20%] w-px bg-[var(--glass-border)]" />
             <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-secondary">Resultado</p>
             <p
@@ -459,7 +459,7 @@ export default function AssetTransactionsModal({
               custo {formatCurrencyByCode(position.cost_basis, position.currency)}
             </p>
           </div>
-          <div className="surface-glass px-3 py-2.5 text-center">
+          <div className="modal-panel-glass px-3 py-2.5 text-center">
             <p className="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-secondary">Proventos</p>
             <p className="font-mono text-sm font-black text-income">
               {formatCurrencyByCode(metrics.totalDivs, position.currency)}
@@ -470,19 +470,19 @@ export default function AssetTransactionsModal({
           </div>
         </div>
 
-        <div className="mb-1.5 flex shrink-0 items-center gap-2.5 px-5">
+        <div className="mb-1.5 flex w-full shrink-0 items-center gap-2.5">
           <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-secondary">
             Histórico de transações
           </span>
           <div className="h-px flex-1 bg-[var(--glass-border)]" />
-          <span className="rounded-full border border-glass surface-glass px-1.5 py-0.5 text-[9px] font-bold text-secondary">
+          <span className="rounded-full border border-glass modal-panel-glass px-1.5 py-0.5 text-[9px] font-bold text-secondary">
             {assetTxs.length}
           </span>
         </div>
 
         {assetTxs.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-glass surface-glass">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-glass modal-panel-glass">
               <Wallet size={22} className="text-secondary" />
             </div>
             <div>

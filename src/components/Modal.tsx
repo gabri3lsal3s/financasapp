@@ -27,9 +27,20 @@ const MODAL_SIZE_CLASSES: Record<ModalSize, string> = {
 }
 
 const MODAL_STACK = {
-  default: { overlay: 'z-[999]', content: 'z-[1000]' },
-  elevated: { overlay: 'z-[1199]', content: 'z-[1200]' },
+  default: { overlay: 'z-[999] modal-overlay', content: 'z-[1000]' },
+  elevated: { overlay: 'z-[1199] modal-overlay', content: 'z-[1200]' },
 } as const
+
+/** Padding horizontal/vertical padrão do corpo (sobrescreva com `bodyClassName`, ex. `modal-body-flush`). */
+export const MODAL_BODY_PADDING = 'modal-body-padding'
+
+function ModalFooterShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="modal-glass-footer shrink-0">
+      <div className="modal-footer-inner">{children}</div>
+    </div>
+  )
+}
 
 interface ModalProps {
   isOpen: boolean
@@ -83,7 +94,7 @@ function ModalShellHeader({
   header?: ReactNode
 }) {
   return (
-    <div className="modal-glass-header flex shrink-0 items-start justify-between gap-3">
+    <div className="modal-glass-header flex w-full shrink-0 items-center justify-between gap-3">
       {header ? (
         <div id={titleId} className="min-w-0 flex-1">
           {header}
@@ -106,8 +117,14 @@ function ModalScrollBody({
   bodyClassName?: string
 }) {
   return (
-    <div className={cn('modal-glass-body min-h-0 flex-1 overflow-y-auto text-primary', bodyClassName)}>
-      {children}
+    <div
+      className={cn(
+        'modal-glass-body min-h-0 flex-1 overflow-y-auto text-primary',
+        MODAL_BODY_PADDING,
+        bodyClassName
+      )}
+    >
+      <div className="modal-body-inner w-full text-left">{children}</div>
     </div>
   )
 }
@@ -138,16 +155,21 @@ export default function Modal({
           overlayClassName={stack.overlay}
           className={cn(
             stack.content,
-            'modal-sheet-bottom flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden rounded-t-3xl border-glass p-0 pb-[max(1rem,env(safe-area-inset-bottom))] surface-glass-strong'
+            'modal-sheet-bottom flex min-h-0 max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden rounded-t-3xl border-glass p-0',
+            footer ? 'pb-0' : 'pb-[max(1rem,env(safe-area-inset-bottom))]'
           )}
         >
-          <div className="modal-drag-handle" aria-hidden />
-          <SheetHeader className="space-y-0 px-4 pb-0 pt-2 text-left">
+          <div className="modal-drag-handle shrink-0" aria-hidden />
+          <SheetHeader className="shrink-0 space-y-0 p-0 text-left">
             <SheetTitle className="sr-only">{title}</SheetTitle>
             <ModalShellHeader title={title} titleId={titleId} onClose={onClose} header={header} />
           </SheetHeader>
-          <ModalScrollBody bodyClassName={cn('px-4 pb-2', bodyClassName)}>{children}</ModalScrollBody>
-          {footer ? <div className="modal-glass-footer shrink-0">{footer}</div> : null}
+          <ModalScrollBody bodyClassName={bodyClassName}>{children}</ModalScrollBody>
+          {footer ? (
+            <div className="pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <ModalFooterShell>{footer}</ModalFooterShell>
+            </div>
+          ) : null}
         </SheetContent>
       </Sheet>
     )
@@ -161,15 +183,15 @@ export default function Modal({
         className={cn(
           stack.content,
           widthClass,
-          'modal-dialog-shell flex w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 surface-glass-strong sm:w-full'
+          'modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full'
         )}
       >
-        <DialogHeader className="space-y-0">
+        <DialogHeader className="shrink-0 space-y-0 p-0 text-left">
           <DialogTitle className="sr-only">{title}</DialogTitle>
           <ModalShellHeader title={title} titleId={titleId} onClose={onClose} header={header} />
         </DialogHeader>
         <ModalScrollBody bodyClassName={bodyClassName}>{children}</ModalScrollBody>
-        {footer ? <div className="modal-glass-footer shrink-0">{footer}</div> : null}
+        {footer ? <ModalFooterShell>{footer}</ModalFooterShell> : null}
       </DialogContent>
     </Dialog>
   )

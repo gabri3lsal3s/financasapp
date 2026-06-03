@@ -186,10 +186,10 @@ export default function Layout({ children }: LayoutProps) {
 
 
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="bottom" showCloseButton={false} className="max-h-[85vh] rounded-t-3xl border-glass surface-glass-strong safe-area-bottom p-0">
-            <div className="w-12 h-1.5 bg-muted rounded-full mx-auto my-3 shrink-0" />
-            <SheetHeader className="px-5 pb-3.5 pt-1 border-b border-glass text-left">
-              <SheetTitle className="text-sm font-black uppercase tracking-widest">Mais Opções</SheetTitle>
+          <SheetContent side="bottom" showCloseButton={false} className="modal-sheet-bottom max-h-[85vh] rounded-t-3xl safe-area-bottom gap-0 p-0">
+            <div className="modal-drag-handle shrink-0" />
+            <SheetHeader className="modal-glass-header text-left">
+              <SheetTitle className="text-base font-bold uppercase tracking-wide text-primary">Mais Opções</SheetTitle>
             </SheetHeader>
             <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
               <div className="grid grid-cols-2 gap-3">

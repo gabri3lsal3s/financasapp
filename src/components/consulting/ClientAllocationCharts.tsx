@@ -32,7 +32,7 @@ export default function ClientAllocationCharts({
       }))
 
   return (
-    <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
+    <Card className="p-5 flex flex-col justify-between text-left h-full">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
         <TrendingUp size={16} className="text-balance" />
         Distribuição de Ativos por Classe
@@ -77,7 +77,7 @@ export default function ClientAllocationCharts({
 
           {/* Legenda Lateral Enriquecida (7 colunas no desktop) */}
           <div className="md:col-span-7 space-y-2">
-            <div className="hidden sm:grid grid-cols-12 text-[9px] uppercase font-extrabold text-secondary/60 tracking-wider pb-1 border-b border-border/10 mb-2">
+            <div className="hidden sm:grid grid-cols-12 text-[9px] uppercase font-extrabold text-secondary/60 tracking-wider pb-1 border-b border-glass mb-2">
               <span className="col-span-5">Classe</span>
               <span className="col-span-4 text-right">Patrimônio / Meta</span>
               <span className="col-span-3 text-right">Desvio</span>
@@ -90,7 +90,7 @@ export default function ClientAllocationCharts({
                 const deviation = group.current_percentage - group.target_percentage
                 
                 let devIcon = <Minus size={11} className="text-secondary/50" />
-                let devColor = 'text-secondary/60 bg-muted/30 border-border/10'
+                let devColor = 'text-secondary/60 bg-muted/30 border-glass'
                 if (deviation > 0.5) {
                   devIcon = <ArrowUpRight size={11} className="text-income" />
                   devColor = 'text-income bg-income/10 border-income/20'

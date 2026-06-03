@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { format } from 'date-fns'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
@@ -290,12 +290,22 @@ export default function AssetDefinitionFormModal({
     }
   }
 
+  const formId = useId()
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={`Configurar ativo ${assetTicker || ''}`}
       maxWidth="max-w-lg"
+      footer={
+        <ModalActionFooter
+          formId={formId}
+          onCancel={onClose}
+          submitLabel="Salvar"
+          submitDisabled={saving}
+        />
+      }
     >
       {/* Categoria Principal: Renda Variável vs Renda Fixa com travas reativas */}
       <div className="flex bg-secondary/50 border border-primary p-1 rounded-xl mb-3">
@@ -345,7 +355,7 @@ export default function AssetDefinitionFormModal({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id={formId} onSubmit={handleSubmit} className="modal-form-stack w-full text-left">
         <Select
           label="Moeda de Precificação"
           value={currency}
@@ -368,7 +378,7 @@ export default function AssetDefinitionFormModal({
                 className="uppercase font-semibold tracking-wider"
               />
               {suggestions.length > 0 && (
-                <div className="absolute z-[1001] w-full mt-1 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-border/40 animate-page-enter">
+                <div className="modal-dropdown animate-page-enter">
                   {suggestions.slice(0, 6).map((s) => (
                     <button
                       key={s.ticker}
@@ -537,7 +547,6 @@ export default function AssetDefinitionFormModal({
           A rentabilidade líquida estimada utiliza a tabela regressiva de IR para renda fixa, 15% de ganho de capital para mercado/outros, exceto se marcado como isento.
         </p>
 
-        <ModalActionFooter onCancel={onClose} submitLabel="Salvar" submitDisabled={saving} />
       </form>
     </Modal>
   )

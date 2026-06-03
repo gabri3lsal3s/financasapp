@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import Modal from '@/components/Modal'
+import ModalForm from '@/components/ModalForm'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -258,21 +259,15 @@ export default function IncomeFormModal({
 
   const showRefund = editingIncome && isRefundIncome(editingIncome)
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={
-        editingIncome
-          ? showRefund
-            ? 'Estorno (somente visualização)'
-            : 'Editar renda'
-          : 'Adicionar renda'
-      }
-    >
-      {showRefund ? (
-        <div className="w-full max-w-md mx-auto space-y-4">
-          <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+  if (showRefund) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Estorno (somente visualização)"
+      >
+        <div className="modal-form-stack w-full">
+          <div className="modal-panel-glass space-y-2 p-3">
             <p className="text-xs text-secondary">Valor</p>
             <p className="text-base font-semibold text-primary">
               {formatCurrency(editingIncome!.amount)}
@@ -287,7 +282,7 @@ export default function IncomeFormModal({
             </p>
           </div>
 
-          <div className="rounded-lg border border-primary bg-secondary p-3 space-y-2">
+          <div className="modal-panel-glass space-y-2 p-3">
             {refundOriginLoading ? (
               <div className="flex items-center gap-2 text-sm text-secondary">
                 <Loader2 size={16} className="animate-spin" />
@@ -321,8 +316,26 @@ export default function IncomeFormModal({
             )}
           </div>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
+      </Modal>
+    )
+  }
+
+  return (
+    <ModalForm
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editingIncome ? 'Editar renda' : 'Adicionar renda'}
+      onSubmit={handleSubmit}
+      footer={(formId) => (
+        <ModalActionFooter
+          formId={formId}
+          onCancel={onClose}
+          submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
+          deleteLabel={editingIncome ? 'Excluir renda' : undefined}
+          onDelete={editingIncome ? handleDeleteFromModal : undefined}
+        />
+      )}
+    >
           <Input
             label="Valor"
             type="text"
@@ -398,14 +411,6 @@ export default function IncomeFormModal({
             placeholder="Ex: Salário mensal, Projeto X..."
           />
 
-          <ModalActionFooter
-            onCancel={onClose}
-            submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
-            deleteLabel={editingIncome ? 'Excluir renda' : undefined}
-            onDelete={editingIncome ? handleDeleteFromModal : undefined}
-          />
-        </form>
-      )}
-    </Modal>
+    </ModalForm>
   )
 }

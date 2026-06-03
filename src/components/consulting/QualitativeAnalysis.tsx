@@ -128,7 +128,7 @@ export default function QualitativeAnalysis({
     <div className="space-y-6">
 
       {/* ─── SEÇÃO A: Cabeçalho com Progresso ─────────────────────────── */}
-      <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left">
+      <Card className="p-5 lg:p-6 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           {/* Ícone + Título */}
           <div className="flex items-center gap-3 flex-1">
@@ -209,7 +209,7 @@ export default function QualitativeAnalysis({
       </Card>
 
       {/* ─── SEÇÃO B: Teses por Ativo ─────────────────────────────────── */}
-      <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left">
+      <Card className="p-5 lg:p-6 text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <TrendingUp size={16} className="text-balance" />
@@ -227,7 +227,7 @@ export default function QualitativeAnalysis({
         </div>
 
         {activePositions.length === 0 ? (
-          <div className="flex items-center gap-3 p-4 bg-muted/10 rounded-xl border border-dashed border-border/40 text-secondary text-xs font-sans">
+          <div className="flex items-center gap-3 p-4 modal-panel-glass border border-dashed border-glass text-secondary text-xs font-sans">
             <Info size={14} className="shrink-0 text-muted" />
             Nenhum ativo em carteira. Adicione transações para habilitar as teses.
           </div>
@@ -253,7 +253,7 @@ export default function QualitativeAnalysis({
                           ? 'border-balance/50 bg-balance/5 shadow-sm'
                           : hasThesis
                           ? 'border-income/20 bg-income/[0.03] hover:border-income/40'
-                          : 'border-border/30 bg-muted/5 hover:border-balance/20 hover:bg-balance/3'
+                          : 'border-glass bg-muted/5 hover:border-balance/20 hover:bg-balance/3'
                       }`}
                     >
                       <button
@@ -335,14 +335,14 @@ export default function QualitativeAnalysis({
 
               {/* Teses de ativos NÃO em carteira (orfãos) */}
               {activeThesesKeys.filter(t => !activePositions.some(p => p.ticker.toUpperCase() === t)).length > 0 && (
-                <div className="pt-2 border-t border-border/20">
+                <div className="pt-2 border-t border-glass">
                   <p className="text-[10px] uppercase font-extrabold tracking-wider text-muted mb-1.5 font-sans">
                     Teses de ativos fora da carteira
                   </p>
                   {activeThesesKeys
                     .filter(t => !activePositions.some(p => p.ticker.toUpperCase() === t))
                     .map(ticker => (
-                      <div key={ticker} className="flex items-center justify-between p-2 rounded-lg bg-muted/10 border border-border/20 mb-1">
+                      <div key={ticker} className="flex items-center justify-between p-2 rounded-lg modal-panel-glass border-glass mb-1">
                         <span className="text-xs font-bold text-secondary font-mono">{ticker}</span>
                         <button
                           type="button"
@@ -393,7 +393,7 @@ export default function QualitativeAnalysis({
                     <button
                       type="button"
                       onClick={handleCancelEdit}
-                      className="px-3 py-2 text-xs font-bold text-secondary hover:text-primary border border-border/40 rounded-xl transition-all hover:bg-muted/10"
+                      className="px-3 py-2 text-xs font-bold text-secondary hover:text-primary rounded-xl transition-all hover:bg-muted/10"
                     >
                       <RotateCcw size={13} />
                     </button>
@@ -416,7 +416,7 @@ export default function QualitativeAnalysis({
       </Card>
 
       {/* ─── SEÇÃO C: Relatório do Período ────────────────────────────── */}
-      <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left">
+      <Card className="p-5 lg:p-6 text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-balance" />
@@ -498,7 +498,7 @@ export default function QualitativeAnalysis({
       </Card>
 
       {/* ─── SEÇÃO D: Exportação PDF ────────────────────────────────────── */}
-      <Card className="p-5 lg:p-6 border border-border/40 shadow-sm text-left relative overflow-hidden">
+      <Card className="p-5 lg:p-6 text-left relative overflow-hidden">
         <div className="absolute right-0 top-0 w-48 h-48 bg-balance/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex items-center gap-2 mb-5">
@@ -567,7 +567,7 @@ export default function QualitativeAnalysis({
           {/* Fee + Export */}
           <div className="space-y-4">
             {/* Fee slider */}
-            <div className="p-4 bg-muted/20 rounded-xl border border-border/40">
+            <div className="p-4 bg-muted/20 rounded-xl">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] uppercase font-extrabold tracking-wider text-secondary flex items-center gap-1 font-sans">
                   <Percent size={11} className="text-balance" />
@@ -592,13 +592,13 @@ export default function QualitativeAnalysis({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-primary rounded-lg border border-border/30 text-center">
+                <div className="p-2.5 bg-primary rounded-lg border border-glass text-center">
                   <p className="text-[9px] text-secondary uppercase font-semibold font-sans">Mensal</p>
                   <p className="text-sm font-black text-primary font-mono">
                     {formatCurrency(monthlyFeeAmount)}
                   </p>
                 </div>
-                <div className="p-2.5 bg-primary rounded-lg border border-border/30 text-center">
+                <div className="p-2.5 bg-primary rounded-lg border border-glass text-center">
                   <p className="text-[9px] text-secondary uppercase font-semibold font-sans">Anual ({formatNumberBR(annualFeeRate, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)</p>
                   <p className="text-sm font-black text-primary font-mono">
                     {formatCurrency(monthlyFeeAmount * 12)}

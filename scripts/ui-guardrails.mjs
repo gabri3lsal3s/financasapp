@@ -29,6 +29,13 @@ const RULES = [
     appliesTo: (relativePath) => relativePath.startsWith('src/pages/') && relativePath.endsWith('.tsx'),
     regex: /<(input|select|textarea|button)\b/g,
   },
+  {
+    id: 'ui-prefer-glass-border-over-shadcn',
+    description: 'Evitar border-border/40 em componentes; preferir tokens glass (border-glass, modal-panel-glass).',
+    appliesTo: (relativePath) =>
+      relativePath.startsWith('src/components/') && relativePath.endsWith('.tsx'),
+    regex: /border-border\/\d+/g,
+  },
 ]
 
 function listFilesRecursively(dirPath) {

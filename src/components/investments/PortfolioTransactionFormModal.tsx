@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import Modal from '@/components/Modal'
 import ModalActionFooter from '@/components/ModalActionFooter'
@@ -93,6 +93,7 @@ export default function PortfolioTransactionFormModal({
   defaultTicker,
   zIndexClass,
 }: PortfolioTransactionFormModalProps) {
+  const formId = useId()
   const [ticker, setTicker] = useState('')
   const [operationType, setOperationType] = useState<PortfolioOperationType>('buy')
   const [quantity, setQuantity] = useState('')
@@ -517,8 +518,24 @@ export default function PortfolioTransactionFormModal({
   const modalTitle = editingTransaction ? 'Editar transação' : 'Lançar transação'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} maxWidth="max-w-lg" zIndexClass={zIndexClass}>
-      <form onSubmit={handleSubmit} className="space-y-4 text-left">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={modalTitle}
+      maxWidth="max-w-lg"
+      zIndexClass={zIndexClass}
+      footer={
+        <ModalActionFooter
+          formId={formId}
+          onCancel={onClose}
+          submitLabel={editingTransaction ? 'Salvar alterações' : 'Salvar'}
+          submitDisabled={saving || !ticker.trim()}
+          deleteLabel={editingTransaction ? 'Excluir transação' : undefined}
+          onDelete={editingTransaction ? handleDelete : undefined}
+        />
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit} className="modal-form-stack w-full text-left">
         {/* Row 1: Ticker / Identificador */}
         <div className="relative">
           <Input
@@ -533,7 +550,7 @@ export default function PortfolioTransactionFormModal({
             className="uppercase font-semibold tracking-wider text-base focus:ring-2 focus:ring-primary rounded-xl"
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-[1001] w-full mt-1 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-border/40 animate-page-enter">
+            <div className="modal-dropdown animate-page-enter">
               {suggestions.map((s) => (
                 <button
                   key={s.ticker}
@@ -632,7 +649,7 @@ export default function PortfolioTransactionFormModal({
         )}
 
         {richData && pricingMode === 'market' && (
-          <div className="p-3.5 bg-gradient-to-br from-balance/5 to-income/5 border border-border rounded-2xl text-xs space-y-2 text-secondary shadow-sm relative overflow-hidden animate-fade-in text-left">
+          <div className="modal-panel-glass p-3.5 bg-gradient-to-br from-balance/5 to-income/5 text-xs space-y-2 text-secondary relative overflow-hidden animate-fade-in text-left">
             <div className="flex justify-between items-center">
               <div className="overflow-hidden pr-2">
                 <strong className="text-primary font-bold text-sm block truncate max-w-[240px]">{richData.name}</strong>
@@ -807,13 +824,6 @@ export default function PortfolioTransactionFormModal({
           )
         )}
 
-        <ModalActionFooter
-          onCancel={onClose}
-          submitLabel={editingTransaction ? 'Salvar alterações' : 'Salvar'}
-          submitDisabled={saving || !ticker.trim()}
-          deleteLabel={editingTransaction ? 'Excluir transação' : undefined}
-          onDelete={editingTransaction ? handleDelete : undefined}
-        />
       </form>
     </Modal>
   )

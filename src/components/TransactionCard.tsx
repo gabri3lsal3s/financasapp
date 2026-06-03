@@ -57,9 +57,9 @@ export default function TransactionCard({
   return (
     <Card
       onClick={handleCardClick}
-      className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col glass-glow-card ${staggerClass}`}
+      className={`flex-1 min-w-full sm:min-w-[calc(50%-1rem)] surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col ${staggerClass}`}
     >
-      <div className="flex bg-primary flex-1 h-full flex-col">
+      <div className="flex flex-1 h-full flex-col">
         <div className="flex flex-1 items-stretch">
           {/* Barra lateral de cor da categoria */}
           <div

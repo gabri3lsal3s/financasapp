@@ -59,6 +59,35 @@ Classes em `@layer utilities`:
 - `safe-area-top`, `safe-area-bottom`, `safe-area-left`, `safe-area-right`
 - Usar no `PageHeader` e barras fixas inferiores
 
+### 2.6 Glass Layer Stack (`--glass-*`)
+
+Hierarquia de camadas glass em `src/styles/theme-tokens.css` e classes em `src/index.css`:
+
+| Camada | Token | Classe CSS | Uso |
+|--------|-------|------------|-----|
+| L0 Overlay | `--glass-layer-overlay` | `.modal-overlay` | Backdrop de modais/sheets |
+| L1 Shell | `--glass-layer-shell` | `.modal-dialog-shell`, `.surface-glass` | Shell de modal, cards da página |
+| L2 Panel | `--glass-layer-panel` | `.modal-panel-glass`, `.surface-glass-strong` | Painéis internos, KPIs |
+| L3 Interactive | `--glass-layer-interactive` | `.glass-choice-card`, `.glass-input` | Cards de escolha, inputs em modais |
+
+Header/footer de modais ficam **transparentes** sobre o shell L1 (mesmo efeito do modal Novo lançamento).
+
+Sombras tokenizadas: `--glass-shadow-elevated`, `--glass-shadow-panel`, `--glass-shadow-tooltip`.
+
+**Primitivos glass:**
+
+| Componente | Arquivo |
+|------------|---------|
+| Card de escolha | `GlassChoiceCard.tsx` |
+| Footer híbrido | `ModalFooter.tsx` (ícones mobile / texto desktop) |
+| Modal shell | `Modal.tsx` + `ModalForm.tsx` |
+
+**Regras:**
+
+- Preferir classes glass (`border-glass`, `modal-panel-glass`) em vez de `border-border/40` ou `bg-muted/*`.
+- Inputs usam `.glass-input` (blur via `--glass-blur`, não `backdrop-blur-sm`).
+- `@media (prefers-reduced-transparency: reduce)` desativa blur e usa fundos opacos.
+
 ---
 
 ## 3. Primitivos obrigatórios
@@ -69,6 +98,8 @@ Classes em `@layer utilities`:
 | Campo | `src/components/Input.tsx` | Estados de foco com `--color-focus` |
 | Seleção | `src/components/Select.tsx` | Listas fechadas |
 | Modal | `src/components/Modal.tsx` | Formulários e confirmações |
+| Footer modal | `src/components/ModalFooter.tsx` | Híbrido: ícones (mobile) / texto (desktop) |
+| Card de escolha | `src/components/GlassChoiceCard.tsx` | Seletores tipo "Novo lançamento" |
 | Cabeçalho | `src/components/PageHeader.tsx` | Único `h1` por página |
 | Card | `src/components/Card.tsx` | Agrupamento visual |
 | Ícone | `src/components/IconButton.tsx` | Ações compactas |

@@ -21,7 +21,7 @@ export default function PageHeaderActionButton({
   icon: Icon,
   intent = 'neutral',
   compactOnMobile = true,
-  variant,
+  variant: _variant,
   size = 'sm',
   className,
   children,
@@ -46,8 +46,15 @@ export default function PageHeaderActionButton({
     warning: 'text-warning',
   }
 
+  const labelClasses = compactOnMobile
+    ? 'max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5'
+    : 'max-w-[14rem] opacity-100 ml-2 sm:ml-2.5'
+
   const renderContent = () => {
-    const textClasses = "max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5 transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider"
+    const textClasses = cn(
+      'transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider',
+      labelClasses
+    )
     if (children) {
       if (typeof children === 'string') {
         return (
@@ -70,9 +77,9 @@ export default function PageHeaderActionButton({
 
   // Symmetrical classes based on active position (left/right/top)
   const positionClasses = {
-    top: 'rounded-b-2xl rounded-t-none border-x border-b border-t-0 -translate-y-2 hover:translate-y-0 pt-2.5 pb-2 px-4',
-    left: 'rounded-r-2xl rounded-l-none border-y border-r border-l-0 -translate-x-2 hover:translate-x-0 pl-6 pr-4',
-    right: 'rounded-l-2xl rounded-r-none border-y border-l border-r-0 translate-x-2 hover:translate-x-0 pl-4 pr-6',
+    top: 'rounded-b-2xl rounded-t-none border-x border-b border-t-0 pt-2.5 pb-2 px-4',
+    left: 'rounded-r-2xl rounded-l-none border-y border-r border-l-0 pl-6 pr-4',
+    right: 'rounded-l-2xl rounded-r-none border-y border-l border-r-0 pl-4 pr-6',
   }[activePosition]
 
   return (

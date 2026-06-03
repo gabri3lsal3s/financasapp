@@ -53,7 +53,7 @@ export default function ExposureVsLimitsChart({ positions }: ExposureVsLimitsCha
   }
 
   return (
-    <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
+    <Card className="p-5 flex flex-col justify-between text-left h-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <h3 className="font-bold text-base text-primary flex items-center gap-2">
           <BarChart3 size={16} className="text-balance" />

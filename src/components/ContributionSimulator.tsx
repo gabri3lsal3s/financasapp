@@ -205,7 +205,7 @@ export default function ContributionSimulator({
   }
 
   return (
-    <Card className="p-5 lg:p-6 bg-gradient-to-br from-card to-background border border-border/80 shadow-lg">
+    <Card className="p-5 lg:p-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-income/10 text-income rounded-lg">
           <ArrowUpRight size={22} />
@@ -269,10 +269,10 @@ export default function ContributionSimulator({
  
       {simulatedRows.length > 0 && (
         <div className="space-y-5 animate-page-enter">
-          <div className="overflow-x-auto border border-border/40 rounded-xl bg-background/50">
+          <div className="overflow-x-auto modal-table-shell">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border/40 bg-muted/30">
+                <tr className="border-b border-glass modal-table-head">
                   <th className="p-3.5 font-semibold text-secondary">Ticker</th>
                   <th className="p-3.5 font-semibold text-secondary text-center">% Atual</th>
                   <th className="p-3.5 font-semibold text-secondary text-center">% Alvo</th>
@@ -308,7 +308,7 @@ export default function ContributionSimulator({
                         className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase ${
                           row.operation === 'Comprar'
                             ? 'bg-income/10 text-income border border-income/20'
-                            : 'bg-muted text-secondary border border-border/40'
+                            : 'bg-muted text-secondary border border-glass'
                         }`}
                       >
                         {row.operation}
@@ -320,7 +320,7 @@ export default function ContributionSimulator({
             </table>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border border-border/40 rounded-xl bg-muted/10">
+          <div className="modal-panel-glass p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-secondary">
               O saldo sugerido será debitado do novo aporte de{' '}
               <strong className="text-primary">

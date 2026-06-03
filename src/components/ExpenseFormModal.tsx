@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { format, addMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import Modal from '@/components/Modal'
+import ModalForm from '@/components/ModalForm'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -182,12 +182,22 @@ export default function ExpenseFormModal({
   }
 
   return (
-    <Modal
+    <ModalForm
       isOpen={isOpen}
       onClose={onClose}
       title={editingExpense ? 'Editar despesa' : 'Adicionar despesa'}
+      onSubmit={handleSubmit}
+      footer={(formId) => (
+        <ModalActionFooter
+          formId={formId}
+          onCancel={onClose}
+          submitLabel={editingExpense ? 'Salvar alterações' : 'Salvar'}
+          submitDisabled={!formData.category_id}
+          deleteLabel={editingExpense ? 'Excluir despesa' : undefined}
+          onDelete={editingExpense ? handleDeleteFromModal : undefined}
+        />
+      )}
     >
-      <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
         <Input
           label="Valor"
           type="text"
@@ -350,14 +360,6 @@ export default function ExpenseFormModal({
           </p>
         )}
 
-        <ModalActionFooter
-          onCancel={onClose}
-          submitLabel={editingExpense ? 'Salvar alterações' : 'Salvar'}
-          submitDisabled={!formData.category_id}
-          deleteLabel={editingExpense ? 'Excluir despesa' : undefined}
-          onDelete={editingExpense ? handleDeleteFromModal : undefined}
-        />
-      </form>
-    </Modal>
+    </ModalForm>
   )
 }

@@ -49,12 +49,48 @@ exports[`UI primitives snapshots > Card renders clickable state consistently 1`]
 </div>
 `;
 
+exports[`UI primitives snapshots > GlassChoiceCard renders consistently 1`] = `
+<button
+  class="glass-choice-card glass-choice-card--income"
+  type="button"
+>
+  <div
+    class="glass-choice-card__icon bg-income/10 text-income"
+  >
+    <svg
+      class="lucide lucide-trending-up "
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <polyline
+        points="22 7 13.5 15.5 8.5 10.5 2 17"
+      />
+      <polyline
+        points="16 7 22 7 22 13"
+      />
+    </svg>
+  </div>
+  <span
+    class="glass-choice-card__label"
+  >
+    Renda
+  </span>
+</button>
+`;
+
 exports[`UI primitives snapshots > Input renders label and error state consistently 1`] = `
 <div
-  class="w-full"
+  class="modal-field w-full"
 >
   <label
-    class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-primary mb-1 block"
+    class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-primary block"
     for=":r0:"
   >
     Valor
@@ -63,13 +99,13 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
     class="relative"
   >
     <input
-      class="flex h-10 w-full rounded-xl border border-glass bg-[var(--glass-input-bg)] px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 backdrop-blur-sm transition-all motion-standard border-destructive"
+      class="flex h-10 w-full rounded-xl border border-glass glass-input px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all motion-standard border-destructive"
       id=":r0:"
       value="1.000,00"
     />
   </div>
   <p
-    class="mt-1 text-sm text-destructive"
+    class="text-sm text-destructive"
   >
     Campo obrigatório
   </p>
@@ -94,7 +130,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
   />
   <div
     aria-hidden="true"
-    class="fixed inset-0 z-[999] bg-black/40 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-[999]"
+    class="modal-overlay fixed inset-0 z-[999] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 z-[999] modal-overlay"
     data-aria-hidden="true"
     data-state="open"
     style="pointer-events: auto;"
@@ -102,7 +138,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
   <div
     aria-describedby="radix-:r4:"
     aria-labelledby="radix-:r3:"
-    class="fixed left-[50%] top-[50%] z-[1000] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-glass surface-glass-strong p-6 shadow-lg duration-200 data-[state=open]:animate-modal-open-right data-[state=closed]:animate-modal-close-right rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 surface-glass-strong sm:w-full"
+    class="fixed left-[50%] top-[50%] z-[1000] flex w-full max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col gap-0 border border-glass p-0 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] overflow-hidden sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full"
     data-state="open"
     id="radix-:r2:"
     role="dialog"
@@ -110,7 +146,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
     tabindex="-1"
   >
     <div
-      class="flex flex-col space-y-1.5 text-center sm:text-left space-y-0"
+      class="flex flex-col space-y-1.5 text-center sm:text-left shrink-0 space-y-0 p-0 text-left"
     >
       <h2
         class="text-lg font-semibold leading-none tracking-tight text-primary sr-only"
@@ -119,7 +155,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
         Editar lançamento
       </h2>
       <div
-        class="modal-glass-header flex shrink-0 items-start justify-between gap-3"
+        class="modal-glass-header flex w-full shrink-0 items-center justify-between gap-3"
       >
         <h2
           class="min-w-0 flex-1 text-base font-bold uppercase tracking-tight text-primary sm:text-lg"
@@ -156,12 +192,16 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
       </div>
     </div>
     <div
-      class="modal-glass-body min-h-0 flex-1 overflow-y-auto text-primary"
+      class="modal-glass-body min-h-0 flex-1 overflow-y-auto text-primary modal-body-padding"
     >
-      <div>
-        <p>
-          Conteúdo do modal
-        </p>
+      <div
+        class="modal-body-inner w-full text-left"
+      >
+        <div>
+          <p>
+            Conteúdo do modal
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -175,12 +215,13 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
 </body>
 `;
 
-exports[`UI primitives snapshots > ModalActionFooter renders with delete action consistently 1`] = `
+exports[`UI primitives snapshots > ModalFooter renders with delete action consistently (mobile icons) 1`] = `
 <form>
   <div
-    class="modal-action-footer -mx-4 mt-4 flex items-center justify-center gap-4 border-t border-glass px-4 py-4 sm:-mx-5 sm:px-5"
+    class="modal-footer-hybrid modal-action-footer"
   >
     <button
+      aria-label="Excluir item"
       class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 px-4 py-2 min-h-10 px-3 flex-shrink-0"
       title="Excluir item"
       type="button"
@@ -221,6 +262,7 @@ exports[`UI primitives snapshots > ModalActionFooter renders with delete action 
       </svg>
     </button>
     <button
+      aria-label="Salvar alterações"
       class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 px-4 py-2 min-h-10 px-3 flex-shrink-0"
       disabled=""
       title="Salvar alterações"
@@ -249,7 +291,7 @@ exports[`UI primitives snapshots > ModalActionFooter renders with delete action 
 
 exports[`UI primitives snapshots > PageHeader renders title, subtitle and action consistently 1`] = `
 <div
-  class="fixed z-40 pointer-events-none transition-all duration-300 animate-in fade-in-0 duration-300 right-0 top-32 lg:top-40"
+  class="fixed z-40 pointer-events-none transition-all duration-300 animate-in fade-in-0 duration-300 right-0 bottom-[calc(6.5rem+env(safe-area-inset-bottom))]"
   style="transform: translate(0px, 0px);"
 >
   <button
@@ -262,10 +304,10 @@ exports[`UI primitives snapshots > PageHeader renders title, subtitle and action
 
 exports[`UI primitives snapshots > Select renders options and error state consistently 1`] = `
 <div
-  class="w-full "
+  class="modal-field w-full "
 >
   <label
-    class="block text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 opacity-60 ml-1"
+    class="block text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 ml-1"
   >
     Categoria
      

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { Children, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -13,6 +13,8 @@ export function PageHeaderActions({ children, className }: PageHeaderActionsProp
   const { floatingButtonsDesktopPosition, floatingButtonsMobilePosition } = useAppSettings()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const activePosition = isDesktop ? floatingButtonsDesktopPosition : floatingButtonsMobilePosition
+  const actionCount = Children.count(children)
+  const scrollManyOnMobile = !isDesktop && actionCount > 2
 
   return (
     <div
@@ -23,6 +25,8 @@ export function PageHeaderActions({ children, className }: PageHeaderActionsProp
           : activePosition === 'left'
           ? 'flex-col items-start'
           : 'flex-col items-end',
+        scrollManyOnMobile &&
+          'max-h-[min(50vh,320px)] overflow-y-auto overscroll-contain [scrollbar-width:thin]',
         className
       )}
     >

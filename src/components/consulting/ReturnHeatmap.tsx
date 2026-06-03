@@ -24,7 +24,7 @@ export default function ReturnHeatmap({ snapshots }: ReturnHeatmapProps) {
 
   if (years.length === 0) {
     return (
-      <Card className="p-5 border border-border/40 text-left">
+      <Card className="p-5 text-left">
         <h3 className="font-bold text-base text-primary mb-2 flex items-center gap-2">
           <Grid3x3 size={16} />
           Matriz de rentabilidade
@@ -38,7 +38,7 @@ export default function ReturnHeatmap({ snapshots }: ReturnHeatmapProps) {
   }
 
   return (
-    <Card className="p-5 border border-border/40 text-left overflow-x-auto">
+    <Card className="p-5 text-left overflow-x-auto">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
         <Grid3x3 size={16} />
         Matriz de rentabilidade (TWR mensal)

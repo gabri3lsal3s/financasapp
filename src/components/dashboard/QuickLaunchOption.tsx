@@ -1,32 +1,36 @@
-import type { ReactNode } from 'react'
-import Button from '@/components/Button'
+import GlassChoiceCard, { type GlassChoiceIntent } from '@/components/GlassChoiceCard'
 
 interface QuickLaunchOptionProps {
   label: string
-  icon: ReactNode
-  borderHoverClass: string
-  iconWrapClass: string
+  icon: React.ReactNode
+  borderHoverClass?: string
+  iconWrapClass?: string
   onClick: () => void
 }
 
+const HOVER_TO_INTENT: Record<string, GlassChoiceIntent> = {
+  'hover:border-income': 'income',
+  'hover:border-expense': 'expense',
+  'hover:border-balance': 'balance',
+}
+
+function resolveIntent(borderHoverClass: string): GlassChoiceIntent {
+  return HOVER_TO_INTENT[borderHoverClass] ?? 'neutral'
+}
+
+/** Wrapper fino sobre GlassChoiceCard — compatível com props legadas do Dashboard. */
 export default function QuickLaunchOption({
   label,
   icon,
-  borderHoverClass,
-  iconWrapClass,
+  borderHoverClass = '',
   onClick,
 }: QuickLaunchOptionProps) {
   return (
-    <Button
-      type="button"
-      variant="outline"
+    <GlassChoiceCard
+      label={label}
+      icon={icon}
+      intent={resolveIntent(borderHoverClass)}
       onClick={onClick}
-      className={`flex flex-col items-center justify-center p-6 h-auto rounded-2xl hover:shadow-lg group ${borderHoverClass}`}
-    >
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform ${iconWrapClass}`}>
-        {icon}
-      </div>
-      <span className="font-semibold text-primary">{label}</span>
-    </Button>
+    />
   )
 }

@@ -39,9 +39,9 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
     }
 
     return (
-      <div className={`w-full ${className}`} ref={containerRef}>
+      <div className={`modal-field w-full ${className}`} ref={containerRef}>
         {label && (
-          <label className="block text-[10px] font-black text-secondary uppercase tracking-widest mb-1.5 opacity-60 ml-1">
+          <label className="block text-[10px] font-black text-secondary uppercase tracking-widest opacity-60 ml-1">
             {label} {required && <span className="text-danger">*</span>}
           </label>
         )}

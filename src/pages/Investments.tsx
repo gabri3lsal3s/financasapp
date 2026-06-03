@@ -468,7 +468,6 @@ export default function Investments() {
               compactOnMobile={false}
               onClick={handleDailyClose}
               disabled={closingPortfolio || portfolioLoading || !portfolioId}
-              className="hidden sm:inline-flex"
             />
             <PageHeaderActionButton
               intent="warning"
@@ -477,7 +476,6 @@ export default function Investments() {
               compactOnMobile={false}
               onClick={handleForceRefresh}
               disabled={refreshing || portfolioLoading}
-              className="hidden sm:inline-flex"
             />
             <PageHeaderActionButton
               intent="income"
@@ -485,12 +483,12 @@ export default function Investments() {
               label="Conciliação B3"
               compactOnMobile={false}
               onClick={() => setIsReconciliationOpen(true)}
-              className="hidden sm:inline-flex"
             />
             <PageHeaderActionButton
               intent="primary"
               icon={Plus}
               label="Lançar transação"
+              compactOnMobile={false}
               onClick={() => handleOpenTxModal()}
             />
           </PageHeaderActions>
@@ -918,7 +916,7 @@ export default function Investments() {
                           return (
                             <div 
                               key={pos.ticker}
-                              className={`bg-card border border-border/40 border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl shadow-sm transition-all animate-page-enter overflow-hidden`}
+                              className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl transition-all animate-page-enter overflow-hidden glass-card-interactive`}
                             >
                               {/* Cabeçalho compacto clicável */}
                               <div 

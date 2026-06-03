@@ -496,10 +496,10 @@ export default function ClientDashboard() {
               ) : (
                 <>
                   {/* 1. Tabela para Desktop */}
-                  <div className="hidden md:block overflow-x-auto border border-border/30 rounded-xl bg-background/50">
+                  <div className="hidden md:block overflow-x-auto modal-table-shell">
                     <table className="w-full border-collapse text-left text-sm">
                       <thead>
-                        <tr className="border-b border-border/30 bg-muted/20">
+                        <tr className="border-b border-glass modal-table-head">
                           <th className="p-3.5 font-bold text-secondary">Ativo</th>
                           <th className="p-3.5 font-bold text-secondary text-right">Qtd</th>
                           <th className="p-3.5 font-bold text-secondary text-right">Cotação</th>
@@ -569,7 +569,7 @@ export default function ClientDashboard() {
                             {classPositions.map(pos => (
                               <div 
                                 key={pos.ticker}
-                                className="p-4 bg-card border border-border/40 rounded-2xl space-y-3 shadow-sm transition-all hover:scale-[1.01]"
+                                className="p-4 surface-glass border-glass rounded-2xl space-y-3 transition-all hover:scale-[1.01] glass-card-interactive"
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -648,7 +648,7 @@ export default function ClientDashboard() {
                   <p className="text-xs text-secondary text-center py-4">Seu consultor ainda não anexou teses qualitativas este mês.</p>
                 ) : (
                   positions.filter(pos => displayTheses[pos.ticker]).map(pos => (
-                    <div key={pos.ticker} className="p-3 bg-muted/20 border border-border/30 rounded-lg space-y-1">
+                    <div key={pos.ticker} className="p-3 modal-panel-glass border-glass rounded-lg space-y-1">
                        <div className="flex items-center justify-between text-xs font-bold text-primary">
                         <span>{pos.ticker}</span>
                         <span className="text-[10px] text-income font-semibold">{pos.target_percentage}% alvo</span>

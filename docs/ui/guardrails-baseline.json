@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-02T20:00:00.000Z",
+  "generatedAt": "2026-06-03T00:03:07.627Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -13,6 +13,10 @@
     {
       "id": "ui-no-native-control-in-pages",
       "description": "Evitar controles nativos em páginas; preferir primitives compartilhadas."
+    },
+    {
+      "id": "ui-prefer-glass-border-over-shadcn",
+      "description": "Evitar border-border/40 em componentes; preferir tokens glass (border-glass, modal-panel-glass)."
     }
   ],
   "violations": []

@@ -30,7 +30,7 @@ export default function B3ReconciliationStepper({
     : 0
 
   return (
-    <div className="relative border-b border-border/40 pb-4 mb-2 space-y-3">
+    <div className="relative border-b border-glass pb-4 mb-2 space-y-3">
       <div className="relative flex items-start justify-between w-full py-1">
         {/* Connector Line Background - Mathematically Centered */}
         <div 
@@ -70,7 +70,7 @@ export default function B3ReconciliationStepper({
                     ? 'bg-primary text-primary-foreground border-transparent scale-110 shadow-lg shadow-primary/20 ring-4 ring-primary/10'
                     : isDone
                       ? 'bg-income text-white border-transparent scale-100'
-                      : 'bg-card text-secondary border-border/60 group-hover:border-primary/50 group-hover:text-primary'
+                      : 'bg-card text-secondary border-glass group-hover:border-primary/50 group-hover:text-primary'
                 }`}
               >
                 {isDone ? '✓' : index + 1}

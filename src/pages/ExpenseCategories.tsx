@@ -4,6 +4,7 @@ import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalForm from '@/components/ModalForm'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -168,43 +169,57 @@ export default function ExpenseCategories() {
         )}
       </div>
 
-      <Modal
+      <ModalForm
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingCategory ? 'Editar categoria' : 'Adicionar categoria'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Nome da Categoria"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Ex: Alimentação, Transporte..."
-            required
-          />
-
+        onSubmit={handleSubmit}
+        footer={(formId) => (
           <ModalActionFooter
+            formId={formId}
             onCancel={handleCloseModal}
             submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
             deleteLabel={editingCategory ? 'Excluir categoria' : undefined}
             onDelete={editingCategory ? () => handleDeleteClick(editingCategory) : undefined}
           />
-        </form>
-      </Modal>
+        )}
+      >
+        <Input
+          label="Nome da Categoria"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Ex: Alimentação, Transporte..."
+          required
+        />
+      </ModalForm>
 
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
         title="Excluir Categoria"
+        footer={
+          <div className="modal-button-footer justify-center">
+            <Button
+              variant="ghost"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="btn-discrete-delete px-4"
+              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
+            >
+              <Trash2 size={24} />
+            </Button>
+          </div>
+        }
       >
-        <div className="space-y-4 text-primary">
+        <div className="modal-body-stack w-full text-primary">
           {deleteUsageCount > 0 ? (
             <>
-              <p>
+              <p className="text-sm">
                 A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
                 <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
               </p>
-              <p>
-                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>"Sem categoria"</em>.
+              <p className="modal-intro text-sm">
+                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>Sem categoria</em>.
               </p>
               <Select
                 value={targetCategoryId}
@@ -218,22 +233,10 @@ export default function ExpenseCategories() {
               />
             </>
           ) : (
-            <p>
+            <p className="text-sm">
               Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
             </p>
           )}
-
-          <div className="pt-4 flex justify-center">
-            <Button
-              variant="ghost"
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="btn-discrete-delete px-4"
-              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
-            >
-              <Trash2 size={24} />
-            </Button>
-          </div>
         </div>
       </Modal>
     </div>

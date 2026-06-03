@@ -8,7 +8,13 @@ import Select from '@/components/Select'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import PageHeader from '@/components/PageHeader'
-import ModalActionFooter from '@/components/ModalActionFooter'
+import ModalFooter from '@/components/ModalFooter'
+import GlassChoiceCard from '@/components/GlassChoiceCard'
+import { TrendingUp } from 'lucide-react'
+
+vi.mock('@/hooks/useMediaQuery', () => ({
+  useMediaQuery: vi.fn(() => false),
+}))
 
 describe('UI primitives snapshots', () => {
   it('Button variants render consistently', () => {
@@ -89,10 +95,10 @@ describe('UI primitives snapshots', () => {
     expect(container.firstChild).toMatchSnapshot()
   })
 
-  it('ModalActionFooter renders with delete action consistently', () => {
+  it('ModalFooter renders with delete action consistently (mobile icons)', () => {
     const { container } = render(
       createElement('form', null,
-        createElement(ModalActionFooter, {
+        createElement(ModalFooter, {
           onCancel: vi.fn(),
           submitLabel: 'Salvar alterações',
           submitDisabled: true,
@@ -100,6 +106,19 @@ describe('UI primitives snapshots', () => {
           onDelete: vi.fn(),
         }),
       ),
+    )
+
+    expect(container.firstChild).toMatchSnapshot()
+  })
+
+  it('GlassChoiceCard renders consistently', () => {
+    const { container } = render(
+      createElement(GlassChoiceCard, {
+        label: 'Renda',
+        icon: createElement(TrendingUp, { size: 24 }),
+        intent: 'income',
+        onClick: vi.fn(),
+      }),
     )
 
     expect(container.firstChild).toMatchSnapshot()

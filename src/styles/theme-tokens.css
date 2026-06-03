@@ -1,7 +1,8 @@
 /**
  * Tokens de tema — glass unificado
  * Combinações: .light | .dark | .midnight × [data-color-palette]
- *//* --- Glass: light --- */
+ */
+/* --- Glass: light --- */
 html.light {
   --ds-color-surface-primary: rgba(255, 255, 255, 0.72);
   --ds-color-surface-secondary: #f1f5f9;
@@ -31,7 +32,12 @@ html.light {
   --ds-motion-duration-normal: 300ms;
   --ambient-glow-primary: rgba(0, 0, 0, 0.06);
   --ambient-glow-secondary: rgba(0, 0, 0, 0.04);
-  --glass-input-bg: rgba(255, 255, 255, 0.55);
+  --glass-input-bg: var(--glass-layer-interactive);
+  --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 60%, transparent);
+  --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 82%, transparent);
+  --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 85%, transparent);
+  --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 55%, transparent);
+  --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 210 40% 98%;
   --foreground: 222 47% 11%;
   --card: 0 0% 100%;
@@ -99,7 +105,12 @@ html.dark {
   --color-warning-solid-foreground: #09090b;
   --ambient-glow-primary: rgba(255, 255, 255, 0.08);
   --ambient-glow-secondary: rgba(255, 255, 255, 0.04);
-  --glass-input-bg: rgba(255, 255, 255, 0.04);
+  --glass-input-bg: var(--glass-layer-interactive);
+  --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 50%, transparent);
+  --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
+  --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 72%, transparent);
+  --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
+  --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 240 10% 4%;
   --foreground: 0 0% 98%;
   --card: 240 10% 6%;
@@ -150,7 +161,12 @@ html.midnight {
   --color-warning-solid-foreground: #000000;
   --ambient-glow-primary: rgba(255, 255, 255, 0.1);
   --ambient-glow-secondary: rgba(255, 255, 255, 0.05);
-  --glass-input-bg: rgba(255, 255, 255, 0.03);
+  --glass-input-bg: var(--glass-layer-interactive);
+  --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 52%, transparent);
+  --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
+  --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 72%, transparent);
+  --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
+  --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 0 0% 0%;
   --foreground: 0 0% 100%;
   --card: 0 0% 4%;
@@ -303,9 +319,26 @@ html:not([data-color-palette]) {
   --palette-preview-mono-2: #737373;
   --glass-surface: color-mix(in srgb, var(--ds-color-surface-primary) 78%, transparent);
   --glass-surface-strong: color-mix(in srgb, var(--ds-color-surface-primary) 88%, transparent);
+  /* L0–L3 layer stack (fallback antes de html.light/dark/midnight) */
+  --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 50%, transparent);
+  --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
+  --glass-layer-panel: color-mix(in srgb, var(--ds-color-surface-tertiary) 72%, transparent);
+  --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
+  --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
+  /* Aliases legados → camadas */
+  --glass-modal-overlay: var(--glass-layer-overlay);
+  --glass-modal-shell: var(--glass-layer-shell);
+  --glass-modal-panel: var(--glass-layer-panel);
   --glass-border: color-mix(in srgb, var(--ds-color-text-primary) 10%, transparent);
   --glass-blur: 16px;
   --glass-blur-strong: 24px;
+  --glass-shadow-elevated: 0 24px 56px -16px var(--ambient-glow-primary);
+  --glass-shadow-panel: 0 4px 16px -8px var(--ambient-glow-primary);
+  --glass-shadow-sheet: 0 -16px 48px -12px var(--ambient-glow-primary);
+  --glass-shadow-sidebar: 0 12px 40px -10px var(--ambient-glow-primary);
+  --glass-shadow-nav: 0 8px 32px -10px var(--ambient-glow-secondary);
+  --glass-shadow-tooltip: 0 12px 32px -5px var(--ambient-glow-primary);
+  --glass-inset-highlight: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent);
 }
 
 :root {

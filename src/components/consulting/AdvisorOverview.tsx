@@ -91,10 +91,10 @@ export default function AdvisorOverview({
         ) : (
           <>
             {/* 1. Tabela para Desktop */}
-            <div className="hidden md:block overflow-x-auto border border-border/30 rounded-xl bg-background/50">
+            <div className="hidden md:block overflow-x-auto modal-table-shell">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border/30 bg-muted/20">
+                  <tr className="border-b border-glass modal-table-head">
                     <th className="p-3.5 font-bold text-secondary">Cliente</th>
                     <th className="p-3.5 font-bold text-secondary text-right">Ativos</th>
                     <th className="p-3.5 font-bold text-secondary text-right">AUM Consolidado</th>
@@ -169,7 +169,7 @@ export default function AdvisorOverview({
                 return (
                   <div 
                     key={row.id} 
-                    className="p-4 bg-card border border-border/40 rounded-2xl space-y-3 shadow-sm hover:scale-[1.01] transition-all"
+                    className="p-4 surface-glass border-glass rounded-2xl space-y-3 hover:scale-[1.01] transition-all glass-card-interactive"
                   >
                     {/* Cabeçalho do Cliente */}
                     <div className="flex justify-between items-start gap-3 min-w-0">

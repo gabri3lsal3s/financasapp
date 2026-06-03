@@ -40,7 +40,7 @@ export default function OrganicVsContributionsChart({ snapshots }: OrganicVsCont
   })
 
   return (
-    <Card className="p-5 border border-border/40 text-left h-full flex flex-col">
+    <Card className="p-5 text-left h-full flex flex-col">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
         <BarChart3 size={16} />
         Poupança vs. rendimento do mercado

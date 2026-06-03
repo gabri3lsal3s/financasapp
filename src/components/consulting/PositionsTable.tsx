@@ -61,7 +61,7 @@ export default function PositionsTable({
       </div>
 
       {showGroupTargetForm && (
-        <form onSubmit={onSaveGroupTarget} className="p-4 bg-muted/20 border border-border/40 rounded-xl mb-4.5 space-y-4 animate-page-enter">
+        <form onSubmit={onSaveGroupTarget} className="modal-panel-glass p-4 mb-4.5 space-y-4 animate-page-enter">
           <div className="flex flex-wrap md:flex-nowrap gap-3 items-end text-left">
             <div className="flex-1 min-w-[150px]">
               <label className="text-[10px] uppercase font-extrabold text-secondary tracking-wider block mb-1">Tipo de Limite</label>
@@ -161,10 +161,10 @@ export default function PositionsTable({
       ) : (
         <>
           {/* 1. Tabela para Desktop */}
-          <div className="hidden md:block overflow-x-auto border border-border/30 rounded-xl bg-background/30">
+          <div className="hidden md:block overflow-x-auto modal-table-shell">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border/30 bg-muted/20">
+                <tr className="border-b border-glass modal-table-head">
                   <th className="p-3 font-semibold text-secondary">Ativo</th>
                   <th className="p-3 font-semibold text-secondary text-right">Qtd</th>
                   <th className="p-3 font-semibold text-secondary text-right">Custo Médio</th>
@@ -266,7 +266,7 @@ export default function PositionsTable({
                     return (
                       <div 
                         key={pos.ticker}
-                        className="p-4 bg-card border border-border/40 rounded-2xl space-y-3 shadow-sm transition-all hover:scale-[1.01] animate-page-enter"
+                        className="p-4 surface-glass border-glass rounded-2xl space-y-3 transition-all hover:scale-[1.01] animate-page-enter glass-card-interactive"
                       >
                         {/* Cabeçalho do Ativo */}
                         <div className="flex items-center justify-between">

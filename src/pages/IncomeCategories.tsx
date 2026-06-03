@@ -4,6 +4,7 @@ import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
+import ModalForm from '@/components/ModalForm'
 import ModalActionFooter from '@/components/ModalActionFooter'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
@@ -155,45 +156,59 @@ export default function IncomeCategories() {
         )}
       </div>
 
-      <Modal
+      <ModalForm
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingCategory ? 'Editar categoria de renda' : 'Adicionar categoria de renda'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Nome"
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ name: e.target.value })}
-            placeholder="Ex: Salário, Freelancer..."
-            required
-            autoFocus
-          />
-
+        onSubmit={handleSubmit}
+        footer={(formId) => (
           <ModalActionFooter
+            formId={formId}
             onCancel={handleCloseModal}
             submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
             deleteLabel={editingCategory ? 'Excluir categoria de renda' : undefined}
             onDelete={editingCategory ? () => handleDeleteClick(editingCategory) : undefined}
           />
-        </form>
-      </Modal>
+        )}
+      >
+        <Input
+          label="Nome"
+          type="text"
+          value={formData.name}
+          onChange={(e) => setFormData({ name: e.target.value })}
+          placeholder="Ex: Salário, Freelancer..."
+          required
+          autoFocus
+        />
+      </ModalForm>
 
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
         title="Excluir Categoria de Renda"
+        footer={
+          <div className="modal-button-footer justify-center">
+            <Button
+              variant="ghost-danger"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="px-4"
+              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
+            >
+              <Trash2 size={24} />
+            </Button>
+          </div>
+        }
       >
-        <div className="space-y-4 text-primary">
+        <div className="modal-body-stack w-full text-primary">
           {deleteUsageCount > 0 ? (
             <>
-              <p>
+              <p className="text-sm">
                 A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
                 <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
               </p>
-              <p>
-                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>"Sem categoria"</em>.
+              <p className="modal-intro text-sm">
+                Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>Sem categoria</em>.
               </p>
               <Select
                 value={targetCategoryId}
@@ -207,22 +222,10 @@ export default function IncomeCategories() {
               />
             </>
           ) : (
-            <p>
+            <p className="text-sm">
               Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
             </p>
           )}
-
-          <div className="pt-4 flex justify-center">
-            <Button
-              variant="ghost-danger"
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="px-4"
-              title={isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
-            >
-              <Trash2 size={24} />
-            </Button>
-          </div>
         </div>
       </Modal>
     </div>

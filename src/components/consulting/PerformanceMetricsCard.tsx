@@ -46,7 +46,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
   const strokeDashoffset = circumference - (percentage / 100) * circumference
 
   return (
-    <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
+    <Card className="p-5 flex flex-col justify-between text-left h-full">
       <div>
         <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
           <Gauge size={16} className="text-balance" />
@@ -55,7 +55,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mb-4">
           {/* Sharpe Gauge */}
-          <div className="flex flex-col items-center justify-center p-3 bg-muted/20 border border-border/30 rounded-xl">
+          <div className="flex flex-col items-center justify-center p-3 modal-panel-glass border-glass rounded-xl">
             <span className="text-[10px] uppercase font-extrabold text-secondary tracking-wider mb-2 font-sans">
               Índice Sharpe
             </span>
@@ -99,7 +99,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
 
           {/* Core Metrics */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-2 bg-muted/10 border border-border/10 rounded-lg">
+            <div className="flex items-center justify-between p-2 modal-panel-glass border-glass rounded-lg">
               <div className="flex items-center gap-1.5 text-secondary">
                 <Percent size={13} className="text-balance" />
                 <span className="text-xs font-semibold font-sans">Volatilidade Mensal</span>
@@ -109,7 +109,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-2 bg-muted/10 border border-border/10 rounded-lg">
+            <div className="flex items-center justify-between p-2 modal-panel-glass border-glass rounded-lg">
               <div className="flex items-center gap-1.5 text-secondary">
                 <TrendingUp size={13} className="text-income" />
                 <span className="text-xs font-semibold font-sans">Retorno Médio Mensal</span>
@@ -122,8 +122,8 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
         </div>
 
         {/* Beta Indicators */}
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/40">
-          <div className="p-2.5 bg-muted/20 border border-border/30 rounded-xl text-center">
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-glass">
+          <div className="p-2.5 modal-panel-glass border-glass rounded-xl text-center">
             <span className="text-[9px] uppercase font-bold text-secondary tracking-wider block mb-0.5">
               Beta vs IBOV
             </span>
@@ -135,7 +135,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
             </span>
           </div>
 
-          <div className="p-2.5 bg-muted/20 border border-border/30 rounded-xl text-center">
+          <div className="p-2.5 modal-panel-glass border-glass rounded-xl text-center">
             <span className="text-[9px] uppercase font-bold text-secondary tracking-wider block mb-0.5">
               Beta vs S&P 500
             </span>
@@ -149,7 +149,7 @@ export default function PerformanceMetricsCard({ metrics }: PerformanceMetricsCa
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-border/40 space-y-2">
+      <div className="mt-4 pt-3 border-t border-glass space-y-2">
         {metrics.data_source === 'insufficient' && (
           <p className="text-[10px] text-secondary italic font-sans leading-relaxed">
             Histórico insuficiente para métricas confiáveis. Execute fechamentos mensais na carteira.

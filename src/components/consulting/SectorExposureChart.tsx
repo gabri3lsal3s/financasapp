@@ -24,7 +24,7 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
     })
 
   return (
-    <Card className="p-5 flex flex-col justify-between shadow-sm border border-border/40 text-left h-full">
+    <Card className="p-5 flex flex-col justify-between text-left h-full">
       <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
         <PieIcon size={16} className="accent-primary" />
         Exposição Atual por Setor
@@ -67,7 +67,7 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
 
           {/* Legenda Lateral customizada (7 colunas no desktop) */}
           <div className="md:col-span-7 space-y-2">
-            <div className="hidden sm:grid grid-cols-12 text-[9px] uppercase font-extrabold text-secondary/60 tracking-wider pb-1 border-b border-border/10 mb-2">
+            <div className="hidden sm:grid grid-cols-12 text-[9px] uppercase font-extrabold text-secondary/60 tracking-wider pb-1 border-b border-glass mb-2">
               <span className="col-span-7">Setor</span>
               <span className="col-span-5 text-right font-sans">Patrimônio / Peso</span>
             </div>

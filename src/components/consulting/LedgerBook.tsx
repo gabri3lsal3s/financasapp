@@ -174,7 +174,7 @@ function LedgerBook({
   const isAllSelected = visibleTransactions.length > 0 && selectedIds.size === visibleTransactions.length
 
   return (
-    <Card className="p-5 lg:p-6 text-left border border-border/40 shadow-sm relative overflow-hidden">
+    <Card className="p-5 lg:p-6 text-left relative overflow-hidden">
       {deleting && (
         <div className="absolute inset-0 bg-secondary/65 backdrop-blur-[1px] flex items-center justify-center z-20">
           <div className="flex flex-col items-center gap-2">
@@ -345,7 +345,7 @@ function LedgerBook({
               ? 'border-balance bg-balance/5'
               : isExpanded
               ? 'border-balance/40 bg-secondary/40'
-              : 'border-border/30 hover:border-border/60'
+              : 'border-glass hover:border-glass'
 
             return (
               <div
