@@ -366,8 +366,7 @@
   }
 
   .nav-item-active {
-    background-color: var(--ds-color-accent-primary-soft);
-    border: 1px solid var(--ds-color-accent-primary-soft);
+    border: 1px solid transparent;
     color: var(--ds-color-accent-primary);
     position: relative;
   }
@@ -602,10 +601,10 @@
     content: '';
     position: absolute;
     right: 0;
-    top: 20%;
-    bottom: 20%;
+    top: 18%;
+    bottom: 18%;
     width: 3px;
-    border-radius: 9999px;
+    border-radius: 9999px 0 0 9999px;
     background: var(--ds-color-accent-primary);
   }
 
@@ -613,12 +612,10 @@
     content: '';
     position: absolute;
     top: 0;
-    left: 22%;
-    right: 22%;
-    bottom: auto;
-    height: 2px;
-    width: auto;
-    border-radius: 9999px;
+    left: 18%;
+    right: 18%;
+    height: 3px;
+    border-radius: 0 0 9999px 9999px;
     background: var(--ds-color-accent-primary);
   }
 
@@ -1015,12 +1012,12 @@
 
   .calculator-origin-button {
     transition:
-      border-radius 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      padding-inline 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      padding-block 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      min-width 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      width 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      border-radius 1150ms cubic-bezier(0.16, 1, 0.3, 1),
+      padding-inline 1150ms cubic-bezier(0.16, 1, 0.3, 1),
+      padding-block 1150ms cubic-bezier(0.16, 1, 0.3, 1),
+      min-width 1150ms cubic-bezier(0.16, 1, 0.3, 1),
+      width 1150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .calculator-origin-button--dragging {
@@ -1048,26 +1045,33 @@
     animation: calculator-fab-idle 3.2s var(--easing-standard) infinite;
   }
 
-  .calculator-icon-drag {
+  @keyframes calculator-entrance {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .calculator-icon-wrapper-transition {
     touch-action: none;
     will-change: transform;
+    transition: transform 1150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .calculator-icon-drag--dragging {
-    transition: none;
+  .calculator-icon-wrapper-transition--no-transition {
+    transition: none !important;
   }
 
-  .calculator-icon-drag--returning {
-    transition: transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  .calculator-icon-wrapper-transition--returning {
+    transition: transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .calculator-icon-drag--origin-flip {
-    transition: transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .calculator-icon-drag--dragging .calculator-fab-idle,
-  .calculator-icon-drag--returning .calculator-fab-idle,
-  .calculator-icon-drag--origin-flip .calculator-fab-idle {
+  .calculator-icon-wrapper-transition--no-transition .calculator-fab-idle,
+  .calculator-icon-wrapper-transition--returning .calculator-fab-idle {
     animation: none;
   }
 
@@ -2352,4 +2356,19 @@ nav.glass-bottom-nav {
 
 .animate-modal-close-right {
   animation: modal-close-to-right 240ms cubic-bezier(0.36, 0, 0.66, -0.56) forwards;
+}
+
+/* Controle de visibilidade dos botões laterais (FloatingSideStack) com modal aberto */
+@media (min-width: 1024px) {
+  body:has(.modal-overlay) #page-actions-portal-root {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+}
+
+@media (max-width: 1023px) {
+  body:has(.modal-overlay) #floating-side-stack {
+    z-index: 1000 !important; /* No mobile, mantém o stack acima do overlay (z-999) mas abaixo/no nível do sheet (z-1000) */
+  }
 }

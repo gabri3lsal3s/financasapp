@@ -26,7 +26,6 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Switch from '@/components/Switch'
 import AccentToneSwitcher from '@/components/AccentToneSwitcher'
-import ColorPaletteSwitcher from '@/components/ColorPaletteSwitcher'
 
 
 type SettingsView = 'appearance' | 'security' | 'admin'
@@ -482,14 +481,12 @@ export default function Settings() {
         <section className={activeSettingsView === 'appearance' ? 'space-y-4' : 'hidden'}>
           <SectionHeader
             title="Aparência"
-            description="Tema, cor de destaque e paleta dos dados financeiros"
+            description="Tema e cor de destaque"
           />
 
           <ThemeSwitcher />
 
           <AccentToneSwitcher />
-
-          <ColorPaletteSwitcher />
 
           <Card>
             <SettingRow

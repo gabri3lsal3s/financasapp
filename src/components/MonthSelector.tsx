@@ -120,6 +120,10 @@ export default function MonthSelector({
               >
                 Voltar ao mês atual
               </Button>
+            ) : isCurrentMonth ? (
+              <span className="text-xs text-secondary font-medium px-2 py-0.5 select-none">
+                Mês atual
+              </span>
             ) : null}
           </div>
         </div>

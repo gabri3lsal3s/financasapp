@@ -16,14 +16,6 @@ export function usePaletteColors() {
         'var(--palette-preview-vivid-2)',
       ],
     },
-    monochrome: {
-      name: 'Monocromática',
-      colors: [
-        'var(--palette-preview-mono-0)',
-        'var(--palette-preview-mono-1)',
-        'var(--palette-preview-mono-2)',
-      ],
-    },
   }
 
   return {

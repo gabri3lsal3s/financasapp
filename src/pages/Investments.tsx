@@ -15,7 +15,7 @@ import {
   formatSignedPercentBR,
 } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -386,6 +386,26 @@ export default function Investments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega ao reconectar; loadPortfolio depende do estado local
   }, [isOnline])
 
+  // Fechamento diário automático: executa uma vez por dia via localStorage
+  // O guard persiste entre recargas de página enquanto for o mesmo dia
+  useEffect(() => {
+    const LS_KEY = 'portfolio_auto_close_date'
+    const today = new Date().toISOString().slice(0, 10)
+    const lastClosed = localStorage.getItem(LS_KEY)
+    if (
+      portfolioId &&
+      transactions.length > 0 &&
+      Object.keys(valuationPrices).length > 0 &&
+      !portfolioLoading &&
+      !closingPortfolio &&
+      lastClosed !== today
+    ) {
+      localStorage.setItem(LS_KEY, today)
+      void handleDailyClose()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portfolioId, transactions, valuationPrices, portfolioLoading])
+
 
 
   const handleSaveGroupTarget = async (e: React.FormEvent) => {
@@ -463,22 +483,6 @@ export default function Investments() {
         action={
           <PageHeaderActions launchModalOpen={isTxModalOpen}>
             <PageHeaderActionButton
-              intent="balance"
-              icon={BarChart2}
-              label={closingPortfolio ? 'Fechando...' : 'Atualizar fechamento'}
-              compactOnMobile={false}
-              onClick={handleDailyClose}
-              disabled={closingPortfolio || portfolioLoading || !portfolioId}
-            />
-            <PageHeaderActionButton
-              intent="warning"
-              icon={TrendingUp}
-              label={refreshing ? 'Atualizando...' : 'Atualizar cotações'}
-              compactOnMobile={false}
-              onClick={handleForceRefresh}
-              disabled={refreshing || portfolioLoading}
-            />
-            <PageHeaderActionButton
               intent="income"
               icon={FileSpreadsheet}
               label="Conciliação B3"
@@ -487,7 +491,7 @@ export default function Investments() {
             />
             <PageHeaderActionButton
               actionRole="launch"
-              intent="primary"
+              intent="balance"
               icon={Plus}
               label="Lançar transação"
               compactOnMobile={false}
@@ -747,20 +751,21 @@ export default function Investments() {
               <div className="flex items-center justify-between gap-3 mb-2">
                 <h3 className="text-sm sm:text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
                 
-                {/* Botão de atualizar cotações visível apenas no Mobile */}
+                {/* Botão de atualizar cotações */}
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleForceRefresh}
                   disabled={refreshing || portfolioLoading}
-                  className="flex sm:hidden items-center justify-center h-8 w-8 p-0 border-warning/20 text-warning hover:bg-warning/10 font-bold"
+                  className="flex items-center gap-1.5 h-8 px-2.5 border-warning/20 text-warning hover:bg-warning/10 font-bold text-xs"
                   title="Atualizar cotações"
                 >
                   {refreshing ? (
                     <div className="w-4 h-4 border-2 border-warning border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <TrendingUp size={15} className="text-warning" />
+                    <TrendingUp size={14} className="text-warning" />
                   )}
+                  <span className="hidden sm:inline">{refreshing ? 'Atualizando...' : 'Atualizar cotações'}</span>
                 </Button>
               </div>
 

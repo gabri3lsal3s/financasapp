@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-03T00:03:07.627Z",
+  "generatedAt": "2026-06-03T03:46:06.635Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -17,7 +17,19 @@
     {
       "id": "ui-prefer-glass-border-over-shadcn",
       "description": "Evitar border-border/40 em componentes; preferir tokens glass (border-glass, modal-panel-glass)."
+    },
+    {
+      "id": "ui-no-inline-modal-panel-styles",
+      "description": "Evitar painéis ad hoc em modais; preferir modal-info-panel, modal-summary-panel ou modal-panel-glass."
     }
   ],
-  "violations": []
+  "violations": [
+    {
+      "key": "ui-no-inline-modal-panel-styles|src/components/consulting/ClientPickerModal.tsx|119|border-primary/35",
+      "ruleId": "ui-no-inline-modal-panel-styles",
+      "file": "src/components/consulting/ClientPickerModal.tsx",
+      "line": 119,
+      "match": "border-primary/35"
+    }
+  ]
 }

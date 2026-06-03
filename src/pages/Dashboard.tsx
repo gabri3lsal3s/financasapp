@@ -69,7 +69,7 @@ export default function Dashboard() {
   const { isOnline } = useNetworkStatus()
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
-  const [activeMobileChart, setActiveMobileChart] = useState<'panorama' | 'flow'>('panorama')
+  const [activeMobileChart, setActiveMobileChart] = useState<'panorama' | 'flow'>('flow')
   
   const [portfolioId, setPortfolioId] = useState('')
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
@@ -191,7 +191,7 @@ export default function Dashboard() {
     () => [
       { name: 'Rendas', value: totalIncomes, color: 'var(--color-income)' },
       { name: 'Despesas', value: totalExpenses, color: 'var(--color-expense)' },
-      { name: 'Investimentos', value: totalInvestments, color: 'var(--color-balance)' },
+      { name: 'Investimentos', value: Math.max(totalInvestments, 0), color: 'var(--color-balance)' },
     ],
     [totalExpenses, totalIncomes, totalInvestments]
   )
@@ -556,7 +556,7 @@ export default function Dashboard() {
                     </Card>
 
                     <Card className={`${activeMobileChart === 'flow' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
-                      <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário (mês)</h3>
+                      <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário</h3>
                       <ResponsiveContainer width="100%" height={280}>
                         <LineChart data={dailyFlowData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />

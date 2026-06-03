@@ -5,6 +5,7 @@ import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
+import { isCalculatorElement } from '@/components/Modal'
 
 import {
   Sheet,
@@ -193,6 +194,16 @@ export default function Layout({ children }: LayoutProps) {
             ref={mobileMenuContentRef}
             side="bottom"
             showCloseButton={false}
+            onPointerDownOutside={(e) => {
+              if (isCalculatorElement(e.target)) {
+                e.preventDefault()
+              }
+            }}
+            onInteractOutside={(e) => {
+              if (isCalculatorElement(e.target)) {
+                e.preventDefault()
+              }
+            }}
             className="modal-sheet-bottom max-h-[85vh] rounded-t-3xl safe-area-bottom gap-0 p-0"
           >
             <div className="modal-drag-handle shrink-0" />

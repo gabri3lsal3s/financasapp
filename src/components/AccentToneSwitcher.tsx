@@ -11,6 +11,11 @@ const ACCENT_OPTIONS: Array<{
   description: string
 }> = [
   {
+    id: 'none',
+    name: 'Sem destaque',
+    description: 'Neutro do tema ativo',
+  },
+  {
     id: 'white',
     name: 'Neutro',
     description: 'Preto no claro · branco no escuro',
@@ -38,6 +43,17 @@ const ACCENT_OPTIONS: Array<{
 ]
 
 function AccentSwatch({ toneId }: { toneId: AccentTone }) {
+  if (toneId === 'none') {
+    return (
+      <div className="appearance-accent-swatch" data-accent-swatch="none" aria-hidden>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2" opacity="0.35" />
+          <line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" strokeWidth="1.5" opacity="0.35" />
+        </svg>
+      </div>
+    )
+  }
+
   if (toneId === 'white') {
     return (
       <div className="appearance-accent-swatch" data-accent-swatch="white" aria-hidden>

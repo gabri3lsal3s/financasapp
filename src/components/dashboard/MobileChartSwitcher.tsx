@@ -15,11 +15,11 @@ export default function MobileChartSwitcher({ activeView, onChange }: MobileChar
       className="mx-auto mt-2 flex w-full max-w-md justify-center xl:hidden"
     >
       <TabsList className="w-full">
-        <TabsTrigger value="panorama" className="flex-1 text-xs font-bold">
-          Panorama
-        </TabsTrigger>
         <TabsTrigger value="flow" className="flex-1 text-xs font-bold">
           Fluxo Diário
+        </TabsTrigger>
+        <TabsTrigger value="panorama" className="flex-1 text-xs font-bold">
+          Panorama
         </TabsTrigger>
       </TabsList>
     </Tabs>

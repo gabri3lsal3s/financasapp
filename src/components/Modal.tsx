@@ -126,6 +126,17 @@ function ModalScrollBody({
   )
 }
 
+export function isCalculatorElement(target: unknown): boolean {
+  return (
+    target instanceof Element &&
+    !!(
+      target.closest('.calculator-element') ||
+      target.closest('.calculator-origin-button') ||
+      target.closest('.calculator-icon-drag')
+    )
+  )
+}
+
 export default function Modal({
   isOpen,
   onClose,
@@ -149,6 +160,16 @@ export default function Modal({
           side="bottom"
           showCloseButton={false}
           overlayClassName={stack.overlay}
+          onPointerDownOutside={(e) => {
+            if (isCalculatorElement(e.target)) {
+              e.preventDefault()
+            }
+          }}
+          onInteractOutside={(e) => {
+            if (isCalculatorElement(e.target)) {
+              e.preventDefault()
+            }
+          }}
           className={cn(
             stack.content,
             'modal-sheet-bottom flex min-h-0 max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden rounded-t-3xl border-glass p-0',
@@ -176,6 +197,16 @@ export default function Modal({
       <DialogContent
         showCloseButton={false}
         overlayClassName={stack.overlay}
+        onPointerDownOutside={(e) => {
+          if (isCalculatorElement(e.target)) {
+            e.preventDefault()
+          }
+        }}
+        onInteractOutside={(e) => {
+          if (isCalculatorElement(e.target)) {
+            e.preventDefault()
+          }
+        }}
         className={cn(
           stack.content,
           widthClass,
