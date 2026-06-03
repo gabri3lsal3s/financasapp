@@ -318,10 +318,15 @@ interface FloatingCalculatorProps {
 }
 
 export default function FloatingCalculator({ isHidden = false }: FloatingCalculatorProps) {
+  const location = useLocation()
   const [isMobile, setIsMobile] = useState(() => isMobileViewport(window.innerWidth))
   const [slotTop, setSlotTop] = useState<number | null>(null)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
-  const location = useLocation()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const slot = document.getElementById(CALCULATOR_SIDE_SLOT_ID)
@@ -343,7 +348,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       observer.disconnect()
       window.removeEventListener('resize', update)
     }
-  }, [location.pathname])
+  }, [location.pathname, mounted])
   const [isExpanded, setIsExpanded] = useState(false)
   const [expression, setExpression] = useState(DEFAULT_STATE.expression)
   const [lastResult, setLastResult] = useState(DEFAULT_STATE.lastResult)
@@ -1195,11 +1200,6 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     )
   }
 
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   if (!mounted) return null
 

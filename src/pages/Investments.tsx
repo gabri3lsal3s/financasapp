@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, Fragment } from 'react'
+import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
@@ -89,6 +89,34 @@ export default function Investments() {
       [className]: !prev[className],
     }))
   }
+
+  const [activeKpiIndex, setActiveKpiIndex] = useState<number>(0)
+  const [showFilters, setShowFilters] = useState<boolean>(false)
+
+  const handleKpisScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget
+    const cardWidth = container.clientWidth * 0.85
+    const index = Math.round(container.scrollLeft / cardWidth)
+    setActiveKpiIndex(index)
+  }
+
+  const chartContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        selectedPieSegment &&
+        chartContainerRef.current &&
+        !chartContainerRef.current.contains(event.target as Node)
+      ) {
+        setSelectedPieSegment(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [selectedPieSegment])
 
   // Dados da carteira sob consultoria
   const [portfolioData, setPortfolioData] = useState<InvestmentsPortfolioData | null>(null)
@@ -621,46 +649,62 @@ export default function Investments() {
               const totalCash = portfolioData.cashValue
 
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  <Card 
-                    className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                    style={{ borderLeftColor: 'var(--color-income)' }}
+                <div className="flex flex-col gap-2">
+                  <div 
+                    onScroll={handleKpisScroll}
+                    className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-3 sm:gap-4 sm:pb-0"
                   >
-                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Investido</p>
-                    <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
-                      {formatCurrency(portfolioData.investedValue)}
-                    </p>
-                    <p className="hidden sm:block text-xs text-secondary mt-1">Valor total de investimentos</p>
-                  </Card>
-                  <Card 
-                    className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                    style={{ borderLeftColor: 'var(--color-balance)' }}
-                  >
-                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Saldo em Caixa</p>
-                    <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
-                      {formatCurrency(totalCash)}
-                    </p>
-                    <p className="hidden sm:block text-xs text-secondary mt-1">Disponível para novos aportes</p>
-                  </Card>
-                  <Card 
-                    className="p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                    style={{ borderLeftColor: isPositive ? 'var(--color-income)' : 'var(--color-expense)' }}
-                  >
-                    <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Rentabilidade Consolidada</p>
-                    <div className="flex items-baseline gap-1.5 mt-1 sm:mt-2 flex-wrap">
-                      <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
-                        isPositive ? 'text-income' : 'text-expense'
-                      }`}>
-                        {formatSignedPercentBR(consolidatedYield)}
+                    <Card 
+                      className="flex-none w-[85%] sm:w-auto snap-center p-3 sm:p-5 flex flex-col justify-between border-l-4"
+                      style={{ borderLeftColor: 'var(--color-income)' }}
+                    >
+                      <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Investido</p>
+                      <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
+                        {formatCurrency(portfolioData.investedValue)}
                       </p>
-                      <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
-                        consolidatedGain >= 0 ? 'text-income' : 'text-expense'
-                      }`}>
-                        ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
-                      </span>
-                    </div>
-                    <p className="hidden sm:block text-xs text-secondary mt-1">Retorno sobre o capital investido</p>
-                  </Card>
+                      <p className="hidden sm:block text-xs text-secondary mt-1">Valor total de investimentos</p>
+                    </Card>
+                    <Card 
+                      className="flex-none w-[85%] sm:w-auto snap-center p-3 sm:p-5 flex flex-col justify-between border-l-4"
+                      style={{ borderLeftColor: 'var(--color-balance)' }}
+                    >
+                      <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Saldo em Caixa</p>
+                      <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
+                        {formatCurrency(totalCash)}
+                      </p>
+                      <p className="hidden sm:block text-xs text-secondary mt-1">Disponível para novos aportes</p>
+                    </Card>
+                    <Card 
+                      className="flex-none w-[85%] sm:w-auto snap-center p-3 sm:p-5 flex flex-col justify-between border-l-4"
+                      style={{ borderLeftColor: isPositive ? 'var(--color-income)' : 'var(--color-expense)' }}
+                    >
+                      <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Rentabilidade Consolidada</p>
+                      <div className="flex items-baseline gap-1.5 mt-1 sm:mt-2 flex-wrap">
+                        <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
+                          isPositive ? 'text-income' : 'text-expense'
+                        }`}>
+                          {formatSignedPercentBR(consolidatedYield)}
+                        </p>
+                        <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
+                          consolidatedGain >= 0 ? 'text-income' : 'text-expense'
+                        }`}>
+                          ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
+                        </span>
+                      </div>
+                      <p className="hidden sm:block text-xs text-secondary mt-1">Retorno sobre o capital investido</p>
+                    </Card>
+                  </div>
+                  {/* Pontos de paginação apenas no mobile */}
+                  <div className="flex justify-center gap-1.5 mt-1 sm:hidden">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                          activeKpiIndex === i ? 'bg-primary w-3.5' : 'bg-primary/20'
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
               )
             })()}
@@ -690,39 +734,54 @@ export default function Investments() {
                       <h4 className="text-xs font-black uppercase tracking-wider text-primary">Alocação Atual</h4>
                       
                       {/* Switcher de Consolidação */}
-                      <div className="relative inline-flex items-center bg-secondary/50 border border-primary p-0.5 rounded-full select-none shrink-0 shadow-sm h-[32px] w-40 overflow-hidden">
+                      <div className="relative inline-flex items-center border border-glass surface-glass p-0.5 rounded-full select-none shrink-0 shadow-sm h-[32px] w-40 overflow-hidden">
+                        {/* Camada Estática de Fundo (Texto Secundário) */}
+                        <div className="absolute inset-0 flex items-center text-[10px] font-black uppercase tracking-wider text-secondary pointer-events-none">
+                          <span className="w-1/2 text-center">Classes</span>
+                          <span className="w-1/2 text-center">Setores</span>
+                        </div>
+
+                        {/* Botão Seletor Deslizante (Pill com Máscara e Cores Ativas) */}
                         <div 
-                          className={`absolute top-[2px] bottom-[2px] rounded-full transition-all duration-300 ease-out ${
-                            consolidationView === 'class'
-                              ? 'left-[2px] w-[calc(50%-2px)] bg-balance'
-                              : 'left-[calc(50%)] w-[calc(50%-2px)] bg-income'
-                          }`}
-                        />
+                          className="absolute top-[2px] bottom-[2px] left-[2px] w-[calc(50%-2px)] rounded-full transition-transform duration-300 ease-out bg-background border border-glass/40 shadow-sm overflow-hidden pointer-events-none"
+                          style={{
+                            transform: consolidationView === 'class' ? 'translateX(0px)' : 'translateX(78px)'
+                          }}
+                        >
+                          {/* Texto Estacionário Interno (Revelado pela Máscara do Seletor) */}
+                          <div 
+                            className="absolute top-0 bottom-0 left-[-2px] w-40 flex items-center text-[10px] font-black uppercase tracking-wider transition-transform duration-300 ease-out pointer-events-none"
+                            style={{
+                              transform: consolidationView === 'class' ? 'translateX(0px)' : 'translateX(-78px)'
+                            }}
+                          >
+                            <span className="w-1/2 text-center text-[var(--color-balance)]">Classes</span>
+                            <span className="w-1/2 text-center text-[var(--color-income)]">Setores</span>
+                          </div>
+                        </div>
+
+                        {/* Camada Interativa (Botões do Componente Invisíveis por cima) */}
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
                           onClick={() => {
                             setConsolidationView('class')
                             setSelectedPieSegment(null)
                           }}
-                          className={`relative z-10 flex-1 !min-h-0 h-full py-1 !px-0 text-[10px] font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
-                            consolidationView === 'class' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
-                          }`}
+                          className="relative z-10 w-1/2 h-full opacity-0 cursor-pointer hover:bg-transparent !min-h-0 py-0"
+                          title="Exibir Classes"
                         >
                           Classes
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
                           onClick={() => {
                             setConsolidationView('sector')
                             setSelectedPieSegment(null)
                           }}
-                          className={`relative z-10 flex-1 !min-h-0 h-full py-1 !px-0 text-[10px] font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
-                            consolidationView === 'sector' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
-                          }`}
+                          className="relative z-10 w-1/2 h-full opacity-0 cursor-pointer hover:bg-transparent !min-h-0 py-0"
+                          title="Exibir Setores"
                         >
                           Setores
                         </Button>
@@ -735,22 +794,31 @@ export default function Investments() {
                       </div>
                     ) : (
                       <>
-                        <div className="relative w-full h-80 flex items-center justify-center">
+                        <div 
+                          ref={chartContainerRef}
+                          onClick={() => setSelectedPieSegment(null)}
+                          className="relative w-full h-64 sm:h-80 flex items-center justify-center cursor-pointer"
+                        >
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
                                 data={pieData}
                                 cx="50%"
                                 cy="50%"
-                                innerRadius={85}
-                                outerRadius={115}
+                                innerRadius="62%"
+                                outerRadius="82%"
                                 paddingAngle={3}
                                 dataKey="value"
                                 onMouseEnter={(_, index) => {
-                                  if (pieData[index]) setHoveredPieSegment(pieData[index])
+                                  if (window.matchMedia('(hover: hover)').matches) {
+                                    if (pieData[index]) setHoveredPieSegment(pieData[index])
+                                  }
                                 }}
                                 onMouseLeave={() => setHoveredPieSegment(null)}
-                                onClick={(_, index) => {
+                                onClick={(_, index, event) => {
+                                  if (event && event.stopPropagation) {
+                                    event.stopPropagation()
+                                  }
                                   const segment = pieData[index]
                                   if (segment) {
                                     setSelectedPieSegment(prev => 
@@ -1134,52 +1202,75 @@ export default function Investments() {
                     </div>
 
                     {/* Barra de Filtros e Busca */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-                      {/* Busca por Ticker */}
-                      <div className="relative w-full">
-                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
-                        <Input
-                          type="text"
-                          placeholder="Buscar ativo por ticker..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="!pl-10 text-sm font-semibold !py-2.5 w-full bg-secondary/20"
-                        />
-                        {searchTerm && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setSearchTerm('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary p-1 !min-h-0 h-auto w-auto"
-                          >
-                            <X size={14} />
-                          </Button>
-                        )}
+                    <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-3 sm:gap-3 w-full">
+                      {/* Busca por Ticker com botão de filtros no mobile */}
+                      <div className="flex items-center gap-2 w-full">
+                        <div className="relative flex-1">
+                          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary/60 pointer-events-none" />
+                          <Input
+                            type="text"
+                            placeholder="Buscar ativo por ticker..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="!pl-10 text-sm font-semibold !py-2.5 w-full bg-secondary/20"
+                          />
+                          {searchTerm && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => setSearchTerm('')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary p-1 !min-h-0 h-auto w-auto"
+                            >
+                              <X size={14} />
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Botão de Filtros Adicionais no Mobile */}
+                        <Button
+                          type="button"
+                          variant={selectedClassFilter !== 'all' || selectedSectorFilter !== 'all' ? 'outline' : 'ghost'}
+                          onClick={() => setShowFilters(!showFilters)}
+                          className={`sm:hidden flex items-center gap-1.5 px-3 h-10 shrink-0 ${
+                            selectedClassFilter !== 'all' || selectedSectorFilter !== 'all'
+                              ? 'border-balance/40 text-balance bg-balance/5'
+                              : 'border-primary/20 text-secondary hover:text-primary'
+                          }`}
+                        >
+                          <Settings2 size={16} />
+                          <span className="text-xs font-bold">Filtros</span>
+                          {(selectedClassFilter !== 'all' || selectedSectorFilter !== 'all') && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-balance animate-pulse" />
+                          )}
+                        </Button>
                       </div>
 
-                      {/* Filtro por Classe */}
-                      <Select
-                        value={selectedClassFilter}
-                        onChange={(e) => setSelectedClassFilter(e.target.value)}
-                        options={[
-                          { value: 'all', label: 'Todas as Classes' },
-                          ...uniqueClasses.map((cls) => ({ value: cls, label: cls })),
-                        ]}
-                        placeholder="Filtrar por classe..."
-                        className="w-full"
-                      />
+                      {/* Filtros de Seleção (Sempre visíveis no desktop, colapsáveis no mobile) */}
+                      <div className={`${showFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row sm:col-span-2 gap-3 w-full animate-fade-in`}>
+                        {/* Filtro por Classe */}
+                        <Select
+                          value={selectedClassFilter}
+                          onChange={(e) => setSelectedClassFilter(e.target.value)}
+                          options={[
+                            { value: 'all', label: 'Todas as Classes' },
+                            ...uniqueClasses.map((cls) => ({ value: cls, label: cls })),
+                          ]}
+                          placeholder="Filtrar por classe..."
+                          className="w-full"
+                        />
 
-                      {/* Filtro por Setor */}
-                      <Select
-                        value={selectedSectorFilter}
-                        onChange={(e) => setSelectedSectorFilter(e.target.value)}
-                        options={[
-                          { value: 'all', label: 'Todos os Setores' },
-                          ...uniqueSectors.map((sec) => ({ value: sec, label: sec })),
-                        ]}
-                        placeholder="Filtrar por setor..."
-                        className="w-full"
-                      />
+                        {/* Filtro por Setor */}
+                        <Select
+                          value={selectedSectorFilter}
+                          onChange={(e) => setSelectedSectorFilter(e.target.value)}
+                          options={[
+                            { value: 'all', label: 'Todos os Setores' },
+                            ...uniqueSectors.map((sec) => ({ value: sec, label: sec })),
+                          ]}
+                          placeholder="Filtrar por setor..."
+                          className="w-full"
+                        />
+                      </div>
                     </div>
 
                     {/* Banner de filtros ativos */}
@@ -1383,221 +1474,247 @@ export default function Investments() {
                         Nenhum ativo encontrado para os filtros ativos.
                       </p>
                     ) : (
-                      Object.entries(filteredPositionsByClass).map(([className, classPositions]) => (
-                        <div key={className} className="space-y-2 text-left">
-                          {/* Cabeçalho do Grupo de Classe */}
-                          <div className="text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-1.5 rounded-lg select-none text-left">
-                            {className}
-                          </div>
+                      Object.entries(filteredPositionsByClass).map(([className, classPositions]) => {
+                        const isClassCollapsed = !!collapsedClasses[className]
+                        return (
+                          <div key={className} className="space-y-2 text-left animate-page-enter">
+                            {/* Cabeçalho do Grupo de Classe (Clicável para recolher) */}
+                            <div 
+                              onClick={() => toggleClassCollapsed(className)}
+                              className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-2.5 rounded-lg select-none text-left cursor-pointer hover:bg-secondary/70 transition-colors"
+                            >
+                              <span>{className}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[8px] font-semibold bg-primary/80 border border-primary/20 px-1.5 py-0.5 rounded-md text-secondary">
+                                  {classPositions.length} {classPositions.length === 1 ? 'ativo' : 'ativos'}
+                                </span>
+                                <ChevronDown
+                                  size={12}
+                                  className={`text-secondary transition-transform duration-200 ${
+                                    isClassCollapsed ? '-rotate-90' : 'rotate-0'
+                                  }`}
+                                />
+                              </div>
+                            </div>
 
-                          {/* Cards de Ativos */}
-                          <div className="space-y-3">
-                            {classPositions.map((pos) => {
-                              const isGrossPositive = pos.gross_yield_pct >= 0;
-                              const isExpanded = !!expandedAssets[pos.ticker];
-                              
-                              return (
-                                <div 
-                                  key={pos.ticker}
-                                  className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl transition-all animate-page-enter overflow-hidden glass-card-interactive`}
-                                >
-                                  {/* Cabeçalho compacto clicável */}
-                                  <div 
-                                    onClick={() => toggleAssetExpanded(pos.ticker)}
-                                    className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
-                                      <div className="text-left min-w-0">
-                                        <span className="font-mono font-black text-primary text-sm block leading-tight truncate">
-                                          {pos.ticker}
-                                        </span>
-                                        <span className="text-[10px] text-secondary font-medium block truncate">
-                                          {pos.sector || 'Outros'}
-                                        </span>
-                                      </div>
-                                    </div>
+                            {/* Cards de Ativos */}
+                            {!isClassCollapsed && (
+                              <div className="space-y-3">
+                                {classPositions.map((pos) => {
+                                  const isGrossPositive = pos.gross_yield_pct >= 0;
+                                  const isExpanded = !!expandedAssets[pos.ticker];
+                                  
+                                  return (
+                                    <div 
+                                      key={pos.ticker}
+                                      className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl transition-all animate-page-enter overflow-hidden glass-card-interactive`}
+                                    >
+                                      {/* Cabeçalho compacto clicável */}
+                                      <div 
+                                        onClick={() => toggleAssetExpanded(pos.ticker)}
+                                        className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
+                                          <div className="text-left min-w-0">
+                                            <span className="font-mono font-black text-primary text-sm block leading-tight truncate">
+                                              {pos.ticker}
+                                            </span>
+                                            <span className="text-[10px] text-secondary font-medium block truncate">
+                                              {pos.sector || 'Outros'}
+                                            </span>
+                                          </div>
+                                        </div>
 
-                                    <div className="flex items-center gap-3 text-right shrink-0">
-                                      <div>
-                                        <span className="text-xs font-black text-primary font-mono block leading-tight">
-                                          {formatCurrencyByCode(pos.total_value, pos.currency)}
-                                        </span>
-                                        <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
-                                          {formatSignedPercentBR(pos.gross_yield_pct)}
-                                        </span>
-                                      </div>
-                                      <div className="text-secondary">
-                                        <Plus 
-                                          size={15} 
-                                          className={`transition-transform duration-300 ${isExpanded ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-      
-                                  {/* Conteúdo Expandido */}
-                                  {isExpanded && (
-                                    <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10 text-left">
-                                      {/* Grid de Métricas */}
-                                      <div className="grid grid-cols-2 gap-3 bg-secondary/30 p-2.5 rounded-xl border border-primary/10">
-                                        <div>
-                                          <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
-                                          <span className="text-xs font-bold text-primary font-mono">
-                                            {formatQuantityBR(pos.quantity)}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
-                                          {editingPriceTicker === pos.ticker ? (
-                                            <div className="flex items-center gap-1 mt-0.5" onClick={(e) => e.stopPropagation()}>
-                                              <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={editingPriceValue}
-                                                onChange={(e) => setEditingPriceValue(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
-                                                  if (e.key === 'Escape') setEditingPriceTicker(null)
-                                                }}
-                                                disabled={savingPrice}
-                                                className="!w-16 !py-0.5 !px-1.5 text-xs !border-balance font-mono"
-                                                autoFocus
-                                              />
-                                              <IconButton
-                                                type="button"
-                                                variant="success"
-                                                size="sm"
-                                                icon={<Check size={11} />}
-                                                label="Salvar"
-                                                onClick={() => handleSaveInlinePrice(pos.ticker)}
-                                                disabled={savingPrice}
-                                                className="!rounded"
-                                              />
-                                              <IconButton
-                                                type="button"
-                                                variant="danger"
-                                                size="sm"
-                                                icon={<X size={11} />}
-                                                label="Cancelar"
-                                                onClick={() => setEditingPriceTicker(null)}
-                                                disabled={savingPrice}
-                                                className="!rounded"
-                                              />
-                                            </div>
-                                          ) : (
-                                            <div className="flex items-center gap-1 mt-0.5">
-                                              <span className="text-xs font-bold text-primary font-mono">
-                                                {formatCurrencyByCode(pos.current_price, pos.currency)}
-                                              </span>
-                                              {pos.pricing_mode === 'market' && (
-                                                <IconButton
-                                                  type="button"
-                                                  size="sm"
-                                                  icon={<Edit2 size={10} className="shrink-0" />}
-                                                  label="Editar cotação manualmente"
-                                                  onClick={() => {
-                                                    setEditingPriceTicker(pos.ticker)
-                                                    setEditingPriceValue(pos.current_price.toString())
-                                                  }}
-                                                  className="!rounded"
-                                                />
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="col-span-2">
-                                          <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
-                                          <span className="text-xs font-bold text-primary font-mono">
-                                            {formatCurrencyByCode(pos.cost_basis, pos.currency)}
-                                          </span>
-                                        </div>
-                                        
-                                        <div className="col-span-2 pt-2 border-t border-primary/10 text-xs">
+                                        <div className="flex items-center gap-3 text-right shrink-0">
                                           <div>
-                                            <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
-                                            <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                            <span className="text-xs font-black text-primary font-mono block leading-tight">
+                                              {formatCurrencyByCode(pos.total_value, pos.currency)}
+                                            </span>
+                                            <span className={`text-[10px] font-bold font-mono block ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
                                               {formatSignedPercentBR(pos.gross_yield_pct)}
                                             </span>
                                           </div>
-                                        </div>
-                                      </div>
-      
-                                      {/* Progresso de Metas de Exposição */}
-                                      <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between text-[10px]">
-                                          <div className="flex items-center gap-1">
-                                            <span className="text-secondary font-medium">Real:</span>
-                                            <span className="font-mono font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <span className="text-secondary font-medium">Meta:</span>
-                                            <span className="font-mono font-bold text-income">{formatPercentBR(pos.target_percentage, 0)}</span>
-                                          </div>
-                                        </div>
-                                        
-                                        {/* Barra de Progresso elegante */}
-                                        <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
-                                          <div 
-                                            className="h-full bg-income rounded-full transition-all duration-500"
-                                            style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
-                                          />
-                                          {pos.target_percentage > 0 && (
-                                            <div 
-                                              className="absolute top-0 bottom-0 w-0.5 bg-balance/40 dark:bg-balance/80"
-                                              style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
+                                          <div className="text-secondary">
+                                            <Plus 
+                                              size={15} 
+                                              className={`transition-transform duration-300 ${isExpanded ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
                                             />
-                                          )}
+                                          </div>
                                         </div>
                                       </div>
-      
-                                      {/* Precificação e Ações rápidas */}
-                                      <div className="flex justify-between items-center pt-2 border-t border-primary/5">
-                                        <div>
-                                          {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                            <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
-                                              Cotação Desatualizada
-                                            </span>
-                                          )}
+          
+                                      {/* Conteúdo Expandido */}
+                                      {isExpanded && (
+                                        <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10 text-left">
+                                          {/* Grid de Métricas */}
+                                          <div className="grid grid-cols-2 gap-3 bg-secondary/30 p-2.5 rounded-xl border border-primary/10">
+                                            <div>
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
+                                              <span className="text-xs font-bold text-primary font-mono">
+                                                {formatQuantityBR(pos.quantity)}
+                                              </span>
+                                            </div>
+
+                                            {editingPriceTicker !== pos.ticker && (
+                                              <div>
+                                                <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                  <span className="text-xs font-bold text-primary font-mono">
+                                                    {formatCurrencyByCode(pos.current_price, pos.currency)}
+                                                  </span>
+                                                  {pos.pricing_mode === 'market' && (
+                                                    <IconButton
+                                                      type="button"
+                                                      size="sm"
+                                                      icon={<Edit2 size={10} className="shrink-0" />}
+                                                      label="Editar cotação manualmente"
+                                                      onClick={() => {
+                                                        setEditingPriceTicker(pos.ticker)
+                                                        setEditingPriceValue(pos.current_price.toString())
+                                                      }}
+                                                      className="!rounded"
+                                                    />
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {editingPriceTicker === pos.ticker ? (
+                                              <div className="col-span-2 pt-2 border-t border-primary/10" onClick={(e) => e.stopPropagation()}>
+                                                <span className="text-[9px] uppercase font-extrabold text-secondary block mb-1">Atualizar Preço ({pos.ticker})</span>
+                                                <div className="flex items-center gap-2">
+                                                  <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={editingPriceValue}
+                                                    onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
+                                                      if (e.key === 'Escape') setEditingPriceTicker(null)
+                                                    }}
+                                                    disabled={savingPrice}
+                                                    className="flex-1 !py-1.5 !px-3 text-xs !border-balance font-mono h-9"
+                                                    autoFocus
+                                                  />
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost-success"
+                                                    size="sm"
+                                                    onClick={() => handleSaveInlinePrice(pos.ticker)}
+                                                    disabled={savingPrice}
+                                                    className="h-9 px-3 font-semibold text-xs"
+                                                  >
+                                                    Salvar
+                                                  </Button>
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost-danger"
+                                                    size="sm"
+                                                    onClick={() => setEditingPriceTicker(null)}
+                                                    disabled={savingPrice}
+                                                    className="h-9 px-3 font-semibold text-xs"
+                                                  >
+                                                    Cancelar
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="col-span-2">
+                                                <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
+                                                <span className="text-xs font-bold text-primary font-mono">
+                                                  {formatCurrencyByCode(pos.cost_basis, pos.currency)}
+                                                </span>
+                                              </div>
+                                            )}
+                                            
+                                            <div className="col-span-2 pt-2 border-t border-primary/10 text-xs">
+                                              <div>
+                                                <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
+                                                <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                                  {formatSignedPercentBR(pos.gross_yield_pct)}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+              
+                                          {/* Progresso de Metas de Exposição */}
+                                          <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between text-[10px]">
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-secondary font-medium">Real:</span>
+                                                <span className="font-mono font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</span>
+                                              </div>
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-secondary font-medium">Meta:</span>
+                                                <span className="font-mono font-bold text-income">{formatPercentBR(pos.target_percentage, 0)}</span>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Barra de Progresso elegante */}
+                                            <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
+                                              <div 
+                                                className="h-full bg-income rounded-full transition-all duration-500"
+                                                style={{ width: `${Math.min(pos.current_percentage, 100)}%` }}
+                                              />
+                                              {pos.target_percentage > 0 && (
+                                                <div 
+                                                  className="absolute top-0 bottom-0 w-0.5 bg-balance/40 dark:bg-balance/80"
+                                                  style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
+                                                />
+                                              )}
+                                            </div>
+                                          </div>
+              
+                                          {/* Precificação e Ações rápidas */}
+                                          <div className="flex justify-between items-center pt-2 border-t border-primary/5">
+                                            <div>
+                                              {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
+                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
+                                                  Cotação Desatualizada
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleOpenAssetTxModal(pos)
+                                                }}
+                                                className="!min-h-0 text-[10px] text-income border-income/20 bg-income/5 hover:bg-income/10 font-bold"
+                                              >
+                                                <BarChart2 size={12} />
+                                                <span>Transações</span>
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setAssetDefTicker(pos.ticker)
+                                                  setAssetDefModalOpen(true)
+                                                }}
+                                                className="!min-h-0 text-[10px] font-bold"
+                                              >
+                                                <Settings2 size={12} />
+                                                <span>Configurar</span>
+                                              </Button>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleOpenAssetTxModal(pos)
-                                            }}
-                                            className="!min-h-0 text-[10px] text-income border-income/20 bg-income/5 hover:bg-income/10 font-bold"
-                                          >
-                                            <BarChart2 size={12} />
-                                            <span>Transações</span>
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setAssetDefTicker(pos.ticker)
-                                              setAssetDefModalOpen(true)
-                                            }}
-                                            className="!min-h-0 text-[10px] font-bold"
-                                          >
-                                            <Settings2 size={12} />
-                                            <span>Configurar</span>
-                                          </Button>
-                                        </div>
-                                      </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </Card>
