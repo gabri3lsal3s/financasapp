@@ -14,7 +14,6 @@ import {
   formatQuantityBR,
   formatSignedPercentBR,
 } from '@/utils/format'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -458,8 +457,6 @@ export default function Investments() {
   return (
     <div>
       <PageHeader
-        title={PAGE_HEADERS.investments.title}
-        subtitle={PAGE_HEADERS.investments.description}
         action={
           <PageHeaderActions launchModalOpen={isTxModalOpen}>
             <PageHeaderActionButton

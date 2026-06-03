@@ -15,7 +15,6 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
@@ -106,8 +105,6 @@ export default function Incomes() {
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
-        title={PAGE_HEADERS.incomes.title}
-        subtitle={PAGE_HEADERS.incomes.description}
         action={
           <PageHeaderActions launchModalOpen={isModalOpen}>
             <PageHeaderActionButton

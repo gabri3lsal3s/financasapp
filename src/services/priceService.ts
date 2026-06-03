@@ -694,8 +694,8 @@ export async function searchB3Assets(query: string): Promise<SearchedAsset[]> {
           })
       }
     }
-  } catch (err) {
-    console.debug('[searchB3Assets] Falha ou timeout na busca remota, usando locais:', err)
+  } catch {
+    // Fallback para catálogo local abaixo
   }
 
   // 2. Mesclar resultados sem duplicar tickers, priorizando os locais

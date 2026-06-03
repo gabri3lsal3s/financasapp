@@ -8,28 +8,14 @@ export type ChartTooltipEntry = {
   payload?: Record<string, unknown>
 }
 
-export type ChartLegendEntry = {
-  value?: string
-  color?: string
-  dataKey?: string | number
-}
-
-export type PieLabelProps = {
-  cx: number
-  cy: number
-  midAngle: number
-  outerRadius: number
-  pct: string | number
-}
-
 /** Props de animação Recharts — cubic-bezier exige cast via unknown (não está em AnimationTiming). */
-export type ChartAnimProps = {
+type ChartAnimProps = {
   isAnimationActive: boolean
   animationDuration: number
   animationEasing: AnimationTiming
 }
 
-export function chartAnimProps(_visualStyle?: string, durationGlass = 1200): ChartAnimProps {
+export function chartAnimProps(durationGlass = 1200): ChartAnimProps {
   return {
     isAnimationActive: true,
     animationDuration: durationGlass,

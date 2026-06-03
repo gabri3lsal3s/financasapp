@@ -5,7 +5,6 @@ import Card from '@/components/Card'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import Loader from '@/components/Loader'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useNavigate } from 'react-router-dom'
@@ -481,8 +480,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
-        title={PAGE_HEADERS.dashboard.title}
-        subtitle={PAGE_HEADERS.dashboard.description}
         action={
           <PageHeaderActions
             launchModalOpen={

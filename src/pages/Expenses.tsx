@@ -17,7 +17,6 @@ import { resolveExpenseBillCompetence } from '@/utils/creditCardBilling'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
@@ -209,8 +208,6 @@ export default function Expenses() {
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
-        title={PAGE_HEADERS.expenses.title}
-        subtitle={PAGE_HEADERS.expenses.description}
         action={
           <PageHeaderActions launchModalOpen={isModalOpen}>
             <PageHeaderActionButton

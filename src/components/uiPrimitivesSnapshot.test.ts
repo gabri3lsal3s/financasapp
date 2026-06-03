@@ -94,8 +94,6 @@ describe('UI primitives snapshots', () => {
     const { container } = render(
       createElement(FloatingActionsProvider, null,
         createElement(PageHeader, {
-          title: 'Relatórios',
-          subtitle: 'Resumo anual e mensal',
           action: createElement(Button, { size: 'sm', children: 'Exportar' }),
         }),
       ),

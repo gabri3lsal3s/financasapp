@@ -100,19 +100,6 @@ export interface IncomeCategoryMonthExpectation {
 
 export type IncomeType = 'salary' | 'freelancer' | 'dividends' | 'rent' | 'other'
 
-export interface Investment {
-  id: string
-  amount: number
-  month: string // YYYY-MM format
-  description?: string
-  created_at: string
-  user_id?: string
-  ticker?: string
-  quantity?: number
-  price?: number
-  transaction_id?: string
-}
-
 export interface MonthlySummary {
   month: string
   total_income: number
@@ -190,14 +177,6 @@ export interface TargetAllocation {
   portfolio_id: string
   ticker: string
   target_percentage: number
-  created_at: string
-}
-
-export interface AssetThesis {
-  id: string
-  consultant_id: string
-  ticker: string
-  thesis: string
   created_at: string
 }
 

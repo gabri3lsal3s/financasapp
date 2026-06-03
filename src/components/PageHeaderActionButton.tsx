@@ -30,7 +30,7 @@ export default function PageHeaderActionButton({
   actionRole = 'secondary',
   compactOnMobile: _compactOnMobile = true,
   variant: _variant,
-  size = 'sm',
+  size: _size = 'sm',
   className,
   children,
   ...props
