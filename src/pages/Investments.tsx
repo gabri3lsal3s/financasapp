@@ -15,7 +15,7 @@ import {
   formatSignedPercentBR,
 } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -1181,23 +1181,40 @@ export default function Investments() {
                 <Card className="p-4 lg:p-6 space-y-4">
                   
                   <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm sm:text-base font-bold text-primary">Demonstrativo Detalhado de Ativos</h3>
-                      
+                    {/* Header da aba com ícone, badge de contagem e botão de atualização */}
+                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-primary/5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="p-1.5 rounded-xl bg-income/10 shrink-0">
+                          <Briefcase size={15} className="text-income" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-black text-primary leading-tight">Meus Ativos</h3>
+                          <p className="text-[10px] text-secondary font-medium leading-none mt-0.5 hidden sm:block">
+                            Posições valorizadas a mercado
+                          </p>
+                        </div>
+                        {filteredPositions.length > 0 && (
+                          <span className="text-[10px] font-black font-mono bg-income/10 text-income px-2 py-0.5 rounded-full shrink-0 animate-fade-in">
+                            {filteredPositions.length}
+                          </span>
+                        )}
+                      </div>
+
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={handleForceRefresh}
                         disabled={refreshing || portfolioLoading}
-                        className="flex items-center gap-1.5 h-8 px-2.5 border-warning/20 text-warning hover:bg-warning/10 font-bold text-xs"
+                        className="flex items-center gap-1.5 h-8 px-3 text-secondary hover:text-primary hover:bg-secondary/60 font-semibold text-xs shrink-0 rounded-xl"
                         title="Atualizar cotações"
                       >
-                        {refreshing ? (
-                          <div className="w-4 h-4 border-2 border-warning border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <TrendingUp size={14} className="text-warning" />
-                        )}
-                        <span className="hidden sm:inline">{refreshing ? 'Atualizando...' : 'Atualizar cotações'}</span>
+                        <RefreshCw
+                          size={13}
+                          className={refreshing ? 'animate-spin text-income' : 'text-secondary'}
+                        />
+                        <span className="hidden sm:inline text-[11px]">
+                          {refreshing ? 'Atualizando...' : 'Atualizar'}
+                        </span>
                       </Button>
                     </div>
 
@@ -1306,27 +1323,31 @@ export default function Investments() {
                   </div>
 
                   {/* 1. Tabela para Desktop */}
-                  <div className="hidden md:block overflow-x-auto border border-primary rounded-xl">
+                  <div className="hidden md:block overflow-x-auto border border-glass rounded-2xl ring-1 ring-primary/5">
                     <table className="w-full border-collapse text-left text-sm">
                       <thead>
-                        <tr className="bg-secondary border-b border-primary text-xs font-bold text-secondary uppercase tracking-wider">
-                          <th className="p-3">Ativo</th>
-                          <th className="p-3">Classe</th>
-                          <th className="p-3">Setor</th>
-                          <th className="p-3 text-right">Qtd</th>
-                          <th className="p-3 text-right">Preço Atual</th>
-                          <th className="p-3 text-right">Valor Total</th>
-                          <th className="p-3 text-right">Rent. bruta</th>
-                          <th className="p-3 text-center">Part. Real</th>
-                          <th className="p-3 text-center">Part. Alvo</th>
-                          <th className="p-3 text-center">Ações</th>
+                        <tr className="surface-glass border-b border-glass text-[10px] font-black text-secondary uppercase tracking-widest">
+                          <th className="px-4 py-3">Ativo</th>
+                          <th className="px-4 py-3">Classe</th>
+                          <th className="px-4 py-3">Setor</th>
+                          <th className="px-4 py-3 text-right">Qtd</th>
+                          <th className="px-4 py-3 text-right">Cotação</th>
+                          <th className="px-4 py-3 text-right">Valor Total</th>
+                          <th className="px-4 py-3 text-right">Rent. Bruta</th>
+                          <th className="px-4 py-3 text-center">Real</th>
+                          <th className="px-4 py-3 text-center">Alvo</th>
+                          <th className="px-4 py-3 text-center">Ações</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-primary">
+                      <tbody className="divide-y divide-glass">
                         {Object.entries(filteredPositionsByClass).length === 0 ? (
                           <tr>
-                            <td colSpan={10} className="p-6 text-center text-secondary italic text-xs">
-                              Nenhum ativo encontrado para os filtros ativos.
+                            <td colSpan={10} className="py-12 text-center">
+                              <div className="flex flex-col items-center gap-3 text-secondary">
+                                <Search size={28} className="opacity-30" />
+                                <p className="text-sm font-semibold">Nenhum ativo encontrado</p>
+                                <p className="text-xs opacity-70">Tente ajustar os filtros ativos</p>
+                              </div>
                             </td>
                           </tr>
                         ) : (
@@ -1337,18 +1358,18 @@ export default function Investments() {
                                 {/* Linha de cabeçalho do grupo de classe (Clicável para recolher) */}
                                 <tr 
                                   onClick={() => toggleClassCollapsed(className)}
-                                  className="bg-secondary/60 font-bold border-l-4 border-l-[var(--color-income)] text-primary text-xs tracking-wider cursor-pointer hover:bg-secondary transition-colors select-none"
+                                  className="surface-glass border-l-4 border-l-[var(--color-income)] text-primary cursor-pointer hover:bg-secondary/70 transition-colors select-none"
                                 >
-                                  <td colSpan={10} className="p-3.5 uppercase font-extrabold text-secondary">
+                                  <td colSpan={10} className="px-4 py-2.5">
                                     <div className="flex items-center justify-between">
-                                      <span>{className}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-secondary">{className}</span>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-semibold bg-primary px-2.5 py-0.5 rounded-full border border-primary/25 text-secondary">
+                                        <span className="text-[9px] font-black bg-income/10 text-income px-2 py-0.5 rounded-full font-mono">
                                           {classPositions.length} {classPositions.length === 1 ? 'ativo' : 'ativos'}
                                         </span>
                                         <ChevronDown
-                                          size={14}
-                                          className={`text-secondary transition-transform duration-250 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                                          size={13}
+                                          className={`text-secondary/60 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
                                         />
                                       </div>
                                     </div>
@@ -1361,26 +1382,30 @@ export default function Investments() {
                                   return (
                                     <tr
                                       key={pos.ticker}
-                                      className="hover:bg-secondary/40 transition-colors cursor-pointer"
+                                      className="hover:bg-secondary/50 transition-colors cursor-pointer group/row"
                                       onClick={() => handleOpenAssetTxModal(pos)}
                                       title="Ver transações do ativo"
                                     >
-                                      <td className={`p-3 pl-6 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
+                                      <td className={`px-4 py-3 pl-7 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          {pos.ticker}
+                                          <span className="font-mono font-black text-xs tracking-wider">{pos.ticker}</span>
                                           {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                            <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
-                                              Cotação Desatualizada
+                                            <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-warning/10 text-warning font-sans">
+                                              Desatualizada
                                             </span>
                                           )}
                                         </div>
                                       </td>
-                                      <td className="p-3 text-xs text-secondary font-medium">{pos.asset_class || 'Não classificado'}</td>
-                                      <td className="p-3 text-xs text-secondary font-semibold">{pos.sector || 'Outros'}</td>
-                                      <td className="p-3 text-right text-primary font-medium">
+                                      <td className="px-4 py-3">
+                                        <span className="text-[10px] font-semibold text-secondary bg-secondary/60 px-2 py-0.5 rounded-md">
+                                          {pos.asset_class || 'Não classificado'}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-xs text-secondary font-medium">{pos.sector || 'Outros'}</td>
+                                      <td className="px-4 py-3 text-right font-mono text-xs text-primary font-semibold">
                                         {formatQuantityBR(pos.quantity)}
                                       </td>
-                                      <td className="p-3 text-right text-secondary">
+                                      <td className="px-4 py-3 text-right text-secondary">
                                         {editingPriceTicker === pos.ticker ? (
                                           <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                                             <Input
@@ -1418,8 +1443,8 @@ export default function Investments() {
                                             />
                                           </div>
                                         ) : (
-                                          <div className="group flex items-center justify-end gap-1 select-none" onClick={(e) => e.stopPropagation()}>
-                                            <span className="font-mono">{formatCurrencyByCode(pos.current_price, pos.currency)}</span>
+                                          <div className="flex items-center justify-end gap-1 select-none" onClick={(e) => e.stopPropagation()}>
+                                            <span className="font-mono text-xs">{formatCurrencyByCode(pos.current_price, pos.currency)}</span>
                                             {pos.pricing_mode === 'market' && (
                                               <IconButton
                                                 type="button"
@@ -1430,21 +1455,21 @@ export default function Investments() {
                                                   setEditingPriceTicker(pos.ticker)
                                                   setEditingPriceValue(pos.current_price.toString())
                                                 }}
-                                                className="opacity-0 group-hover:opacity-100 !rounded transition-all"
+                                                className="opacity-0 group-hover/row:opacity-100 !rounded transition-all"
                                               />
                                             )}
                                           </div>
                                         )}
                                       </td>
-                                      <td className="p-3 text-right text-primary font-semibold">{formatCurrencyByCode(pos.total_value, pos.currency)}</td>
-                                      <td className={`p-3 text-right font-semibold ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
+                                      <td className="px-4 py-3 text-right font-mono text-xs text-primary font-black">{formatCurrencyByCode(pos.total_value, pos.currency)}</td>
+                                      <td className={`px-4 py-3 text-right font-mono text-xs font-black ${pos.gross_yield_pct >= 0 ? 'text-income' : 'text-expense'}`}>
                                         {formatSignedPercentBR(pos.gross_yield_pct)}
                                       </td>
-                                      <td className="p-3 text-center font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</td>
-                                      <td className="p-3 text-center font-bold text-income">
+                                      <td className="px-4 py-3 text-center font-mono text-xs font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</td>
+                                      <td className="px-4 py-3 text-center font-mono text-xs font-bold text-income">
                                         {formatPercentBR(pos.target_percentage, 0)}
                                       </td>
-                                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                                         <IconButton
                                           type="button"
                                           size="sm"
@@ -1470,27 +1495,33 @@ export default function Investments() {
                   {/* 2. Visualização em Cards para Mobile */}
                   <div className="block md:hidden space-y-4">
                     {Object.entries(filteredPositionsByClass).length === 0 ? (
-                      <p className="text-center py-6 text-xs text-secondary italic">
-                        Nenhum ativo encontrado para os filtros ativos.
-                      </p>
+                      <div className="flex flex-col items-center gap-3 py-10 text-secondary animate-fade-in">
+                        <div className="w-12 h-12 rounded-2xl bg-secondary/60 flex items-center justify-center">
+                          <Search size={20} className="opacity-40" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-semibold">Nenhum ativo encontrado</p>
+                          <p className="text-xs opacity-70 mt-0.5">Tente ajustar os filtros ativos</p>
+                        </div>
+                      </div>
                     ) : (
                       Object.entries(filteredPositionsByClass).map(([className, classPositions]) => {
                         const isClassCollapsed = !!collapsedClasses[className]
                         return (
                           <div key={className} className="space-y-2 text-left animate-page-enter">
-                            {/* Cabeçalho do Grupo de Classe (Clicável para recolher) */}
+                            {/* Cabeçalho do Grupo de Classe (Clicável para recolher) — glass premium */}
                             <div 
                               onClick={() => toggleClassCollapsed(className)}
-                              className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-widest text-secondary bg-secondary/50 border-l-4 border-l-[var(--color-income)] px-3 py-2.5 rounded-lg select-none text-left cursor-pointer hover:bg-secondary/70 transition-colors"
+                              className="flex items-center justify-between surface-glass border border-glass border-l-4 border-l-[var(--color-income)] px-3.5 py-2.5 rounded-xl select-none text-left cursor-pointer hover:bg-secondary/60 active:bg-secondary/80 transition-colors"
                             >
-                              <span>{className}</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[8px] font-semibold bg-primary/80 border border-primary/20 px-1.5 py-0.5 rounded-md text-secondary">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-secondary">{className}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black bg-income/10 text-income px-2 py-0.5 rounded-full font-mono">
                                   {classPositions.length} {classPositions.length === 1 ? 'ativo' : 'ativos'}
                                 </span>
                                 <ChevronDown
                                   size={12}
-                                  className={`text-secondary transition-transform duration-200 ${
+                                  className={`text-secondary/60 transition-transform duration-300 ${
                                     isClassCollapsed ? '-rotate-90' : 'rotate-0'
                                   }`}
                                 />
@@ -1499,7 +1530,7 @@ export default function Investments() {
 
                             {/* Cards de Ativos */}
                             {!isClassCollapsed && (
-                              <div className="space-y-3">
+                              <div className="space-y-2.5">
                                 {classPositions.map((pos) => {
                                   const isGrossPositive = pos.gross_yield_pct >= 0;
                                   const isExpanded = !!expandedAssets[pos.ticker];
@@ -1507,21 +1538,21 @@ export default function Investments() {
                                   return (
                                     <div 
                                       key={pos.ticker}
-                                      className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl transition-all animate-page-enter overflow-hidden glass-card-interactive`}
+                                      className={`surface-glass border-glass border-l-4 ${isGrossPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'} rounded-2xl overflow-hidden animate-page-enter`}
                                     >
                                       {/* Cabeçalho compacto clicável */}
                                       <div 
                                         onClick={() => toggleAssetExpanded(pos.ticker)}
-                                        className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
+                                        className="px-4 py-3.5 flex items-center justify-between cursor-pointer hover:bg-secondary/30 active:bg-secondary/50 transition-colors select-none"
                                       >
-                                        <div className="flex items-center gap-2 min-w-0">
+                                        <div className="flex items-center gap-2.5 min-w-0">
                                           <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
                                           <div className="text-left min-w-0">
-                                            <span className="font-mono font-black text-primary text-sm block leading-tight truncate">
+                                            <span className="font-mono font-black text-primary text-[13px] block leading-tight tracking-wider truncate">
                                               {pos.ticker}
                                             </span>
                                             <span className="text-[10px] text-secondary font-medium block truncate">
-                                              {pos.sector || 'Outros'}
+                                              {pos.sector || pos.asset_class || 'Outros'}
                                             </span>
                                           </div>
                                         </div>
@@ -1535,114 +1566,113 @@ export default function Investments() {
                                               {formatSignedPercentBR(pos.gross_yield_pct)}
                                             </span>
                                           </div>
-                                          <div className="text-secondary">
-                                            <Plus 
-                                              size={15} 
-                                              className={`transition-transform duration-300 ${isExpanded ? 'rotate-45 text-primary' : 'rotate-0 text-secondary/60'}`} 
-                                            />
-                                          </div>
+                                          <ChevronDown
+                                            size={14}
+                                            className={`text-secondary/60 transition-transform duration-300 shrink-0 ${isExpanded ? 'rotate-180' : 'rotate-0'}`}
+                                          />
                                         </div>
                                       </div>
           
-                                      {/* Conteúdo Expandido */}
-                                      {isExpanded && (
-                                        <div className="px-4 pb-4 pt-2 border-t border-primary/10 space-y-3.5 animate-page-enter bg-secondary/10 text-left">
-                                          {/* Grid de Métricas */}
-                                          <div className="grid grid-cols-2 gap-3 bg-secondary/30 p-2.5 rounded-xl border border-primary/10">
-                                            <div>
-                                              <span className="text-[9px] uppercase font-extrabold text-secondary block">Quantidade</span>
+                                      {/* Conteúdo Expandido — animação CSS max-height */}
+                                      <div
+                                        className={`overflow-hidden transition-all duration-300 ease-out ${
+                                          isExpanded ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'
+                                        }`}
+                                      >
+                                        <div className="px-4 pb-4 pt-3 border-t border-primary/10 space-y-3.5 bg-secondary/10 text-left">
+                                          {/* Grid de Métricas — 2x2 com separadores */}
+                                          <div className="grid grid-cols-2 gap-0 rounded-xl border border-primary/10 overflow-hidden">
+                                            <div className="p-3 bg-secondary/30">
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Quantidade</span>
                                               <span className="text-xs font-bold text-primary font-mono">
                                                 {formatQuantityBR(pos.quantity)}
                                               </span>
                                             </div>
 
-                                            {editingPriceTicker !== pos.ticker && (
-                                              <div>
-                                                <span className="text-[9px] uppercase font-extrabold text-secondary block">Preço Atual</span>
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                  <span className="text-xs font-bold text-primary font-mono">
-                                                    {formatCurrencyByCode(pos.current_price, pos.currency)}
-                                                  </span>
-                                                  {pos.pricing_mode === 'market' && (
-                                                    <IconButton
-                                                      type="button"
-                                                      size="sm"
-                                                      icon={<Edit2 size={10} className="shrink-0" />}
-                                                      label="Editar cotação manualmente"
-                                                      onClick={() => {
-                                                        setEditingPriceTicker(pos.ticker)
-                                                        setEditingPriceValue(pos.current_price.toString())
-                                                      }}
-                                                      className="!rounded"
-                                                    />
-                                                  )}
-                                                </div>
-                                              </div>
-                                            )}
+                                            <div className="p-3 bg-secondary/30 border-l border-primary/10">
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Custo Total</span>
+                                              <span className="text-xs font-bold text-primary font-mono">
+                                                {formatCurrencyByCode(pos.cost_basis, pos.currency)}
+                                              </span>
+                                            </div>
 
-                                            {editingPriceTicker === pos.ticker ? (
-                                              <div className="col-span-2 pt-2 border-t border-primary/10" onClick={(e) => e.stopPropagation()}>
-                                                <span className="text-[9px] uppercase font-extrabold text-secondary block mb-1">Atualizar Preço ({pos.ticker})</span>
-                                                <div className="flex items-center gap-2">
-                                                  <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={editingPriceValue}
-                                                    onChange={(e) => setEditingPriceValue(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                      if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
-                                                      if (e.key === 'Escape') setEditingPriceTicker(null)
-                                                    }}
-                                                    disabled={savingPrice}
-                                                    className="flex-1 !py-1.5 !px-3 text-xs !border-balance font-mono h-9"
-                                                    autoFocus
-                                                  />
-                                                  <Button
-                                                    type="button"
-                                                    variant="ghost-success"
-                                                    size="sm"
-                                                    onClick={() => handleSaveInlinePrice(pos.ticker)}
-                                                    disabled={savingPrice}
-                                                    className="h-9 px-3 font-semibold text-xs"
-                                                  >
-                                                    Salvar
-                                                  </Button>
-                                                  <Button
-                                                    type="button"
-                                                    variant="ghost-danger"
-                                                    size="sm"
-                                                    onClick={() => setEditingPriceTicker(null)}
-                                                    disabled={savingPrice}
-                                                    className="h-9 px-3 font-semibold text-xs"
-                                                  >
-                                                    Cancelar
-                                                  </Button>
-                                                </div>
-                                              </div>
-                                            ) : (
-                                              <div className="col-span-2">
-                                                <span className="text-[9px] uppercase font-extrabold text-secondary block">Custo Total</span>
+                                            <div className="p-3 bg-secondary/20 border-t border-primary/10">
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Cotação</span>
+                                              <div className="flex items-center gap-1">
                                                 <span className="text-xs font-bold text-primary font-mono">
-                                                  {formatCurrencyByCode(pos.cost_basis, pos.currency)}
+                                                  {formatCurrencyByCode(pos.current_price, pos.currency)}
                                                 </span>
-                                              </div>
-                                            )}
-                                            
-                                            <div className="col-span-2 pt-2 border-t border-primary/10 text-xs">
-                                              <div>
-                                                <span className="text-secondary text-[10px] block font-semibold uppercase tracking-wider">Rent. Bruta</span>
-                                                <span className={`font-black font-mono text-sm ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
-                                                  {formatSignedPercentBR(pos.gross_yield_pct)}
-                                                </span>
+                                                {pos.pricing_mode === 'market' && editingPriceTicker !== pos.ticker && (
+                                                  <IconButton
+                                                    type="button"
+                                                    size="sm"
+                                                    icon={<Edit2 size={9} className="shrink-0" />}
+                                                    label="Editar cotação manualmente"
+                                                    onClick={() => {
+                                                      setEditingPriceTicker(pos.ticker)
+                                                      setEditingPriceValue(pos.current_price.toString())
+                                                    }}
+                                                    className="!rounded !p-0.5"
+                                                  />
+                                                )}
                                               </div>
                                             </div>
+
+                                            <div className="p-3 bg-secondary/20 border-t border-l border-primary/10">
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Rent. Bruta</span>
+                                              <span className={`text-xs font-black font-mono ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
+                                                {formatSignedPercentBR(pos.gross_yield_pct)}
+                                              </span>
+                                            </div>
                                           </div>
+
+                                          {/* Edição inline de preço */}
+                                          {editingPriceTicker === pos.ticker && (
+                                            <div className="p-3 bg-balance/5 border border-balance/20 rounded-xl" onClick={(e) => e.stopPropagation()}>
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-1.5">Atualizar Preço ({pos.ticker})</span>
+                                              <div className="flex items-center gap-2">
+                                                <Input
+                                                  type="number"
+                                                  step="0.01"
+                                                  value={editingPriceValue}
+                                                  onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSaveInlinePrice(pos.ticker)
+                                                    if (e.key === 'Escape') setEditingPriceTicker(null)
+                                                  }}
+                                                  disabled={savingPrice}
+                                                  className="flex-1 !py-1.5 !px-3 text-xs !border-balance font-mono h-9"
+                                                  autoFocus
+                                                />
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost-success"
+                                                  size="sm"
+                                                  onClick={() => handleSaveInlinePrice(pos.ticker)}
+                                                  disabled={savingPrice}
+                                                  className="h-9 px-3 font-semibold text-xs"
+                                                >
+                                                  Salvar
+                                                </Button>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost-danger"
+                                                  size="sm"
+                                                  onClick={() => setEditingPriceTicker(null)}
+                                                  disabled={savingPrice}
+                                                  className="h-9 px-3 font-semibold text-xs"
+                                                >
+                                                  Cancelar
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          )}
               
-                                          {/* Progresso de Metas de Exposição */}
+                                          {/* Barra de alocação real vs. meta */}
                                           <div className="space-y-1.5">
                                             <div className="flex items-center justify-between text-[10px]">
                                               <div className="flex items-center gap-1">
-                                                <span className="text-secondary font-medium">Real:</span>
+                                                <span className="text-secondary font-medium">Participação real:</span>
                                                 <span className="font-mono font-bold text-primary">{formatPercentBR(pos.current_percentage, 1)}</span>
                                               </div>
                                               <div className="flex items-center gap-1">
@@ -1650,8 +1680,6 @@ export default function Investments() {
                                                 <span className="font-mono font-bold text-income">{formatPercentBR(pos.target_percentage, 0)}</span>
                                               </div>
                                             </div>
-                                            
-                                            {/* Barra de Progresso elegante */}
                                             <div className="w-full h-1.5 bg-primary/20 rounded-full overflow-hidden relative">
                                               <div 
                                                 className="h-full bg-income rounded-full transition-all duration-500"
@@ -1659,19 +1687,19 @@ export default function Investments() {
                                               />
                                               {pos.target_percentage > 0 && (
                                                 <div 
-                                                  className="absolute top-0 bottom-0 w-0.5 bg-balance/40 dark:bg-balance/80"
+                                                  className="absolute top-0 bottom-0 w-0.5 bg-balance/60"
                                                   style={{ left: `${Math.min(pos.target_percentage, 99)}%` }}
                                                 />
                                               )}
                                             </div>
                                           </div>
               
-                                          {/* Precificação e Ações rápidas */}
-                                          <div className="flex justify-between items-center pt-2 border-t border-primary/5">
+                                          {/* Ações rápidas */}
+                                          <div className="flex items-center justify-between pt-2 border-t border-primary/5">
                                             <div>
                                               {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
-                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/10 text-warning font-sans" title="Cotação desatualizada ou indisponível na B3">
-                                                  Cotação Desatualizada
+                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-warning/10 text-warning">
+                                                  Cotação desatualizada
                                                 </span>
                                               )}
                                             </div>
@@ -1684,9 +1712,9 @@ export default function Investments() {
                                                   e.stopPropagation()
                                                   handleOpenAssetTxModal(pos)
                                                 }}
-                                                className="!min-h-0 text-[10px] text-income border-income/20 bg-income/5 hover:bg-income/10 font-bold"
+                                                className="!min-h-0 py-1.5 text-[10px] text-income border-income/25 bg-income/5 hover:bg-income/10 font-bold"
                                               >
-                                                <BarChart2 size={12} />
+                                                <BarChart2 size={11} />
                                                 <span>Transações</span>
                                               </Button>
                                               <Button
@@ -1698,15 +1726,15 @@ export default function Investments() {
                                                   setAssetDefTicker(pos.ticker)
                                                   setAssetDefModalOpen(true)
                                                 }}
-                                                className="!min-h-0 text-[10px] font-bold"
+                                                className="!min-h-0 py-1.5 text-[10px] font-bold"
                                               >
-                                                <Settings2 size={12} />
+                                                <Settings2 size={11} />
                                                 <span>Configurar</span>
                                               </Button>
                                             </div>
                                           </div>
                                         </div>
-                                      )}
+                                      </div>
                                     </div>
                                   );
                                 })}

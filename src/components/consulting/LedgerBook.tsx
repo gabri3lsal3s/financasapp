@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { PortfolioTransaction } from '@/types'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check, Search } from 'lucide-react'
+import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check, Search, BookOpen } from 'lucide-react'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { deleteCashOffsetTransactionsMultiple, fetchPortfolioCashContext } from '@/services/cashOffsetService'
@@ -279,7 +279,8 @@ function LedgerBook({
             <button
               type="button"
               onClick={() => setLedgerSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary hover:text-primary p-0.5"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary hover:text-primary p-0.5 rounded-md hover:bg-secondary/60 transition-colors"
+              aria-label="Limpar busca"
             >
               <X size={12} />
             </button>
@@ -400,9 +401,17 @@ function LedgerBook({
       )}
 
       {/* Lista de transações */}
-      <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-0.5">
+      <div className="space-y-1.5 max-h-[520px] lg:max-h-[620px] overflow-y-auto pr-1 custom-scrollbar">
         {filteredVisibleTransactions.length === 0 ? (
-          <p className="text-center py-6 text-xs text-secondary italic">Nenhuma transação encontrada com os filtros selecionados.</p>
+          <div className="flex flex-col items-center gap-3 py-10 text-secondary">
+            <div className="w-12 h-12 rounded-2xl bg-secondary/60 flex items-center justify-center">
+              <BookOpen size={20} className="opacity-40" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold">Nenhuma transação encontrada</p>
+              <p className="text-xs opacity-70 mt-0.5">Ajuste os filtros ou lance uma nova transação</p>
+            </div>
+          </div>
         ) : (
           [...filteredVisibleTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(tx => {
             const isSelected = selectedIds.has(tx.id)
@@ -460,13 +469,18 @@ function LedgerBook({
                   )}
 
                   {/* Ticker */}
-                  <span className="font-bold font-mono text-xs text-primary truncate flex-1 min-w-0">
+                  <span className="font-bold font-mono text-sm text-primary truncate flex-1 min-w-0">
                     {displayTicker}
                   </span>
 
                   {/* Badge tipo operação */}
                   <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md shrink-0 ${opColor}`}>
                     {opLabel}
+                  </span>
+
+                  {/* Data (pill compacta) */}
+                  <span className="font-mono text-[9px] text-secondary bg-secondary/60 px-1.5 py-0.5 rounded-md shrink-0">
+                    {tx.date.split('-').reverse().slice(0, 2).join('/')}
                   </span>
 
                   {/* Valor total */}
@@ -491,15 +505,15 @@ function LedgerBook({
                     <div className="border-t border-primary/8 pt-2.5 space-y-2">
                       {/* Grade de detalhes */}
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-secondary/50 rounded-lg p-2 text-center">
+                        <div className="surface-glass border border-glass rounded-xl p-2 text-center">
                           <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Quantidade</div>
                           <div className="font-mono font-bold text-xs text-primary">{formatNumberBR(tx.quantity)}</div>
                         </div>
-                        <div className="bg-secondary/50 rounded-lg p-2 text-center">
+                        <div className="surface-glass border border-glass rounded-xl p-2 text-center">
                           <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Preço unit.</div>
                           <div className="font-mono font-bold text-xs text-primary">{formatCurrency(tx.price)}</div>
                         </div>
-                        <div className="bg-secondary/50 rounded-lg p-2 text-center">
+                        <div className="surface-glass border border-glass rounded-xl p-2 text-center">
                           <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Data</div>
                           <div className="font-mono font-bold text-xs text-primary">
                             {tx.date.split('-').reverse().join('/')}
@@ -508,7 +522,7 @@ function LedgerBook({
                       </div>
 
                       {/* Total destacado */}
-                      <div className="flex items-center justify-between bg-balance/5 border border-balance/10 rounded-lg px-3 py-1.5">
+                      <div className="flex items-center justify-between surface-glass border border-glass rounded-xl px-3 py-1.5">
                         <span className="text-[10px] font-bold text-secondary">Total movimentado</span>
                         <span className="font-mono font-black text-sm text-primary">{formatCurrency(total)}</span>
                       </div>
@@ -517,7 +531,7 @@ function LedgerBook({
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpenTxModal(tx) }}
-                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 rounded-lg border border-balance/25 text-balance hover:bg-balance/10 transition-all"
+                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 rounded-xl border border-balance/25 text-balance hover:bg-balance/10 transition-all"
                       >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
