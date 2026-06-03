@@ -80,6 +80,7 @@ export default function Investments() {
   const [selectedSectorFilter, setSelectedSectorFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [hoveredPieSegment, setHoveredPieSegment] = useState<{ name: string; value: number; percent: number } | null>(null)
+  const [selectedPieSegment, setSelectedPieSegment] = useState<{ name: string; value: number; percent: number; target: number } | null>(null)
   const [collapsedClasses, setCollapsedClasses] = useState<Record<string, boolean>>({})
 
   const toggleClassCollapsed = (className: string) => {
@@ -286,6 +287,18 @@ export default function Investments() {
     })
     return groups
   }, [filteredPositions])
+
+  const activeGroupAssets = useMemo(() => {
+    if (!selectedPieSegment || !portfolioData?.positions) return []
+    return portfolioData.positions.filter(pos => {
+      if (pos.pricing_mode === 'cash' || pos.ticker === 'SALDO_INV' || pos.ticker === 'CAIXA') return false
+      if (consolidationView === 'class') {
+        return (pos.asset_class || 'Não classificado') === selectedPieSegment.name
+      } else {
+        return (pos.sector || 'Outros') === selectedPieSegment.name
+      }
+    })
+  }, [selectedPieSegment, portfolioData?.positions, consolidationView])
 
   const handleSaveInlinePrice = async (ticker: string) => {
     try {
@@ -689,7 +702,10 @@ export default function Investments() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => setConsolidationView('class')}
+                          onClick={() => {
+                            setConsolidationView('class')
+                            setSelectedPieSegment(null)
+                          }}
                           className={`relative z-10 flex-1 !min-h-0 h-full py-1 !px-0 text-[10px] font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
                             consolidationView === 'class' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
                           }`}
@@ -700,7 +716,10 @@ export default function Investments() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => setConsolidationView('sector')}
+                          onClick={() => {
+                            setConsolidationView('sector')
+                            setSelectedPieSegment(null)
+                          }}
                           className={`relative z-10 flex-1 !min-h-0 h-full py-1 !px-0 text-[10px] font-black uppercase tracking-wider rounded-full transition-colors duration-300 ${
                             consolidationView === 'sector' ? 'text-white hover:text-white' : 'text-secondary hover:text-primary'
                           }`}
@@ -715,161 +734,290 @@ export default function Investments() {
                         Nenhum ativo alocado para gerar o gráfico.
                       </div>
                     ) : (
-                      <div className="relative w-full h-80 flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={85}
-                              outerRadius={115}
-                              paddingAngle={3}
-                              dataKey="value"
-                              onMouseEnter={(_, index) => {
-                                if (pieData[index]) setHoveredPieSegment(pieData[index])
-                              }}
-                              onMouseLeave={() => setHoveredPieSegment(null)}
-                              onClick={(_, index) => {
-                                const segment = pieData[index]
-                                if (segment) {
-                                  if (consolidationView === 'class') {
-                                    setSelectedClassFilter(segment.name)
-                                    setSelectedSectorFilter('all')
-                                  } else {
-                                    setSelectedSectorFilter(segment.name)
-                                    setSelectedClassFilter('all')
+                      <>
+                        <div className="relative w-full h-80 flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={85}
+                                outerRadius={115}
+                                paddingAngle={3}
+                                dataKey="value"
+                                onMouseEnter={(_, index) => {
+                                  if (pieData[index]) setHoveredPieSegment(pieData[index])
+                                }}
+                                onMouseLeave={() => setHoveredPieSegment(null)}
+                                onClick={(_, index) => {
+                                  const segment = pieData[index]
+                                  if (segment) {
+                                    setSelectedPieSegment(prev => 
+                                      prev?.name === segment.name ? null : segment
+                                    )
                                   }
-                                  setActiveTab('assets')
-                                }
-                              }}
-                            >
-                              {pieData.map((_, index) => (
-                                <Cell 
-                                  key={`cell-${index}`} 
-                                  fill={chartPalette[index % chartPalette.length]} 
-                                  stroke="var(--color-border)" 
-                                  strokeWidth={1} 
-                                  className="outline-none"
-                                />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-
-                        {/* Texto no Centro do Donut */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-                          <div className="max-w-[150px] text-center flex flex-col items-center justify-center">
-                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-secondary leading-tight line-clamp-2">
-                              {hoveredPieSegment ? hoveredPieSegment.name : 'Patrimônio Total'}
-                            </span>
-                            <span className="text-base sm:text-lg font-black text-primary font-mono mt-1.5 leading-tight">
-                              {hoveredPieSegment 
-                                ? formatCurrency(hoveredPieSegment.value)
-                                : formatCurrency(portfolioData.totalValue)}
-                            </span>
-                            <span className="text-[10px] font-bold text-income mt-1 font-mono leading-none">
-                              {hoveredPieSegment 
-                                ? `${formatPercentBR(hoveredPieSegment.percent, 1)}`
-                                : '100.0%'}
-                            </span>
+                                }}
+                              >
+                                {pieData.map((entry, index) => {
+                                  const isSelected = selectedPieSegment ? selectedPieSegment.name === entry.name : false
+                                  const hasSelection = selectedPieSegment !== null
+                                  return (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={chartPalette[index % chartPalette.length]} 
+                                      stroke="var(--color-border)" 
+                                      strokeWidth={isSelected ? 2.5 : 1}
+                                      opacity={hasSelection ? (isSelected ? 1.0 : 0.4) : 1.0}
+                                      className="outline-none cursor-pointer transition-all duration-300"
+                                    />
+                                  )
+                                })}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+ 
+                          {/* Texto no Centro do Donut */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+                            <div className="max-w-[150px] text-center flex flex-col items-center justify-center">
+                              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-secondary leading-tight line-clamp-2">
+                                {hoveredPieSegment 
+                                  ? hoveredPieSegment.name 
+                                  : (selectedPieSegment ? selectedPieSegment.name : 'Patrimônio Total')}
+                              </span>
+                              <span className="text-base sm:text-lg font-black text-primary font-mono mt-1.5 leading-tight">
+                                {hoveredPieSegment 
+                                  ? formatCurrency(hoveredPieSegment.value)
+                                  : (selectedPieSegment 
+                                    ? formatCurrency(selectedPieSegment.value)
+                                    : formatCurrency(portfolioData.totalValue))}
+                              </span>
+                              <span className="text-[10px] font-bold text-income mt-1 font-mono leading-none">
+                                {hoveredPieSegment 
+                                  ? `${formatPercentBR(hoveredPieSegment.percent, 1)}`
+                                  : (selectedPieSegment 
+                                    ? `${formatPercentBR(selectedPieSegment.percent, 1)}`
+                                    : '100.0%')}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
+
+                        {/* Botão de Ver Ativos Detalhados quando uma fatia está selecionada */}
+                        {selectedPieSegment && (
+                          <div className="w-full flex justify-center animate-fade-in mt-1 select-none">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (consolidationView === 'class') {
+                                  setSelectedClassFilter(selectedPieSegment.name)
+                                  setSelectedSectorFilter('all')
+                                } else {
+                                  setSelectedSectorFilter(selectedPieSegment.name)
+                                  setSelectedClassFilter('all')
+                                }
+                                setActiveTab('assets')
+                              }}
+                              className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wider uppercase text-balance hover:bg-balance/5 !min-h-0 h-auto py-1.5 px-3.5 rounded-full transition-all"
+                            >
+                              <Search size={12} className="text-balance" />
+                              <span>Ver ativos detalhados</span>
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </Card>
 
                   {/* Card de Rebalanceamento */}
                   <Card className="p-4 lg:p-6 flex flex-col text-left">
-                    <div className="flex items-center justify-between pb-2 border-b border-primary/5 mb-4">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-primary">Rebalanceamento de Carteira</h4>
-                      <span className="text-[9px] font-black text-secondary uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-full">
-                        Meta Recomendada
-                      </span>
+                    <div className="flex items-center justify-between pb-2 border-b border-primary/5 mb-4 flex-wrap gap-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-primary">
+                        {selectedPieSegment 
+                          ? `Ativos em ${selectedPieSegment.name}` 
+                          : 'Rebalanceamento de Carteira'}
+                      </h4>
+                      {selectedPieSegment ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPieSegment(null)}
+                          className="!min-h-0 text-[9px] font-black uppercase tracking-wider text-secondary hover:text-primary flex items-center gap-1 py-1 px-2.5 rounded-full bg-secondary/50"
+                        >
+                          <X size={10} />
+                          <span>Voltar para grupos</span>
+                        </Button>
+                      ) : (
+                        <span className="text-[9px] font-black text-secondary uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-full font-sans">
+                          Meta Recomendada
+                        </span>
+                      )}
                     </div>
 
                     <div className="space-y-3.5 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
-                      {(consolidationView === 'class' 
-                        ? portfolioData.consolidatedClass 
-                        : portfolioData.consolidatedSector
-                      ).map((group, index) => {
-                        const targetPct = group.target_percentage || 0
-                        const currentPct = group.current_percentage || 0
-                        const devPct = currentPct - targetPct
-                        const diffValue = portfolioData.totalValue * (targetPct / 100) - group.total_value
-
-                        let statusColor = 'text-secondary'
-                        let statusBg = 'bg-secondary/40'
-                        let statusText = 'Sem meta'
-
-                        if (targetPct > 0) {
-                          if (devPct > 1.5) {
-                            statusColor = 'text-expense'
-                            statusBg = 'bg-expense/10'
-                            statusText = `Venda sugerida: -${formatCurrency(Math.abs(diffValue))}`
-                          } else if (devPct < -1.5) {
-                            statusColor = 'text-income'
-                            statusBg = 'bg-income/10'
-                            statusText = `Aporte sugerido: +${formatCurrency(diffValue)}`
-                          } else {
-                            statusColor = 'text-primary'
-                            statusBg = 'bg-primary border border-primary/30'
-                            statusText = 'Alinhado'
-                          }
-                        }
-
-                        return (
-                          <div 
-                            key={group.name} 
-                            onClick={() => {
-                              if (consolidationView === 'class') {
-                                setSelectedClassFilter(group.name)
-                                setSelectedSectorFilter('all')
-                              } else {
-                                setSelectedSectorFilter(group.name)
-                                setSelectedClassFilter('all')
-                              }
-                              setActiveTab('assets')
-                            }}
-                            className="p-3 bg-secondary/50 border border-primary rounded-xl flex flex-col gap-2 text-left cursor-pointer hover:border-primary/80 transition-all select-none"
-                          >
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span 
-                                  className="w-2.5 h-2.5 rounded-full shrink-0" 
-                                  style={{ backgroundColor: chartPalette[index % chartPalette.length] }} 
-                                />
-                                <span className="font-bold text-primary text-xs tracking-wide truncate">{group.name}</span>
-                              </div>
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${statusBg} ${statusColor} shrink-0`}>
-                                {statusText}
-                              </span>
-                            </div>
-
-                            {/* Barra horizontal de alocação vs alvo */}
-                            <div className="space-y-1">
-                              <div className="w-full h-1.5 rounded-full bg-primary relative overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    consolidationView === 'class' ? 'bg-balance' : 'bg-income'
-                                  }`} 
-                                  style={{ width: `${Math.min(group.current_percentage, 100)}%` }} 
-                                />
-                                {targetPct > 0 && (
-                                  <div 
-                                    className="absolute top-0 bottom-0 w-0.5 bg-primary-dark/60 dark:bg-white/60"
-                                    style={{ left: `${Math.min(targetPct, 99)}%` }}
-                                  />
-                                )}
-                              </div>
-                              <div className="flex items-center justify-between text-[9px] text-secondary font-mono leading-none">
-                                <span>Real: {formatPercentBR(group.current_percentage, 1)} ({formatCurrency(group.total_value)})</span>
-                                <span>Alvo: {formatPercentBR(targetPct, 0)}</span>
-                              </div>
-                            </div>
+                      {selectedPieSegment ? (
+                        activeGroupAssets.length === 0 ? (
+                          <div className="h-48 flex flex-col items-center justify-center text-center text-secondary italic text-xs">
+                            Nenhum ativo individual cadastrado nesta fatia.
                           </div>
+                        ) : (
+                          activeGroupAssets.map((pos, index) => {
+                            const targetPct = pos.target_percentage || 0
+                            const currentPct = pos.current_percentage || 0
+                            const devPct = currentPct - targetPct
+                            const diffValue = portfolioData.totalValue * (targetPct / 100) - pos.total_value
+
+                            let statusColor = 'text-secondary'
+                            let statusBg = 'bg-secondary/40'
+                            let statusText = 'Sem meta'
+
+                            if (targetPct > 0) {
+                              if (devPct > 1.0) {
+                                statusColor = 'text-expense'
+                                statusBg = 'bg-expense/10'
+                                statusText = `Venda sugerida: -${formatCurrencyByCode(Math.abs(diffValue), pos.currency)}`
+                              } else if (devPct < -1.0) {
+                                statusColor = 'text-income'
+                                statusBg = 'bg-income/10'
+                                statusText = `Aporte sugerido: +${formatCurrencyByCode(diffValue, pos.currency)}`
+                              } else {
+                                statusColor = 'text-primary'
+                                statusBg = 'bg-primary border border-primary/30'
+                                statusText = 'Alinhado'
+                              }
+                            }
+
+                            return (
+                              <div 
+                                key={pos.ticker} 
+                                onClick={() => {
+                                  setSearchTerm(pos.ticker)
+                                  setSelectedClassFilter('all')
+                                  setSelectedSectorFilter('all')
+                                  setActiveTab('assets')
+                                }}
+                                className="p-3 bg-secondary/50 border border-primary rounded-xl flex flex-col gap-2 text-left cursor-pointer hover:border-primary/80 transition-all select-none"
+                              >
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span 
+                                      className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                      style={{ backgroundColor: chartPalette[index % chartPalette.length] }} 
+                                    />
+                                    <span className="font-mono font-black text-primary text-xs tracking-wider truncate">{pos.ticker}</span>
+                                  </div>
+                                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${statusBg} ${statusColor} shrink-0`}>
+                                    {statusText}
+                                  </span>
+                                </div>
+
+                                {/* Barra horizontal de alocação vs alvo */}
+                                <div className="space-y-1">
+                                  <div className="w-full h-1.5 rounded-full bg-primary relative overflow-hidden">
+                                    <div 
+                                      className="h-full bg-income rounded-full transition-all duration-500" 
+                                      style={{ width: `${Math.min(pos.current_percentage, 100)}%` }} 
+                                    />
+                                    {targetPct > 0 && (
+                                      <div 
+                                        className="absolute top-0 bottom-0 w-0.5 bg-primary-dark/60 dark:bg-white/60"
+                                        style={{ left: `${Math.min(targetPct, 99)}%` }}
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between text-[9px] text-secondary font-mono leading-none">
+                                    <span>Real: {formatPercentBR(pos.current_percentage, 1)} ({formatCurrencyByCode(pos.total_value, pos.currency)})</span>
+                                    <span>Alvo: {formatPercentBR(targetPct, 0)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })
                         )
-                      })}
+                      ) : (
+                        (consolidationView === 'class' 
+                          ? portfolioData.consolidatedClass 
+                          : portfolioData.consolidatedSector
+                        ).map((group, index) => {
+                          const targetPct = group.target_percentage || 0
+                          const currentPct = group.current_percentage || 0
+                          const devPct = currentPct - targetPct
+                          const diffValue = portfolioData.totalValue * (targetPct / 100) - group.total_value
+
+                          let statusColor = 'text-secondary'
+                          let statusBg = 'bg-secondary/40'
+                          let statusText = 'Sem meta'
+
+                          if (targetPct > 0) {
+                            if (devPct > 1.5) {
+                              statusColor = 'text-expense'
+                              statusBg = 'bg-expense/10'
+                              statusText = `Venda sugerida: -${formatCurrency(Math.abs(diffValue))}`
+                            } else if (devPct < -1.5) {
+                              statusColor = 'text-income'
+                              statusBg = 'bg-income/10'
+                              statusText = `Aporte sugerido: +${formatCurrency(diffValue)}`
+                            } else {
+                              statusColor = 'text-primary'
+                              statusBg = 'bg-primary border border-primary/30'
+                              statusText = 'Alinhado'
+                            }
+                          }
+
+                          return (
+                            <div 
+                              key={group.name} 
+                              onClick={() => {
+                                setSelectedPieSegment({
+                                  name: group.name,
+                                  value: group.total_value,
+                                  percent: group.current_percentage,
+                                  target: group.target_percentage
+                                })
+                              }}
+                              className="p-3 bg-secondary/50 border border-primary rounded-xl flex flex-col gap-2 text-left cursor-pointer hover:border-primary/80 transition-all select-none"
+                            >
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span 
+                                    className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                    style={{ backgroundColor: chartPalette[index % chartPalette.length] }} 
+                                  />
+                                  <span className="font-bold text-primary text-xs tracking-wide truncate">{group.name}</span>
+                                </div>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${statusBg} ${statusColor} shrink-0`}>
+                                  {statusText}
+                                </span>
+                              </div>
+
+                              {/* Barra horizontal de alocação vs alvo */}
+                              <div className="space-y-1">
+                                <div className="w-full h-1.5 rounded-full bg-primary relative overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      consolidationView === 'class' ? 'bg-balance' : 'bg-income'
+                                    }`} 
+                                    style={{ width: `${Math.min(group.current_percentage, 100)}%` }} 
+                                  />
+                                  {targetPct > 0 && (
+                                    <div 
+                                      className="absolute top-0 bottom-0 w-0.5 bg-primary-dark/60 dark:bg-white/60"
+                                      style={{ left: `${Math.min(targetPct, 99)}%` }}
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between text-[9px] text-secondary font-mono leading-none">
+                                  <span>Real: {formatPercentBR(group.current_percentage, 1)} ({formatCurrency(group.total_value)})</span>
+                                  <span>Alvo: {formatPercentBR(targetPct, 0)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   </Card>
                 </div>
