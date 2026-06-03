@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
@@ -8,7 +7,6 @@ import DailyFlowLegend from '@/components/dashboard/DailyFlowLegend'
 import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
 import ReportsPieLegendRow, { type ReportsPieLegendItem } from '@/components/reports/ReportsPieLegendRow'
 import Select from '@/components/Select'
-import { PAGE_HEADERS } from '@/constants/pages'
 import Loader from '@/components/Loader'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
@@ -22,7 +20,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
-import type { PortfolioTransaction } from '@/types'
+import type { CategoryExpense, MonthlySummary, PortfolioTransaction } from '@/types'
 import type { ChartTooltipEntry } from '@/types/recharts'
 import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
 import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
@@ -57,20 +55,6 @@ import { useSearchParams } from 'react-router-dom'
 type ViewMode = 'year' | 'month'
 type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
 
-type MonthlySummary = {
-  month: string
-  total_income: number
-  total_expenses: number
-  total_investments: number
-  balance: number
-}
-
-type ExpenseCategorySummary = {
-  category_id: string
-  category_name: string
-  total: number
-  color: string
-}
 
 type IncomeCategorySummary = {
   income_category_id: string
@@ -424,7 +408,7 @@ export default function Reports() {
 
   const annualPieExpenses = useMemo(
     () =>
-      categoryExpenses.map((cat: ExpenseCategorySummary) => ({
+      categoryExpenses.map((cat: CategoryExpense) => ({
         name: cat.category_name,
         value: cat.total,
         color: getExpenseColor(cat.category_id, cat.color),
@@ -616,7 +600,7 @@ export default function Reports() {
     () => (selectedMonth ? (monthlyIncomeByCategory[selectedMonth] ?? []) : []),
     [selectedMonth, monthlyIncomeByCategory]
   )
-  const monthPieExpenses = monthExpenseCategories.map((cat: ExpenseCategorySummary) => ({
+  const monthPieExpenses = monthExpenseCategories.map((cat: CategoryExpense) => ({
     categoryId: cat.category_id,
     name: cat.category_name,
     value: cat.total,
@@ -1227,7 +1211,6 @@ export default function Reports() {
 
   return (
     <div>
-      <PageHeader title={PAGE_HEADERS.reports.title} subtitle={PAGE_HEADERS.reports.description} />
 
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
         <Card className="relative z-20 overflow-visible glass-glow-card">
@@ -1593,7 +1576,7 @@ export default function Reports() {
                         .sort((a, b) => b.total - a.total)
                         .map((category, index) => {
                           const isExpense = drilldownSectionType === 'expense'
-                          const id = isExpense ? (category as ExpenseCategorySummary).category_id : (category as IncomeCategorySummary).income_category_id
+                          const id = isExpense ? (category as CategoryExpense).category_id : (category as IncomeCategorySummary).income_category_id
                           const color = isExpense 
                             ? getExpenseColor(id, category.color)
                             : getIncomeColor(id, category.color)

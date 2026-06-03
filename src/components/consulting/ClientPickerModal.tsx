@@ -82,10 +82,8 @@ export default function ClientPickerModal({
             type="button"
             onClick={() => handleSelect('')}
             className={cn(
-              'flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
-              value === ''
-                ? 'border-balance/40 bg-balance/10'
-                : 'border-transparent hover:border-glass hover:bg-accent/40'
+              'modal-picker-row',
+              value === '' ? 'modal-picker-row--balance-selected' : undefined
             )}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-balance/10 text-balance">
@@ -113,12 +111,7 @@ export default function ClientPickerModal({
                   key={client.id}
                   type="button"
                   onClick={() => handleSelect(client.id)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
-                    isSelected
-                      ? 'border-primary/35 bg-accent/50'
-                      : 'border-transparent hover:border-glass hover:bg-accent/40'
-                  )}
+                  className={cn('modal-picker-row', isSelected && 'modal-picker-row--selected')}
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-secondary">
                     <UserRound size={18} aria-hidden />

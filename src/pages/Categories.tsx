@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TrendingDown, TrendingUp, ArrowRight, Check } from 'lucide-react'
-import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Loader from '@/components/Loader'
-import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import { useCategories } from '@/hooks/useCategories'
@@ -226,7 +224,6 @@ export default function Categories() {
 
   return (
     <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader title={PAGE_HEADERS.categories.title} subtitle={PAGE_HEADERS.categories.description} />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} />

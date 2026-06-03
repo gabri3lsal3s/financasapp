@@ -15,7 +15,6 @@ import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
 import Loader from '@/components/Loader'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useCategories } from '@/hooks/useCategories'
@@ -1648,8 +1647,6 @@ export default function CreditCards() {
   return (
     <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
-        title={PAGE_HEADERS.creditCards.title}
-        subtitle={PAGE_HEADERS.creditCards.description}
         action={
           <PageHeaderActions>
             <PageHeaderActionButton

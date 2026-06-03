@@ -13,7 +13,6 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { IncomeCategory } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
 
 export default function IncomeCategories() {
@@ -104,8 +103,6 @@ export default function IncomeCategories() {
   return (
     <div className="animate-page-enter">
       <PageHeader
-        title={PAGE_HEADERS.incomeCategories.title}
-        subtitle={PAGE_HEADERS.incomeCategories.description}
         action={
           <PageHeaderActions>
             <PageHeaderActionButton

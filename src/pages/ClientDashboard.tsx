@@ -14,7 +14,6 @@ import Card from '@/components/Card'
 import Loader from '@/components/Loader'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
-import { PAGE_HEADERS } from '@/constants/pages'
 import ClientKpiCards, { type ClientKpiYieldBasis } from '@/components/consulting/ClientKpiCards'
 import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
 import OrganicVsContributionsChart from '@/components/consulting/OrganicVsContributionsChart'
@@ -324,10 +323,6 @@ export default function ClientDashboard() {
   if (loading) {
     return (
       <div className="space-y-6 lg:space-y-8 animate-page-enter">
-        <PageHeader
-          title={PAGE_HEADERS.clientConsulting.title}
-          subtitle={PAGE_HEADERS.clientConsulting.description}
-        />
         <Loader text="Carregando sua carteira..." className="py-24" />
       </div>
     )
@@ -335,11 +330,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
-      <PageHeader
-        title={PAGE_HEADERS.clientConsulting.title}
-        subtitle={PAGE_HEADERS.clientConsulting.description}
-        action={headerAction}
-      />
+      <PageHeader action={headerAction} />
 
       <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-primary/15 via-secondary/70 to-secondary/40 rounded-3xl border border-primary/30 text-primary shadow-xl text-left surface-glass">
         <div className="absolute right-0 top-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />

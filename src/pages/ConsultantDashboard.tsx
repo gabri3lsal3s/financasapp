@@ -20,7 +20,6 @@ import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { UserPlus, Trash2, ShieldCheck, AlertCircle, LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText, Layers, Plus, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateConsultingPDF } from '@/services/pdfGenerator'
@@ -1311,15 +1310,7 @@ export default function ConsultantDashboard() {
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-page-enter">
-      <PageHeader
-        title={PAGE_HEADERS.consulting.title}
-        subtitle={
-          selectedClient
-            ? `Cliente: ${resolveProfileDisplayName(selectedClient)}`
-            : PAGE_HEADERS.consulting.description
-        }
-        action={headerAction}
-      />
+      <PageHeader action={headerAction} />
 
       {/* Cabeçalho do Cliente Selecionado */}
       {selectedClient && (

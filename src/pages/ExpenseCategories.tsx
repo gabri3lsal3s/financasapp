@@ -13,7 +13,6 @@ import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
 
 export default function ExpenseCategories() {
@@ -108,8 +107,6 @@ export default function ExpenseCategories() {
   return (
     <div className="animate-page-enter">
       <PageHeader
-        title={PAGE_HEADERS.expenseCategories.title}
-        subtitle={PAGE_HEADERS.expenseCategories.description}
         action={
           <PageHeaderActions>
             <PageHeaderActionButton
