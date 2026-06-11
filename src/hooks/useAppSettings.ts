@@ -4,7 +4,7 @@ const FLOATING_CALCULATOR_ENABLED_KEY = 'app.floatingCalculator.enabled'
 const BIOMETRIC_LOCK_TIMEOUT_KEY = 'app.biometric.lockTimeoutMinutes'
 const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
-let dashboardReportsWeightsEnabledMemory = true
+let dashboardReportsWeightsEnabledMemory = false
 let creditCardsWeightsEnabledMemory = false
 
 export type BiometricLockTimeout = 0 | 1 | 5 | 15

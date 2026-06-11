@@ -15,11 +15,11 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatDate, formatMonth, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
+import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Scale, Percent } from 'lucide-react'
 import Button from '@/components/Button'
-import ExpenseCategoryRowButton from '@/components/dashboard/ExpenseCategoryRowButton'
-import MobileChartSwitcher from '@/components/dashboard/MobileChartSwitcher'
+import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
+import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
@@ -32,19 +32,18 @@ import {
   sumPortfolioTransactionsForMonth,
 } from '@/utils/portfolioMonthlyFlow'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
-import DashboardKpis from '@/components/DashboardKpis'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
-
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
-
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import MonthlyOverviewChart from '@/components/dashboard/MonthlyOverviewChart'
 import CategoryPieChart from '@/components/reports/CategoryPieChart'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
+import { Sparkline } from '@/components/reports/reportsChartShared'
+import FinancialInsights from '@/components/reports/FinancialInsights'
 
-const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
+const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
 export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
@@ -56,11 +55,10 @@ export default function Dashboard() {
   const { isOnline } = useNetworkStatus()
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
-  const [activeMobileChart, setActiveMobileChart] = useState<'panorama' | 'flow'>('flow')
-  
+  const [activeChartTab, setActiveChartTab] = useState<'flow' | 'panorama'>('flow')
+
   const [portfolioId, setPortfolioId] = useState('')
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
-
 
   const loadPortfolioTransactions = useCallback(async () => {
     try {
@@ -112,7 +110,7 @@ export default function Dashboard() {
     window.addEventListener('local-data-changed', onDataChanged)
     return () => window.removeEventListener('local-data-changed', onDataChanged)
   }, [isOnline, currentMonth, loadPortfolioTransactions])
-  
+
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const isDataChangingRef = useRef(false)
@@ -125,9 +123,10 @@ export default function Dashboard() {
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
+  const { incomes: previousMonthIncomes } = useIncomes(previousMonth)
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
-  
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -156,6 +155,8 @@ export default function Dashboard() {
   }, [portfolioMonthFlow])
 
   const balance = totalIncomes - totalExpenses - totalInvestments
+  const savingsRate = totalIncomes > 0 ? (balance / totalIncomes) * 100 : 0
+
   const hasMonthlyData =
     expenses.length > 0 ||
     incomes.length > 0 ||
@@ -165,6 +166,16 @@ export default function Dashboard() {
     incomesLoading ||
     expenseLimitsLoading ||
     previousExpenseLimitsLoading
+
+  // Previous month totals for trend badges
+  const previousMonthExpenseTotal = useMemo(
+    () => previousMonthExpenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0),
+    [previousMonthExpenses]
+  )
+  const previousMonthIncomeTotal = useMemo(
+    () => previousMonthIncomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0),
+    [previousMonthIncomes]
+  )
 
   const monthlyOverviewData = useMemo(
     () => [
@@ -288,6 +299,31 @@ export default function Dashboard() {
       .sort((a, b) => b.usagePercentage - a.usagePercentage)
   }, [expenseByCategory, expenseLimitMap])
 
+  const limitsExceededCount = useMemo(() => expenseLimitAlerts.length, [expenseLimitAlerts])
+
+  // Category summaries for FinancialInsights
+  const categoryExpenseSummaries = useMemo(() =>
+    expenseByCategory.map(item => ({ category_name: item.name, total: item.value })),
+    [expenseByCategory]
+  )
+
+  // Weekday expense data for FinancialInsights
+  const weekdayExpenseData = useMemo(() => {
+    const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+    const totals = labels.map((label) => ({ dia: label, Despesas: 0 }))
+
+    expenses.forEach((expense) => {
+      if (!expense.date?.startsWith(currentMonth)) return
+      const localDate = new Date(`${expense.date}T00:00:00`)
+      if (Number.isNaN(localDate.getTime())) return
+      const dayOfWeek = localDate.getDay()
+      const mondayFirstIndex = (dayOfWeek + 6) % 7
+      totals[mondayFirstIndex].Despesas += expenseAmountForDashboard(expense.amount, expense.report_weight)
+    })
+
+    return totals
+  }, [expenses, currentMonth])
+
   useEffect(() => {
     if (lastFetchedMonthRef.current !== currentMonth) {
       setIsMonthTransitioning(true)
@@ -378,11 +414,8 @@ export default function Dashboard() {
     return series
   }, [currentMonth, incomes, expenses, portfolioTransactions])
 
-
-
   const openExpenseCategoryDetails = (categoryId: string, categoryName: string) => {
     if (!categoryId) return
-
     setSelectedExpenseCategory({ id: categoryId, name: categoryName })
   }
 
@@ -440,6 +473,81 @@ export default function Dashboard() {
     )
   }
 
+  // ──── renderKPICard helper (same visual as Reports) ────────────────────────
+  const renderKPICard = ({
+    title,
+    value,
+    subtext,
+    icon,
+    glowColor,
+    sparklineData,
+    trendPercent,
+  }: {
+    title: string
+    value: string
+    subtext: string
+    icon: React.ReactNode
+    glowColor: string
+    sparklineData: number[]
+    trendPercent?: number | null
+  }) => {
+    const isDespesa = title.toLowerCase().includes('despesa')
+    const isTrendPositive = trendPercent !== undefined && trendPercent !== null && trendPercent >= 0
+
+    return (
+      <Card className="h-full relative overflow-hidden flex flex-col p-4 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
+        {/* Glow halo */}
+        <div
+          className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300"
+          style={{ backgroundColor: glowColor }}
+        />
+
+        <div className="flex items-start justify-between gap-3 w-full">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight">
+              {title}
+            </p>
+            <p className="text-lg font-extrabold font-mono text-primary mt-2.5 leading-none">
+              {value}
+            </p>
+          </div>
+
+          <span
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+            style={{
+              backgroundColor: `${glowColor}15`,
+              color: glowColor,
+              boxShadow: `0 0 8px ${glowColor}0a`
+            }}
+          >
+            {icon}
+          </span>
+        </div>
+
+        {/* Sparkline */}
+        <div className="mt-3.5 h-8 w-full overflow-hidden flex items-end">
+          <Sparkline data={sparklineData} color={glowColor} height={28} />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[10px] font-semibold">
+          <span className="text-secondary truncate">{subtext}</span>
+          {trendPercent !== undefined && trendPercent !== null ? (
+            <span
+              className={`shrink-0 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold ${
+                isDespesa
+                  ? (isTrendPositive ? 'text-expense bg-expense/10' : 'text-income bg-income/10')
+                  : (isTrendPositive ? 'text-income bg-income/10' : 'text-expense bg-expense/10')
+              }`}
+            >
+              {isTrendPositive ? '+' : ''}
+              {formatNumberWithTwoDecimalsBR(trendPercent)}%
+            </span>
+          ) : null}
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
@@ -482,78 +590,173 @@ export default function Dashboard() {
                 </div>
               </Card>
             ) : (
-              <>
-                <DashboardKpis
-                  totalIncomes={totalIncomes}
-                  totalExpenses={totalExpenses}
-                  totalInvestments={totalInvestments}
-                  balance={balance}
+              <div className="space-y-5 animate-stagger">
+
+                {/* ── KPIs com sparkline e badge de tendência ── */}
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+                  {renderKPICard({
+                    title: 'Rendas do mês',
+                    value: formatCurrency(totalIncomes),
+                    subtext: 'vs. mês anterior',
+                    icon: <TrendingUp size={16} />,
+                    glowColor: 'var(--color-income)',
+                    sparklineData: dailyFlowData.map(d => d.Rendas),
+                    trendPercent: previousMonthIncomeTotal > 0
+                      ? ((totalIncomes - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100
+                      : null,
+                  })}
+                  {renderKPICard({
+                    title: 'Despesas do mês',
+                    value: formatCurrency(totalExpenses),
+                    subtext: 'vs. mês anterior',
+                    icon: <TrendingDown size={16} />,
+                    glowColor: 'var(--color-expense)',
+                    sparklineData: dailyFlowData.map(d => d.Despesas),
+                    trendPercent: previousMonthExpenseTotal > 0
+                      ? ((totalExpenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100
+                      : null,
+                  })}
+                  {renderKPICard({
+                    title: 'Investimentos',
+                    value: formatCurrency(Math.max(totalInvestments, 0)),
+                    subtext: 'aportado este mês',
+                    icon: <PiggyBank size={16} />,
+                    glowColor: 'var(--color-balance)',
+                    sparklineData: dailyFlowData.map(d => d.Investimentos),
+                    trendPercent: null,
+                  })}
+                  {renderKPICard({
+                    title: 'Taxa de saldo',
+                    value: `${formatNumberWithTwoDecimalsBR(savingsRate)}%`,
+                    subtext: `Saldo líquido: ${formatCurrency(balance)}`,
+                    icon: <Percent size={16} />,
+                    glowColor: savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
+                    sparklineData: dailyFlowData.map(d => d.Rendas - d.Despesas - d.Investimentos),
+                    trendPercent: null,
+                  })}
+                </div>
+
+                {/* ── Insights Financeiros ── */}
+                <FinancialInsights
+                  viewMode="month"
+                  periodLabel={formatMonth(currentMonth)}
+                  incomeTotal={totalIncomes}
+                  expenseTotal={totalExpenses}
+                  savingsRate={savingsRate}
+                  categoryExpenses={categoryExpenseSummaries}
+                  previousExpenseTotal={previousMonthExpenseTotal}
+                  weekdayExpenses={weekdayExpenseData}
+                  limitsExceededCount={limitsExceededCount}
                 />
 
-                <div className="mt-4 space-y-4">
-                  {/* Selector of charts in mobile */}
-                  <MobileChartSwitcher activeView={activeMobileChart} onChange={setActiveMobileChart} />
+                {/* ── Gráficos com tab switcher interno ── */}
+                <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+                        {activeChartTab === 'flow' ? 'Fluxo Diário' : 'Panorama do Mês'}
+                      </h3>
+                      <p className="text-[10px] text-secondary mt-0.5">
+                        {activeChartTab === 'flow'
+                          ? `Entradas, saídas e investimentos por dia em ${formatMonth(currentMonth)}`
+                          : `Composição proporcional de rendas, despesas e investimentos`}
+                      </p>
+                    </div>
 
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
-                    <Card className={`${activeMobileChart === 'panorama' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
-                      <h3 className="text-lg font-semibold text-primary mb-4">Panorama do mês</h3>
-                      <MonthlyOverviewChart data={monthlyOverviewData} />
-                    </Card>
+                    <div className="flex items-center gap-1 shrink-0 bg-secondary/10 p-0.5 rounded-lg border border-glass self-start sm:self-auto">
+                      <ReportsTabButton
+                        active={activeChartTab === 'flow'}
+                        onClick={() => setActiveChartTab('flow')}
+                      >
+                        Fluxo Diário
+                      </ReportsTabButton>
+                      <ReportsTabButton
+                        active={activeChartTab === 'panorama'}
+                        onClick={() => setActiveChartTab('panorama')}
+                      >
+                        Panorama
+                      </ReportsTabButton>
+                    </div>
+                  </div>
 
-                    <Card className={`${activeMobileChart === 'flow' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
-                      <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário</h3>
-                      <DailyFlowChart 
-                        data={dailyFlowData} 
-                        hiddenSeries={hiddenDailyFlowSeries} 
-                        onToggleSeries={toggleDailyFlowSeries} 
+                  <div className="w-full mt-2">
+                    {activeChartTab === 'flow' && (
+                      <DailyFlowChart
+                        data={dailyFlowData}
+                        hiddenSeries={hiddenDailyFlowSeries}
+                        onToggleSeries={toggleDailyFlowSeries}
                       />
-                    </Card>
+                    )}
+                    {activeChartTab === 'panorama' && (
+                      <MonthlyOverviewChart data={monthlyOverviewData} />
+                    )}
+                  </div>
+                </Card>
+
+                {/* ── Composição de Despesas: 1/3 pie + 2/3 categoria grid ── */}
+                <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+                  <div className="mb-5 border-b border-glass/40 pb-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Composição de Despesas</h3>
+                    <p className="text-[10px] text-secondary mt-0.5">
+                      Distribuição por categoria · clique para ver o detalhamento
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 items-stretch">
-                    <Card className="h-full flex flex-col">
-                      <div className="mb-4 space-y-1.5">
-                        <h3 className="text-lg font-semibold text-primary">Despesas por categoria</h3>
-                        <p className="text-xs text-secondary">Gráfico por porcentagem e lista priorizada por alertas de limite.</p>
+                  {expenseCategoriesPieData.length === 0 ? (
+                    <p className="text-sm text-secondary text-center py-8 italic">Sem despesas no mês selecionado.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Esquerda: Pie chart */}
+                      <div className="lg:col-span-1 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-glass/40 pb-6 lg:pb-0 lg:pr-6 min-h-[220px]">
+                        <CategoryPieChart
+                          data={expenseCategoriesPieData}
+                          onClick={(entry) => {
+                            if (entry?.categoryId && entry?.name) {
+                              openExpenseCategoryDetails(entry.categoryId, entry.name)
+                            }
+                          }}
+                          outerRadius={86}
+                          innerRadius={58}
+                        />
                       </div>
-                      {expenseCategoriesPieData.length === 0 ? (
-                        <p className="text-sm text-secondary text-center">Sem despesas no mês selecionado.</p>
-                      ) : (
-                        <>
-                          <div className="mx-auto w-full max-w-2xl">
-                            <CategoryPieChart 
-                              data={expenseCategoriesPieData}
-                              onClick={(entry) => {
-                                if (entry?.categoryId && entry?.name) {
-                                  openExpenseCategoryDetails(entry.categoryId, entry.name)
-                                }
-                              }}
-                              outerRadius={86}
-                            />
-                          </div>
 
-                          <div className="mt-4 space-y-3">
-                            {prioritizedExpenseCategoryItems.map((item) => (
-                                <ExpenseCategoryRowButton
-                                  key={item.name}
-                                  item={item}
-                                  totalExpenses={totalExpenses}
-                                  onOpen={openExpenseCategoryDetails}
-                                />
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </Card>
-                  </div>
-                </div>
-              </>
+                      {/* Direita: Categoria cards grid */}
+                      <div className="lg:col-span-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {prioritizedExpenseCategoryItems.map((item, index) => {
+                            const staggerClass = index < 8
+                              ? ['delay-50','delay-100','delay-150','delay-200','delay-250','delay-300','delay-350','delay-400'][index]
+                              : ''
+                            const rawLimit = item.categoryId ? expenseLimitMap.get(item.categoryId) : undefined
+                            const targetAmount = rawLimit !== undefined ? rawLimit : null
+                            return (
+                              <ReportsCategoryRowButton
+                                key={item.categoryId || item.name}
+                                categoryId={item.categoryId}
+                                categoryName={item.name}
+                                total={item.value}
+                                color={item.color}
+                                totalBase={totalExpenses}
+                                targetAmount={targetAmount}
+                                isExpense={true}
+                                staggerClass={staggerClass}
+                                onOpen={openExpenseCategoryDetails}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+              </div>
             )}
           </div>
         </MonthTransitionView>
       </div>
 
-      {/* Selector Modal for Quick Add */}
+      {/* ── Selector Modal para Novo Lançamento ── */}
       <Modal isOpen={isSelectorOpen} onClose={() => setIsSelectorOpen(false)} title="Novo lançamento">
         <div className="modal-body-stack">
           <ModalIntro align="center">Escolha o tipo de lançamento que deseja adicionar:</ModalIntro>
@@ -638,6 +841,7 @@ export default function Dashboard() {
         }}
       />
 
+      {/* ── Modal de detalhamento de categoria ── */}
       <Modal
         isOpen={Boolean(selectedExpenseCategory)}
         onClose={() => setSelectedExpenseCategory(null)}

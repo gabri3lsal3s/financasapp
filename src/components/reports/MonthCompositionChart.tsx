@@ -3,8 +3,15 @@ import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Toolti
 import { chartAnimProps } from '@/types/recharts'
 import { ChartTooltip, InteractiveChartLegend, formatChartAxisTick } from './reportsChartShared'
 
+interface MonthCompositionData {
+  month: string
+  Rendas: number
+  Despesas: number
+  Investimentos: number
+}
+
 interface MonthCompositionChartProps {
-  data: any[]
+  data: MonthCompositionData[]
   hiddenSeries: string[]
   onToggleSeries: (key: string) => void
 }

@@ -6,6 +6,8 @@ import { ChartTooltip, formatChartAxisTick } from './reportsChartShared'
 interface CumulativeBalanceData {
   month: string
   SaldoAcumulado: number
+  'Saldo Acumulado (Ano Ant.)'?: number
+  [key: string]: string | number | boolean | undefined
 }
 
 interface CumulativeBalanceChartProps {
@@ -14,6 +16,10 @@ interface CumulativeBalanceChartProps {
 
 export default function CumulativeBalanceChart({ data }: CumulativeBalanceChartProps) {
   const animProps = useMemo(() => chartAnimProps(), [])
+
+  const hasPrevData = useMemo(() => {
+    return data.some(d => d['Saldo Acumulado (Ano Ant.)'] !== undefined)
+  }, [data])
 
   return (
     <ResponsiveContainer width="100%" height={280}>
@@ -24,7 +30,7 @@ export default function CumulativeBalanceChart({ data }: CumulativeBalanceChartP
             <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.15} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.1} />
         <XAxis 
           dataKey="month" 
           stroke="var(--color-text-secondary)" 
@@ -38,15 +44,34 @@ export default function CumulativeBalanceChart({ data }: CumulativeBalanceChartP
           tickFormatter={formatChartAxisTick}
         />
         <Tooltip content={<ChartTooltip />} />
+        
+        {/* Linha principal com preenchimento */}
         <Area 
           type="monotone" 
           dataKey="SaldoAcumulado" 
+          name="Saldo Acumulado"
           stroke="var(--color-primary)" 
           fill="url(#cumulativeBalanceGrad)" 
-          strokeWidth={2} 
+          strokeWidth={2.5} 
           {...animProps}
         />
+
+        {/* Linha tracejada comparativa do ano anterior */}
+        {hasPrevData && (
+          <Area 
+            type="monotone" 
+            dataKey="Saldo Acumulado (Ano Ant.)" 
+            name="Saldo Acumulado (Ano Ant.)"
+            stroke="var(--color-primary)" 
+            fill="transparent"
+            strokeWidth={1.5} 
+            strokeDasharray="4 4"
+            opacity={0.4}
+            {...animProps}
+          />
+        )}
       </AreaChart>
     </ResponsiveContainer>
   )
 }
+

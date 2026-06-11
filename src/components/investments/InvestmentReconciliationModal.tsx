@@ -1710,7 +1710,7 @@ export default function InvestmentReconciliationModal({
               (ex.: ajuste manual documentado), desmarque e trate depois nos alertas ou na posição final.
             </B3ReconciliationGuidance>
             
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-left bg-warning/5 p-4.5 rounded-2xl border border-warning/20 shadow-sm mb-1.5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-left bg-warning/5 p-4 sm:p-5 rounded-2xl border border-warning/20 shadow-sm mb-1.5">
               <div>
                 <h5 className="text-xs font-black text-primary uppercase tracking-tight">Lançamentos Divergentes</h5>
                 <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">
@@ -1846,7 +1846,7 @@ export default function InvestmentReconciliationModal({
               Confira tipo de operação (compra, venda, desdobro como <strong>cotas creditadas</strong>, grupamento como cancelamento de cotas).
               Desmarque linhas que você registrará manualmente depois.
             </B3ReconciliationGuidance>
-            <div className="modal-panel-glass flex flex-col md:flex-row md:items-center justify-between gap-4 text-left p-4.5 mb-1.5">
+            <div className="modal-panel-glass flex flex-col md:flex-row md:items-center justify-between gap-4 text-left p-4 sm:p-5 mb-1.5">
               <div>
                 <h5 className="text-xs font-black text-primary uppercase tracking-tight">Lançamentos Faltantes no Livro-Razão</h5>
                 <p className="text-[10px] text-secondary mt-0.5 leading-relaxed">

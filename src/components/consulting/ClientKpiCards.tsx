@@ -58,7 +58,7 @@ export default function ClientKpiCards({
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
-      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
+      <Card className="p-3 sm:p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
         <div className="text-left">
           <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">Patrimônio Total</span>
           <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
@@ -75,7 +75,7 @@ export default function ClientKpiCards({
         </div>
       </Card>
  
-      <Card className="p-3 sm:p-4.5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
+      <Card className="p-3 sm:p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
         <div className="text-left">
           <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">{yieldLabel}</span>
           <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">

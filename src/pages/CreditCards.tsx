@@ -305,7 +305,7 @@ function CreditCardTimeline({
 
   return (
     <div
-      className="glass-timeline-card p-4.5 space-y-4 text-left transition-all duration-300 animate-page-enter"
+      className="glass-timeline-card p-4 sm:p-5 space-y-4 text-left transition-all duration-300 animate-page-enter"
       style={containerHoverStyle}
     >
       {/* Top Header */}

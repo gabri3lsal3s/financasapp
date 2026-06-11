@@ -1,6 +1,5 @@
 import { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import Button from '@/components/Button'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import {
@@ -12,9 +11,10 @@ export type PageHeaderActionIntent = 'neutral' | 'primary' | 'income' | 'expense
 
 export type PageHeaderActionRole = 'launch' | 'secondary'
 
-interface PageHeaderActionButtonProps extends Omit<React.ComponentProps<typeof Button>, 'children'> {
+interface PageHeaderActionButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   label?: string
   icon?: LucideIcon
+  /** Controla apenas a cor do ícone. neutral = cinza (inativo), demais = cor semântica (ativo). */
   intent?: PageHeaderActionIntent
   /** Botões de lançamento ficam no topo do stack lateral. */
   actionRole?: PageHeaderActionRole
@@ -29,41 +29,29 @@ export default function PageHeaderActionButton({
   intent = 'neutral',
   actionRole = 'secondary',
   compactOnMobile: _compactOnMobile = true,
-  variant: _variant,
-  size: _size = 'sm',
   className,
   children,
   ...props
 }: PageHeaderActionButtonProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
 
-  const intentTextClass: Record<PageHeaderActionIntent, string> = {
-    neutral: 'text-primary',
-    primary: 'text-[var(--ds-color-accent-primary)]',
-    income: 'text-primary',
-    expense: 'text-primary',
-    balance: 'text-primary',
-    warning: 'text-primary',
-  }
-
-  const buttonClasses = cn(FLOATING_SIDE_BUTTON_NEUTRAL, intentTextClass[intent])
-
+  // Apenas a cor do ícone muda — o fundo/borda do botão permanece neutro sempre
   const iconColorMap: Record<PageHeaderActionIntent, string> = {
-    neutral: 'text-primary',
+    neutral: 'text-secondary',
     primary: 'text-[var(--ds-color-accent-primary)]',
-    income: 'text-income',
+    income:  'text-income',
     expense: 'text-expense',
     balance: 'text-balance',
     warning: 'text-warning',
   }
 
-  const labelClasses =
-    'max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5'
-
   const sideTabClassName = cn(
-    getFloatingSideTabButtonClassName('right', buttonClasses),
+    getFloatingSideTabButtonClassName('right', FLOATING_SIDE_BUTTON_NEUTRAL),
     className
   )
+
+  const labelClasses =
+    'max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5'
 
   const renderContent = () => {
     const textClasses = cn(
@@ -72,20 +60,12 @@ export default function PageHeaderActionButton({
     )
     if (children) {
       if (typeof children === 'string') {
-        return (
-          <span className={textClasses}>
-            {children}
-          </span>
-        )
+        return <span className={textClasses}>{children}</span>
       }
       return children
     }
     if (label) {
-      return (
-        <span className={textClasses}>
-          {label}
-        </span>
-      )
+      return <span className={textClasses}>{label}</span>
     }
     return null
   }
@@ -97,7 +77,13 @@ export default function PageHeaderActionButton({
       {...props}
       data-floating-action-role={actionRole}
     >
-      {Icon ? <Icon size={isDesktop ? 18 : 16} className={cn('shrink-0', iconColorMap[intent])} aria-hidden /> : null}
+      {Icon ? (
+        <Icon
+          size={isDesktop ? 18 : 16}
+          className={cn('shrink-0 transition-colors duration-300', iconColorMap[intent])}
+          aria-hidden
+        />
+      ) : null}
       {renderContent()}
     </button>
   )

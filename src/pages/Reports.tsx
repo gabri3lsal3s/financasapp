@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import PageHeader from '@/components/PageHeader'
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import MonthSelector from '@/components/MonthSelector'
+import MonthTransitionView from '@/components/MonthTransitionView'
+import YearSelector from '@/components/YearSelector'
+import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+import { useSwipeYear } from '@/hooks/useSwipeYear'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
-import ReportsPieLegendRow, { type ReportsPieLegendItem } from '@/components/reports/ReportsPieLegendRow'
-import Select from '@/components/Select'
+import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { PAGE_HEADERS } from '@/constants/pages'
 import Loader from '@/components/Loader'
 import { useReports } from '@/hooks/useReports'
@@ -27,9 +32,12 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { Scale, Loader2 } from 'lucide-react'
+import { Scale, Loader2, TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
+import { Sparkline } from '@/components/reports/reportsChartShared'
+import FinancialInsights from '@/components/reports/FinancialInsights'
+
 
 import AnnualFlowChart from '@/components/reports/AnnualFlowChart'
 import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
@@ -144,6 +152,8 @@ export default function Reports() {
   const [availableMonths, setAvailableMonths] = useState<string[]>([])
   const [loadingAvailablePeriods, setLoadingAvailablePeriods] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
+  const [compareWithPrevious, setCompareWithPrevious] = useState(false)
+  const [modalTab, setModalTab] = useState<'summary' | 'transactions'>('summary')
   const [detailModal, setDetailModal] = useState<DetailModalState>({
     isOpen: false,
     type: 'expense',
@@ -164,11 +174,30 @@ export default function Reports() {
   const [hiddenDailyConsolidatedSeries, setHiddenDailyConsolidatedSeries] = useState<string[]>([])
   const [hiddenMonthCompositionSeries, setHiddenMonthCompositionSeries] = useState<string[]>([])
   const [evolutionType, setEvolutionType] = useState<'expense' | 'income'>('expense')
-  const [drilldownSectionType, setDrilldownSectionType] = useState<'expense' | 'income'>('expense')
+  const [monthChartTab, setMonthChartTab] = useState<'daily' | 'weekly' | 'composition'>('daily')
+  const [compositionPieType, setCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
+  const [annualCompositionPieType, setAnnualCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
+  const [annualChartType, setAnnualChartType] = useState<'flow' | 'balance' | 'trend'>('flow')
   const {
     dashboardReportsWeightsEnabled,
     setDashboardReportsWeightsEnabled,
   } = useAppSettings()
+
+  // Swipe de mês — ativo quando no modo mês
+  const monthSwipe = useSwipeMonth(selectedMonth, setSelectedMonth)
+
+  // Swipe de ano — ativo quando no modo ano
+  const yearSwipe = useSwipeYear(
+    selectedYear,
+    (year) => {
+      setSelectedYear(year)
+      const monthsForYear = availableMonths.filter((m) => m.startsWith(`${year}-`))
+      if (monthsForYear.length > 0) setSelectedMonth(monthsForYear[0])
+    }
+  )
+
+  // Handler combinado: delega ao hook correto conforme o modo ativo
+  const swipeHandlers = viewMode === 'month' ? monthSwipe : yearSwipe
 
   useEffect(() => {
     let canceled = false
@@ -269,13 +298,24 @@ export default function Reports() {
   const previousMonth = useMemo(() => addMonths(selectedMonth, -1), [selectedMonth])
   const { monthlySummaries, categoryExpenses, monthlyCategoryExpenses, annualExpenses, loading } = useReports(selectedYear, includeReportWeights)
   const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear, includeReportWeights)
+  
+  const previousYear = selectedYear - 1
+  const { 
+    monthlySummaries: prevMonthlySummaries, 
+    loading: loadingPrevReports 
+  } = useReports(previousYear, includeReportWeights)
+
   const { expenses: monthExpenses, loading: loadingMonthExpenses } = useExpenses(selectedMonth)
   const { creditCards } = useCreditCards()
   const { incomes: monthIncomes, loading: loadingMonthIncomes } = useIncomes(selectedMonth)
   const { expenses: previousMonthExpenses, loading: loadingPreviousMonthExpenses } = useExpenses(previousMonth)
   const { incomes: previousMonthIncomes, loading: loadingPreviousMonthIncomes } = useIncomes(previousMonth)
   const { isOnline } = useNetworkStatus()
+
   const [portfolioTransactions, setPortfolioTransactions] = useState<
+    Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
+  >([])
+  const [previousPortfolioTransactions, setPreviousPortfolioTransactions] = useState<
     Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
   >([])
 
@@ -285,7 +325,10 @@ export default function Reports() {
     const loadPortfolioTransactions = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        if (!canceled) setPortfolioTransactions([])
+        if (!canceled) {
+          setPortfolioTransactions([])
+          setPreviousPortfolioTransactions([])
+        }
         return
       }
 
@@ -296,23 +339,41 @@ export default function Reports() {
         .maybeSingle()
 
       if (!portfolio) {
-        if (!canceled) setPortfolioTransactions([])
+        if (!canceled) {
+          setPortfolioTransactions([])
+          setPreviousPortfolioTransactions([])
+        }
         return
       }
 
+      // Mês Atual
       const [year, month] = selectedMonth.split('-').map(Number)
       const daysInMonth = new Date(year, month, 0).getDate()
       const rangeEnd = `${selectedMonth}-${String(daysInMonth).padStart(2, '0')}`
 
-      const { data } = await supabase
-        .from('portfolio_transactions')
-        .select('date, operation_type, quantity, price')
-        .eq('portfolio_id', portfolio.id)
-        .gte('date', `${selectedMonth}-01`)
-        .lte('date', rangeEnd)
+      // Mês Anterior
+      const [prevYear, prevMonthVal] = previousMonth.split('-').map(Number)
+      const prevDaysInMonth = new Date(prevYear, prevMonthVal, 0).getDate()
+      const prevRangeEnd = `${previousMonth}-${String(prevDaysInMonth).padStart(2, '0')}`
+
+      const [currentRes, previousRes] = await Promise.all([
+        supabase
+          .from('portfolio_transactions')
+          .select('date, operation_type, quantity, price')
+          .eq('portfolio_id', portfolio.id)
+          .gte('date', `${selectedMonth}-01`)
+          .lte('date', rangeEnd),
+        supabase
+          .from('portfolio_transactions')
+          .select('date, operation_type, quantity, price')
+          .eq('portfolio_id', portfolio.id)
+          .gte('date', `${previousMonth}-01`)
+          .lte('date', prevRangeEnd)
+      ])
 
       if (!canceled) {
-        setPortfolioTransactions(data || [])
+        setPortfolioTransactions(currentRes.data || [])
+        setPreviousPortfolioTransactions(previousRes.data || [])
       }
     }
 
@@ -320,6 +381,7 @@ export default function Reports() {
       void loadPortfolioTransactions()
     } else {
       setPortfolioTransactions([])
+      setPreviousPortfolioTransactions([])
     }
 
     const onDataChanged = () => {
@@ -330,7 +392,7 @@ export default function Reports() {
       canceled = true
       window.removeEventListener('local-data-changed', onDataChanged)
     }
-  }, [selectedMonth, isOnline])
+  }, [selectedMonth, previousMonth, isOnline])
 
   const { limits: monthExpenseLimits } = useExpenseCategoryLimits(selectedMonth)
   const { limits: previousMonthExpenseLimits } = useExpenseCategoryLimits(previousMonth)
@@ -374,14 +436,22 @@ export default function Reports() {
 
   const monthlyData = useMemo(
     () =>
-      monthlySummaries.map((s: MonthlySummary) => ({
-        month: formatMonthShort(s.month),
-        Rendas: s.total_income,
-        Despesas: s.total_expenses,
-        Investimentos: s.total_investments,
-        Saldo: s.balance,
-      })),
-    [monthlySummaries]
+      monthlySummaries.map((s: MonthlySummary, idx) => {
+        const prev = prevMonthlySummaries[idx]
+        return {
+          month: formatMonthShort(s.month),
+          Rendas: s.total_income,
+          Despesas: s.total_expenses,
+          Investimentos: Math.max(0, s.total_investments),
+          Saldo: s.balance,
+          ...(compareWithPrevious && prev ? {
+            'Rendas (Ano Ant.)': prev.total_income,
+            'Despesas (Ano Ant.)': prev.total_expenses,
+            'Investimentos (Ano Ant.)': Math.max(0, prev.total_investments),
+          } : {})
+        }
+      }),
+    [monthlySummaries, prevMonthlySummaries, compareWithPrevious]
   )
 
   const annualPieExpenses = useMemo(
@@ -456,14 +526,22 @@ export default function Reports() {
 
   const cumulativeBalanceData = useMemo(() => {
     let cumulative = 0
-    return monthlySummaries.map((item: MonthlySummary) => {
+    let prevCumulative = 0
+    return monthlySummaries.map((item: MonthlySummary, idx) => {
       cumulative += item.balance
+      const prevItem = prevMonthlySummaries[idx]
+      if (prevItem) {
+        prevCumulative += prevItem.balance
+      }
       return {
         month: formatMonthShort(item.month),
         SaldoAcumulado: cumulative,
+        ...(compareWithPrevious && prevItem ? {
+          'Saldo Acumulado (Ano Ant.)': prevCumulative,
+        } : {})
       }
     })
-  }, [monthlySummaries])
+  }, [monthlySummaries, prevMonthlySummaries, compareWithPrevious])
 
   const annualTotals = useMemo(() => {
     return monthlySummaries.reduce(
@@ -476,6 +554,18 @@ export default function Reports() {
       { income: 0, expenses: 0, investments: 0, balance: 0 }
     )
   }, [monthlySummaries])
+
+  const previousYearTotals = useMemo(() => {
+    return prevMonthlySummaries.reduce(
+      (acc: { income: number; expenses: number; investments: number; balance: number }, month: MonthlySummary) => ({
+        income: acc.income + month.total_income,
+        expenses: acc.expenses + month.total_expenses,
+        investments: acc.investments + month.total_investments,
+        balance: acc.balance + month.balance,
+      }),
+      { income: 0, expenses: 0, investments: 0, balance: 0 }
+    )
+  }, [prevMonthlySummaries])
 
   const annualExpenseTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
     return [...categoryExpenses]
@@ -872,6 +962,7 @@ export default function Reports() {
     period: 'month' | 'year' = 'month'
   ) => {
     setDetailSearch('')
+    setModalTab('summary')
     setDetailModal({
       isOpen: true,
       type,
@@ -1022,7 +1113,16 @@ export default function Reports() {
       Rendas: 0,
       Despesas: 0,
       Investimentos: 0,
-    }))
+    })) as Array<{
+      day: number
+      label: string
+      Rendas: number
+      Despesas: number
+      Investimentos: number
+      'Rendas (Mês Ant.)'?: number
+      'Despesas (Mês Ant.)'?: number
+      'Investimentos (Mês Ant.)'?: number
+    }>
 
     monthExpenses.forEach((expense) => {
       if (!expense.date?.startsWith(selectedMonth)) {
@@ -1055,6 +1155,57 @@ export default function Reports() {
       totalsByDay[index].Investimentos += value
     })
 
+    // Adicionar comparação do mês anterior se habilitado
+    if (compareWithPrevious && previousMonth) {
+      const [prevYear, prevMonthVal] = previousMonth.split('-').map(Number)
+      const prevDaysInMonth = new Date(prevYear, prevMonthVal, 0).getDate()
+      
+      const prevTotalsByDay = Array.from({ length: prevDaysInMonth }, () => ({
+        Rendas: 0,
+        Despesas: 0,
+        Investimentos: 0,
+      }))
+
+      previousMonthExpenses.forEach((expense) => {
+        if (!expense.date?.startsWith(previousMonth)) return
+        const day = Number(expense.date.slice(8, 10))
+        if (day >= 1 && day <= prevDaysInMonth) {
+          prevTotalsByDay[day - 1].Despesas += getAmountByMode(expense)
+        }
+      })
+
+      previousMonthIncomes.forEach((income) => {
+        if (!income.date?.startsWith(previousMonth)) return
+        const day = Number(income.date.slice(8, 10))
+        if (day >= 1 && day <= prevDaysInMonth) {
+          prevTotalsByDay[day - 1].Rendas += getAmountByMode(income)
+        }
+      })
+
+      const prevPortfolioByDay = portfolioInvestmentByDay(
+        previousPortfolioTransactions,
+        previousMonth,
+        prevDaysInMonth
+      )
+      prevPortfolioByDay.forEach((value, index) => {
+        prevTotalsByDay[index].Investimentos += value
+      })
+
+      // Injetar dados pareados dia a dia
+      totalsByDay.forEach((dayData, index) => {
+        const prevDayData = prevTotalsByDay[index]
+        if (prevDayData) {
+          dayData['Rendas (Mês Ant.)'] = prevDayData.Rendas
+          dayData['Despesas (Mês Ant.)'] = prevDayData.Despesas
+          dayData['Investimentos (Mês Ant.)'] = prevDayData.Investimentos
+        } else {
+          dayData['Rendas (Mês Ant.)'] = 0
+          dayData['Despesas (Mês Ant.)'] = 0
+          dayData['Investimentos (Mês Ant.)'] = 0
+        }
+      })
+    }
+
     return totalsByDay
   }, [
     monthExpenses,
@@ -1062,6 +1213,11 @@ export default function Reports() {
     portfolioTransactions,
     selectedMonth,
     getAmountByMode,
+    compareWithPrevious,
+    previousMonth,
+    previousMonthExpenses,
+    previousMonthIncomes,
+    previousPortfolioTransactions
   ])
 
   const weekdayExpenseData = useMemo(() => {
@@ -1099,389 +1255,674 @@ export default function Reports() {
     )
   }, [weekdayExpenseData])
 
-  const monthExpenseTotal = useMemo(
-    () => monthExpenseCategories.reduce((sum, cat) => sum + cat.total, 0),
-    [monthExpenseCategories]
-  )
 
-  const monthIncomeTotal = useMemo(
-    () => monthIncomeCategories.reduce((sum, cat) => sum + cat.total, 0),
-    [monthIncomeCategories]
-  )
 
-  const yearMonths = useMemo(() => {
-    return monthsForSelectedYear.map((monthValue) => ({
-      value: monthValue,
-      label: formatMonthShort(monthValue),
-    }))
-  }, [monthsForSelectedYear])
 
-  const loadingState = loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods
+
+  const loadingState = loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods || loadingPrevReports
   const savingsRate = monthSummary && monthSummary.total_income > 0
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0
 
-  const renderPieCard = (title: string, data: PieDatum[]) => (
-    <Card className="h-full flex flex-col chart-interactive-layer">
-      <h3 className="text-lg font-semibold text-primary mb-4">{title}</h3>
-      {data.length === 0 ? (
-        <p className="text-sm text-secondary">Sem dados para exibir.</p>
-      ) : (
-        <>
-          <CategoryPieChart
-            data={data}
-            onClick={(entry: PieDatum) => {
-              if (entry.categoryId && entry.detailType) {
-                openDetailModal(entry.detailType, entry.categoryId, entry.name, entry.detailPeriod || 'month')
-              }
-            }}
-            outerRadius={100}
-          />
+  const previousMonthIncomeTotal = useMemo(() => {
+    return previousMonthIncomes.reduce((sum, item) => sum + getAmountByMode(item), 0)
+  }, [previousMonthIncomes, getAmountByMode])
 
-          <div className="mt-4 space-y-3">
-            {data
-              .slice()
-              .sort((a, b) => b.value - a.value)
-              .slice(0, 5)
-              .map((item) => {
-                const total = data.reduce((sum, current) => sum + current.value, 0)
-                const legendItem: ReportsPieLegendItem = {
-                  name: item.name,
-                  value: item.value,
-                  color: item.color,
-                  categoryId: item.categoryId,
-                  detailType: item.detailType,
-                  detailPeriod: item.detailPeriod,
-                }
+  const previousMonthExpenseTotal = useMemo(() => {
+    return previousMonthExpenses.reduce((sum, item) => sum + getAmountByMode(item), 0)
+  }, [previousMonthExpenses, getAmountByMode])
 
-                return (
-                  <ReportsPieLegendRow
-                    key={item.name}
-                    item={legendItem}
-                    total={total}
-                    onOpen={(row) => {
-                      if (row.categoryId && row.detailType) {
-                        openDetailModal(row.detailType, row.categoryId, row.name, row.detailPeriod || 'month')
-                      }
-                    }}
-                  />
-                )
-              })}
+  const previousMonthInvestmentTotal = useMemo(() => {
+    const [year, month] = previousMonth.split('-').map(Number)
+    if (!year || !month) return 0
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const prevPortfolioByDay = portfolioInvestmentByDay(
+      previousPortfolioTransactions,
+      previousMonth,
+      daysInMonth
+    )
+    return prevPortfolioByDay.reduce((sum, val) => sum + val, 0)
+  }, [previousPortfolioTransactions, previousMonth])
+
+  const previousMonthBalance = previousMonthIncomeTotal - previousMonthExpenseTotal - previousMonthInvestmentTotal
+  const previousMonthSavingsRate = previousMonthIncomeTotal > 0
+    ? (previousMonthBalance / previousMonthIncomeTotal) * 100
+    : 0
+
+  const limitsExceededCount = useMemo(() => {
+    if (viewMode !== 'month') return 0
+    let count = 0
+    monthExpenseCategories.forEach((cat) => {
+      const limit = monthExpenseLimitMap.get(cat.category_id)
+      if (limit && cat.total > limit) {
+        count++
+      }
+    })
+    return count
+  }, [viewMode, monthExpenseCategories, monthExpenseLimitMap])
+
+  const renderKPICard = useCallback(({
+    title,
+    value,
+    subtext,
+    icon,
+    glowColor,
+    sparklineData,
+    trendPercent,
+  }: {
+    title: string
+    value: string
+    subtext: string
+    icon: React.ReactNode
+    glowColor: string
+    sparklineData: number[]
+    trendPercent?: number | null
+  }) => {
+    const isDespesa = title.toLowerCase().includes('despesa')
+    const isTrendPositive = trendPercent !== undefined && trendPercent !== null && trendPercent >= 0
+
+    return (
+      <Card className="h-full relative overflow-hidden flex flex-col p-4 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
+        {/* Glow Halo */}
+        <div 
+          className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300" 
+          style={{ backgroundColor: glowColor }}
+        />
+        
+        <div className="flex items-start justify-between gap-3 w-full">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight">
+              {title}
+            </p>
+            <p className="text-lg font-extrabold font-mono text-primary mt-2.5 leading-none">
+              {value}
+            </p>
           </div>
-        </>
-      )}
-    </Card>
-  )
+          
+          <span 
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+            style={{ 
+              backgroundColor: `${glowColor}15`, 
+              color: glowColor,
+              boxShadow: `0 0 8px ${glowColor}0a` 
+            }}
+          >
+            {icon}
+          </span>
+        </div>
 
-  return (
-    <div>
-      <PageHeader title={PAGE_HEADERS.reports.title} subtitle={PAGE_HEADERS.reports.description} />
+        {/* Embedded Sparkline */}
+        <div className="mt-3.5 h-8 w-full overflow-hidden flex items-end">
+          <Sparkline data={sparklineData} color={glowColor} height={28} />
+        </div>
 
-      <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
-        <Card className="relative z-20 overflow-visible glass-glow-card">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
-            <div>
-              <label className="block text-sm font-medium text-primary mb-2">Visualização</label>
-              <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
-                <TabsList className="w-full grid grid-cols-2">
-                  <TabsTrigger value="month" className="text-xs">Mês</TabsTrigger>
-                  <TabsTrigger value="year" className="text-xs">Ano</TabsTrigger>
-                </TabsList>
-              </Tabs>
+        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[10px] font-semibold">
+          <span className="text-secondary truncate">{subtext}</span>
+          {trendPercent !== undefined && trendPercent !== null ? (
+            <span 
+              className={`shrink-0 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold ${
+                isDespesa
+                  ? (isTrendPositive ? 'text-expense bg-expense/10' : 'text-income bg-income/10')
+                  : (isTrendPositive ? 'text-income bg-income/10' : 'text-expense bg-expense/10')
+              }`}
+            >
+              {isTrendPositive ? '+' : ''}
+              {formatNumberWithTwoDecimalsBR(trendPercent)}
+              {title.toLowerCase().includes('taxa') ? ' pp' : '%'}
+            </span>
+          ) : null}
+        </div>
+      </Card>
+    )
+  }, [])
+
+  const getPaymentMethodIcon = (categoryId: string) => {
+    const norm = categoryId.toLowerCase()
+    if (norm.includes('cash') || norm.includes('dinheiro')) return <Coins size={12} />
+    if (norm.includes('credit') || norm.includes('cartao') || norm.includes('card')) return <CreditCard size={12} />
+    if (norm.includes('pix')) return <QrCode size={12} />
+    if (norm.includes('debit') || norm.includes('debito')) return <CreditCard size={12} />
+    if (norm.includes('transfer') || norm.includes('transferencia')) return <ArrowLeftRight size={12} />
+    return <Landmark size={12} />
+  }
+
+  const renderUnifiedCompositionCard = (
+    activeType: 'expense' | 'income' | 'payment',
+    setActiveType: (val: 'expense' | 'income' | 'payment') => void,
+    periodLabel: string,
+    expensesData: PieDatum[],
+    incomesData: PieDatum[],
+    paymentsData: PieDatum[],
+    isYear: boolean = false
+  ) => {
+    const activeData = {
+      expense: expensesData,
+      income: incomesData,
+      payment: paymentsData,
+    }[activeType]
+
+    const total = activeData.reduce((sum, current) => sum + current.value, 0)
+
+    return (
+      <Card className="border border-glass surface-glass shadow-sm transition-all duration-300 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 border-b border-glass/40 pb-4">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+              Composição detalhada
+            </h3>
+            <p className="text-[10px] text-secondary mt-0.5">
+              Visualização de progresso e limites em {periodLabel}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0 self-start sm:self-auto">
+            <div className="flex items-center gap-1 bg-secondary/10 p-0.5 rounded-lg border border-glass">
+              <ReportsTabButton
+                active={activeType === 'expense'}
+                onClick={() => setActiveType('expense')}
+              >
+                Despesas
+              </ReportsTabButton>
+              <ReportsTabButton
+                active={activeType === 'income'}
+                onClick={() => setActiveType('income')}
+              >
+                Rendas
+              </ReportsTabButton>
+              <ReportsTabButton
+                active={activeType === 'payment'}
+                onClick={() => setActiveType('payment')}
+              >
+                Meios
+              </ReportsTabButton>
             </div>
+          </div>
+        </div>
 
-            <div>
-              <Select
-                label="Ano"
-                value={String(selectedYear)}
-                onChange={(event) => {
-                  const year = parseInt(event.target.value)
-                  setSelectedYear(year)
-                  const monthsForYear = availableMonths.filter((month) => month.startsWith(`${year}-`))
-                  if (monthsForYear.length > 0) {
-                    setSelectedMonth(monthsForYear[0])
+        {activeData.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm text-secondary italic">Sem dados detalhados para exibir nesta visão.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Lado Esquerdo: Gráfico de Pizza (1/3 da largura no desktop) */}
+            <div className="lg:col-span-1 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-glass/40 pb-6 lg:pb-0 lg:pr-6 min-h-[260px]">
+              <CategoryPieChart
+                data={activeData}
+                onClick={(entry: PieDatum) => {
+                  if (entry.categoryId && entry.detailType) {
+                    openDetailModal(entry.detailType, entry.categoryId, entry.name, entry.detailPeriod || 'month')
                   }
                 }}
-                options={
-                  availableYears.length > 0
-                    ? availableYears.map((year) => ({ value: String(year), label: String(year) }))
-                    : [{ value: String(selectedYear), label: 'Sem dados' }]
-                }
-                className="w-full"
+                outerRadius={80}
+                innerRadius={58}
               />
             </div>
 
-            <div>
-              <Select
-                label="Mês"
-                value={selectedMonth}
-                onChange={(event) => {
-                  setSelectedMonth(event.target.value)
-                  setViewMode('month')
-                }}
-                options={
-                  yearMonths.length > 0
-                    ? yearMonths
-                    : [{ value: selectedMonth, label: 'Sem meses com dados' }]
-                }
-                className="w-full"
-              />
-            </div>
+            {/* Lado Direito: Listagem Detalhada (2/3 da largura no desktop) */}
+            <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                {activeData
+                  .slice()
+                  .sort((a, b) => b.value - a.value)
+                  .map((item, index) => {
+                    const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
+                    
+                    if (activeType === 'payment') {
+                      const pct = total > 0 ? (item.value / total) * 100 : 0
+                      const pmIcon = getPaymentMethodIcon(item.categoryId || '')
+                      return (
+                        <Button
+                          key={item.name}
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (item.categoryId && item.detailType) {
+                              openDetailModal(item.detailType, item.categoryId, item.name, item.detailPeriod || 'month')
+                            }
+                          }}
+                          className={`w-full h-auto text-left flex-col items-stretch p-2.5 animate-stagger-item transition-all hover:scale-[1.005] hover:border-glass-strong surface-glass ${staggerClass}`}
+                        >
+                          <div className="flex items-center justify-between gap-3 w-full">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span 
+                                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" 
+                                style={{ backgroundColor: `${item.color}15`, color: item.color }}
+                              >
+                                {pmIcon}
+                              </span>
+                              <span className="text-xs font-semibold text-primary truncate">{item.name}</span>
+                            </div>
+                            <span className="text-xs font-bold text-primary font-mono shrink-0">
+                              {formatCurrency(item.value)}
+                            </span>
+                          </div>
+                          
+                          <div className="text-[9px] text-secondary font-medium mt-1 truncate">
+                            {formatNumberWithTwoDecimalsBR(pct)}% do total
+                          </div>
+                          
+                          <div className="w-full h-1 rounded-full bg-secondary/20 mt-1.5 overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                          </div>
+                        </Button>
+                      )
+                    }
 
-            <div>
-              <label className="block text-sm font-medium text-primary mb-2">Pesos</label>
-              <Button
-                type="button"
-                onClick={() => setDashboardReportsWeightsEnabled(!dashboardReportsWeightsEnabled)}
-                variant="outline"
-                fullWidth
-                size="md"
-                className="w-full flex items-center justify-center gap-2"
-                title={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              >
-                <Scale size={18} />
-                <span className="hidden sm:inline">
-                  {dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-                </span>
-              </Button>
+                    const id = item.categoryId || ''
+                    const isExpense = activeType === 'expense'
+                    const target = isYear ? null : (
+                      isExpense 
+                        ? monthExpenseLimitMap.get(id) 
+                        : monthIncomeExpectationMap.get(id)
+                    )
+
+                    return (
+                      <ReportsCategoryRowButton
+                        key={id}
+                        categoryId={id}
+                        categoryName={item.name}
+                        total={item.value}
+                        color={item.color}
+                        totalBase={total}
+                        targetAmount={target}
+                        isExpense={isExpense}
+                        staggerClass={staggerClass}
+                        onOpen={(catId, catName) =>
+                          openDetailModal(isExpense ? 'expense' : 'income', catId, catName, isYear ? 'year' : 'month')
+                        }
+                      />
+                    )
+                  })}
+              </div>
             </div>
           </div>
-          <p className="text-xs text-secondary mt-3">
-            {includeReportWeights ? 'Valores ajustados pelos pesos dos lançamentos' : 'Valores brutos, sem aplicação de pesos'}
-          </p>
-        </Card>
+        )}
+      </Card>
+    )
+  }
 
+  return (
+    <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
+      <PageHeader
+        title={PAGE_HEADERS.reports.title}
+        subtitle={PAGE_HEADERS.reports.description}
+        action={
+          <PageHeaderActions>
+            {/* Modo mês = padrão (cinza), modo ano = ativo (colorido) */}
+            <PageHeaderActionButton
+              intent={viewMode === 'year' ? 'balance' : 'neutral'}
+              icon={viewMode === 'month' ? CalendarDays : Calendar}
+              label={viewMode === 'month' ? 'Visualizar por Ano' : 'Visualizar por Mês'}
+              onClick={() => setViewMode(viewMode === 'month' ? 'year' : 'month')}
+              title={viewMode === 'month' ? 'Visualizar por Ano' : 'Visualizar por Mês'}
+            />
+            {/* Pesos: cinza quando desativado, âmbar quando ativo */}
+            <PageHeaderActionButton
+              intent={dashboardReportsWeightsEnabled ? 'warning' : 'neutral'}
+              icon={Scale}
+              label={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              onClick={() => setDashboardReportsWeightsEnabled(!dashboardReportsWeightsEnabled)}
+              title={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+            />
+            {/* Comparar: ícone fixo GitCompareArrows, cinza quando inativo, verde quando ativo */}
+            <PageHeaderActionButton
+              intent={compareWithPrevious ? 'income' : 'neutral'}
+              icon={GitCompareArrows}
+              label={compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica'}
+              onClick={() => setCompareWithPrevious(!compareWithPrevious)}
+              title={compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica'}
+            />
+          </PageHeaderActions>
+        }
+      />
+
+      <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
+        {/* Seletor de período — mesmo padrão das páginas de despesas e rendimentos */}
+        {viewMode === 'month' ? (
+          <MonthSelector
+            value={selectedMonth}
+            onChange={(month) => {
+              setSelectedMonth(month)
+              setViewMode('month')
+            }}
+            isOnline={isOnline}
+          />
+        ) : (
+          <YearSelector
+            value={selectedYear}
+            onChange={(year) => {
+              setSelectedYear(year)
+              const monthsForYear = availableMonths.filter((month) => month.startsWith(`${year}-`))
+              if (monthsForYear.length > 0) {
+                setSelectedMonth(monthsForYear[0])
+              }
+            }}
+            availableYears={availableYears}
+          />
+        )}
+
+        <MonthTransitionView month={viewMode === 'month' ? selectedMonth : String(selectedYear)}>
         {loadingState ? (
-          <Loader text="Carregando..." className="py-8" />
+          <Loader text="Carregando dados..." className="py-12" />
         ) : (
           <>
             {viewMode === 'year' ? (
-              <div className="space-y-4">
+              <div className="space-y-6 animate-stagger">
+                {/* KPIs Anuais */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
-                  <Card className="h-full animate-stagger-item delay-50">
-                    <p className="text-sm text-secondary">Rendas no ano</p>
-                    <p className="text-2xl font-bold mt-2 text-income">{formatCurrency(annualTotals.income)}</p>
-                  </Card>
-                  <Card className="h-full animate-stagger-item delay-100">
-                    <p className="text-sm text-secondary">Despesas no ano</p>
-                    <p className="text-2xl font-bold mt-2 text-expense">{formatCurrency(annualTotals.expenses)}</p>
-                  </Card>
-                  <Card className="h-full animate-stagger-item delay-150">
-                    <p className="text-sm text-secondary">Investimentos no ano</p>
-                    <p className="text-2xl font-bold mt-2 text-balance">{formatCurrency(annualTotals.investments)}</p>
-                  </Card>
-                  <Card className="h-full animate-stagger-item delay-200">
-                    <p className="text-sm text-secondary">Saldo anual</p>
-                    <p className={`text-2xl font-bold mt-2 ${annualTotals.balance >= 0 ? 'text-income' : 'text-expense'}`}>
-                      {formatCurrency(annualTotals.balance)}
-                    </p>
-                  </Card>
+                  {renderKPICard({
+                    title: 'Rendas no ano',
+                    value: formatCurrency(annualTotals.income),
+                    subtext: `Total acumulado em ${selectedYear}`,
+                    icon: <TrendingUp size={16} />,
+                    glowColor: 'var(--color-income)',
+                    sparklineData: monthlySummaries.map((s) => s.total_income),
+                    trendPercent: previousYearTotals.income > 0 
+                      ? ((annualTotals.income - previousYearTotals.income) / previousYearTotals.income) * 100 
+                      : null
+                  })}
+                  {renderKPICard({
+                    title: 'Despesas no ano',
+                    value: formatCurrency(annualTotals.expenses),
+                    subtext: `Total acumulado em ${selectedYear}`,
+                    icon: <TrendingDown size={16} />,
+                    glowColor: 'var(--color-expense)',
+                    sparklineData: monthlySummaries.map((s) => s.total_expenses),
+                    trendPercent: previousYearTotals.expenses > 0 
+                      ? ((annualTotals.expenses - previousYearTotals.expenses) / previousYearTotals.expenses) * 100 
+                      : null
+                  })}
+                  {renderKPICard({
+                    title: 'Investimentos no ano',
+                    value: formatCurrency(annualTotals.investments),
+                    subtext: `Total acumulado em ${selectedYear}`,
+                    icon: <Wallet size={16} />,
+                    glowColor: 'var(--color-balance)',
+                    sparklineData: monthlySummaries.map((s) => s.total_investments),
+                    trendPercent: previousYearTotals.investments > 0 
+                      ? ((annualTotals.investments - previousYearTotals.investments) / previousYearTotals.investments) * 100 
+                      : null
+                  })}
+                  {renderKPICard({
+                    title: 'Saldo anual',
+                    value: formatCurrency(annualTotals.balance),
+                    subtext: `Balanço final consolidado`,
+                    icon: <Percent size={16} />,
+                    glowColor: annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
+                    sparklineData: monthlySummaries.map((s) => s.balance),
+                    trendPercent: previousYearTotals.balance !== 0
+                      ? ((annualTotals.balance - previousYearTotals.balance) / Math.abs(previousYearTotals.balance)) * 100
+                      : null
+                  })}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 items-stretch">
-                  <Card className="h-full flex flex-col chart-interactive-layer">
-                    <h3 className="text-lg font-semibold text-primary mb-4">Fluxo mensal ({selectedYear})</h3>
-                    <AnnualFlowChart
-                      data={monthlyData}
-                      hiddenSeries={hiddenAnnualFlowSeries}
-                      onToggleSeries={toggleAnnualFlowSeries}
-                    />
-                  </Card>
+                {/* Insights Anuais */}
+                <FinancialInsights
+                  viewMode="year"
+                  periodLabel={String(selectedYear)}
+                  incomeTotal={annualTotals.income}
+                  expenseTotal={annualTotals.expenses}
+                  savingsRate={annualTotals.income > 0 ? (annualTotals.balance / annualTotals.income) * 100 : 0}
+                  categoryExpenses={categoryExpenses}
+                  previousExpenseTotal={previousYearTotals.expenses}
+                />
 
-                  <Card className="h-full flex flex-col chart-interactive-layer">
-                    <h3 className="text-lg font-semibold text-primary mb-4">Saldo acumulado ({selectedYear})</h3>
-                    <CumulativeBalanceChart data={cumulativeBalanceData} />
-                  </Card>
-                </div>
+                <div className="space-y-6">
+                  {/* Gráficos de Fluxo/Evolução (Full Width) */}
+                  <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+                          {
+                            annualChartType === 'flow' ? 'Fluxo Mensal' :
+                            annualChartType === 'balance' ? 'Saldo Acumulado' :
+                            `Evolução por Categoria`
+                          }
+                        </h3>
+                        <p className="text-[10px] text-secondary mt-0.5">
+                          {
+                            annualChartType === 'flow' ? `Entradas, saídas e investimentos mensais em ${selectedYear}` :
+                            annualChartType === 'balance' ? `Evolução do patrimônio líquido acumulado em ${selectedYear}` :
+                            `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} em ${selectedYear}`
+                          }
+                        </p>
+                      </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-                  {renderPieCard(`Despesas por categoria (${selectedYear})`, annualPieExpenses)}
-                  {renderPieCard(`Rendas por categoria (${selectedYear})`, annualPieIncomes)}
-                  {renderPieCard(`Formas de Pagamento (${selectedYear})`, annualPiePaymentMethods)}
-                </div>
+                      <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto shrink-0">
+                        {/* Sub-seletor condicional para Despesas/Rendas na Evolução */}
+                        {annualChartType === 'trend' && (
+                          <div className="flex items-center gap-1 mr-2 border-r border-glass/40 pr-2">
+                            <ReportsTabButton
+                              active={evolutionType === 'expense'}
+                              onClick={() => setEvolutionType('expense')}
+                            >
+                              Despesas
+                            </ReportsTabButton>
+                            <ReportsTabButton
+                              active={evolutionType === 'income'}
+                              onClick={() => setEvolutionType('income')}
+                            >
+                              Rendas
+                            </ReportsTabButton>
+                          </div>
+                        )}
 
-                <div className="space-y-4">
-                  <Card className="h-full flex flex-col chart-interactive-layer">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                      <h3 className="text-lg font-semibold text-primary">
-                        Evolução mensal por categoria ({evolutionType === 'expense' ? 'despesas' : 'rendas'})
-                      </h3>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant={evolutionType === 'expense' ? 'secondary' : 'outline'}
-                          className="min-h-0 py-1 px-3 text-xs"
-                          onClick={() => setEvolutionType('expense')}
-                        >
-                          Despesas
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={evolutionType === 'income' ? 'secondary' : 'outline'}
-                          className="min-h-0 py-1 px-3 text-xs"
-                          onClick={() => setEvolutionType('income')}
-                        >
-                          Rendas
-                        </Button>
+                        <div className="flex items-center gap-1 bg-secondary/10 p-0.5 rounded-lg border border-glass">
+                          <ReportsTabButton
+                            active={annualChartType === 'flow'}
+                            onClick={() => setAnnualChartType('flow')}
+                          >
+                            Fluxo
+                          </ReportsTabButton>
+                          <ReportsTabButton
+                            active={annualChartType === 'balance'}
+                            onClick={() => setAnnualChartType('balance')}
+                          >
+                            Saldo
+                          </ReportsTabButton>
+                          <ReportsTabButton
+                            active={annualChartType === 'trend'}
+                            onClick={() => setAnnualChartType('trend')}
+                          >
+                            Evolução
+                          </ReportsTabButton>
+                        </div>
                       </div>
                     </div>
-                    {((evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries).length === 0 || 
-                      (evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData).length === 0) ? (
-                      <p className="text-sm text-secondary">Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no ano selecionado.</p>
-                    ) : (
-                      <CategoryTrendChart
-                        data={evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData}
-                        series={evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries}
-                        hiddenSeries={evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries}
-                        onToggleSeries={evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries}
-                      />
-                    )}
-                  </Card>
-                </div>
 
+                    <div className="w-full mt-2">
+                      {annualChartType === 'flow' && (
+                        <AnnualFlowChart
+                          data={monthlyData}
+                          hiddenSeries={hiddenAnnualFlowSeries}
+                          onToggleSeries={toggleAnnualFlowSeries}
+                        />
+                      )}
+                      {annualChartType === 'balance' && (
+                        <CumulativeBalanceChart data={cumulativeBalanceData} />
+                      )}
+                      {annualChartType === 'trend' && (
+                        <>
+                          {((evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries).length === 0 || 
+                            (evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData).length === 0) ? (
+                            <p className="text-sm text-secondary py-12 text-center italic">
+                              Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no ano selecionado.
+                            </p>
+                          ) : (
+                            <CategoryTrendChart
+                              data={evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData}
+                              series={evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries}
+                              hiddenSeries={evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries}
+                              onToggleSeries={evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries}
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Painel Unificado de Composição & Detalhamento */}
+                  {renderUnifiedCompositionCard(
+                    annualCompositionPieType,
+                    setAnnualCompositionPieType,
+                    String(selectedYear),
+                    annualPieExpenses,
+                    annualPieIncomes,
+                    annualPiePaymentMethods,
+                    true
+                  )}
+                </div>
               </div>
             ) : monthSummary ? (
-              <div className="space-y-4">
+              <div className="space-y-6 animate-stagger">
+                {/* KPIs Mensais */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
-                  <Card className="h-full animate-stagger-item delay-50">
-                    <p className="text-sm text-secondary">Rendas de {formatMonth(selectedMonth)}</p>
-                    <p className="text-2xl font-bold mt-2 text-income">{formatCurrency(monthSummary.total_income)}</p>
-                  </Card>
-                  <Card className="h-full animate-stagger-item delay-100">
-                    <p className="text-sm text-secondary">Despesas de {formatMonth(selectedMonth)}</p>
-                    <p className="text-2xl font-bold mt-2 text-expense">{formatCurrency(monthSummary.total_expenses)}</p>
-                  </Card>
-                  <Card className="h-full animate-stagger-item delay-150">
-                    <p className="text-sm text-secondary">Investimentos de {formatMonth(selectedMonth)}</p>
-                    <p className="text-2xl font-bold mt-2 text-balance">{formatCurrency(monthSummary.total_investments)}</p>
-                  </Card>
-                  <Card className="h-full animate-stagger-item delay-200">
-                    <p className="text-sm text-secondary">Taxa de saldo do mês</p>
-                    <p className={`text-2xl font-bold mt-2 ${savingsRate >= 0 ? 'text-income' : 'text-expense'}`}>
-                      {`${formatNumberWithTwoDecimalsBR(savingsRate)}%`}
-                    </p>
-                  </Card>
+                  {renderKPICard({
+                    title: 'Rendas do mês',
+                    value: formatCurrency(monthSummary.total_income),
+                    subtext: `Receitas consolidadas`,
+                    icon: <TrendingUp size={16} />,
+                    glowColor: 'var(--color-income)',
+                    sparklineData: dailyConsolidatedData.map((d) => d.Rendas),
+                    trendPercent: previousMonthIncomeTotal > 0 
+                      ? ((monthSummary.total_income - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100 
+                      : null
+                  })}
+                  {renderKPICard({
+                    title: 'Despesas do mês',
+                    value: formatCurrency(monthSummary.total_expenses),
+                    subtext: `Despesas consolidadas`,
+                    icon: <TrendingDown size={16} />,
+                    glowColor: 'var(--color-expense)',
+                    sparklineData: dailyConsolidatedData.map((d) => d.Despesas),
+                    trendPercent: previousMonthExpenseTotal > 0 
+                      ? ((monthSummary.total_expenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100 
+                      : null
+                  })}
+                  {renderKPICard({
+                    title: 'Investimentos do mês',
+                    value: formatCurrency(monthSummary.total_investments),
+                    subtext: `Investimentos em ativos`,
+                    icon: <Wallet size={16} />,
+                    glowColor: 'var(--color-balance)',
+                    sparklineData: dailyConsolidatedData.map((d) => d.Investimentos),
+                    trendPercent: previousMonthInvestmentTotal > 0 
+                      ? ((monthSummary.total_investments - previousMonthInvestmentTotal) / previousMonthInvestmentTotal) * 100 
+                      : null
+                  })}
+                  {renderKPICard({
+                    title: 'Taxa de saldo',
+                    value: `${formatNumberWithTwoDecimalsBR(savingsRate)}%`,
+                    subtext: `Saldo líquido: ${formatCurrency(monthSummary.balance)}`,
+                    icon: <Percent size={16} />,
+                    glowColor: savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
+                    sparklineData: dailyConsolidatedData.map((d) => d.Rendas - d.Despesas - d.Investimentos),
+                    trendPercent: previousMonthIncomeTotal > 0 
+                      ? savingsRate - previousMonthSavingsRate 
+                      : null
+                  })}
                 </div>
 
-                <Card className="chart-interactive-layer">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                    <h3 className="text-lg font-semibold text-primary">Fluxo diário consolidado ({formatMonth(selectedMonth)})</h3>
-                    <span className="text-sm text-secondary">Rendas, despesas e investimentos por dia</span>
-                  </div>
-                  <DailyFlowChart
-                    data={dailyConsolidatedData}
-                    hiddenSeries={hiddenDailyConsolidatedSeries}
-                    onToggleSeries={toggleDailyConsolidatedSeries}
-                    xAxisKey="label"
-                  />
-                </Card>
+                {/* Insights Mensais */}
+                <FinancialInsights
+                  viewMode="month"
+                  periodLabel={formatMonth(selectedMonth)}
+                  incomeTotal={monthSummary.total_income}
+                  expenseTotal={monthSummary.total_expenses}
+                  savingsRate={savingsRate}
+                  categoryExpenses={monthExpenseCategories}
+                  previousExpenseTotal={previousMonthExpenseTotal}
+                  weekdayExpenses={weekdayExpenseData}
+                  limitsExceededCount={limitsExceededCount}
+                />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-                  <Card className="h-full flex flex-col chart-interactive-layer">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                      <h3 className="text-lg font-semibold text-primary lg:whitespace-nowrap">Composição do mês</h3>
-                      <div className="text-sm text-secondary">
-                        <span>Saldo do mês: </span>
-                        <span
-                          className="font-bold"
-                          style={{ color: monthSummary.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}
-                        >
-                          {formatCurrency(monthSummary.balance)}
-                        </span>
-                      </div>
-                    </div>
-                    <MonthCompositionChart
-                      data={monthQuickData}
-                      hiddenSeries={hiddenMonthCompositionSeries}
-                      onToggleSeries={toggleMonthCompositionSeries}
-                    />
-                  </Card>
-
-                  <Card className="h-full flex flex-col chart-interactive-layer">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                      <h3 className="text-lg font-semibold text-primary lg:whitespace-nowrap">Gastos por dia da semana</h3>
-                      <div className="text-sm text-secondary">
-                        {topWeekdayExpense && topWeekdayExpense.Despesas > 0
-                          ? `Maior gasto: ${topWeekdayExpense.dia} (${formatCurrency(topWeekdayExpense.Despesas)})`
-                          : `Distribuição semanal de despesas em ${formatMonth(selectedMonth)}`}
-                      </div>
-                    </div>
-                    <WeekdayExpenseChart data={weekdayExpenseData} />
-                  </Card>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-                  {renderPieCard(`Despesas por categoria (${formatMonth(selectedMonth)})`, monthPieExpenses)}
-                  {renderPieCard(`Rendas por categoria (${formatMonth(selectedMonth)})`, monthPieIncomes)}
-                  {renderPieCard(`Formas de Pagamento (${formatMonth(selectedMonth)})`, monthPiePaymentMethods)}
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 items-stretch">
-                  <Card className="h-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                <div className="space-y-6">
+                  {/* Estação de Gráficos (Full Width) */}
+                  <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-primary">Detalhamento por categoria ({drilldownSectionType === 'expense' ? 'despesas' : 'rendas'})</h3>
-                        <p className="text-xs text-secondary">Categorias do mês com distribuição proporcional.</p>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+                          {monthChartTab === 'daily' ? 'Fluxo Diário Consolidado' :
+                           monthChartTab === 'weekly' ? 'Gastos por Dia da Semana' :
+                           'Composição de Saldo'}
+                        </h3>
+                         <p className="text-[10px] text-secondary mt-0.5">
+                           {monthChartTab === 'daily' ? `Rendas, despesas e investimentos por dia em ${formatMonth(selectedMonth)}` :
+                            monthChartTab === 'weekly' ? (topWeekdayExpense && topWeekdayExpense.Despesas > 0
+                              ? `Maior gasto: ${topWeekdayExpense.dia} (${formatCurrency(topWeekdayExpense.Despesas)})`
+                              : `Distribuição semanal de despesas em ${formatMonth(selectedMonth)}`) :
+                            `Proporções e saldos consolidados no mês`}
+                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant={drilldownSectionType === 'expense' ? 'secondary' : 'outline'}
-                          className="min-h-0 py-1 px-3 text-xs"
-                          onClick={() => setDrilldownSectionType('expense')}
+
+                      <div className="flex items-center gap-1 shrink-0 bg-secondary/10 p-0.5 rounded-lg border border-glass self-start sm:self-auto">
+                        <ReportsTabButton
+                          active={monthChartTab === 'daily'}
+                          onClick={() => setMonthChartTab('daily')}
                         >
-                          Despesas
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={drilldownSectionType === 'income' ? 'secondary' : 'outline'}
-                          className="min-h-0 py-1 px-3 text-xs"
-                          onClick={() => setDrilldownSectionType('income')}
+                          Fluxo Diário
+                        </ReportsTabButton>
+                        <ReportsTabButton
+                          active={monthChartTab === 'weekly'}
+                          onClick={() => setMonthChartTab('weekly')}
                         >
-                          Rendas
-                        </Button>
+                          Semana
+                        </ReportsTabButton>
+                        <ReportsTabButton
+                          active={monthChartTab === 'composition'}
+                          onClick={() => setMonthChartTab('composition')}
+                        >
+                          Composição
+                        </ReportsTabButton>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      {[...(drilldownSectionType === 'expense' ? monthExpenseCategories : monthIncomeCategories)]
-                        .sort((a, b) => b.total - a.total)
-                        .map((category, index) => {
-                          const isExpense = drilldownSectionType === 'expense'
-                          const id = isExpense ? (category as ExpenseCategorySummary).category_id : (category as IncomeCategorySummary).income_category_id
-                          const color = isExpense 
-                            ? getExpenseColor(id, category.color)
-                            : getIncomeColor(id, category.color)
-                          const totalBase = isExpense ? monthExpenseTotal : monthIncomeTotal
-                          const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
 
-                          return (
-                            <ReportsCategoryRowButton
-                              key={id}
-                              categoryId={id}
-                              categoryName={category.category_name}
-                              total={category.total}
-                              color={color}
-                              totalBase={totalBase}
-                              staggerClass={staggerClass}
-                              onOpen={(categoryId, categoryName) =>
-                                openDetailModal(isExpense ? 'expense' : 'income', categoryId, categoryName, 'month')
-                              }
-                            />
-                          )
-                        })}
+                    <div className="w-full mt-2">
+                      {monthChartTab === 'daily' && (
+                        <DailyFlowChart
+                          data={dailyConsolidatedData}
+                          hiddenSeries={hiddenDailyConsolidatedSeries}
+                          onToggleSeries={toggleDailyConsolidatedSeries}
+                          xAxisKey="label"
+                        />
+                      )}
+                      {monthChartTab === 'weekly' && (
+                        <WeekdayExpenseChart data={weekdayExpenseData} />
+                      )}
+                      {monthChartTab === 'composition' && (
+                        <MonthCompositionChart
+                          data={monthQuickData}
+                          hiddenSeries={hiddenMonthCompositionSeries}
+                          onToggleSeries={toggleMonthCompositionSeries}
+                        />
+                      )}
                     </div>
                   </Card>
+
+                  {/* Painel Unificado de Composição & Detalhamento */}
+                  {renderUnifiedCompositionCard(
+                    compositionPieType,
+                    setCompositionPieType,
+                    formatMonth(selectedMonth),
+                    monthPieExpenses,
+                    monthPieIncomes,
+                    monthPiePaymentMethods,
+                    false
+                  )}
                 </div>
               </div>
             ) : (
-              <Card>
-                <p className="text-secondary">Sem dados para o mês selecionado.</p>
+              <Card className="border border-glass surface-glass text-center py-10">
+                <p className="text-secondary">Sem dados consolidados para o mês selecionado.</p>
               </Card>
             )}
           </>
         )}
+        </MonthTransitionView>
       </div>
 
+      {/* Modal Refatorado de Detalhamento com Abas */}
       <Modal
         isOpen={detailModal.isOpen}
         onClose={() => {
@@ -1496,107 +1937,165 @@ export default function Reports() {
         } • ${detailModal.categoryName}`}
       >
         <div className="modal-body-stack">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação mensal</p>
-            <div className="rounded-xl border border-glass surface-glass p-3">
-              <p className="text-sm text-secondary">Total em {detailModal.period === 'year' ? selectedYear : formatMonth(selectedMonth)}</p>
-              <p className="text-xl font-bold text-primary">{formatCurrency(detailCurrentTotal)}</p>
-              <p className="text-sm text-secondary mt-2">Comparação com {detailModal.period === 'year' ? selectedYear - 1 : formatMonth(previousMonth)}</p>
-              <p className="text-sm text-primary">
-                {formatCurrency(detailPreviousTotal)}
-                {' • '}
-                <span className={detailDifference >= 0 ? 'text-income' : 'text-expense'}>
-                  {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
-                  {detailDifferencePct !== null ? ` (${detailDifferencePct >= 0 ? '+' : ''}${formatNumberWithTwoDecimalsBR(detailDifferencePct)}%)` : ''}
-                </span>
-              </p>
-            </div>
-          </div>
+          {/* Alternador de abas no modal */}
+          <Tabs value={modalTab} onValueChange={(value) => setModalTab(value as 'summary' | 'transactions')} className="mb-2">
+            <TabsList className="w-full grid grid-cols-2">
+              <TabsTrigger value="summary" className="text-xs">Resumo e Metas</TabsTrigger>
+              <TabsTrigger value="transactions" className="text-xs">Lançamentos ({filteredDetailItems.length})</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          {detailModal.period === 'month' && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do mês</p>
-              <div className="rounded-xl border border-glass surface-glass p-3">
-                {detailMonthlyGoal?.configured ? (
-                  <>
-                    <p className="text-sm text-primary">{detailMonthlyGoal.label}: {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}</p>
-                    <p className="text-sm text-primary">Atual: {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)}</p>
-                    <p className={`text-sm font-medium ${(detailMonthlyGoal.isExceeded ?? false) ? 'text-expense' : 'text-income'}`}>
-                      {(detailMonthlyGoal.isExceeded ?? false)
-                        ? `Acima da meta: ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)}`
-                        : `Faltam: ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)}`}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-secondary">Sem meta configurada para esta categoria no mês.</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {detailModal.isOpen && (
-            <CategoryDetailMiniChart
-              detailItems={detailItems}
-              period={detailModal.period}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              color={detailCategoryColor}
-            />
-          )}
-
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-secondary mb-2">Buscar lançamento</label>
-            <Input
-              type="text"
-              value={detailSearch}
-              onChange={(event) => setDetailSearch(event.target.value)}
-              placeholder="Digite parte da descrição"
-            />
-          </div>
-
-          <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do mês</p>
-
-          {filteredDetailItems.length === 0 ? (
-            <p className="text-sm text-secondary">
-              {yearDetailLoading && detailModal.period === 'year'
-                ? (
-                  <div className="flex items-center gap-2 text-sm text-secondary">
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Carregando lançamentos do ano...</span>
-                  </div>
-                )
-                : `Nenhum lançamento encontrado para esta categoria no ${detailModal.period === 'year' ? 'ano' : 'mês'} selecionado.`}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {visibleDetailItems.map((item, index) => (
-                <div
-                  key={item.id}
-                  className={`rounded-xl border border-glass surface-glass p-3 animate-stagger-item ${index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
-                    }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-primary truncate">{item.description}</p>
-                      <p className="text-xs text-secondary mt-1">{formatDate(item.date)}</p>
+          {modalTab === 'summary' ? (
+            <div className="space-y-4">
+              {/* Comparador de Período */}
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Comparativo Histórico</p>
+                <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] text-secondary">Total em {detailModal.period === 'year' ? selectedYear : formatMonth(selectedMonth)}</p>
+                      <p className="text-lg font-bold text-primary font-mono">{formatCurrency(detailCurrentTotal)}</p>
                     </div>
-                    <p className="text-sm font-semibold text-primary whitespace-nowrap">{formatCurrency(item.amount)}</p>
+                    {detailDifferencePct !== null && (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        detailDifference >= 0 
+                          ? (detailModal.type === 'expense' ? 'text-expense bg-expense/10' : 'text-income bg-income/10')
+                          : (detailModal.type === 'expense' ? 'text-income bg-income/10' : 'text-expense bg-expense/10')
+                      }`}>
+                        {detailDifference >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(detailDifferencePct)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2.5 pt-2.5 border-t border-glass flex justify-between text-xs text-secondary">
+                    <span>Período anterior:</span>
+                    <span className="font-semibold text-primary font-mono">{formatCurrency(detailPreviousTotal)}</span>
+                  </div>
+                  <div className="mt-1 flex justify-between text-xs text-secondary">
+                    <span>Variação absoluta:</span>
+                    <span className={`font-semibold ${
+                      detailDifference >= 0 
+                        ? (detailModal.type === 'expense' ? 'text-expense' : 'text-income')
+                        : (detailModal.type === 'expense' ? 'text-income' : 'text-expense')
+                    }`}>
+                      {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
+                    </span>
                   </div>
                 </div>
-              ))}
+              </div>
 
-              {hasMoreDetailItems && (
-                <div className="pt-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)}
-                  >
-                    Ver mais
-                  </Button>
+              {/* Metas/Expectativas se aplicável */}
+              {detailModal.period === 'month' && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Metas Orçamentárias</p>
+                  <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
+                    {detailMonthlyGoal?.configured ? (
+                      <div>
+                        <div className="flex justify-between text-xs text-secondary mb-1">
+                          <span>Consumo do Limite</span>
+                          <span className="font-semibold text-primary font-mono">
+                            {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)} de {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}
+                          </span>
+                        </div>
+                        {/* Barra de Progresso */}
+                        <div className="w-full h-1.5 rounded-full bg-secondary/20 overflow-hidden mb-2">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              detailMonthlyGoal.isExceeded ? 'bg-expense' : 'bg-primary'
+                            }`}
+                            style={{ width: `${Math.min(((detailMonthlyGoal.currentAmount ?? 0) / (detailMonthlyGoal.targetAmount ?? 1)) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className={`text-xs font-semibold ${detailMonthlyGoal.isExceeded ? 'text-expense' : 'text-income'}`}>
+                          {detailMonthlyGoal.isExceeded
+                            ? `Excedido em ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)}`
+                            : `Restam ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)} para o limite`
+                          }
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-secondary text-center py-2">Sem meta ou limite de orçamento configurado no mês.</p>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {/* Mini gráfico */}
+              {detailModal.isOpen && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Tendência da Categoria</p>
+                  <div className="rounded-xl border border-glass surface-glass p-3 shadow-sm">
+                    <CategoryDetailMiniChart
+                      detailItems={detailItems}
+                      period={detailModal.period}
+                      selectedMonth={selectedMonth}
+                      selectedYear={selectedYear}
+                      color={detailCategoryColor}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Buscador */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-1.5">Buscar por descrição</label>
+                <Input
+                  type="text"
+                  value={detailSearch}
+                  onChange={(event) => setDetailSearch(event.target.value)}
+                  placeholder="Digite parte da descrição do lançamento..."
+                />
+              </div>
+
+              {/* Lista de transações */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {filteredDetailItems.length === 0 ? (
+                  <p className="text-xs text-secondary py-6 text-center">
+                    {yearDetailLoading && detailModal.period === 'year' ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={14} className="animate-spin text-primary" />
+                        Buscando lançamentos...
+                      </span>
+                    ) : (
+                      'Nenhum lançamento encontrado para os filtros.'
+                    )}
+                  </p>
+                ) : (
+                  <>
+                    {visibleDetailItems.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
+                          index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-primary truncate">{item.description}</p>
+                          <p className="text-[9px] font-mono text-secondary mt-1">{formatDate(item.date)}</p>
+                        </div>
+                        <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
+                          {formatCurrency(item.amount)}
+                        </p>
+                      </div>
+                    ))}
+
+                    {hasMoreDetailItems && (
+                      <div className="pt-2 text-center">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)}
+                          className="w-full"
+                        >
+                          Carregar mais lançamentos
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
