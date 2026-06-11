@@ -59,31 +59,31 @@ export default function ClientKpiCards({
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
       <Card className="p-3 sm:p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
-        <div className="text-left">
-          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">Patrimônio Total</span>
-          <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
+        <div className="text-left min-w-0 flex-1">
+          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider truncate block" title="Patrimônio Total">Patrimônio Total</span>
+          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-black text-primary mt-1 block font-mono truncate" title={formatCurrency(totalValue)}>
             {formatCurrency(totalValue)}
           </strong>
           {cashValue > 0 ? (
-            <span className="text-[9px] text-secondary mt-0.5 block">
+            <span className="text-[9px] text-secondary mt-0.5 block truncate" title={`Investido ${formatCurrency(investedValue)} · Caixa ${formatCurrency(cashValue)}`}>
               Investido {formatCurrency(investedValue)} · Caixa {formatCurrency(cashValue)}
             </span>
           ) : null}
         </div>
-        <div className="p-1.5 sm:p-2 bg-balance/10 text-balance rounded-lg shrink-0 flex items-center justify-center">
+        <div className="p-1.5 sm:p-2 bg-balance/10 text-balance rounded-lg shrink-0 flex items-center justify-center ml-2">
           <Wallet size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
         </div>
       </Card>
  
       <Card className="p-3 sm:p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
-        <div className="text-left">
-          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider block whitespace-nowrap">{yieldLabel}</span>
-          <strong className="text-sm xs:text-base sm:text-xl font-black text-primary mt-1 block font-mono">
+        <div className="text-left min-w-0 flex-1">
+          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider truncate block" title={yieldLabel}>{yieldLabel}</span>
+          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-black text-primary mt-1 block font-mono truncate" title={`${yieldPrimary} ${hasYieldBasis ? `(${accumulatedAmount >= 0 ? '+' : ''}${formatCurrency(accumulatedAmount)})` : ''}`}>
             <span className={yieldPctClass}>{yieldPrimary}</span>
             {yieldSecondary}
           </strong>
         </div>
-        <div className="p-1.5 sm:p-2 bg-income/10 text-income rounded-lg shrink-0 flex items-center justify-center">
+        <div className="p-1.5 sm:p-2 bg-income/10 text-income rounded-lg shrink-0 flex items-center justify-center ml-2">
           <TrendingUp size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
         </div>
       </Card>

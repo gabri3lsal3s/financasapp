@@ -1322,7 +1322,7 @@ export default function Reports() {
     const isTrendPositive = trendPercent !== undefined && trendPercent !== null && trendPercent >= 0
 
     return (
-      <Card className="h-full relative overflow-hidden flex flex-col p-4 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
+      <Card className="h-full relative overflow-hidden flex flex-col p-3 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
         {/* Glow Halo */}
         <div 
           className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300" 
@@ -1330,11 +1330,11 @@ export default function Reports() {
         />
         
         <div className="flex items-start justify-between gap-3 w-full">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight truncate">
               {title}
             </p>
-            <p className="text-lg font-extrabold font-mono text-primary mt-2.5 leading-none">
+            <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-2.5 leading-none truncate" title={value}>
               {value}
             </p>
           </div>
@@ -1610,7 +1610,7 @@ export default function Reports() {
             {viewMode === 'year' ? (
               <div className="space-y-6 animate-stagger">
                 {/* KPIs Anuais */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
                   {renderKPICard({
                     title: 'Rendas no ano',
                     value: formatCurrency(annualTotals.income),
@@ -1777,7 +1777,7 @@ export default function Reports() {
             ) : monthSummary ? (
               <div className="space-y-6 animate-stagger">
                 {/* KPIs Mensais */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
                   {renderKPICard({
                     title: 'Rendas do mês',
                     value: formatCurrency(monthSummary.total_income),

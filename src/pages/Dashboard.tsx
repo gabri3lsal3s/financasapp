@@ -499,11 +499,11 @@ export default function Dashboard() {
         />
 
         <div className="flex items-start justify-between gap-3 w-full">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight truncate">
               {title}
             </p>
-            <p className="text-base sm:text-lg lg:text-xl font-extrabold font-mono text-primary mt-2.5 leading-none truncate">
+            <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-2.5 leading-none truncate" title={value}>
               {value}
             </p>
           </div>

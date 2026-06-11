@@ -168,34 +168,30 @@ export default function LimitsControl({
           </div>
 
           {/* Pill tags layout representing each category below the bar */}
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-4">
             {filteredList.map((item) => (
               <div
                 key={item.categoryId}
                 onClick={() => onCategoryClick(item.categoryId, item.name)}
-                className={`px-3 py-1.5 rounded-full border transition-all cursor-pointer flex items-center gap-2 hover:scale-[1.02] text-xs font-semibold ${
+                className={`px-3 py-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 hover:scale-[1.01] text-xs font-semibold min-w-0 ${
                   item.isExceeded
                     ? 'border-expense/30 bg-expense/5 hover:border-expense/60'
                     : 'border-glass surface-glass hover:border-glass-strong'
                 }`}
               >
-                {/* Category color bullet */}
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: item.color }}
-                />
+                {/* Left side: bullet and name */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-primary truncate">{item.name}</span>
+                </div>
 
-                <span className="text-primary truncate max-w-[100px]">{item.name}</span>
-
-                <span className="opacity-20 font-normal">|</span>
-
-                {item.isExceeded ? (
-                  <span className="text-expense font-extrabold">
+                {/* Right side: exceeded amount (if exceeded) */}
+                {item.isExceeded && (
+                  <span className="text-expense font-extrabold shrink-0">
                     +{formatCurrency(item.exceededAmount || 0)}
-                  </span>
-                ) : (
-                  <span className="text-success font-bold">
-                    {formatCurrency(item.remainingAmount || 0)} rest.
                   </span>
                 )}
               </div>
