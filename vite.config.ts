@@ -28,9 +28,11 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
+          // Vendors
           react: ['react', 'react-dom', 'react-router-dom'],
           supabase: ['@supabase/supabase-js'],
           radix: [
@@ -43,8 +45,13 @@ export default defineConfig({
             '@radix-ui/react-separator',
             '@radix-ui/react-scroll-area',
             '@radix-ui/react-tabs',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-tooltip',
           ],
           charts: ['recharts'],
+          motion: ['framer-motion'],
+          pdf: ['jspdf', 'html2canvas'],
+          xlsx: ['xlsx'],
         },
       },
     },

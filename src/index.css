@@ -460,15 +460,15 @@
   }
 
   .appearance-theme-preview[data-preview='dark'] [data-chip='bg'] {
-    background-color: #0a0a0f;
+    background-color: #0b0f19;
   }
 
   .appearance-theme-preview[data-preview='dark'] [data-chip='surface'] {
-    background-color: #141223;
+    background-color: #1e293b;
   }
 
   .appearance-theme-preview[data-preview='dark'] [data-chip='accent'] {
-    background-color: #fafafa;
+    background-color: #f8fafc;
   }
 
   .appearance-theme-preview[data-preview='midnight'] [data-chip='bg'] {
@@ -476,11 +476,11 @@
   }
 
   .appearance-theme-preview[data-preview='midnight'] [data-chip='surface'] {
-    background-color: #0c0a14;
+    background-color: #18181b;
   }
 
   .appearance-theme-preview[data-preview='midnight'] [data-chip='accent'] {
-    background-color: #ffffff;
+    background-color: #f4f4f5;
   }
 
   /* Sistema: metade clara | metade escura (como o modo real do SO) */
@@ -504,7 +504,7 @@
 
   .appearance-theme-preview__half[data-half='dark'] {
     border-radius: 0 4px 4px 0;
-    background-color: #0a0a0f;
+    background-color: #0b0f19;
     border-left: 1px solid rgba(128, 128, 128, 0.35);
   }
 
@@ -521,15 +521,15 @@
   }
 
   .appearance-theme-preview__half[data-half='dark'] [data-chip='bg'] {
-    background-color: #0a0a0f;
+    background-color: #0b0f19;
   }
 
   .appearance-theme-preview__half[data-half='dark'] [data-chip='surface'] {
-    background-color: #141223;
+    background-color: #1e293b;
   }
 
   .appearance-theme-preview__half[data-half='dark'] [data-chip='accent'] {
-    background-color: #fafafa;
+    background-color: #f8fafc;
   }
 
   .appearance-accent-swatch {
@@ -1441,25 +1441,69 @@ body {
 .app-shell-glow::after {
   content: '';
   position: absolute;
-  border-radius: 9999px;
-  filter: blur(80px);
-  opacity: 0.55;
+  transition:
+    background var(--ds-motion-duration-normal) var(--ds-motion-easing-standard),
+    opacity var(--ds-motion-duration-normal) var(--ds-motion-easing-standard);
 }
 
+/* Mobile: barra de glow sobe da nav — formato horizontal plano */
 .app-shell-glow::before {
-  width: 420px;
-  height: 420px;
-  top: -120px;
-  left: -80px;
+  width: 110%;
+  height: 100px;
+  max-width: none;
+  max-height: none;
+  bottom: 48px;
+  top: auto;
+  left: -5%;
+  transform: none;
+  border-radius: 50%;
+  filter: blur(52px);
+  opacity: 0.72;
   background: var(--ambient-glow-primary);
 }
 
 .app-shell-glow::after {
-  width: 360px;
-  height: 360px;
-  top: 40px;
-  left: 180px;
-  background: var(--ambient-glow-secondary);
+  width: 80%;
+  height: 60px;
+  max-width: none;
+  max-height: none;
+  bottom: 80px;
+  top: auto;
+  left: 10%;
+  transform: none;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.38;
+  background: var(--ambient-glow-primary);
+}
+
+/* Desktop: glow no topo-esquerdo, próximo à sidebar */
+@media (min-width: 1024px) {
+  .app-shell-glow::before {
+    width: 520px;
+    height: 420px;
+    bottom: auto;
+    top: -140px;
+    left: -60px;
+    transform: none;
+    border-radius: 9999px;
+    filter: blur(100px);
+    background: var(--ambient-glow-primary);
+    opacity: 0.42;
+  }
+
+  .app-shell-glow::after {
+    width: 380px;
+    height: 300px;
+    bottom: auto;
+    top: 60px;
+    left: 220px;
+    transform: none;
+    border-radius: 9999px;
+    filter: blur(100px);
+    background: var(--ambient-glow-secondary);
+    opacity: 0.20;
+  }
 }
 
 .bg-primary {

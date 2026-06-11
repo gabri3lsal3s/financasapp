@@ -43,7 +43,7 @@ import {
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import { nonCashPortfolioPerformance } from '@/utils/portfolioDisplayMetrics'
 import { usePortfolioClose } from '@/hooks/usePortfolioClose'
-import { getAssetPrices } from '@/services/priceService'
+import { getAssetPrices, forceUpdateAssetPrice } from '@/services/priceService'
 import type {
   PortfolioAssetDefinition,
   PortfolioGroupTarget,
@@ -337,7 +337,6 @@ export default function Investments() {
         return
       }
       
-      const { forceUpdateAssetPrice } = await import('@/services/priceService')
       await forceUpdateAssetPrice(ticker, numericPrice)
       
       toast.success('Cotação atualizada!')

@@ -6,6 +6,7 @@ import {
   PRIMARY_ADMIN_PROFILE_PATCH,
 } from '@/constants/adminProfile';
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect';
+import { clearCacheByKeyPrefix } from '@/services/offlineCache';
 import type { Profile } from '@/types';
 
 
@@ -147,7 +148,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('offline-sync-queue');
     localStorage.removeItem('offline-conflict-queue');
     try {
-      const { clearCacheByKeyPrefix } = await import('@/services/offlineCache');
       await clearCacheByKeyPrefix('');
     } catch (e) {
       console.error('Failed to clear offline cache:', e);

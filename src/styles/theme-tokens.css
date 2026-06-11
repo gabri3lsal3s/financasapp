@@ -79,34 +79,34 @@ html.light[data-accent-tone='white'] {
   --ring: 0 0% 0%;
 }
 
-/* --- Glass: dark (Quantix-inspired) --- */
+/* --- Glass: dark (Slate-inspired Premium Dark) --- */
 html.dark {
-  --ds-color-surface-primary: rgba(10, 10, 15, 0.65);
-  --ds-color-surface-secondary: #0a0a0f;
-  --ds-color-surface-tertiary: rgba(20, 18, 35, 0.72);
-  --ds-color-text-primary: #fafafa;
+  --ds-color-surface-primary: rgba(15, 23, 42, 0.65);
+  --ds-color-surface-secondary: #0b0f19;
+  --ds-color-surface-tertiary: rgba(30, 41, 59, 0.72);
+  --ds-color-text-primary: #f8fafc;
   --ds-color-text-secondary: #94a3b8;
-  --ds-color-border-default: rgba(255, 255, 255, 0.08);
-  --floating-btn-border: rgba(255, 255, 255, 0.18);
-  --floating-btn-border-hover: rgba(255, 255, 255, 0.36);
-  --ds-color-accent-primary: #fafafa;
+  --ds-color-border-default: rgba(248, 250, 252, 0.08);
+  --floating-btn-border: rgba(248, 250, 252, 0.18);
+  --floating-btn-border-hover: rgba(248, 250, 252, 0.36);
+  --ds-color-accent-primary: #f8fafc;
   --ds-color-accent-primary-strong: #ffffff;
-  --ds-color-accent-primary-soft: rgba(255, 255, 255, 0.1);
-  --ds-color-button-text: #09090b;
+  --ds-color-accent-primary-soft: rgba(248, 250, 252, 0.1);
+  --ds-color-button-text: #020617;
   --ds-color-intent-success: #34d399;
   --ds-color-intent-warning: #facc15;
-  --ds-color-intent-danger: #ef4444;
-  --ds-color-interaction-hover: rgba(255, 255, 255, 0.06);
-  --ds-color-interaction-focus: #fafafa;
-  --ds-color-interaction-disabled: #27272a;
-  --ds-color-interaction-active: rgba(255, 255, 255, 0.12);
+  --ds-color-intent-danger: #f87171;
+  --ds-color-interaction-hover: rgba(248, 250, 252, 0.06);
+  --ds-color-interaction-focus: #f8fafc;
+  --ds-color-interaction-disabled: #1e293b;
+  --ds-color-interaction-active: rgba(248, 250, 252, 0.12);
   --ds-color-data-income-text: var(--ds-color-data-income);
   --ds-color-data-expense-text: var(--ds-color-data-expense);
   --ds-color-data-balance-text: var(--ds-color-data-balance);
-  --color-success-foreground: #09090b;
-  --color-warning-solid-foreground: #09090b;
-  --ambient-glow-primary: rgba(255, 255, 255, 0.08);
-  --ambient-glow-secondary: rgba(255, 255, 255, 0.04);
+  --color-success-foreground: #020617;
+  --color-warning-solid-foreground: #020617;
+  --ambient-glow-primary: rgba(248, 250, 252, 0.06);
+  --ambient-glow-secondary: rgba(248, 250, 252, 0.03);
   --glass-input-bg: var(--glass-layer-interactive);
   --glass-layer-overlay: color-mix(in srgb, var(--ds-color-surface-secondary) 50%, transparent);
   --glass-layer-shell: color-mix(in srgb, var(--ds-color-surface-primary) 68%, transparent);
@@ -115,47 +115,47 @@ html.dark {
   --glass-layer-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 45%, transparent);
   --glass-modal-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 32%, transparent);
   --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
-  --background: 240 10% 4%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 6% 6%;
-  --secondary: 240 6% 12%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 6% 12%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 240 6% 14%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 63% 65%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 240 6% 18%;
-  --input: 240 6% 18%;
-  --ring: 0 0% 98%;
+  --background: 224 39% 7%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 11%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 16% 65%;
+  --accent: 217 33% 20%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 91% 71%;
+  --destructive-foreground: 240 10% 4%;
+  --border: 217 33% 20%;
+  --input: 217 33% 20%;
+  --ring: 210 40% 98%;
   --radius: 0.875rem;
 }
 
-/* --- Glass: midnight --- */
+/* --- Glass: midnight (Zinc-inspired OLED Midnight) --- */
 html.midnight {
-  --ds-color-surface-primary: rgba(5, 5, 8, 0.72);
+  --ds-color-surface-primary: rgba(9, 9, 11, 0.65);
   --ds-color-surface-secondary: #000000;
-  --ds-color-surface-tertiary: rgba(12, 10, 20, 0.78);
-  --ds-color-text-primary: #ffffff;
-  --ds-color-text-secondary: #a3a3a3;
+  --ds-color-surface-tertiary: rgba(24, 24, 27, 0.72);
+  --ds-color-text-primary: #f4f4f5;
+  --ds-color-text-secondary: #a1a1aa;
   --ds-color-border-default: rgba(255, 255, 255, 0.1);
   --floating-btn-border: rgba(255, 255, 255, 0.20);
   --floating-btn-border-hover: rgba(255, 255, 255, 0.38);
-  --ds-color-accent-primary: #fafafa;
+  --ds-color-accent-primary: #f4f4f5;
   --ds-color-accent-primary-strong: #ffffff;
   --ds-color-accent-primary-soft: rgba(255, 255, 255, 0.12);
   --ds-color-button-text: #000000;
   --ds-color-intent-success: #34d399;
   --ds-color-intent-warning: #facc15;
-  --ds-color-intent-danger: #ef4444;
+  --ds-color-intent-danger: #f87171;
   --ds-color-interaction-hover: rgba(255, 255, 255, 0.08);
-  --ds-color-interaction-focus: #fafafa;
+  --ds-color-interaction-focus: #f4f4f5;
   --ds-color-interaction-disabled: #18181b;
   --ds-color-interaction-active: rgba(255, 255, 255, 0.14);
   --ds-color-data-income-text: var(--ds-color-data-income);
@@ -174,24 +174,24 @@ html.midnight {
   --glass-modal-interactive: color-mix(in srgb, var(--ds-color-surface-primary) 32%, transparent);
   --glass-layer-chrome: color-mix(in srgb, var(--glass-layer-shell) 92%, transparent);
   --background: 0 0% 0%;
-  --foreground: 0 0% 100%;
-  --card: 0 0% 4%;
-  --card-foreground: 0 0% 100%;
-  --popover: 0 0% 4%;
-  --popover-foreground: 0 0% 100%;
-  --primary: 0 0% 98%;
+  --foreground: 240 5% 96%;
+  --card: 240 5% 4%;
+  --card-foreground: 240 5% 96%;
+  --popover: 240 5% 4%;
+  --popover-foreground: 240 5% 96%;
+  --primary: 240 5% 96%;
   --primary-foreground: 0 0% 0%;
-  --secondary: 0 0% 8%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 0 0% 8%;
-  --muted-foreground: 0 0% 64%;
-  --accent: 0 0% 10%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 63% 65%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
-  --ring: 0 0% 98%;
+  --secondary: 240 5% 8%;
+  --secondary-foreground: 240 5% 96%;
+  --muted: 240 5% 8%;
+  --muted-foreground: 240 5% 64%;
+  --accent: 240 5% 10%;
+  --accent-foreground: 240 5% 96%;
+  --destructive: 0 91% 71%;
+  --destructive-foreground: 0 0% 0%;
+  --border: 240 5% 12%;
+  --input: 240 5% 12%;
+  --ring: 240 5% 96%;
   --radius: 0.875rem;
 }
 
@@ -289,16 +289,16 @@ html[data-accent-tone='red'].light {
 
 html[data-accent-tone='red'].dark,
 html[data-accent-tone='red'].midnight {
-  --ds-color-accent-primary: #ef4444;
-  --ds-color-accent-primary-strong: #ff5252;
-  --ds-color-accent-primary-soft: rgba(239, 68, 68, 0.22);
-  --ds-color-interaction-hover: rgba(239, 68, 68, 0.14);
-  --ds-color-interaction-focus: #ef4444;
-  --ds-color-interaction-active: rgba(239, 68, 68, 0.28);
-  --ambient-glow-primary: rgba(239, 68, 68, 0.28);
-  --primary: 0 84% 60%;
-  --primary-foreground: 0 0% 100%;
-  --ring: 0 84% 60%;
+  --ds-color-accent-primary: #fca5a5;
+  --ds-color-accent-primary-strong: #fecaca;
+  --ds-color-accent-primary-soft: rgba(252, 165, 165, 0.18);
+  --ds-color-interaction-hover: rgba(252, 165, 165, 0.12);
+  --ds-color-interaction-focus: #fca5a5;
+  --ds-color-interaction-active: rgba(252, 165, 165, 0.22);
+  --ambient-glow-primary: rgba(252, 165, 165, 0.20);
+  --primary: 0 93% 82%;
+  --primary-foreground: 240 10% 4%;
+  --ring: 0 93% 82%;
 }
 
 /* --- Financial data: vivid --- */
@@ -313,10 +313,10 @@ html[data-color-palette='vivid'].dark,
 html[data-color-palette='vivid'].system.dark,
 html[data-color-palette='vivid'].midnight {
   --ds-color-data-income: #34d399;
-  --ds-color-data-expense: #ef4444;
+  --ds-color-data-expense: #f87171;
   --ds-color-data-balance: #38bdf8;
   --ds-color-data-income-text: #6ee7b7;
-  --ds-color-data-expense-text: #ff5252;
+  --ds-color-data-expense-text: #fca5a5;
   --ds-color-data-balance-text: #7dd3fc;
 }
 
@@ -357,12 +357,12 @@ html:not([data-color-palette]) {
   --theme-preview-light-bg: #f1f5f9;
   --theme-preview-light-surface: #ffffff;
   --theme-preview-light-accent: #0f172a;
-  --theme-preview-dark-bg: #0a0a0f;
-  --theme-preview-dark-surface: #141223;
-  --theme-preview-dark-accent: #fafafa;
+  --theme-preview-dark-bg: #0b0f19;
+  --theme-preview-dark-surface: #1e293b;
+  --theme-preview-dark-accent: #f8fafc;
   --theme-preview-midnight-bg: #000000;
-  --theme-preview-midnight-surface: #0c0a14;
-  --theme-preview-midnight-accent: #ffffff;
+  --theme-preview-midnight-surface: #18181b;
+  --theme-preview-midnight-accent: #f4f4f5;
   /* Prévia fixa das cores de destaque (seletor de acento) */
   --accent-tone-swatch-neutral-dark: #0f172a;
   --accent-tone-swatch-neutral-light: #fafafa;
@@ -406,9 +406,9 @@ html.dark,
 html.midnight {
   --accent-tone-preview-blue: #93c5fd;
   --accent-tone-preview-emerald: #6ee7b7;
-  --accent-tone-preview-red: #ef4444;
+  --accent-tone-preview-red: #fca5a5;
   --palette-preview-vivid-0: #34d399;
-  --palette-preview-vivid-1: #ef4444;
+  --palette-preview-vivid-1: #f87171;
   --palette-preview-vivid-2: #38bdf8;
   --palette-preview-mono-0: #f5f5f7;
   --palette-preview-mono-1: #a3a3a3;
@@ -485,6 +485,26 @@ html {
   --chart-vivid-6: #f43f5e;
 }
 
+html.dark {
+  --chart-vivid-0: #c4b5fd;
+  --chart-vivid-1: #93c5fd;
+  --chart-vivid-2: #6ee7b7;
+  --chart-vivid-3: #fcd34d;
+  --chart-vivid-4: #f9a8d4;
+  --chart-vivid-5: #a5b4fc;
+  --chart-vivid-6: #fca5a5;
+}
+
+html.midnight {
+  --chart-vivid-0: #c4b5fd;
+  --chart-vivid-1: #93c5fd;
+  --chart-vivid-2: #6ee7b7;
+  --chart-vivid-3: #fcd34d;
+  --chart-vivid-4: #f9a8d4;
+  --chart-vivid-5: #a5b4fc;
+  --chart-vivid-6: #fca5a5;
+}
+
 html[data-color-palette='monochrome'] {
   --chart-mono-0: #404040;
   --chart-mono-1: #525252;
@@ -492,6 +512,16 @@ html[data-color-palette='monochrome'] {
   --chart-mono-3: #a3a3a3;
   --chart-mono-4: #d4d4d8;
   --chart-mono-5: #e4e4e7;
+}
+
+html[data-color-palette='monochrome'].dark,
+html[data-color-palette='monochrome'].midnight {
+  --chart-mono-0: #f5f5f7;
+  --chart-mono-1: #e4e4e7;
+  --chart-mono-2: #d4d4d8;
+  --chart-mono-3: #a1a1aa;
+  --chart-mono-4: #71717a;
+  --chart-mono-5: #52525b;
 }
 
 :root {
