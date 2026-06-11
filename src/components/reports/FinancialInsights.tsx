@@ -23,6 +23,7 @@ interface FinancialInsightsProps {
   previousExpenseTotal: number
   weekdayExpenses?: WeekdayExpense[]
   limitsExceededCount?: number
+  isSidebar?: boolean
 }
 
 export default function FinancialInsights({
@@ -35,6 +36,7 @@ export default function FinancialInsights({
   previousExpenseTotal,
   weekdayExpenses,
   limitsExceededCount = 0,
+  isSidebar = false,
 }: FinancialInsightsProps) {
   const insights = useMemo(() => {
     const list: Array<{
@@ -162,7 +164,7 @@ export default function FinancialInsights({
         <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Insights Financeiros do Período</h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-2">
+      <div className={`grid grid-cols-1 ${isSidebar ? '' : 'md:grid-cols-3'} gap-3.5 mt-2`}>
         {insights.map((insight) => (
           <div
             key={insight.id}

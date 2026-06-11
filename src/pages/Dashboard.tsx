@@ -16,10 +16,8 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Scale, Percent } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent } from 'lucide-react'
 import Button from '@/components/Button'
-import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
-import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
@@ -37,11 +35,12 @@ import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
-import MonthlyOverviewChart from '@/components/dashboard/MonthlyOverviewChart'
-import CategoryPieChart from '@/components/reports/CategoryPieChart'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 import { Sparkline } from '@/components/reports/reportsChartShared'
 import FinancialInsights from '@/components/reports/FinancialInsights'
+import DailyBudgetAdvisor from '@/components/dashboard/DailyBudgetAdvisor'
+import SmartLimitSuggestions from '@/components/dashboard/SmartLimitSuggestions'
+import LimitsControl from '@/components/dashboard/LimitsControl'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
@@ -55,7 +54,6 @@ export default function Dashboard() {
   const { isOnline } = useNetworkStatus()
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
-  const [activeChartTab, setActiveChartTab] = useState<'flow' | 'panorama'>('flow')
 
   const [portfolioId, setPortfolioId] = useState('')
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
@@ -124,7 +122,7 @@ export default function Dashboard() {
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
   const { incomes: previousMonthIncomes } = useIncomes(previousMonth)
-  const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading } = useExpenseCategoryLimits(currentMonth)
+  const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading, setCategoryLimit, refreshLimits } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
 
   const navigate = useNavigate()
@@ -177,14 +175,7 @@ export default function Dashboard() {
     [previousMonthIncomes]
   )
 
-  const monthlyOverviewData = useMemo(
-    () => [
-      { name: 'Rendas', value: totalIncomes, color: 'var(--color-income)' },
-      { name: 'Despesas', value: totalExpenses, color: 'var(--color-expense)' },
-      { name: 'Investimentos', value: Math.max(totalInvestments, 0), color: 'var(--color-balance)' },
-    ],
-    [totalExpenses, totalIncomes, totalInvestments]
-  )
+  // monthlyOverviewData removed because pizza chart was removed
 
   const expenseByCategory = useMemo(() => {
     const map = new Map<string, { categoryId: string; name: string; color: string; value: number }>()
@@ -263,14 +254,7 @@ export default function Dashboard() {
       .sort((a, b) => b.exceededAmount - a.exceededAmount)
   }, [expenseByCategory, expenseLimitMap])
 
-  const expenseCategoriesPieData = useMemo(() => {
-    if (expenseByCategory.length <= 5) return expenseByCategory
-
-    const top = expenseByCategory.slice(0, 5)
-    const othersValue = expenseByCategory.slice(5).reduce((sum, item) => sum + item.value, 0)
-
-    return [...top, { categoryId: '', name: 'Outras', color: 'var(--color-text-secondary)', value: othersValue }]
-  }, [expenseByCategory])
+  // expenseCategoriesPieData removed because pizza chart was removed
 
   const expenseAttentionCategories = useMemo(() => {
     return expenseByCategory
@@ -350,41 +334,53 @@ export default function Dashboard() {
     }
   }, [loading, isMonthTransitioning])
 
-  const prioritizedExpenseCategoryItems = useMemo(() => {
-    return expenseByCategory
-      .map((item) => {
-        const exceeded = expenseLimitAlerts.find((alert) => alert.categoryId === item.categoryId)
-        if (exceeded) {
-          return {
-            ...item,
-            alertPriority: 2,
-            alertStatusLabel: 'Ultrapassou',
-            alertStatusClass: 'text-secondary',
-          }
-        }
+  const categoriesAttentionList = useMemo(() => {
+    const list: Array<{
+      categoryId: string
+      name: string
+      color: string
+      value: number
+      limitAmount: number
+      usagePercentage: number
+      isExceeded: boolean
+      exceededAmount?: number
+      remainingAmount?: number
+      statusLabel: string
+      alertStatusClass: string
+    }> = []
 
-        const nearLimit = expenseAttentionCategories.find((alert) => alert.categoryId === item.categoryId)
-        if (nearLimit) {
-          return {
-            ...item,
-            alertPriority: 1,
-            alertStatusLabel: nearLimit.level,
-            alertStatusClass: 'text-secondary',
-          }
-        }
+    expenseLimitAlerts.forEach((alert) => {
+      list.push({
+        categoryId: alert.categoryId || '',
+        name: alert.name,
+        color: alert.color,
+        value: alert.value,
+        limitAmount: alert.limitAmount,
+        usagePercentage: alert.usagePercentage,
+        isExceeded: true,
+        exceededAmount: alert.exceededAmount,
+        statusLabel: 'Excedido',
+        alertStatusClass: 'text-expense font-bold bg-expense/10 px-2 py-0.5 rounded-full'
+      })
+    })
 
-        return {
-          ...item,
-          alertPriority: 0,
-          alertStatusLabel: '',
-          alertStatusClass: 'text-secondary',
-        }
+    expenseAttentionCategories.forEach((alert) => {
+      list.push({
+        categoryId: alert.categoryId || '',
+        name: alert.name,
+        color: alert.color,
+        value: alert.value,
+        limitAmount: alert.limitAmount,
+        usagePercentage: alert.usagePercentage,
+        isExceeded: false,
+        remainingAmount: alert.remainingAmount,
+        statusLabel: alert.level === 'Crítica' ? 'Crítico (95%+)' : alert.level === 'Alta' ? 'Alerta (90%+)' : 'Atenção (85%+)',
+        alertStatusClass: 'text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded-full'
       })
-      .sort((a, b) => {
-        if (b.alertPriority !== a.alertPriority) return b.alertPriority - a.alertPriority
-        return b.value - a.value
-      })
-  }, [expenseByCategory, expenseLimitAlerts, expenseAttentionCategories])
+    })
+
+    return list.sort((a, b) => b.usagePercentage - a.usagePercentage)
+  }, [expenseLimitAlerts, expenseAttentionCategories])
 
   const dailyFlowData = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number)
@@ -495,7 +491,7 @@ export default function Dashboard() {
     const isTrendPositive = trendPercent !== undefined && trendPercent !== null && trendPercent >= 0
 
     return (
-      <Card className="h-full relative overflow-hidden flex flex-col p-4 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
+      <Card className="h-full relative overflow-hidden flex flex-col p-3 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
         {/* Glow halo */}
         <div
           className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300"
@@ -507,7 +503,7 @@ export default function Dashboard() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight">
               {title}
             </p>
-            <p className="text-lg font-extrabold font-mono text-primary mt-2.5 leading-none">
+            <p className="text-base sm:text-lg lg:text-xl font-extrabold font-mono text-primary mt-2.5 leading-none truncate">
               {value}
             </p>
           </div>
@@ -583,17 +579,34 @@ export default function Dashboard() {
                 <Loader text="Carregando dados do mês..." />
               </div>
             ) : !hasMonthlyData ? (
-              <Card>
-                <div className="text-center py-8">
-                  <p className="text-base text-primary font-medium">Adicione o primeiro lançamento do mês.</p>
-                  <Button className="mt-4" onClick={() => setIsSelectorOpen(true)}>Novo lançamento</Button>
+              <Card className="border border-glass surface-glass relative overflow-hidden p-8 sm:p-12 text-center flex flex-col items-center max-w-lg mx-auto transition-all duration-300 hover:border-glass-strong shadow-lg">
+                <div className="absolute -top-12 -left-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+                
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-5 shadow-inner">
+                  <PiggyBank size={32} className="text-primary animate-pulse" />
                 </div>
+                
+                <h3 className="text-lg font-extrabold text-primary tracking-tight">Mês sem movimentações</h3>
+                <p className="text-xs text-secondary mt-2 max-w-sm leading-relaxed">
+                  Não encontramos lançamentos de receitas, despesas ou investimentos para o mês selecionado. Que tal começar a organizar suas finanças agora?
+                </p>
+                
+                <Button 
+                  variant="primary" 
+                  size="md" 
+                  className="mt-6 flex items-center gap-2"
+                  onClick={() => setIsSelectorOpen(true)}
+                >
+                  <Plus size={16} />
+                  Adicionar lançamento
+                </Button>
               </Card>
             ) : (
               <div className="space-y-5 animate-stagger">
 
                 {/* ── KPIs com sparkline e badge de tendência ── */}
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
                   {renderKPICard({
                     title: 'Rendas do mês',
                     value: formatCurrency(totalIncomes),
@@ -636,119 +649,95 @@ export default function Dashboard() {
                   })}
                 </div>
 
-                {/* ── Insights Financeiros ── */}
-                <FinancialInsights
-                  viewMode="month"
-                  periodLabel={formatMonth(currentMonth)}
-                  incomeTotal={totalIncomes}
-                  expenseTotal={totalExpenses}
-                  savingsRate={savingsRate}
-                  categoryExpenses={categoryExpenseSummaries}
-                  previousExpenseTotal={previousMonthExpenseTotal}
-                  weekdayExpenses={weekdayExpenseData}
-                  limitsExceededCount={limitsExceededCount}
-                />
-
-                {/* ── Gráficos com tab switcher interno ── */}
-                <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
-                    <div>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-                        {activeChartTab === 'flow' ? 'Fluxo Diário' : 'Panorama do Mês'}
-                      </h3>
-                      <p className="text-[10px] text-secondary mt-0.5">
-                        {activeChartTab === 'flow'
-                          ? `Entradas, saídas e investimentos por dia em ${formatMonth(currentMonth)}`
-                          : `Composição proporcional de rendas, despesas e investimentos`}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0 bg-secondary/10 p-0.5 rounded-lg border border-glass self-start sm:self-auto">
-                      <ReportsTabButton
-                        active={activeChartTab === 'flow'}
-                        onClick={() => setActiveChartTab('flow')}
-                      >
-                        Fluxo Diário
-                      </ReportsTabButton>
-                      <ReportsTabButton
-                        active={activeChartTab === 'panorama'}
-                        onClick={() => setActiveChartTab('panorama')}
-                      >
-                        Panorama
-                      </ReportsTabButton>
-                    </div>
-                  </div>
-
-                  <div className="w-full mt-2">
-                    {activeChartTab === 'flow' && (
-                      <DailyFlowChart
-                        data={dailyFlowData}
-                        hiddenSeries={hiddenDailyFlowSeries}
-                        onToggleSeries={toggleDailyFlowSeries}
+                {/* Grid Responsivo de 3 Colunas no Desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
+                  
+                  {/* Coluna da Esquerda (2 Colunas no Desktop): Gráficos e Detalhes Analíticos */}
+                  <div className="flex flex-col gap-5 lg:col-span-2">
+                    {/* Mobile Only: Acompanhamento Diário no Topo */}
+                    <div className="lg:hidden">
+                      <DailyBudgetAdvisor
+                        currentMonth={currentMonth}
+                        totalIncomes={totalIncomes}
+                        totalExpenses={totalExpenses}
+                        totalInvestments={totalInvestments}
+                        expenses={expenses}
                       />
-                    )}
-                    {activeChartTab === 'panorama' && (
-                      <MonthlyOverviewChart data={monthlyOverviewData} />
-                    )}
-                  </div>
-                </Card>
+                    </div>
 
-                {/* ── Composição de Despesas: 1/3 pie + 2/3 categoria grid ── */}
-                <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
-                  <div className="mb-5 border-b border-glass/40 pb-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Composição de Despesas</h3>
-                    <p className="text-[10px] text-secondary mt-0.5">
-                      Distribuição por categoria · clique para ver o detalhamento
-                    </p>
-                  </div>
+                    {/* Gráfico de Fluxo Diário */}
+                    <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+                      <div className="mb-4 border-b border-glass/40 pb-3">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+                          Fluxo Diário
+                        </h3>
+                        <p className="text-[10px] text-secondary mt-0.5">
+                          Entradas, saídas e investimentos por dia em {formatMonth(currentMonth)}
+                        </p>
+                      </div>
 
-                  {expenseCategoriesPieData.length === 0 ? (
-                    <p className="text-sm text-secondary text-center py-8 italic">Sem despesas no mês selecionado.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {/* Esquerda: Pie chart */}
-                      <div className="lg:col-span-1 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-glass/40 pb-6 lg:pb-0 lg:pr-6 min-h-[220px]">
-                        <CategoryPieChart
-                          data={expenseCategoriesPieData}
-                          onClick={(entry) => {
-                            if (entry?.categoryId && entry?.name) {
-                              openExpenseCategoryDetails(entry.categoryId, entry.name)
-                            }
-                          }}
-                          outerRadius={86}
-                          innerRadius={58}
+                      <div className="w-full mt-2">
+                        <DailyFlowChart
+                          data={dailyFlowData}
+                          hiddenSeries={hiddenDailyFlowSeries}
+                          onToggleSeries={toggleDailyFlowSeries}
                         />
                       </div>
+                    </Card>
 
-                      {/* Direita: Categoria cards grid */}
-                      <div className="lg:col-span-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {prioritizedExpenseCategoryItems.map((item, index) => {
-                            const staggerClass = index < 8
-                              ? ['delay-50','delay-100','delay-150','delay-200','delay-250','delay-300','delay-350','delay-400'][index]
-                              : ''
-                            const rawLimit = item.categoryId ? expenseLimitMap.get(item.categoryId) : undefined
-                            const targetAmount = rawLimit !== undefined ? rawLimit : null
-                            return (
-                              <ReportsCategoryRowButton
-                                key={item.categoryId || item.name}
-                                categoryId={item.categoryId}
-                                categoryName={item.name}
-                                total={item.value}
-                                color={item.color}
-                                totalBase={totalExpenses}
-                                targetAmount={targetAmount}
-                                isExpense={true}
-                                staggerClass={staggerClass}
-                                onOpen={openExpenseCategoryDetails}
-                              />
-                            )
-                          })}
-                        </div>
-                      </div>
+                    {/* Controle de Limites */}
+                    <div className={categoriesAttentionList.length === 0 ? 'hidden lg:block' : 'block'}>
+                      <LimitsControl
+                        categoriesAttentionList={categoriesAttentionList}
+                        onCategoryClick={openExpenseCategoryDetails}
+                      />
                     </div>
-                  )}
-                </Card>
+
+                    {/* Sugestões de Limites Inteligentes */}
+                    <SmartLimitSuggestions
+                      currentMonth={currentMonth}
+                      previousMonth={previousMonth}
+                      categories={categories}
+                      currentMonthExpenses={expenses}
+                      previousMonthExpenses={previousMonthExpenses}
+                      currentMonthLimits={currentMonthExpenseLimits}
+                      previousMonthIncomeTotal={previousMonthIncomeTotal}
+                      onSetLimit={setCategoryLimit}
+                      onRefreshLimits={refreshLimits}
+                    />
+                  </div>
+
+                  {/* Coluna da Direita (1 Coluna no Desktop): Widgets e Acompanhamento */}
+                  <div className="flex flex-col gap-5 lg:col-span-1">
+                    {/* Desktop Only: Acompanhamento Diário na Barra Lateral */}
+                    <div className="hidden lg:block">
+                      <DailyBudgetAdvisor
+                        currentMonth={currentMonth}
+                        totalIncomes={totalIncomes}
+                        totalExpenses={totalExpenses}
+                        totalInvestments={totalInvestments}
+                        expenses={expenses}
+                      />
+                    </div>
+
+                    {/* Insights Financeiros */}
+                    <FinancialInsights
+                      viewMode="month"
+                      periodLabel={formatMonth(currentMonth)}
+                      incomeTotal={totalIncomes}
+                      expenseTotal={totalExpenses}
+                      savingsRate={savingsRate}
+                      categoryExpenses={categoryExpenseSummaries}
+                      previousExpenseTotal={previousMonthExpenseTotal}
+                      weekdayExpenses={weekdayExpenseData}
+                      limitsExceededCount={limitsExceededCount}
+                      isSidebar={true}
+                    />
+
+
+                  </div>
+
+                </div>
 
               </div>
             )}
