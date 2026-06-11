@@ -15,10 +15,9 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, formatCurrency, formatDate, formatMonth, getCurrentMonthString } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import Button from '@/components/Button'
-import DailyFlowLegend from '@/components/dashboard/DailyFlowLegend'
 import ExpenseCategoryRowButton from '@/components/dashboard/ExpenseCategoryRowButton'
 import MobileChartSwitcher from '@/components/dashboard/MobileChartSwitcher'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
@@ -33,29 +32,17 @@ import {
   sumPortfolioTransactionsForMonth,
 } from '@/utils/portfolioMonthlyFlow'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import DashboardKpis from '@/components/DashboardKpis'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
-import { chartAnimProps } from '@/types/recharts'
-import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
+
+import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
+import MonthlyOverviewChart from '@/components/dashboard/MonthlyOverviewChart'
+import CategoryPieChart from '@/components/reports/CategoryPieChart'
+import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85;
 
@@ -129,14 +116,6 @@ export default function Dashboard() {
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
   const isDataChangingRef = useRef(false)
-
-  const formatAxisCurrencyTick = (value: number) => {
-    if (value >= 1000) {
-      return `R$ ${formatNumberBR(value / 1000, { maximumFractionDigits: 0 })}k`
-    }
-
-    return `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`
-  }
 
   const { colorPalette } = usePaletteColors()
   const { categories, loading: categoriesLoading } = useCategories()
@@ -399,26 +378,7 @@ export default function Dashboard() {
     return series
   }, [currentMonth, incomes, expenses, portfolioTransactions])
 
-  const animProps = useMemo(() => chartAnimProps(), [])
 
-  const chartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string }) => {
-    if (!active || !payload || payload.length === 0) return null
-
-    const isDayLabel = typeof label === 'string' && /^\d{1,2}$/.test(label)
-
-    return (
-      <div className="rounded-xl border border-glass surface-glass-strong px-3 py-2 shadow-lg">
-        {label && <p className="text-xs text-secondary mb-1">{isDayLabel ? `Dia ${label}` : label}</p>}
-        <div className="space-y-1">
-          {payload.map((entry, index) => (
-            <p key={`${entry.name}-${index}`} className="text-sm text-primary">
-              {entry.name}: {formatCurrency(Number(entry.value || 0))}
-            </p>
-          ))}
-        </div>
-      </div>
-    )
-  }
 
   const openExpenseCategoryDetails = (categoryId: string, categoryName: string) => {
     if (!categoryId) return
@@ -464,19 +424,21 @@ export default function Dashboard() {
     }
   }, [selectedExpenseCategory, selectedExpenseCategoryDetails, expenseLimitMap])
 
+  const miniChartItems = useMemo(() => {
+    if (!selectedExpenseCategoryDetails) return []
+    return selectedExpenseCategoryDetails.currentItems.map((item) => ({
+      id: item.id,
+      description: item.description || item.category?.name || 'Despesa',
+      date: item.date,
+      amount: expenseAmountForDashboard(item.amount, item.report_weight),
+    }))
+  }, [selectedExpenseCategoryDetails])
+
   const toggleDailyFlowSeries = (dataKey: string) => {
     setHiddenDailyFlowSeries((prev) =>
       prev.includes(dataKey) ? prev.filter((key) => key !== dataKey) : [...prev, dataKey]
     )
   }
-
-  const renderInteractiveLegend = ({ payload }: LegendContentProps) => (
-    <DailyFlowLegend
-      payload={payload}
-      hiddenSeries={hiddenDailyFlowSeries}
-      onToggle={toggleDailyFlowSeries}
-    />
-  )
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
@@ -535,45 +497,16 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
                     <Card className={`${activeMobileChart === 'panorama' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
                       <h3 className="text-lg font-semibold text-primary mb-4">Panorama do mês</h3>
-                      <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={monthlyOverviewData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                          <XAxis dataKey="name" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                          <YAxis
-                            stroke="var(--color-text-secondary)"
-                            fontSize={12}
-                            tick={{ fill: 'var(--color-text-secondary)' }}
-                            tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
-                          />
-                          <Tooltip content={chartTooltip} />
-                          <Bar dataKey="value" radius={[6, 6, 0, 0]} {...animProps}>
-                            {monthlyOverviewData.map((item) => (
-                              <Cell key={item.name} fill={item.color} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <MonthlyOverviewChart data={monthlyOverviewData} />
                     </Card>
 
                     <Card className={`${activeMobileChart === 'flow' ? 'flex' : 'hidden xl:flex'} h-full flex-col`}>
                       <h3 className="text-lg font-semibold text-primary mb-4">Fluxo diário</h3>
-                      <ResponsiveContainer width="100%" height={280}>
-                        <LineChart data={dailyFlowData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                          <XAxis dataKey="day" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} minTickGap={14} />
-                          <YAxis
-                            stroke="var(--color-text-secondary)"
-                            fontSize={12}
-                            tick={{ fill: 'var(--color-text-secondary)' }}
-                            tickFormatter={(value) => formatAxisCurrencyTick(Number(value))}
-                          />
-                          <Tooltip content={chartTooltip} />
-                          <Legend content={renderInteractiveLegend} />
-                          <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Rendas')} {...animProps} />
-                          <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Despesas')} {...animProps} />
-                          <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} hide={hiddenDailyFlowSeries.includes('Investimentos')} {...animProps} />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      <DailyFlowChart 
+                        data={dailyFlowData} 
+                        hiddenSeries={hiddenDailyFlowSeries} 
+                        onToggleSeries={toggleDailyFlowSeries} 
+                      />
                     </Card>
                   </div>
 
@@ -588,29 +521,15 @@ export default function Dashboard() {
                       ) : (
                         <>
                           <div className="mx-auto w-full max-w-2xl">
-                            <ResponsiveContainer width="100%" height={260}>
-                              <PieChart>
-                                <Pie
-                                  data={expenseCategoriesPieData}
-                                  dataKey="value"
-                                  nameKey="name"
-                                  outerRadius={86}
-                                  labelLine={false}
-                                  label={false}
-                                  onClick={(entry: { categoryId?: string; name?: string }) => {
-                                    if (entry?.categoryId && entry?.name) {
-                                      openExpenseCategoryDetails(entry.categoryId, entry.name)
-                                    }
-                                  }}
-                                  {...animProps}
-                                >
-                                  {expenseCategoriesPieData.map((entry) => (
-                                    <Cell key={entry.name} fill={entry.color} />
-                                  ))}
-                                </Pie>
-                                <Tooltip content={chartTooltip} />
-                              </PieChart>
-                            </ResponsiveContainer>
+                            <CategoryPieChart 
+                              data={expenseCategoriesPieData}
+                              onClick={(entry) => {
+                                if (entry?.categoryId && entry?.name) {
+                                  openExpenseCategoryDetails(entry.categoryId, entry.name)
+                                }
+                              }}
+                              outerRadius={86}
+                            />
                           </div>
 
                           <div className="mt-4 space-y-3">
@@ -753,6 +672,19 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+          )}
+
+          {selectedExpenseCategory && (
+            <CategoryDetailMiniChart
+              detailItems={miniChartItems}
+              period="month"
+              selectedMonth={currentMonth}
+              selectedYear={new Date(currentMonth).getFullYear()}
+              color={getCategoryColorForPalette(
+                expenses.find(e => (e.category?.id || e.category_id || '') === selectedExpenseCategory.id)?.category?.color || 'var(--color-primary)',
+                colorPalette
+              )}
+            />
           )}
 
           <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do mês</p>

@@ -4,7 +4,6 @@ import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
-import DailyFlowLegend from '@/components/dashboard/DailyFlowLegend'
 import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
 import ReportsPieLegendRow, { type ReportsPieLegendItem } from '@/components/reports/ReportsPieLegendRow'
 import Select from '@/components/Select'
@@ -23,37 +22,24 @@ import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction } from '@/types'
-import type { ChartTooltipEntry } from '@/types/recharts'
-import type { Props as LegendContentProps } from 'recharts/types/component/DefaultLegendContent'
 import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { addMonths, clampMonthToAppStart, formatChartYAxisCurrency, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberBR, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Scale, Loader2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-} from 'recharts'
 import { useSearchParams } from 'react-router-dom'
+
+import AnnualFlowChart from '@/components/reports/AnnualFlowChart'
+import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
+import WeekdayExpenseChart from '@/components/reports/WeekdayExpenseChart'
+import CategoryPieChart from '@/components/reports/CategoryPieChart'
+import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
+import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
+import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
+import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
+
 type ViewMode = 'year' | 'month'
 type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
 
@@ -146,31 +132,7 @@ type DetailIncomeEntry = {
   } | null
 }
 
-function ChartTooltip({ active, payload, formatValue = formatCurrency }: { active?: boolean; payload?: ChartTooltipEntry[]; formatValue?: (n: number) => string }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
-      {payload.map((entry, i: number) => (
-        <p key={i} style={{ color: entry.color }} className="text-sm font-medium">
-          {entry.name}: {formatValue(Number(entry.value))}
-        </p>
-      ))}
-    </div>
-  )
-}
 
-function PieTooltip({ active, payload }: { active?: boolean; payload?: ChartTooltipEntry[] }) {
-  if (!active || !payload?.[0]) return null
-  const point = payload[0].payload as { name?: string; value?: number } | undefined
-  if (!point) return null
-
-  return (
-    <div className="bg-primary p-3 border border-primary rounded-lg shadow-lg">
-      <p className="text-sm font-medium text-primary">{point.name}</p>
-      <p className="text-sm text-secondary">{formatCurrency(Number(point.value ?? 0))}</p>
-    </div>
-  )
-}
 
 export default function Reports() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -571,11 +533,6 @@ export default function Reports() {
     )
   }, [annualExpenseTrendData, annualExpenseTrendSeries])
 
-  const visibleExpenseTrendSeries = useMemo(
-    () => annualExpenseTrendSeries.filter((series) => !hiddenExpenseSeries.includes(series.key)),
-    [annualExpenseTrendSeries, hiddenExpenseSeries]
-  )
-
   const annualIncomeTrendData = useMemo(() => {
     return monthlySummaries.map((summary) => {
       const row: Record<string, string | number> = {
@@ -601,11 +558,6 @@ export default function Reports() {
       annualIncomeTrendSeries.some((series) => Number(row[series.key] ?? 0) > 0)
     )
   }, [annualIncomeTrendData, annualIncomeTrendSeries])
-
-  const visibleIncomeTrendSeries = useMemo(
-    () => annualIncomeTrendSeries.filter((series) => !hiddenIncomeSeries.includes(series.key)),
-    [annualIncomeTrendSeries, hiddenIncomeSeries]
-  )
 
   const monthSummary = monthlySummaries.find((s) => s.month === selectedMonth)
   const monthExpenseCategories = useMemo(
@@ -806,6 +758,23 @@ export default function Reports() {
   const detailDifferencePct = detailPreviousTotal > 0
     ? (detailDifference / detailPreviousTotal) * 100
     : null
+
+  const detailCategoryColor = useMemo(() => {
+    if (!detailModal.isOpen) return 'var(--color-primary)'
+    if (detailModal.type === 'expense') {
+      return getExpenseColor(detailModal.categoryId, 'var(--color-primary)')
+    }
+    if (detailModal.type === 'income') {
+      return getIncomeColor(detailModal.categoryId, 'var(--color-primary)')
+    }
+    if (detailModal.type === 'payment_method') {
+      return PAYMENT_METHOD_COLORS[detailModal.categoryId] || 'var(--color-primary)'
+    }
+    if (detailModal.type === 'credit_card') {
+      return creditCards.find((c) => c.id === detailModal.categoryId)?.color || 'var(--color-primary)'
+    }
+    return 'var(--color-primary)'
+  }, [detailModal, getExpenseColor, getIncomeColor, creditCards])
 
   const monthExpenseLimitMap = useMemo(() => {
     const map = new Map<string, number | null>()
@@ -1037,12 +1006,7 @@ export default function Reports() {
     )
   }
 
-  const renderInteractiveLegend = (
-    hiddenSeries: string[],
-    onToggle: (key: string) => void,
-  ) => (props: LegendContentProps) => (
-    <DailyFlowLegend payload={props.payload} hiddenSeries={hiddenSeries} onToggle={onToggle} />
-  )
+
 
   const dailyConsolidatedData = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number)
@@ -1164,31 +1128,15 @@ export default function Reports() {
         <p className="text-sm text-secondary">Sem dados para exibir.</p>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                labelLine={false}
-                label={false}
-                fill="var(--color-primary)"
-                onClick={(entry: PieDatum) => {
-                  if (entry.categoryId && entry.detailType) {
-                    openDetailModal(entry.detailType, entry.categoryId, entry.name, entry.detailPeriod || 'month')
-                  }
-                }}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`${entry.name}-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<PieTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+          <CategoryPieChart
+            data={data}
+            onClick={(entry: PieDatum) => {
+              if (entry.categoryId && entry.detailType) {
+                openDetailModal(entry.detailType, entry.categoryId, entry.name, entry.detailPeriod || 'month')
+              }
+            }}
+            outerRadius={100}
+          />
 
           <div className="mt-4 space-y-3">
             {data
@@ -1333,41 +1281,16 @@ export default function Reports() {
                 <div className="grid grid-cols-1 gap-4 items-stretch">
                   <Card className="h-full flex flex-col chart-interactive-layer">
                     <h3 className="text-lg font-semibold text-primary mb-4">Fluxo mensal ({selectedYear})</h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <LineChart data={monthlyData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                        <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                        <YAxis
-                          stroke="var(--color-text-secondary)"
-                          fontSize={12}
-                          tick={{ fill: 'var(--color-text-secondary)' }}
-                          tickFormatter={(value) => (value >= 1000 ? `R$ ${formatNumberBR(value / 1000, { maximumFractionDigits: 0 })}k` : `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`)}
-                        />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Legend content={renderInteractiveLegend(hiddenAnnualFlowSeries, toggleAnnualFlowSeries)} />
-                        <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={{ r: 3 }} hide={hiddenAnnualFlowSeries.includes('Rendas')} />
-                        <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={{ r: 3 }} hide={hiddenAnnualFlowSeries.includes('Despesas')} />
-                        <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={{ r: 3 }} hide={hiddenAnnualFlowSeries.includes('Investimentos')} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <AnnualFlowChart
+                      data={monthlyData}
+                      hiddenSeries={hiddenAnnualFlowSeries}
+                      onToggleSeries={toggleAnnualFlowSeries}
+                    />
                   </Card>
 
                   <Card className="h-full flex flex-col chart-interactive-layer">
                     <h3 className="text-lg font-semibold text-primary mb-4">Saldo acumulado ({selectedYear})</h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <AreaChart data={cumulativeBalanceData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                        <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                        <YAxis
-                          stroke="var(--color-text-secondary)"
-                          fontSize={12}
-                          tick={{ fill: 'var(--color-text-secondary)' }}
-                          tickFormatter={(value) => (value >= 1000 ? `R$ ${formatNumberBR(value / 1000, { maximumFractionDigits: 0 })}k` : `R$ ${formatNumberBR(value, { maximumFractionDigits: 0 })}`)}
-                        />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Area type="monotone" dataKey="SaldoAcumulado" stroke="var(--color-primary)" fill="var(--color-hover)" strokeWidth={2} />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <CumulativeBalanceChart data={cumulativeBalanceData} />
                   </Card>
                 </div>
 
@@ -1406,37 +1329,12 @@ export default function Reports() {
                       (evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData).length === 0) ? (
                       <p className="text-sm text-secondary">Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no ano selecionado.</p>
                     ) : (
-                      <ResponsiveContainer width="100%" height={320}>
-                        <LineChart data={evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                          <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                          <YAxis
-                            stroke="var(--color-text-secondary)"
-                            fontSize={12}
-                            tick={{ fill: 'var(--color-text-secondary)' }}
-                            tickFormatter={(value) => formatChartYAxisCurrency(Number(value))}
-                          />
-                          <Tooltip content={<ChartTooltip />} />
-                          <Legend 
-                            content={renderInteractiveLegend(
-                              evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries, 
-                              evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries
-                            )} 
-                          />
-                          {(evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries).map((series) => (
-                            <Line
-                              key={series.key}
-                              type="monotone"
-                              dataKey={series.key}
-                              name={series.name}
-                              stroke={series.color}
-                              strokeWidth={2}
-                              dot={false}
-                              hide={!(evolutionType === 'expense' ? visibleExpenseTrendSeries : visibleIncomeTrendSeries).some((visible) => visible.key === series.key)}
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
+                      <CategoryTrendChart
+                        data={evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData}
+                        series={evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries}
+                        hiddenSeries={evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries}
+                        onToggleSeries={evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries}
+                      />
                     )}
                   </Card>
                 </div>
@@ -1470,29 +1368,12 @@ export default function Reports() {
                     <h3 className="text-lg font-semibold text-primary">Fluxo diário consolidado ({formatMonth(selectedMonth)})</h3>
                     <span className="text-sm text-secondary">Rendas, despesas e investimentos por dia</span>
                   </div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={dailyConsolidatedData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis
-                        dataKey="label"
-                        stroke="var(--color-text-secondary)"
-                        fontSize={12}
-                        tick={{ fill: 'var(--color-text-secondary)' }}
-                        minTickGap={12}
-                      />
-                      <YAxis
-                        stroke="var(--color-text-secondary)"
-                        fontSize={12}
-                        tick={{ fill: 'var(--color-text-secondary)' }}
-                        tickFormatter={(value) => formatChartYAxisCurrency(Number(value))}
-                      />
-                      <Tooltip content={<ChartTooltip />} />
-                      <Legend content={renderInteractiveLegend(hiddenDailyConsolidatedSeries, toggleDailyConsolidatedSeries)} />
-                      <Line type="monotone" dataKey="Rendas" stroke="var(--color-income)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} hide={hiddenDailyConsolidatedSeries.includes('Rendas')} />
-                      <Line type="monotone" dataKey="Despesas" stroke="var(--color-expense)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} hide={hiddenDailyConsolidatedSeries.includes('Despesas')} />
-                      <Line type="monotone" dataKey="Investimentos" stroke="var(--color-balance)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} hide={hiddenDailyConsolidatedSeries.includes('Investimentos')} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <DailyFlowChart
+                    data={dailyConsolidatedData}
+                    hiddenSeries={hiddenDailyConsolidatedSeries}
+                    onToggleSeries={toggleDailyConsolidatedSeries}
+                    xAxisKey="label"
+                  />
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
@@ -1509,23 +1390,11 @@ export default function Reports() {
                         </span>
                       </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={monthQuickData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                        <XAxis dataKey="month" stroke="var(--color-text-secondary)" fontSize={12} tick={{ fill: 'var(--color-text-secondary)' }} />
-                        <YAxis
-                          stroke="var(--color-text-secondary)"
-                          fontSize={12}
-                          tick={{ fill: 'var(--color-text-secondary)' }}
-                          tickFormatter={(value) => formatChartYAxisCurrency(Number(value))}
-                        />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Legend content={renderInteractiveLegend(hiddenMonthCompositionSeries, toggleMonthCompositionSeries)} />
-                        <Bar dataKey="Rendas" fill="var(--color-income)" radius={[4, 4, 0, 0]} hide={hiddenMonthCompositionSeries.includes('Rendas')} />
-                        <Bar dataKey="Despesas" fill="var(--color-expense)" radius={[4, 4, 0, 0]} hide={hiddenMonthCompositionSeries.includes('Despesas')} />
-                        <Bar dataKey="Investimentos" fill="var(--color-balance)" radius={[4, 4, 0, 0]} hide={hiddenMonthCompositionSeries.includes('Investimentos')} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <MonthCompositionChart
+                      data={monthQuickData}
+                      hiddenSeries={hiddenMonthCompositionSeries}
+                      onToggleSeries={toggleMonthCompositionSeries}
+                    />
                   </Card>
 
                   <Card className="h-full flex flex-col chart-interactive-layer">
@@ -1537,22 +1406,7 @@ export default function Reports() {
                           : `Distribuição semanal de despesas em ${formatMonth(selectedMonth)}`}
                       </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <RadarChart data={weekdayExpenseData}>
-                        <PolarGrid stroke="var(--color-border)" />
-                        <PolarAngleAxis dataKey="dia" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Legend />
-                        <Radar
-                          name="Despesas"
-                          dataKey="Despesas"
-                          stroke="var(--color-expense)"
-                          fill="var(--color-expense)"
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
+                    <WeekdayExpenseChart data={weekdayExpenseData} />
                   </Card>
                 </div>
 
@@ -1678,6 +1532,16 @@ export default function Reports() {
                 )}
               </div>
             </div>
+          )}
+
+          {detailModal.isOpen && (
+            <CategoryDetailMiniChart
+              detailItems={detailItems}
+              period={detailModal.period}
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              color={detailCategoryColor}
+            />
           )}
 
           <div>
