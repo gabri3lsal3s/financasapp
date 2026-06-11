@@ -7,6 +7,7 @@ import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Card from '@/components/Card'
 import { generateCategoryColor } from '@/utils/categoryColors'
+import { getCategoryIcon } from '@/utils/categoryIcons'
 import { Category, IncomeCategory } from '@/types'
 
 export default function OnboardingCategories() {
@@ -89,7 +90,12 @@ export default function OnboardingCategories() {
               <div className="space-y-2 mt-4">
                 {categories.map((cat) => (
                   <div key={cat.id} className="flex items-center gap-3 bg-secondary rounded-lg p-2.5 border border-primary animate-in slide-in-from-bottom-2">
-                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: cat.color }}></span>
+                    <span 
+                      style={{ color: cat.color }}
+                      className="flex items-center justify-center flex-shrink-0"
+                    >
+                      {getCategoryIcon(cat.name, 16, cat.color?.split('|')[1])}
+                    </span>
                     <span className="text-sm font-medium text-primary line-clamp-1">{cat.name}</span>
                     <Check size={16} className="ml-auto text-[var(--color-income)]" />
                   </div>
@@ -134,7 +140,12 @@ export default function OnboardingCategories() {
               <div className="space-y-2 mt-4">
                 {incomeCategories.map((cat) => (
                   <div key={cat.id} className="flex items-center gap-3 bg-secondary rounded-lg p-2.5 border border-primary animate-in slide-in-from-bottom-2">
-                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: cat.color }}></span>
+                    <span 
+                      style={{ color: cat.color }}
+                      className="flex items-center justify-center flex-shrink-0"
+                    >
+                      {getCategoryIcon(cat.name, 16, cat.color?.split('|')[1])}
+                    </span>
                     <span className="text-sm font-medium text-primary line-clamp-1">{cat.name}</span>
                     <Check size={16} className="ml-auto text-[var(--color-income)]" />
                   </div>

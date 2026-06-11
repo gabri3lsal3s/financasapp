@@ -1,9 +1,7 @@
 import Button from '@/components/Button'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
-import { 
-  Utensils, Car, Heart, Home, GraduationCap, Smile, ShoppingBag, 
-  TrendingUp, Landmark, Award, Tag, AlertTriangle
-} from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
+import { getCategoryIcon } from '@/utils/categoryIcons'
 
 interface ReportsCategoryRowButtonProps {
   categoryId: string
@@ -14,42 +12,8 @@ interface ReportsCategoryRowButtonProps {
   staggerClass?: string
   targetAmount?: number | null
   isExpense?: boolean
+  iconName?: string
   onOpen: (categoryId: string, categoryName: string) => void
-}
-
-function getCategoryIcon(name: string, size = 12) {
-  const normalized = name.toLowerCase().trim()
-  if (normalized.includes('aliment') || normalized.includes('comer') || normalized.includes('restaurante') || normalized.includes('supermercado') || normalized.includes('mercado')) {
-    return <Utensils size={size} />
-  }
-  if (normalized.includes('transp') || normalized.includes('carro') || normalized.includes('combustivel') || normalized.includes('uber') || normalized.includes('moto') || normalized.includes('viagem')) {
-    return <Car size={size} />
-  }
-  if (normalized.includes('saude') || normalized.includes('medico') || normalized.includes('remedio') || normalized.includes('farmacia') || normalized.includes('hospital') || normalized.includes('odonto')) {
-    return <Heart size={size} />
-  }
-  if (normalized.includes('morad') || normalized.includes('casa') || normalized.includes('aluguel') || normalized.includes('condominio') || normalized.includes('luz') || normalized.includes('agua') || normalized.includes('internet') || normalized.includes('tel')) {
-    return <Home size={size} />
-  }
-  if (normalized.includes('educa') || normalized.includes('escola') || normalized.includes('faculdade') || normalized.includes('curso') || normalized.includes('livro') || normalized.includes('estudo')) {
-    return <GraduationCap size={size} />
-  }
-  if (normalized.includes('lazer') || normalized.includes('cinema') || normalized.includes('show') || normalized.includes('festa') || normalized.includes('bar') || normalized.includes('pub')) {
-    return <Smile size={size} />
-  }
-  if (normalized.includes('compras') || normalized.includes('vestuario') || normalized.includes('roupa') || normalized.includes('eletronico') || normalized.includes('shopee') || normalized.includes('amazon')) {
-    return <ShoppingBag size={size} />
-  }
-  if (normalized.includes('salario') || normalized.includes('renda') || normalized.includes('provento') || normalized.includes('receita') || normalized.includes('trabalho')) {
-    return <TrendingUp size={size} />
-  }
-  if (normalized.includes('invest') || normalized.includes('acao') || normalized.includes('fundo') || normalized.includes('poupanca') || normalized.includes('aplicacao')) {
-    return <Landmark size={size} />
-  }
-  if (normalized.includes('premio') || normalized.includes('bonus') || normalized.includes('presente')) {
-    return <Award size={size} />
-  }
-  return <Tag size={size} />
 }
 
 export default function ReportsCategoryRowButton({
@@ -61,10 +25,11 @@ export default function ReportsCategoryRowButton({
   staggerClass = '',
   targetAmount,
   isExpense = true,
+  iconName,
   onOpen,
 }: ReportsCategoryRowButtonProps) {
   const sharePct = totalBase > 0 ? (total / totalBase) * 100 : 0
-  const icon = getCategoryIcon(categoryName, 12)
+  const icon = getCategoryIcon(categoryName, 14, iconName)
 
   // Cálculos de orçamento / meta
   const hasTarget = targetAmount !== undefined && targetAmount !== null && targetAmount > 0
@@ -87,8 +52,8 @@ export default function ReportsCategoryRowButton({
       <div className="flex items-center justify-between gap-3 w-full">
         <div className="flex items-center gap-2 min-w-0">
           <span 
-            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" 
-            style={{ backgroundColor: `${color}15`, color: color }}
+            style={{ color: color }}
+            className="flex items-center justify-center flex-shrink-0"
           >
             {icon}
           </span>

@@ -15,6 +15,7 @@ import { IncomeCategory } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
+import { getCategoryIcon } from '@/utils/categoryIcons'
 
 export default function IncomeCategories() {
   const { incomeCategories, loading, createIncomeCategory, updateIncomeCategory, deleteIncomeCategory, getIncomeCategoryUsageCount } = useIncomeCategories()
@@ -138,10 +139,12 @@ export default function IncomeCategories() {
                   onClick={() => handleOpenModal(category)}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded-full flex-shrink-0 border shadow-sm"
-                      style={{ backgroundColor: getCategoryColorForPalette(category.color, colorPalette) }}
-                    />
+                    <span 
+                      style={{ color: getCategoryColorForPalette(category.color, colorPalette) }}
+                      className="flex items-center justify-center flex-shrink-0"
+                    >
+                      {getCategoryIcon(category.name, 16, category.color?.split('|')[1])}
+                    </span>
                     <span className="font-medium text-primary flex-1 truncate">{category.name}</span>
                     {category.id.startsWith('offline-') && (
                       <span title="Pendente de sincronização">

@@ -32,13 +32,14 @@ export function getCategoryColor(categoryIndex: number, palette: ColorPalette): 
 }
 
 export function getCategoryColorForPalette(originalColor: string, palette: ColorPalette): string {
-  const index = VIVID_COLOR_KEYS.findIndex((key) => key === normalizeColorKey(originalColor))
+  const colorOnly = originalColor ? originalColor.split('|')[0] : ''
+  const index = VIVID_COLOR_KEYS.findIndex((key) => key === normalizeColorKey(colorOnly))
 
   if (index !== -1) {
     return categoryVarName(palette, index)
   }
 
-  return originalColor
+  return colorOnly
 }
 
 export function generateCategoryColor(categoryName: string, palette: ColorPalette): string {
@@ -83,8 +84,9 @@ export function assignUniquePaletteColors<T extends { id?: string; name?: string
     let preferredIndex = -1
 
     if (cat.color) {
+      const colorOnly = cat.color.split('|')[0]
       const vividIndex = VIVID_COLOR_KEYS.findIndex(
-        (key) => key === normalizeColorKey(cat.color ?? '')
+        (key) => key === normalizeColorKey(colorOnly ?? '')
       )
       if (vividIndex !== -1) preferredIndex = vividIndex
     }
@@ -108,3 +110,7 @@ export function assignUniquePaletteColors<T extends { id?: string; name?: string
 
   return result
 }
+
+export const DEFAULT_CATEGORY_COLOR_HEX = '#' + 'ef4444'
+
+export const VIVID_COLORS = VIVID_COLOR_KEYS.map((key) => '#' + key)

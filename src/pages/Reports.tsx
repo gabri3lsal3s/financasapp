@@ -80,6 +80,7 @@ type PieDatum = {
   categoryId?: string
   detailType?: DetailType
   detailPeriod?: 'month' | 'year'
+  iconName?: string
 }
 
 type TrendSeriesMeta = {
@@ -456,28 +457,38 @@ export default function Reports() {
 
   const annualPieExpenses = useMemo(
     () =>
-      categoryExpenses.map((cat: ExpenseCategorySummary) => ({
-        name: cat.category_name,
-        value: cat.total,
-        color: getExpenseColor(cat.category_id, cat.color),
-        categoryId: cat.category_id,
-        detailType: 'expense' as DetailType,
-        detailPeriod: 'year' as const,
-      })),
-    [categoryExpenses, getExpenseColor]
+      categoryExpenses.map((cat: ExpenseCategorySummary) => {
+        const matched = categories.find((c) => c.id === cat.category_id)
+        const [_, iconName] = (matched?.color || cat.color || '').split('|')
+        return {
+          name: cat.category_name,
+          value: cat.total,
+          color: getExpenseColor(cat.category_id, cat.color),
+          categoryId: cat.category_id,
+          detailType: 'expense' as DetailType,
+          detailPeriod: 'year' as const,
+          iconName,
+        }
+      }),
+    [categoryExpenses, categories, getExpenseColor]
   )
 
   const annualPieIncomes = useMemo(
     () =>
-      incomeByCategory.map((cat) => ({
-        name: cat.category_name,
-        value: cat.total,
-        color: getIncomeColor(cat.income_category_id, cat.color),
-        categoryId: cat.income_category_id,
-        detailType: 'income' as DetailType,
-        detailPeriod: 'year' as const,
-      })),
-    [incomeByCategory, getIncomeColor]
+      incomeByCategory.map((cat) => {
+        const matched = incomeCategories.find((c) => c.id === cat.income_category_id)
+        const [_, iconName] = (matched?.color || cat.color || '').split('|')
+        return {
+          name: cat.category_name,
+          value: cat.total,
+          color: getIncomeColor(cat.income_category_id, cat.color),
+          categoryId: cat.income_category_id,
+          detailType: 'income' as DetailType,
+          detailPeriod: 'year' as const,
+          iconName,
+        }
+      }),
+    [incomeByCategory, incomeCategories, getIncomeColor]
   )
 
   const annualPiePaymentMethods = useMemo(() => {
@@ -658,22 +669,37 @@ export default function Reports() {
     () => (selectedMonth ? (monthlyIncomeByCategory[selectedMonth] ?? []) : []),
     [selectedMonth, monthlyIncomeByCategory]
   )
-  const monthPieExpenses = monthExpenseCategories.map((cat: ExpenseCategorySummary) => ({
-    categoryId: cat.category_id,
-    name: cat.category_name,
-    value: cat.total,
-    detailType: 'expense' as DetailType,
-    detailPeriod: 'month' as const,
-    color: getExpenseColor(cat.category_id, cat.color),
-  }))
-  const monthPieIncomes = monthIncomeCategories.map((cat: IncomeCategorySummary) => ({
-    categoryId: cat.income_category_id,
-    name: cat.category_name,
-    value: cat.total,
-    detailType: 'income' as DetailType,
-    detailPeriod: 'month' as const,
-    color: getIncomeColor(cat.income_category_id, cat.color),
-  }))
+  const monthPieExpenses = useMemo(() => {
+    return monthExpenseCategories.map((cat: ExpenseCategorySummary) => {
+      const matched = categories.find((c) => c.id === cat.category_id)
+      const [_, iconName] = (matched?.color || cat.color || '').split('|')
+      return {
+        categoryId: cat.category_id,
+        name: cat.category_name,
+        value: cat.total,
+        detailType: 'expense' as DetailType,
+        detailPeriod: 'month' as const,
+        color: getExpenseColor(cat.category_id, cat.color),
+        iconName,
+      }
+    })
+  }, [monthExpenseCategories, categories, getExpenseColor])
+
+  const monthPieIncomes = useMemo(() => {
+    return monthIncomeCategories.map((cat: IncomeCategorySummary) => {
+      const matched = incomeCategories.find((c) => c.id === cat.income_category_id)
+      const [_, iconName] = (matched?.color || cat.color || '').split('|')
+      return {
+        categoryId: cat.income_category_id,
+        name: cat.category_name,
+        value: cat.total,
+        detailType: 'income' as DetailType,
+        detailPeriod: 'month' as const,
+        color: getIncomeColor(cat.income_category_id, cat.color),
+        iconName,
+      }
+    })
+  }, [monthIncomeCategories, incomeCategories, getIncomeColor])
 
   const monthPiePaymentMethods = useMemo(() => {
     const methodsMap = new Map<string, number>()
@@ -1330,17 +1356,17 @@ export default function Reports() {
         />
         
         <div className="flex items-start justify-between gap-3 w-full">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight truncate">
+          <div className="min-w-0 flex-1 pr-8 sm:pr-0">
+            <p className="text-[9px] xs:text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight whitespace-normal sm:truncate">
               {title}
             </p>
-            <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-2.5 leading-none truncate" title={value}>
+            <p className="text-[clamp(11px,3.3vw,1.25rem)] font-extrabold font-mono text-primary mt-1.5 xs:mt-2.5 leading-none whitespace-nowrap" title={value}>
               {value}
             </p>
           </div>
           
           <span 
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+            className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
             style={{ 
               backgroundColor: `${glowColor}15`, 
               color: glowColor,
@@ -1356,8 +1382,8 @@ export default function Reports() {
           <Sparkline data={sparklineData} color={glowColor} height={28} />
         </div>
 
-        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[10px] font-semibold">
-          <span className="text-secondary truncate">{subtext}</span>
+        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[9px] xs:text-[10px] font-semibold">
+          <span className="text-secondary whitespace-normal sm:truncate leading-normal">{subtext}</span>
           {trendPercent !== undefined && trendPercent !== null ? (
             <span 
               className={`shrink-0 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold ${
@@ -1528,6 +1554,7 @@ export default function Reports() {
                         targetAmount={target}
                         isExpense={isExpense}
                         staggerClass={staggerClass}
+                        iconName={item.iconName}
                         onOpen={(catId, catName) =>
                           openDetailModal(isExpense ? 'expense' : 'income', catId, catName, isYear ? 'year' : 'month')
                         }

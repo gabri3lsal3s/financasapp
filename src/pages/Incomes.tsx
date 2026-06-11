@@ -145,6 +145,7 @@ export default function Incomes() {
                 const categoryColor = category?.color
                   ? getCategoryColorForPalette(category.color, colorPalette)
                   : 'var(--color-income)'
+                const [_, categoryIconName] = (category?.color || '').split('|')
                 const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
                 const staggerClass = index < 5 ? staggerClasses[index] : ''
 
@@ -160,6 +161,7 @@ export default function Incomes() {
                     originalAmount={income.amount}
                     dateLabel={formatDate(income.date).substring(0, 5)}
                     categoryColor={categoryColor}
+                    categoryIconName={categoryIconName}
                     isOffline={income.id.startsWith('offline-')}
                     onClick={() => handleOpenModal(income)}
                     staggerClass={staggerClass}

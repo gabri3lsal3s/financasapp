@@ -178,24 +178,27 @@ export default function Dashboard() {
   // monthlyOverviewData removed because pizza chart was removed
 
   const expenseByCategory = useMemo(() => {
-    const map = new Map<string, { categoryId: string; name: string; color: string; value: number }>()
+    const map = new Map<string, { categoryId: string; name: string; color: string; iconName?: string; value: number }>()
 
     expenses.forEach((expense) => {
       const name = expense.category?.name || 'Sem categoria'
       const categoryId = expense.category?.id || expense.category_id || ''
       const key = categoryId || name
-      const color = getCategoryColorForPalette(expense.category?.color || 'var(--color-primary)', colorPalette)
+      const category = categories.find((c) => c.id === categoryId)
+      const rawColor = category?.color || expense.category?.color || 'var(--color-primary)'
+      const [_, iconName] = rawColor.split('|')
+      const color = getCategoryColorForPalette(rawColor, colorPalette)
       const current = map.get(key)
 
       if (current) {
         current.value += expenseAmountForDashboard(expense.amount, expense.report_weight)
       } else {
-        map.set(key, { categoryId, name, color, value: expenseAmountForDashboard(expense.amount, expense.report_weight) })
+        map.set(key, { categoryId, name, color, iconName, value: expenseAmountForDashboard(expense.amount, expense.report_weight) })
       }
     })
 
     return Array.from(map.values()).sort((a, b) => b.value - a.value)
-  }, [expenses, colorPalette])
+  }, [expenses, categories, colorPalette])
 
   const currentMonthExpenseLimitMap = useMemo(() => {
     const map = new Map<string, number | null>()
@@ -339,6 +342,7 @@ export default function Dashboard() {
       categoryId: string
       name: string
       color: string
+      iconName?: string
       value: number
       limitAmount: number
       usagePercentage: number
@@ -354,6 +358,7 @@ export default function Dashboard() {
         categoryId: alert.categoryId || '',
         name: alert.name,
         color: alert.color,
+        iconName: alert.iconName,
         value: alert.value,
         limitAmount: alert.limitAmount,
         usagePercentage: alert.usagePercentage,
@@ -369,6 +374,7 @@ export default function Dashboard() {
         categoryId: alert.categoryId || '',
         name: alert.name,
         color: alert.color,
+        iconName: alert.iconName,
         value: alert.value,
         limitAmount: alert.limitAmount,
         usagePercentage: alert.usagePercentage,
@@ -499,17 +505,17 @@ export default function Dashboard() {
         />
 
         <div className="flex items-start justify-between gap-3 w-full">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight truncate">
+          <div className="min-w-0 flex-1 pr-8 sm:pr-0">
+            <p className="text-[9px] xs:text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight whitespace-normal sm:truncate">
               {title}
             </p>
-            <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-2.5 leading-none truncate" title={value}>
+            <p className="text-[clamp(11px,3.3vw,1.25rem)] font-extrabold font-mono text-primary mt-1.5 xs:mt-2.5 leading-none whitespace-nowrap" title={value}>
               {value}
             </p>
           </div>
 
           <span
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+            className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
             style={{
               backgroundColor: `${glowColor}15`,
               color: glowColor,
@@ -525,8 +531,8 @@ export default function Dashboard() {
           <Sparkline data={sparklineData} color={glowColor} height={28} />
         </div>
 
-        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[10px] font-semibold">
-          <span className="text-secondary truncate">{subtext}</span>
+        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[9px] xs:text-[10px] font-semibold">
+          <span className="text-secondary whitespace-normal sm:truncate leading-normal">{subtext}</span>
           {trendPercent !== undefined && trendPercent !== null ? (
             <span
               className={`shrink-0 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold ${

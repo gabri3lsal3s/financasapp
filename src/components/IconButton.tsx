@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: ReactNode
   size?: 'sm' | 'md' | 'lg'
-  variant?: 'neutral' | 'danger' | 'success'
+  variant?: 'neutral' | 'danger' | 'success' | 'ghost' | 'ghost-danger'
   label?: string
 }
 
@@ -19,6 +19,8 @@ const variantMap = {
   neutral: 'outline' as const,
   danger: 'expense' as const,
   success: 'income' as const,
+  ghost: 'ghost' as const,
+  'ghost-danger': 'ghost-danger' as const,
 }
 
 export default function IconButton({

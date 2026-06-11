@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   color TEXT NOT NULL,
+  icon TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   user_id UUID DEFAULT auth.uid()
 );
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS income_categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   color TEXT NOT NULL,
+  icon TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   user_id UUID DEFAULT auth.uid()
 );

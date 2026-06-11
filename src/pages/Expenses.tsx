@@ -254,6 +254,7 @@ export default function Expenses() {
                         : (expense.category?.id
                           ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
                           : 'var(--color-expense)')
+                      const [_, categoryIconName] = (category?.color || expense.category?.color || '').split('|')
                       const paymentLabel = getPaymentMethodLabel(expense)
                       const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
                       const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
@@ -271,6 +272,7 @@ export default function Expenses() {
                           originalAmount={expense.amount}
                           dateLabel={dateLabel}
                           categoryColor={categoryColor}
+                          categoryIconName={categoryIconName}
                           isOffline={expense.id.startsWith('offline-')}
                           onClick={() => handleOpenModal(expense)}
                           staggerClass={staggerClass}
@@ -306,6 +308,7 @@ export default function Expenses() {
                         : (expense.category?.id
                           ? (categoryColorMap[expense.category.id] || getCategoryColorForPalette(expense.category.color, colorPalette))
                           : 'var(--color-expense)')
+                      const [_, categoryIconName] = (category?.color || expense.category?.color || '').split('|')
                       const paymentLabel = getPaymentMethodLabel(expense)
                       const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
                       const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
@@ -323,6 +326,7 @@ export default function Expenses() {
                           originalAmount={expense.amount}
                           dateLabel={dateLabel}
                           categoryColor={categoryColor}
+                          categoryIconName={categoryIconName}
                           isOffline={expense.id.startsWith('offline-')}
                           onClick={() => handleOpenModal(expense)}
                           staggerClass={staggerClass}

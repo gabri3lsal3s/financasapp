@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
 import { formatCurrency } from '@/utils/format'
+import { getCategoryIcon } from '@/utils/categoryIcons'
 
 interface LimitItem {
   categoryId: string
   name: string
   color: string
+  iconName?: string
   value: number
   limitAmount: number
   usagePercentage: number
@@ -179,12 +181,14 @@ export default function LimitsControl({
                     : 'border-glass surface-glass hover:border-glass-strong'
                 }`}
               >
-                {/* Left side: bullet and name */}
+                {/* Left side: icon and name */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: item.color }}
-                  />
+                  <span 
+                    style={{ color: item.color }}
+                    className="flex items-center justify-center flex-shrink-0"
+                  >
+                    {getCategoryIcon(item.name, 14, item.iconName)}
+                  </span>
                   <span className="text-primary truncate">{item.name}</span>
                 </div>
 

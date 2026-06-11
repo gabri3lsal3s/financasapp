@@ -3,6 +3,7 @@ import Button from '@/components/Button'
 import Card from '@/components/Card'
 import IconButton from '@/components/IconButton'
 import { formatCurrency } from '@/utils/format'
+import { getCategoryIcon } from '@/utils/categoryIcons'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const getMonthAbbreviation = (month: string) => {
@@ -21,6 +22,7 @@ interface TransactionCardProps {
   originalAmount?: number // Se houver diferença por conta do peso do relatório (mostra riscado)
   dateLabel: string
   categoryColor: string
+  categoryIconName?: string
   isOffline?: boolean
   onClick: () => void
   staggerClass?: string
@@ -41,6 +43,7 @@ export default function TransactionCard({
   originalAmount,
   dateLabel,
   categoryColor,
+  categoryIconName,
   isOffline = false,
   onClick,
   staggerClass = '',
@@ -108,7 +111,15 @@ export default function TransactionCard({
                   className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] leading-tight"
                   style={{ color: 'var(--ds-color-text-secondary)' }}
                 >
-                  <span className="font-medium">{subtitle}</span>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <span 
+                      style={{ color: categoryColor }}
+                      className="flex items-center justify-center flex-shrink-0"
+                    >
+                      {getCategoryIcon(subtitle, 12, categoryIconName)}
+                    </span>
+                    <span>{subtitle}</span>
+                  </div>
                 </div>
               </div>
 
@@ -175,9 +186,15 @@ export default function TransactionCard({
                     </span>
                   )}
                 </p>
-                <p className="text-[11px] font-semibold opacity-70 mt-0.5" style={{ color: 'var(--ds-color-text-secondary)' }}>
-                  {subtitle}
-                </p>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold opacity-70 mt-0.5 animate-fade-in" style={{ color: 'var(--ds-color-text-secondary)' }}>
+                  <span 
+                    style={{ color: categoryColor }}
+                    className="flex items-center justify-center flex-shrink-0"
+                  >
+                    {getCategoryIcon(subtitle, 12, categoryIconName)}
+                  </span>
+                  <span>{subtitle}</span>
+                </div>
               </div>
 
               {/* Coluna 3: Método de Pagamento */}
@@ -241,7 +258,7 @@ export default function TransactionCard({
                   <IconButton
                     icon={<Pencil size={13} />}
                     size="sm"
-                    variant="neutral"
+                    variant="ghost"
                     label="Editar"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -254,7 +271,7 @@ export default function TransactionCard({
                   <IconButton
                     icon={<Trash2 size={13} />}
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     label="Excluir"
                     onClick={(e) => {
                       e.stopPropagation()
