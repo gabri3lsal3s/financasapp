@@ -1,6 +1,7 @@
 import { Profile } from '@/types'
 import { isPrimaryAdminEmail, isPrimaryAdminProfile } from '@/constants/adminProfile'
 import Card from '@/components/Card'
+import KpiCard from '@/components/KpiCard'
 import Button from '@/components/Button'
 import { Wallet, UserPlus, Star, Eye, Trash2 } from 'lucide-react'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
@@ -53,29 +54,23 @@ export default function AdvisorOverview({
       {/* Cards de KPIs Globais */}
       {globalAumData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 text-left animate-page-enter">
-          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
-            <div>
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">AUM Total Sob Gestão</span>
-              <strong className="text-2xl font-black text-primary mt-1.5 block">
-                {formatCurrency(globalAumData.totalAum)}
-              </strong>
-            </div>
-            <div className="p-3 bg-balance/10 text-balance rounded-xl">
-              <Wallet size={24} />
-            </div>
-          </Card>
+          <KpiCard
+            title="AUM Total Sob Gestão"
+            value={formatCurrency(globalAumData.totalAum)}
+            icon={<Wallet size={20} />}
+            glowColor="var(--color-balance)"
+            showGlow={true}
+            index={1}
+          />
 
-          <Card className="p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
-            <div>
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider block">Total de Contas Clientes</span>
-              <strong className="text-2xl font-black text-primary mt-1.5 block">
-                {globalAumData.clientCount} Contas Ativas
-              </strong>
-            </div>
-            <div className="p-3 bg-income/10 text-income rounded-xl">
-              <UserPlus size={24} />
-            </div>
-          </Card>
+          <KpiCard
+            title="Total de Contas Clientes"
+            value={`${globalAumData.clientCount} Contas Ativas`}
+            icon={<UserPlus size={20} />}
+            glowColor="var(--color-income)"
+            showGlow={true}
+            index={2}
+          />
         </div>
       )}
 

@@ -477,12 +477,15 @@ export default function ClientDashboard() {
  
           <div className="space-y-6 lg:gap-8 text-left">
             {portfolio?.notes && (
-              <Card className="p-5 bg-gradient-to-br from-secondary to-background border-l-4 border-l-primary shadow-sm">
+              <Card className="p-5 border border-glass surface-glass transition-all hover:scale-[1.005] hover:border-glass-strong hover:shadow-md shadow-sm relative overflow-hidden">
+                <div
+                  className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none"
+                />
                 <h4 className="font-bold text-sm accent-primary flex items-center gap-1.5 mb-2.5">
                   <ShieldCheck size={16} />
                   Notas do assessor
                 </h4>
-                <p className="text-[11px] text-primary whitespace-pre-wrap leading-relaxed">
+                <p className="text-[11px] text-primary whitespace-pre-wrap leading-relaxed relative z-10">
                   {portfolio.notes}
                 </p>
               </Card>
@@ -664,9 +667,13 @@ export default function ClientDashboard() {
           </div>
         </>
       ) : (
-        <Card className="p-10 text-center space-y-3 bg-gradient-to-br from-card to-background">
-          <p className="text-secondary text-sm">Nenhuma carteira ativa foi vinculada à sua conta pelo seu consultor.</p>
-          <p className="text-xs text-secondary/70">Entre em contato com seu consultor para inicializar seus aportes.</p>
+        <Card className="border border-glass surface-glass relative overflow-hidden p-8 sm:p-12 text-center flex flex-col items-center max-w-lg mx-auto shadow-lg hover:border-glass-strong transition-all duration-300">
+          <div className="absolute -top-12 -left-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+          <p className="text-secondary text-sm font-semibold">Nenhuma carteira ativa vinculada</p>
+          <p className="text-xs text-secondary mt-2 max-w-sm leading-relaxed">
+            Não encontramos nenhuma carteira ativa vinculada à sua conta pelo seu consultor. Entre em contato com seu assessor para inicializar seus investimentos.
+          </p>
         </Card>
       )}
     </div>

@@ -35,7 +35,7 @@ import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/c
 import { Scale, Loader2, TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
-import { Sparkline } from '@/components/reports/reportsChartShared'
+import KpiCard from '@/components/KpiCard'
 import FinancialInsights from '@/components/reports/FinancialInsights'
 
 
@@ -1327,80 +1327,7 @@ export default function Reports() {
     return count
   }, [viewMode, monthExpenseCategories, monthExpenseLimitMap])
 
-  const renderKPICard = useCallback(({
-    title,
-    value,
-    subtext,
-    icon,
-    glowColor,
-    sparklineData,
-    trendPercent,
-  }: {
-    title: string
-    value: string
-    subtext: string
-    icon: React.ReactNode
-    glowColor: string
-    sparklineData: number[]
-    trendPercent?: number | null
-  }) => {
-    const isDespesa = title.toLowerCase().includes('despesa')
-    const isTrendPositive = trendPercent !== undefined && trendPercent !== null && trendPercent >= 0
 
-    return (
-      <Card className="h-full relative overflow-hidden flex flex-col p-3 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
-        {/* Glow Halo */}
-        <div 
-          className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300" 
-          style={{ backgroundColor: glowColor }}
-        />
-        
-        <div className="flex items-start justify-between gap-3 w-full">
-          <div className="min-w-0 flex-1 pr-8 sm:pr-0">
-            <p className="text-[9px] xs:text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight whitespace-normal sm:truncate">
-              {title}
-            </p>
-            <p className="text-[clamp(11px,3.3vw,1.25rem)] font-extrabold font-mono text-primary mt-1.5 xs:mt-2.5 leading-none whitespace-nowrap" title={value}>
-              {value}
-            </p>
-          </div>
-          
-          <span 
-            className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
-            style={{ 
-              backgroundColor: `${glowColor}15`, 
-              color: glowColor,
-              boxShadow: `0 0 8px ${glowColor}0a` 
-            }}
-          >
-            {icon}
-          </span>
-        </div>
-
-        {/* Embedded Sparkline */}
-        <div className="mt-3.5 h-8 w-full overflow-hidden flex items-end">
-          <Sparkline data={sparklineData} color={glowColor} height={28} />
-        </div>
-
-        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[9px] xs:text-[10px] font-semibold">
-          <span className="text-secondary whitespace-normal sm:truncate leading-normal">{subtext}</span>
-          {trendPercent !== undefined && trendPercent !== null ? (
-            <span 
-              className={`shrink-0 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold ${
-                isDespesa
-                  ? (isTrendPositive ? 'text-expense bg-expense/10' : 'text-income bg-income/10')
-                  : (isTrendPositive ? 'text-income bg-income/10' : 'text-expense bg-expense/10')
-              }`}
-            >
-              {isTrendPositive ? '+' : ''}
-              {formatNumberWithTwoDecimalsBR(trendPercent)}
-              {title.toLowerCase().includes('taxa') ? ' pp' : '%'}
-            </span>
-          ) : null}
-        </div>
-      </Card>
-    )
-  }, [])
 
   const getPaymentMethodIcon = (categoryId: string) => {
     const norm = categoryId.toLowerCase()
@@ -1638,50 +1565,59 @@ export default function Reports() {
               <div className="space-y-6 animate-stagger">
                 {/* KPIs Anuais */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  {renderKPICard({
-                    title: 'Rendas no ano',
-                    value: formatCurrency(annualTotals.income),
-                    subtext: `Total acumulado em ${selectedYear}`,
-                    icon: <TrendingUp size={16} />,
-                    glowColor: 'var(--color-income)',
-                    sparklineData: monthlySummaries.map((s) => s.total_income),
-                    trendPercent: previousYearTotals.income > 0 
+                  <KpiCard
+                    title="Rendas no ano"
+                    value={formatCurrency(annualTotals.income)}
+                    subtext={`Total acumulado em ${selectedYear}`}
+                    icon={<TrendingUp size={16} />}
+                    glowColor="var(--color-income)"
+                    showGlow={true}
+                    sparklineData={monthlySummaries.map((s) => s.total_income)}
+                    trendPercent={previousYearTotals.income > 0 
                       ? ((annualTotals.income - previousYearTotals.income) / previousYearTotals.income) * 100 
-                      : null
-                  })}
-                  {renderKPICard({
-                    title: 'Despesas no ano',
-                    value: formatCurrency(annualTotals.expenses),
-                    subtext: `Total acumulado em ${selectedYear}`,
-                    icon: <TrendingDown size={16} />,
-                    glowColor: 'var(--color-expense)',
-                    sparklineData: monthlySummaries.map((s) => s.total_expenses),
-                    trendPercent: previousYearTotals.expenses > 0 
+                      : null}
+                    index={1}
+                  />
+                  <KpiCard
+                    title="Despesas no ano"
+                    value={formatCurrency(annualTotals.expenses)}
+                    subtext={`Total acumulado em ${selectedYear}`}
+                    icon={<TrendingDown size={16} />}
+                    glowColor="var(--color-expense)"
+                    showGlow={true}
+                    isDespesa={true}
+                    sparklineData={monthlySummaries.map((s) => s.total_expenses)}
+                    trendPercent={previousYearTotals.expenses > 0 
                       ? ((annualTotals.expenses - previousYearTotals.expenses) / previousYearTotals.expenses) * 100 
-                      : null
-                  })}
-                  {renderKPICard({
-                    title: 'Investimentos no ano',
-                    value: formatCurrency(annualTotals.investments),
-                    subtext: `Total acumulado em ${selectedYear}`,
-                    icon: <Wallet size={16} />,
-                    glowColor: 'var(--color-balance)',
-                    sparklineData: monthlySummaries.map((s) => s.total_investments),
-                    trendPercent: previousYearTotals.investments > 0 
+                      : null}
+                    index={2}
+                  />
+                  <KpiCard
+                    title="Investimentos no ano"
+                    value={formatCurrency(annualTotals.investments)}
+                    subtext={`Total acumulado em ${selectedYear}`}
+                    icon={<Wallet size={16} />}
+                    glowColor="var(--color-balance)"
+                    showGlow={false}
+                    sparklineData={monthlySummaries.map((s) => s.total_investments)}
+                    trendPercent={previousYearTotals.investments > 0 
                       ? ((annualTotals.investments - previousYearTotals.investments) / previousYearTotals.investments) * 100 
-                      : null
-                  })}
-                  {renderKPICard({
-                    title: 'Saldo anual',
-                    value: formatCurrency(annualTotals.balance),
-                    subtext: `Balanço final consolidado`,
-                    icon: <Percent size={16} />,
-                    glowColor: annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                    sparklineData: monthlySummaries.map((s) => s.balance),
-                    trendPercent: previousYearTotals.balance !== 0
+                      : null}
+                    index={3}
+                  />
+                  <KpiCard
+                    title="Saldo anual"
+                    value={formatCurrency(annualTotals.balance)}
+                    subtext="Balanço final consolidado"
+                    icon={<Percent size={16} />}
+                    glowColor={annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
+                    showGlow={annualTotals.balance < 0}
+                    sparklineData={monthlySummaries.map((s) => s.balance)}
+                    trendPercent={previousYearTotals.balance !== 0
                       ? ((annualTotals.balance - previousYearTotals.balance) / Math.abs(previousYearTotals.balance)) * 100
-                      : null
-                  })}
+                      : null}
+                    index={4}
+                  />
                 </div>
 
                 {/* Insights Anuais */}
@@ -1805,50 +1741,60 @@ export default function Reports() {
               <div className="space-y-6 animate-stagger">
                 {/* KPIs Mensais */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  {renderKPICard({
-                    title: 'Rendas do mês',
-                    value: formatCurrency(monthSummary.total_income),
-                    subtext: `Receitas consolidadas`,
-                    icon: <TrendingUp size={16} />,
-                    glowColor: 'var(--color-income)',
-                    sparklineData: dailyConsolidatedData.map((d) => d.Rendas),
-                    trendPercent: previousMonthIncomeTotal > 0 
+                  <KpiCard
+                    title="Rendas do mês"
+                    value={formatCurrency(monthSummary.total_income)}
+                    subtext="Receitas consolidadas"
+                    icon={<TrendingUp size={16} />}
+                    glowColor="var(--color-income)"
+                    showGlow={true}
+                    sparklineData={dailyConsolidatedData.map((d) => d.Rendas)}
+                    trendPercent={previousMonthIncomeTotal > 0 
                       ? ((monthSummary.total_income - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100 
-                      : null
-                  })}
-                  {renderKPICard({
-                    title: 'Despesas do mês',
-                    value: formatCurrency(monthSummary.total_expenses),
-                    subtext: `Despesas consolidadas`,
-                    icon: <TrendingDown size={16} />,
-                    glowColor: 'var(--color-expense)',
-                    sparklineData: dailyConsolidatedData.map((d) => d.Despesas),
-                    trendPercent: previousMonthExpenseTotal > 0 
+                      : null}
+                    index={1}
+                  />
+                  <KpiCard
+                    title="Despesas do mês"
+                    value={formatCurrency(monthSummary.total_expenses)}
+                    subtext="Despesas consolidadas"
+                    icon={<TrendingDown size={16} />}
+                    glowColor="var(--color-expense)"
+                    showGlow={true}
+                    isDespesa={true}
+                    sparklineData={dailyConsolidatedData.map((d) => d.Despesas)}
+                    trendPercent={previousMonthExpenseTotal > 0 
                       ? ((monthSummary.total_expenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100 
-                      : null
-                  })}
-                  {renderKPICard({
-                    title: 'Investimentos do mês',
-                    value: formatCurrency(monthSummary.total_investments),
-                    subtext: `Investimentos em ativos`,
-                    icon: <Wallet size={16} />,
-                    glowColor: 'var(--color-balance)',
-                    sparklineData: dailyConsolidatedData.map((d) => d.Investimentos),
-                    trendPercent: previousMonthInvestmentTotal > 0 
+                      : null}
+                    index={2}
+                  />
+                  <KpiCard
+                    title="Investimentos do mês"
+                    value={formatCurrency(monthSummary.total_investments)}
+                    subtext="Investimentos em ativos"
+                    icon={<Wallet size={16} />}
+                    glowColor="var(--color-balance)"
+                    showGlow={false}
+                    sparklineData={dailyConsolidatedData.map((d) => d.Investimentos)}
+                    trendPercent={previousMonthInvestmentTotal > 0 
                       ? ((monthSummary.total_investments - previousMonthInvestmentTotal) / previousMonthInvestmentTotal) * 100 
-                      : null
-                  })}
-                  {renderKPICard({
-                    title: 'Taxa de saldo',
-                    value: `${formatNumberWithTwoDecimalsBR(savingsRate)}%`,
-                    subtext: `Saldo líquido: ${formatCurrency(monthSummary.balance)}`,
-                    icon: <Percent size={16} />,
-                    glowColor: savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                    sparklineData: dailyConsolidatedData.map((d) => d.Rendas - d.Despesas - d.Investimentos),
-                    trendPercent: previousMonthIncomeTotal > 0 
+                      : null}
+                    index={3}
+                  />
+                  <KpiCard
+                    title="Taxa de saldo"
+                    value={`${formatNumberWithTwoDecimalsBR(savingsRate)}%`}
+                    subtext={`Saldo líquido: ${formatCurrency(monthSummary.balance)}`}
+                    icon={<Percent size={16} />}
+                    glowColor={savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
+                    showGlow={savingsRate < 0}
+                    sparklineData={dailyConsolidatedData.map((d) => d.Rendas - d.Despesas - d.Investimentos)}
+                    trendPercent={previousMonthIncomeTotal > 0 
                       ? savingsRate - previousMonthSavingsRate 
-                      : null
-                  })}
+                      : null}
+                    trendSuffix=" pp"
+                    index={4}
+                  />
                 </div>
 
                 {/* Insights Mensais */}

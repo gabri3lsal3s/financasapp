@@ -289,7 +289,7 @@ function CreditCardTimeline({
   }
 
   const containerHoverStyle = {
-    '--timeline-border-hover': `${themeColor}22`,
+    '--timeline-halo-color': themeColor,
   } as React.CSSProperties
 
   const barStyle = {

@@ -774,25 +774,25 @@ export default function Categories() {
               <div className="space-y-4 lg:space-y-6">
                 {/* KPIs de Despesas */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Limite Definido</span>
                     <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
                       {formatCurrency(expensesKpis.limitSum)}
                     </span>
                   </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Gasto</span>
                     <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
                       {formatCurrency(expensesKpis.spentSum)}
                     </span>
                   </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Disponível</span>
                     <span className={`text-base sm:text-lg font-extrabold font-mono mt-2 ${expensesKpis.remaining >= 0 ? 'text-income' : 'text-expense'}`}>
                       {formatCurrency(expensesKpis.remaining)}
                     </span>
                   </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Uso Geral</span>
                       <span className="text-xs font-bold text-primary font-mono">{Math.round(expensesKpis.percentage)}%</span>
@@ -1030,25 +1030,25 @@ export default function Categories() {
               <div className="space-y-4 lg:space-y-6">
                 {/* KPIs de Rendas */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Expectativa Total</span>
                     <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
                       {formatCurrency(incomesKpis.expectationSum)}
                     </span>
                   </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Recebido</span>
                     <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
                       {formatCurrency(incomesKpis.receivedSum)}
                     </span>
                   </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Restante</span>
                     <span className={`text-base sm:text-lg font-extrabold font-mono mt-2 ${incomesKpis.remaining <= 0 ? 'text-income' : 'text-warning'}`}>
                       {formatCurrency(Math.max(0, incomesKpis.remaining))}
                     </span>
                   </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm">
+                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Atingida</span>
                       <span className="text-xs font-bold text-primary font-mono">{Math.round(incomesKpis.percentage)}%</span>

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
+import KpiCard from '@/components/KpiCard'
 import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
@@ -15,7 +16,7 @@ import {
   formatSignedPercentBR,
 } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw, Wallet } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -651,47 +652,54 @@ export default function Investments() {
                 <div className="flex flex-col gap-2">
                   <div 
                     onScroll={handleKpisScroll}
-                    className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-3 sm:gap-4 sm:pb-0"
+                    className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-3 sm:gap-4 sm:pb-0 sm:items-stretch"
                   >
-                    <Card 
-                      className="flex-none w-[85%] sm:w-auto snap-center p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                      style={{ borderLeftColor: 'var(--color-income)' }}
-                    >
-                      <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Patrimônio Investido</p>
-                      <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
-                        {formatCurrency(portfolioData.investedValue)}
-                      </p>
-                      <p className="hidden sm:block text-xs text-secondary mt-1">Valor total de investimentos</p>
-                    </Card>
-                    <Card 
-                      className="flex-none w-[85%] sm:w-auto snap-center p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                      style={{ borderLeftColor: 'var(--color-balance)' }}
-                    >
-                      <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Saldo em Caixa</p>
-                      <p className="text-sm xs:text-base sm:text-2xl font-black text-primary mt-1 sm:mt-2 font-mono">
-                        {formatCurrency(totalCash)}
-                      </p>
-                      <p className="hidden sm:block text-xs text-secondary mt-1">Disponível para novos aportes</p>
-                    </Card>
-                    <Card 
-                      className="flex-none w-[85%] sm:w-auto snap-center p-3 sm:p-5 flex flex-col justify-between border-l-4"
-                      style={{ borderLeftColor: isPositive ? 'var(--color-income)' : 'var(--color-expense)' }}
-                    >
-                      <p className="text-[9px] sm:text-xs font-semibold text-secondary tracking-wide uppercase whitespace-nowrap">Rentabilidade Consolidada</p>
-                      <div className="flex items-baseline gap-1.5 mt-1 sm:mt-2 flex-wrap">
-                        <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
-                          isPositive ? 'text-income' : 'text-expense'
-                        }`}>
-                          {formatSignedPercentBR(consolidatedYield)}
-                        </p>
-                        <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
-                          consolidatedGain >= 0 ? 'text-income' : 'text-expense'
-                        }`}>
-                          ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
-                        </span>
-                      </div>
-                      <p className="hidden sm:block text-xs text-secondary mt-1">Retorno sobre o capital investido</p>
-                    </Card>
+                    <KpiCard
+                      title="Patrimônio Investido"
+                      value={formatCurrency(portfolioData.investedValue)}
+                      subtext="Valor total de investimentos"
+                      icon={<Briefcase size={16} className="w-4 h-4" />}
+                      glowColor="var(--color-income)"
+                      showGlow={true}
+                      index={1}
+                      className="flex-none w-[90%] sm:w-auto sm:h-full snap-center"
+                    />
+
+                    <KpiCard
+                      title="Saldo em Caixa"
+                      value={formatCurrency(totalCash)}
+                      subtext="Disponível para novos aportes"
+                      icon={<Wallet size={16} className="w-4 h-4" />}
+                      glowColor="var(--color-balance)"
+                      showGlow={false}
+                      index={2}
+                      className="flex-none w-[90%] sm:w-auto sm:h-full snap-center"
+                    />
+
+                    <KpiCard
+                      title="Rentabilidade Consolidada"
+                      value={
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
+                            isPositive ? 'text-income' : 'text-expense'
+                          }`}>
+                            {formatSignedPercentBR(consolidatedYield)}
+                          </p>
+                          <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
+                            consolidatedGain >= 0 ? 'text-income' : 'text-expense'
+                          }`}>
+                            ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
+                          </span>
+                        </div>
+                      }
+                      subtext="Retorno sobre o capital investido"
+                      icon={<TrendingUp size={16} className="w-4 h-4" />}
+                      glowColor={isPositive ? 'var(--color-income)' : 'var(--color-expense)'}
+                      showGlow={true}
+                      isTrendPositive={isPositive}
+                      index={3}
+                      className="flex-none w-[90%] sm:w-auto sm:h-full snap-center"
+                    />
                   </div>
                   {/* Pontos de paginação apenas no mobile */}
                   <div className="flex justify-center gap-1.5 mt-1 sm:hidden">

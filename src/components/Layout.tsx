@@ -314,7 +314,7 @@ export default function Layout({ children }: LayoutProps) {
               isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname)
             )}
           >
-            <Menu size={18} className="nav-chrome-icon" aria-hidden />
+            <Menu size={18} aria-hidden />
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Mais</span>
           </button>
         </nav>

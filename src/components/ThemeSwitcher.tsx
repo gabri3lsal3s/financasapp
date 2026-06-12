@@ -47,17 +47,17 @@ export default function ThemeSwitcher() {
   const themes: Array<{ id: Theme; name: string; description: string }> = [
     {
       id: 'light',
-      name: 'Glass Claro',
+      name: 'Claro',
       description: 'Superfícies translúcidas com acentos suaves',
     },
     {
       id: 'dark',
-      name: 'Glass Escuro',
+      name: 'Escuro',
       description: 'Fundo escuro com vidro e destaque neutro',
     },
     {
       id: 'midnight',
-      name: 'Glass Midnight',
+      name: 'Midnight',
       description: 'Contraste OLED com vidro profundo',
     },
     {
@@ -75,7 +75,7 @@ export default function ThemeSwitcher() {
             <Palette size={18} className="accent-primary shrink-0" />
             <h3 className="text-lg font-semibold text-primary">Tema de Cores</h3>
           </div>
-          <p className="text-sm text-secondary">Escolha o modo de visualização glass do app</p>
+          <p className="text-sm text-secondary">Escolha o modo de visualização do app</p>
         </div>
 
         <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">

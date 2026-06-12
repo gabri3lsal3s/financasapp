@@ -155,7 +155,7 @@ export default function FinancialInsights({
   if (insights.length === 0) return null
 
   return (
-    <Card className="relative overflow-hidden border border-glass surface-glass-strong p-4 lg:p-5 shadow-lg group">
+    <Card className="relative overflow-hidden border border-glass surface-glass p-4 lg:p-5 shadow-sm group transition-all duration-300 hover:border-glass-strong hover:shadow-md">
       {/* Detalhe luminoso no fundo */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none transition-all group-hover:bg-primary/10" />
 

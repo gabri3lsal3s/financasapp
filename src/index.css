@@ -28,6 +28,8 @@
   --ds-color-data-income: #10b981;
   --ds-color-data-expense: #ef4444;
   --ds-color-data-balance: #3b82f6;
+  --color-income-rgb: 16, 185, 129;
+  --color-expense-rgb: 239, 68, 68;
 
   --ds-space-1: 0.25rem;
   --ds-space-2: 0.5rem;
@@ -1535,20 +1537,23 @@ aside.glass-sidebar {
   box-shadow: var(--glass-shadow-sidebar);
 }
 
-/* Layout glass — mobile bottom nav */
+/* Layout glass — mobile bottom nav (floating pill) */
 nav.glass-bottom-nav {
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: calc(64px + env(safe-area-inset-bottom)) !important;
-  border-radius: 0 !important;
-  border: none !important;
-  border-top: 1px solid var(--glass-border) !important;
+  bottom: calc(0.875rem + env(safe-area-inset-bottom)) !important;
+  left: 1rem !important;
+  right: 1rem !important;
+  height: 60px !important;
+  border-radius: 24px !important;
+  border: 1px solid var(--glass-border) !important;
   background-color: var(--glass-surface-strong) !important;
   backdrop-filter: blur(var(--glass-blur-strong)) !important;
   -webkit-backdrop-filter: blur(var(--glass-blur-strong)) !important;
-  box-shadow: var(--glass-shadow-nav) !important;
-  padding-bottom: env(safe-area-inset-bottom) !important;
+  /* sombra difusa + highlight interno de glass */
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  padding-bottom: 0 !important;
 }
 
 .lg\:hidden main.glass-main-padding {
@@ -1959,27 +1964,57 @@ nav.glass-bottom-nav {
 .glass-card-interactive {
   transition:
     box-shadow var(--ds-motion-duration-fast) var(--ds-motion-easing-standard),
-    border-color var(--ds-motion-duration-fast) var(--ds-motion-easing-standard);
+    border-color var(--ds-motion-duration-fast) var(--ds-motion-easing-standard),
+    transform var(--ds-motion-duration-fast) var(--ds-motion-easing-standard);
 }
 
 .glass-card-interactive:hover {
   box-shadow: var(--glass-shadow-panel);
+  border-color: color-mix(in srgb, var(--ds-color-text-primary) 18%, transparent);
 }
 
 .glass-timeline-card {
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   border: 1px solid var(--glass-border);
-  background-color: var(--glass-layer-panel);
+  background-color: var(--glass-surface);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--glass-shadow-panel);
+  box-shadow: var(--glass-shadow-card);
+  position: relative;
+  overflow: hidden;
   transition:
     border-color var(--ds-motion-duration-normal) var(--ds-motion-easing-standard),
     box-shadow var(--ds-motion-duration-normal) var(--ds-motion-easing-standard);
 }
 
+/* Halo glow driven by the card's theme color (set via --timeline-halo-color inline) */
+.glass-timeline-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--timeline-halo-color, transparent) 30%,
+    var(--timeline-halo-color, transparent) 70%,
+    transparent 100%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity var(--ds-motion-duration-normal) var(--ds-motion-easing-standard);
+  z-index: 1;
+}
+
 .glass-timeline-card:hover {
-  border-color: var(--timeline-border-hover, var(--glass-border));
+  border-color: var(--glass-border-strong);
+  box-shadow: var(--glass-shadow-panel);
+}
+
+.glass-timeline-card:hover::before {
+  opacity: 0.8;
 }
 
 .glass-shadow-tooltip {

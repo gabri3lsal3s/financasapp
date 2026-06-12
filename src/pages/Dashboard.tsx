@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
+import KpiCard from '@/components/KpiCard'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import Loader from '@/components/Loader'
@@ -36,7 +37,6 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
-import { Sparkline } from '@/components/reports/reportsChartShared'
 import FinancialInsights from '@/components/reports/FinancialInsights'
 import DailyBudgetAdvisor from '@/components/dashboard/DailyBudgetAdvisor'
 import SmartLimitSuggestions from '@/components/dashboard/SmartLimitSuggestions'
@@ -475,81 +475,6 @@ export default function Dashboard() {
     )
   }
 
-  // ──── renderKPICard helper (same visual as Reports) ────────────────────────
-  const renderKPICard = ({
-    title,
-    value,
-    subtext,
-    icon,
-    glowColor,
-    sparklineData,
-    trendPercent,
-  }: {
-    title: string
-    value: string
-    subtext: string
-    icon: React.ReactNode
-    glowColor: string
-    sparklineData: number[]
-    trendPercent?: number | null
-  }) => {
-    const isDespesa = title.toLowerCase().includes('despesa')
-    const isTrendPositive = trendPercent !== undefined && trendPercent !== null && trendPercent >= 0
-
-    return (
-      <Card className="h-full relative overflow-hidden flex flex-col p-3 sm:p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item">
-        {/* Glow halo */}
-        <div
-          className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300"
-          style={{ backgroundColor: glowColor }}
-        />
-
-        <div className="flex items-start justify-between gap-3 w-full">
-          <div className="min-w-0 flex-1 pr-8 sm:pr-0">
-            <p className="text-[9px] xs:text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight whitespace-normal sm:truncate">
-              {title}
-            </p>
-            <p className="text-[clamp(11px,3.3vw,1.25rem)] font-extrabold font-mono text-primary mt-1.5 xs:mt-2.5 leading-none whitespace-nowrap" title={value}>
-              {value}
-            </p>
-          </div>
-
-          <span
-            className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
-            style={{
-              backgroundColor: `${glowColor}15`,
-              color: glowColor,
-              boxShadow: `0 0 8px ${glowColor}0a`
-            }}
-          >
-            {icon}
-          </span>
-        </div>
-
-        {/* Sparkline */}
-        <div className="mt-3.5 h-8 w-full overflow-hidden flex items-end">
-          <Sparkline data={sparklineData} color={glowColor} height={28} />
-        </div>
-
-        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-glass/40 text-[9px] xs:text-[10px] font-semibold">
-          <span className="text-secondary whitespace-normal sm:truncate leading-normal">{subtext}</span>
-          {trendPercent !== undefined && trendPercent !== null ? (
-            <span
-              className={`shrink-0 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-bold ${
-                isDespesa
-                  ? (isTrendPositive ? 'text-expense bg-expense/10' : 'text-income bg-income/10')
-                  : (isTrendPositive ? 'text-income bg-income/10' : 'text-expense bg-expense/10')
-              }`}
-            >
-              {isTrendPositive ? '+' : ''}
-              {formatNumberWithTwoDecimalsBR(trendPercent)}%
-            </span>
-          ) : null}
-        </div>
-      </Card>
-    )
-  }
-
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
@@ -613,46 +538,55 @@ export default function Dashboard() {
 
                 {/* ── KPIs com sparkline e badge de tendência ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  {renderKPICard({
-                    title: 'Rendas do mês',
-                    value: formatCurrency(totalIncomes),
-                    subtext: 'vs. mês anterior',
-                    icon: <TrendingUp size={16} />,
-                    glowColor: 'var(--color-income)',
-                    sparklineData: dailyFlowData.map(d => d.Rendas),
-                    trendPercent: previousMonthIncomeTotal > 0
+                  <KpiCard
+                    title="Rendas do mês"
+                    value={formatCurrency(totalIncomes)}
+                    subtext="vs. mês anterior"
+                    icon={<TrendingUp size={16} />}
+                    glowColor="var(--color-income)"
+                    showGlow={true}
+                    sparklineData={dailyFlowData.map(d => d.Rendas)}
+                    trendPercent={previousMonthIncomeTotal > 0
                       ? ((totalIncomes - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100
-                      : null,
-                  })}
-                  {renderKPICard({
-                    title: 'Despesas do mês',
-                    value: formatCurrency(totalExpenses),
-                    subtext: 'vs. mês anterior',
-                    icon: <TrendingDown size={16} />,
-                    glowColor: 'var(--color-expense)',
-                    sparklineData: dailyFlowData.map(d => d.Despesas),
-                    trendPercent: previousMonthExpenseTotal > 0
+                      : null}
+                    index={1}
+                  />
+                  <KpiCard
+                    title="Despesas do mês"
+                    value={formatCurrency(totalExpenses)}
+                    subtext="vs. mês anterior"
+                    icon={<TrendingDown size={16} />}
+                    glowColor="var(--color-expense)"
+                    showGlow={true}
+                    isDespesa={true}
+                    sparklineData={dailyFlowData.map(d => d.Despesas)}
+                    trendPercent={previousMonthExpenseTotal > 0
                       ? ((totalExpenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100
-                      : null,
-                  })}
-                  {renderKPICard({
-                    title: 'Investimentos',
-                    value: formatCurrency(Math.max(totalInvestments, 0)),
-                    subtext: 'aportado este mês',
-                    icon: <PiggyBank size={16} />,
-                    glowColor: 'var(--color-balance)',
-                    sparklineData: dailyFlowData.map(d => d.Investimentos),
-                    trendPercent: null,
-                  })}
-                  {renderKPICard({
-                    title: 'Taxa de saldo',
-                    value: `${formatNumberWithTwoDecimalsBR(savingsRate)}%`,
-                    subtext: `Saldo líquido: ${formatCurrency(balance)}`,
-                    icon: <Percent size={16} />,
-                    glowColor: savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)',
-                    sparklineData: dailyFlowData.map(d => d.Rendas - d.Despesas - d.Investimentos),
-                    trendPercent: null,
-                  })}
+                      : null}
+                    index={2}
+                  />
+                  <KpiCard
+                    title="Investimentos"
+                    value={formatCurrency(Math.max(totalInvestments, 0))}
+                    subtext="aportado este mês"
+                    icon={<PiggyBank size={16} />}
+                    glowColor="var(--color-balance)"
+                    showGlow={false}
+                    sparklineData={dailyFlowData.map(d => d.Investimentos)}
+                    trendPercent={null}
+                    index={3}
+                  />
+                  <KpiCard
+                    title="Taxa de saldo"
+                    value={`${formatNumberWithTwoDecimalsBR(savingsRate)}%`}
+                    subtext={`Saldo líquido: ${formatCurrency(balance)}`}
+                    icon={<Percent size={16} />}
+                    glowColor={savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
+                    showGlow={savingsRate < 0} // Only glow warning red if savings rate is negative
+                    sparklineData={dailyFlowData.map(d => d.Rendas - d.Despesas - d.Investimentos)}
+                    trendPercent={null}
+                    index={4}
+                  />
                 </div>
 
                 {/* Grid Responsivo de 3 Colunas no Desktop */}

@@ -1,4 +1,4 @@
-import Card from '@/components/Card'
+import KpiCard from '@/components/KpiCard'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { Wallet, TrendingUp } from 'lucide-react'
 
@@ -6,19 +6,13 @@ export type ClientKpiYieldVariant = 'share' | 'accumulated'
 export type ClientKpiYieldBasis = 'gross' | 'net'
 
 interface ClientKpiCardsProps {
-  /** Ativos fora de caixa (valor de mercado/curva). */
   investedValue: number
-  /** Caixa disponível (posição CAIXA + saldo legado). */
   cashValue?: number
-  /** Patrimônio total — base para cotização acumulada e fee. */
   totalValue: number
   shareValue: number
-  /** Cotas emitidas (base de aportes) — necessário para rentabilidade em R$ no painel do cliente */
   totalShares?: number
-  /** `share`: valor da cota (consultor). `accumulated`: ganho acumulado em R$ + % (cliente) */
   yieldVariant?: ClientKpiYieldVariant
   overallYieldPct?: number
-  /** Bruto (padrão) ou líquido após IR estimado */
   yieldBasis?: ClientKpiYieldBasis
   netShareValue?: number
 }
@@ -50,6 +44,8 @@ export default function ClientKpiCards({
 
   const yieldPrimary = formatSignedYieldPct(yieldsPercentage)
 
+
+
   const yieldSecondary = hasYieldBasis ? (
     <span className="block sm:inline sm:ml-1.5 text-[9px] xs:text-[10px] sm:text-xs text-secondary font-medium font-sans">
       ({accumulatedAmount >= 0 ? '+' : ''}{formatCurrency(accumulatedAmount)})
@@ -57,36 +53,31 @@ export default function ClientKpiCards({
   ) : null
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-      <Card className="p-3 sm:p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-balance flex items-center justify-between shadow-sm transition-all hover:border-l-balance/80">
-        <div className="text-left min-w-0 flex-1">
-          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider truncate block" title="Patrimônio Total">Patrimônio Total</span>
-          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-black text-primary mt-1 block font-mono truncate" title={formatCurrency(totalValue)}>
-            {formatCurrency(totalValue)}
-          </strong>
-          {cashValue > 0 ? (
-            <span className="text-[9px] text-secondary mt-0.5 block truncate" title={`Investido ${formatCurrency(investedValue)} · Caixa ${formatCurrency(cashValue)}`}>
-              Investido {formatCurrency(investedValue)} · Caixa {formatCurrency(cashValue)}
-            </span>
-          ) : null}
-        </div>
-        <div className="p-1.5 sm:p-2 bg-balance/10 text-balance rounded-lg shrink-0 flex items-center justify-center ml-2">
-          <Wallet size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
-        </div>
-      </Card>
- 
-      <Card className="p-3 sm:p-5 bg-gradient-to-br from-card to-background border-l-4 border-l-income flex items-center justify-between shadow-sm transition-all hover:border-l-income/80">
-        <div className="text-left min-w-0 flex-1">
-          <span className="text-[9px] sm:text-[10px] font-semibold text-secondary uppercase tracking-wider truncate block" title={yieldLabel}>{yieldLabel}</span>
-          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-black text-primary mt-1 block font-mono truncate" title={`${yieldPrimary} ${hasYieldBasis ? `(${accumulatedAmount >= 0 ? '+' : ''}${formatCurrency(accumulatedAmount)})` : ''}`}>
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 items-stretch">
+      <KpiCard
+        title="Patrimônio Total"
+        value={formatCurrency(totalValue)}
+        subtext={cashValue > 0 ? `Investido ${formatCurrency(investedValue)} · Caixa ${formatCurrency(cashValue)}` : undefined}
+        icon={<Wallet size={16} className="w-4 h-4" />}
+        glowColor="var(--color-balance)"
+        showGlow={true}
+        index={1}
+      />
+
+      <KpiCard
+        title={yieldLabel}
+        value={
+          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-1.5 block truncate" title={`${yieldPrimary} ${hasYieldBasis ? `(${accumulatedAmount >= 0 ? '+' : ''}${formatCurrency(accumulatedAmount)})` : ''}`}>
             <span className={yieldPctClass}>{yieldPrimary}</span>
             {yieldSecondary}
           </strong>
-        </div>
-        <div className="p-1.5 sm:p-2 bg-income/10 text-income rounded-lg shrink-0 flex items-center justify-center ml-2">
-          <TrendingUp size={16} className="sm:w-5 sm:h-5 w-4 h-4" />
-        </div>
-      </Card>
+        }
+        icon={<TrendingUp size={16} className="w-4 h-4" />}
+        glowColor="var(--color-income)"
+        showGlow={true}
+        isTrendPositive={yieldsPercentage >= 0}
+        index={2}
+      />
     </div>
   )
 }

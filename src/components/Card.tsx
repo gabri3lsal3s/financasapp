@@ -21,9 +21,9 @@ export default function Card({ children, className = '', onClick, style }: CardP
   return (
     <ShadcnCard
       className={cn(
-        'p-4',
+        'p-4 transition-all duration-300 hover:border-glass-strong hover:shadow-md',
         onClick
-          ? 'cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+          ? 'cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] hover:scale-[1.015]'
           : '',
         className
       )}
