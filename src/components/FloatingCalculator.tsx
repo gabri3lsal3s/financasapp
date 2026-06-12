@@ -1151,7 +1151,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       aria-label="Abrir calculadora flutuante"
       className={iconOrigin === 'top-right' ? sideTabButtonClassName : fabButtonClassName}
     >
-      <Calculator size={isDesktop ? 18 : 16} className={cn("shrink-0 text-[var(--ds-color-accent-primary)]", iconOrigin === 'bottom-right' && "mx-auto")} aria-hidden />
+      <Calculator size={isDesktop ? 18 : 16} className={cn("shrink-0 text-primary", iconOrigin === 'bottom-right' && "mx-auto")} aria-hidden />
       <span className={cn(
         "max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider",
         iconOrigin === 'top-right' && !isDraggingIcon && !isIconReturning && "group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5"
@@ -1235,9 +1235,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
           <div className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4 select-none">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
-                  <Calculator size={18} className="text-primary" />
-                </div>
+                <Calculator size={18} className="text-primary" />
                 <div>
                   <h3 className="text-sm font-semibold text-primary">Calculadora</h3>
                   <p className="text-[10px] text-secondary">Campo: {selectedFieldName}</p>

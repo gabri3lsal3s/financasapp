@@ -94,7 +94,7 @@ export default function LimitsControl({
             onClick={() => setActiveFilter('exceeded')}
             className={`px-2.5 py-0.5 text-[9px] font-bold rounded transition-all ${
               activeFilter === 'exceeded'
-                ? 'bg-expense text-button-text shadow-sm'
+                ? 'bg-primary text-button-text shadow-sm'
                 : 'text-secondary hover:bg-secondary/10'
             }`}
           >
@@ -105,7 +105,7 @@ export default function LimitsControl({
             onClick={() => setActiveFilter('attention')}
             className={`px-2.5 py-0.5 text-[9px] font-bold rounded transition-all ${
               activeFilter === 'attention'
-                ? 'bg-warning text-button-text shadow-sm'
+                ? 'bg-primary text-button-text shadow-sm'
                 : 'text-secondary hover:bg-secondary/10'
             }`}
           >
@@ -170,34 +170,24 @@ export default function LimitsControl({
           </div>
 
           {/* Pill tags layout representing each category below the bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-4">
             {filteredList.map((item) => (
               <div
                 key={item.categoryId}
                 onClick={() => onCategoryClick(item.categoryId, item.name)}
-                className={`px-3 py-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 hover:scale-[1.01] text-xs font-semibold min-w-0 ${
+                className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-2 hover:scale-[1.02] text-xs font-semibold ${
                   item.isExceeded
-                    ? 'border-expense/30 bg-expense/5 hover:border-expense/60'
+                    ? 'border-expense/45 bg-expense/10 hover:border-expense/70'
                     : 'border-glass surface-glass hover:border-glass-strong'
                 }`}
               >
-                {/* Left side: icon and name */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <span 
-                    style={{ color: item.color }}
-                    className="flex items-center justify-center flex-shrink-0"
-                  >
-                    {getCategoryIcon(item.name, 14, item.iconName)}
-                  </span>
-                  <span className="text-primary truncate">{item.name}</span>
-                </div>
-
-                {/* Right side: exceeded amount (if exceeded) */}
-                {item.isExceeded && (
-                  <span className="text-expense font-extrabold shrink-0">
-                    +{formatCurrency(item.exceededAmount || 0)}
-                  </span>
-                )}
+                <span 
+                  style={{ color: item.color }}
+                  className="flex items-center justify-center flex-shrink-0"
+                >
+                  {getCategoryIcon(item.name, 14, item.iconName)}
+                </span>
+                <span className="text-primary whitespace-nowrap select-none">{item.name}</span>
               </div>
             ))}
           </div>

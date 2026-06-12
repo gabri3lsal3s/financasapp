@@ -15,6 +15,7 @@ import Select from '@/components/Select'
 import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -714,6 +715,7 @@ export default function Categories() {
         action={
           <PageHeaderActions>
             <PageHeaderActionButton
+              className="hidden lg:flex"
               intent={activeTab === 'expenses' ? 'expense' : 'neutral'}
               icon={TrendingDown}
               label="Orçamentos"
@@ -723,6 +725,7 @@ export default function Categories() {
               }}
             />
             <PageHeaderActionButton
+              className="hidden lg:flex"
               intent={activeTab === 'incomes' ? 'income' : 'neutral'}
               icon={TrendingUp}
               label="Metas"
@@ -745,6 +748,22 @@ export default function Categories() {
 
       <div className="p-4 lg:p-6 space-y-5 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
+
+        {/* Inline Tabs selector on mobile only! */}
+        <div className="lg:hidden w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'expenses' | 'incomes')} className="w-full">
+            <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto">
+              <TabsTrigger value="expenses" className="text-xs font-bold gap-1.5">
+                <TrendingDown size={14} className={activeTab === 'expenses' ? 'text-expense' : 'text-secondary'} />
+                <span>Orçamentos</span>
+              </TabsTrigger>
+              <TabsTrigger value="incomes" className="text-xs font-bold gap-1.5">
+                <TrendingUp size={14} className={activeTab === 'incomes' ? 'text-income' : 'text-secondary'} />
+                <span>Metas</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
 
         {loadingData ? (
