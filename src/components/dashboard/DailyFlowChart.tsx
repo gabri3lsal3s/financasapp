@@ -30,7 +30,7 @@ export default function DailyFlowChart({ data, hiddenSeries, onToggleSeries, xAx
   }, [data])
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={0}>
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.1} />
         <XAxis 
@@ -101,7 +101,7 @@ export default function DailyFlowChart({ data, hiddenSeries, onToggleSeries, xAx
             dot={false}
             opacity={0.4}
             hide={hiddenSeries.includes('Rendas (Mês Ant.)') || hiddenSeries.includes('Rendas')} 
-            {...animProps} 
+            isAnimationActive={false} 
           />
         )}
         {hasPrevData && (
@@ -115,7 +115,7 @@ export default function DailyFlowChart({ data, hiddenSeries, onToggleSeries, xAx
             dot={false}
             opacity={0.4}
             hide={hiddenSeries.includes('Despesas (Mês Ant.)') || hiddenSeries.includes('Despesas')} 
-            {...animProps} 
+            isAnimationActive={false} 
           />
         )}
         {hasPrevData && (
@@ -129,7 +129,7 @@ export default function DailyFlowChart({ data, hiddenSeries, onToggleSeries, xAx
             dot={false}
             opacity={0.4}
             hide={hiddenSeries.includes('Investimentos (Mês Ant.)') || hiddenSeries.includes('Investimentos')} 
-            {...animProps} 
+            isAnimationActive={false} 
           />
         )}
       </LineChart>

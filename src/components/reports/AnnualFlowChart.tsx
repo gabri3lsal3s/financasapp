@@ -28,7 +28,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
   }, [data])
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={0}>
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.1} />
         <XAxis 
@@ -98,7 +98,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
             dot={false}
             opacity={0.4}
             hide={hiddenSeries.includes('Rendas (Ano Ant.)') || hiddenSeries.includes('Rendas')} 
-            {...animProps} 
+            isAnimationActive={false} 
           />
         )}
         {hasPrevData && (
@@ -112,7 +112,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
             dot={false}
             opacity={0.4}
             hide={hiddenSeries.includes('Despesas (Ano Ant.)') || hiddenSeries.includes('Despesas')} 
-            {...animProps} 
+            isAnimationActive={false} 
           />
         )}
         {hasPrevData && (
@@ -126,7 +126,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
             dot={false}
             opacity={0.4}
             hide={hiddenSeries.includes('Investimentos (Ano Ant.)') || hiddenSeries.includes('Investimentos')} 
-            {...animProps} 
+            isAnimationActive={false} 
           />
         )}
       </LineChart>

@@ -16,14 +16,14 @@ export const FLOATING_SIDE_GAP = 'gap-2'
 export const FLOATING_FAB_BOTTOM = FLOATING_MOBILE_BOTTOM
 
 export const FLOATING_SIDE_BUTTON_BASE =
-  'group relative flex items-center justify-start transition-all duration-300 select-none pointer-events-auto glass-button-side press-subtle motion-spring focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]'
+  'group relative flex items-center justify-start transition-all duration-300 select-none pointer-events-auto glass-button-side press-subtle motion-spring focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]'
 
 export const FLOATING_SIDE_BUTTON_SURFACE =
   'border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] hover:bg-accent/40'
 
 export const FLOATING_SIDE_FAB_BASE = cn(
   FLOATING_SIDE_BUTTON_HEIGHT,
-  'w-10 min-w-10 rounded-full flex items-center justify-center pointer-events-auto glass-button-side press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] transition-all duration-300 hover:scale-110 border border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] motion-standard hover-lift-subtle'
+  'w-10 min-w-10 rounded-full flex items-center justify-center pointer-events-auto glass-button-side press-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] transition-all duration-300 hover:scale-110 border border-[var(--floating-btn-border)] hover:border-[var(--floating-btn-border-hover)] motion-standard hover-lift-subtle'
 )
 
 export const FLOATING_SIDE_BUTTON_NEUTRAL =
@@ -33,12 +33,12 @@ export type FloatingSidePosition = DesktopPosition | MobilePosition
 
 export function getFloatingSideSlideClasses(side: FloatingSidePosition): string {
   if (side === 'top') {
-    return '-translate-y-2 hover:translate-y-0'
+    return '-translate-y-2'
   }
   if (side === 'left') {
-    return '-translate-x-2 hover:translate-x-0'
+    return '-translate-x-2'
   }
-  return 'translate-x-2 hover:translate-x-0'
+  return 'translate-x-2'
 }
 
 export function getFloatingSideShapeClasses(side: FloatingSidePosition): string {

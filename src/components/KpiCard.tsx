@@ -12,6 +12,7 @@ interface KpiCardProps {
   glowColor?: string
   showGlow?: boolean
   sparklineData?: number[]
+  compareSparklineData?: number[]
   trendPercent?: number | null
   trendSuffix?: string
   isDespesa?: boolean
@@ -41,6 +42,7 @@ export default function KpiCard({
   glowColor = 'var(--color-primary)',
   showGlow = false,
   sparklineData,
+  compareSparklineData,
   trendPercent,
   trendSuffix = '%',
   isDespesa = false,
@@ -112,7 +114,12 @@ export default function KpiCard({
       {/* Embedded Sparkline */}
       {sparklineData && sparklineData.length > 0 && (
         <div className="mt-3.5 h-8 w-full overflow-hidden flex items-end">
-          <Sparkline data={sparklineData} color={glowColor} height={28} />
+          <Sparkline 
+            data={sparklineData} 
+            compareData={compareSparklineData} 
+            color={glowColor} 
+            height={28} 
+          />
         </div>
       )}
 

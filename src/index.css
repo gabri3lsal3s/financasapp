@@ -321,6 +321,7 @@
     -webkit-backdrop-filter: blur(var(--glass-blur-strong));
     box-shadow: var(--glass-inset-highlight);
     transition:
+      transform 0.3s ease-in-out,
       border-color var(--ds-motion-duration-fast) var(--ds-motion-easing-standard),
       background-color var(--ds-motion-duration-fast) var(--ds-motion-easing-standard);
   }
@@ -336,6 +337,37 @@
 
   .glass-button-side:hover {
     background-color: color-mix(in srgb, var(--glass-layer-chrome) 88%, var(--ds-color-interaction-hover));
+  }
+
+  .glass-button-label {
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    margin-left: 0;
+    transition: max-width 0.3s ease-in-out, opacity 0.3s ease-in-out, margin-left 0.3s ease-in-out;
+    white-space: nowrap;
+  }
+
+  .glass-button-side.glass-button-side-expanded {
+    transform: translate(0, 0) !important;
+  }
+
+  .glass-button-side.glass-button-side-expanded .glass-button-label {
+    max-width: 200px !important;
+    opacity: 1 !important;
+    margin-left: 0.625rem !important; /* ml-2.5 */
+  }
+
+  @media (hover: hover) {
+    .glass-button-side:hover {
+      transform: translate(0, 0) !important;
+    }
+
+    .glass-button-side:hover .glass-button-label {
+      max-width: 200px;
+      opacity: 1;
+      margin-left: 0.625rem; /* ml-2.5 */
+    }
   }
 
   .glass-input {

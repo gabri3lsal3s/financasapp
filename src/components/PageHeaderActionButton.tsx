@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState, useRef, useEffect } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -31,9 +31,36 @@ export default function PageHeaderActionButton({
   compactOnMobile: _compactOnMobile = true,
   className,
   children,
+  onClick: originalOnClick,
   ...props
 }: PageHeaderActionButtonProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const [isExpanded, setIsExpanded] = useState(false)
+  const timeoutRef = useRef<any>(null)
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (originalOnClick) {
+      originalOnClick(e)
+    }
+
+    setIsExpanded(true)
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      setIsExpanded(false)
+    }, 3000)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   // Apenas a cor do ícone muda — o fundo/borda do botão permanece neutro sempre
   const iconColorMap: Record<PageHeaderActionIntent, string> = {
@@ -47,11 +74,11 @@ export default function PageHeaderActionButton({
 
   const sideTabClassName = cn(
     getFloatingSideTabButtonClassName('right', FLOATING_SIDE_BUTTON_NEUTRAL),
+    isExpanded && 'glass-button-side-expanded',
     className
   )
 
-  const labelClasses =
-    'max-w-0 overflow-hidden opacity-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5'
+  const labelClasses = 'glass-button-label'
 
   const renderContent = () => {
     const textClasses = cn(
@@ -74,6 +101,7 @@ export default function PageHeaderActionButton({
     <button
       type="button"
       className={sideTabClassName}
+      onClick={handleClick}
       {...props}
       data-floating-action-role={actionRole}
     >

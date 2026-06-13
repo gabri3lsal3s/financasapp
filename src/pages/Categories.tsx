@@ -28,6 +28,7 @@ import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, par
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Category, IncomeCategory } from '@/types'
+import { useAuth } from '@/contexts/AuthContext'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -156,27 +157,40 @@ export default function Categories() {
     getIncomeCategoryUsageCount 
   } = useIncomeCategories()
 
+  const { user } = useAuth()
+
   // suggestions state
-  const [suggestions, setSuggestions] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('minhas-financas:limit-suggestions')
-      if (saved) {
-        return JSON.parse(saved)
-      }
-    } catch (e) {
-      console.error('Error loading limit suggestions from localStorage', e)
-    }
-    return {
-      moradia: 25,
-      alimentacao: 15,
-      transporte: 10,
-      saude: 5,
-      educacao: 10,
-      lazer: 10,
-      compras: 5,
-      outros: 10,
-    }
+  const [suggestions, setSuggestions] = useState<Record<string, number>>({
+    moradia: 25,
+    alimentacao: 15,
+    transporte: 10,
+    saude: 5,
+    educacao: 10,
+    lazer: 10,
+    compras: 5,
+    outros: 10,
   })
+
+  // Load user suggestions when user is loaded
+  useEffect(() => {
+    if (user?.id) {
+      try {
+        const userKey = `minhas-financas:limit-suggestions:${user.id}`
+        const saved = localStorage.getItem(userKey)
+        if (saved) {
+          setSuggestions(JSON.parse(saved))
+        } else {
+          // Migração da chave legada
+          const legacySaved = localStorage.getItem('minhas-financas:limit-suggestions')
+          if (legacySaved) {
+            setSuggestions(JSON.parse(legacySaved))
+          }
+        }
+      } catch (e) {
+        console.error('Error loading limit suggestions from localStorage', e)
+      }
+    }
+  }, [user?.id])
 
   const [isSuggestionsModalOpen, setIsSuggestionsModalOpen] = useState(false)
   const [suggestionsForm, setSuggestionsForm] = useState(suggestions)
@@ -297,7 +311,8 @@ export default function Categories() {
 
   const handleSuggestionsSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    localStorage.setItem('minhas-financas:limit-suggestions', JSON.stringify(suggestionsForm))
+    const userKey = user?.id ? `minhas-financas:limit-suggestions:${user.id}` : 'minhas-financas:limit-suggestions'
+    localStorage.setItem(userKey, JSON.stringify(suggestionsForm))
     setSuggestions(suggestionsForm)
     setIsSuggestionsModalOpen(false)
   }

@@ -745,20 +745,58 @@ export default function Reports() {
     return results
   }, [monthExpenses, creditCards, getAmountByMode])
 
+  const previousMonthIncomeTotal = useMemo(() => {
+    return previousMonthIncomes.reduce((sum, item) => sum + getAmountByMode(item), 0)
+  }, [previousMonthIncomes, getAmountByMode])
+
+  const previousMonthExpenseTotal = useMemo(() => {
+    return previousMonthExpenses.reduce((sum, item) => sum + getAmountByMode(item), 0)
+  }, [previousMonthExpenses, getAmountByMode])
+
+  const previousMonthInvestmentTotal = useMemo(() => {
+    const [year, month] = previousMonth.split('-').map(Number)
+    if (!year || !month) return 0
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const prevPortfolioByDay = portfolioInvestmentByDay(
+      previousPortfolioTransactions,
+      previousMonth,
+      daysInMonth
+    )
+    return prevPortfolioByDay.reduce((sum, val) => sum + val, 0)
+  }, [previousPortfolioTransactions, previousMonth])
+
   const monthQuickData = useMemo(() => {
     if (!monthSummary) {
       return []
     }
 
-    return [
-      {
-        month: formatMonthShort(selectedMonth),
-        Rendas: monthSummary.total_income,
-        Despesas: monthSummary.total_expenses,
-        Investimentos: monthSummary.total_investments,
-      },
-    ]
-  }, [monthSummary, selectedMonth])
+    const currentData = {
+      month: formatMonthShort(selectedMonth),
+      Rendas: monthSummary.total_income,
+      Despesas: monthSummary.total_expenses,
+      Investimentos: monthSummary.total_investments,
+    }
+
+    if (compareWithPrevious && previousMonth) {
+      const prevData = {
+        month: `${formatMonthShort(previousMonth)} (Ant.)`,
+        Rendas: previousMonthIncomeTotal,
+        Despesas: previousMonthExpenseTotal,
+        Investimentos: previousMonthInvestmentTotal,
+      }
+      return [prevData, currentData]
+    }
+
+    return [currentData]
+  }, [
+    monthSummary,
+    selectedMonth,
+    compareWithPrevious,
+    previousMonth,
+    previousMonthIncomeTotal,
+    previousMonthExpenseTotal,
+    previousMonthInvestmentTotal
+  ])
 
 
   const detailItems = useMemo(() => {
@@ -1251,7 +1289,12 @@ export default function Reports() {
     const totals = labels.map((label) => ({
       dia: label,
       Despesas: 0,
-    }))
+      ...(compareWithPrevious ? { 'Despesas (Mês Ant.)': 0 } : {})
+    })) as Array<{
+      dia: string
+      Despesas: number
+      'Despesas (Mês Ant.)'?: number
+    }>
 
     monthExpenses.forEach((expense) => {
       if (!expense.date?.startsWith(selectedMonth)) {
@@ -1268,8 +1311,34 @@ export default function Reports() {
       totals[mondayFirstIndex].Despesas += getAmountByMode(expense)
     })
 
+    if (compareWithPrevious && previousMonthExpenses.length > 0) {
+      previousMonthExpenses.forEach((expense) => {
+        if (!expense.date?.startsWith(previousMonth)) {
+          return
+        }
+
+        const localDate = new Date(`${expense.date}T00:00:00`)
+        if (Number.isNaN(localDate.getTime())) {
+          return
+        }
+
+        const dayOfWeek = localDate.getDay()
+        const mondayFirstIndex = (dayOfWeek + 6) % 7
+        if (totals[mondayFirstIndex]) {
+          totals[mondayFirstIndex]['Despesas (Mês Ant.)'] = (totals[mondayFirstIndex]['Despesas (Mês Ant.)'] ?? 0) + getAmountByMode(expense)
+        }
+      })
+    }
+
     return totals
-  }, [monthExpenses, selectedMonth, getAmountByMode])
+  }, [
+    monthExpenses,
+    selectedMonth,
+    getAmountByMode,
+    compareWithPrevious,
+    previousMonthExpenses,
+    previousMonth
+  ])
 
   const topWeekdayExpense = useMemo(() => {
     if (weekdayExpenseData.length === 0) {
@@ -1290,25 +1359,7 @@ export default function Reports() {
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0
 
-  const previousMonthIncomeTotal = useMemo(() => {
-    return previousMonthIncomes.reduce((sum, item) => sum + getAmountByMode(item), 0)
-  }, [previousMonthIncomes, getAmountByMode])
 
-  const previousMonthExpenseTotal = useMemo(() => {
-    return previousMonthExpenses.reduce((sum, item) => sum + getAmountByMode(item), 0)
-  }, [previousMonthExpenses, getAmountByMode])
-
-  const previousMonthInvestmentTotal = useMemo(() => {
-    const [year, month] = previousMonth.split('-').map(Number)
-    if (!year || !month) return 0
-    const daysInMonth = new Date(year, month, 0).getDate()
-    const prevPortfolioByDay = portfolioInvestmentByDay(
-      previousPortfolioTransactions,
-      previousMonth,
-      daysInMonth
-    )
-    return prevPortfolioByDay.reduce((sum, val) => sum + val, 0)
-  }, [previousPortfolioTransactions, previousMonth])
 
   const previousMonthBalance = previousMonthIncomeTotal - previousMonthExpenseTotal - previousMonthInvestmentTotal
   const previousMonthSavingsRate = previousMonthIncomeTotal > 0
@@ -1505,6 +1556,8 @@ export default function Reports() {
           <PageHeaderActions>
             {/* Modo mês = padrão (cinza), modo ano = ativo (colorido) */}
             <PageHeaderActionButton
+              key="view-mode-toggle"
+              className="hidden lg:flex"
               intent={viewMode === 'year' ? 'balance' : 'neutral'}
               icon={viewMode === 'month' ? CalendarDays : Calendar}
               label={viewMode === 'month' ? 'Visualizar por Ano' : 'Visualizar por Mês'}
@@ -1513,17 +1566,19 @@ export default function Reports() {
             />
             {/* Pesos: cinza quando desativado, âmbar quando ativo */}
             <PageHeaderActionButton
+              key="weights-toggle"
               intent={dashboardReportsWeightsEnabled ? 'warning' : 'neutral'}
               icon={Scale}
-              label={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              label="Pesos dos Lançamentos"
               onClick={() => setDashboardReportsWeightsEnabled(!dashboardReportsWeightsEnabled)}
               title={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
             />
             {/* Comparar: ícone fixo GitCompareArrows, cinza quando inativo, verde quando ativo */}
             <PageHeaderActionButton
+              key="compare-previous-toggle"
               intent={compareWithPrevious ? 'income' : 'neutral'}
               icon={GitCompareArrows}
-              label={compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica'}
+              label="Comparação Histórica"
               onClick={() => setCompareWithPrevious(!compareWithPrevious)}
               title={compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica'}
             />
@@ -1556,13 +1611,31 @@ export default function Reports() {
           />
         )}
 
+        {/* Inline view mode selector for mobile matching Categories budgets/goals style */}
+        <div className="lg:hidden w-full">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'month' | 'year')} className="w-full">
+            <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto">
+              <TabsTrigger value="month" className="text-xs font-bold gap-1.5">
+                <CalendarDays size={14} className={viewMode === 'month' ? 'text-balance' : 'text-secondary'} />
+                <span>Mensal</span>
+              </TabsTrigger>
+              <TabsTrigger value="year" className="text-xs font-bold gap-1.5">
+                <Calendar size={14} className={viewMode === 'year' ? 'text-balance' : 'text-secondary'} />
+                <span>Anual</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+
+
         <MonthTransitionView month={viewMode === 'month' ? selectedMonth : String(selectedYear)}>
         {loadingState ? (
           <Loader text="Carregando dados..." className="py-12" />
         ) : (
           <>
             {viewMode === 'year' ? (
-              <div className="space-y-6 animate-stagger">
+              <div className="flex flex-col gap-6 animate-stagger">
                 {/* KPIs Anuais */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
                   <KpiCard
@@ -1573,6 +1646,7 @@ export default function Reports() {
                     glowColor="var(--color-income)"
                     showGlow={true}
                     sparklineData={monthlySummaries.map((s) => s.total_income)}
+                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.total_income) : undefined}
                     trendPercent={previousYearTotals.income > 0 
                       ? ((annualTotals.income - previousYearTotals.income) / previousYearTotals.income) * 100 
                       : null}
@@ -1587,6 +1661,7 @@ export default function Reports() {
                     showGlow={true}
                     isDespesa={true}
                     sparklineData={monthlySummaries.map((s) => s.total_expenses)}
+                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.total_expenses) : undefined}
                     trendPercent={previousYearTotals.expenses > 0 
                       ? ((annualTotals.expenses - previousYearTotals.expenses) / previousYearTotals.expenses) * 100 
                       : null}
@@ -1600,6 +1675,7 @@ export default function Reports() {
                     glowColor="var(--color-balance)"
                     showGlow={false}
                     sparklineData={monthlySummaries.map((s) => s.total_investments)}
+                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.total_investments) : undefined}
                     trendPercent={previousYearTotals.investments > 0 
                       ? ((annualTotals.investments - previousYearTotals.investments) / previousYearTotals.investments) * 100 
                       : null}
@@ -1613,6 +1689,7 @@ export default function Reports() {
                     glowColor={annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
                     showGlow={annualTotals.balance < 0}
                     sparklineData={monthlySummaries.map((s) => s.balance)}
+                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.balance) : undefined}
                     trendPercent={previousYearTotals.balance !== 0
                       ? ((annualTotals.balance - previousYearTotals.balance) / Math.abs(previousYearTotals.balance)) * 100
                       : null}
@@ -1621,15 +1698,17 @@ export default function Reports() {
                 </div>
 
                 {/* Insights Anuais */}
-                <FinancialInsights
-                  viewMode="year"
-                  periodLabel={String(selectedYear)}
-                  incomeTotal={annualTotals.income}
-                  expenseTotal={annualTotals.expenses}
-                  savingsRate={annualTotals.income > 0 ? (annualTotals.balance / annualTotals.income) * 100 : 0}
-                  categoryExpenses={categoryExpenses}
-                  previousExpenseTotal={previousYearTotals.expenses}
-                />
+                <div className="order-last lg:order-none">
+                  <FinancialInsights
+                    viewMode="year"
+                    periodLabel={String(selectedYear)}
+                    incomeTotal={annualTotals.income}
+                    expenseTotal={annualTotals.expenses}
+                    savingsRate={annualTotals.income > 0 ? (annualTotals.balance / annualTotals.income) * 100 : 0}
+                    categoryExpenses={categoryExpenses}
+                    previousExpenseTotal={previousYearTotals.expenses}
+                  />
+                </div>
 
                 <div className="space-y-6">
                   {/* Gráficos de Fluxo/Evolução (Full Width) */}
@@ -1738,7 +1817,7 @@ export default function Reports() {
                 </div>
               </div>
             ) : monthSummary ? (
-              <div className="space-y-6 animate-stagger">
+              <div className="flex flex-col gap-6 animate-stagger">
                 {/* KPIs Mensais */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
                   <KpiCard
@@ -1749,6 +1828,7 @@ export default function Reports() {
                     glowColor="var(--color-income)"
                     showGlow={true}
                     sparklineData={dailyConsolidatedData.map((d) => d.Rendas)}
+                    compareSparklineData={compareWithPrevious ? dailyConsolidatedData.map((d) => d['Rendas (Mês Ant.)'] ?? 0) : undefined}
                     trendPercent={previousMonthIncomeTotal > 0 
                       ? ((monthSummary.total_income - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100 
                       : null}
@@ -1763,6 +1843,7 @@ export default function Reports() {
                     showGlow={true}
                     isDespesa={true}
                     sparklineData={dailyConsolidatedData.map((d) => d.Despesas)}
+                    compareSparklineData={compareWithPrevious ? dailyConsolidatedData.map((d) => d['Despesas (Mês Ant.)'] ?? 0) : undefined}
                     trendPercent={previousMonthExpenseTotal > 0 
                       ? ((monthSummary.total_expenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100 
                       : null}
@@ -1776,6 +1857,7 @@ export default function Reports() {
                     glowColor="var(--color-balance)"
                     showGlow={false}
                     sparklineData={dailyConsolidatedData.map((d) => d.Investimentos)}
+                    compareSparklineData={compareWithPrevious ? dailyConsolidatedData.map((d) => d['Investimentos (Mês Ant.)'] ?? 0) : undefined}
                     trendPercent={previousMonthInvestmentTotal > 0 
                       ? ((monthSummary.total_investments - previousMonthInvestmentTotal) / previousMonthInvestmentTotal) * 100 
                       : null}
@@ -1789,6 +1871,7 @@ export default function Reports() {
                     glowColor={savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
                     showGlow={savingsRate < 0}
                     sparklineData={dailyConsolidatedData.map((d) => d.Rendas - d.Despesas - d.Investimentos)}
+                    compareSparklineData={compareWithPrevious ? dailyConsolidatedData.map((d) => (d['Rendas (Mês Ant.)'] ?? 0) - (d['Despesas (Mês Ant.)'] ?? 0) - (d['Investimentos (Mês Ant.)'] ?? 0)) : undefined}
                     trendPercent={previousMonthIncomeTotal > 0 
                       ? savingsRate - previousMonthSavingsRate 
                       : null}
@@ -1798,17 +1881,19 @@ export default function Reports() {
                 </div>
 
                 {/* Insights Mensais */}
-                <FinancialInsights
-                  viewMode="month"
-                  periodLabel={formatMonth(selectedMonth)}
-                  incomeTotal={monthSummary.total_income}
-                  expenseTotal={monthSummary.total_expenses}
-                  savingsRate={savingsRate}
-                  categoryExpenses={monthExpenseCategories}
-                  previousExpenseTotal={previousMonthExpenseTotal}
-                  weekdayExpenses={weekdayExpenseData}
-                  limitsExceededCount={limitsExceededCount}
-                />
+                <div className="order-last lg:order-none">
+                  <FinancialInsights
+                    viewMode="month"
+                    periodLabel={formatMonth(selectedMonth)}
+                    incomeTotal={monthSummary.total_income}
+                    expenseTotal={monthSummary.total_expenses}
+                    savingsRate={savingsRate}
+                    categoryExpenses={monthExpenseCategories}
+                    previousExpenseTotal={previousMonthExpenseTotal}
+                    weekdayExpenses={weekdayExpenseData}
+                    limitsExceededCount={limitsExceededCount}
+                  />
+                </div>
 
                 <div className="space-y-6">
                   {/* Estação de Gráficos (Full Width) */}

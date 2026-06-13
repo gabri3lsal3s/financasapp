@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { chartAnimProps } from '@/types/recharts'
 import { PieTooltip } from './reportsChartShared'
@@ -22,6 +22,11 @@ interface CategoryPieChartProps {
 export default function CategoryPieChart({ data, onClick, outerRadius = 90, innerRadius = 66 }: CategoryPieChartProps) {
   const animProps = useMemo(() => chartAnimProps(), [])
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const totalValue = useMemo(() => {
     return data.reduce((sum, item) => sum + item.value, 0)
@@ -34,9 +39,13 @@ export default function CategoryPieChart({ data, onClick, outerRadius = 90, inne
     return null
   }, [activeIndex, data])
 
+  if (!mounted) {
+    return <div className="relative w-full h-[260px]" />
+  }
+
   return (
-    <div className="relative w-full h-[260px] flex items-center justify-center">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="relative w-full h-[260px]">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <PieChart>
           <Pie
             data={data}

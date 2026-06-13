@@ -146,7 +146,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
         <div style={{ marginBottom: SECTION_SPACING }} className="w-full">
           <p style={TITLE_STYLE}>COMPOSIÇÃO ATUAL VS. ALVO (%)</p>
           <div className="h-64 sm:h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={macroComposition} barCategoryGap="25%" margin={{ top: 10, bottom: 20, left: -25, right: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
@@ -183,7 +183,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
             <div className="w-full">
               <p style={TITLE_STYLE}>DISTRIBUIÇÃO POR CLASSE</p>
               <div className="h-56 sm:h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Pie 
                        data={macroDist} 
@@ -211,7 +211,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
             <div className="w-full">
               <p style={TITLE_STYLE}>DISTRIBUIÇÃO POR SETOR</p>
               <div className="h-56 sm:h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Pie 
                        data={sectorDist} 
@@ -243,7 +243,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
         <div style={{ marginBottom: SECTION_SPACING }} className="w-full">
           <p style={TITLE_STYLE}>EVOLUÇÃO PATRIMONIAL</p>
           <div className="h-56 sm:h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={evolutionData} margin={{ top: 10, bottom: 10, left: -10, right: 10 }}>
                 <defs>
                   <linearGradient id="chartEvolutionGrad" x1="0" y1="0" x2="0" y2="1">
@@ -274,7 +274,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
         <div className="w-full">
           <p style={TITLE_STYLE}>CONCENTRAÇÃO POR SETOR</p>
           <div className="h-56 sm:h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={sectorDist.slice(0, 6)} layout="vertical" barCategoryGap="20%" margin={{ top: 10, bottom: 10, left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tickFormatter={(v) => formatAxisCurrencyThousands(Number(v), { spaced: true })} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />

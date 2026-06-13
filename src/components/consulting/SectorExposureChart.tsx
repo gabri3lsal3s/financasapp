@@ -38,7 +38,7 @@ export default function SectorExposureChart({ consolidatedSector }: SectorExposu
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
           {/* Donut Chart (5 colunas no desktop) */}
           <div className="md:col-span-5 h-56 relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={chartData}

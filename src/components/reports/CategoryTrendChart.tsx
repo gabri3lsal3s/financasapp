@@ -20,7 +20,7 @@ export default function CategoryTrendChart({ data, series, hiddenSeries, onToggl
   const animProps = useMemo(() => chartAnimProps(), [])
 
   return (
-    <ResponsiveContainer width="100%" height={320}>
+    <ResponsiveContainer width="100%" height={320} minWidth={0} minHeight={0}>
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.15} />
         <XAxis 

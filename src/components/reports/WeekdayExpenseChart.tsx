@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Tooltip, Legend } from 'recharts'
-import { chartAnimProps } from '@/types/recharts'
-import { ChartTooltip } from './reportsChartShared'
+import { ChartTooltip, InteractiveChartLegend } from './reportsChartShared'
 
 interface WeekdayData {
   dia: string
   Despesas: number
+  'Despesas (Mês Ant.)'?: number
 }
 
 interface WeekdayExpenseChartProps {
@@ -13,10 +13,12 @@ interface WeekdayExpenseChartProps {
 }
 
 export default function WeekdayExpenseChart({ data }: WeekdayExpenseChartProps) {
-  const animProps = useMemo(() => chartAnimProps(), [])
+  const hasPrevData = useMemo(() => {
+    return data.some(d => d['Despesas (Mês Ant.)'] !== undefined)
+  }, [data])
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
       <RadarChart data={data}>
         <PolarGrid stroke="var(--color-border)" strokeOpacity={0.15} />
         <PolarAngleAxis 
@@ -24,7 +26,15 @@ export default function WeekdayExpenseChart({ data }: WeekdayExpenseChartProps) 
           tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} 
         />
         <Tooltip content={<ChartTooltip />} />
-        <Legend />
+        <Legend 
+          content={(props) => (
+            <InteractiveChartLegend 
+              payload={props.payload} 
+              hiddenSeries={[]} 
+              onToggle={() => {}} 
+            />
+          )} 
+        />
         <Radar
           name="Despesas"
           dataKey="Despesas"
@@ -32,9 +42,23 @@ export default function WeekdayExpenseChart({ data }: WeekdayExpenseChartProps) 
           fill="var(--color-expense)"
           fillOpacity={0.15}
           strokeWidth={2}
-          {...animProps}
+          isAnimationActive={false}
         />
+        {hasPrevData && (
+          <Radar
+            name="Despesas (Mês Ant.)"
+            dataKey="Despesas (Mês Ant.)"
+            stroke="var(--color-expense)"
+            fill="var(--color-expense)"
+            fillOpacity={0.05}
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            opacity={0.5}
+            isAnimationActive={false}
+          />
+        )}
       </RadarChart>
     </ResponsiveContainer>
   )
 }
+

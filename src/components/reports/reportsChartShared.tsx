@@ -85,9 +85,17 @@ interface InteractiveChartLegendProps {
 export function InteractiveChartLegend({ payload, hiddenSeries, onToggle }: InteractiveChartLegendProps) {
   if (!payload?.length) return null
 
+  const filteredPayload = payload.filter((entry) => {
+    const dataKey = String(entry.dataKey ?? entry.value ?? '')
+    const isComparison = dataKey.includes('(Mês Ant.)') || dataKey.includes('(Ano Ant.)') || dataKey.includes('Ant.')
+    return !isComparison
+  })
+
+  if (!filteredPayload.length) return null
+
   return (
-    <div className="flex flex-wrap gap-2 pt-2 justify-center">
-      {payload.map((entry) => {
+    <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-1.5 sm:pt-2 justify-center max-w-full overflow-x-hidden px-1">
+      {filteredPayload.map((entry) => {
         const dataKey = String(entry.dataKey ?? entry.value ?? '')
         const isHidden = hiddenSeries.includes(dataKey)
 
@@ -96,13 +104,19 @@ export function InteractiveChartLegend({ payload, hiddenSeries, onToggle }: Inte
             key={dataKey}
             type="button"
             variant={isHidden ? 'outline' : 'secondary'}
-            size="sm"
             onClick={() => onToggle(dataKey)}
-            className={`px-2 py-1 text-xs flex items-center gap-2 ${isHidden ? 'opacity-50' : ''}`}
+            className={`h-auto py-1 px-1.5 sm:px-2 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl transition-all ${
+              isHidden ? 'opacity-50' : ''
+            }`}
             aria-pressed={!isHidden}
           >
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-            <span>{entry.value}</span>
+            <span 
+              className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0" 
+              style={{ backgroundColor: entry.color }} 
+            />
+            <span className="truncate max-w-[85px] sm:max-w-none">
+              {entry.value}
+            </span>
           </Button>
         )
       })}
@@ -112,22 +126,27 @@ export function InteractiveChartLegend({ payload, hiddenSeries, onToggle }: Inte
 
 interface SparklineProps {
   data: number[]
+  compareData?: number[]
   color: string
   height?: number
   width?: number | string
 }
 
-export function Sparkline({ data, color, height = 32, width = '100%' }: SparklineProps) {
+export function Sparkline({ data, compareData, color, height = 32, width = '100%' }: SparklineProps) {
   const chartData = useMemo(() => {
-    // Se não houver dados, criar array padrão zerado
-    if (!data || data.length === 0) {
+    const len = Math.max(data.length, compareData?.length ?? 0)
+    if (len === 0) {
       return Array.from({ length: 10 }, (_, idx) => ({ idx, value: 0 }))
     }
-    return data.map((val, idx) => ({ idx, value: val }))
-  }, [data])
+    return Array.from({ length: len }, (_, idx) => ({
+      idx,
+      value: data[idx] ?? 0,
+      ...(compareData ? { compareValue: compareData[idx] ?? 0 } : {})
+    }))
+  }, [data, compareData])
 
   return (
-    <ResponsiveContainer width={width} height={height}>
+    <ResponsiveContainer width={width} height={height} minWidth={0} minHeight={0}>
       <AreaChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
         <defs>
           <linearGradient id={`sparkGrad-${color.replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -135,6 +154,19 @@ export function Sparkline({ data, color, height = 32, width = '100%' }: Sparklin
             <stop offset="95%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
+        {compareData && compareData.length > 0 && (
+          <Area
+            type="monotone"
+            dataKey="compareValue"
+            stroke={color}
+            strokeWidth={1}
+            strokeDasharray="2 2"
+            fill="transparent"
+            dot={false}
+            opacity={0.35}
+            isAnimationActive={false}
+          />
+        )}
         <Area
           type="monotone"
           dataKey="value"

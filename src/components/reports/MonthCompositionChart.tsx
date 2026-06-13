@@ -20,7 +20,7 @@ export default function MonthCompositionChart({ data, hiddenSeries, onToggleSeri
   const animProps = useMemo(() => chartAnimProps(), [])
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.15} />
         <XAxis 

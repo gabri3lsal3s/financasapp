@@ -324,8 +324,16 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [mounted, setMounted] = useState(false)
 
+  const [isIconLabelExpanded, setIsIconLabelExpanded] = useState(false)
+  const iconLabelTimeoutRef = useRef<any>(null)
+
   useEffect(() => {
     setMounted(true)
+    return () => {
+      if (iconLabelTimeoutRef.current) {
+        clearTimeout(iconLabelTimeoutRef.current)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -1099,6 +1107,16 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       return
     }
 
+    setIsIconLabelExpanded(true)
+
+    if (iconLabelTimeoutRef.current) {
+      clearTimeout(iconLabelTimeoutRef.current)
+    }
+
+    iconLabelTimeoutRef.current = setTimeout(() => {
+      setIsIconLabelExpanded(false)
+    }, 3000)
+
     openCalculator()
   }
 
@@ -1110,7 +1128,8 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     isDraggingIcon ? 'cursor-grabbing scale-[1.02] transition-none' : 'cursor-grab',
     FLOATING_SIDE_BUTTON_NEUTRAL,
     'calculator-origin-button',
-    isDraggingIcon && 'calculator-origin-button--dragging'
+    isDraggingIcon && 'calculator-origin-button--dragging',
+    isIconLabelExpanded && 'glass-button-side-expanded'
   )
 
   const fabButtonClassName = cn(
@@ -1119,7 +1138,8 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     FLOATING_SIDE_BUTTON_NEUTRAL,
     'calculator-origin-button',
     isDraggingIcon && 'calculator-origin-button--dragging',
-    !isDraggingIcon && !isIconReturning && 'calculator-fab-idle'
+    !isDraggingIcon && !isIconReturning && 'calculator-fab-idle',
+    isIconLabelExpanded && 'glass-button-side-expanded'
   )
 
   const iconDragTransform = buildIconDragTransform(iconOffset, isDraggingIcon)
@@ -1152,12 +1172,11 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       className={iconOrigin === 'top-right' ? sideTabButtonClassName : fabButtonClassName}
     >
       <Calculator size={isDesktop ? 18 : 16} className={cn("shrink-0 text-primary", iconOrigin === 'bottom-right' && "mx-auto")} aria-hidden />
-      <span className={cn(
-        "max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider",
-        iconOrigin === 'top-right' && !isDraggingIcon && !isIconReturning && "group-hover:max-w-[200px] group-hover:opacity-100 group-hover:ml-2.5"
-      )}>
-        Calculadora
-      </span>
+      {iconOrigin === 'top-right' && !isDraggingIcon && !isIconReturning && (
+        <span className="glass-button-label transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
+          Calculadora
+        </span>
+      )}
     </button>
   )
 

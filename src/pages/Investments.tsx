@@ -806,7 +806,7 @@ export default function Investments() {
                           onClick={() => setSelectedPieSegment(null)}
                           className="relative w-full h-64 sm:h-80 flex items-center justify-center cursor-pointer"
                         >
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                             <PieChart>
                               <Pie
                                 data={pieData}
