@@ -325,7 +325,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const [mounted, setMounted] = useState(false)
 
   const [isIconLabelExpanded, setIsIconLabelExpanded] = useState(false)
-  const iconLabelTimeoutRef = useRef<any>(null)
+  const iconLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setMounted(true)

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 
-type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits' | 'income_category_month_expectations'
+type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits' | 'income_category_month_expectations' | 'debts'
 type QueueAction = 'create' | 'update' | 'delete'
 
 interface OfflineQueueItem {

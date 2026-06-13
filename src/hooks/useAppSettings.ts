@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 const FLOATING_CALCULATOR_ENABLED_KEY = 'app.floatingCalculator.enabled'
 const BIOMETRIC_LOCK_TIMEOUT_KEY = 'app.biometric.lockTimeoutMinutes'
+const REMINDERS_ENABLED_KEY = 'app.reminders.enabled'
 const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
 let dashboardReportsWeightsEnabledMemory = false
@@ -56,12 +57,23 @@ const readBiometricLockTimeout = (): BiometricLockTimeout => {
   return parseBiometricLockTimeout(window.localStorage.getItem(BIOMETRIC_LOCK_TIMEOUT_KEY))
 }
 
+const parseRemindersEnabled = (value: string | null): boolean => {
+  if (value === null) return true
+  return value !== 'false'
+}
+
+const readRemindersEnabled = (): boolean => {
+  if (!isStorageAvailable()) return true
+  return parseRemindersEnabled(window.localStorage.getItem(REMINDERS_ENABLED_KEY))
+}
+
 export function useAppSettings() {
   const [floatingCalculatorEnabled, setFloatingCalculatorEnabledState] = useState<boolean>(readFloatingCalculatorEnabled)
   const [dashboardReportsWeightsEnabled, setDashboardReportsWeightsEnabledState] = useState<boolean>(readDashboardReportsWeightsEnabled)
   const [creditCardsWeightsEnabled, setCreditCardsWeightsEnabledState] = useState<boolean>(readCreditCardsWeightsEnabled)
   const [categoriesWeightsEnabled, setCategoriesWeightsEnabledState] = useState<boolean>(readCategoriesWeightsEnabled)
   const [biometricLockTimeout, setBiometricLockTimeoutState] = useState<BiometricLockTimeout>(readBiometricLockTimeout)
+  const [remindersEnabled, setRemindersEnabledState] = useState<boolean>(readRemindersEnabled)
 
   useEffect(() => {
     const syncFromStorage = () => {
@@ -70,12 +82,14 @@ export function useAppSettings() {
       setCreditCardsWeightsEnabledState(readCreditCardsWeightsEnabled())
       setCategoriesWeightsEnabledState(readCategoriesWeightsEnabled())
       setBiometricLockTimeoutState(readBiometricLockTimeout())
+      setRemindersEnabledState(readRemindersEnabled())
     }
 
     const onStorage = (event: StorageEvent) => {
       if (
         event.key === FLOATING_CALCULATOR_ENABLED_KEY
         || event.key === BIOMETRIC_LOCK_TIMEOUT_KEY
+        || event.key === REMINDERS_ENABLED_KEY
       ) {
         syncFromStorage()
       }
@@ -130,6 +144,14 @@ export function useAppSettings() {
     window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
   }, [])
 
+  const setRemindersEnabled = useCallback((enabled: boolean) => {
+    if (!isStorageAvailable()) return
+
+    window.localStorage.setItem(REMINDERS_ENABLED_KEY, String(enabled))
+    setRemindersEnabledState(enabled)
+    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
+  }, [])
+
   return {
     floatingCalculatorEnabled,
     setFloatingCalculatorEnabled,
@@ -141,6 +163,8 @@ export function useAppSettings() {
     setCategoriesWeightsEnabled,
     biometricLockTimeout,
     setBiometricLockTimeout,
+    remindersEnabled,
+    setRemindersEnabled,
   }
 }
 

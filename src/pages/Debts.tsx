@@ -15,16 +15,17 @@ import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
 import Loader from '@/components/Loader'
-import { PAGE_HEADERS } from '@/constants/pages'
+import Checkbox from '@/components/Checkbox'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useCreditCards } from '@/hooks/useCreditCards'
+import { useDebts } from '@/hooks/useDebts'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { supabase } from '@/lib/supabase'
-import type { CreditCard } from '@/types'
+import type { CreditCard, Debt } from '@/types'
 import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
 import { CREDIT_CARD_DEFAULT_COLOR, ensureHexColor } from '@/utils/colorValue'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
@@ -43,7 +44,7 @@ import {
   type BillPaymentRowInput,
 } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon } from 'lucide-react'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check, Trash2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 
@@ -55,6 +56,15 @@ type CardFormState = {
   due_day: string
   color: string
   is_active: string
+}
+
+type DebtFormState = {
+  name: string
+  type: 'payable' | 'receivable'
+  amount: string
+  due_date: string
+  description: string
+  status: 'pending' | 'paid'
 }
 
 type MonthlyCycleRow = {
@@ -114,6 +124,15 @@ const DEFAULT_REFUND_INCOME_FORM = (incomeCategoryId = ''): RefundIncomeFormStat
   description: '',
 })
 
+const DEFAULT_DEBT_FORM = (): DebtFormState => ({
+  name: '',
+  type: 'payable',
+  amount: '',
+  due_date: format(new Date(), 'yyyy-MM-dd'),
+  description: '',
+  status: 'pending',
+})
+
 const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
 const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
 
@@ -126,7 +145,6 @@ const DEFAULT_FORM: CardFormState = {
   color: CREDIT_CARD_DEFAULT_COLOR,
   is_active: 'true',
 }
-
 
 function getSafeDate(year: number, month: number, day: number) {
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
@@ -305,12 +323,10 @@ function CreditCardTimeline({
 
   return (
     <div
-      className="glass-timeline-card p-4 sm:p-5 space-y-4 text-left transition-all duration-300 animate-page-enter"
+      className="glass-timeline-card p-4 sm:p-5 space-y-4 text-left transition-all duration-300"
       style={containerHoverStyle}
     >
-      {/* Top Header */}
       <div className="flex justify-end">
-        {/* State Badge with dynamic colors */}
         <span
           className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all duration-300 ${statusBadgeClass[status]}`}
           style={themeAccentStyle}
@@ -320,23 +336,16 @@ function CreditCardTimeline({
         </span>
       </div>
 
-      {/* 1. Desktop & Tablet Layout (Horizontal Timeline) */}
       <div className="hidden sm:block relative pt-20 pb-16 px-20">
         <div className="h-1.5 w-full bg-muted/20 dark:bg-muted/10 rounded-full relative">
-          {/* Progress fill using Card Theme Color */}
           <div
             className="h-full rounded-full transition-all duration-700 ease-out"
             style={barStyle}
           />
-
-          {/* ================= NODES CIRCLES (Only circles centered on line) ================= */}
-          {/* Node 1 Circle */}
           <div
             className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 z-10"
             style={progressPct >= 0 ? nodeRingStyle : undefined}
           />
-
-          {/* Node 2 Circle */}
           <div
             className={`absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
               progressPct >= 50
@@ -345,8 +354,6 @@ function CreditCardTimeline({
             }`}
             style={progressPct >= 50 ? nodeRingStyle : undefined}
           />
-
-          {/* Node 3 Circle */}
           <div
             className={`absolute top-1/2 -translate-y-1/2 left-full -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
               progressPct >= 100
@@ -356,8 +363,6 @@ function CreditCardTimeline({
             style={progressPct >= 100 ? nodeRingStyle : undefined}
           />
 
-          {/* ================= NODES TEXT LABELS & DATES (Positioned ABOVE the line) ================= */}
-          {/* Node 1 Text */}
           <div className="absolute bottom-5 left-0 -translate-x-1/2 flex flex-col items-center w-36 text-center">
             <span className="text-xs font-extrabold text-primary font-sans leading-tight whitespace-nowrap">
               Início do Ciclo
@@ -370,7 +375,6 @@ function CreditCardTimeline({
             </p>
           </div>
 
-          {/* Node 2 Text */}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-36 text-center">
             <span className="text-xs font-extrabold text-primary font-sans leading-tight whitespace-nowrap">
               Fechamento
@@ -383,7 +387,6 @@ function CreditCardTimeline({
             </p>
           </div>
 
-          {/* Node 3 Text */}
           <div className="absolute bottom-5 left-full -translate-x-1/2 flex flex-col items-center w-36 text-center">
             <span className="text-xs font-extrabold text-primary font-sans leading-tight whitespace-nowrap">
               Vencimento
@@ -396,8 +399,6 @@ function CreditCardTimeline({
             </p>
           </div>
 
-          {/* ================= NODES VALUES (Positioned BELOW the line) ================= */}
-          {/* Node 1 Value */}
           <div className="absolute top-5 left-0 -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
               Previsto
@@ -412,7 +413,6 @@ function CreditCardTimeline({
             )}
           </div>
 
-          {/* Node 2 Value */}
           <div className="absolute top-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
               Pago
@@ -422,7 +422,6 @@ function CreditCardTimeline({
             </span>
           </div>
 
-          {/* Node 3 Value */}
           <div className="absolute top-5 left-full -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
               Saldo
@@ -434,9 +433,7 @@ function CreditCardTimeline({
         </div>
       </div>
 
-      {/* 2. Mobile Layout (Creative Compact Timeline with Values on the Left) */}
       <div className="block sm:hidden relative pt-2 pb-2">
-        {/* The vertical timeline connector line spanning Row 1 to Row 3 */}
         <div className="absolute top-[22px] bottom-[22px] left-1/2 -translate-x-1/2 w-0.5 bg-muted/20 dark:bg-muted/10 rounded-full pointer-events-none">
           <div
             className="w-full rounded-full transition-all duration-700 ease-out"
@@ -448,8 +445,6 @@ function CreditCardTimeline({
         </div>
 
         <div className="grid grid-cols-[1fr_24px_1fr] gap-x-3 gap-y-4 items-center">
-          {/* Row 1: Início / Total Previsto */}
-          {/* Left: Value card */}
           <div className="text-right flex flex-col justify-center">
             <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Previsto</span>
             <div className="flex flex-col items-end">
@@ -464,7 +459,6 @@ function CreditCardTimeline({
             </div>
           </div>
 
-          {/* Center: Circle */}
           <div className="flex justify-center z-10">
             <div
               className="w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 shrink-0"
@@ -472,7 +466,6 @@ function CreditCardTimeline({
             />
           </div>
 
-          {/* Right: Milestone */}
           <div className="text-left flex flex-col justify-center">
             <div className="flex flex-wrap items-baseline gap-1">
               <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Início do Ciclo</span>
@@ -481,8 +474,6 @@ function CreditCardTimeline({
             <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Compras começam a contar.</p>
           </div>
 
-          {/* Row 2: Fechamento / Total Pago */}
-          {/* Left: Value card */}
           <div className="text-right flex flex-col justify-center">
             <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Pago</span>
             <span className="text-[13px] sm:text-[15px] font-extrabold text-income font-mono leading-tight">
@@ -490,7 +481,6 @@ function CreditCardTimeline({
             </span>
           </div>
 
-          {/* Center: Circle */}
           <div className="flex justify-center z-10">
             <div
               className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
@@ -500,7 +490,6 @@ function CreditCardTimeline({
             />
           </div>
 
-          {/* Right: Milestone */}
           <div className="text-left flex flex-col justify-center">
             <div className="flex flex-wrap items-baseline gap-1">
               <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Fechamento</span>
@@ -509,8 +498,6 @@ function CreditCardTimeline({
             <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Fatura encerrada para compras.</p>
           </div>
 
-          {/* Row 3: Vencimento / Saldo em Aberto */}
-          {/* Left: Value card */}
           <div className="text-right flex flex-col justify-center">
             <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Saldo</span>
             <span className={`text-[13px] sm:text-[15px] font-extrabold font-mono leading-tight ${saldoAberto > 0.009 ? 'text-primary' : 'text-secondary'}`}>
@@ -518,7 +505,6 @@ function CreditCardTimeline({
             </span>
           </div>
 
-          {/* Center: Circle */}
           <div className="flex justify-center z-10">
             <div
               className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
@@ -528,7 +514,6 @@ function CreditCardTimeline({
             />
           </div>
 
-          {/* Right: Milestone */}
           <div className="text-left flex flex-col justify-center">
             <div className="flex flex-wrap items-baseline gap-1">
               <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Vencimento</span>
@@ -539,7 +524,6 @@ function CreditCardTimeline({
         </div>
       </div>
 
-      {/* Dynamic Insight Banner */}
       <div
         className={`flex gap-2 p-2.5 rounded-lg text-[10px] text-secondary font-sans border transition-all duration-300 leading-relaxed items-center ${statusBannerClass[status]}`}
         style={themeBannerStyle}
@@ -551,7 +535,7 @@ function CreditCardTimeline({
   )
 }
 
-export default function CreditCards() {
+export default function Debts() {
   const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
@@ -561,6 +545,8 @@ export default function CreditCards() {
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [paymentNote, setPaymentNote] = useState('')
   const [paymentCardId, setPaymentCardId] = useState<string>('')
+  
+  // Modais de Cartão
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [isPaymentEditModalOpen, setIsPaymentEditModalOpen] = useState(false)
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
@@ -591,6 +577,22 @@ export default function CreditCards() {
   const [migrationTargetCardId, setMigrationTargetCardId] = useState<string>('')
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Modais e Estados de Dívidas
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false)
+  const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
+  const [debtForm, setDebtForm] = useState<DebtFormState>(DEFAULT_DEBT_FORM())
+  const [showAllDebts, setShowAllDebts] = useState(false)
+
+  // Accordion local state keys (creditCardIds, debtIds)
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
+
   const [expensesByCard, setExpensesByCard] = useState<Record<string, number>>({})
   const [paymentsByCard, setPaymentsByCard] = useState<Record<string, number>>({})
   const [baseExpensesByCard, setBaseExpensesByCard] = useState<Record<string, number>>({})
@@ -600,12 +602,21 @@ export default function CreditCards() {
 
   const {
     creditCards,
-    loading,
+    loading: loadingCards,
     createCreditCard,
     updateCreditCard,
     deleteCreditCard,
     refreshCreditCards,
   } = useCreditCards()
+
+  const {
+    debts,
+    loading: loadingDebts,
+    createDebt,
+    updateDebt,
+    deleteDebt,
+  } = useDebts()
+
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
   const { createExpense, updateExpense, deleteExpense } = useExpenses()
@@ -616,6 +627,16 @@ export default function CreditCards() {
     () => creditCards.filter((card) => card.is_active !== false),
     [creditCards],
   )
+
+  // Dívidas filtradas do mês ou pendentes
+  const filteredDebts = useMemo(() => {
+    return debts.filter((d) => {
+      if (showAllDebts) return true
+      return d.due_date.startsWith(currentMonth)
+    })
+  }, [debts, currentMonth, showAllDebts])
+
+  const loading = loadingCards || loadingDebts
 
   const openCreateCardModal = () => {
     setEditingCard(null)
@@ -643,6 +664,32 @@ export default function CreditCards() {
     setCardForm(DEFAULT_FORM)
   }
 
+  // Modais de Dívidas
+  const openCreateDebtModal = () => {
+    setEditingDebt(null)
+    setDebtForm(DEFAULT_DEBT_FORM())
+    setIsDebtModalOpen(true)
+  }
+
+  const openEditDebtModal = (debt: Debt) => {
+    setEditingDebt(debt)
+    setDebtForm({
+      name: debt.name,
+      type: debt.type,
+      amount: String(debt.amount),
+      due_date: debt.due_date,
+      description: debt.description || '',
+      status: debt.status,
+    })
+    setIsDebtModalOpen(true)
+  }
+
+  const closeDebtModal = () => {
+    setIsDebtModalOpen(false)
+    setEditingDebt(null)
+    setDebtForm(DEFAULT_DEBT_FORM())
+  }
+
   const handleStartDelete = () => {
     setDeleteStep(1)
     setMigrationTargetCardId('')
@@ -661,7 +708,6 @@ export default function CreditCards() {
     try {
       setIsDeleting(true)
 
-      // Step 1: Check for expenses if we are still in step 1
       if (deleteStep === 1) {
         const { count, error: countError } = await supabase
           .from('expenses')
@@ -676,9 +722,7 @@ export default function CreditCards() {
         }
       }
 
-      // Step 2 or no expenses: execute deletion
       if (migrationTargetCardId) {
-        // Migrate expenses
         const { error: migrationError } = await supabase
           .from('expenses')
           .update({ credit_card_id: migrationTargetCardId })
@@ -686,7 +730,6 @@ export default function CreditCards() {
 
         if (migrationError) throw migrationError
       } else {
-        // Unbind expenses
         const { error: unbindError } = await supabase
           .from('expenses')
           .update({ credit_card_id: null, payment_method: 'other' })
@@ -695,13 +738,11 @@ export default function CreditCards() {
         if (unbindError) throw unbindError
       }
 
-      // Cleanup related tables
       await Promise.all([
         supabase.from('credit_card_bill_payments').delete().eq('credit_card_id', editingCard.id),
         supabase.from('credit_card_monthly_cycles').delete().eq('credit_card_id', editingCard.id),
       ])
 
-      // Delete the card
       const { error: deleteError } = await deleteCreditCard(editingCard.id)
       if (deleteError) throw new Error(deleteError)
 
@@ -730,6 +771,22 @@ export default function CreditCards() {
     setPaymentAmount('')
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
     setPaymentNote('')
+  }
+
+  const openRefundModal = (cardId: string) => {
+    setRefundCardId(cardId)
+    setRefundAmount('')
+    setRefundDate(format(new Date(), 'yyyy-MM-dd'))
+    setRefundDescription('')
+    setIsRefundModalOpen(true)
+  }
+
+  const closeRefundModal = () => {
+    setIsRefundModalOpen(false)
+    setRefundCardId('')
+    setRefundAmount('')
+    setRefundDate(format(new Date(), 'yyyy-MM-dd'))
+    setRefundDescription('')
   }
 
   const openPaymentEditModal = (item: PaymentItem) => {
@@ -799,9 +856,223 @@ export default function CreditCards() {
     return String(data.id)
   }
 
+  const openExpenseEditModal = (item: BillExpenseItem) => {
+    setEditingExpenseItem(item)
+    setExpenseEditForm({
+      amount: formatMoneyInput(Math.abs(item.amount)),
+      report_amount: item.report_weight !== undefined && item.report_weight !== null
+        ? formatMoneyInput(roundToDecimals(Math.abs(item.amount) * item.report_weight, 2))
+        : '',
+      date: item.date,
+      installment_total: '1',
+      payment_method: item.payment_method || 'credit_card',
+      credit_card_id: item.credit_card_id || '',
+      category_id: item.category_id || '',
+      description: item.description || '',
+    })
+    setIsExpenseEditModalOpen(true)
+  }
+
+  const closeExpenseEditModal = () => {
+    setIsExpenseEditModalOpen(false)
+    setEditingExpenseItem(null)
+    setExpenseEditForm(DEFAULT_EXPENSE_FORM())
+  }
+
+  const handleOpenPaymentItem = async (paymentItem: PaymentItem) => {
+    const parsedRefund = parseRefundNote(paymentItem.note)
+    if (parsedRefund.isRefund && parsedRefund.incomeId) {
+      const { data, error } = await supabase
+        .from('incomes')
+        .select('*')
+        .eq('id', parsedRefund.incomeId)
+        .maybeSingle()
+
+      if (error) {
+        alert('Não foi possível obter dados detalhados deste estorno.')
+        return
+      }
+      if (!data) {
+        alert('Este estorno não possui mais uma renda correspondente ativa no sistema.')
+        return
+      }
+      setEditingRefundPaymentItem(paymentItem)
+      setEditingRefundIncomeId(parsedRefund.incomeId)
+      setRefundIncomeEditForm({
+        amount: formatMoneyInput(data.amount),
+        report_amount: data.report_weight !== undefined && data.report_weight !== null
+          ? formatMoneyInput(roundToDecimals(data.amount * data.report_weight, 2))
+          : '',
+        date: data.date,
+        income_category_id: data.income_category_id,
+        description: data.description || '',
+      })
+      setIsRefundIncomeEditModalOpen(true)
+    } else {
+      openPaymentEditModal(paymentItem)
+    }
+  }
+
+  const closeRefundIncomeEditModal = () => {
+    setIsRefundIncomeEditModalOpen(false)
+    setEditingRefundPaymentItem(null)
+    setEditingRefundIncomeId('')
+    setRefundIncomeEditForm(DEFAULT_REFUND_INCOME_FORM())
+  }
+
+  const handleRefundIncomeAmountChange = (nextAmount: string) => {
+    setRefundIncomeEditForm((previous) => {
+      const previousAmount = parseMoneyInput(previous.amount)
+      const previousReportAmount = parseMoneyInput(previous.report_amount)
+      const shouldSyncReportAmount =
+        !previous.report_amount ||
+        (!Number.isNaN(previousAmount) &&
+          !Number.isNaN(previousReportAmount) &&
+          Math.abs(previousReportAmount - previousAmount) < 0.009)
+
+      return {
+        ...previous,
+        amount: nextAmount,
+        report_amount: shouldSyncReportAmount ? nextAmount : previous.report_amount,
+      }
+    })
+  }
+
+  const handleSubmitEditRefundIncome = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!editingRefundPaymentItem || !editingRefundIncomeId) return
+
+    const amountBase = parseMoneyInput(refundIncomeEditForm.amount)
+    if (Number.isNaN(amountBase) || amountBase <= 0) {
+      alert('Informe o valor base do estorno.')
+      return
+    }
+
+    const reportAmount = refundIncomeEditForm.report_amount
+      ? parseMoneyInput(refundIncomeEditForm.report_amount)
+      : amountBase
+
+    if (Number.isNaN(reportAmount) || reportAmount < 0 || reportAmount > amountBase) {
+      alert('O valor no relatório deve estar entre 0 e o valor do estorno.')
+      return
+    }
+
+    const reportWeight = amountBase > 0 ? roundToDecimals(reportAmount / amountBase, 4) : 1
+
+    try {
+      const { error: incomeUpdateError } = await supabase
+        .from('incomes')
+        .update({
+          amount: amountBase,
+          report_weight: reportWeight,
+          date: refundIncomeEditForm.date,
+          income_category_id: refundIncomeEditForm.income_category_id,
+          description: refundIncomeEditForm.description || null,
+        })
+        .eq('id', editingRefundIncomeId)
+
+      if (incomeUpdateError) throw incomeUpdateError
+
+      const refundNoteText = buildRefundNote(editingRefundIncomeId, refundIncomeEditForm.description || '')
+      const { error: paymentUpdateError } = await supabase
+        .from('credit_card_bill_payments')
+        .update({
+          amount: -amountBase,
+          payment_date: refundIncomeEditForm.date,
+          note: refundNoteText,
+        })
+        .eq('id', editingRefundPaymentItem.id)
+
+      if (paymentUpdateError) throw paymentUpdateError
+
+      closeRefundIncomeEditModal()
+      await loadBillData()
+    } catch (err) {
+      alert(`Erro ao atualizar estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+    }
+  }
+
+  const handleDeleteRefundIncome = async () => {
+    if (!editingRefundPaymentItem || !editingRefundIncomeId) return
+    const confirmed = window.confirm('Deseja realmente excluir este estorno?')
+    if (!confirmed) return
+
+    try {
+      const { error: incomeDeleteError } = await supabase
+        .from('incomes')
+        .delete()
+        .eq('id', editingRefundIncomeId)
+
+      if (incomeDeleteError) throw incomeDeleteError
+
+      const { error: paymentDeleteError } = await supabase
+        .from('credit_card_bill_payments')
+        .delete()
+        .eq('id', editingRefundPaymentItem.id)
+
+      if (paymentDeleteError) throw paymentDeleteError
+
+      closeRefundIncomeEditModal()
+      await loadBillData()
+    } catch (err) {
+      alert(`Erro ao excluir estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+    }
+  }
+
+  const handleSubmitRefund = async (event: React.FormEvent, cardId: string) => {
+    event.preventDefault()
+    if (!cardId) return
+
+    const baseVal = parseMoneyInput(refundAmount)
+    if (Number.isNaN(baseVal) || baseVal <= 0) {
+      alert('Informe um valor de estorno válido.')
+      return
+    }
+
+    try {
+      const estornoCategoryId = await getOrCreateRefundIncomeCategoryId()
+      const { data: incomeData, error: incomeError } = await supabase
+        .from('incomes')
+        .insert([{
+          amount: baseVal,
+          report_weight: 1.0,
+          date: refundDate,
+          type: 'other',
+          income_category_id: estornoCategoryId,
+          description: refundDescription.trim() || 'Estorno fatura',
+        }])
+        .select('id')
+        .single()
+
+      if (incomeError) throw incomeError
+      if (!incomeData?.id) throw new Error('Não foi possível obter o ID gerado para a receita de estorno.')
+
+      const refundNoteText = buildRefundNote(String(incomeData.id), refundDescription.trim() || 'Estorno fatura')
+
+      const { error: paymentError } = await supabase
+        .from('credit_card_bill_payments')
+        .insert([{
+          credit_card_id: cardId,
+          bill_competence: currentMonth,
+          amount: -baseVal,
+          payment_date: refundDate,
+          note: refundNoteText,
+        }])
+
+      if (paymentError) {
+        await supabase.from('incomes').delete().eq('id', incomeData.id)
+        throw paymentError
+      }
+
+      closeRefundModal()
+      await loadBillData()
+    } catch (err) {
+      alert(`Erro ao registrar estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+    }
+  }
+
   const openCycleModal = (card: CreditCard) => {
     const currentCycle = monthlyCyclesByCard[card.id]
-
     setSelectedCardIdForCycle(card.id)
     setCycleForm({
       closing_day: String(currentCycle?.closing_day || card.closing_day),
@@ -814,22 +1085,6 @@ export default function CreditCards() {
     setIsCycleModalOpen(false)
     setSelectedCardIdForCycle('')
     setCycleForm({ closing_day: '8', due_day: '15' })
-  }
-
-  const openRefundModal = (cardId: string) => {
-    setRefundCardId(cardId)
-    setRefundAmount('')
-    setRefundDate(format(new Date(), 'yyyy-MM-dd'))
-    setRefundDescription('')
-    setIsRefundModalOpen(true)
-  }
-
-  const closeRefundModal = () => {
-    setIsRefundModalOpen(false)
-    setRefundCardId('')
-    setRefundAmount('')
-    setRefundDate(format(new Date(), 'yyyy-MM-dd'))
-    setRefundDescription('')
   }
 
   const getBillDataSnapshot = async (targetMonth: string): Promise<BillDataSnapshot> => {
@@ -861,10 +1116,8 @@ export default function CreditCards() {
 
     const currentMonthCycles = (monthlyCycleRows || []).reduce<Record<string, MonthlyCycleRow>>((accumulator, row) => {
       if (String(row.competence || '') !== targetMonth) return accumulator
-
       const cardId = String(row.credit_card_id || '')
       if (!cardId) return accumulator
-
       accumulator[cardId] = {
         id: String(row.id),
         credit_card_id: cardId,
@@ -872,7 +1125,6 @@ export default function CreditCards() {
         closing_day: Number(row.closing_day),
         due_day: Number(row.due_day),
       }
-
       return accumulator
     }, {})
 
@@ -880,7 +1132,6 @@ export default function CreditCards() {
       if (card.id && Number.isFinite(card.closing_day)) {
         accumulator[card.id] = Number(card.closing_day)
       }
-
       return accumulator
     }, {})
 
@@ -891,7 +1142,6 @@ export default function CreditCards() {
       .or(`bill_competence.eq.${targetMonth},and(date.gte.${searchStartDate},date.lte.${searchEndDate})`)
 
     const resolveClosingDay = buildClosingDayResolver(cycleClosingByCardAndMonth, cardClosingDays)
-
     const filteredExpenses = filterBillExpensesForMonth(
       (rawExpenseRows || []) as BillExpenseRowInput[],
       targetMonth,
@@ -928,15 +1178,10 @@ export default function CreditCards() {
     )
 
     const totalRefundByCard: Record<string, number> = {}
-
-    // Pós-processamento para garantir que estornos (registrados na tabela de pagamentos)
-    // reduzam o valor previsto da fatura em vez de aumentar o "total pago".
     Object.entries(paymentsByCardItems).forEach(([cardId, items]) => {
       let refundTotal = 0
       items.forEach(item => {
         const { isRefund } = parseRefundNote(item.note)
-        // Um estorno pode vir como valor positivo ou negativo no banco/app, 
-        // mas aqui queremos o valor absoluto para subtrair dos totais.
         if (isRefund || item.amount < 0) {
           refundTotal += Math.abs(item.amount)
         }
@@ -950,17 +1195,8 @@ export default function CreditCards() {
 
     Object.keys(summarizedBill.expensesByCard).forEach(cardId => {
       const refundAmt = totalRefundByCard[cardId] || 0
-      
-      // O Previsto deve ser o líquido (Gastos - Estornos)
       finalExpensesByCard[cardId] = roundToDecimals(summarizedBill.expensesByCard[cardId] - refundAmt, 2)
-      
-      // O Pago deve conter apenas pagamentos REAIS.
-      // Como o summarizedBill.paymentsByCard incluiu todos os registros da tabela de pagamentos 
-      // (incluindo estornos registrados como pagamentos de ajuste), precisamos SUBTRAIR o refundAmt 
-      // para isolar apenas o que foi pagamento de fatura real.
       finalPaymentsByCard[cardId] = roundToDecimals(summarizedBill.paymentsByCard[cardId] - refundAmt, 2)
-      
-      // Calcular base total (sem pesos)
       const cardExpenses = summarizedBill.billItemsByCard[cardId] || []
       const baseTotal = cardExpenses.reduce((sum, item) => sum + (item.base_amount || 0), 0)
       finalBaseExpensesByCard[cardId] = roundToDecimals(baseTotal - refundAmt, 2)
@@ -1000,7 +1236,6 @@ export default function CreditCards() {
       .map((payment) => {
         const note = String(payment.note || '')
         if (!note.startsWith('[REFUND]')) return null
-
         let refundDesc = 'Estorno registrado'
         try {
           const parsed = JSON.parse(note.slice('[REFUND]'.length))
@@ -1008,7 +1243,6 @@ export default function CreditCards() {
         } catch {
           // ignore
         }
-
         const amt = -Math.abs(Number(payment.amount || 0))
         return {
           id: `refund-payment-${payment.id}`,
@@ -1031,7 +1265,6 @@ export default function CreditCards() {
 
   const hasPendingBalanceForActiveCards = (snapshot: Pick<BillDataSnapshot, 'expensesByCard' | 'paymentsByCard'>) => {
     if (!activeCards.length) return false
-
     return activeCards.some((card) => {
       const totalPrevisto = Number(snapshot.expensesByCard[card.id] || 0)
       const totalPago = Number(snapshot.paymentsByCard[card.id] || 0)
@@ -1042,7 +1275,6 @@ export default function CreditCards() {
   const loadBillData = async () => {
     try {
       setLoadingBills(true)
-
       const snapshot = await getBillDataSnapshot(currentMonth)
       setExpensesByCard(snapshot.expensesByCard)
       setPaymentsByCard(snapshot.paymentsByCard)
@@ -1057,7 +1289,7 @@ export default function CreditCards() {
 
   useEffect(() => {
     if (hasResolvedInitialMonth) return
-    if (loading) return
+    if (loadingCards) return
 
     if (hasExplicitCreditCardsDeepLink(searchParams, getCurrentMonthString())) {
       const targetMonth = searchParams.get('month')
@@ -1069,7 +1301,6 @@ export default function CreditCards() {
     }
 
     let isCancelled = false
-
     const resolveInitialMonth = async () => {
       const resolvedMonth = await resolveInitialCreditCardsMonth({
         currentMonth,
@@ -1080,29 +1311,18 @@ export default function CreditCards() {
           return hasPendingBalanceForActiveCards(monthSnapshot)
         },
       })
-
       if (isCancelled) return
-
       if (resolvedMonth !== currentMonth) {
         setCurrentMonth(resolvedMonth)
       }
-
       setHasResolvedInitialMonth(true)
     }
-
     void resolveInitialMonth()
-
     return () => {
       isCancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    hasResolvedInitialMonth,
-    loading,
-    searchParams,
-    currentMonth,
-    activeCards,
-  ])
+  }, [hasResolvedInitialMonth, loadingCards, searchParams, currentMonth, activeCards])
 
   useEffect(() => {
     if (!hasResolvedInitialMonth) return
@@ -1112,17 +1332,15 @@ export default function CreditCards() {
 
   useEffect(() => {
     const targetCardId = searchParams.get('card')
-    if (!targetCardId || loading || loadingBills) return
-
+    if (!targetCardId || loadingCards || loadingBills) return
     const targetElement = document.getElementById(`credit-card-${targetCardId}`)
     if (targetElement) {
       targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [searchParams, loading, loadingBills, currentMonth])
+  }, [searchParams, loadingCards, loadingBills, currentMonth])
 
   const handleSubmitCard = async (event: React.FormEvent) => {
     event.preventDefault()
-
     if (!cardForm.name.trim()) {
       alert('Informe o nome do cartão.')
       return
@@ -1131,12 +1349,11 @@ export default function CreditCards() {
     const closingDay = Number(cardForm.closing_day)
     const dueDay = Number(cardForm.due_day)
 
-    if (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31) {
+    if (!isFinite(closingDay) || closingDay < 1 || closingDay > 31) {
       alert('O dia de fechamento deve estar entre 1 e 31.')
       return
     }
-
-    if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
+    if (!isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
       alert('O dia de vencimento deve estar entre 1 e 31.')
       return
     }
@@ -1178,7 +1395,6 @@ export default function CreditCards() {
 
   const handleSubmitPayment = async (event: React.FormEvent) => {
     event.preventDefault()
-
     if (!paymentCardId) {
       alert('Selecione um cartão válido.')
       return
@@ -1211,19 +1427,7 @@ export default function CreditCards() {
 
   const handleSubmitEditPayment = async (event: React.FormEvent) => {
     event.preventDefault()
-
-    if (!editingPaymentItem?.id) {
-      alert('Pagamento inválido para edição.')
-      return
-    }
-
-    // Estornos não podem ser editados como pagamentos comuns — devem usar o modal de estorno
-    const refundMeta = parseRefundNote(editingPaymentItem.note)
-    if (refundMeta.isRefund) {
-      closePaymentEditModal()
-      await openRefundIncomeEditModal(editingPaymentItem, refundMeta.incomeId, refundMeta.description || 'Estorno de compra')
-      return
-    }
+    if (!editingPaymentItem) return
 
     const parsedAmount = Number(paymentEditAmount)
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -1241,7 +1445,7 @@ export default function CreditCards() {
       .eq('id', editingPaymentItem.id)
 
     if (error) {
-      alert(`Erro ao editar pagamento: ${error.message}`)
+      alert(`Erro ao atualizar pagamento: ${error.message}`)
       return
     }
 
@@ -1250,19 +1454,9 @@ export default function CreditCards() {
   }
 
   const handleDeletePayment = async () => {
-    if (!editingPaymentItem?.id) return
-
+    if (!editingPaymentItem) return
     const confirmed = window.confirm('Deseja excluir este pagamento?')
     if (!confirmed) return
-
-    // Verifica se é um estorno — se sim, deve excluir a renda vinculada junto
-    const refundMeta = parseRefundNote(editingPaymentItem.note)
-    if (refundMeta.isRefund) {
-      // Redireciona para o fluxo correto que exclui ambos
-      closePaymentEditModal()
-      await openRefundIncomeEditModal(editingPaymentItem, refundMeta.incomeId, refundMeta.description || 'Estorno de compra')
-      return
-    }
 
     const { error } = await supabase
       .from('credit_card_bill_payments')
@@ -1278,192 +1472,48 @@ export default function CreditCards() {
     await loadBillData()
   }
 
-  const handleRefundIncomeAmountChange = (nextAmount: string) => {
-    setRefundIncomeEditForm((previous) => {
-      const previousAmount = parseMoneyInput(previous.amount)
-      const previousReportAmount = parseMoneyInput(previous.report_amount)
-      const shouldSyncReportAmount =
-        !previous.report_amount ||
-        (!Number.isNaN(previousAmount) &&
-          !Number.isNaN(previousReportAmount) &&
-          Math.abs(previousReportAmount - previousAmount) < 0.009)
-
-      return {
-        ...previous,
-        amount: nextAmount,
-        report_amount: shouldSyncReportAmount ? nextAmount : previous.report_amount,
-      }
-    })
-  }
-
-  const openRefundIncomeEditModal = async (payment: PaymentItem, incomeId: string, fallbackDescription: string) => {
-    const { data: incomeRow, error } = await supabase
-      .from('incomes')
-      .select('id, amount, report_weight, date, income_category_id, description')
-      .eq('id', incomeId)
-      .maybeSingle()
-
-    if (error || !incomeRow) {
-      alert('Não foi possível carregar a renda vinculada a este estorno.')
-      return
-    }
-
-    setEditingRefundPaymentItem(payment)
-    setEditingRefundIncomeId(String(incomeRow.id))
-    setRefundIncomeEditForm({
-      amount: formatMoneyInput(Number(incomeRow.amount || 0)),
-      report_amount: formatMoneyInput(Number(incomeRow.amount || 0) * Number(incomeRow.report_weight ?? 1)),
-      date: String(incomeRow.date || payment.payment_date || format(new Date(), 'yyyy-MM-dd')),
-      income_category_id: String(incomeRow.income_category_id || incomeCategories[0]?.id || ''),
-      description: String(incomeRow.description || fallbackDescription || ''),
-    })
-    setIsRefundIncomeEditModalOpen(true)
-  }
-
-  const closeRefundIncomeEditModal = () => {
-    setIsRefundIncomeEditModalOpen(false)
-    setEditingRefundPaymentItem(null)
-    setEditingRefundIncomeId('')
-    setRefundIncomeEditForm(DEFAULT_REFUND_INCOME_FORM(incomeCategories[0]?.id || ''))
-  }
-
-  const handleSubmitEditRefundIncome = async (event: React.FormEvent) => {
-    event.preventDefault()
-
-    if (!editingRefundPaymentItem?.id || !editingRefundIncomeId) {
-      alert('Estorno inválido para edição.')
-      return
-    }
-
-    const amount = parseMoneyInput(refundIncomeEditForm.amount)
-    if (Number.isNaN(amount) || amount <= 0) {
-      alert('Por favor, insira um valor válido maior que zero')
-      return
-    }
-
-    const reportAmount = refundIncomeEditForm.report_amount ? parseMoneyInput(refundIncomeEditForm.report_amount) : amount
-    if (Number.isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
-      alert('O valor no relatório deve estar entre 0 e o valor da renda')
-      return
-    }
-
-    if (!refundIncomeEditForm.income_category_id) {
-      alert('Selecione uma categoria de renda para o estorno.')
-      return
-    }
-
-    const reportWeight = amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1
-    const description = refundIncomeEditForm.description.trim() || `Estorno de compra (${currentMonth})`
-
-    const { error: incomeUpdateError } = await supabase
-      .from('incomes')
-      .update({
-        amount,
-        report_weight: reportWeight,
-        date: refundIncomeEditForm.date,
-        income_category_id: refundIncomeEditForm.income_category_id,
-        description,
-      })
-      .eq('id', editingRefundIncomeId)
-
-    if (incomeUpdateError) {
-      alert(`Erro ao editar renda de estorno: ${incomeUpdateError.message}`)
-      return
-    }
-
-    const { error } = await supabase
-      .from('credit_card_bill_payments')
-      .update({
-        amount,
-        payment_date: refundIncomeEditForm.date,
-        note: buildRefundNote(editingRefundIncomeId, description),
-      })
-      .eq('id', editingRefundPaymentItem.id)
-
-    if (error) {
-      alert(`Erro ao editar ajuste de fatura do estorno: ${error.message}`)
-      return
-    }
-
-    closeRefundIncomeEditModal()
-    await loadBillData()
-  }
-
-  const handleDeleteRefundIncome = async () => {
-    if (!editingRefundPaymentItem?.id || !editingRefundIncomeId) return
-
-    const confirmed = window.confirm('Deseja excluir este estorno?')
-    if (!confirmed) return
-
-    const paymentDelete = await supabase
-      .from('credit_card_bill_payments')
-      .delete()
-      .eq('id', editingRefundPaymentItem.id)
-
-    if (paymentDelete.error) {
-      alert(`Erro ao excluir ajuste de fatura: ${paymentDelete.error.message}`)
-      return
-    }
-
-    const { error: incomeDeleteError } = await supabase
-      .from('incomes')
-      .delete()
-      .eq('id', editingRefundIncomeId)
-
-    if (incomeDeleteError) {
-      alert(`Ajuste da fatura removido, mas houve erro ao excluir a renda: ${incomeDeleteError.message}`)
-    }
-
-    closeRefundIncomeEditModal()
-    await loadBillData()
-  }
-
-  const handleOpenPaymentItem = async (payment: PaymentItem) => {
-    const refundMeta = parseRefundNote(payment.note)
-
-    if (refundMeta.isRefund) {
-      await openRefundIncomeEditModal(payment, refundMeta.incomeId, refundMeta.description || 'Estorno de compra')
-      return
-    }
-
-    openPaymentEditModal(payment)
-  }
-
   const handleSubmitCycle = async (event: React.FormEvent) => {
     event.preventDefault()
-
-    if (!selectedCardIdForCycle) {
-      alert('Selecione um cartão válido.')
-      return
-    }
+    if (!selectedCardIdForCycle) return
 
     const closingDay = Number(cycleForm.closing_day)
     const dueDay = Number(cycleForm.due_day)
 
-    if (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31) {
-      alert('O dia de fechamento do mês deve estar entre 1 e 31.')
+    if (!isFinite(closingDay) || closingDay < 1 || closingDay > 31) {
+      alert('O dia de fechamento deve estar entre 1 e 31.')
+      return
+    }
+    if (!isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
+      alert('O dia de vencimento deve estar entre 1 e 31.')
       return
     }
 
-    if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
-      alert('O dia de vencimento do mês deve estar entre 1 e 31.')
-      return
-    }
+    const existingCycle = monthlyCyclesByCard[selectedCardIdForCycle]
 
-    const { error } = await supabase
-      .from('credit_card_monthly_cycles')
-      .upsert([{
-        credit_card_id: selectedCardIdForCycle,
-        competence: currentMonth,
-        closing_day: closingDay,
-        due_day: dueDay,
-      }], {
-        onConflict: 'credit_card_id,competence',
-      })
+    if (existingCycle) {
+      const { error } = await supabase
+        .from('credit_card_monthly_cycles')
+        .update({ closing_day: closingDay, due_day: dueDay })
+        .eq('id', existingCycle.id)
 
-    if (error) {
-      alert(`Erro ao salvar ajuste mensal: ${error.message}`)
-      return
+      if (error) {
+        alert(`Erro ao salvar ajuste de ciclo: ${error.message}`)
+        return
+      }
+    } else {
+      const { error } = await supabase
+        .from('credit_card_monthly_cycles')
+        .insert([{
+          credit_card_id: selectedCardIdForCycle,
+          competence: currentMonth,
+          closing_day: closingDay,
+          due_day: dueDay,
+        }])
+
+      if (error) {
+        alert(`Erro ao criar ajuste de ciclo: ${error.message}`)
+        return
+      }
     }
 
     closeCycleModal()
@@ -1472,15 +1522,19 @@ export default function CreditCards() {
 
   const handleResetCycleToCardDefault = async () => {
     if (!selectedCardIdForCycle) return
+    const existingCycle = monthlyCyclesByCard[selectedCardIdForCycle]
+    if (!existingCycle) {
+      closeCycleModal()
+      return
+    }
 
     const { error } = await supabase
       .from('credit_card_monthly_cycles')
       .delete()
-      .eq('credit_card_id', selectedCardIdForCycle)
-      .eq('competence', currentMonth)
+      .eq('id', existingCycle.id)
 
     if (error) {
-      alert(`Erro ao remover ajuste mensal: ${error.message}`)
+      alert(`Erro ao remover ajuste de ciclo: ${error.message}`)
       return
     }
 
@@ -1488,114 +1542,20 @@ export default function CreditCards() {
     await loadBillData()
   }
 
-  const handleSubmitRefund = async (event: React.FormEvent, cardId: string) => {
-    event.preventDefault()
-
-    if (!cardId) {
-      alert('Selecione um cartão válido para registrar o estorno.')
-      return
-    }
-
-    const parsedAmount = parseMoneyInput(refundAmount)
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      alert('Informe um valor de estorno maior que zero.')
-      return
-    }
-
-    let refundIncomeCategoryId = ''
-    try {
-      refundIncomeCategoryId = await getOrCreateRefundIncomeCategoryId()
-    } catch (categoryError) {
-      alert(categoryError instanceof Error ? categoryError.message : 'Não foi possível preparar a categoria Estorno.')
-      return
-    }
-
-    const description = refundDescription.trim() || `Estorno de compra (${currentMonth})`
-
-    // Busca o user_id atual para garantir conformidade com as políticas RLS
-    const { data: userData } = await supabase.auth.getUser()
-    const userId = userData?.user?.id
-
-    // Insere diretamente no Supabase com user_id para evitar falha silenciosa de RLS
-    const { data: incomeData, error: incomeError } = await supabase
-      .from('incomes')
-      .insert([{
-        amount: parsedAmount,
-        report_weight: 1,
-        date: refundDate,
-        income_category_id: refundIncomeCategoryId,
-        description,
-        type: 'other',
-        ...(userId ? { user_id: userId } : {}),
-      }])
-      .select('id')
-      .single()
-
-    if (incomeError || !incomeData?.id) {
-      alert(`Erro ao registrar renda de estorno: ${incomeError?.message || 'Falha ao criar renda.'}`)
-      return
-    }
-
-    const createdIncomeId = String(incomeData.id)
-
-    const { error } = await supabase
-      .from('credit_card_bill_payments')
-      .insert([{
-        credit_card_id: cardId,
-        bill_competence: currentMonth,
-        amount: parsedAmount,
-        payment_date: refundDate,
-        note: buildRefundNote(createdIncomeId, description),
-        ...(userId ? { user_id: userId } : {}),
-      }])
-
-    if (error) {
-      // Reverter a renda criada para evitar órfão
-      await supabase.from('incomes').delete().eq('id', createdIncomeId)
-      alert(`Erro ao registrar estorno: ${error.message}`)
-      return
-    }
-
-    closeRefundModal()
-    await loadBillData()
-  }
-
-  const openExpenseEditModal = (item: BillExpenseItem) => {
-    const absoluteAmount = Math.abs(Number(item.base_amount ?? item.amount ?? 0))
-    const weight = Number(item.report_weight ?? 1)
-
-    setEditingExpenseItem(item)
-    setExpenseEditForm({
-      amount: formatMoneyInput(absoluteAmount),
-      report_amount: formatMoneyInput(absoluteAmount * weight),
-      date: item.date || format(new Date(), 'yyyy-MM-dd'),
-      installment_total: String(item.installment_total || 1),
-      payment_method: item.payment_method || 'credit_card',
-      credit_card_id: item.credit_card_id || '',
-      category_id: item.category_id || categories[0]?.id || '',
-      description: item.description || '',
-    })
-    setIsExpenseEditModalOpen(true)
-  }
-
-  const closeExpenseEditModal = () => {
-    setIsExpenseEditModalOpen(false)
-    setEditingExpenseItem(null)
-    setExpenseEditForm(DEFAULT_EXPENSE_FORM(categories[0]?.id || ''))
-  }
-
   const handleSubmitEditExpense = async (event: React.FormEvent) => {
     event.preventDefault()
-
-    if (!editingExpenseItem?.id || !expenseEditForm.category_id) return
+    if (!editingExpenseItem) return
 
     const amountBase = parseMoneyInput(expenseEditForm.amount)
     if (Number.isNaN(amountBase) || amountBase <= 0) {
-      alert('Por favor, insira um valor válido maior que zero')
+      alert('Informe o valor base da despesa.')
       return
     }
 
-    const reportAmount = expenseEditForm.report_amount ? parseMoneyInput(expenseEditForm.report_amount) : amountBase
+    const reportAmount = expenseEditForm.report_amount
+      ? parseMoneyInput(expenseEditForm.report_amount)
+      : amountBase
+
     if (Number.isNaN(reportAmount) || reportAmount < 0 || reportAmount > amountBase) {
       alert('O valor no relatório deve estar entre 0 e o valor da despesa')
       return
@@ -1631,7 +1591,6 @@ export default function CreditCards() {
 
   const handleDeleteExpense = async () => {
     if (!editingExpenseItem?.id) return
-
     const confirmed = window.confirm('Deseja excluir esta despesa?')
     if (!confirmed) return
 
@@ -1645,11 +1604,66 @@ export default function CreditCards() {
     await loadBillData()
   }
 
+  // Submit Dívidas
+  const handleSubmitDebt = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!debtForm.name.trim()) {
+      alert('Informe o nome da dívida/cobrança.')
+      return
+    }
+    const debtAmount = Number(debtForm.amount)
+    if (isNaN(debtAmount) || debtAmount <= 0) {
+      alert('Informe um valor válido e maior que zero.')
+      return
+    }
+
+    const payload = {
+      name: debtForm.name.trim(),
+      type: debtForm.type,
+      amount: debtAmount,
+      due_date: debtForm.due_date,
+      description: debtForm.description.trim() || null,
+      status: debtForm.status,
+    }
+
+    if (editingDebt) {
+      const { error } = await updateDebt(editingDebt.id, payload)
+      if (error) {
+        alert(`Erro ao atualizar: ${error}`)
+        return
+      }
+    } else {
+      const { error } = await createDebt(payload)
+      if (error) {
+        alert(`Erro ao criar: ${error}`)
+        return
+      }
+    }
+
+    closeDebtModal()
+  }
+
+  const handleToggleDebtStatus = async (debt: Debt) => {
+    const nextStatus = debt.status === 'pending' ? 'paid' : 'pending'
+    const { error } = await updateDebt(debt.id, { status: nextStatus })
+    if (error) {
+      alert(`Erro ao atualizar status: ${error}`)
+    }
+  }
+
+  const handleDeleteDebt = async (debtId: string) => {
+    if (!confirm('Deseja excluir este registro de dívida/cobrança?')) return
+    const { error } = await deleteDebt(debtId)
+    if (error) {
+      alert(`Erro ao excluir: ${error}`)
+    }
+  }
+
   return (
     <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
-        title={PAGE_HEADERS.creditCards.title}
-        subtitle={PAGE_HEADERS.creditCards.description}
+        title="Dívidas e Cobranças"
+        subtitle="Controle de cartões, faturas e contas a pagar/receber"
         action={
           <PageHeaderActions>
             <PageHeaderActionButton
@@ -1661,16 +1675,22 @@ export default function CreditCards() {
               className="hidden sm:inline-flex"
             />
             <PageHeaderActionButton
+              intent="neutral"
+              icon={Plus}
+              label="Nova Dívida"
+              onClick={openCreateDebtModal}
+            />
+            <PageHeaderActionButton
               intent="primary"
               icon={Plus}
-              label="Novo cartão"
+              label="Novo Cartão"
               onClick={openCreateCardModal}
             />
           </PageHeaderActions>
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+      <div className="p-4 lg:p-6 space-y-6">
         {hasResolvedInitialMonth ? (
           <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
         ) : (
@@ -1678,169 +1698,326 @@ export default function CreditCards() {
         )}
 
         {loading || !hasResolvedInitialMonth || loadingBills ? (
-          <Loader text="Carregando cartões e faturas..." className="py-8" />
+          <Loader text="Carregando dados..." className="py-8" />
         ) : (
           <MonthTransitionView month={currentMonth}>
-            {activeCards.length === 0 ? (
-              <Card className="text-center py-8 space-y-3">
-                <p className="text-secondary">Nenhum cartão ativo cadastrado.</p>
-                <div className="flex justify-center">
-                  <Button onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
-                </div>
-              </Card>
-            ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              
+              {/* SEÇÃO 1: CARTÕES DE CRÉDITO */}
               <div className="space-y-4">
-            {activeCards.map((card, index) => {
-              const totalPrevisto = Number(expensesByCard[card.id] || 0)
-              const totalPago = Number(paymentsByCard[card.id] || 0)
-              const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
-              const billItems = billItemsByCard[card.id] || []
-              const monthlyCycle = monthlyCyclesByCard[card.id]
-              const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
-              const effectiveDueDay = monthlyCycle?.due_day || card.due_day
-              const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-              const staggerClass = index < 5 ? staggerClasses[index] : ''
-
-              return (
-                <div key={card.id} id={`credit-card-${card.id}`} className={`animate-stagger-item ${staggerClass}`}>
-                  <Card className="space-y-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: card.color || 'var(--color-primary)' }}
-                          />
-                          <p className="text-base font-semibold text-primary">{card.name}</p>
-                        </div>
-                        <p className="text-xs text-secondary mt-1">
-                          {card.brand || 'Sem bandeira'} • {currentMonth}: fecha dia {effectiveClosingDay} • vence dia {effectiveDueDay}
-                          {monthlyCycle ? ' (ajuste mensal)' : ''}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-start gap-2">
-                        <IconButton
-                          size="sm"
-                          icon={<Pencil size={16} />}
-                          onClick={() => openEditCardModal(card)}
-                          label="Editar cartão"
-                          title="Editar cartão"
-                        />
-                        <IconButton
-                          size="sm"
-                          icon={<Calendar size={16} />}
-                          onClick={() => openCycleModal(card)}
-                          label="Ajustar ciclo do mês"
-                          title="Ajustar ciclo do mês"
-                        />
-                        <IconButton
-                          size="sm"
-                          icon={<Undo2 size={16} />}
-                          onClick={() => openRefundModal(card.id)}
-                          label="Registrar estorno"
-                          title="Registrar estorno"
-                        />
-                        <IconButton
-                          size="sm"
-                          icon={<Wallet size={16} />}
-                          onClick={() => openPaymentModal(card.id)}
-                          label="Registrar pagamento"
-                          title="Registrar pagamento"
-                        />
-                        <IconButton
-                          size="sm"
-                          icon={<FileUp size={16} />}
-                          onClick={() => setReconciliationCardId(card.id)}
-                          label="Anexar CSV"
-                          title="Anexar CSV"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Linha do Tempo Dinâmica da Fatura (Estilo Consultoria) */}
-                    <CreditCardTimeline
-                      card={card}
-                      currentMonth={currentMonth}
-                      totalPrevisto={totalPrevisto}
-                      totalPago={totalPago}
-                      saldoAberto={saldoAberto}
-                      monthlyCycle={monthlyCycle}
-                      baseExpense={baseExpensesByCard[card.id]}
-                    />
-
-
-
-
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                        Lançamentos da fatura ({currentMonth})
-                      </p>
-
-                      {billItems.length === 0 ? (
-                        <p className="text-sm text-secondary">Sem lançamentos neste cartão para a competência selecionada.</p>
-                      ) : (
-                        <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                          {billItems.map((item) => (
-                            <BillExpenseRowButton
-                              key={item.id}
-                              item={item}
-                              creditCardsWeightsEnabled={creditCardsWeightsEnabled}
-                              onOpen={openExpenseEditModal}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {(paymentItemsByCard[card.id] || []).length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium uppercase tracking-wide text-secondary">
-                          Pagamentos registrados ({currentMonth})
-                        </p>
-
-                        <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
-                          {(paymentItemsByCard[card.id] || []).map((payment) => {
-                            const refundMeta = parseRefundNote(payment.note)
-
-                            return (
-                              <PaymentRowButton
-                                key={payment.id}
-                                onClick={() => {
-                                  void handleOpenPaymentItem(payment)
-                                }}
-                              >
-                                <div className="flex items-start justify-between gap-3 w-full">
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-medium text-primary truncate">
-                                      {refundMeta.isRefund
-                                        ? (refundMeta.description || 'Estorno de compra')
-                                        : (payment.note || 'Pagamento de fatura')}
-                                    </p>
-                                    <p className="text-xs text-secondary mt-0.5">
-                                      {formatDate(payment.payment_date)}
-                                      {refundMeta.isRefund ? ' • Estorno' : ''}
-                                    </p>
-                                  </div>
-                                  <p className="text-sm font-semibold text-income">{formatCurrency(payment.amount)}</p>
-                                </div>
-                              </PaymentRowButton>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </Card>
+                <div className="flex items-center justify-between border-b border-glass pb-2">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <CreditCardIcon size={18} className="text-primary-light" />
+                    Cartões de Crédito
+                  </h2>
+                  <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                    {activeCards.length}
+                  </span>
                 </div>
-              )
-            })}
-          </div>
-          )}
+
+                {activeCards.length === 0 ? (
+                  <Card className="text-center py-8 space-y-3">
+                    <p className="text-secondary text-sm">Nenhum cartão cadastrado.</p>
+                    <div className="flex justify-center">
+                      <Button size="sm" onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {activeCards.map((card) => {
+                      const totalPrevisto = Number(expensesByCard[card.id] || 0)
+                      const totalPago = Number(paymentsByCard[card.id] || 0)
+                      const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
+                      const billItems = billItemsByCard[card.id] || []
+                      const monthlyCycle = monthlyCyclesByCard[card.id]
+                      const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
+                      const effectiveDueDay = monthlyCycle?.due_day || card.due_day
+                      const isExpanded = !!expandedItems[card.id]
+
+                      return (
+                        <Card key={card.id} className="p-0 overflow-hidden border border-glass transition-all duration-300">
+                          {/* Header Accordion */}
+                          <div 
+                            className="p-4 flex items-center justify-between cursor-pointer select-none hover:bg-secondary/20 transition-colors"
+                            onClick={() => toggleExpand(card.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="w-3.5 h-3.5 rounded-full shadow-sm"
+                                style={{ backgroundColor: card.color || 'var(--color-primary)' }}
+                              />
+                              <div>
+                                <p className="text-sm font-bold text-primary">{card.name}</p>
+                                <p className="text-[11px] text-secondary mt-0.5">
+                                  {card.brand || 'Crédito'} • Fecha dia {effectiveClosingDay} • Vence dia {effectiveDueDay}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="text-xs text-secondary">Fatura Atual</p>
+                                <p className="text-sm font-bold text-primary font-mono">{formatCurrency(totalPrevisto)}</p>
+                              </div>
+                              {isExpanded ? <ChevronUp size={16} className="text-secondary" /> : <ChevronDown size={16} className="text-secondary" />}
+                            </div>
+                          </div>
+
+                          {/* Expanded content */}
+                          {isExpanded && (
+                            <div className="p-4 border-t border-glass bg-secondary/5 space-y-4 animate-slide-down">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Ações</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Pencil size={14} />}
+                                    onClick={() => openEditCardModal(card)}
+                                    label="Editar"
+                                    title="Editar cartão"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Calendar size={14} />}
+                                    onClick={() => openCycleModal(card)}
+                                    label="Ciclo"
+                                    title="Ajustar ciclo do mês"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Undo2 size={14} />}
+                                    onClick={() => openRefundModal(card.id)}
+                                    label="Estorno"
+                                    title="Registrar estorno"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Wallet size={14} />}
+                                    onClick={() => openPaymentModal(card.id)}
+                                    label="Pagar"
+                                    title="Registrar pagamento"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<FileUp size={14} />}
+                                    onClick={() => setReconciliationCardId(card.id)}
+                                    label="CSV"
+                                    title="Anexar CSV"
+                                  />
+                                </div>
+                              </div>
+
+                              <CreditCardTimeline
+                                card={card}
+                                currentMonth={currentMonth}
+                                totalPrevisto={totalPrevisto}
+                                totalPago={totalPago}
+                                saldoAberto={saldoAberto}
+                                monthlyCycle={monthlyCycle}
+                                baseExpense={baseExpensesByCard[card.id]}
+                              />
+
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-wide text-secondary">
+                                  Lançamentos da fatura ({currentMonth})
+                                </p>
+                                {billItems.length === 0 ? (
+                                  <p className="text-xs text-secondary italic">Sem lançamentos registrados.</p>
+                                ) : (
+                                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                                    {billItems.map((item) => (
+                                      <BillExpenseRowButton
+                                        key={item.id}
+                                        item={item}
+                                        creditCardsWeightsEnabled={creditCardsWeightsEnabled}
+                                        onOpen={openExpenseEditModal}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {(paymentItemsByCard[card.id] || []).length > 0 && (
+                                <div className="space-y-2">
+                                  <p className="text-[10px] font-black uppercase tracking-wide text-secondary">
+                                    Pagamentos e Ajustes ({currentMonth})
+                                  </p>
+                                  <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
+                                    {(paymentItemsByCard[card.id] || []).map((payment) => {
+                                      const refundMeta = parseRefundNote(payment.note)
+                                      return (
+                                        <PaymentRowButton
+                                          key={payment.id}
+                                          onClick={() => handleOpenPaymentItem(payment)}
+                                        >
+                                          <div className="flex items-start justify-between gap-3 w-full">
+                                            <div className="min-w-0">
+                                              <p className="text-xs font-semibold text-primary truncate">
+                                                {refundMeta.isRefund
+                                                  ? (refundMeta.description || 'Estorno de compra')
+                                                  : (payment.note || 'Pagamento de fatura')}
+                                              </p>
+                                              <p className="text-[10px] text-secondary mt-0.5 font-mono">
+                                                {formatDate(payment.payment_date)}
+                                                {refundMeta.isRefund ? ' • Estorno' : ''}
+                                              </p>
+                                            </div>
+                                            <p className="text-xs font-bold text-income font-mono">{formatCurrency(payment.amount)}</p>
+                                          </div>
+                                        </PaymentRowButton>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* SEÇÃO 2: OUTRAS DÍVIDAS E COBRANÇAS */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-glass pb-2">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <Scale size={18} className="text-primary-light" />
+                    Contas e Cobranças
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      label="Mostrar todas"
+                      checked={showAllDebts}
+                      onChange={(e) => setShowAllDebts(e.target.checked)}
+                      className="text-[11px] text-secondary items-center gap-1.5"
+                    />
+                    <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                      {filteredDebts.length}
+                    </span>
+                  </div>
+                </div>
+
+                {filteredDebts.length === 0 ? (
+                  <Card className="text-center py-8 space-y-3">
+                    <p className="text-secondary text-sm">Nenhum registro para {showAllDebts ? 'este período' : 'esta competência'}.</p>
+                    <div className="flex justify-center">
+                      <Button size="sm" onClick={openCreateDebtModal}>Cadastrar primeira conta</Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredDebts.map((debt) => {
+                      const isExpanded = !!expandedItems[debt.id]
+                      const isPayable = debt.type === 'payable'
+                      const isPaid = debt.status === 'paid'
+
+                      return (
+                        <Card key={debt.id} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
+                          {/* Color bar indicator for type */}
+                          <div 
+                            className={`absolute left-0 top-0 bottom-0 w-1 ${
+                              isPayable ? 'bg-expense' : 'bg-income'
+                            }`}
+                          />
+
+                          {/* Accordion Header */}
+                          <div 
+                            className="p-4 pl-5 flex items-center justify-between cursor-pointer select-none hover:bg-secondary/20 transition-colors"
+                            onClick={() => toggleExpand(debt.id)}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold text-primary truncate">{debt.name}</p>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${
+                                  isPayable ? 'bg-expense/10 text-expense border border-expense/20' : 'bg-income/10 text-income border border-income/20'
+                                }`}>
+                                  {isPayable ? 'A Pagar' : 'A Receber'}
+                                </span>
+                                {debt.expense_id && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-primary/10 text-primary border border-primary/20" title="Criada a partir de uma despesa integrada">
+                                    Integrada
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-secondary font-mono mt-0.5">
+                                Vencimento: {formatDate(debt.due_date)}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="text-right">
+                                <span className={`text-[10px] font-bold uppercase tracking-wider block ${
+                                  isPaid ? 'text-income' : 'text-warning'
+                                }`}>
+                                  {isPaid ? 'Pago' : 'Pendente'}
+                                </span>
+                                <p className="text-sm font-bold text-primary font-mono">{formatCurrency(debt.amount)}</p>
+                              </div>
+                              {isExpanded ? <ChevronUp size={16} className="text-secondary" /> : <ChevronDown size={16} className="text-secondary" />}
+                            </div>
+                          </div>
+
+                          {/* Accordion Body */}
+                          {isExpanded && (
+                            <div className="p-4 pl-5 border-t border-glass bg-secondary/5 space-y-4 animate-slide-down text-left">
+                              {debt.description && (
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Descrição</p>
+                                  <p className="text-xs text-primary leading-relaxed whitespace-pre-wrap">{debt.description}</p>
+                                </div>
+                              )}
+
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant={isPaid ? 'outline' : 'primary'}
+                                    onClick={() => handleToggleDebtStatus(debt)}
+                                    className="flex items-center gap-1.5"
+                                  >
+                                    <Check size={14} />
+                                    {isPaid ? 'Marcar como Pendente' : isPayable ? 'Confirmar Pagamento' : 'Confirmar Recebimento'}
+                                  </Button>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => openEditDebtModal(debt)}
+                                    className="flex items-center gap-1.5"
+                                  >
+                                    <Pencil size={13} />
+                                    Editar
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => handleDeleteDebt(debt.id)}
+                                    className="text-expense border-expense/20 hover:bg-expense/10 flex items-center gap-1.5"
+                                  >
+                                    <Trash2 size={13} />
+                                    Excluir
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
           </MonthTransitionView>
         )}
       </div>
 
+      {/* MODAL: CARTÃO DE CRÉDITO */}
       <ModalForm
         isOpen={isCardModalOpen}
         onClose={closeCardModal}
@@ -1851,73 +2028,74 @@ export default function CreditCards() {
             formId={formId}
             onCancel={closeCardModal}
             submitLabel={editingCard ? 'Salvar alterações' : 'Salvar cartão'}
-            submitDisabled={loading}
+            submitDisabled={loadingCards}
             onDelete={editingCard ? handleStartDelete : undefined}
             deleteLabel="Excluir cartão"
           />
         )}
       >
+        <Input
+          label="Nome do Cartão"
+          value={cardForm.name}
+          onChange={(event) => setCardForm((prev) => ({ ...prev, name: event.target.value }))}
+          required
+        />
+
+        <Input
+          label="Bandeira"
+          value={cardForm.brand}
+          onChange={(event) => setCardForm((prev) => ({ ...prev, brand: event.target.value }))}
+          placeholder="Ex: Visa, Master"
+        />
+
+        <Input
+          label="Limite total (opcional)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={cardForm.limit_total}
+          onChange={(event) => setCardForm((prev) => ({ ...prev, limit_total: event.target.value }))}
+        />
+
+        <div className="modal-field-row">
           <Input
-            label="Nome"
-            value={cardForm.name}
-            onChange={(event) => setCardForm((prev) => ({ ...prev, name: event.target.value }))}
+            label="Dia de fechamento"
+            type="number"
+            min="1"
+            max="31"
+            value={cardForm.closing_day}
+            onChange={(event) => setCardForm((prev) => ({ ...prev, closing_day: event.target.value }))}
             required
           />
-
           <Input
-            label="Bandeira"
-            value={cardForm.brand}
-            onChange={(event) => setCardForm((prev) => ({ ...prev, brand: event.target.value }))}
-            placeholder="Ex: Visa, Master"
-          />
-
-          <Input
-            label="Limite total (opcional)"
+            label="Dia de vencimento"
             type="number"
-            min="0"
-            step="0.01"
-            value={cardForm.limit_total}
-            onChange={(event) => setCardForm((prev) => ({ ...prev, limit_total: event.target.value }))}
+            min="1"
+            max="31"
+            value={cardForm.due_day}
+            onChange={(event) => setCardForm((prev) => ({ ...prev, due_day: event.target.value }))}
+            required
           />
+        </div>
 
-          <div className="modal-field-row">
-            <Input
-              label="Dia de fechamento"
-              type="number"
-              min="1"
-              max="31"
-              value={cardForm.closing_day}
-              onChange={(event) => setCardForm((prev) => ({ ...prev, closing_day: event.target.value }))}
-              required
-            />
-            <Input
-              label="Dia de vencimento"
-              type="number"
-              min="1"
-              max="31"
-              value={cardForm.due_day}
-              onChange={(event) => setCardForm((prev) => ({ ...prev, due_day: event.target.value }))}
-              required
-            />
-          </div>
-
-          <div className="modal-field-row">
-            <CardColorField
-              value={cardForm.color}
-              onChange={(color) => setCardForm((prev) => ({ ...prev, color }))}
-            />
-            <Select
-              label="Status"
-              value={cardForm.is_active}
-              onChange={(event) => setCardForm((prev) => ({ ...prev, is_active: event.target.value }))}
-              options={[
-                { value: 'true', label: 'Ativo' },
-                { value: 'false', label: 'Inativo' },
-              ]}
-            />
-          </div>
+        <div className="modal-field-row">
+          <CardColorField
+            value={cardForm.color}
+            onChange={(color) => setCardForm((prev) => ({ ...prev, color }))}
+          />
+          <Select
+            label="Status"
+            value={cardForm.is_active}
+            onChange={(event) => setCardForm((prev) => ({ ...prev, is_active: event.target.value }))}
+            options={[
+              { value: 'true', label: 'Ativo' },
+              { value: 'false', label: 'Inativo' },
+            ]}
+          />
+        </div>
       </ModalForm>
 
+      {/* CONFIRM MODAL: DELETAR CARTÃO */}
       <ConfirmModal
         isOpen={isDeleteConfirmModalOpen}
         onClose={handleCancelDelete}
@@ -1960,6 +2138,7 @@ export default function CreditCards() {
         )}
       </ConfirmModal>
 
+      {/* MODAL: AJUSTAR CICLO */}
       <ModalForm
         isOpen={isCycleModalOpen}
         onClose={closeCycleModal}
@@ -1969,36 +2148,37 @@ export default function CreditCards() {
           <ModalFooter formId={formId} onCancel={closeCycleModal} submitLabel="Salvar ajuste" />
         )}
       >
-          <div className="modal-field-row">
-            <Input
-              label="Fechamento do mês"
-              type="number"
-              min="1"
-              max="31"
-              value={cycleForm.closing_day}
-              onChange={(event) => setCycleForm((previous) => ({ ...previous, closing_day: event.target.value }))}
-              required
-            />
-            <Input
-              label="Vencimento do mês"
-              type="number"
-              min="1"
-              max="31"
-              value={cycleForm.due_day}
-              onChange={(event) => setCycleForm((previous) => ({ ...previous, due_day: event.target.value }))}
-              required
-            />
-          </div>
+        <div className="modal-field-row">
+          <Input
+            label="Fechamento do mês"
+            type="number"
+            min="1"
+            max="31"
+            value={cycleForm.closing_day}
+            onChange={(event) => setCycleForm((previous) => ({ ...previous, closing_day: event.target.value }))}
+            required
+          />
+          <Input
+            label="Vencimento do mês"
+            type="number"
+            min="1"
+            max="31"
+            value={cycleForm.due_day}
+            onChange={(event) => setCycleForm((previous) => ({ ...previous, due_day: event.target.value }))}
+            required
+          />
+        </div>
 
-          <p className="modal-intro">
-            Este ajuste vale apenas para a competência {currentMonth}.
-          </p>
+        <p className="modal-intro">
+          Este ajuste vale apenas para a competência {currentMonth}.
+        </p>
 
-          <Button type="button" variant="outline" fullWidth onClick={handleResetCycleToCardDefault}>
-            Usar padrão do cartão neste mês
-          </Button>
+        <Button type="button" variant="outline" fullWidth onClick={handleResetCycleToCardDefault}>
+          Usar padrão do cartão neste mês
+        </Button>
       </ModalForm>
 
+      {/* MODAL: EDITAR DESPESA DA FATURA */}
       <ModalForm
         isOpen={isExpenseEditModalOpen}
         onClose={closeExpenseEditModal}
@@ -2015,105 +2195,105 @@ export default function CreditCards() {
           />
         )}
       >
-          <Input
-            label="Valor"
-            type="text"
-            inputMode="decimal"
-            value={expenseEditForm.amount}
-            onChange={(event) => handleExpenseAmountChange(event.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(expenseEditForm.amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                handleExpenseAmountChange(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
-            required
-          />
+        <Input
+          label="Valor"
+          type="text"
+          inputMode="decimal"
+          value={expenseEditForm.amount}
+          onChange={(event) => handleExpenseAmountChange(event.target.value)}
+          onBlur={() => {
+            const parsed = parseMoneyInput(expenseEditForm.amount)
+            if (!Number.isNaN(parsed) && parsed >= 0) {
+              handleExpenseAmountChange(formatMoneyInput(parsed))
+            }
+          }}
+          placeholder="0,00"
+          required
+        />
 
-          <Input
-            label="Valor no relatório (opcional)"
-            type="text"
-            inputMode="decimal"
-            value={expenseEditForm.report_amount}
-            onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, report_amount: event.target.value }))}
-            onBlur={() => {
-              if (!expenseEditForm.report_amount) return
-              const parsed = parseMoneyInput(expenseEditForm.report_amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setExpenseEditForm((previous) => ({ ...previous, report_amount: formatMoneyInput(parsed) }))
-              }
-            }}
-            placeholder="Se vazio, usa o valor total"
-          />
+        <Input
+          label="Valor no relatório (opcional)"
+          type="text"
+          inputMode="decimal"
+          value={expenseEditForm.report_amount}
+          onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, report_amount: event.target.value }))}
+          onBlur={() => {
+            if (!expenseEditForm.report_amount) return
+            const parsed = parseMoneyInput(expenseEditForm.report_amount)
+            if (!Number.isNaN(parsed) && parsed >= 0) {
+              setExpenseEditForm((previous) => ({ ...previous, report_amount: formatMoneyInput(parsed) }))
+            }
+          }}
+          placeholder="Se vazio, usa o valor total"
+        />
 
-          <Input
-            label="Data"
-            type="date"
-            value={expenseEditForm.date}
-            onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, date: event.target.value }))}
-            min={APP_START_DATE}
-            required
-          />
+        <Input
+          label="Data"
+          type="date"
+          value={expenseEditForm.date}
+          onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, date: event.target.value }))}
+          min={APP_START_DATE}
+          required
+        />
 
+        <Select
+          label="Forma de pagamento"
+          value={expenseEditForm.payment_method}
+          onChange={(event) => setExpenseEditForm((previous) => ({
+            ...previous,
+            payment_method: event.target.value,
+            credit_card_id: event.target.value === 'credit_card' ? previous.credit_card_id : '',
+          }))}
+          options={[
+            { value: 'other', label: 'Outros' },
+            { value: 'cash', label: 'Dinheiro' },
+            { value: 'debit', label: 'Débito' },
+            { value: 'credit_card', label: 'Cartão de crédito' },
+            { value: 'pix', label: 'PIX' },
+            { value: 'transfer', label: 'Transferência' },
+          ]}
+        />
+
+        {expenseEditForm.payment_method === 'credit_card' && (
           <Select
-            label="Forma de pagamento"
-            value={expenseEditForm.payment_method}
-            onChange={(event) => setExpenseEditForm((previous) => ({
-              ...previous,
-              payment_method: event.target.value,
-              credit_card_id: event.target.value === 'credit_card' ? previous.credit_card_id : '',
-            }))}
+            label="Cartão"
+            value={expenseEditForm.credit_card_id}
+            onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, credit_card_id: event.target.value }))}
             options={[
-              { value: 'other', label: 'Outros' },
-              { value: 'cash', label: 'Dinheiro' },
-              { value: 'debit', label: 'Débito' },
-              { value: 'credit_card', label: 'Cartão de crédito' },
-              { value: 'pix', label: 'PIX' },
-              { value: 'transfer', label: 'Transferência' },
+              { value: '', label: 'Selecionar cartão' },
+              ...creditCards
+                .filter((card) => card.is_active !== false || card.id === expenseEditForm.credit_card_id)
+                .map((card) => ({ value: card.id, label: card.name })),
             ]}
+            required
           />
+        )}
 
-          {expenseEditForm.payment_method === 'credit_card' && (
-            <Select
-              label="Cartão"
-              value={expenseEditForm.credit_card_id}
-              onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, credit_card_id: event.target.value }))}
-              options={[
-                { value: '', label: 'Selecionar cartão' },
-                ...creditCards
-                  .filter((card) => card.is_active !== false || card.id === expenseEditForm.credit_card_id)
-                  .map((card) => ({ value: card.id, label: card.name })),
-              ]}
-              required
-            />
-          )}
+        {editingExpenseItem && Number(editingExpenseItem.installment_total || 1) > 1 && (
+          <p className="modal-intro">
+            Esta despesa pertence ao parcelamento {editingExpenseItem.installment_number || 1}/{editingExpenseItem.installment_total}. A edição afeta apenas esta parcela.
+          </p>
+        )}
 
-          {editingExpenseItem && Number(editingExpenseItem.installment_total || 1) > 1 && (
-            <p className="modal-intro">
-              Esta despesa pertence ao parcelamento {editingExpenseItem.installment_number || 1}/{editingExpenseItem.installment_total}. A edição afeta apenas esta parcela.
-            </p>
-          )}
+        <Select
+          label="Categoria"
+          value={expenseEditForm.category_id}
+          onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, category_id: event.target.value }))}
+          options={categories.map((category) => ({
+            value: category.id,
+            label: category.name,
+          }))}
+        />
 
-          <Select
-            label="Categoria"
-            value={expenseEditForm.category_id}
-            onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, category_id: event.target.value }))}
-            options={categories.map((category) => ({
-              value: category.id,
-              label: category.name,
-            }))}
-          />
-
-          <Input
-            label="Descrição (opcional)"
-            value={expenseEditForm.description}
-            onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, description: event.target.value }))}
-            placeholder="Ex: Almoço, Uber..."
-          />
-
+        <Input
+          label="Descrição (opcional)"
+          value={expenseEditForm.description}
+          onChange={(event) => setExpenseEditForm((previous) => ({ ...previous, description: event.target.value }))}
+          placeholder="Ex: Almoço, Uber..."
+        />
       </ModalForm>
 
+      {/* MODAL: EDITAR PAGAMENTO INDIVIDUAL */}
       <ModalForm
         isOpen={isPaymentEditModalOpen}
         onClose={closePaymentEditModal}
@@ -2129,32 +2309,32 @@ export default function CreditCards() {
           />
         )}
       >
-          <Input
-            label="Valor pago"
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={paymentEditAmount}
-            onChange={(event) => setPaymentEditAmount(event.target.value)}
-            required
-          />
+        <Input
+          label="Valor pago"
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={paymentEditAmount}
+          onChange={(event) => setPaymentEditAmount(event.target.value)}
+          required
+        />
 
-          <Input
-            label="Data do pagamento"
-            type="date"
-            value={paymentEditDate}
-            onChange={(event) => setPaymentEditDate(event.target.value)}
-            required
-          />
+        <Input
+          label="Data do pagamento"
+          type="date"
+          value={paymentEditDate}
+          onChange={(event) => setPaymentEditDate(event.target.value)}
+          required
+        />
 
-          <Input
-            label="Observação (opcional)"
-            value={paymentEditNote}
-            onChange={(event) => setPaymentEditNote(event.target.value)}
-          />
-
+        <Input
+          label="Observação (opcional)"
+          value={paymentEditNote}
+          onChange={(event) => setPaymentEditNote(event.target.value)}
+        />
       </ModalForm>
 
+      {/* MODAL: EDITAR ESTORNO (RENDA) */}
       <ModalForm
         isOpen={isRefundIncomeEditModalOpen}
         onClose={closeRefundIncomeEditModal}
@@ -2170,67 +2350,67 @@ export default function CreditCards() {
           />
         )}
       >
-          <Input
-            label="Valor"
-            type="text"
-            inputMode="decimal"
-            value={refundIncomeEditForm.amount}
-            onChange={(event) => handleRefundIncomeAmountChange(event.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(refundIncomeEditForm.amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                handleRefundIncomeAmountChange(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
-            required
-          />
+        <Input
+          label="Valor"
+          type="text"
+          inputMode="decimal"
+          value={refundIncomeEditForm.amount}
+          onChange={(event) => handleRefundIncomeAmountChange(event.target.value)}
+          onBlur={() => {
+            const parsed = parseMoneyInput(refundIncomeEditForm.amount)
+            if (!Number.isNaN(parsed) && parsed >= 0) {
+              handleRefundIncomeAmountChange(formatMoneyInput(parsed))
+            }
+          }}
+          placeholder="0,00"
+          required
+        />
 
-          <Input
-            label="Valor no relatório (opcional)"
-            type="text"
-            inputMode="decimal"
-            value={refundIncomeEditForm.report_amount}
-            onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, report_amount: event.target.value }))}
-            onBlur={() => {
-              if (!refundIncomeEditForm.report_amount) return
-              const parsed = parseMoneyInput(refundIncomeEditForm.report_amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setRefundIncomeEditForm((previous) => ({ ...previous, report_amount: formatMoneyInput(parsed) }))
-              }
-            }}
-            placeholder="Se vazio, usa o valor total"
-          />
+        <Input
+          label="Valor no relatório (opcional)"
+          type="text"
+          inputMode="decimal"
+          value={refundIncomeEditForm.report_amount}
+          onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, report_amount: event.target.value }))}
+          onBlur={() => {
+            if (!refundIncomeEditForm.report_amount) return
+            const parsed = parseMoneyInput(refundIncomeEditForm.report_amount)
+            if (!Number.isNaN(parsed) && parsed >= 0) {
+              setRefundIncomeEditForm((previous) => ({ ...previous, report_amount: formatMoneyInput(parsed) }))
+            }
+          }}
+          placeholder="Se vazio, usa o valor total"
+        />
 
-          <Input
-            label="Data"
-            type="date"
-            value={refundIncomeEditForm.date}
-            onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, date: event.target.value }))}
-            min={APP_START_DATE}
-            required
-          />
+        <Input
+          label="Data"
+          type="date"
+          value={refundIncomeEditForm.date}
+          onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, date: event.target.value }))}
+          min={APP_START_DATE}
+          required
+        />
 
-          <Select
-            label="Categoria de Renda"
-            value={refundIncomeEditForm.income_category_id}
-            onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, income_category_id: event.target.value }))}
-            options={incomeCategories.map((category) => ({
-              value: category.id,
-              label: category.name,
-            }))}
-            required
-          />
+        <Select
+          label="Categoria de Renda"
+          value={refundIncomeEditForm.income_category_id}
+          onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, income_category_id: event.target.value }))}
+          options={incomeCategories.map((category) => ({
+            value: category.id,
+            label: category.name,
+          }))}
+          required
+        />
 
-          <Input
-            label="Descrição (opcional)"
-            value={refundIncomeEditForm.description}
-            onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, description: event.target.value }))}
-            placeholder="Ex: Estorno compra loja X"
-          />
-
+        <Input
+          label="Descrição (opcional)"
+          value={refundIncomeEditForm.description}
+          onChange={(event) => setRefundIncomeEditForm((previous) => ({ ...previous, description: event.target.value }))}
+          placeholder="Ex: Estorno compra loja X"
+        />
       </ModalForm>
 
+      {/* MODAL: ESTORNO NOVO */}
       <ModalForm
         isOpen={isRefundModalOpen}
         onClose={closeRefundModal}
@@ -2240,40 +2420,41 @@ export default function CreditCards() {
           <ModalFooter formId={formId} onCancel={closeRefundModal} submitLabel="Confirmar estorno" />
         )}
       >
-          <Input
-            label="Valor do estorno"
-            type="text"
-            inputMode="decimal"
-            value={refundAmount}
-            onChange={(event) => setRefundAmount(event.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(refundAmount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setRefundAmount(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
-            required
-          />
+        <Input
+          label="Valor do estorno"
+          type="text"
+          inputMode="decimal"
+          value={refundAmount}
+          onChange={(event) => setRefundAmount(event.target.value)}
+          onBlur={() => {
+            const parsed = parseMoneyInput(refundAmount)
+            if (!Number.isNaN(parsed) && parsed >= 0) {
+              setRefundAmount(formatMoneyInput(parsed))
+            }
+          }}
+          placeholder="0,00"
+          required
+        />
 
-          <Input
-            label="Data"
-            type="date"
-            value={refundDate}
-            onChange={(event) => setRefundDate(event.target.value)}
-            required
-          />
+        <Input
+          label="Data"
+          type="date"
+          value={refundDate}
+          onChange={(event) => setRefundDate(event.target.value)}
+          required
+        />
 
-          <Input
-            label="Descrição (opcional)"
-            value={refundDescription}
-            onChange={(event) => setRefundDescription(event.target.value)}
-            placeholder="Ex: Estorno compra loja X"
-          />
+        <Input
+          label="Descrição (opcional)"
+          value={refundDescription}
+          onChange={(event) => setRefundDescription(event.target.value)}
+          placeholder="Ex: Estorno compra loja X"
+        />
 
-          <p className="modal-intro">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
+        <p className="modal-intro">Categoria padrão: Estorno • Valor no relatório: igual ao valor do estorno.</p>
       </ModalForm>
 
+      {/* MODAL: REGISTRAR PAGAMENTO FATURA */}
       <ModalForm
         isOpen={isPaymentModalOpen}
         onClose={closePaymentModal}
@@ -2283,33 +2464,105 @@ export default function CreditCards() {
           <ModalFooter formId={formId} onCancel={closePaymentModal} submitLabel="Confirmar pagamento" />
         )}
       >
-          <Input
-            label="Valor pago"
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={paymentAmount}
-            onChange={(event) => setPaymentAmount(event.target.value)}
-            required
-          />
+        <Input
+          label="Valor pago"
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={paymentAmount}
+          onChange={(event) => setPaymentAmount(event.target.value)}
+          required
+        />
 
-          <Input
-            label="Data do pagamento"
-            type="date"
-            value={paymentDate}
-            onChange={(event) => setPaymentDate(event.target.value)}
-            required
-          />
+        <Input
+          label="Data do pagamento"
+          type="date"
+          value={paymentDate}
+          onChange={(event) => setPaymentDate(event.target.value)}
+          required
+        />
 
-          <Input
-            label="Observação (opcional)"
-            value={paymentNote}
-            onChange={(event) => setPaymentNote(event.target.value)}
-            placeholder="Observações adicionais..."
-          />
-
+        <Input
+          label="Observação (opcional)"
+          value={paymentNote}
+          onChange={(event) => setPaymentNote(event.target.value)}
+          placeholder="Observações adicionais..."
+        />
       </ModalForm>
 
+      {/* MODAL: NOVO/EDITAR DÍVIDA E COBRANÇA */}
+      <ModalForm
+        isOpen={isDebtModalOpen}
+        onClose={closeDebtModal}
+        title={editingDebt ? 'Editar Dívida/Cobrança' : 'Nova Dívida/Cobrança'}
+        onSubmit={handleSubmitDebt}
+        footer={(formId) => (
+          <ModalFooter
+            formId={formId}
+            onCancel={closeDebtModal}
+            submitLabel={editingDebt ? 'Salvar Alterações' : 'Salvar Lançamento'}
+            submitDisabled={loadingDebts}
+          />
+        )}
+      >
+        <Input
+          label="Título/Nome"
+          value={debtForm.name}
+          onChange={(e) => setDebtForm((prev) => ({ ...prev, name: e.target.value }))}
+          placeholder="Ex: Empréstimo do João, Conta de Energia..."
+          required
+        />
+
+        <Select
+          label="Tipo"
+          value={debtForm.type}
+          onChange={(e) => setDebtForm((prev) => ({ ...prev, type: e.target.value as 'payable' | 'receivable' }))}
+          options={[
+            { value: 'payable', label: 'A Pagar (Saída / Dívida)' },
+            { value: 'receivable', label: 'A Receber (Entrada / Cobrança)' },
+          ]}
+          required
+        />
+
+        <Input
+          label="Valor (R$)"
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={debtForm.amount}
+          onChange={(e) => setDebtForm((prev) => ({ ...prev, amount: e.target.value }))}
+          placeholder="0,00"
+          required
+        />
+
+        <Input
+          label="Data de Vencimento"
+          type="date"
+          value={debtForm.due_date}
+          onChange={(e) => setDebtForm((prev) => ({ ...prev, due_date: e.target.value }))}
+          required
+        />
+
+        <Select
+          label="Status Inicial"
+          value={debtForm.status}
+          onChange={(e) => setDebtForm((prev) => ({ ...prev, status: e.target.value as 'pending' | 'paid' }))}
+          options={[
+            { value: 'pending', label: 'Pendente' },
+            { value: 'paid', label: 'Pago / Recebido' },
+          ]}
+          required
+        />
+
+        <Input
+          label="Descrição/Observação (opcional)"
+          value={debtForm.description}
+          onChange={(e) => setDebtForm((prev) => ({ ...prev, description: e.target.value }))}
+          placeholder="Adicione notas adicionais..."
+        />
+      </ModalForm>
+
+      {/* MODAL: CONCILIAÇÃO DE FATURA */}
       <Modal
         isOpen={!!reconciliationCardId}
         onClose={() => setReconciliationCardId('')}

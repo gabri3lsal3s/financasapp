@@ -6,6 +6,8 @@ import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import Checkbox from '@/components/Checkbox'
+import { useDebts } from '@/hooks/useDebts'
 import { Expense, Category, CreditCard } from '@/types'
 import {
   APP_START_DATE,
@@ -40,6 +42,7 @@ export default function ExpenseFormModal({
   onUpdate,
   onDelete,
 }: ExpenseFormModalProps) {
+  const { createDebt } = useDebts()
   const [formData, setFormData] = useState({
     amount: '',
     report_amount: '',
@@ -52,6 +55,7 @@ export default function ExpenseFormModal({
     bill_competence: '',
   })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [createLinkedDebt, setCreateLinkedDebt] = useState(false)
   useEffect(() => {
     if (isOpen) {
       if (editingExpense) {
@@ -68,6 +72,7 @@ export default function ExpenseFormModal({
           description: editingExpense.description || '',
           bill_competence: editingExpense.bill_competence || '',
         })
+        setCreateLinkedDebt(false)
       } else {
         setFormData({
           amount: '',
@@ -80,6 +85,7 @@ export default function ExpenseFormModal({
           description: '',
           bill_competence: '',
         })
+        setCreateLinkedDebt(false)
       }
     }
   }, [isOpen, editingExpense, categories])
@@ -159,8 +165,23 @@ export default function ExpenseFormModal({
         alert('Erro ao atualizar despesa: ' + error)
       }
     } else {
-      const { error } = await onCreate(expenseData)
+      const { data, error } = await onCreate(expenseData)
       if (!error) {
+        if (createLinkedDebt && data) {
+          const categoryName = categories.find((c) => c.id === expenseData.category_id)?.name || 'Categoria'
+          const name = expenseData.description || `Cobrança - ${categoryName}`
+          await createDebt({
+            name,
+            type: 'receivable',
+            amount: expenseData.amount,
+            due_date: expenseData.date,
+            description: expenseData.description
+              ? `Cobrança integrada à despesa: ${expenseData.description}`
+              : `Cobrança vinculada à despesa de ${categoryName}`,
+            status: 'pending',
+            expense_id: data.id && !data.id.startsWith('offline-') ? data.id : null,
+          })
+        }
         onClose()
       } else {
         alert('Erro ao criar despesa: ' + error)
@@ -357,6 +378,17 @@ export default function ExpenseFormModal({
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           placeholder="Ex: Almoço, Uber..."
         />
+
+        {!editingExpense && (
+          <div className="pt-2 pb-2">
+            <Checkbox
+              label="Cadastrar cobrança?"
+              description="Cria uma cobrança a receber vinculada a esta despesa"
+              checked={createLinkedDebt}
+              onChange={(e) => setCreateLinkedDebt(e.target.checked)}
+            />
+          </div>
+        )}
 
         {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
           <p className="modal-intro modal-panel-glass p-3">

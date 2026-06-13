@@ -25,6 +25,7 @@ import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectat
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useAppSettings } from '@/hooks/useAppSettings'
+import { useDebts } from '@/hooks/useDebts'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction } from '@/types'
 import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
@@ -297,14 +298,66 @@ export default function Reports() {
   const { incomeCategories } = useIncomeCategories()
   const includeReportWeights = dashboardReportsWeightsEnabled
   const previousMonth = useMemo(() => addMonths(selectedMonth, -1), [selectedMonth])
-  const { monthlySummaries, categoryExpenses, monthlyCategoryExpenses, annualExpenses, loading } = useReports(selectedYear, includeReportWeights)
+  const { monthlySummaries: originalMonthlySummaries, categoryExpenses, monthlyCategoryExpenses, annualExpenses, loading } = useReports(selectedYear, includeReportWeights)
   const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear, includeReportWeights)
   
   const previousYear = selectedYear - 1
   const { 
-    monthlySummaries: prevMonthlySummaries, 
+    monthlySummaries: originalPrevMonthlySummaries, 
     loading: loadingPrevReports 
   } = useReports(previousYear, includeReportWeights)
+
+  const { debts } = useDebts()
+
+  const monthlySummaries = useMemo(() => {
+    return originalMonthlySummaries.map((s) => {
+      const monthDebts = debts.filter((d) => d.due_date.startsWith(s.month))
+      
+      const paidReceivables = monthDebts
+        .filter((d) => d.type === 'receivable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+        
+      const paidPayables = monthDebts
+        .filter((d) => d.type === 'payable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+
+      const total_income = s.total_income + paidReceivables
+      const total_expenses = s.total_expenses + paidPayables
+      const balance = total_income - total_expenses - s.total_investments
+
+      return {
+        ...s,
+        total_income,
+        total_expenses,
+        balance,
+      }
+    })
+  }, [originalMonthlySummaries, debts])
+
+  const prevMonthlySummaries = useMemo(() => {
+    return originalPrevMonthlySummaries.map((s) => {
+      const monthDebts = debts.filter((d) => d.due_date.startsWith(s.month))
+      
+      const paidReceivables = monthDebts
+        .filter((d) => d.type === 'receivable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+        
+      const paidPayables = monthDebts
+        .filter((d) => d.type === 'payable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+
+      const total_income = s.total_income + paidReceivables
+      const total_expenses = s.total_expenses + paidPayables
+      const balance = total_income - total_expenses - s.total_investments
+
+      return {
+        ...s,
+        total_income,
+        total_expenses,
+        balance,
+      }
+    })
+  }, [originalPrevMonthlySummaries, debts])
 
   const { expenses: monthExpenses, loading: loadingMonthExpenses } = useExpenses(selectedMonth)
   const { creditCards } = useCreditCards()
@@ -746,12 +799,20 @@ export default function Reports() {
   }, [monthExpenses, creditCards, getAmountByMode])
 
   const previousMonthIncomeTotal = useMemo(() => {
-    return previousMonthIncomes.reduce((sum, item) => sum + getAmountByMode(item), 0)
-  }, [previousMonthIncomes, getAmountByMode])
+    const originalIncomesTotal = previousMonthIncomes.reduce((sum, item) => sum + getAmountByMode(item), 0)
+    const paidReceivables = debts
+      .filter((d) => d.due_date.startsWith(previousMonth) && d.type === 'receivable' && d.status === 'paid')
+      .reduce((sum, d) => sum + d.amount, 0)
+    return originalIncomesTotal + paidReceivables
+  }, [previousMonthIncomes, getAmountByMode, debts, previousMonth])
 
   const previousMonthExpenseTotal = useMemo(() => {
-    return previousMonthExpenses.reduce((sum, item) => sum + getAmountByMode(item), 0)
-  }, [previousMonthExpenses, getAmountByMode])
+    const originalExpensesTotal = previousMonthExpenses.reduce((sum, item) => sum + getAmountByMode(item), 0)
+    const paidPayables = debts
+      .filter((d) => d.due_date.startsWith(previousMonth) && d.type === 'payable' && d.status === 'paid')
+      .reduce((sum, d) => sum + d.amount, 0)
+    return originalExpensesTotal + paidPayables
+  }, [previousMonthExpenses, getAmountByMode, debts, previousMonth])
 
   const previousMonthInvestmentTotal = useMemo(() => {
     const [year, month] = previousMonth.split('-').map(Number)
@@ -1210,6 +1271,19 @@ export default function Reports() {
       }
     })
 
+    const monthDebts = debts.filter((d) => d.due_date.startsWith(selectedMonth))
+    monthDebts.forEach((debt) => {
+      if (debt.status !== 'paid') return
+      const day = Number(debt.due_date.slice(8, 10))
+      if (day >= 1 && day <= daysInMonth) {
+        if (debt.type === 'payable') {
+          totalsByDay[day - 1].Despesas += debt.amount
+        } else {
+          totalsByDay[day - 1].Rendas += debt.amount
+        }
+      }
+    })
+
     const portfolioByDay = portfolioInvestmentByDay(
       portfolioTransactions,
       selectedMonth,
@@ -1243,6 +1317,19 @@ export default function Reports() {
         const day = Number(income.date.slice(8, 10))
         if (day >= 1 && day <= prevDaysInMonth) {
           prevTotalsByDay[day - 1].Rendas += getAmountByMode(income)
+        }
+      })
+
+      const prevMonthDebts = debts.filter((d) => d.due_date.startsWith(previousMonth))
+      prevMonthDebts.forEach((debt) => {
+        if (debt.status !== 'paid') return
+        const day = Number(debt.due_date.slice(8, 10))
+        if (day >= 1 && day <= prevDaysInMonth) {
+          if (debt.type === 'payable') {
+            prevTotalsByDay[day - 1].Despesas += debt.amount
+          } else {
+            prevTotalsByDay[day - 1].Rendas += debt.amount
+          }
         }
       })
 
@@ -1281,7 +1368,8 @@ export default function Reports() {
     previousMonth,
     previousMonthExpenses,
     previousMonthIncomes,
-    previousPortfolioTransactions
+    previousPortfolioTransactions,
+    debts
   ])
 
   const weekdayExpenseData = useMemo(() => {
@@ -1547,6 +1635,68 @@ export default function Reports() {
     )
   }
 
+  const selectedPeriodPending = useMemo(() => {
+    const period = viewMode === 'month' ? selectedMonth : String(selectedYear)
+    const filtered = debts.filter((d) => d.due_date.startsWith(period) && d.status === 'pending')
+    
+    const payables = filtered.filter((d) => d.type === 'payable').reduce((sum, d) => sum + d.amount, 0)
+    const receivables = filtered.filter((d) => d.type === 'receivable').reduce((sum, d) => sum + d.amount, 0)
+    const balanceProj = receivables - payables
+
+    return {
+      payables,
+      receivables,
+      balanceProj,
+      count: filtered.length,
+    }
+  }, [debts, viewMode, selectedMonth, selectedYear])
+
+  const renderPendingDebtsWidget = () => {
+    if (selectedPeriodPending.count === 0) return null
+
+    return (
+      <Card className="border border-glass surface-glass shadow-sm transition-all duration-300 p-4 sm:p-5">
+        <div className="flex items-center gap-3 border-b border-glass/40 pb-3 mb-4">
+          <Landmark className="text-secondary" size={20} />
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+              Projeção de Dívidas & Cobranças Pendentes
+            </h3>
+            <p className="text-[10px] text-secondary mt-0.5">
+              Valores em aberto com vencimento em {viewMode === 'month' ? formatMonth(selectedMonth) : selectedYear}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex flex-col p-3 rounded-xl bg-expense/5 border border-expense/10">
+            <span className="text-[10px] uppercase font-bold text-expense/80 tracking-wider">A Pagar Pendente</span>
+            <span className="text-lg font-extrabold text-expense font-mono mt-1">
+              {formatCurrency(selectedPeriodPending.payables)}
+            </span>
+          </div>
+          <div className="flex flex-col p-3 rounded-xl bg-income/5 border border-income/10">
+            <span className="text-[10px] uppercase font-bold text-income/80 tracking-wider">A Receber Pendente</span>
+            <span className="text-lg font-extrabold text-income font-mono mt-1">
+              {formatCurrency(selectedPeriodPending.receivables)}
+            </span>
+          </div>
+          <div className={`flex flex-col p-3 rounded-xl border ${
+            selectedPeriodPending.balanceProj >= 0 
+              ? 'bg-income/5 border-income/10' 
+              : 'bg-expense/5 border-expense/10'
+          }`}>
+            <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Impacto Projetado no Saldo</span>
+            <span className={`text-lg font-extrabold font-mono mt-1 ${
+              selectedPeriodPending.balanceProj >= 0 ? 'text-income' : 'text-expense'
+            }`}>
+              {selectedPeriodPending.balanceProj >= 0 ? '+' : ''}{formatCurrency(selectedPeriodPending.balanceProj)}
+            </span>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
@@ -1696,6 +1846,9 @@ export default function Reports() {
                     index={4}
                   />
                 </div>
+
+                {/* Pendências de Dívidas */}
+                {renderPendingDebtsWidget()}
 
                 {/* Insights Anuais */}
                 <div className="order-last lg:order-none">
@@ -1879,6 +2032,9 @@ export default function Reports() {
                     index={4}
                   />
                 </div>
+
+                {/* Pendências de Dívidas */}
+                {renderPendingDebtsWidget()}
 
                 {/* Insights Mensais */}
                 <div className="order-last lg:order-none">

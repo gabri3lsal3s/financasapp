@@ -100,7 +100,7 @@ export default function Layout({ children }: LayoutProps) {
     }
 
     items.push(
-      { path: '/credit-cards', icon: CreditCard, label: 'Cartões', onlineOnly: true },
+      { path: '/debts', icon: CreditCard, label: 'Dívidas', onlineOnly: true },
       { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
       { path: '/categories', icon: Tags, label: 'Categorias', onlineOnly: true },
       { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false }
@@ -214,11 +214,11 @@ export default function Layout({ children }: LayoutProps) {
               <div className="grid grid-cols-2 gap-3">
                 {!(!isOnline) && (
                   <Link
-                    to="/credit-cards"
+                    to="/debts"
                     className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
                   >
                     <CreditCard size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Cartões</span>
+                    <span className="text-xs font-bold text-primary">Dívidas</span>
                   </Link>
                 )}
                 {!(!isOnline) && (

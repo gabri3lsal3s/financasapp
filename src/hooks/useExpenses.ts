@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Expense, Category, CreditCard } from '@/types'
+import { Expense, Category, CreditCard, Debt } from '@/types'
 import { addMonths, format } from 'date-fns'
 import { resolveBillCompetence, splitAmountIntoInstallments } from '@/utils/creditCardBilling'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -472,6 +472,21 @@ export function useExpenses(month?: string) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
+      // Delete associated pending debts in Supabase
+      await supabase
+        .from('debts')
+        .delete()
+        .eq('expense_id', id)
+        .eq('status', 'pending')
+
+      // Update local debts cache
+      const debtsCache = await getCache<Debt[]>('debts-all')
+      if (debtsCache) {
+        const nextDebts = debtsCache.filter((d) => !(d.expense_id === id && d.status === 'pending'))
+        await setCache('debts-all', nextDebts)
+        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
+      }
+
       const { error: deleteError } = await supabase
         .from('expenses')
         .delete()
@@ -491,6 +506,26 @@ export function useExpenses(month?: string) {
             action: 'delete',
             recordId: id,
           })
+
+          // Enqueue delete operation for associated pending debts offline
+          const debtsCache = await getCache<Debt[]>('debts-all')
+          if (debtsCache) {
+            const linkedPendingDebts = debtsCache.filter((d) => d.expense_id === id && d.status === 'pending')
+            for (const debt of linkedPendingDebts) {
+              if (!debt.id.startsWith('offline-')) {
+                enqueueOfflineOperation({
+                  entity: 'debts',
+                  action: 'delete',
+                  recordId: debt.id,
+                })
+              } else {
+                removeOfflineCreateOperation(debt.id)
+              }
+            }
+            const nextDebts = debtsCache.filter((d) => !(d.expense_id === id && d.status === 'pending'))
+            await setCache('debts-all', nextDebts)
+            window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
+          }
         }
 
         const nextState = expenses.filter((exp) => exp.id !== id)

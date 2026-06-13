@@ -19,9 +19,9 @@ export const PAGE_HEADERS = {
     title: 'Investimentos',
     description: 'Gestão de investimentos',
   },
-  creditCards: {
-    title: 'Cartões e Faturas',
-    description: 'Controle de faturas',
+  debts: {
+    title: 'Dívidas e Cobranças',
+    description: 'Controle de cartões, faturas e contas a pagar/receber',
   },
   categories: {
     title: 'Planejamento de Categorias',

@@ -17,8 +17,12 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent, AlertTriangle, Bell, Clock, ChevronRight } from 'lucide-react'
 import Button from '@/components/Button'
+import { useDebts } from '@/hooks/useDebts'
+import { useAppSettings } from '@/hooks/useAppSettings'
+import { resolveBillCompetence } from '@/utils/creditCardBilling'
+import { format } from 'date-fns'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
@@ -54,6 +58,17 @@ export default function Dashboard() {
   const { isOnline } = useNetworkStatus()
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
+
+  const { remindersEnabled } = useAppSettings()
+  const { debts } = useDebts()
+
+  const [cardBillAlerts, setCardBillAlerts] = useState<Array<{
+    cardName: string
+    type: 'overdue' | 'near_due'
+    dueDate: string
+    amount: number
+    cardId: string
+  }>>([])
 
   const [portfolioId, setPortfolioId] = useState('')
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
@@ -93,21 +108,7 @@ export default function Dashboard() {
     }
   }, [])
 
-  useEffect(() => {
-    const onDataChanged = () => {
-      if (isOnline) void loadPortfolioTransactions()
-    }
 
-    if (isOnline) {
-      void loadPortfolioTransactions()
-    } else {
-      setPortfolioId('')
-      setPortfolioTransactions([])
-    }
-
-    window.addEventListener('local-data-changed', onDataChanged)
-    return () => window.removeEventListener('local-data-changed', onDataChanged)
-  }, [isOnline, currentMonth, loadPortfolioTransactions])
 
   const lastFetchedMonthRef = useRef<string | null>(null)
   const [isMonthTransitioning, setIsMonthTransitioning] = useState(false)
@@ -475,6 +476,321 @@ export default function Dashboard() {
     )
   }
 
+  const loadCardBillAlerts = useCallback(async () => {
+    try {
+      if (!isOnline) return
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayTime = today.getTime()
+
+      const prevMonthStr = addMonths(currentMonth, -1)
+      const competences = [prevMonthStr, currentMonth]
+
+      const { data: cyclesData } = await supabase
+        .from('credit_card_monthly_cycles')
+        .select('*')
+        .in('competence', competences)
+
+      const cycleMap = (cyclesData || []).reduce<Record<string, { closing_day: number; due_day: number }>>((acc, row) => {
+        acc[`${row.credit_card_id}:${row.competence}`] = {
+          closing_day: Number(row.closing_day),
+          due_day: Number(row.due_day),
+        }
+        return acc
+      }, {})
+
+      const { data: cardExpenses } = await supabase
+        .from('expenses')
+        .select('amount, report_weight, credit_card_id, date, bill_competence')
+        .not('credit_card_id', 'is', null)
+
+      const { data: cardPayments } = await supabase
+        .from('credit_card_bill_payments')
+        .select('amount, credit_card_id, payment_date, bill_competence')
+        .not('credit_card_id', 'is', null)
+
+      const newAlerts: typeof cardBillAlerts = []
+
+      for (const card of creditCards) {
+        if (card.is_active === false) continue
+
+        for (const comp of competences) {
+          const cycle = cycleMap[`${card.id}:${comp}`]
+          const closingDay = cycle?.closing_day ?? card.closing_day
+          const dueDay = cycle?.due_day ?? card.due_day
+
+          const [y, m] = comp.split('-').map(Number)
+          const compMonthIndex = m - 1
+          
+          const getSafeDateLocal = (year: number, month: number, day: number) => {
+            const lastDay = new Date(year, month + 1, 0).getDate()
+            const clamped = Math.min(day, lastDay)
+            return new Date(year, month, clamped)
+          }
+
+          const dueDate = getSafeDateLocal(y, compMonthIndex, dueDay)
+          dueDate.setHours(0, 0, 0, 0)
+
+          let closingDate = getSafeDateLocal(y, compMonthIndex, closingDay)
+          if (closingDay >= dueDay) {
+            closingDate = getSafeDateLocal(y, compMonthIndex - 1, closingDay)
+          }
+          closingDate.setHours(0, 0, 0, 0)
+
+          const resolveClosingDayLocal = (cid: string, c: string) => {
+            const rowCycle = cycleMap[`${cid}:${c}`]
+            return rowCycle?.closing_day ?? card.closing_day
+          }
+
+          const cardExpensesFiltered = (cardExpenses || []).filter((exp) => {
+            if (exp.credit_card_id !== card.id) return false
+            if (exp.bill_competence) return exp.bill_competence === comp
+            
+            const expComp = resolveBillCompetence(exp.date, (c) => resolveClosingDayLocal(card.id, c))
+            return expComp === comp
+          })
+
+          const totalPrevisto = cardExpensesFiltered.reduce((sum, exp) => {
+            return sum + (exp.amount * (exp.report_weight ?? 1))
+          }, 0)
+
+          if (totalPrevisto <= 0.009) continue
+
+          const cardPaymentsFiltered = (cardPayments || []).filter((pay) => {
+            if (pay.credit_card_id !== card.id) return false
+            if (pay.bill_competence) return pay.bill_competence === comp
+
+            const payComp = resolveBillCompetence(pay.payment_date, (c) => resolveClosingDayLocal(card.id, c))
+            return payComp === comp
+          })
+
+          const totalPago = cardPaymentsFiltered.reduce((sum, pay) => sum + pay.amount, 0)
+          const saldoAberto = totalPrevisto - totalPago
+
+          if (saldoAberto <= 0.009) continue
+
+          if (todayTime > dueDate.getTime()) {
+            newAlerts.push({
+              cardName: card.name,
+              type: 'overdue',
+              dueDate: format(dueDate, 'yyyy-MM-dd'),
+              amount: saldoAberto,
+              cardId: card.id,
+            })
+          } else {
+            const diffTime = dueDate.getTime() - todayTime
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            if (diffDays >= 0 && diffDays <= 3) {
+              newAlerts.push({
+                cardName: card.name,
+                type: 'near_due',
+                dueDate: format(dueDate, 'yyyy-MM-dd'),
+                amount: saldoAberto,
+                cardId: card.id,
+              })
+            }
+          }
+        }
+      }
+
+      setCardBillAlerts(newAlerts)
+    } catch (err) {
+      console.error('Error calculating card bill alerts on dashboard:', err)
+    }
+  }, [isOnline, currentMonth, creditCards])
+
+  useEffect(() => {
+    const onDataChanged = () => {
+      if (isOnline) {
+        void loadPortfolioTransactions()
+        void loadCardBillAlerts()
+      }
+    }
+
+    if (isOnline) {
+      void loadPortfolioTransactions()
+      void loadCardBillAlerts()
+    } else {
+      setPortfolioId('')
+      setPortfolioTransactions([])
+    }
+
+    window.addEventListener('local-data-changed', onDataChanged)
+    return () => window.removeEventListener('local-data-changed', onDataChanged)
+  }, [isOnline, currentMonth, loadPortfolioTransactions, loadCardBillAlerts])
+
+  const debtAlerts = useMemo(() => {
+    if (!remindersEnabled) return []
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = format(today, 'yyyy-MM-dd')
+
+    const threeDaysFromNow = new Date()
+    threeDaysFromNow.setDate(today.getDate() + 3)
+    threeDaysFromNow.setHours(0, 0, 0, 0)
+    const threeDaysFromNowStr = format(threeDaysFromNow, 'yyyy-MM-dd')
+
+    return debts
+      .filter((d) => d.status === 'pending')
+      .map((d) => {
+        let type: 'overdue' | 'near_due' = 'near_due'
+        if (d.due_date < todayStr) {
+          type = 'overdue'
+        } else if (d.due_date >= todayStr && d.due_date <= threeDaysFromNowStr) {
+          type = 'near_due'
+        } else {
+          return null
+        }
+        return {
+          id: d.id,
+          name: d.name,
+          type,
+          dueDate: d.due_date,
+          amount: d.amount,
+          debtType: d.type,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+  }, [debts, remindersEnabled])
+
+  const activeCardBillAlerts = useMemo(() => {
+    return remindersEnabled ? cardBillAlerts : []
+  }, [cardBillAlerts, remindersEnabled])
+
+  const combinedAlerts = useMemo(() => {
+    const alertsList: Array<{
+      id: string
+      title: string
+      dueDate: string
+      amount: number
+      isOverdue: boolean
+      isCard: boolean
+      debtType?: 'payable' | 'receivable'
+    }> = []
+
+    activeCardBillAlerts.forEach((alert) => {
+      alertsList.push({
+        id: `card-${alert.cardId}-${alert.dueDate}`,
+        title: `Fatura do Cartão ${alert.cardName}`,
+        dueDate: alert.dueDate,
+        amount: alert.amount,
+        isOverdue: alert.type === 'overdue',
+        isCard: true,
+      })
+    })
+
+    debtAlerts.forEach((alert) => {
+      const prefix = alert.debtType === 'payable' ? 'Conta a pagar' : 'Cobrança a receber'
+      alertsList.push({
+        id: `debt-${alert.id}`,
+        title: `${prefix}: ${alert.name}`,
+        dueDate: alert.dueDate,
+        amount: alert.amount,
+        isOverdue: alert.type === 'overdue',
+        isCard: false,
+        debtType: alert.debtType,
+      })
+    })
+
+    return alertsList.sort((a, b) => {
+      if (a.isOverdue && !b.isOverdue) return -1
+      if (!a.isOverdue && b.isOverdue) return 1
+      return a.dueDate.localeCompare(b.dueDate)
+    })
+  }, [activeCardBillAlerts, debtAlerts])
+
+  const renderAlertsBanner = () => {
+    if (combinedAlerts.length === 0) return null
+
+    const overdueCount = combinedAlerts.filter((a) => a.isOverdue).length
+
+    return (
+      <Card className="border border-glass surface-glass shadow-md p-4 mb-5 relative overflow-hidden transition-all duration-300 hover:border-glass-strong">
+        <div className="absolute top-0 left-0 bottom-0 w-1 bg-expense" />
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-expense/10 text-expense shrink-0">
+            <Bell size={18} className="animate-bounce" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-4">
+              <h4 className="text-sm font-bold text-primary flex items-center gap-1.5">
+                Lembretes de Vencimento
+                {overdueCount > 0 && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-expense/10 text-expense">
+                    {overdueCount} vencida(s)
+                  </span>
+                )}
+              </h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/debts')}
+                className="text-xs h-7 gap-1 shrink-0 hidden sm:flex"
+              >
+                Gerenciar Dívidas
+                <ChevronRight size={12} />
+              </Button>
+            </div>
+            <p className="text-[10px] text-secondary mt-0.5 leading-normal">
+              Acompanhe faturas e cobranças vencidas ou que vencem nos próximos 3 dias.
+            </p>
+
+            <div className="mt-3 space-y-2 max-h-[160px] overflow-y-auto pr-1">
+              {combinedAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl border transition-all ${
+                    alert.isOverdue
+                      ? 'border-expense/20 bg-expense/5 hover:bg-expense/10'
+                      : 'border-warning/20 bg-warning/5 hover:bg-warning/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0">
+                      {alert.isOverdue ? (
+                        <AlertTriangle size={14} className="text-expense" />
+                      ) : (
+                        <Clock size={14} className="text-warning" />
+                      )}
+                    </span>
+                    <span className="text-xs font-semibold text-primary truncate">
+                      {alert.title}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 justify-between sm:justify-end shrink-0">
+                    <span className="text-xs text-secondary">
+                      {alert.isOverdue ? 'Venceu em' : 'Vence em'}{' '}
+                      <strong className="text-primary font-mono">{formatDate(alert.dueDate)}</strong>
+                    </span>
+                    <span className={`text-xs font-black font-mono ${
+                      alert.debtType === 'receivable' ? 'text-income' : 'text-expense'
+                    }`}>
+                      {alert.debtType === 'receivable' ? '+' : ''}{formatCurrency(alert.amount)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 block sm:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/debts')}
+                className="w-full text-xs h-8 gap-1 justify-center"
+              >
+                Gerenciar Dívidas
+                <ChevronRight size={12} />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
@@ -509,7 +825,10 @@ export default function Dashboard() {
               <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
                 <Loader text="Carregando dados do mês..." />
               </div>
-            ) : !hasMonthlyData ? (
+            ) : (
+              <>
+                {renderAlertsBanner()}
+                {!hasMonthlyData ? (
               <Card className="border border-glass surface-glass relative overflow-hidden p-8 sm:p-12 text-center flex flex-col items-center max-w-lg mx-auto transition-all duration-300 hover:border-glass-strong shadow-lg">
                 <div className="absolute -top-12 -left-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
                 <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
@@ -680,6 +999,8 @@ export default function Dashboard() {
                 </div>
 
               </div>
+            )}
+              </>
             )}
           </div>
         </MonthTransitionView>

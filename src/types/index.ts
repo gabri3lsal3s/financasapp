@@ -59,6 +59,19 @@ export interface CreditCardMonthlyCycle {
   user_id?: string
 }
 
+export interface Debt {
+  id: string
+  name: string
+  type: 'payable' | 'receivable'
+  amount: number
+  due_date: string
+  description?: string | null
+  status: 'pending' | 'paid'
+  expense_id?: string | null
+  created_at: string
+  user_id?: string
+}
+
 export interface Income {
   id: string
   amount: number

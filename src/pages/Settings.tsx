@@ -71,6 +71,8 @@ export default function Settings() {
     setFloatingCalculatorEnabled,
     biometricLockTimeout,
     setBiometricLockTimeout,
+    remindersEnabled,
+    setRemindersEnabled,
   } = useAppSettings()
 
   const fetchUsers = async () => {
@@ -497,6 +499,19 @@ export default function Settings() {
                 checked={floatingCalculatorEnabled}
                 onChange={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
                 title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
+              />
+            </SettingRow>
+          </Card>
+
+          <Card>
+            <SettingRow
+              title="Lembretes de vencimento"
+              description="Exibe alertas visuais no painel principal sobre faturas de cartão e contas a pagar/receber próximas do vencimento (3 dias ou menos)."
+            >
+              <Switch
+                checked={remindersEnabled}
+                onChange={() => setRemindersEnabled(!remindersEnabled)}
+                title={remindersEnabled ? 'Desativar lembretes' : 'Ativar lembretes'}
               />
             </SettingRow>
           </Card>

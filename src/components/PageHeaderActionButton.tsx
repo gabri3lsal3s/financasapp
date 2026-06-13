@@ -36,7 +36,7 @@ export default function PageHeaderActionButton({
 }: PageHeaderActionButtonProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [isExpanded, setIsExpanded] = useState(false)
-  const timeoutRef = useRef<any>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (originalOnClick) {
