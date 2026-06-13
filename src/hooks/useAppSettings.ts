@@ -6,6 +6,7 @@ const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
 let dashboardReportsWeightsEnabledMemory = false
 let creditCardsWeightsEnabledMemory = false
+let categoriesWeightsEnabledMemory = true
 
 export type BiometricLockTimeout = 0 | 1 | 5 | 15
 
@@ -40,6 +41,10 @@ const readCreditCardsWeightsEnabled = (): boolean => {
   return creditCardsWeightsEnabledMemory
 }
 
+const readCategoriesWeightsEnabled = (): boolean => {
+  return categoriesWeightsEnabledMemory
+}
+
 const parseBiometricLockTimeout = (value: string | null): BiometricLockTimeout => {
   const parsed = Number(value)
   if (parsed === 0 || parsed === 1 || parsed === 5 || parsed === 15) return parsed
@@ -55,6 +60,7 @@ export function useAppSettings() {
   const [floatingCalculatorEnabled, setFloatingCalculatorEnabledState] = useState<boolean>(readFloatingCalculatorEnabled)
   const [dashboardReportsWeightsEnabled, setDashboardReportsWeightsEnabledState] = useState<boolean>(readDashboardReportsWeightsEnabled)
   const [creditCardsWeightsEnabled, setCreditCardsWeightsEnabledState] = useState<boolean>(readCreditCardsWeightsEnabled)
+  const [categoriesWeightsEnabled, setCategoriesWeightsEnabledState] = useState<boolean>(readCategoriesWeightsEnabled)
   const [biometricLockTimeout, setBiometricLockTimeoutState] = useState<BiometricLockTimeout>(readBiometricLockTimeout)
 
   useEffect(() => {
@@ -62,6 +68,7 @@ export function useAppSettings() {
       setFloatingCalculatorEnabledState(readFloatingCalculatorEnabled())
       setDashboardReportsWeightsEnabledState(readDashboardReportsWeightsEnabled())
       setCreditCardsWeightsEnabledState(readCreditCardsWeightsEnabled())
+      setCategoriesWeightsEnabledState(readCategoriesWeightsEnabled())
       setBiometricLockTimeoutState(readBiometricLockTimeout())
     }
 
@@ -107,6 +114,14 @@ export function useAppSettings() {
     }
   }, [])
 
+  const setCategoriesWeightsEnabled = useCallback((enabled: boolean) => {
+    categoriesWeightsEnabledMemory = enabled
+    setCategoriesWeightsEnabledState(enabled)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
+    }
+  }, [])
+
   const setBiometricLockTimeout = useCallback((timeout: BiometricLockTimeout) => {
     if (!isStorageAvailable()) return
 
@@ -122,6 +137,8 @@ export function useAppSettings() {
     setDashboardReportsWeightsEnabled,
     creditCardsWeightsEnabled,
     setCreditCardsWeightsEnabled,
+    categoriesWeightsEnabled,
+    setCategoriesWeightsEnabled,
     biometricLockTimeout,
     setBiometricLockTimeout,
   }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders } from 'lucide-react'
+import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders, Scale } from 'lucide-react'
 import { getCategoryIcon, getCategoryIconName, AVAILABLE_ICONS } from '@/utils/categoryIcons'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
@@ -29,6 +29,8 @@ import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Category, IncomeCategory } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAppSettings } from '@/hooks/useAppSettings'
+import { getWeightedReportAmount } from '@/utils/reportWeight'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -110,6 +112,7 @@ export default function Categories() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const { isOnline } = useNetworkStatus()
+  const { categoriesWeightsEnabled, setCategoriesWeightsEnabled } = useAppSettings()
 
   useEffect(() => {
     const month = searchParams.get('month')
@@ -412,14 +415,16 @@ export default function Categories() {
     const monthlyTotals: Record<string, number> = {}
     allIncomes.forEach((inc) => {
       const monthStr = inc.date.substring(0, 7) // 'YYYY-MM'
-      const weight = inc.report_weight ?? 1
-      monthlyTotals[monthStr] = (monthlyTotals[monthStr] || 0) + inc.amount * weight
+      const amount = categoriesWeightsEnabled
+        ? getWeightedReportAmount(inc.amount, inc.report_weight)
+        : inc.amount
+      monthlyTotals[monthStr] = (monthlyTotals[monthStr] || 0) + amount
     })
     const months = Object.keys(monthlyTotals)
     if (months.length === 0) return 0
     const totalSum = months.reduce((sum, m) => sum + monthlyTotals[m], 0)
     return totalSum / months.length
-  }, [allIncomes])
+  }, [allIncomes, categoriesWeightsEnabled])
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
   const { limits: currentMonthLimits, loading: loadingLimits, setCategoryLimit } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthLimits, loading: loadingPreviousLimits } = useExpenseCategoryLimits(previousMonth)
@@ -429,18 +434,24 @@ export default function Categories() {
   const expenseSpentByCategory = useMemo(() => {
     const totals = new Map<string, number>()
     expenses.forEach((item) => {
-      totals.set(item.category_id, (totals.get(item.category_id) || 0) + item.amount)
+      const amount = categoriesWeightsEnabled
+        ? getWeightedReportAmount(item.amount, item.report_weight)
+        : item.amount
+      totals.set(item.category_id, (totals.get(item.category_id) || 0) + amount)
     })
     return totals
-  }, [expenses])
+  }, [expenses, categoriesWeightsEnabled])
 
   const incomeByCategory = useMemo(() => {
     const totals = new Map<string, number>()
     incomes.forEach((item) => {
-      totals.set(item.income_category_id, (totals.get(item.income_category_id) || 0) + item.amount)
+      const amount = categoriesWeightsEnabled
+        ? getWeightedReportAmount(item.amount, item.report_weight)
+        : item.amount
+      totals.set(item.income_category_id, (totals.get(item.income_category_id) || 0) + amount)
     })
     return totals
-  }, [incomes])
+  }, [incomes, categoriesWeightsEnabled])
 
   const expenseCategoryColorMap = useMemo(() => {
     const assignedColors = assignUniquePaletteColors(categories, colorPalette)
@@ -748,6 +759,13 @@ export default function Categories() {
                 setActiveTab('incomes')
                 setEditingCategoryId(null)
               }}
+            />
+            <PageHeaderActionButton
+              intent={categoriesWeightsEnabled ? 'warning' : 'neutral'}
+              icon={Scale}
+              label="Pesos de lançamento"
+              title={categoriesWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
+              onClick={() => setCategoriesWeightsEnabled(!categoriesWeightsEnabled)}
             />
             {activeTab === 'expenses' && (
               <PageHeaderActionButton
