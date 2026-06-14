@@ -1993,6 +1993,34 @@ nav.glass-bottom-nav {
   border-color: color-mix(in srgb, var(--color-balance) 55%, var(--glass-border));
 }
 
+.modal-choice-grid--2-cols {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .modal-choice-grid--2-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Override rules for glass choice card icons to fix tailwind variable compilation issues and enforce clear colors/opacities */
+.glass-choice-card__icon.bg-income\/10 {
+  background-color: color-mix(in srgb, var(--color-income) 10%, transparent) !important;
+  color: var(--color-income) !important;
+}
+.glass-choice-card__icon.bg-expense\/10 {
+  background-color: color-mix(in srgb, var(--color-expense) 10%, transparent) !important;
+  color: var(--color-expense) !important;
+}
+.glass-choice-card__icon.bg-balance\/10 {
+  background-color: color-mix(in srgb, var(--color-balance) 10%, transparent) !important;
+  color: var(--color-balance) !important;
+}
+.glass-choice-card__icon.bg-accent {
+  background-color: color-mix(in srgb, var(--color-text-secondary) 10%, transparent) !important;
+  color: var(--color-text-secondary) !important;
+}
+
 .glass-card-interactive {
   transition:
     box-shadow var(--ds-motion-duration-fast) var(--ds-motion-easing-standard),

@@ -30,6 +30,11 @@ interface ExpenseFormModalProps {
     updates: Partial<Expense>
   ) => Promise<{ data: Expense | null; error: string | null }>
   onDelete: (id: string) => Promise<{ error: string | null }>
+  defaultValues?: {
+    amount?: number
+    description?: string
+    date?: string
+  }
 }
 
 export default function ExpenseFormModal({
@@ -41,6 +46,7 @@ export default function ExpenseFormModal({
   onCreate,
   onUpdate,
   onDelete,
+  defaultValues,
 }: ExpenseFormModalProps) {
   const { createDebt } = useDebts()
   const [formData, setFormData] = useState({
@@ -75,20 +81,20 @@ export default function ExpenseFormModal({
         setCreateLinkedDebt(false)
       } else {
         setFormData({
-          amount: '',
-          report_amount: '',
-          date: format(new Date(), 'yyyy-MM-dd'),
+          amount: defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '',
+          report_amount: defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '',
+          date: defaultValues?.date || format(new Date(), 'yyyy-MM-dd'),
           installment_total: '1',
           payment_method: 'other',
           credit_card_id: '',
           category_id: categories[0]?.id || '',
-          description: '',
+          description: defaultValues?.description || '',
           bill_competence: '',
         })
         setCreateLinkedDebt(false)
       }
     }
-  }, [isOpen, editingExpense, categories])
+  }, [isOpen, editingExpense, categories, defaultValues])
 
   const handleAmountChange = (nextAmount: string) => {
     setFormData((prev) => {

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Children, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ModalChoiceGridProps {
@@ -8,5 +8,16 @@ interface ModalChoiceGridProps {
 
 /** Grid responsivo para GlassChoiceCard dentro de modais picker. */
 export default function ModalChoiceGrid({ children, className }: ModalChoiceGridProps) {
-  return <div className={cn('modal-choice-grid', className)}>{children}</div>
+  const childCount = Children.count(children)
+  return (
+    <div
+      className={cn(
+        'modal-choice-grid',
+        childCount === 2 && 'modal-choice-grid--2-cols',
+        className
+      )}
+    >
+      {children}
+    </div>
+  )
 }

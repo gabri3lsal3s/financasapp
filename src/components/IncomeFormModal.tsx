@@ -306,7 +306,7 @@ export default function IncomeFormModal({
                   fullWidth
                   onClick={() => {
                     navigate(
-                      `/debts?month=${encodeURIComponent(
+                      `/contas?month=${encodeURIComponent(
                         refundOrigin.competence
                       )}&card=${encodeURIComponent(refundOrigin.cardId)}`
                     )

@@ -3,6 +3,7 @@ import { endOfMonth, format, subMonths } from 'date-fns'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
+import KpiCard from '@/components/KpiCard'
 import Button from '@/components/Button'
 import IconButton from '@/components/IconButton'
 import Input from '@/components/Input'
@@ -14,8 +15,8 @@ import Select from '@/components/Select'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
+import ExpenseFormModal from '@/components/ExpenseFormModal'
 import Loader from '@/components/Loader'
-import Checkbox from '@/components/Checkbox'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useDebts } from '@/hooks/useDebts'
@@ -25,8 +26,8 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { supabase } from '@/lib/supabase'
-import type { CreditCard, Debt } from '@/types'
-import { APP_START_DATE, APP_START_MONTH, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
+import type { CreditCard, Debt, Expense } from '@/types'
+import { APP_START_DATE, formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals, formatMonth } from '@/utils/format'
 import { CREDIT_CARD_DEFAULT_COLOR, ensureHexColor } from '@/utils/colorValue'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import CardColorField from '@/components/creditCards/CardColorField'
@@ -43,10 +44,14 @@ import {
   type BillPaymentDisplayItem,
   type BillPaymentRowInput,
 } from '@/utils/creditCardBilling'
-import { hasExplicitCreditCardsDeepLink, resolveInitialCreditCardsMonth, shiftMonth } from '@/utils/creditCardMonthSelection'
-import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check, Trash2 } from 'lucide-react'
+import { hasExplicitCreditCardsDeepLink, shiftMonth } from '@/utils/creditCardMonthSelection'
+import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, AlertCircle, Clock, Lock, CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check, Trash2, TrendingUp, TrendingDown, Link2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import GlassChoiceCard from '@/components/GlassChoiceCard'
+import ModalChoiceGrid from '@/components/ModalChoiceGrid'
+import ModalIntro from '@/components/ModalIntro'
 
 type CardFormState = {
   name: string
@@ -321,6 +326,37 @@ function CreditCardTimeline({
     borderColor: 'var(--color-bg-primary)',
   }
 
+  const timelineItems = [
+    {
+      title: 'Início do Ciclo',
+      date: startDate,
+      desc: 'Compras começam a contar.',
+      metricLabel: 'Previsto',
+      metricVal: totalPrevisto,
+      extraMetric: baseExpense !== undefined && baseExpense !== totalPrevisto ? baseExpense : undefined,
+      isActive: true,
+      isLast: false,
+    },
+    {
+      title: 'Fechamento',
+      date: closingDate,
+      desc: 'Fatura encerrada para compras.',
+      metricLabel: 'Pago',
+      metricVal: totalPago,
+      isActive: progressPct >= 50,
+      isLast: false,
+    },
+    {
+      title: 'Vencimento',
+      date: dueDate,
+      desc: 'Vencimento da fatura.',
+      metricLabel: 'Saldo',
+      metricVal: saldoAberto,
+      isActive: progressPct >= 100,
+      isLast: true,
+    },
+  ]
+
   return (
     <div
       className="glass-timeline-card p-4 sm:p-5 space-y-4 text-left transition-all duration-300"
@@ -434,93 +470,68 @@ function CreditCardTimeline({
       </div>
 
       <div className="block sm:hidden relative pt-2 pb-2">
-        <div className="absolute top-[22px] bottom-[22px] left-1/2 -translate-x-1/2 w-0.5 bg-muted/20 dark:bg-muted/10 rounded-full pointer-events-none">
-          <div
-            className="w-full rounded-full transition-all duration-700 ease-out"
-            style={{
-              height: `${progressPct}%`,
-              backgroundColor: themeColor
-            }}
-          />
-        </div>
+        <div className="space-y-0 text-left">
+          {timelineItems.map((item, index) => {
+            const isItemPaid = item.metricLabel === 'Pago'
+            return (
+              <div key={index} className="grid grid-cols-[24px_1fr] gap-x-4">
+                {/* Left timeline line and dot */}
+                <div className="flex flex-col items-center">
+                  {/* Top connector line */}
+                  <div 
+                    className="w-0.5 h-3 shrink-0 transition-all duration-500" 
+                    style={{ 
+                      backgroundColor: index > 0 && timelineItems[index - 1].isActive 
+                        ? themeColor 
+                        : index > 0 
+                          ? 'var(--color-border-muted)' 
+                          : 'transparent' 
+                    }} 
+                  />
+                  
+                  {/* Dot */}
+                  <div
+                    className="w-3.5 h-3.5 rounded-full border-2 border-card z-10 shrink-0 transition-all duration-500"
+                    style={item.isActive ? nodeRingStyle : { backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)' }}
+                  />
 
-        <div className="grid grid-cols-[1fr_24px_1fr] gap-x-3 gap-y-4 items-center">
-          <div className="text-right flex flex-col justify-center">
-            <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Previsto</span>
-            <div className="flex flex-col items-end">
-              <span className="text-[13px] sm:text-[15px] font-extrabold text-primary font-mono leading-tight">
-                {formatCurrency(totalPrevisto)}
-              </span>
-              {baseExpense !== undefined && baseExpense !== totalPrevisto && (
-                <span className="text-[9px] sm:text-[10px] text-secondary opacity-70 font-sans" title="Valor base sem pesos">
-                  ({formatCurrency(baseExpense)})
-                </span>
-              )}
-            </div>
-          </div>
+                  {/* Bottom connector line */}
+                  <div 
+                    className="w-0.5 flex-1 min-h-[24px] transition-all duration-500" 
+                    style={{ 
+                      backgroundColor: !item.isLast && item.isActive 
+                        ? themeColor 
+                        : !item.isLast 
+                          ? 'var(--color-border-muted)' 
+                          : 'transparent' 
+                    }} 
+                  />
+                </div>
 
-          <div className="flex justify-center z-10">
-            <div
-              className="w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 shrink-0"
-              style={progressPct >= 0 ? nodeRingStyle : undefined}
-            />
-          </div>
-
-          <div className="text-left flex flex-col justify-center">
-            <div className="flex flex-wrap items-baseline gap-1">
-              <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Início do Ciclo</span>
-              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDate(startDate)})</span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Compras começam a contar.</p>
-          </div>
-
-          <div className="text-right flex flex-col justify-center">
-            <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Pago</span>
-            <span className="text-[13px] sm:text-[15px] font-extrabold text-income font-mono leading-tight">
-              {formatCurrency(totalPago)}
-            </span>
-          </div>
-
-          <div className="flex justify-center z-10">
-            <div
-              className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
-                progressPct >= 50 ? 'border-card' : 'border-border/60 bg-background'
-              }`}
-              style={progressPct >= 50 ? nodeRingStyle : undefined}
-            />
-          </div>
-
-          <div className="text-left flex flex-col justify-center">
-            <div className="flex flex-wrap items-baseline gap-1">
-              <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Fechamento</span>
-              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDate(closingDate)})</span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Fatura encerrada para compras.</p>
-          </div>
-
-          <div className="text-right flex flex-col justify-center">
-            <span className="text-[10px] sm:text-[11px] font-bold text-secondary uppercase tracking-wider">Saldo</span>
-            <span className={`text-[13px] sm:text-[15px] font-extrabold font-mono leading-tight ${saldoAberto > 0.009 ? 'text-primary' : 'text-secondary'}`}>
-              {formatCurrency(saldoAberto)}
-            </span>
-          </div>
-
-          <div className="flex justify-center z-10">
-            <div
-              className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-500 shrink-0 ${
-                progressPct >= 100 ? 'border-card' : 'border-border/60 bg-background'
-              }`}
-              style={progressPct >= 100 ? nodeRingStyle : undefined}
-            />
-          </div>
-
-          <div className="text-left flex flex-col justify-center">
-            <div className="flex flex-wrap items-baseline gap-1">
-              <span className="text-[12px] sm:text-[14px] font-extrabold text-primary font-sans leading-tight">Vencimento</span>
-              <span className="text-[9px] sm:text-[10px] text-secondary font-bold font-mono">({formatDate(dueDate)})</span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-secondary leading-normal mt-0.5">Vencimento da fatura.</p>
-          </div>
+                {/* Right content */}
+                <div className="pb-6">
+                  <div className="flex flex-wrap items-baseline gap-1.5">
+                    <span className="text-xs sm:text-sm font-extrabold text-primary leading-tight">{item.title}</span>
+                    <span className="text-[10px] text-secondary font-bold font-mono">({formatDate(item.date)})</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-secondary leading-normal mt-0.5">{item.desc}</p>
+                  
+                  {/* Metric details */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-secondary uppercase tracking-wider">{item.metricLabel}:</span>
+                    <span className={`text-xs font-extrabold font-mono ${isItemPaid ? 'text-income' : 'text-primary'}`}>
+                      {formatCurrency(item.metricVal)}
+                    </span>
+                    {item.extraMetric !== undefined && (
+                      <span className="text-[9px] text-secondary opacity-70 font-sans" title="Valor base sem pesos">
+                        ({formatCurrency(item.extraMetric)})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -535,7 +546,7 @@ function CreditCardTimeline({
   )
 }
 
-export default function Debts() {
+export default function Contas() {
   const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
@@ -581,7 +592,23 @@ export default function Debts() {
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false)
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
   const [debtForm, setDebtForm] = useState<DebtFormState>(DEFAULT_DEBT_FORM())
-  const [showAllDebts, setShowAllDebts] = useState(false)
+
+  // Modais customizados para confirmação de recebimentos
+  const [isIncomeConfirmModalOpen, setIsIncomeConfirmModalOpen] = useState(false)
+  const [selectedDebtForIncome, setSelectedDebtForIncome] = useState<Debt | null>(null)
+
+  const [isIntegratedModalOpen, setIsIntegratedModalOpen] = useState(false)
+  const [selectedDebtForIntegrated, setSelectedDebtForIntegrated] = useState<Debt | null>(null)
+  const [linkedExpense, setLinkedExpense] = useState<Expense | null>(null)
+  const [integratedReportValueInput, setIntegratedReportValueInput] = useState('')
+
+  // Modal e estados para criação de despesa vinculada ao pagar uma dívida (payable)
+  const [isPayableConfirmModalOpen, setIsPayableConfirmModalOpen] = useState(false)
+  const [isPayableExpenseModalOpen, setIsPayableExpenseModalOpen] = useState(false)
+  const [selectedDebtForPayableExpense, setSelectedDebtForPayableExpense] = useState<Debt | null>(null)
+
+  // Selector modal
+  const [isAddSelectorOpen, setIsAddSelectorOpen] = useState(false)
 
   // Accordion local state keys (creditCardIds, debtIds)
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
@@ -620,7 +647,7 @@ export default function Debts() {
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
   const { createExpense, updateExpense, deleteExpense } = useExpenses()
-  useIncomes()
+  const { createIncome } = useIncomes()
   const { creditCardsWeightsEnabled, setCreditCardsWeightsEnabled } = useAppSettings()
 
   const activeCards = useMemo(
@@ -628,13 +655,41 @@ export default function Debts() {
     [creditCards],
   )
 
-  // Dívidas filtradas do mês ou pendentes
-  const filteredDebts = useMemo(() => {
-    return debts.filter((d) => {
-      if (showAllDebts) return true
-      return d.due_date.startsWith(currentMonth)
-    })
-  }, [debts, currentMonth, showAllDebts])
+  // Pendências ativas (não pagas)
+  const pendingDebts = useMemo(() => {
+    return debts.filter((d) => d.status === 'pending')
+  }, [debts])
+
+  // Pendências confirmadas (pagas) no mês selecionado
+  const confirmedDebts = useMemo(() => {
+    return debts.filter((d) => d.status === 'paid' && d.due_date.startsWith(currentMonth))
+  }, [debts, currentMonth])
+
+  const stats = useMemo(() => {
+    const totalFaturasAberto = activeCards.reduce((sum, card) => {
+      const previsto = Number(expensesByCard[card.id] || 0)
+      const pago = Number(paymentsByCard[card.id] || 0)
+      const aberto = Math.max(0, previsto - pago)
+      return sum + aberto
+    }, 0)
+
+    const totalPagar = debts
+      .filter((d) => d.status === 'pending' && d.type === 'payable' && d.due_date.startsWith(currentMonth))
+      .reduce((sum, d) => sum + Number(d.amount || 0), 0)
+
+    const totalReceber = debts
+      .filter((d) => d.status === 'pending' && d.type === 'receivable' && d.due_date.startsWith(currentMonth))
+      .reduce((sum, d) => sum + Number(d.amount || 0), 0)
+
+    const saldoLiquido = totalReceber - totalPagar - totalFaturasAberto
+
+    return {
+      totalFaturasAberto: roundToDecimals(totalFaturasAberto, 2),
+      totalPagar: roundToDecimals(totalPagar, 2),
+      totalReceber: roundToDecimals(totalReceber, 2),
+      saldoLiquido: roundToDecimals(saldoLiquido, 2),
+    }
+  }, [activeCards, expensesByCard, paymentsByCard, debts, currentMonth])
 
   const loading = loadingCards || loadingDebts
 
@@ -749,7 +804,7 @@ export default function Debts() {
       handleCancelDelete()
       closeCardModal()
       await refreshCreditCards()
-      await loadBillData()
+      await loadBillData(true)
     } catch (err) {
       alert(`Erro ao excluir cartão: ${err instanceof Error ? err.message : 'Ocorreu um erro inesperado'}`)
     } finally {
@@ -986,7 +1041,7 @@ export default function Debts() {
       if (paymentUpdateError) throw paymentUpdateError
 
       closeRefundIncomeEditModal()
-      await loadBillData()
+      await loadBillData(true)
     } catch (err) {
       alert(`Erro ao atualizar estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
@@ -1013,7 +1068,7 @@ export default function Debts() {
       if (paymentDeleteError) throw paymentDeleteError
 
       closeRefundIncomeEditModal()
-      await loadBillData()
+      await loadBillData(true)
     } catch (err) {
       alert(`Erro ao excluir estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
@@ -1065,7 +1120,7 @@ export default function Debts() {
       }
 
       closeRefundModal()
-      await loadBillData()
+      await loadBillData(true)
     } catch (err) {
       alert(`Erro ao registrar estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
@@ -1263,18 +1318,11 @@ export default function Debts() {
     return [...allBillItems, ...refundItems]
   }
 
-  const hasPendingBalanceForActiveCards = (snapshot: Pick<BillDataSnapshot, 'expensesByCard' | 'paymentsByCard'>) => {
-    if (!activeCards.length) return false
-    return activeCards.some((card) => {
-      const totalPrevisto = Number(snapshot.expensesByCard[card.id] || 0)
-      const totalPago = Number(snapshot.paymentsByCard[card.id] || 0)
-      return roundToDecimals(totalPrevisto - totalPago, 2) > 0.009
-    })
-  }
-
-  const loadBillData = async () => {
+  const loadBillData = async (silent = false) => {
     try {
-      setLoadingBills(true)
+      if (!silent) {
+        setLoadingBills(true)
+      }
       const snapshot = await getBillDataSnapshot(currentMonth)
       setExpensesByCard(snapshot.expensesByCard)
       setPaymentsByCard(snapshot.paymentsByCard)
@@ -1283,7 +1331,9 @@ export default function Debts() {
       setPaymentItemsByCard(snapshot.paymentItemsByCard)
       setMonthlyCyclesByCard(snapshot.monthlyCyclesByCard)
     } finally {
-      setLoadingBills(false)
+      if (!silent) {
+        setLoadingBills(false)
+      }
     }
   }
 
@@ -1296,37 +1346,16 @@ export default function Debts() {
       if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth)) {
         setCurrentMonth(targetMonth)
       }
-      setHasResolvedInitialMonth(true)
-      return
+    } else {
+      setCurrentMonth(getCurrentMonthString())
     }
-
-    let isCancelled = false
-    const resolveInitialMonth = async () => {
-      const resolvedMonth = await resolveInitialCreditCardsMonth({
-        currentMonth,
-        appStartMonth: APP_START_MONTH,
-        hasPendingForMonth: async (month) => {
-          const monthSnapshot = await getBillDataSnapshot(month)
-          if (isCancelled) return false
-          return hasPendingBalanceForActiveCards(monthSnapshot)
-        },
-      })
-      if (isCancelled) return
-      if (resolvedMonth !== currentMonth) {
-        setCurrentMonth(resolvedMonth)
-      }
-      setHasResolvedInitialMonth(true)
-    }
-    void resolveInitialMonth()
-    return () => {
-      isCancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasResolvedInitialMonth, loadingCards, searchParams, currentMonth, activeCards])
+    setHasResolvedInitialMonth(true)
+  }, [hasResolvedInitialMonth, loadingCards, searchParams])
 
   useEffect(() => {
     if (!hasResolvedInitialMonth) return
-    void loadBillData()
+    const hasData = Object.keys(expensesByCard).length > 0
+    void loadBillData(hasData)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasResolvedInitialMonth, currentMonth, creditCards, creditCardsWeightsEnabled])
 
@@ -1390,7 +1419,7 @@ export default function Debts() {
 
     closeCardModal()
     await refreshCreditCards()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleSubmitPayment = async (event: React.FormEvent) => {
@@ -1422,7 +1451,7 @@ export default function Debts() {
     }
 
     closePaymentModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleSubmitEditPayment = async (event: React.FormEvent) => {
@@ -1450,7 +1479,7 @@ export default function Debts() {
     }
 
     closePaymentEditModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleDeletePayment = async () => {
@@ -1469,7 +1498,7 @@ export default function Debts() {
     }
 
     closePaymentEditModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleSubmitCycle = async (event: React.FormEvent) => {
@@ -1517,7 +1546,7 @@ export default function Debts() {
     }
 
     closeCycleModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleResetCycleToCardDefault = async () => {
@@ -1539,7 +1568,7 @@ export default function Debts() {
     }
 
     closeCycleModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleSubmitEditExpense = async (event: React.FormEvent) => {
@@ -1586,7 +1615,7 @@ export default function Debts() {
     }
 
     closeExpenseEditModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   const handleDeleteExpense = async () => {
@@ -1601,14 +1630,14 @@ export default function Debts() {
     }
 
     closeExpenseEditModal()
-    await loadBillData()
+    await loadBillData(true)
   }
 
   // Submit Dívidas
   const handleSubmitDebt = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!debtForm.name.trim()) {
-      alert('Informe o nome da dívida/cobrança.')
+      alert('Informe o nome da pendência.')
       return
     }
     const debtAmount = Number(debtForm.amount)
@@ -1643,8 +1672,196 @@ export default function Debts() {
     closeDebtModal()
   }
 
+  const resolveIncomeCategoryId = async () => {
+    // Try to find "Outros" first (case-insensitive)
+    let cat = incomeCategories.find(c => (c.name || '').toLowerCase() === 'outros')
+    if (cat) return cat.id
+    
+    // Try to find "Sem categoria"
+    cat = incomeCategories.find(c => (c.name || '').toLowerCase() === 'sem categoria')
+    if (cat) return cat.id
+
+    // Take the first available category
+    if (incomeCategories.length > 0) return incomeCategories[0].id
+
+    // If none exists, get or create "Sem categoria" category in database
+    const { data } = await supabase
+      .from('income_categories')
+      .select('id')
+      .eq('name', 'Sem categoria')
+      .maybeSingle()
+
+    if (data?.id) return data.id
+
+    // Otherwise, insert it
+    const { data: inserted, error: insertError } = await supabase
+      .from('income_categories')
+      .insert([{ name: 'Sem categoria', color: 'var(--category-fallback-muted)' }])
+      .select('id')
+      .single()
+
+    if (insertError || !inserted?.id) {
+      throw new Error('Não foi possível obter ou criar categoria para a renda.')
+    }
+    return inserted.id
+  }
+
+  const handleConfirmWithIncome = async () => {
+    if (!selectedDebtForIncome) return
+    try {
+      const categoryId = await resolveIncomeCategoryId()
+      const { error: incomeError } = await createIncome({
+        amount: selectedDebtForIncome.amount,
+        description: selectedDebtForIncome.name,
+        date: selectedDebtForIncome.due_date || format(new Date(), 'yyyy-MM-dd'),
+        income_category_id: categoryId,
+        report_weight: 1.0,
+      })
+      if (incomeError) {
+        alert(`Erro ao criar receita: ${incomeError}`)
+      }
+    } catch (err) {
+      alert(`Erro ao criar receita: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+    }
+
+    const { error } = await updateDebt(selectedDebtForIncome.id, { status: 'paid' })
+    if (error) {
+      alert(`Erro ao atualizar status do recebimento: ${error}`)
+    }
+
+    setIsIncomeConfirmModalOpen(false)
+    setSelectedDebtForIncome(null)
+  }
+
+  const handleConfirmWithoutIncome = async () => {
+    if (!selectedDebtForIncome) return
+    const { error } = await updateDebt(selectedDebtForIncome.id, { status: 'paid' })
+    if (error) {
+      alert(`Erro ao atualizar status do recebimento: ${error}`)
+    }
+
+    setIsIncomeConfirmModalOpen(false)
+    setSelectedDebtForIncome(null)
+  }
+
+  const handleConfirmIntegrated = async () => {
+    if (!selectedDebtForIntegrated || !linkedExpense) return
+
+    const parsedVal = parseMoneyInput(integratedReportValueInput)
+    if (Number.isNaN(parsedVal) || parsedVal < 0 || parsedVal > linkedExpense.amount) {
+      alert(`Valor inválido. Deve ser entre 0 e ${formatCurrency(linkedExpense.amount)}.`)
+      return
+    }
+
+    try {
+      const reportWeight = linkedExpense.amount > 0 ? roundToDecimals(parsedVal / linkedExpense.amount, 4) : 1
+      const { error: updateExpenseError } = await updateExpense(linkedExpense.id, {
+        report_weight: reportWeight
+      })
+
+      if (updateExpenseError) {
+        alert(`Erro ao atualizar despesa vinculada: ${updateExpenseError}`)
+        return
+      }
+
+      // Mark debt as paid (keep the debt amount as original)
+      const { error } = await updateDebt(selectedDebtForIntegrated.id, {
+        status: 'paid'
+      })
+      if (error) {
+        alert(`Erro ao atualizar status do recebimento: ${error}`)
+      }
+    } catch (err) {
+      alert(`Erro ao processar integração da cobrança: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+    }
+
+    setIsIntegratedModalOpen(false)
+    setSelectedDebtForIntegrated(null)
+    setLinkedExpense(null)
+  }
+
+  const handleCreateExpenseForPayable = async (expenseData: Omit<Expense, 'id' | 'created_at' | 'category'>) => {
+    if (!selectedDebtForPayableExpense) return { data: null, error: 'Dívida não selecionada' }
+
+    const { data: createdExpense, error } = await createExpense(expenseData)
+
+    if (error) {
+      return { data: null, error }
+    }
+
+    if (createdExpense) {
+      const { error: updateDebtError } = await updateDebt(selectedDebtForPayableExpense.id, {
+        status: 'paid',
+        expense_id: createdExpense.id
+      })
+
+      if (updateDebtError) {
+        alert(`Erro ao vincular despesa à dívida: ${updateDebtError}`)
+      }
+    }
+
+    setIsPayableExpenseModalOpen(false)
+    setSelectedDebtForPayableExpense(null)
+
+    return { data: createdExpense, error: null }
+  }
+
+  const handleConfirmPayableWithoutExpenseDirect = async () => {
+    if (selectedDebtForPayableExpense) {
+      const { error } = await updateDebt(selectedDebtForPayableExpense.id, { status: 'paid' })
+      if (error) {
+        alert(`Erro ao marcar dívida como paga: ${error}`)
+      }
+    }
+    setIsPayableConfirmModalOpen(false)
+    setSelectedDebtForPayableExpense(null)
+  }
+
   const handleToggleDebtStatus = async (debt: Debt) => {
     const nextStatus = debt.status === 'pending' ? 'paid' : 'pending'
+
+    if (nextStatus === 'paid') {
+      if (debt.type === 'receivable') {
+        if (debt.expense_id) {
+          // Integrated cobrança! DO NOT suggest income, just show integrated confirmation modal
+          try {
+            const { data: expense, error: fetchExpenseError } = await supabase
+              .from('expenses')
+              .select('*')
+              .eq('id', debt.expense_id)
+              .maybeSingle()
+
+            if (fetchExpenseError) throw fetchExpenseError
+
+            if (expense) {
+              const currentReportValue = roundToDecimals(expense.amount * (expense.report_weight ?? 1), 2)
+              // Automática diminuindo o valor no relatório da despesa pelo pagamento (debt.amount)
+              const finalValue = Math.max(0, roundToDecimals(currentReportValue - debt.amount, 2))
+
+              setLinkedExpense(expense)
+              setSelectedDebtForIntegrated(debt)
+              setIntegratedReportValueInput(formatMoneyInput(finalValue))
+              setIsIntegratedModalOpen(true)
+              return // Will be handled inside handleConfirmIntegrated
+            }
+          } catch (err) {
+            alert(`Erro ao processar integração da cobrança: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+            return
+          }
+        } else {
+          // Non-integrated receivable! Open custom income confirmation modal
+          setSelectedDebtForIncome(debt)
+          setIsIncomeConfirmModalOpen(true)
+          return // Will be handled inside handleConfirmWithIncome or handleConfirmWithoutIncome
+        }
+      } else if (debt.type === 'payable') {
+        // Confirming a payable debt! Open custom confirmation modal first
+        setSelectedDebtForPayableExpense(debt)
+        setIsPayableConfirmModalOpen(true)
+        return // Will open the custom modal to choose between paying only or paying + registering expense
+      }
+    }
+
     const { error } = await updateDebt(debt.id, { status: nextStatus })
     if (error) {
       alert(`Erro ao atualizar status: ${error}`)
@@ -1652,7 +1869,7 @@ export default function Debts() {
   }
 
   const handleDeleteDebt = async (debtId: string) => {
-    if (!confirm('Deseja excluir este registro de dívida/cobrança?')) return
+    if (!confirm('Deseja excluir este registro de pendência?')) return
     const { error } = await deleteDebt(debtId)
     if (error) {
       alert(`Erro ao excluir: ${error}`)
@@ -1662,8 +1879,8 @@ export default function Debts() {
   return (
     <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
       <PageHeader
-        title="Dívidas e Cobranças"
-        subtitle="Controle de cartões, faturas e contas a pagar/receber"
+        title="Contas"
+        subtitle="Controle de cartões, faturas e pendências (a pagar e receber)"
         action={
           <PageHeaderActions>
             <PageHeaderActionButton
@@ -1672,19 +1889,12 @@ export default function Debts() {
               label={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
               compactOnMobile={false}
               onClick={() => setCreditCardsWeightsEnabled(!creditCardsWeightsEnabled)}
-              className="hidden sm:inline-flex"
-            />
-            <PageHeaderActionButton
-              intent="neutral"
-              icon={Plus}
-              label="Nova Dívida"
-              onClick={openCreateDebtModal}
             />
             <PageHeaderActionButton
               intent="primary"
               icon={Plus}
-              label="Novo Cartão"
-              onClick={openCreateCardModal}
+              label="Adicionar"
+              onClick={() => setIsAddSelectorOpen(true)}
             />
           </PageHeaderActions>
         }
@@ -1701,318 +1911,466 @@ export default function Debts() {
           <Loader text="Carregando dados..." className="py-8" />
         ) : (
           <MonthTransitionView month={currentMonth}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-              
-              {/* SEÇÃO 1: CARTÕES DE CRÉDITO */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-glass pb-2">
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                    <CreditCardIcon size={18} className="text-primary-light" />
-                    Cartões de Crédito
-                  </h2>
-                  <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
-                    {activeCards.length}
+            {/* KPI Cards Summary */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 text-left items-stretch">
+              <KpiCard
+                title="Faturas em Aberto"
+                value={formatCurrency(stats.totalFaturasAberto)}
+                icon={<CreditCardIcon size={16} />}
+                glowColor="var(--color-primary)"
+                showGlow={true}
+                index={1}
+              />
+              <KpiCard
+                title="Contas a Pagar"
+                value={formatCurrency(stats.totalPagar)}
+                icon={<TrendingDown size={16} />}
+                glowColor="var(--color-expense)"
+                showGlow={true}
+                index={2}
+              />
+              <KpiCard
+                title="Contas a Receber"
+                value={formatCurrency(stats.totalReceber)}
+                icon={<TrendingUp size={16} />}
+                glowColor="var(--color-income)"
+                showGlow={true}
+                index={3}
+              />
+              <KpiCard
+                title="Saldo Pendente"
+                value={
+                  <span className={stats.saldoLiquido >= 0 ? 'text-income' : 'text-expense'}>
+                    {formatCurrency(stats.saldoLiquido)}
                   </span>
-                </div>
+                }
+                icon={<Scale size={16} />}
+                glowColor={stats.saldoLiquido >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
+                showGlow={true}
+                valueTooltip={formatCurrency(stats.saldoLiquido)}
+                index={4}
+              />
+            </div>
 
-                {activeCards.length === 0 ? (
-                  <Card className="text-center py-8 space-y-3">
-                    <p className="text-secondary text-sm">Nenhum cartão cadastrado.</p>
-                    <div className="flex justify-center">
-                      <Button size="sm" onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
-                    </div>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {activeCards.map((card) => {
-                      const totalPrevisto = Number(expensesByCard[card.id] || 0)
-                      const totalPago = Number(paymentsByCard[card.id] || 0)
-                      const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
-                      const billItems = billItemsByCard[card.id] || []
-                      const monthlyCycle = monthlyCyclesByCard[card.id]
-                      const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
-                      const effectiveDueDay = monthlyCycle?.due_day || card.due_day
-                      const isExpanded = !!expandedItems[card.id]
+            <Tabs defaultValue="cards" className="w-full">
+              <TabsList className="grid grid-cols-2 w-full max-w-md mb-6 mx-auto">
+                <TabsTrigger value="cards" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-2 px-1 sm:px-2">
+                  <CreditCardIcon size={14} />
+                  Cartões ({activeCards.length})
+                </TabsTrigger>
+                <TabsTrigger value="debts" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-2 px-1 sm:px-2">
+                  <Scale size={14} />
+                  Pendências ({pendingDebts.length})
+                </TabsTrigger>
+              </TabsList>
 
-                      return (
-                        <Card key={card.id} className="p-0 overflow-hidden border border-glass transition-all duration-300">
-                          {/* Header Accordion */}
-                          <div 
-                            className="p-4 flex items-center justify-between cursor-pointer select-none hover:bg-secondary/20 transition-colors"
-                            onClick={() => toggleExpand(card.id)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span
-                                className="w-3.5 h-3.5 rounded-full shadow-sm"
-                                style={{ backgroundColor: card.color || 'var(--color-primary)' }}
-                              />
-                              <div>
-                                <p className="text-sm font-bold text-primary">{card.name}</p>
-                                <p className="text-[11px] text-secondary mt-0.5">
-                                  {card.brand || 'Crédito'} • Fecha dia {effectiveClosingDay} • Vence dia {effectiveDueDay}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <p className="text-xs text-secondary">Fatura Atual</p>
-                                <p className="text-sm font-bold text-primary font-mono">{formatCurrency(totalPrevisto)}</p>
-                              </div>
-                              {isExpanded ? <ChevronUp size={16} className="text-secondary" /> : <ChevronDown size={16} className="text-secondary" />}
-                            </div>
-                          </div>
-
-                          {/* Expanded content */}
-                          {isExpanded && (
-                            <div className="p-4 border-t border-glass bg-secondary/5 space-y-4 animate-slide-down">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Ações</span>
-                                <div className="flex flex-wrap gap-1.5">
-                                  <IconButton
-                                    size="sm"
-                                    icon={<Pencil size={14} />}
-                                    onClick={() => openEditCardModal(card)}
-                                    label="Editar"
-                                    title="Editar cartão"
-                                  />
-                                  <IconButton
-                                    size="sm"
-                                    icon={<Calendar size={14} />}
-                                    onClick={() => openCycleModal(card)}
-                                    label="Ciclo"
-                                    title="Ajustar ciclo do mês"
-                                  />
-                                  <IconButton
-                                    size="sm"
-                                    icon={<Undo2 size={14} />}
-                                    onClick={() => openRefundModal(card.id)}
-                                    label="Estorno"
-                                    title="Registrar estorno"
-                                  />
-                                  <IconButton
-                                    size="sm"
-                                    icon={<Wallet size={14} />}
-                                    onClick={() => openPaymentModal(card.id)}
-                                    label="Pagar"
-                                    title="Registrar pagamento"
-                                  />
-                                  <IconButton
-                                    size="sm"
-                                    icon={<FileUp size={14} />}
-                                    onClick={() => setReconciliationCardId(card.id)}
-                                    label="CSV"
-                                    title="Anexar CSV"
-                                  />
-                                </div>
-                              </div>
-
-                              <CreditCardTimeline
-                                card={card}
-                                currentMonth={currentMonth}
-                                totalPrevisto={totalPrevisto}
-                                totalPago={totalPago}
-                                saldoAberto={saldoAberto}
-                                monthlyCycle={monthlyCycle}
-                                baseExpense={baseExpensesByCard[card.id]}
-                              />
-
-                              <div className="space-y-2">
-                                <p className="text-[10px] font-black uppercase tracking-wide text-secondary">
-                                  Lançamentos da fatura ({currentMonth})
-                                </p>
-                                {billItems.length === 0 ? (
-                                  <p className="text-xs text-secondary italic">Sem lançamentos registrados.</p>
-                                ) : (
-                                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                                    {billItems.map((item) => (
-                                      <BillExpenseRowButton
-                                        key={item.id}
-                                        item={item}
-                                        creditCardsWeightsEnabled={creditCardsWeightsEnabled}
-                                        onOpen={openExpenseEditModal}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {(paymentItemsByCard[card.id] || []).length > 0 && (
-                                <div className="space-y-2">
-                                  <p className="text-[10px] font-black uppercase tracking-wide text-secondary">
-                                    Pagamentos e Ajustes ({currentMonth})
-                                  </p>
-                                  <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
-                                    {(paymentItemsByCard[card.id] || []).map((payment) => {
-                                      const refundMeta = parseRefundNote(payment.note)
-                                      return (
-                                        <PaymentRowButton
-                                          key={payment.id}
-                                          onClick={() => handleOpenPaymentItem(payment)}
-                                        >
-                                          <div className="flex items-start justify-between gap-3 w-full">
-                                            <div className="min-w-0">
-                                              <p className="text-xs font-semibold text-primary truncate">
-                                                {refundMeta.isRefund
-                                                  ? (refundMeta.description || 'Estorno de compra')
-                                                  : (payment.note || 'Pagamento de fatura')}
-                                              </p>
-                                              <p className="text-[10px] text-secondary mt-0.5 font-mono">
-                                                {formatDate(payment.payment_date)}
-                                                {refundMeta.isRefund ? ' • Estorno' : ''}
-                                              </p>
-                                            </div>
-                                            <p className="text-xs font-bold text-income font-mono">{formatCurrency(payment.amount)}</p>
-                                          </div>
-                                        </PaymentRowButton>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </Card>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* SEÇÃO 2: OUTRAS DÍVIDAS E COBRANÇAS */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-glass pb-2">
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                    <Scale size={18} className="text-primary-light" />
-                    Contas e Cobranças
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      label="Mostrar todas"
-                      checked={showAllDebts}
-                      onChange={(e) => setShowAllDebts(e.target.checked)}
-                      className="text-[11px] text-secondary items-center gap-1.5"
-                    />
+              <TabsContent value="cards" className="space-y-4 outline-none animate-surface-enter">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-glass pb-2">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                      <CreditCardIcon size={18} className="text-primary-light" />
+                      Cartões de Crédito
+                    </h2>
                     <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
-                      {filteredDebts.length}
+                      {activeCards.length}
                     </span>
                   </div>
-                </div>
 
-                {filteredDebts.length === 0 ? (
-                  <Card className="text-center py-8 space-y-3">
-                    <p className="text-secondary text-sm">Nenhum registro para {showAllDebts ? 'este período' : 'esta competência'}.</p>
-                    <div className="flex justify-center">
-                      <Button size="sm" onClick={openCreateDebtModal}>Cadastrar primeira conta</Button>
-                    </div>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredDebts.map((debt) => {
-                      const isExpanded = !!expandedItems[debt.id]
-                      const isPayable = debt.type === 'payable'
-                      const isPaid = debt.status === 'paid'
+                  {activeCards.length === 0 ? (
+                    <Card className="text-center py-8 space-y-3">
+                      <p className="text-secondary text-sm">Nenhum cartão cadastrado.</p>
+                      <div className="flex justify-center">
+                        <Button size="sm" onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {activeCards.map((card) => {
+                        const totalPrevisto = Number(expensesByCard[card.id] || 0)
+                        const totalPago = Number(paymentsByCard[card.id] || 0)
+                        const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
+                        const billItems = billItemsByCard[card.id] || []
+                        const monthlyCycle = monthlyCyclesByCard[card.id]
+                        const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
+                        const effectiveDueDay = monthlyCycle?.due_day || card.due_day
+                        const isExpanded = !!expandedItems[card.id]
 
-                      return (
-                        <Card key={debt.id} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
-                          {/* Color bar indicator for type */}
-                          <div 
-                            className={`absolute left-0 top-0 bottom-0 w-1 ${
-                              isPayable ? 'bg-expense' : 'bg-income'
-                            }`}
-                          />
+                        return (
+                          <Card key={card.id} className="p-0 overflow-hidden border border-glass transition-all duration-300">
+                            {/* Header Accordion */}
+                            <div 
+                              className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
+                              onClick={() => toggleExpand(card.id)}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <span
+                                  className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full shadow-sm shrink-0"
+                                  style={{ backgroundColor: card.color || 'var(--color-primary)' }}
+                                />
+                                <div className="text-left min-w-0">
+                                  <p className="text-xs sm:text-sm font-bold text-primary truncate">{card.name}</p>
+                                  <p className="text-[10px] sm:text-[11px] text-secondary mt-0.5 truncate">
+                                    {card.brand || 'Crédito'} • Fechamento: {effectiveClosingDay} • Vencimento: {effectiveDueDay}
+                                  </p>
+                                </div>
+                              </div>
 
-                          {/* Accordion Header */}
-                          <div 
-                            className="p-4 pl-5 flex items-center justify-between cursor-pointer select-none hover:bg-secondary/20 transition-colors"
-                            onClick={() => toggleExpand(debt.id)}
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm font-bold text-primary truncate">{debt.name}</p>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${
-                                  isPayable ? 'bg-expense/10 text-expense border border-expense/20' : 'bg-income/10 text-income border border-income/20'
-                                }`}>
-                                  {isPayable ? 'A Pagar' : 'A Receber'}
-                                </span>
-                                {debt.expense_id && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-primary/10 text-primary border border-primary/20" title="Criada a partir de uma despesa integrada">
-                                    Integrada
-                                  </span>
+                              <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+                                <div className="text-right">
+                                  <p className="text-[10px] sm:text-xs text-secondary leading-tight">Fatura Atual</p>
+                                  <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">{formatCurrency(totalPrevisto)}</p>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                                ) : (
+                                  <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
                                 )}
                               </div>
-                              <p className="text-[10px] text-secondary font-mono mt-0.5">
-                                Vencimento: {formatDate(debt.due_date)}
-                              </p>
                             </div>
 
-                            <div className="flex items-center gap-4 shrink-0">
-                              <div className="text-right">
-                                <span className={`text-[10px] font-bold uppercase tracking-wider block ${
-                                  isPaid ? 'text-income' : 'text-warning'
-                                }`}>
-                                  {isPaid ? 'Pago' : 'Pendente'}
-                                </span>
-                                <p className="text-sm font-bold text-primary font-mono">{formatCurrency(debt.amount)}</p>
+                            {/* Expanded content */}
+                            {isExpanded && (
+                              <div className="p-4 border-t border-glass bg-secondary/5 space-y-6 animate-surface-enter text-left w-full">
+                                
+                                {/* Linha do tempo (Timeline) */}
+                                <CreditCardTimeline
+                                  card={card}
+                                  currentMonth={currentMonth}
+                                  totalPrevisto={totalPrevisto}
+                                  totalPago={totalPago}
+                                  saldoAberto={saldoAberto}
+                                  monthlyCycle={monthlyCycle}
+                                  baseExpense={baseExpensesByCard[card.id]}
+                                />
+
+                                {/* Ações do Cartão */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-secondary/20 p-2.5 sm:p-3 rounded-xl border border-glass">
+                                  <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Ações do Cartão</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <IconButton
+                                      size="sm"
+                                      icon={<Pencil size={14} />}
+                                      onClick={() => openEditCardModal(card)}
+                                      label="Editar Cartão"
+                                      title="Editar configurações do cartão"
+                                    />
+                                    <IconButton
+                                      size="sm"
+                                      icon={<Calendar size={14} />}
+                                      onClick={() => openCycleModal(card)}
+                                      label="Ajustar Ciclo"
+                                      title="Ajustar fechamento/vencimento do mês"
+                                    />
+                                    <IconButton
+                                      size="sm"
+                                      icon={<Undo2 size={14} />}
+                                      onClick={() => openRefundModal(card.id)}
+                                      label="Estorno"
+                                      title="Registrar estorno"
+                                    />
+                                    <IconButton
+                                      size="sm"
+                                      icon={<Wallet size={14} />}
+                                      onClick={() => openPaymentModal(card.id)}
+                                      label="Pagar Fatura"
+                                      title="Registrar pagamento"
+                                    />
+                                    <IconButton
+                                      size="sm"
+                                      icon={<FileUp size={14} />}
+                                      onClick={() => setReconciliationCardId(card.id)}
+                                      label="CSV"
+                                      title="Anexar CSV"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Lançamentos da Fatura */}
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between border-b border-glass pb-1.5">
+                                    <h4 className="text-[11px] font-black uppercase tracking-wider text-primary">
+                                      Lançamentos da fatura ({currentMonth})
+                                    </h4>
+                                    <span className="text-[10px] bg-secondary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                                      {billItems.length} {billItems.length === 1 ? 'item' : 'itens'}
+                                    </span>
+                                  </div>
+                                  {billItems.length === 0 ? (
+                                    <p className="text-xs text-secondary italic">Sem lançamentos registrados nesta competência.</p>
+                                  ) : (
+                                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                                      {billItems.map((item) => (
+                                        <BillExpenseRowButton
+                                          key={item.id}
+                                          item={item}
+                                          creditCardsWeightsEnabled={creditCardsWeightsEnabled}
+                                          onOpen={openExpenseEditModal}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Pagamentos e Ajustes */}
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between border-b border-glass pb-1.5">
+                                    <h4 className="text-[11px] font-black uppercase tracking-wider text-primary">
+                                      Pagamentos e Ajustes ({currentMonth})
+                                    </h4>
+                                    <span className="text-[10px] bg-secondary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                                      {(paymentItemsByCard[card.id] || []).length} {(paymentItemsByCard[card.id] || []).length === 1 ? 'registro' : 'registros'}
+                                    </span>
+                                  </div>
+                                  {(paymentItemsByCard[card.id] || []).length === 0 ? (
+                                    <p className="text-xs text-secondary italic">Sem pagamentos registrados nesta competência.</p>
+                                  ) : (
+                                    <div className="max-h-60 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                                      {(paymentItemsByCard[card.id] || []).map((payment) => {
+                                        const refundMeta = parseRefundNote(payment.note)
+                                        return (
+                                          <PaymentRowButton
+                                            key={payment.id}
+                                            onClick={() => handleOpenPaymentItem(payment)}
+                                          >
+                                            <div className="flex items-start justify-between gap-3 w-full text-left">
+                                              <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-primary truncate">
+                                                  {refundMeta.isRefund
+                                                    ? (refundMeta.description || 'Estorno de compra')
+                                                    : (payment.note || 'Pagamento de fatura')}
+                                                </p>
+                                                <p className="text-[10px] text-secondary mt-0.5 font-mono">
+                                                  {formatDate(payment.payment_date)}
+                                                  {refundMeta.isRefund ? ' • Estorno' : ''}
+                                                </p>
+                                              </div>
+                                              <p className="text-xs font-bold text-income font-mono">{formatCurrency(payment.amount)}</p>
+                                            </div>
+                                          </PaymentRowButton>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+
                               </div>
-                              {isExpanded ? <ChevronUp size={16} className="text-secondary" /> : <ChevronDown size={16} className="text-secondary" />}
-                            </div>
-                          </div>
+                            )}
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-                          {/* Accordion Body */}
-                          {isExpanded && (
-                            <div className="p-4 pl-5 border-t border-glass bg-secondary/5 space-y-4 animate-slide-down text-left">
-                              {debt.description && (
-                                <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Descrição</p>
-                                  <p className="text-xs text-primary leading-relaxed whitespace-pre-wrap">{debt.description}</p>
-                                </div>
-                              )}
-
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                                <div className="flex items-center gap-2">
-                                  <Button 
-                                    size="sm" 
-                                    variant={isPaid ? 'outline' : 'primary'}
-                                    onClick={() => handleToggleDebtStatus(debt)}
-                                    className="flex items-center gap-1.5"
-                                  >
-                                    <Check size={14} />
-                                    {isPaid ? 'Marcar como Pendente' : isPayable ? 'Confirmar Pagamento' : 'Confirmar Recebimento'}
-                                  </Button>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    onClick={() => openEditDebtModal(debt)}
-                                    className="flex items-center gap-1.5"
-                                  >
-                                    <Pencil size={13} />
-                                    Editar
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    onClick={() => handleDeleteDebt(debt.id)}
-                                    className="text-expense border-expense/20 hover:bg-expense/10 flex items-center gap-1.5"
-                                  >
-                                    <Trash2 size={13} />
-                                    Excluir
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </Card>
-                      )
-                    })}
+              <TabsContent value="debts" className="space-y-4 outline-none animate-surface-enter">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-glass pb-2">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                      <Scale size={18} className="text-primary-light" />
+                      Pendências
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                        {pendingDebts.length}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
 
-            </div>
+                  {pendingDebts.length === 0 ? (
+                    <Card className="text-center py-6 space-y-3">
+                      <p className="text-secondary text-sm">Nenhuma pendência ativa para este período.</p>
+                      <div className="flex justify-center">
+                        <Button size="sm" onClick={openCreateDebtModal}>Nova Pendência</Button>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingDebts.map((debt) => {
+                        const isExpanded = !!expandedItems[debt.id]
+                        const isPayable = debt.type === 'payable'
+                        const isPaid = debt.status === 'paid'
+
+                        return (
+                          <Card key={debt.id} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
+                            {/* Color bar indicator for type */}
+                            <div 
+                              className={`absolute left-0 top-0 bottom-0 w-1 ${
+                                isPayable ? 'bg-expense' : 'bg-income'
+                              }`}
+                            />
+
+                            {/* Accordion Header */}
+                            <div 
+                              className="p-3 sm:p-4 pl-4 sm:pl-5 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
+                              onClick={() => toggleExpand(debt.id)}
+                            >
+                              <div className="min-w-0 flex-1 text-left">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-xs sm:text-sm font-bold text-primary truncate max-w-[140px] sm:max-w-none">{debt.name}</p>
+                                  <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wider shrink-0 ${
+                                    isPayable ? 'text-expense' : 'text-income'
+                                  }`}>
+                                    {isPayable ? 'A Pagar' : 'A Receber'}
+                                  </span>
+                                  {debt.expense_id && (
+                                    <span 
+                                      className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-primary shrink-0 cursor-help" 
+                                      title="Esta pendência está integrada a uma despesa e as alterações serão sincronizadas."
+                                    >
+                                      <Link2 size={10} className="stroke-[3]" />
+                                      Integrada
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-secondary font-mono mt-1 flex flex-wrap items-center gap-1.5">
+                                  <span>Venc.: {formatDate(debt.due_date)}</span>
+                                  <span className="text-[8px] bg-secondary/80 text-secondary px-1 py-0.5 rounded font-sans font-bold">
+                                    Ref: {formatMonth(debt.due_date.substring(0, 7))}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+                                <div className="text-right">
+                                  <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider block ${
+                                    isPaid ? 'text-income' : 'text-warning'
+                                  }`}>
+                                    {isPaid ? 'Pago' : 'Pendente'}
+                                  </span>
+                                  <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">{formatCurrency(debt.amount)}</p>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                                ) : (
+                                  <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Accordion Body */}
+                            {isExpanded && (
+                              <div className="p-4 pl-5 border-t border-glass bg-secondary/5 space-y-4 animate-surface-enter text-left">
+                                {debt.description && (
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Descrição</p>
+                                    <p className="text-xs text-primary leading-relaxed whitespace-pre-wrap">{debt.description}</p>
+                                  </div>
+                                )}
+
+                                {debt.expense && (
+                                  <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 sm:p-4 space-y-3 relative overflow-hidden select-text">
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/30" />
+                                    
+                                    <div className="flex items-center gap-1.5">
+                                      <Link2 size={12} className="text-primary stroke-[2.5]" />
+                                      <span className="text-[10px] uppercase font-black tracking-wider text-primary">Despesa Integrada Relacionada</span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
+                                      <div>
+                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Descrição original:</span>
+                                        <span className="text-primary font-semibold block sm:truncate">{debt.expense.description || 'Sem descrição'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Valor da Despesa:</span>
+                                        <span className="text-primary font-extrabold font-mono text-sm">{formatCurrency(debt.expense.amount)}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Data de Lançamento:</span>
+                                        <span className="text-primary font-mono">{formatDate(debt.expense.date)}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Meio de Pagamento / Categoria:</span>
+                                        <span className="text-primary block sm:truncate" title={
+                                          debt.expense.payment_method === 'credit_card'
+                                            ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
+                                            : `${debt.expense.payment_method || 'Outro'}${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
+                                        }>
+                                          {debt.expense.payment_method === 'credit_card'
+                                            ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})`
+                                            : debt.expense.payment_method === 'pix' ? 'Pix'
+                                            : debt.expense.payment_method === 'cash' ? 'Dinheiro'
+                                            : debt.expense.payment_method === 'debit' ? 'Débito'
+                                            : debt.expense.payment_method === 'transfer' ? 'Transferência'
+                                            : debt.expense.payment_method || 'Outro'}
+                                          {debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                                  <div className="w-full sm:w-auto">
+                                    <Button 
+                                      size="sm" 
+                                      variant={isPaid ? 'outline' : 'primary'}
+                                      onClick={() => handleToggleDebtStatus(debt)}
+                                      className="w-full sm:w-auto flex items-center justify-center gap-1.5"
+                                    >
+                                      <Check size={14} />
+                                      {isPaid ? 'Marcar como Pendente' : isPayable ? 'Confirmar Pagamento' : 'Confirmar Recebimento'}
+                                    </Button>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:w-auto">
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      onClick={() => openEditDebtModal(debt)}
+                                      className="w-full sm:w-auto flex items-center justify-center gap-1.5"
+                                    >
+                                      <Pencil size={13} />
+                                      Editar
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      onClick={() => handleDeleteDebt(debt.id)}
+                                      className="text-expense border-expense/20 hover:bg-expense/10 w-full sm:w-auto flex items-center justify-center gap-1.5"
+                                    >
+                                      <Trash2 size={13} />
+                                      Excluir
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {confirmedDebts.length > 0 && (
+                    <div className="space-y-3 pt-4 border-t border-glass mt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
+                          <CheckCircle2 size={14} className="text-income" />
+                          Confirmadas no Mês ({confirmedDebts.length})
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {confirmedDebts.map((debt) => (
+                          <div 
+                            key={debt.id}
+                            className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-income/5 border border-income/10 text-xs hover:bg-income/10 hover:border-income/20 transition-all select-none cursor-pointer"
+                            title="Clique para reabrir esta pendência"
+                            onClick={() => handleToggleDebtStatus(debt)}
+                          >
+                            <CheckCircle2 size={13} className="text-income shrink-0 group-hover:scale-110 transition-transform stroke-[2.5]" />
+                            <span className="font-semibold text-primary truncate max-w-[120px]">{debt.name}</span>
+                            <span className="text-income font-bold font-mono text-[10px]">{formatCurrency(debt.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           </MonthTransitionView>
         )}
       </div>
@@ -2490,11 +2848,11 @@ export default function Debts() {
         />
       </ModalForm>
 
-      {/* MODAL: NOVO/EDITAR DÍVIDA E COBRANÇA */}
+      {/* MODAL: NOVO/EDITAR LANÇAMENTO DE PENDÊNCIA */}
       <ModalForm
         isOpen={isDebtModalOpen}
         onClose={closeDebtModal}
-        title={editingDebt ? 'Editar Dívida/Cobrança' : 'Nova Dívida/Cobrança'}
+        title={editingDebt ? 'Editar Pendência' : 'Nova Pendência'}
         onSubmit={handleSubmitDebt}
         footer={(formId) => (
           <ModalFooter
@@ -2518,8 +2876,8 @@ export default function Debts() {
           value={debtForm.type}
           onChange={(e) => setDebtForm((prev) => ({ ...prev, type: e.target.value as 'payable' | 'receivable' }))}
           options={[
-            { value: 'payable', label: 'A Pagar (Saída / Dívida)' },
-            { value: 'receivable', label: 'A Receber (Entrada / Cobrança)' },
+            { value: 'payable', label: 'A Pagar (Saída / Pendência de Pagamento)' },
+            { value: 'receivable', label: 'A Receber (Entrada / Pendência de Recebimento)' },
           ]}
           required
         />
@@ -2589,6 +2947,258 @@ export default function Debts() {
           )
         })()}
       </Modal>
+
+      {/* MODAL: SELETOR DE NOVO LANÇAMENTO */}
+      <Modal
+        isOpen={isAddSelectorOpen}
+        onClose={() => setIsAddSelectorOpen(false)}
+        title="Novo Registro"
+      >
+        <div className="modal-body-stack">
+          <ModalIntro align="center">Escolha o tipo de registro que deseja adicionar:</ModalIntro>
+          <ModalChoiceGrid>
+            <GlassChoiceCard
+              label="Cartão de Crédito"
+              icon={<CreditCardIcon size={24} />}
+              intent="balance"
+              onClick={() => {
+                setIsAddSelectorOpen(false)
+                openCreateCardModal()
+              }}
+            />
+            <GlassChoiceCard
+              label="Pendência (Pagar/Receber)"
+              icon={<Scale size={24} />}
+              intent="neutral"
+              onClick={() => {
+                setIsAddSelectorOpen(false)
+                openCreateDebtModal()
+              }}
+            />
+          </ModalChoiceGrid>
+        </div>
+      </Modal>
+
+      {/* MODAL: CONFIRMAR RECEBIMENTO (CRIAR RENDA) */}
+      <Modal
+        isOpen={isIncomeConfirmModalOpen}
+        onClose={() => {
+          setIsIncomeConfirmModalOpen(false)
+          setSelectedDebtForIncome(null)
+        }}
+        title="Confirmar Recebimento"
+        footer={
+          <div className="flex w-full flex-col gap-2">
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={handleConfirmWithIncome}
+            >
+              Receber e Criar Renda
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={handleConfirmWithoutIncome}
+            >
+              Apenas Receber (sem renda)
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => {
+                setIsIncomeConfirmModalOpen(false)
+                setSelectedDebtForIncome(null)
+              }}
+              className="opacity-70 hover:opacity-100"
+            >
+              Cancelar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-left">
+          <div className="bg-secondary/15 border border-glass rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Descrição do Recebimento</span>
+              <span className="text-xs font-bold text-primary truncate max-w-[200px]">{selectedDebtForIncome?.name}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-glass/40 pt-2.5">
+              <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Valor do Recebimento</span>
+              <span className="text-base font-extrabold text-income font-mono">
+                {selectedDebtForIncome ? formatCurrency(selectedDebtForIncome.amount) : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="modal-alert modal-alert--info text-xs leading-relaxed p-3.5 rounded-xl">
+            <p className="font-semibold mb-1">Deseja criar a renda correspondente?</p>
+            <p className="opacity-90">
+              Se escolher <strong>Receber e Criar Renda</strong>, criaremos uma nova receita automaticamente nas suas Finanças. Caso contrário, a cobrança será apenas marcada como concluída.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL: CONFIRMAR RECEBIMENTO INTEGRADO (DESPESA VINCULADA) */}
+      <Modal
+        isOpen={isIntegratedModalOpen}
+        onClose={() => {
+          setIsIntegratedModalOpen(false)
+          setSelectedDebtForIntegrated(null)
+          setLinkedExpense(null)
+        }}
+        title="Confirmar Recebimento Integrado"
+        footer={
+          <div className="flex w-full flex-col sm:flex-row justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsIntegratedModalOpen(false)
+                setSelectedDebtForIntegrated(null)
+                setLinkedExpense(null)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmIntegrated}
+            >
+              Confirmar e Atualizar Despesa
+            </Button>
+          </div>
+        }
+      >
+        {linkedExpense && selectedDebtForIntegrated && (
+          <div className="space-y-4">
+            <p className="text-sm text-primary">
+              Este recebimento está integrado à despesa <strong>"{linkedExpense.description || 'Sem descrição'}"</strong>.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4 bg-secondary/10 p-3 rounded-lg border border-glass text-xs">
+              <div>
+                <span className="text-secondary font-semibold">Valor Total da Despesa:</span>
+                <p className="font-mono text-sm font-bold text-primary">{formatCurrency(linkedExpense.amount)}</p>
+              </div>
+              <div>
+                <span className="text-secondary font-semibold">Valor Atual no Relatório:</span>
+                <p className="font-mono text-sm font-bold text-primary">{formatCurrency(linkedExpense.amount * (linkedExpense.report_weight ?? 1))}</p>
+              </div>
+              <div className="col-span-2 border-t border-glass pt-2 mt-1">
+                <span className="text-secondary font-semibold">Valor do Pagamento/Recebimento:</span>
+                <p className="font-mono text-sm font-bold text-income">{formatCurrency(selectedDebtForIntegrated.amount)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-left">
+              <Input
+                label="Valor final no relatório da despesa"
+                type="text"
+                inputMode="decimal"
+                value={integratedReportValueInput}
+                onChange={(e) => setIntegratedReportValueInput(e.target.value)}
+                onBlur={() => {
+                  const parsed = parseMoneyInput(integratedReportValueInput)
+                  if (!Number.isNaN(parsed) && parsed >= 0) {
+                    setIntegratedReportValueInput(formatMoneyInput(parsed))
+                  }
+                }}
+                placeholder="0,00"
+                required
+              />
+              <p className="text-[10px] text-secondary">
+                * O valor final sugerido acima foi reduzido automaticamente pelo pagamento. Você pode editar este valor caso deseje outro peso de relatório.
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL: CONFIRMAR PAGAMENTO DÍVIDA (CADASTRAR DESPESA?) */}
+      <Modal
+        isOpen={isPayableConfirmModalOpen}
+        onClose={() => {
+          setIsPayableConfirmModalOpen(false)
+          setSelectedDebtForPayableExpense(null)
+        }}
+        title="Confirmar Pagamento"
+        footer={
+          <div className="flex w-full flex-col gap-2">
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={() => {
+                setIsPayableConfirmModalOpen(false)
+                setIsPayableExpenseModalOpen(true)
+              }}
+            >
+              Pagar e Cadastrar Despesa
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={handleConfirmPayableWithoutExpenseDirect}
+            >
+              Apenas Pagar (sem despesa)
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => {
+                setIsPayableConfirmModalOpen(false)
+                setSelectedDebtForPayableExpense(null)
+              }}
+              className="opacity-70 hover:opacity-100"
+            >
+              Cancelar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-left">
+          <div className="bg-secondary/15 border border-glass rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Título da Pendência</span>
+              <span className="text-xs font-bold text-primary truncate max-w-[200px]">{selectedDebtForPayableExpense?.name}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-glass/40 pt-2.5">
+              <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Valor do Pagamento</span>
+              <span className="text-base font-extrabold text-expense font-mono">
+                {selectedDebtForPayableExpense ? formatCurrency(selectedDebtForPayableExpense.amount) : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="modal-alert modal-alert--info text-xs leading-relaxed p-3.5 rounded-xl">
+            <p className="font-semibold mb-1">Deseja cadastrar a despesa vinculada?</p>
+            <p className="opacity-90">
+              Ao escolher <strong>Pagar e Cadastrar Despesa</strong>, você criará um registro de saída correspondente no fluxo de caixa. Caso contrário, a pendência será apenas marcada como paga sem afetar seu fluxo.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL: CADASTRAR DESPESA VINCULADA AO PAGAR DÍVIDA */}
+      <ExpenseFormModal
+        isOpen={isPayableExpenseModalOpen}
+        onClose={() => {
+          setIsPayableExpenseModalOpen(false)
+          setSelectedDebtForPayableExpense(null)
+        }}
+        editingExpense={null}
+        categories={categories}
+        creditCards={creditCards}
+        onCreate={handleCreateExpenseForPayable}
+        onUpdate={async () => ({ data: null, error: 'Não implementado nesta ação' })}
+        onDelete={async () => ({ error: 'Não implementado nesta ação' })}
+        defaultValues={selectedDebtForPayableExpense ? {
+          amount: selectedDebtForPayableExpense.amount,
+          description: selectedDebtForPayableExpense.name,
+          date: selectedDebtForPayableExpense.due_date || format(new Date(), 'yyyy-MM-dd')
+        } : undefined}
+      />
     </div>
   )
 }
+

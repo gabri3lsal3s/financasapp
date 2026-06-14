@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, CreditCard, LogOut, Users } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, LogOut, Users, Receipt } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
@@ -88,6 +88,7 @@ export default function Layout({ children }: LayoutProps) {
       { path: '/', icon: Home, label: 'Início', onlineOnly: false },
       { path: '/expenses', icon: TrendingDown, label: 'Despesas', onlineOnly: false },
       { path: '/incomes', icon: TrendingUp, label: 'Rendas', onlineOnly: false },
+      { path: '/contas', icon: Receipt, label: 'Contas', onlineOnly: true },
       { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
     ]
 
@@ -100,7 +101,6 @@ export default function Layout({ children }: LayoutProps) {
     }
 
     items.push(
-      { path: '/debts', icon: CreditCard, label: 'Dívidas', onlineOnly: true },
       { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
       { path: '/categories', icon: Tags, label: 'Categorias', onlineOnly: true },
       { path: '/settings', icon: Settings, label: 'Configurações do App', onlineOnly: false }
@@ -214,11 +214,11 @@ export default function Layout({ children }: LayoutProps) {
               <div className="grid grid-cols-2 gap-3">
                 {!(!isOnline) && (
                   <Link
-                    to="/debts"
+                    to="/contas"
                     className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
                   >
-                    <CreditCard size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Dívidas</span>
+                    <Receipt size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Contas</span>
                   </Link>
                 )}
                 {!(!isOnline) && (

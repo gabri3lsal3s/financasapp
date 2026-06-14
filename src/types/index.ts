@@ -70,6 +70,7 @@ export interface Debt {
   expense_id?: string | null
   created_at: string
   user_id?: string
+  expense?: Expense
 }
 
 export interface Income {

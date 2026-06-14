@@ -726,10 +726,10 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/debts')}
+                onClick={() => navigate('/contas')}
                 className="text-xs h-7 gap-1 shrink-0 hidden sm:flex"
               >
-                Gerenciar Dívidas
+                Gerenciar Contas
                 <ChevronRight size={12} />
               </Button>
             </div>
@@ -778,10 +778,10 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/debts')}
+                onClick={() => navigate('/contas')}
                 className="w-full text-xs h-8 gap-1 justify-center"
               >
-                Gerenciar Dívidas
+                Gerenciar Contas
                 <ChevronRight size={12} />
               </Button>
             </div>

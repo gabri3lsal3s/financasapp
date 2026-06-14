@@ -11,14 +11,16 @@ export function useDebts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const loadDebts = async () => {
+  const loadDebts = async (silent = false) => {
     try {
-      setLoading(true)
       const cacheKey = 'debts-all'
       const cached = await getCache<Debt[]>(cacheKey)
       if (cached) {
         setDebts(cached)
-        setLoading(false)
+      }
+      
+      if (!silent && debts.length === 0 && !cached) {
+        setLoading(true)
       }
 
       if (!isOnline) {
@@ -28,7 +30,14 @@ export function useDebts() {
 
       const { data, error: fetchError } = await supabase
         .from('debts')
-        .select('*')
+        .select(`
+          *,
+          expense:expenses(
+            *,
+            category:categories(*),
+            credit_card:credit_cards(*)
+          )
+        `)
         .order('due_date', { ascending: true })
 
       if (fetchError) throw fetchError
@@ -50,12 +59,12 @@ export function useDebts() {
 
   useEffect(() => {
     const onQueueProcessed = () => {
-      loadDebts()
+      loadDebts(true)
     }
     const onLocalDataChanged = (e: Event) => {
       const customEvent = e as CustomEvent
       if (customEvent.detail?.entity === 'debts') {
-        loadDebts()
+        loadDebts(true)
       }
     }
     window.addEventListener('offline-queue-processed', onQueueProcessed)
@@ -68,6 +77,15 @@ export function useDebts() {
   }, [])
 
   const createDebt = async (payload: Omit<Debt, 'id' | 'created_at'>) => {
+    const tempId = `temp-${Date.now()}`
+    const tempDebt: Debt = {
+      id: tempId,
+      created_at: new Date().toISOString(),
+      ...payload,
+    }
+    
+    setDebts((previous) => [...previous, tempDebt].sort((a, b) => a.due_date.localeCompare(b.due_date)))
+
     try {
       const { data, error: insertError } = await supabase
         .from('debts')
@@ -76,7 +94,11 @@ export function useDebts() {
         .single()
 
       if (insertError) throw insertError
-      setDebts((previous) => [...previous, data].sort((a, b) => a.due_date.localeCompare(b.due_date)))
+      
+      setDebts((previous) => previous
+        .map((debt) => (debt.id === tempId ? data : debt))
+        .sort((a, b) => a.due_date.localeCompare(b.due_date)))
+      
       window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
       return { data, error: null }
     } catch (err) {
@@ -92,18 +114,31 @@ export function useDebts() {
           ...payload,
         }
         setDebts((previous) => {
-          const next = [...previous, offlineDebt].sort((a, b) => a.due_date.localeCompare(b.due_date))
+          const next = previous
+            .map((debt) => (debt.id === tempId ? offlineDebt : debt))
+            .sort((a, b) => a.due_date.localeCompare(b.due_date))
           setCache('debts-all', next).catch(console.error)
           return next
         })
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
         return { data: offlineDebt, error: null }
       }
+      
+      // Rollback on error
+      setDebts((previous) => previous.filter((debt) => debt.id !== tempId))
       return { data: null, error: err instanceof Error ? err.message : 'Erro ao criar dívida' }
     }
   }
 
   const updateDebt = async (id: string, updates: Partial<Debt>) => {
+    let previousDebts: Debt[] = []
+    setDebts((previous) => {
+      previousDebts = previous
+      return previous
+        .map((debt) => (debt.id === id ? { ...debt, ...updates } : debt))
+        .sort((a, b) => a.due_date.localeCompare(b.due_date))
+    })
+
     try {
       const { data, error: updateError } = await supabase
         .from('debts')
@@ -115,7 +150,7 @@ export function useDebts() {
       if (updateError) throw updateError
 
       setDebts((previous) => previous
-        .map((debt) => (debt.id === id ? data : debt))
+        .map((debt) => (debt.id === id ? { ...debt, ...data } : debt))
         .sort((a, b) => a.due_date.localeCompare(b.due_date)))
 
       window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
@@ -129,20 +164,26 @@ export function useDebts() {
           payload: updates as Record<string, unknown>,
         })
         setDebts((previous) => {
-          const next = previous
-            .map((debt) => (debt.id === id ? { ...debt, ...updates } : debt))
-            .sort((a, b) => a.due_date.localeCompare(b.due_date))
-          setCache('debts-all', next).catch(console.error)
-          return next
+          setCache('debts-all', previous).catch(console.error)
+          return previous
         })
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
         return { data: { id, ...updates } as Debt, error: null }
       }
+      
+      // Rollback on error
+      setDebts(previousDebts)
       return { data: null, error: err instanceof Error ? err.message : 'Erro ao atualizar dívida' }
     }
   }
 
   const deleteDebt = async (id: string) => {
+    let previousDebts: Debt[] = []
+    setDebts((previous) => {
+      previousDebts = previous
+      return previous.filter((debt) => debt.id !== id)
+    })
+
     try {
       const { error: deleteError } = await supabase
         .from('debts')
@@ -152,7 +193,6 @@ export function useDebts() {
       if (deleteError) throw deleteError
 
       const nextDebts = debts.filter((debt) => debt.id !== id)
-      setDebts(nextDebts)
       await setCache('debts-all', nextDebts)
       window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
       return { error: null }
@@ -164,11 +204,13 @@ export function useDebts() {
           recordId: id,
         })
         const nextDebts = debts.filter((debt) => debt.id !== id)
-        setDebts(nextDebts)
         await setCache('debts-all', nextDebts).catch(console.error)
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
         return { error: null }
       }
+      
+      // Rollback on error
+      setDebts(previousDebts)
       return { error: err instanceof Error ? err.message : 'Erro ao excluir dívida' }
     }
   }
@@ -180,6 +222,6 @@ export function useDebts() {
     createDebt,
     updateDebt,
     deleteDebt,
-    refreshDebts: loadDebts,
+    refreshDebts: () => loadDebts(true),
   }
 }

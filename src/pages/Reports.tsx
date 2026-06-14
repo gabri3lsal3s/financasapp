@@ -1660,7 +1660,7 @@ export default function Reports() {
           <Landmark className="text-secondary" size={20} />
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              Projeção de Dívidas & Cobranças Pendentes
+              Projeção de Pendências (A Pagar & Receber)
             </h3>
             <p className="text-[10px] text-secondary mt-0.5">
               Valores em aberto com vencimento em {viewMode === 'month' ? formatMonth(selectedMonth) : selectedYear}

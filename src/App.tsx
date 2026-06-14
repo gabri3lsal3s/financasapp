@@ -17,7 +17,7 @@ const Expenses            = lazy(() => import('./pages/Expenses'))
 const Incomes             = lazy(() => import('./pages/Incomes'))
 const Reports             = lazy(() => import('./pages/Reports'))
 const Investments         = lazy(() => import('./pages/Investments'))
-const Debts                 = lazy(() => import('./pages/Debts'))
+const Contas               = lazy(() => import('./pages/Contas'))
 const Settings            = lazy(() => import('./pages/Settings'))
 const Categories          = lazy(() => import('./pages/Categories'))
 const ExpenseCategories   = lazy(() => import('./pages/ExpenseCategories'))
@@ -71,7 +71,7 @@ function AppRoutes() {
           <Route path="/consulting" element={<ConsultantDashboard />} />
         )}
 
-        <Route path="/debts" element={<Debts />} />
+        <Route path="/contas" element={<Contas />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
