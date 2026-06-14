@@ -2524,16 +2524,14 @@ nav.glass-bottom-nav {
 }
 
 @keyframes bell-ring {
-  0%, 100% { transform: rotate(0); }
-  15% { transform: rotate(15deg); }
-  30% { transform: rotate(-15deg); }
-  45% { transform: rotate(10deg); }
-  60% { transform: rotate(-10deg); }
-  75% { transform: rotate(4deg); }
-  90% { transform: rotate(-4deg); }
+  0%, 15%, 100% { transform: rotate(0); }
+  3% { transform: rotate(5deg); }
+  6% { transform: rotate(-5deg); }
+  9% { transform: rotate(3deg); }
+  12% { transform: rotate(-3deg); }
 }
 
 .animate-bell-ring {
-  animation: bell-ring 1s ease-in-out infinite;
+  animation: bell-ring 6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
   transform-origin: top center;
 }

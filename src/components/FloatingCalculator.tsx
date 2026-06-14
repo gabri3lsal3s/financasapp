@@ -1208,7 +1208,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     const isSide = iconOrigin === 'top-right'
     const resolvedTop = isSide && slotTop !== null
       ? slotTop
-      : window.innerHeight - (isMobile ? 120 : (hasAlertsFab ? 132 : 72))
+      : window.innerHeight - (isMobile ? 120 : (hasAlertsFab ? 124 : 72))
     const resolvedRight = isSide
       ? 0
       : (isMobile ? 16 : 32)

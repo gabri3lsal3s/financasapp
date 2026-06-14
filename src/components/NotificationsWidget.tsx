@@ -117,12 +117,12 @@ export default function NotificationsWidget() {
             type="button"
             id="alerts-fab"
             onClick={() => setIsDesktopAlertsOpen(!isDesktopAlertsOpen)}
-            variant="primary"
-            className="alerts-fab-trigger flex h-12 w-12 min-h-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-[var(--color-button-text)] shadow-xl hover:opacity-90 hover:scale-105 active:scale-95 transition-all duration-300 relative border border-[var(--ds-color-accent-primary)]/20 p-0"
+            variant="outline"
+            className="alerts-fab-trigger flex h-10 w-10 min-h-10 items-center justify-center rounded-full border border-glass surface-glass shadow-lg hover:bg-accent/40 active:scale-95 transition-all duration-300 relative p-0"
             title="Lembretes de Vencimento"
           >
-            <Bell size={22} className="animate-bell-ring" />
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-expense text-[10px] font-black text-white border border-secondary shadow-sm">
+            <Bell size={18} className="animate-bell-ring text-primary" />
+            <span className="absolute -top-1 -right-1 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-expense text-[8px] font-black text-white border border-secondary shadow-sm">
               {combinedAlerts.length}
             </span>
           </Button>
