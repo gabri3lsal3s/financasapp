@@ -23,6 +23,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+import MobileAlertsPill from '@/components/MobileAlertsPill'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -225,6 +226,7 @@ export default function Expenses() {
       />
 
       <div className="p-4 lg:p-6 animate-page-enter space-y-4 lg:space-y-6">
+        <MobileAlertsPill />
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <MonthTransitionView month={currentMonth}>
           {loading && expenses.length === 0 ? (

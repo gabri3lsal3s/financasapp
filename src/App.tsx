@@ -10,6 +10,7 @@ import { ConflictResolutionModal } from './components/ConflictResolutionModal'
 import { Toaster } from 'react-hot-toast'
 import Loader from './components/Loader'
 import { useAdvisoryPortfolioLink } from './hooks/useAdvisoryPortfolioLink'
+import { NotificationsProvider } from '@/contexts/NotificationsContext'
 
 // Páginas — carregadas sob demanda (code-splitting por rota)
 const Dashboard           = lazy(() => import('./pages/Dashboard'))
@@ -84,35 +85,37 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <SupabaseWarning />
-          <NetworkStatusToast />
-          <ConflictResolutionModal />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: 'var(--color-bg-tertiary)',
-                color: 'var(--color-text-primary)',
-              },
-            }}
-          />
-          <Routes>
-            {/* Rotas Públicas */}
-            <Route path="/login" element={<Suspense fallback={<PageFallback />}><Login /></Suspense>} />
-            <Route path="/register" element={<Suspense fallback={<PageFallback />}><Register /></Suspense>} />
-            <Route path="/forgot-password" element={<Suspense fallback={<PageFallback />}><ForgotPassword /></Suspense>} />
-            <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
+          <NotificationsProvider>
+            <SupabaseWarning />
+            <NetworkStatusToast />
+            <ConflictResolutionModal />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: 'var(--color-bg-tertiary)',
+                  color: 'var(--color-text-primary)',
+                },
+              }}
+            />
+            <Routes>
+              {/* Rotas Públicas */}
+              <Route path="/login" element={<Suspense fallback={<PageFallback />}><Login /></Suspense>} />
+              <Route path="/register" element={<Suspense fallback={<PageFallback />}><Register /></Suspense>} />
+              <Route path="/forgot-password" element={<Suspense fallback={<PageFallback />}><ForgotPassword /></Suspense>} />
+              <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
 
-            {/* Rotas Protegidas */}
-            <Route path="/*" element={
-              <ProtectedRoute>
-                <Layout>
-                  <AppRoutes />
-                </Layout>
-              </ProtectedRoute>
-            } />
-          </Routes>
+              {/* Rotas Protegidas */}
+              <Route path="/*" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AppRoutes />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </NotificationsProvider>
         </BrowserRouter>
       </ThemeProvider>
     </AuthProvider>

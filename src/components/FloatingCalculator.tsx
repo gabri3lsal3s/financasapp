@@ -326,6 +326,24 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   const [isIconLabelExpanded, setIsIconLabelExpanded] = useState(false)
   const iconLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [hasAlertsFab, setHasAlertsFab] = useState(false)
+
+  useEffect(() => {
+    const checkAlertsFab = () => {
+      const exists = 
+        document.getElementById('alerts-fab') !== null || 
+        document.querySelector('.alerts-fab-trigger') !== null ||
+        document.querySelector('.animate-bell-ring') !== null
+      setHasAlertsFab(exists)
+    }
+
+    checkAlertsFab()
+    const interval = setInterval(checkAlertsFab, 500)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     setMounted(true)
@@ -1190,7 +1208,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     const isSide = iconOrigin === 'top-right'
     const resolvedTop = isSide && slotTop !== null
       ? slotTop
-      : window.innerHeight - (isMobile ? 120 : 72)
+      : window.innerHeight - (isMobile ? 120 : (hasAlertsFab ? 132 : 72))
     const resolvedRight = isSide
       ? 0
       : (isMobile ? 16 : 32)

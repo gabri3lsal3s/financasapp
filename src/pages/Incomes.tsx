@@ -21,6 +21,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+import MobileAlertsPill from '@/components/MobileAlertsPill'
 
 export default function Incomes() {
   const navigate = useNavigate()
@@ -122,6 +123,7 @@ export default function Incomes() {
       />
 
       <div className="p-4 lg:p-6 animate-page-enter">
+        <MobileAlertsPill />
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <MonthTransitionView month={currentMonth}>
           {loading && incomes.length === 0 ? (

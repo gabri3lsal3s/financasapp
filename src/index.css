@@ -2522,3 +2522,18 @@ nav.glass-bottom-nav {
     z-index: 1000 !important; /* No mobile, mantém o stack acima do overlay (z-999) mas abaixo/no nível do sheet (z-1000) */
   }
 }
+
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-15deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-10deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-4deg); }
+}
+
+.animate-bell-ring {
+  animation: bell-ring 1s ease-in-out infinite;
+  transform-origin: top center;
+}

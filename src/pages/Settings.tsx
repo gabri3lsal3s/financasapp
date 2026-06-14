@@ -73,6 +73,10 @@ export default function Settings() {
     setBiometricLockTimeout,
     remindersEnabled,
     setRemindersEnabled,
+    remindersDaysBeforeDebts,
+    setRemindersDaysBeforeDebts,
+    remindersDaysBeforeCardBills,
+    setRemindersDaysBeforeCardBills,
   } = useAppSettings()
 
   const fetchUsers = async () => {
@@ -504,16 +508,47 @@ export default function Settings() {
           </Card>
 
           <Card>
-            <SettingRow
-              title="Lembretes de vencimento"
-              description="Exibe alertas visuais no painel principal sobre faturas de cartão e contas a pagar/receber próximas do vencimento (3 dias ou menos)."
-            >
-              <Switch
-                checked={remindersEnabled}
-                onChange={() => setRemindersEnabled(!remindersEnabled)}
-                title={remindersEnabled ? 'Desativar lembretes' : 'Ativar lembretes'}
-              />
-            </SettingRow>
+            <div className="space-y-4">
+              <SettingRow
+                title="Lembretes de vencimento"
+                description="Exibe alertas visuais no painel principal sobre faturas de cartão e contas a pagar/receber próximas do vencimento."
+              >
+                <Switch
+                  checked={remindersEnabled}
+                  onChange={() => setRemindersEnabled(!remindersEnabled)}
+                  title={remindersEnabled ? 'Desativar lembretes' : 'Ativar lembretes'}
+                />
+              </SettingRow>
+
+              {remindersEnabled && (
+                <div className="mt-4 pt-4 border-t border-primary space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-primary">Antecedência para contas</h4>
+                      <p className="text-xs text-secondary mt-0.5">Dias antes do vencimento para alertar contas a pagar/receber.</p>
+                    </div>
+                    <Select
+                      value={String(remindersDaysBeforeDebts)}
+                      onChange={(e) => setRemindersDaysBeforeDebts(Number(e.target.value))}
+                      options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
+                      className="min-w-[150px] sm:w-[150px]"
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-primary">Antecedência para faturas</h4>
+                      <p className="text-xs text-secondary mt-0.5">Dias antes do vencimento para alertar faturas de cartão de crédito.</p>
+                    </div>
+                    <Select
+                      value={String(remindersDaysBeforeCardBills)}
+                      onChange={(e) => setRemindersDaysBeforeCardBills(Number(e.target.value))}
+                      options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
+                      className="min-w-[150px] sm:w-[150px]"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
         </section>
 
