@@ -212,15 +212,13 @@ export default function Layout({ children }: LayoutProps) {
             </SheetHeader>
             <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
               <div className="grid grid-cols-2 gap-3">
-                {!(!isOnline) && (
-                  <Link
-                    to="/contas"
-                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
-                  >
-                    <Receipt size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Contas</span>
-                  </Link>
-                )}
+                <Link
+                  to="/investments"
+                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                >
+                  <PiggyBank size={20} className="text-secondary mb-2" />
+                  <span className="text-xs font-bold text-primary">Carteira</span>
+                </Link>
                 {!(!isOnline) && (
                   <Link
                     to="/reports"
@@ -299,10 +297,10 @@ export default function Layout({ children }: LayoutProps) {
             <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Rendas</span>
           </Link>
 
-          {/* Investments Tab */}
-          <Link to="/investments" className={mobileTabClass(location.pathname === '/investments')}>
-            <PiggyBank size={18} aria-hidden />
-            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Carteira</span>
+          {/* Contas Tab */}
+          <Link to="/contas" className={mobileTabClass(location.pathname === '/contas')}>
+            <Receipt size={18} aria-hidden />
+            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Contas</span>
           </Link>
 
           {/* "Mais" Menu Tab Button */}
@@ -311,7 +309,7 @@ export default function Layout({ children }: LayoutProps) {
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
             className={mobileTabClass(
-              isMobileMenuOpen || !['/', '/expenses', '/incomes', '/investments'].includes(location.pathname)
+              isMobileMenuOpen || !['/', '/expenses', '/incomes', '/contas'].includes(location.pathname)
             )}
           >
             <Menu size={18} aria-hidden />
