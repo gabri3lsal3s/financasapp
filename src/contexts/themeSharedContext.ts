@@ -8,6 +8,11 @@ export interface ThemeContextType {
   setColorPalette: (palette: ColorPalette) => void
   accentTone: AccentTone
   setAccentTone: (tone: AccentTone) => void
+  autoDarkPreference: 'dark' | 'midnight'
+  setAutoDarkPreference: (pref: 'dark' | 'midnight') => void
+  latitude: number | null
+  longitude: number | null
+  setLocation: (lat: number | null, lng: number | null) => void
 }
 
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
