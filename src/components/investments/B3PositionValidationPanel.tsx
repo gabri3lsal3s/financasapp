@@ -3,8 +3,7 @@ import { Upload, Wand2, AlertCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Button from '@/components/Button'
 import B3ReconciliationGuidance from '@/components/investments/B3ReconciliationGuidance'
-import { formatCurrency } from '@/utils/format'
-import { portfolioOperationLabel } from '@/utils/portfolioOperations'
+import B3AdjustmentCard from '@/components/investments/B3AdjustmentCard'
 import type {
   PositionAdjustmentSuggestion,
   PositionValidationResult,
@@ -178,44 +177,16 @@ export default function B3PositionValidationPanel({
                 Os preços unitários foram obtidos da planilha de posição ou da última cotação conhecida.
               </p>
               
-              <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {adjustments.map((adj) => {
-                  const isChecked = selectedAdjustmentTickers.has(adj.ticker)
-                  return (
-                    <li
-                      key={adj.ticker}
-                      onClick={() => onToggleAdjustment(adj.ticker)}
-                      className={`flex items-start gap-3 text-[11px] border rounded-xl px-3.5 py-2.5 cursor-pointer transition-all duration-200 ${
-                        isChecked
-                          ? 'border-balance/30 bg-balance/[0.04] shadow-sm'
-                          : 'border-glass hover:border-balance/20 modal-panel-glass !rounded-xl !p-3.5'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-3.5 w-3.5 rounded border-primary bg-primary text-balance focus:ring-balance focus:ring-offset-0 focus:outline-none cursor-pointer shrink-0"
-                        checked={isChecked}
-                        readOnly
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-primary text-xs">{adj.ticker}</span>
-                          <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded-md ${
-                            adj.operation_type === 'buy' 
-                              ? 'bg-income/10 text-income border border-income/10'
-                              : 'bg-expense/10 text-expense border border-expense/10'
-                          }`}>
-                            {adj.operation_type === 'buy' ? 'Aporte de Ajuste' : 'Retirada de Ajuste'}
-                          </span>
-                        </div>
-                        <p className="text-[9.5px] text-secondary mt-1 font-mono">
-                          {portfolioOperationLabel(adj.operation_type)} de <strong className="text-primary font-bold">{adj.quantity}</strong> un a <strong className="text-primary font-bold">{formatCurrency(adj.price)}</strong> em <span className="underline">{adj.date}</span>.
-                        </p>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {adjustments.map((adj) => (
+                  <B3AdjustmentCard
+                    key={adj.ticker}
+                    adj={adj}
+                    isChecked={selectedAdjustmentTickers.has(adj.ticker)}
+                    onToggle={() => onToggleAdjustment(adj.ticker)}
+                  />
+                ))}
+              </div>
               
               <div className="pt-2 border-t border-balance/10 flex justify-end">
                 <Button

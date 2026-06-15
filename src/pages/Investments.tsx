@@ -25,15 +25,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import Select from '@/components/Select'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 
-import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGroupTargetForm'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetTransactionsModal from '@/components/investments/AssetTransactionsModal'
 import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
-import ModalForm from '@/components/ModalForm'
-import ModalFooter from '@/components/ModalFooter'
+import GroupTargetModal from '@/components/investments/GroupTargetModal'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
@@ -123,8 +121,6 @@ export default function Investments() {
   const [portfolioData, setPortfolioData] = useState<InvestmentsPortfolioData | null>(null)
   const [portfolioLoading, setPortfolioLoading] = useState(false)
 
-  const [savingGroupTarget, setSavingGroupTarget] = useState<boolean>(false)
-
   // Estados adicionais para integração e sincronização de ativos e metas
   const [transactions, setTransactions] = useState<PortfolioTransaction[]>([])
   const [isTxModalOpen, setIsTxModalOpen] = useState(false)
@@ -156,16 +152,10 @@ export default function Investments() {
   }, [groupTargets])
 
   const [showGroupTargetForm, setShowGroupTargetForm] = useState<boolean>(false)
-  const [groupTargetType, setGroupTargetType] = useState<'class' | 'sector'>('class')
-  const [groupTargetName, setGroupTargetName] = useState<string>('Ações Nacionais')
-  const [groupTargetPct, setGroupTargetPct] = useState<string>('')
   const [editingGroupTarget, setEditingGroupTarget] = useState<PortfolioGroupTarget | null>(null)
 
   const handleEditGroupTarget = (gt: PortfolioGroupTarget) => {
     setEditingGroupTarget(gt)
-    setGroupTargetType(gt.group_type)
-    setGroupTargetName(gt.group_name)
-    setGroupTargetPct(String(gt.target_percentage))
     setShowGroupTargetForm(true)
   }
 
@@ -543,54 +533,7 @@ export default function Investments() {
 
 
 
-  const handleSaveGroupTarget = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!portfolioId) return
-    setSavingGroupTarget(true)
 
-    try {
-      const pct = parseFloat(groupTargetPct)
-      if (isNaN(pct) || pct < 0 || pct > 100) throw new Error('Percentual de limite inválido (0 a 100)')
-      
-      const name = groupTargetName.trim()
-      if (!name) throw new Error('Insira o nome do grupo')
-
-      // Validar se o limite acumulado excede 100%
-      const currentSum = groupTargets
-        .filter((gt) => gt.group_type === groupTargetType && gt.id !== editingGroupTarget?.id)
-        .reduce((sum, gt) => sum + Number(gt.target_percentage || 0), 0)
-
-      if (currentSum + pct > 100) {
-        throw new Error(
-          `O limite total de exposição por ${
-            groupTargetType === 'class' ? 'classe' : 'setor'
-          } não pode ultrapassar 100% (atual: ${formatPercentBR(currentSum, 0)})`
-        )
-      }
-
-      const { error } = await supabase
-        .from('portfolio_group_targets')
-        .upsert({
-          ...(editingGroupTarget?.id ? { id: editingGroupTarget.id } : {}),
-          portfolio_id: portfolioId,
-          group_type: groupTargetType,
-          group_name: name,
-          target_percentage: pct
-        })
-
-      if (error) throw error
-
-      toast.success(editingGroupTarget ? 'Limite de exposição atualizado!' : 'Limite de exposição cadastrado!')
-      setGroupTargetPct('')
-      setEditingGroupTarget(null)
-      setShowGroupTargetForm(false)
-      loadPortfolio()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar limite')
-    } finally {
-      setSavingGroupTarget(false)
-    }
-  }
 
   const handleDeleteGroupTarget = async (id: string) => {
     try {
@@ -1168,9 +1111,6 @@ export default function Investments() {
                       <div 
                         onClick={() => {
                           setEditingGroupTarget(null);
-                          setGroupTargetType(consolidationView);
-                          setGroupTargetName(consolidationView === 'class' ? 'Ações Nacionais' : '');
-                          setGroupTargetPct('');
                           setShowGroupTargetForm(true);
                         }}
                         className="cursor-pointer flex items-center justify-center gap-2 p-3.5 bg-secondary/30 border border-dashed border-balance/35 hover:border-balance/60 rounded-2xl transition-all select-none animate-page-enter w-full h-[62px] text-balance hover:bg-balance/5 hover:scale-[1.01]"
@@ -1806,34 +1746,16 @@ export default function Investments() {
             portfolioId={portfolioId}
             onSaved={loadPortfolio}
           />
-          <ModalForm
+          <GroupTargetModal
             isOpen={showGroupTargetForm}
             onClose={() => setShowGroupTargetForm(false)}
-            title="Definir Limites de Exposição"
-            size="md"
-            onSubmit={(event) => void handleSaveGroupTarget(event)}
-            footer={(formId) => (
-              <ModalFooter
-                formId={formId}
-                onCancel={() => setShowGroupTargetForm(false)}
-                submitLabel={savingGroupTarget ? 'Salvando...' : 'Salvar Limite'}
-                submitDisabled={savingGroupTarget}
-                loading={savingGroupTarget}
-              />
-            )}
-          >
-            <InvestmentsGroupTargetForm
-              groupTargetType={groupTargetType}
-              groupTargetName={groupTargetName}
-              groupTargetPct={groupTargetPct}
-              onTypeChange={(type) => {
-                setGroupTargetType(type)
-                setGroupTargetName(type === 'class' ? 'Ações Nacionais' : '')
-              }}
-              onNameChange={setGroupTargetName}
-              onPctChange={setGroupTargetPct}
-            />
-          </ModalForm>
+            onSaved={async () => {
+              await loadPortfolio()
+            }}
+            editingTarget={editingGroupTarget}
+            groupTargets={groupTargets}
+            portfolioId={portfolioId}
+          />
         </>
       )}
     </div>

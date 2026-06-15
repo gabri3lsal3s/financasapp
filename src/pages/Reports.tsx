@@ -7,9 +7,7 @@ import YearSelector from '@/components/YearSelector'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useSwipeYear } from '@/hooks/useSwipeYear'
 import Card from '@/components/Card'
-import Modal from '@/components/Modal'
 import Button from '@/components/Button'
-import Input from '@/components/Input'
 import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { PAGE_HEADERS } from '@/constants/pages'
@@ -31,9 +29,9 @@ import type { PortfolioTransaction } from '@/types'
 import { portfolioInvestmentByDay } from '@/utils/portfolioMonthlyFlow'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { addMonths, clampMonthToAppStart, formatCurrency, formatDate, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { Scale, Loader2, TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark } from 'lucide-react'
+import { Scale, TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -45,9 +43,9 @@ import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
 import WeekdayExpenseChart from '@/components/reports/WeekdayExpenseChart'
 import CategoryPieChart from '@/components/reports/CategoryPieChart'
 import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
-import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
+import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
 
 type ViewMode = 'year' | 'month'
 type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
@@ -116,7 +114,7 @@ const PAYMENT_METHOD_COLORS: Record<string, string> = {
   other: 'var(--payment-method-other)',
 }
 
-const DETAIL_ITEMS_STEP = 8
+
 
 type DetailExpenseEntry = {
   id: string
@@ -155,7 +153,6 @@ export default function Reports() {
   const [loadingAvailablePeriods, setLoadingAvailablePeriods] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [compareWithPrevious, setCompareWithPrevious] = useState(false)
-  const [modalTab, setModalTab] = useState<'summary' | 'transactions'>('summary')
   const [detailModal, setDetailModal] = useState<DetailModalState>({
     isOpen: false,
     type: 'expense',
@@ -163,8 +160,6 @@ export default function Reports() {
     categoryName: '',
     period: 'month',
   })
-  const [detailSearch, setDetailSearch] = useState('')
-  const [detailVisibleCount, setDetailVisibleCount] = useState(DETAIL_ITEMS_STEP)
   const [yearDetailLoading, setYearDetailLoading] = useState(false)
   const [yearExpenseItems, setYearExpenseItems] = useState<DetailExpenseEntry[]>([])
   const [previousYearExpenseItems, setPreviousYearExpenseItems] = useState<DetailExpenseEntry[]>([])
@@ -860,148 +855,11 @@ export default function Reports() {
   ])
 
 
-  const detailItems = useMemo(() => {
-    if (!detailModal.isOpen) {
-      return [] as Array<{ id: string; description: string; date: string; amount: number }>
-    }
-
-    if (detailModal.type === 'expense') {
-      const items = detailModal.period === 'year' ? yearExpenseItems : monthExpenses
-      return items
-        .filter((item) => item.category_id === detailModal.categoryId)
-        .map((item) => ({
-          id: item.id,
-          description: item.description || item.category?.name || 'Despesa',
-          date: item.date,
-          amount: getAmountByMode(item),
-        }))
-        .sort((a, b) => b.date.localeCompare(a.date))
-    }
-
-    if (detailModal.type === 'income') {
-      const items = detailModal.period === 'year' ? yearIncomeItems : monthIncomes
-      return items
-        .filter((item) => item.income_category_id === detailModal.categoryId)
-        .map((item) => ({
-          id: item.id,
-          description: item.description || item.income_category?.name || 'Renda',
-          date: item.date,
-          amount: getAmountByMode(item),
-        }))
-        .sort((a, b) => b.date.localeCompare(a.date))
-    }
-
-    if (detailModal.type === 'payment_method') {
-      const items = detailModal.period === 'year' ? annualExpenses : monthExpenses
-      return items
-        .filter((item) => (item.payment_method || 'other') === detailModal.categoryId)
-        .map((item) => ({
-          id: item.id,
-          description: item.description || item.category?.name || 'Despesa',
-          date: item.date,
-          amount: getAmountByMode(item),
-        }))
-        .sort((a, b) => b.date.localeCompare(a.date))
-    }
-
-    if (detailModal.type === 'credit_card') {
-      const items = detailModal.period === 'year' ? annualExpenses : monthExpenses
-      return items
-        .filter((item) => item.credit_card_id === detailModal.categoryId)
-        .map((item) => ({
-          id: item.id,
-          description: item.description || item.category?.name || 'Despesa',
-          date: item.date,
-          amount: getAmountByMode(item),
-        }))
-        .sort((a, b) => b.date.localeCompare(a.date))
-    }
-
-    return []
-  }, [detailModal, monthExpenses, monthIncomes, yearExpenseItems, yearIncomeItems, annualExpenses, getAmountByMode])
-
-  const detailCurrentTotal = useMemo(
-    () => detailItems.reduce((sum, item) => sum + item.amount, 0),
-    [detailItems]
-  )
-
-  const filteredDetailItems = useMemo(() => {
-    const search = detailSearch.trim().toLowerCase()
-    if (!search) {
-      return detailItems
-    }
-
-    return detailItems.filter((item) => item.description.toLowerCase().includes(search))
-  }, [detailItems, detailSearch])
-
-  const visibleDetailItems = useMemo(
-    () => filteredDetailItems.slice(0, detailVisibleCount),
-    [filteredDetailItems, detailVisibleCount]
-  )
-
-  const hasMoreDetailItems = filteredDetailItems.length > visibleDetailItems.length
-
-  const detailPreviousTotal = useMemo(() => {
-    if (!detailModal.isOpen) {
-      return 0
-    }
-
-    if (detailModal.period === 'year' && detailModal.type === 'expense') {
-      return previousYearExpenseItems
-        .filter((item) => item.category_id === detailModal.categoryId)
-        .reduce((sum, item) => sum + getAmountByMode(item), 0)
-    }
-
-    if (detailModal.period === 'year' && detailModal.type === 'income') {
-      return previousYearIncomeItems
-        .filter((item) => item.income_category_id === detailModal.categoryId)
-        .reduce((sum, item) => sum + getAmountByMode(item), 0)
-    }
-
-    if (detailModal.type === 'expense') {
-      return previousMonthExpenses
-        .filter((item) => item.category_id === detailModal.categoryId)
-        .reduce((sum, item) => sum + getAmountByMode(item), 0)
-    }
-
-    return previousMonthIncomes
-      .filter((item) => item.income_category_id === detailModal.categoryId)
-      .reduce((sum, item) => sum + getAmountByMode(item), 0)
-  }, [detailModal, previousMonthExpenses, previousMonthIncomes, previousYearExpenseItems, previousYearIncomeItems, getAmountByMode])
-
-  const detailDifference = detailCurrentTotal - detailPreviousTotal
-  const detailDifferencePct = detailPreviousTotal > 0
-    ? (detailDifference / detailPreviousTotal) * 100
-    : null
-
-  const detailCategoryColor = useMemo(() => {
-    if (!detailModal.isOpen) return 'var(--color-primary)'
-    if (detailModal.type === 'expense') {
-      return getExpenseColor(detailModal.categoryId, 'var(--color-primary)')
-    }
-    if (detailModal.type === 'income') {
-      return getIncomeColor(detailModal.categoryId, 'var(--color-primary)')
-    }
-    if (detailModal.type === 'payment_method') {
-      return PAYMENT_METHOD_COLORS[detailModal.categoryId] || 'var(--color-primary)'
-    }
-    if (detailModal.type === 'credit_card') {
-      return creditCards.find((c) => c.id === detailModal.categoryId)?.color || 'var(--color-primary)'
-    }
-    return 'var(--color-primary)'
-  }, [detailModal, getExpenseColor, getIncomeColor, creditCards])
-
   const monthExpenseLimitMap = useMemo(() => {
     const map = new Map<string, number | null>()
     monthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
     return map
   }, [monthExpenseLimits])
-
-  const previousMonthExpenseLimitMap = useMemo(() => {
-    const map = new Map<string, number | null>()
-    previousMonthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
-    return map
-  }, [previousMonthExpenseLimits])
 
   const monthIncomeExpectationMap = useMemo(() => {
     const map = new Map<string, number | null>()
@@ -1009,85 +867,12 @@ export default function Reports() {
     return map
   }, [monthIncomeExpectations])
 
-  const previousMonthIncomeExpectationMap = useMemo(() => {
-    const map = new Map<string, number | null>()
-    previousMonthIncomeExpectations.forEach((item) => map.set(item.income_category_id, item.expectation_amount))
-    return map
-  }, [previousMonthIncomeExpectations])
-
-  const detailMonthlyGoal = useMemo(() => {
-    if (detailModal.period !== 'month' || !detailModal.categoryId) return null
-
-    if (detailModal.type === 'expense') {
-      const currentValue = monthExpenseLimitMap.get(detailModal.categoryId)
-      const fallbackValue = previousMonthExpenseLimitMap.get(detailModal.categoryId)
-      const limitAmount = currentValue !== undefined ? currentValue : fallbackValue
-
-      if (limitAmount === undefined || limitAmount === null) {
-        return {
-          label: 'Limite',
-          configured: false,
-        }
-      }
-
-      const exceededAmount = Math.max(detailCurrentTotal - limitAmount, 0)
-      const remainingAmount = Math.max(limitAmount - detailCurrentTotal, 0)
-
-      return {
-        label: 'Limite',
-        configured: true,
-        targetAmount: limitAmount,
-        currentAmount: detailCurrentTotal,
-        differenceAmount: exceededAmount > 0 ? exceededAmount : remainingAmount,
-        isExceeded: exceededAmount > 0,
-      }
-    }
-
-    const currentValue = monthIncomeExpectationMap.get(detailModal.categoryId)
-    const fallbackValue = previousMonthIncomeExpectationMap.get(detailModal.categoryId)
-    const expectationAmount = currentValue !== undefined ? currentValue : fallbackValue
-
-    if (expectationAmount === undefined || expectationAmount === null) {
-      return {
-        label: 'Expectativa',
-        configured: false,
-      }
-    }
-
-    const exceededAmount = Math.max(detailCurrentTotal - expectationAmount, 0)
-    const remainingAmount = Math.max(expectationAmount - detailCurrentTotal, 0)
-
-    return {
-      label: 'Expectativa',
-      configured: true,
-      targetAmount: expectationAmount,
-      currentAmount: detailCurrentTotal,
-      differenceAmount: exceededAmount > 0 ? exceededAmount : remainingAmount,
-      isExceeded: exceededAmount > 0,
-    }
-  }, [
-    detailModal.period,
-    detailModal.type,
-    detailModal.categoryId,
-    detailCurrentTotal,
-    monthExpenseLimitMap,
-    previousMonthExpenseLimitMap,
-    monthIncomeExpectationMap,
-    previousMonthIncomeExpectationMap,
-  ])
-
-  useEffect(() => {
-    setDetailVisibleCount(DETAIL_ITEMS_STEP)
-  }, [detailModal.isOpen, detailModal.categoryId, detailModal.type, detailModal.period, detailSearch])
-
   const openDetailModal = (
     type: DetailType,
     categoryId: string,
     categoryName: string,
     period: 'month' | 'year' = 'month'
   ) => {
-    setDetailSearch('')
-    setModalTab('summary')
     setDetailModal({
       isOpen: true,
       type,
@@ -2136,184 +1921,36 @@ export default function Reports() {
         </MonthTransitionView>
       </div>
 
-      {/* Modal Refatorado de Detalhamento com Abas */}
-      <Modal
+      <CategoryDetailModal
         isOpen={detailModal.isOpen}
-        onClose={() => {
-          setDetailSearch('')
-          setDetailModal((prev) => ({ ...prev, isOpen: false }))
-        }}
-        title={`${
-          detailModal.type === 'expense' ? 'Despesas' :
-          detailModal.type === 'income' ? 'Rendas' :
-          detailModal.type === 'payment_method' ? 'Pagamentos' :
-          'Cartão de Crédito'
-        } • ${detailModal.categoryName}`}
-      >
-        <div className="modal-body-stack">
-          {/* Alternador de abas no modal */}
-          <Tabs value={modalTab} onValueChange={(value) => setModalTab(value as 'summary' | 'transactions')} className="mb-2">
-            <TabsList className="w-full grid grid-cols-2">
-              <TabsTrigger value="summary" className="text-xs">Resumo e Metas</TabsTrigger>
-              <TabsTrigger value="transactions" className="text-xs">Lançamentos ({filteredDetailItems.length})</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {modalTab === 'summary' ? (
-            <div className="space-y-4">
-              {/* Comparador de Período */}
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Comparativo Histórico</p>
-                <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] text-secondary">Total em {detailModal.period === 'year' ? selectedYear : formatMonth(selectedMonth)}</p>
-                      <p className="text-lg font-bold text-primary font-mono">{formatCurrency(detailCurrentTotal)}</p>
-                    </div>
-                    {detailDifferencePct !== null && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        detailDifference >= 0 
-                          ? (detailModal.type === 'expense' ? 'text-expense bg-expense/10' : 'text-income bg-income/10')
-                          : (detailModal.type === 'expense' ? 'text-income bg-income/10' : 'text-expense bg-expense/10')
-                      }`}>
-                        {detailDifference >= 0 ? '+' : ''}{formatNumberWithTwoDecimalsBR(detailDifferencePct)}%
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2.5 pt-2.5 border-t border-glass flex justify-between text-xs text-secondary">
-                    <span>Período anterior:</span>
-                    <span className="font-semibold text-primary font-mono">{formatCurrency(detailPreviousTotal)}</span>
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs text-secondary">
-                    <span>Variação absoluta:</span>
-                    <span className={`font-semibold ${
-                      detailDifference >= 0 
-                        ? (detailModal.type === 'expense' ? 'text-expense' : 'text-income')
-                        : (detailModal.type === 'expense' ? 'text-income' : 'text-expense')
-                    }`}>
-                      {detailDifference >= 0 ? '+' : ''}{formatCurrency(detailDifference)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Metas/Expectativas se aplicável */}
-              {detailModal.period === 'month' && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Metas Orçamentárias</p>
-                  <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
-                    {detailMonthlyGoal?.configured ? (
-                      <div>
-                        <div className="flex justify-between text-xs text-secondary mb-1">
-                          <span>Consumo do Limite</span>
-                          <span className="font-semibold text-primary font-mono">
-                            {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)} de {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}
-                          </span>
-                        </div>
-                        {/* Barra de Progresso */}
-                        <div className="w-full h-1.5 rounded-full bg-secondary/20 overflow-hidden mb-2">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-300 ${
-                              detailMonthlyGoal.isExceeded ? 'bg-expense' : 'bg-primary'
-                            }`}
-                            style={{ width: `${Math.min(((detailMonthlyGoal.currentAmount ?? 0) / (detailMonthlyGoal.targetAmount ?? 1)) * 100, 100)}%` }}
-                          />
-                        </div>
-                        <p className={`text-xs font-semibold ${detailMonthlyGoal.isExceeded ? 'text-expense' : 'text-income'}`}>
-                          {detailMonthlyGoal.isExceeded
-                            ? `Excedido em ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)}`
-                            : `Restam ${formatCurrency(detailMonthlyGoal.differenceAmount ?? 0)} para o limite`
-                          }
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-secondary text-center py-2">Sem meta ou limite de orçamento configurado no mês.</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Mini gráfico */}
-              {detailModal.isOpen && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Tendência da Categoria</p>
-                  <div className="rounded-xl border border-glass surface-glass p-3 shadow-sm">
-                    <CategoryDetailMiniChart
-                      detailItems={detailItems}
-                      period={detailModal.period}
-                      selectedMonth={selectedMonth}
-                      selectedYear={selectedYear}
-                      color={detailCategoryColor}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Buscador */}
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-1.5">Buscar por descrição</label>
-                <Input
-                  type="text"
-                  value={detailSearch}
-                  onChange={(event) => setDetailSearch(event.target.value)}
-                  placeholder="Digite parte da descrição do lançamento..."
-                />
-              </div>
-
-              {/* Lista de transações */}
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                {filteredDetailItems.length === 0 ? (
-                  <p className="text-xs text-secondary py-6 text-center">
-                    {yearDetailLoading && detailModal.period === 'year' ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 size={14} className="animate-spin text-primary" />
-                        Buscando lançamentos...
-                      </span>
-                    ) : (
-                      'Nenhum lançamento encontrado para os filtros.'
-                    )}
-                  </p>
-                ) : (
-                  <>
-                    {visibleDetailItems.map((item, index) => (
-                      <div
-                        key={item.id}
-                        className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
-                          index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-primary truncate">{item.description}</p>
-                          <p className="text-[9px] font-mono text-secondary mt-1">{formatDate(item.date)}</p>
-                        </div>
-                        <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
-                          {formatCurrency(item.amount)}
-                        </p>
-                      </div>
-                    ))}
-
-                    {hasMoreDetailItems && (
-                      <div className="pt-2 text-center">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)}
-                          className="w-full"
-                        >
-                          Carregar mais lançamentos
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </Modal>
+        onClose={() => setDetailModal((prev) => ({ ...prev, isOpen: false }))}
+        type={detailModal.type}
+        categoryId={detailModal.categoryId}
+        categoryName={detailModal.categoryName}
+        period={detailModal.period}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        isOnline={isOnline}
+        monthExpenses={monthExpenses}
+        monthIncomes={monthIncomes}
+        annualExpenses={annualExpenses}
+        previousMonthExpenses={previousMonthExpenses}
+        previousMonthIncomes={previousMonthIncomes}
+        yearExpenseItems={yearExpenseItems}
+        yearIncomeItems={yearIncomeItems}
+        previousYearExpenseItems={previousYearExpenseItems}
+        previousYearIncomeItems={previousYearIncomeItems}
+        monthExpenseLimits={monthExpenseLimits}
+        previousMonthExpenseLimits={previousMonthExpenseLimits}
+        monthIncomeExpectations={monthIncomeExpectations}
+        previousMonthIncomeExpectations={previousMonthIncomeExpectations}
+        creditCards={creditCards}
+        expenseCategoryIdToColor={expenseCategoryIdToColor}
+        incomeCategoryIdToColor={incomeCategoryIdToColor}
+        includeReportWeights={includeReportWeights}
+        yearDetailLoading={yearDetailLoading}
+        previousMonth={previousMonth}
+      />
     </div>
   )
 }

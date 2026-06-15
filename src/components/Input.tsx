@@ -1,8 +1,8 @@
 import { InputHTMLAttributes, forwardRef, useId } from 'react'
-import { Calendar } from 'lucide-react'
 import { Input as ShadcnInput } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import DatePicker from '@/components/DatePicker'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -15,6 +15,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const generatedId = useId()
     const inputId = id ?? generatedId
 
+    const isDateInput = props.type === 'date'
+
     return (
       <div className="modal-field w-full">
         {label && (
@@ -22,23 +24,30 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {label}
           </Label>
         )}
-        <div className="relative">
-          <ShadcnInput
-            ref={ref}
+        {isDateInput ? (
+          <DatePicker
             id={inputId}
-            className={cn(
-              props.type === 'date' ? 'pl-4 pr-10' : '',
-              error ? 'border-destructive' : '',
-              className
-            )}
-            {...props}
+            value={String(props.value ?? '')}
+            onChange={props.onChange as any}
+            name={props.name}
+            placeholder={props.placeholder}
+            disabled={props.disabled}
+            required={props.required}
+            className={cn(error ? 'border-destructive' : '', className)}
           />
-          {props.type === 'date' && (
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-secondary">
-              <Calendar size={18} />
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="relative">
+            <ShadcnInput
+              ref={ref}
+              id={inputId}
+              className={cn(
+                error ? 'border-destructive' : '',
+                className
+              )}
+              {...props}
+            />
+          </div>
+        )}
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : helperText ? (

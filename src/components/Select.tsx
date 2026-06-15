@@ -87,7 +87,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
           </button>
 
           {isOpen && (
-            <div className="absolute z-[1000] w-full mt-2 surface-glass-strong border border-glass rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="absolute z-[1000] w-full mt-2 select-dropdown-solid rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
               <div className="max-h-60 overflow-y-auto custom-scrollbar p-1.5">
                 {options.length === 0 ? (
                   <div className="p-4 text-center text-xs text-secondary/40 italic">Nenhuma opção disponível</div>

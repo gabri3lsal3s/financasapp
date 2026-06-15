@@ -25,14 +25,16 @@ import B3ReconciliationGuidance from '@/components/investments/B3ReconciliationG
 import B3ReconciliationStepper from '@/components/investments/B3ReconciliationStepper'
 import B3ReconciliationKpiGrid from '@/components/investments/B3ReconciliationKpiGrid'
 import B3PositionValidationPanel from '@/components/investments/B3PositionValidationPanel'
+import InvestmentConflictCard from '@/components/investments/InvestmentConflictCard'
+import AssetYieldConfigCard from '@/components/investments/AssetYieldConfigCard'
+import SuspiciousInvestmentCard from '@/components/investments/SuspiciousInvestmentCard'
 import { computeTickerQuantity } from '@/utils/portfolioLedger'
 import {
   isPortfolioIncomeType,
   PORTFOLIO_OPERATION_OPTIONS,
-  portfolioOperationLabel,
 } from '@/utils/portfolioOperations'
 import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
-import { formatCurrency, formatQuantityBR } from '@/utils/format'
+import { formatQuantityBR } from '@/utils/format'
 
 type PortfolioTransactionInsert = Omit<PortfolioTransaction, 'created_at'>
 
@@ -1734,107 +1736,17 @@ export default function InvestmentReconciliationModal({
             </div>
 
             <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {conflictDrafts.filter(c => !c.applied).map((draft) => {
-                const isPriceDiff = Math.abs(draft.existing.price - draft.official.price) > 0.0001
-                const isQtyDiff = Math.abs(draft.existing.quantity - draft.official.quantity) > 0.0001
-                const isDateDiff = draft.existing.date !== draft.official.date
-                const isOpDiff = draft.existing.operation_type !== draft.official.operation_type
-
-                return (
-                  <div
-                    key={draft.key}
-                    className="modal-panel-glass p-3.5 grid grid-cols-1 md:grid-cols-12 gap-3 items-center text-left"
-                  >
-                    <div className="md:col-span-1 flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-primary bg-primary text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none cursor-pointer"
-                        checked={draft.selected}
-                        onChange={(e) =>
-                          setConflictDrafts((prev) =>
-                            prev.map((c) => (c.key === draft.key ? { ...c, selected: e.target.checked } : c))
-                          )
-                        }
-                      />
-                    </div>
-
-                    {/* Livro-Razão (Atual) */}
-                    <div className="md:col-span-5 modal-panel-glass p-2.5 text-xs space-y-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <strong className="text-primary font-bold">{draft.existing.ticker}</strong>
-                        <span className="px-1.5 py-0.2 bg-expense/10 text-expense rounded text-[9px] uppercase font-bold">
-                          Livro-Razão
-                        </span>
-                      </div>
-                      <p className="text-[9px] text-secondary">
-                        Tipo:{' '}
-                        <span className={`font-bold ${isOpDiff ? 'text-warning' : 'text-primary'}`}>
-                          {portfolioOperationLabel(draft.existing.operation_type)}
-                        </span>
-                      </p>
-                      <div className="grid grid-cols-3 gap-1.5 text-secondary font-mono text-[10px]">
-                        <div>
-                          <span>Data</span>
-                          <span className={`block font-bold text-primary ${isDateDiff ? 'text-warning' : ''}`}>{draft.existing.date}</span>
-                        </div>
-                        <div>
-                          <span>Qtd</span>
-                          <span className={`block font-bold text-primary ${isQtyDiff ? 'text-warning' : ''}`}>
-                            {draft.existing.quantity} un
-                          </span>
-                        </div>
-                        <div>
-                          <span>Preço</span>
-                          <span className={`block font-bold text-primary ${isPriceDiff ? 'text-warning' : ''}`}>
-                            {formatCurrency(draft.existing.price)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-1 flex items-center justify-center text-secondary">
-                      <ArrowRight size={18} />
-                    </div>
-
-                    {/* B3 (Sugerido) */}
-                    <div className="md:col-span-5 bg-balance/5 border border-balance/20 p-2.5 rounded-xl text-xs space-y-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <strong className="text-primary font-bold">{draft.official.ticker}</strong>
-                        <span className="px-1.5 py-0.2 bg-balance/10 text-balance rounded text-[9px] uppercase font-bold">
-                          B3 Oficial
-                        </span>
-                      </div>
-                      <p className="text-[9px] text-secondary truncate" title={draft.official.raw_operation_type}>
-                        Mov. B3: <span className="font-bold text-primary">{draft.official.raw_operation_type}</span>
-                      </p>
-                      <p className="text-[9px] text-secondary">
-                        Tipo:{' '}
-                        <span className={`font-bold ${isOpDiff ? 'text-balance' : 'text-primary'}`}>
-                          {portfolioOperationLabel(draft.official.operation_type)}
-                        </span>
-                      </p>
-                      <div className="grid grid-cols-3 gap-1.5 text-secondary font-mono text-[10px]">
-                        <div>
-                          <span>Data</span>
-                          <span className={`block font-bold text-primary ${isDateDiff ? 'text-balance font-extrabold' : ''}`}>{draft.official.date}</span>
-                        </div>
-                        <div>
-                          <span>Qtd</span>
-                          <span className={`block font-bold text-primary ${isQtyDiff ? 'text-balance font-extrabold' : ''}`}>
-                            {draft.official.quantity} un
-                          </span>
-                        </div>
-                        <div>
-                          <span>Preço</span>
-                          <span className={`block font-bold text-primary ${isPriceDiff ? 'text-balance font-extrabold' : ''}`}>
-                            {formatCurrency(draft.official.price)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+              {conflictDrafts.filter(c => !c.applied).map((draft) => (
+                <InvestmentConflictCard
+                  key={draft.key}
+                  draft={draft}
+                  onToggleSelect={() => {
+                    setConflictDrafts((prev) =>
+                      prev.map((c) => (c.key === draft.key ? { ...c, selected: !c.selected } : c))
+                    )
+                  }}
+                />
+              ))}
             </div>
 
           </div>
@@ -2021,34 +1933,11 @@ export default function InvestmentReconciliationModal({
                 <p className="text-xs text-secondary italic py-6 text-center">Nenhum alerta pendente.</p>
               ) : (
                 reconciliation.existingOnly.map((tx) => (
-                  <div
+                  <SuspiciousInvestmentCard
                     key={tx.id}
-                    className="p-3 bg-expense/5 border border-expense/10 rounded-2xl flex items-center justify-between text-xs transition-all hover:bg-expense/10"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <strong className="text-primary font-bold font-mono">{tx.ticker}</strong>
-                        <span className="px-1.5 py-0.2 bg-expense/10 text-expense rounded text-[9px] uppercase font-bold">
-                          Exclusivo do Sistema
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-secondary mt-1 font-mono">
-                        <span>Data: <strong>{tx.date}</strong></span>
-                        <span className="mx-2">•</span>
-                        <span>Qtd: <strong>{tx.quantity}</strong></span>
-                        <span className="mx-2">•</span>
-                        <span>Preço: <strong>{formatCurrency(tx.price)}</strong></span>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="expense"
-                      onClick={() => handleDeleteLedgerOnlyTransaction(tx.id)}
-                      className="px-3 text-xs font-semibold"
-                    >
-                      Excluir Lançamento
-                    </Button>
-                  </div>
+                    tx={tx}
+                    onDelete={() => handleDeleteLedgerOnlyTransaction(tx.id)}
+                  />
                 ))
               )}
             </div>
@@ -2075,116 +1964,18 @@ export default function InvestmentReconciliationModal({
             </B3ReconciliationGuidance>
 
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {manualYieldRequiredAssets.map((asset) => {
-                const isFixed = asset.pricing_mode === 'fixed_income' || asset.isTreasury
-                return (
-                  <div 
-                    key={asset.id} 
-                    className="modal-panel-glass p-4 space-y-3 text-left hover:border-balance/20 transition-all duration-200"
-                  >
-                    <div className="flex items-center justify-between border-b modal-section-divider pb-2">
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <strong className="text-primary font-mono font-black text-sm block">
-                            {asset.ticker}
-                          </strong>
-                          <span className="text-[9px] text-secondary font-bold uppercase tracking-wider mt-0.5 block">
-                            {asset.isTreasury ? '🏛️ Tesouro Direto' : isFixed ? '💰 Renda Fixa' : '📝 Valor Manual'}
-                          </span>
-                        </div>
-                        <span className="px-2 py-0.5 bg-balance/10 text-balance rounded-lg text-[9px] uppercase font-bold font-mono font-semibold">
-                          Aporte: {asset.date}
-                        </span>
-                        <span className="rounded-lg border border-glass modal-panel-glass px-2 py-0.5 text-[9px] font-bold font-mono text-secondary">
-                          Qtd: {asset.quantity} • {formatCurrency(parseFloat(asset.price))}
-                        </span>
-                      </div>
-
-                      {!isFixed && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onOpenAssetConfig(asset.ticker)}
-                          className="flex items-center gap-1 py-1.5 px-3 font-bold text-[10px] shrink-0"
-                        >
-                          Configurar Ativo
-                        </Button>
-                      )}
-                    </div>
-
-                    {isFixed && (
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5 text-[11px] pt-1">
-                        <div>
-                          <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Indexador</label>
-                          <select
-                            value={asset.indexer}
-                            onChange={(e) => updateImportedDraft(asset.id, 'indexer', e.target.value as PortfolioAssetIndexer)}
-                            className="modal-input-compact w-full px-2.5 font-semibold text-[11px] focus:border-balance focus:outline-none cursor-pointer shadow-sm text-primary"
-                          >
-                            <option value="none">Pré-fixado (taxa contratada)</option>
-                            <option value="cdi">CDI</option>
-                            <option value="selic">SELIC</option>
-                            <option value="ipca">IPCA</option>
-                          </select>
-                        </div>
-
-                        {asset.indexer !== 'none' ? (
-                          <div className="animate-page-enter">
-                            <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">% do Indexador</label>
-                            <div className="relative flex items-center">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={asset.indexer_percent}
-                                onChange={(e) => updateImportedDraft(asset.id, 'indexer_percent', e.target.value)}
-                                placeholder="100"
-                                className="modal-input-compact w-full pl-2.5 pr-6 font-semibold text-[11px] text-primary"
-                              />
-                              <span className="absolute right-2.5 text-secondary font-bold text-[10px]">%</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="animate-page-enter">
-                            <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Taxa Contratada</label>
-                            <div className="relative flex items-center">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={asset.contract_rate}
-                                onChange={(e) => updateImportedDraft(asset.id, 'contract_rate', e.target.value)}
-                                placeholder="Ex: 12.5"
-                                className="modal-input-compact w-full pl-2.5 pr-10 font-semibold text-[11px] text-primary"
-                              />
-                              <span className="absolute right-2.5 text-secondary font-bold text-[10px]">% a.a.</span>
-                            </div>
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Vencimento</label>
-                          <input
-                            type="date"
-                            value={asset.maturity_date}
-                            onChange={(e) => updateImportedDraft(asset.id, 'maturity_date', e.target.value)}
-                            className="modal-input-compact w-full px-2.5 font-semibold text-[11px] focus:border-balance focus:outline-none shadow-sm text-primary"
-                          />
-                        </div>
-
-                        <div className="flex items-end">
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={() => handleSaveAssetYield(asset)}
-                            className="w-full h-8 flex items-center justify-center gap-1 font-bold text-[11px]"
-                          >
-                            💾 Salvar Rentabilidade
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+              {manualYieldRequiredAssets.map((asset) => (
+                <AssetYieldConfigCard
+                  key={asset.id}
+                  asset={asset}
+                  onOpenAssetConfig={onOpenAssetConfig}
+                  onUpdateIndexer={(indexer) => updateImportedDraft(asset.id, 'indexer', indexer)}
+                  onUpdateIndexerPercent={(val) => updateImportedDraft(asset.id, 'indexer_percent', val)}
+                  onUpdateContractRate={(val) => updateImportedDraft(asset.id, 'contract_rate', val)}
+                  onUpdateMaturityDate={(val) => updateImportedDraft(asset.id, 'maturity_date', val)}
+                  onSave={() => handleSaveAssetYield(asset)}
+                />
+              ))}
             </div>
 
           </div>

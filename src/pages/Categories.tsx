@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders, Scale } from 'lucide-react'
-import { getCategoryIcon, getCategoryIconName, AVAILABLE_ICONS } from '@/utils/categoryIcons'
+import { getCategoryIcon } from '@/utils/categoryIcons'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Loader from '@/components/Loader'
-import ModalForm from '@/components/ModalForm'
-import ModalFooter from '@/components/ModalFooter'
-import ConfirmModal from '@/components/ConfirmModal'
-import Select from '@/components/Select'
 import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
@@ -23,7 +19,7 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
-import { assignUniquePaletteColors, getCategoryColorForPalette, generateCategoryColor, DEFAULT_CATEGORY_COLOR_HEX, VIVID_COLORS } from '@/utils/categoryColors'
+import { assignUniquePaletteColors, getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
@@ -31,6 +27,9 @@ import { Category, IncomeCategory } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
+import CategoryFormModal from '@/components/categories/CategoryFormModal'
+import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteConfirmModal'
+import LimitSuggestionsModal from '@/components/categories/LimitSuggestionsModal'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -196,14 +195,6 @@ export default function Categories() {
   }, [user?.id])
 
   const [isSuggestionsModalOpen, setIsSuggestionsModalOpen] = useState(false)
-  const [suggestionsForm, setSuggestionsForm] = useState(suggestions)
-
-  // Sync suggestionsForm when suggestions state changes or modal opens
-  useEffect(() => {
-    if (isSuggestionsModalOpen) {
-      setSuggestionsForm(suggestions)
-    }
-  }, [isSuggestionsModalOpen, suggestions])
 
   const getCategoryPercentageSuggestion = (categoryOrName: Category | IncomeCategory | string): number => {
     let name = ''
@@ -227,119 +218,40 @@ export default function Categories() {
   // Category Form Modals states
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | IncomeCategory | null>(null)
-  const [categoryFormData, setCategoryFormData] = useState({
-    name: '',
-    color: DEFAULT_CATEGORY_COLOR_HEX,
-    icon: 'Tag',
-    suggestion: 'outros'
-  })
-  const [userCustomizedColor, setUserCustomizedColor] = useState(false)
-  const [userCustomizedIcon, setUserCustomizedIcon] = useState(false)
-  const [userCustomizedSuggestion, setUserCustomizedSuggestion] = useState(false)
 
   // Delete Category Modals states
   const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | IncomeCategory | null>(null)
   const [deleteUsageCount, setDeleteUsageCount] = useState(0)
-  const [targetCategoryId, setTargetCategoryId] = useState('')
-  const [isDeletingCategory, setIsDeletingCategory] = useState(false)
-
-  // Pré-seleção inteligente baseada no nome digitado
-  useEffect(() => {
-    if (isCategoryModalOpen && !editingCategory) {
-      const name = categoryFormData.name
-      if (name.trim()) {
-        const updates: Partial<typeof categoryFormData> = {}
-        
-        if (!userCustomizedIcon) {
-          updates.icon = getCategoryIconName(name)
-        }
-        
-        if (!userCustomizedColor) {
-          const generatedColorVar = generateCategoryColor(name, 'vivid')
-          const match = generatedColorVar.match(/vivid-(\d+)/)
-          if (match && match[1]) {
-            const index = parseInt(match[1])
-            const hex = VIVID_COLORS[index]
-            if (hex) {
-              updates.color = hex
-            }
-          }
-        }
-
-        if (!userCustomizedSuggestion) {
-          updates.suggestion = detectSuggestionRuleFromName(name)
-        }
-        
-        if (Object.keys(updates).length > 0) {
-          setCategoryFormData(prev => ({ ...prev, ...updates }))
-        }
-      }
-    }
-  }, [categoryFormData.name, isCategoryModalOpen, editingCategory, userCustomizedColor, userCustomizedIcon, userCustomizedSuggestion])
 
   const handleOpenCategoryModal = (category?: Category | IncomeCategory) => {
-    if (category) {
-      setEditingCategory(category)
-      const [colorPart, iconPart, suggestionPart] = category.color ? category.color.split('|') : []
-      setCategoryFormData({
-        name: category.name,
-        color: colorPart || DEFAULT_CATEGORY_COLOR_HEX,
-        icon: iconPart || 'Tag',
-        suggestion: suggestionPart || detectSuggestionRuleFromName(category.name)
-      })
-      setUserCustomizedColor(true)
-      setUserCustomizedIcon(true)
-      setUserCustomizedSuggestion(true)
-    } else {
-      setEditingCategory(null)
-      setCategoryFormData({
-        name: '',
-        color: DEFAULT_CATEGORY_COLOR_HEX,
-        icon: 'Tag',
-        suggestion: 'outros'
-      })
-      setUserCustomizedColor(false)
-      setUserCustomizedIcon(false)
-      setUserCustomizedSuggestion(false)
-    }
+    setEditingCategory(category || null)
     setIsCategoryModalOpen(true)
   }
 
   const handleCloseCategoryModal = () => {
-    setIsCategoryModalOpen(false)
     setEditingCategory(null)
-    setCategoryFormData({ name: '', color: DEFAULT_CATEGORY_COLOR_HEX, icon: 'Tag', suggestion: 'outros' })
+    setIsCategoryModalOpen(false)
   }
 
-  const handleSuggestionsSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSuggestionsSubmit = (newSuggestions: Record<string, number>) => {
     const userKey = user?.id ? `minhas-financas:limit-suggestions:${user.id}` : 'minhas-financas:limit-suggestions'
-    localStorage.setItem(userKey, JSON.stringify(suggestionsForm))
-    setSuggestions(suggestionsForm)
+    localStorage.setItem(userKey, JSON.stringify(newSuggestions))
+    setSuggestions(newSuggestions)
     setIsSuggestionsModalOpen(false)
   }
 
-  const handleCategorySubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!categoryFormData.name.trim()) return
-
-    const combinedColor = activeTab === 'expenses'
-      ? `${categoryFormData.color}|${categoryFormData.icon}|${categoryFormData.suggestion}`
-      : `${categoryFormData.color}|${categoryFormData.icon}`
-
+  const handleCategorySubmit = async (name: string, combinedColor: string) => {
     if (activeTab === 'expenses') {
       if (editingCategory) {
-        const { error } = await updateCategory(editingCategory.id, { name: categoryFormData.name, color: combinedColor })
+        const { error } = await updateCategory(editingCategory.id, { name, color: combinedColor })
         if (!error) {
           handleCloseCategoryModal()
         } else {
           alert('Erro ao atualizar categoria: ' + error)
         }
       } else {
-        const categoryData = { name: categoryFormData.name, color: combinedColor }
-        const { error } = await createCategory(categoryData as Omit<Category, 'id' | 'created_at'>)
+        const { error } = await createCategory({ name, color: combinedColor } as Omit<Category, 'id' | 'created_at'>)
         if (!error) {
           handleCloseCategoryModal()
         } else {
@@ -348,15 +260,14 @@ export default function Categories() {
       }
     } else {
       if (editingCategory) {
-        const { error } = await updateIncomeCategory(editingCategory.id, { name: categoryFormData.name, color: combinedColor })
+        const { error } = await updateIncomeCategory(editingCategory.id, { name, color: combinedColor })
         if (!error) {
           handleCloseCategoryModal()
         } else {
           alert('Erro ao atualizar categoria: ' + error)
         }
       } else {
-        const categoryData = { name: categoryFormData.name, color: combinedColor }
-        const { error } = await createIncomeCategory(categoryData as Omit<IncomeCategory, 'id' | 'created_at'>)
+        const { error } = await createIncomeCategory({ name, color: combinedColor } as Omit<IncomeCategory, 'id' | 'created_at'>)
         if (!error) {
           handleCloseCategoryModal()
         } else {
@@ -375,24 +286,20 @@ export default function Categories() {
     }
     setCategoryToDelete(category)
     setDeleteUsageCount(usageCount)
-    setTargetCategoryId('')
     setIsCategoryDeleteModalOpen(true)
   }
 
-  const confirmDeleteCategory = async () => {
+  const handleConfirmDeleteCategory = async (targetCategoryId: string) => {
     if (!categoryToDelete) return
 
-    setIsDeletingCategory(true)
     if (activeTab === 'expenses') {
       const { error } = await deleteCategory(categoryToDelete.id, targetCategoryId || undefined)
-      setIsDeletingCategory(false)
       if (error) {
         alert('Erro ao excluir categoria: ' + error)
         return
       }
     } else {
       const { error } = await deleteIncomeCategory(categoryToDelete.id, targetCategoryId || undefined)
-      setIsDeletingCategory(false)
       if (error) {
         alert('Erro ao excluir categoria: ' + error)
         return
@@ -1288,260 +1195,31 @@ export default function Categories() {
         )}
       </div>
 
-      <ModalForm
+      <CategoryFormModal
         isOpen={isCategoryModalOpen}
         onClose={handleCloseCategoryModal}
-        title={editingCategory ? (activeTab === 'expenses' ? 'Editar categoria' : 'Editar categoria de renda') : (activeTab === 'expenses' ? 'Adicionar categoria' : 'Adicionar categoria de renda')}
-        onSubmit={(e) => void handleCategorySubmit(e)}
-        footer={(formId) => (
-          <ModalFooter
-            formId={formId}
-            onCancel={handleCloseCategoryModal}
-            submitLabel={editingCategory ? 'Salvar alterações' : 'Salvar'}
-          />
-        )}
-      >
-        <div className="space-y-4">
-          <Input
-            label="Nome da Categoria"
-            type="text"
-            value={categoryFormData.name}
-            onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
-            placeholder="Ex: Alimentação, Transporte, Salário..."
-            required
-            autoFocus
-          />
+        onSubmit={handleCategorySubmit}
+        editingCategory={editingCategory}
+        tabType={activeTab}
+      />
 
-          {activeTab === 'expenses' && (
-            <Select
-              label="Grupo de Sugestão de Limite"
-              value={categoryFormData.suggestion}
-              onChange={(e) => {
-                setCategoryFormData({ ...categoryFormData, suggestion: e.target.value })
-                setUserCustomizedSuggestion(true)
-              }}
-              options={[
-                { value: 'moradia', label: 'Moradia' },
-                { value: 'alimentacao', label: 'Alimentação' },
-                { value: 'transporte', label: 'Transporte' },
-                { value: 'saude', label: 'Saúde' },
-                { value: 'educacao', label: 'Educação' },
-                { value: 'lazer', label: 'Lazer' },
-                { value: 'compras', label: 'Compras' },
-                { value: 'outros', label: 'Outros' }
-              ]}
-            />
-          )}
-
-          {/* Seleção de Ícone */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-widest block">Selecione o Ícone</span>
-            <div className="grid grid-cols-7 gap-2 max-h-36 overflow-y-auto p-1 border border-glass rounded-xl surface-glass scrollbar-thin">
-              {Object.entries(AVAILABLE_ICONS).map(([key, Icon]) => {
-                const isSelected = categoryFormData.icon === key
-                return (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setCategoryFormData(prev => ({ ...prev, icon: key }))
-                      setUserCustomizedIcon(true)
-                    }}
-                    className={`flex items-center justify-center p-2 h-auto w-auto rounded-lg transition-all border ${
-                      isSelected 
-                        ? 'bg-secondary/25 border-primary text-primary scale-105 shadow-sm hover:bg-secondary/25' 
-                        : 'border-transparent text-secondary hover:bg-secondary/10 hover:text-primary'
-                    }`}
-                    title={key}
-                  >
-                    <Icon size={16} />
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Seleção de Cor */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-widest block">Selecione a Cor</span>
-            <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 p-1.5 border border-glass rounded-xl surface-glass justify-items-center">
-              {VIVID_COLORS.map((colorHex) => {
-                const isSelected = categoryFormData.color === colorHex
-                return (
-                  <Button
-                    key={colorHex}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setCategoryFormData(prev => ({ ...prev, color: colorHex }))
-                      setUserCustomizedColor(true)
-                    }}
-                    style={{ backgroundColor: colorHex }}
-                    className={`h-6 w-6 p-0 rounded-full flex items-center justify-center border-2 transition-all relative min-w-0 ${
-                      isSelected 
-                        ? 'border-white scale-110 shadow-[0_0_8px_rgba(0,0,0,0.15)] ring-2 ring-primary/45 hover:bg-transparent' 
-                        : 'border-transparent hover:scale-105 hover:bg-transparent'
-                    }`}
-                    title={colorHex}
-                  >
-                    {isSelected && (
-                      <Check size={10} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.65)]" />
-                    )}
-                  </Button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </ModalForm>
-
-      <ConfirmModal
+      <CategoryDeleteConfirmModal
         isOpen={isCategoryDeleteModalOpen}
-        onClose={() => !isDeletingCategory && setIsCategoryDeleteModalOpen(false)}
-        title={activeTab === 'expenses' ? 'Excluir Categoria' : 'Excluir Categoria de Renda'}
-        confirmLabel={isDeletingCategory ? 'Excluindo...' : 'Confirmar exclusão'}
-        confirmVariant="danger"
-        confirmDisabled={isDeletingCategory}
-        loading={isDeletingCategory}
-        onConfirm={() => void confirmDeleteCategory()}
-      >
-        {deleteUsageCount > 0 ? (
-          <div className="space-y-4">
-            <p className="text-sm">
-              A categoria <strong>{categoryToDelete?.name}</strong> possui{' '}
-              <strong>{deleteUsageCount}</strong> lançamento(s) vinculados.
-            </p>
-            <p className="modal-intro text-sm">
-              Para onde deseja movê-los? Se você não escolher, eles serão movidos para <em>Sem categoria</em>.
-            </p>
-            <Select
-              value={targetCategoryId}
-              onChange={(e) => setTargetCategoryId(e.target.value)}
-              options={[
-                { value: '', label: 'Sem categoria (Padrão)' },
-                ...(activeTab === 'expenses' 
-                  ? categories
-                      .filter((c: Category) => c.id !== categoryToDelete?.id && c.name !== 'Sem categoria')
-                      .map((c: Category) => ({ value: c.id, label: c.name }))
-                  : incomeCategories
-                      .filter((c: IncomeCategory) => c.id !== categoryToDelete?.id && c.name !== 'Sem categoria')
-                      .map((c: IncomeCategory) => ({ value: c.id, label: c.name })))
-              ]}
-            />
-          </div>
-        ) : (
-          <p className="text-sm">
-            Tem certeza que deseja excluir a categoria <strong>{categoryToDelete?.name}</strong>?
-          </p>
-        )}
-      </ConfirmModal>
+        onClose={() => setIsCategoryDeleteModalOpen(false)}
+        onConfirm={handleConfirmDeleteCategory}
+        categoryToDelete={categoryToDelete}
+        usageCount={deleteUsageCount}
+        categories={categories}
+        incomeCategories={incomeCategories}
+        tabType={activeTab}
+      />
 
-      <ModalForm
+      <LimitSuggestionsModal
         isOpen={isSuggestionsModalOpen}
         onClose={() => setIsSuggestionsModalOpen(false)}
-        title="Ajustar Sugestões de Limites"
         onSubmit={handleSuggestionsSubmit}
-        footer={(formId) => (
-          <ModalFooter
-            formId={formId}
-            onCancel={() => setIsSuggestionsModalOpen(false)}
-            submitLabel="Salvar Sugestões"
-          />
-        )}
-      >
-        <div className="space-y-4">
-          <p className="text-xs text-secondary">
-            Personalize as porcentagens de recomendação com base na sua renda média. A soma recomendada é de 100%, mas você pode configurar como preferir.
-          </p>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Moradia (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.moradia}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, moradia: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Alimentação (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.alimentacao}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, alimentacao: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Transporte (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.transporte}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, transporte: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Saúde (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.saude}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, saude: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Educação (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.educacao}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, educacao: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Lazer (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.lazer}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, lazer: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Compras (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.compras}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, compras: Number(e.target.value) })}
-              required
-            />
-            <Input
-              label="Outros (%)"
-              type="number"
-              min="0"
-              max="100"
-              value={suggestionsForm.outros}
-              onChange={(e) => setSuggestionsForm({ ...suggestionsForm, outros: Number(e.target.value) })}
-              required
-            />
-          </div>
-
-          <div className="pt-3 border-t border-glass flex justify-between items-center text-xs">
-            <span className="text-secondary font-bold">Soma das Sugestões:</span>
-            <span className={`font-mono font-bold text-sm ${
-              (suggestionsForm.moradia + suggestionsForm.alimentacao + suggestionsForm.transporte + suggestionsForm.saude + suggestionsForm.educacao + suggestionsForm.lazer + suggestionsForm.compras + suggestionsForm.outros) === 100
-                ? 'text-income'
-                : 'text-warning'
-            }`}>
-              {suggestionsForm.moradia + suggestionsForm.alimentacao + suggestionsForm.transporte + suggestionsForm.saude + suggestionsForm.educacao + suggestionsForm.lazer + suggestionsForm.compras + suggestionsForm.outros}%
-            </span>
-          </div>
-        </div>
-      </ModalForm>
+        initialSuggestions={suggestions}
+      />
 
     </div>
   )
