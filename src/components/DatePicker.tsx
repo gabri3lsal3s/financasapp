@@ -259,7 +259,7 @@ export default function DatePicker({
                       'h-9 w-9 text-xs rounded-xl flex items-center justify-center transition-all hover:bg-secondary hover:bg-opacity-30 relative font-bold select-none cursor-pointer',
                       cell.isCurrentMonth ? 'text-primary' : 'text-secondary opacity-35 font-normal',
                       isToday && !isSelected ? 'border border-primary/40' : '',
-                      isSelected ? 'bg-primary text-primary-foreground font-black shadow-sm scale-105 hover:bg-primary' : ''
+                      isSelected ? 'bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] font-black shadow-sm scale-105 hover:bg-[var(--ds-color-accent-primary)]' : ''
                     )}
                   >
                     <span>{cell.day}</span>
@@ -267,7 +267,7 @@ export default function DatePicker({
                       <span
                         className={cn(
                           'absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full',
-                          isSelected ? 'bg-primary-foreground' : 'bg-primary'
+                          isSelected ? 'bg-[var(--ds-color-button-text)]' : 'bg-[var(--ds-color-accent-primary)]'
                         )}
                       />
                     )}
