@@ -22,6 +22,7 @@ import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import MobileAlertsPill from '@/components/MobileAlertsPill'
+import ConfirmModal from '@/components/ConfirmModal'
 
 export default function Incomes() {
   const navigate = useNavigate()
@@ -49,6 +50,10 @@ export default function Incomes() {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingIncome, setEditingIncome] = useState<Income | null>(null)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean
+    id: string
+  } | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
 
@@ -171,9 +176,10 @@ export default function Incomes() {
                     onToggleExpand={() => toggleExpand(income.id, isDefaultExpanded)}
                     onEdit={() => handleOpenModal(income)}
                     onDelete={async () => {
-                      if (window.confirm('Deseja realmente excluir esta renda?')) {
-                        await deleteIncome(income.id)
-                      }
+                      setDeleteConfirmState({
+                        isOpen: true,
+                        id: income.id,
+                      })
                     }}
                   />
                 )
@@ -192,6 +198,27 @@ export default function Incomes() {
         onUpdate={updateIncome}
         onDelete={deleteIncome}
       />
+
+      <ConfirmModal
+        isOpen={deleteConfirmState?.isOpen || false}
+        onClose={() => setDeleteConfirmState(null)}
+        title="Excluir renda"
+        confirmLabel="Excluir renda"
+        confirmVariant="danger"
+        requireCheckbox={true}
+        checkboxLabel="Estou ciente de que esta renda será excluída permanentemente."
+        onConfirm={async () => {
+          if (deleteConfirmState) {
+            const { error } = await deleteIncome(deleteConfirmState.id)
+            if (error) {
+              alert(`Erro ao excluir renda: ${error}`)
+            }
+            setDeleteConfirmState(null)
+          }
+        }}
+      >
+        <p className="text-sm text-primary">Tem certeza que deseja excluir esta renda?</p>
+      </ConfirmModal>
     </div>
   )
 }

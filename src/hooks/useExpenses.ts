@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { Expense, Category, CreditCard, Debt } from '@/types'
 import { addMonths, format } from 'date-fns'
 import { resolveBillCompetence, splitAmountIntoInstallments } from '@/utils/creditCardBilling'
-import { getCache, setCache } from '@/services/offlineCache'
+import { getCache, setCache, clearCacheByKeyPrefix } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
@@ -295,7 +295,7 @@ export function useExpenses(month?: string) {
 
       const inserted = data || []
       setExpenses((prev) => sortExpensesByDate([...prev, ...inserted]))
-      return { data: inserted[0] || null, error: null }
+      return { data: inserted[0] || null, error: null, insertedExpenses: inserted }
     } catch (err) {
       if (shouldQueueOffline(err)) {
         const installments = Number(expense.installment_total || 1)
@@ -363,7 +363,7 @@ export function useExpenses(month?: string) {
         setExpenses(nextState)
         await setCache(getCacheKey(), nextState)
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'expenses' } }))
-        return { data: offlineExpenses[0] || null, error: null }
+        return { data: offlineExpenses[0] || null, error: null, insertedExpenses: offlineExpenses }
       }
 
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar despesa'
@@ -462,13 +462,44 @@ export function useExpenses(month?: string) {
     }
   }
 
-  const deleteExpense = async (id: string) => {
+  const deleteExpense = async (id: string, mode: 'single' | 'all' | 'subsequent' = 'single') => {
+    const target = expenses.find((exp) => exp.id === id)
+    const targetGroupId = target?.installment_group_id
+    const targetInstallmentNumber = target?.installment_number
+
+    let idsToDelete: string[] = []
+
     try {
       if (!isOnline) {
         throw new Error('Offline (bypass)')
       }
 
-      if (id.startsWith('offline-')) {
+      if (mode !== 'single' && targetGroupId) {
+        let query = supabase
+          .from('expenses')
+          .select('id, installment_number, installment_group_id')
+          .eq('installment_group_id', targetGroupId)
+
+        if (mode === 'subsequent' && targetInstallmentNumber !== null && targetInstallmentNumber !== undefined) {
+          query = query.gte('installment_number', targetInstallmentNumber)
+        }
+
+        const { data: dbExpenses, error: dbError } = await query
+        if (dbError) throw dbError
+
+        if (dbExpenses && dbExpenses.length > 0) {
+          idsToDelete = dbExpenses.map((exp) => exp.id)
+        }
+      } else if (target) {
+        idsToDelete = [target.id]
+      }
+
+      if (idsToDelete.length === 0) {
+        return { error: null }
+      }
+
+      const hasOfflineId = idsToDelete.some(idVal => idVal.startsWith('offline-'))
+      if (hasOfflineId) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
@@ -476,13 +507,13 @@ export function useExpenses(month?: string) {
       await supabase
         .from('debts')
         .delete()
-        .eq('expense_id', id)
+        .in('expense_id', idsToDelete)
         .eq('status', 'pending')
 
       // Update local debts cache
       const debtsCache = await getCache<Debt[]>('debts-all')
       if (debtsCache) {
-        const nextDebts = debtsCache.filter((d) => !(d.expense_id === id && d.status === 'pending'))
+        const nextDebts = debtsCache.filter((d) => !(d.expense_id && idsToDelete.includes(d.expense_id) && d.status === 'pending'))
         await setCache('debts-all', nextDebts)
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
       }
@@ -490,45 +521,66 @@ export function useExpenses(month?: string) {
       const { error: deleteError } = await supabase
         .from('expenses')
         .delete()
-        .eq('id', id)
+        .in('id', idsToDelete)
 
       if (deleteError) throw deleteError
 
-      setExpenses((prev) => prev.filter((exp) => exp.id !== id))
+      const nextState = expenses.filter((exp) => !idsToDelete.includes(exp.id))
+      setExpenses(nextState)
+      await setCache(getCacheKey(), nextState)
+      await clearCacheByKeyPrefix('expenses-')
+      window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'expenses' } }))
       return { error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        if (id.startsWith('offline-')) {
-          removeOfflineCreateOperation(id)
-        } else {
-          enqueueOfflineOperation({
-            entity: 'expenses',
-            action: 'delete',
-            recordId: id,
-          })
+        let toDeleteOffline: Expense[] = []
+        if (mode === 'all' && targetGroupId) {
+          toDeleteOffline = expenses.filter((exp) => exp.installment_group_id === targetGroupId)
+        } else if (mode === 'subsequent' && targetGroupId && targetInstallmentNumber !== null && targetInstallmentNumber !== undefined) {
+          toDeleteOffline = expenses.filter((exp) => exp.installment_group_id === targetGroupId && (exp.installment_number ?? 1) >= targetInstallmentNumber)
+        } else if (target) {
+          toDeleteOffline = [target]
+        }
 
-          // Enqueue delete operation for associated pending debts offline
-          const debtsCache = await getCache<Debt[]>('debts-all')
-          if (debtsCache) {
-            const linkedPendingDebts = debtsCache.filter((d) => d.expense_id === id && d.status === 'pending')
-            for (const debt of linkedPendingDebts) {
-              if (!debt.id.startsWith('offline-')) {
-                enqueueOfflineOperation({
-                  entity: 'debts',
-                  action: 'delete',
-                  recordId: debt.id,
-                })
-              } else {
-                removeOfflineCreateOperation(debt.id)
-              }
-            }
-            const nextDebts = debtsCache.filter((d) => !(d.expense_id === id && d.status === 'pending'))
-            await setCache('debts-all', nextDebts)
-            window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
+        if (toDeleteOffline.length === 0) {
+          return { error: null }
+        }
+
+        const offlineIdsToDelete = toDeleteOffline.map((exp) => exp.id)
+
+        for (const exp of toDeleteOffline) {
+          if (exp.id.startsWith('offline-')) {
+            removeOfflineCreateOperation(exp.id)
+          } else {
+            enqueueOfflineOperation({
+              entity: 'expenses',
+              action: 'delete',
+              recordId: exp.id,
+            })
           }
         }
 
-        const nextState = expenses.filter((exp) => exp.id !== id)
+        // Enqueue delete operation for associated pending debts offline
+        const debtsCache = await getCache<Debt[]>('debts-all')
+        if (debtsCache) {
+          const linkedPendingDebts = debtsCache.filter((d) => d.expense_id && offlineIdsToDelete.includes(d.expense_id) && d.status === 'pending')
+          for (const debt of linkedPendingDebts) {
+            if (!debt.id.startsWith('offline-')) {
+              enqueueOfflineOperation({
+                entity: 'debts',
+                action: 'delete',
+                recordId: debt.id,
+              })
+            } else {
+              removeOfflineCreateOperation(debt.id)
+            }
+          }
+          const nextDebts = debtsCache.filter((d) => !(d.expense_id && offlineIdsToDelete.includes(d.expense_id) && d.status === 'pending'))
+          await setCache('debts-all', nextDebts)
+          window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
+        }
+
+        const nextState = expenses.filter((exp) => !offlineIdsToDelete.includes(exp.id))
         setExpenses(nextState)
         await setCache(getCacheKey(), nextState)
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'expenses' } }))

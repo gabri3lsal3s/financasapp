@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Debt } from '@/types'
 import { getCache, setCache } from '@/services/offlineCache'
-import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
+import { shouldQueueOffline, enqueueOfflineOperation, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 export function useDebts() {
@@ -177,33 +177,67 @@ export function useDebts() {
     }
   }
 
-  const deleteDebt = async (id: string) => {
+  const deleteDebt = async (id: string, mode: 'single' | 'all' | 'subsequent' = 'single') => {
+    const target = debts.find((d) => d.id === id)
+    const expenseGroup = target?.expense?.installment_group_id
+    const expenseNumber = target?.expense?.installment_number
+
+    let toDelete: Debt[] = []
+    if (mode === 'all' && expenseGroup) {
+      toDelete = debts.filter((d) => d.expense?.installment_group_id === expenseGroup)
+    } else if (mode === 'subsequent' && expenseGroup && expenseNumber !== null && expenseNumber !== undefined) {
+      toDelete = debts.filter((d) => d.expense?.installment_group_id === expenseGroup && (d.expense?.installment_number ?? 1) >= expenseNumber)
+    } else if (target) {
+      toDelete = [target]
+    }
+
+    if (toDelete.length === 0) {
+      return { error: null }
+    }
+
+    const idsToDelete = toDelete.map((d) => d.id)
+
     let previousDebts: Debt[] = []
     setDebts((previous) => {
       previousDebts = previous
-      return previous.filter((debt) => debt.id !== id)
+      return previous.filter((d) => !idsToDelete.includes(d.id))
     })
 
     try {
+      if (!isOnline) {
+        throw new Error('Offline (bypass)')
+      }
+
+      const hasOfflineId = idsToDelete.some(idVal => idVal.startsWith('offline-'))
+      if (hasOfflineId) {
+        throw new Error('Offline ID (bypass supabase)')
+      }
+
       const { error: deleteError } = await supabase
         .from('debts')
         .delete()
-        .eq('id', id)
+        .in('id', idsToDelete)
 
       if (deleteError) throw deleteError
 
-      const nextDebts = debts.filter((debt) => debt.id !== id)
+      const nextDebts = debts.filter((d) => !idsToDelete.includes(d.id))
       await setCache('debts-all', nextDebts)
       window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
       return { error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'debts',
-          action: 'delete',
-          recordId: id,
-        })
-        const nextDebts = debts.filter((debt) => debt.id !== id)
+        for (const debt of toDelete) {
+          if (debt.id.startsWith('offline-')) {
+            removeOfflineCreateOperation(debt.id)
+          } else {
+            enqueueOfflineOperation({
+              entity: 'debts',
+              action: 'delete',
+              recordId: debt.id,
+            })
+          }
+        }
+        const nextDebts = debts.filter((d) => !idsToDelete.includes(d.id))
         await setCache('debts-all', nextDebts).catch(console.error)
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
         return { error: null }

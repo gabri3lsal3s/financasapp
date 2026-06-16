@@ -56,6 +56,8 @@ import DeleteCardConfirmModal from '@/components/creditCards/DeleteCardConfirmMo
 import ExpenseEditModal from '@/components/creditCards/ExpenseEditModal'
 import RefundIncomeEditModal from '@/components/creditCards/RefundIncomeEditModal'
 import DebtFormModal from '@/components/debts/DebtFormModal'
+import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
+import ConfirmModal from '@/components/ConfirmModal'
 import {
   IncomeConfirmModal,
   IntegratedDebtModal,
@@ -114,6 +116,20 @@ export default function Contas() {
   // Modais e Estados de Dívidas
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false)
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean
+    type: 'expense' | 'debt'
+    id: string
+    installmentNumber: number
+    installmentTotal: number
+  } | null>(null)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    checkboxLabel?: string
+    onConfirm: () => Promise<void>
+  } | null>(null)
 
   // Modais customizados para confirmação de recebimentos
   const [isIncomeConfirmModalOpen, setIsIncomeConfirmModalOpen] = useState(false)
@@ -460,29 +476,34 @@ export default function Contas() {
 
   const handleDeleteRefundIncome = async () => {
     if (!editingRefundPaymentItem || !editingRefundIncomeId) return
-    const confirmed = window.confirm('Deseja realmente excluir este estorno?')
-    if (!confirmed) return
+    setDeleteConfirmState({
+      isOpen: true,
+      title: 'Excluir estorno',
+      message: 'Deseja realmente excluir este estorno?',
+      checkboxLabel: 'Estou ciente de que este estorno será excluído permanentemente.',
+      onConfirm: async () => {
+        try {
+          const { error: incomeDeleteError } = await supabase
+            .from('incomes')
+            .delete()
+            .eq('id', editingRefundIncomeId)
 
-    try {
-      const { error: incomeDeleteError } = await supabase
-        .from('incomes')
-        .delete()
-        .eq('id', editingRefundIncomeId)
+          if (incomeDeleteError) throw incomeDeleteError
 
-      if (incomeDeleteError) throw incomeDeleteError
+          const { error: paymentDeleteError } = await supabase
+            .from('credit_card_bill_payments')
+            .delete()
+            .eq('id', editingRefundPaymentItem.id)
 
-      const { error: paymentDeleteError } = await supabase
-        .from('credit_card_bill_payments')
-        .delete()
-        .eq('id', editingRefundPaymentItem.id)
+          if (paymentDeleteError) throw paymentDeleteError
 
-      if (paymentDeleteError) throw paymentDeleteError
-
-      closeRefundIncomeEditModal()
-      await loadBillData(true)
-    } catch (err) {
-      alert(`Erro ao excluir estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
-    }
+          closeRefundIncomeEditModal()
+          await loadBillData(true)
+        } catch (err) {
+          alert(`Erro ao excluir estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+        }
+      }
+    })
   }
 
   const handleSubmitRefund = async (amount: number, date: string, description: string) => {
@@ -842,21 +863,26 @@ export default function Contas() {
 
   const handleDeletePayment = async () => {
     if (!editingPaymentItem) return
-    const confirmed = window.confirm('Deseja excluir este pagamento?')
-    if (!confirmed) return
+    setDeleteConfirmState({
+      isOpen: true,
+      title: 'Excluir pagamento',
+      message: 'Deseja excluir este pagamento?',
+      checkboxLabel: 'Estou ciente de que este pagamento será excluído permanentemente.',
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from('credit_card_bill_payments')
+          .delete()
+          .eq('id', editingPaymentItem.id)
 
-    const { error } = await supabase
-      .from('credit_card_bill_payments')
-      .delete()
-      .eq('id', editingPaymentItem.id)
+        if (error) {
+          alert(`Erro ao excluir pagamento: ${error.message}`)
+          return
+        }
 
-    if (error) {
-      alert(`Erro ao excluir pagamento: ${error.message}`)
-      return
-    }
-
-    closePaymentEditModal()
-    await loadBillData(true)
+        closePaymentEditModal()
+        await loadBillData(true)
+      }
+    })
   }
 
   const handleSubmitCycle = async (closingDay: number, dueDay: number) => {
@@ -952,17 +978,34 @@ export default function Contas() {
 
   const handleDeleteExpense = async () => {
     if (!editingExpenseItem?.id) return
-    const confirmed = window.confirm('Deseja excluir esta despesa?')
-    if (!confirmed) return
 
-    const { error } = await deleteExpense(editingExpenseItem.id)
-    if (error) {
-      alert(`Erro ao excluir despesa: ${error}`)
-      return
+    if (Number(editingExpenseItem.installment_total || 1) > 1) {
+      setDeleteModalState({
+        isOpen: true,
+        type: 'expense',
+        id: editingExpenseItem.id,
+        installmentNumber: editingExpenseItem.installment_number || 1,
+        installmentTotal: editingExpenseItem.installment_total || 1,
+      })
+      closeExpenseEditModal()
+    } else {
+      setDeleteConfirmState({
+        isOpen: true,
+        title: 'Excluir despesa',
+        message: 'Deseja excluir esta despesa?',
+        checkboxLabel: 'Estou ciente de que esta despesa será excluída permanentemente.',
+        onConfirm: async () => {
+          const { error } = await deleteExpense(editingExpenseItem.id)
+          if (error) {
+            alert(`Erro ao excluir despesa: ${error}`)
+            return
+          }
+
+          closeExpenseEditModal()
+          await loadBillData(true)
+        }
+      })
     }
-
-    closeExpenseEditModal()
-    await loadBillData(true)
   }
 
   const handleSubmitDebt = async (payload: {
@@ -991,11 +1034,29 @@ export default function Contas() {
   }
 
   const handleDeleteDebt = async (debtId: string) => {
-    if (!confirm('Deseja excluir este registro de pendência?')) return
-    const { error } = await deleteDebt(debtId)
-    if (error) {
-      alert(`Erro ao excluir: ${error}`)
-      return
+    const debt = debts.find((d) => d.id === debtId)
+    if (debt && debt.expense?.installment_group_id && Number(debt.expense?.installment_total || 1) > 1) {
+      setDeleteModalState({
+        isOpen: true,
+        type: 'debt',
+        id: debtId,
+        installmentNumber: debt.expense.installment_number || 1,
+        installmentTotal: debt.expense.installment_total || 1,
+      })
+    } else {
+      setDeleteConfirmState({
+        isOpen: true,
+        title: 'Excluir pendência',
+        message: 'Deseja excluir este registro de pendência?',
+        checkboxLabel: 'Estou ciente de que esta pendência será excluída permanentemente.',
+        onConfirm: async () => {
+          const { error } = await deleteDebt(debtId)
+          if (error) {
+            alert(`Erro ao excluir: ${error}`)
+            return
+          }
+        }
+      })
     }
   }
 
@@ -1205,7 +1266,7 @@ export default function Contas() {
         action={
           <PageHeaderActions>
             <PageHeaderActionButton
-              intent="neutral"
+              intent={creditCardsWeightsEnabled ? 'warning' : 'neutral'}
               icon={Scale}
               label={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
               compactOnMobile={false}
@@ -1925,6 +1986,49 @@ export default function Contas() {
           date: selectedDebtForPayableExpense.due_date || format(new Date(), 'yyyy-MM-dd')
         } : undefined}
       />
+
+      {deleteModalState?.isOpen && (
+        <DeleteInstallmentsModal
+          isOpen={deleteModalState.isOpen}
+          onClose={() => setDeleteModalState(null)}
+          onConfirm={async (mode) => {
+            if (deleteModalState.type === 'expense') {
+              const { error } = await deleteExpense(deleteModalState.id, mode)
+              if (error) {
+                alert(`Erro ao excluir despesa: ${error}`)
+              } else {
+                await loadBillData(true)
+              }
+            } else {
+              const { error } = await deleteDebt(deleteModalState.id, mode)
+              if (error) {
+                alert(`Erro ao excluir cobrança: ${error}`)
+              }
+            }
+          }}
+          type={deleteModalState.type}
+          installmentNumber={deleteModalState.installmentNumber}
+          installmentTotal={deleteModalState.installmentTotal}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={deleteConfirmState?.isOpen || false}
+        onClose={() => setDeleteConfirmState(null)}
+        title={deleteConfirmState?.title || 'Confirmar exclusão'}
+        confirmLabel="Confirmar"
+        confirmVariant="danger"
+        requireCheckbox={true}
+        checkboxLabel={deleteConfirmState?.checkboxLabel}
+        onConfirm={async () => {
+          if (deleteConfirmState?.onConfirm) {
+            await deleteConfirmState.onConfirm()
+            setDeleteConfirmState(null)
+          }
+        }}
+      >
+        <p className="text-sm text-primary">{deleteConfirmState?.message}</p>
+      </ConfirmModal>
     </div>
   )
 }

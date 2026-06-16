@@ -15,6 +15,7 @@ import {
   parseMoneyInput,
   roundToDecimals,
 } from '@/utils/format'
+import { splitAmountIntoInstallments } from '@/utils/creditCardBilling'
 
 interface ExpenseFormModalProps {
   isOpen: boolean
@@ -24,7 +25,7 @@ interface ExpenseFormModalProps {
   creditCards: CreditCard[]
   onCreate: (
     expense: Omit<Expense, 'id' | 'created_at' | 'category'>
-  ) => Promise<{ data: Expense | null; error: string | null }>
+  ) => Promise<{ data: Expense | null; error: string | null; insertedExpenses?: Expense[] }>
   onUpdate: (
     id: string,
     updates: Partial<Expense>
@@ -62,6 +63,9 @@ export default function ExpenseFormModal({
   })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [createLinkedDebt, setCreateLinkedDebt] = useState(false)
+  const [linkedDebtAmount, setLinkedDebtAmount] = useState('')
+  const [isDebtAmountEdited, setIsDebtAmountEdited] = useState(false)
+
   useEffect(() => {
     if (isOpen) {
       if (editingExpense) {
@@ -79,6 +83,8 @@ export default function ExpenseFormModal({
           bill_competence: editingExpense.bill_competence || '',
         })
         setCreateLinkedDebt(false)
+        setLinkedDebtAmount('')
+        setIsDebtAmountEdited(false)
       } else {
         setFormData({
           amount: defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '',
@@ -92,6 +98,8 @@ export default function ExpenseFormModal({
           bill_competence: '',
         })
         setCreateLinkedDebt(false)
+        setLinkedDebtAmount(defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '')
+        setIsDebtAmountEdited(false)
       }
     }
   }, [isOpen, editingExpense, categories, defaultValues])
@@ -112,6 +120,10 @@ export default function ExpenseFormModal({
         report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
       }
     })
+
+    if (!isDebtAmountEdited) {
+      setLinkedDebtAmount(nextAmount)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,6 +162,24 @@ export default function ExpenseFormModal({
       return
     }
 
+    let parsedDebtAmount = amount
+    if (createLinkedDebt) {
+      if (!linkedDebtAmount) {
+        alert('Por favor, informe o valor da cobrança.')
+        return
+      }
+      const parsedVal = parseMoneyInput(linkedDebtAmount)
+      if (isNaN(parsedVal) || parsedVal <= 0) {
+        alert('Por favor, insira um valor de cobrança válido maior que zero.')
+        return
+      }
+      if (parsedVal > amount) {
+        alert('O valor da cobrança não pode ser maior que o valor da despesa.')
+        return
+      }
+      parsedDebtAmount = parsedVal
+    }
+
     const expenseData: Omit<Expense, 'id' | 'created_at' | 'category'> = {
       amount,
       report_weight: reportWeight,
@@ -171,22 +201,35 @@ export default function ExpenseFormModal({
         alert('Erro ao atualizar despesa: ' + error)
       }
     } else {
-      const { data, error } = await onCreate(expenseData)
+      const { data, error, insertedExpenses } = await onCreate(expenseData)
       if (!error) {
-        if (createLinkedDebt && data) {
+        if (createLinkedDebt) {
           const categoryName = categories.find((c) => c.id === expenseData.category_id)?.name || 'Categoria'
-          const name = expenseData.description || `Cobrança - ${categoryName}`
-          await createDebt({
-            name,
-            type: 'receivable',
-            amount: expenseData.amount,
-            due_date: expenseData.date,
-            description: expenseData.description
-              ? `Cobrança integrada à despesa: ${expenseData.description}`
-              : `Cobrança vinculada à despesa de ${categoryName}`,
-            status: 'pending',
-            expense_id: data.id && !data.id.startsWith('offline-') ? data.id : null,
-          })
+          const expensesToLink = insertedExpenses && insertedExpenses.length > 0 ? insertedExpenses : (data ? [data] : [])
+
+          const debtInstallments = installmentTotal > 1
+            ? splitAmountIntoInstallments(parsedDebtAmount, installmentTotal)
+            : [parsedDebtAmount]
+
+          for (let i = 0; i < expensesToLink.length; i++) {
+            const exp = expensesToLink[i]
+            const debtAmount = debtInstallments[i] ?? exp.amount
+            const installmentSuffix = exp.installment_total && exp.installment_total > 1
+              ? ` (${exp.installment_number}/${exp.installment_total})`
+              : ''
+            const name = (expenseData.description || `Cobrança - ${categoryName}`) + installmentSuffix
+            await createDebt({
+              name,
+              type: 'receivable',
+              amount: debtAmount,
+              due_date: exp.date,
+              description: expenseData.description
+                ? `Cobrança integrada à despesa: ${expenseData.description}${installmentSuffix}`
+                : `Cobrança vinculada à despesa de ${categoryName}${installmentSuffix}`,
+              status: 'pending',
+              expense_id: exp.id && !exp.id.startsWith('offline-') ? exp.id : null,
+            })
+          }
         }
         onClose()
       } else {
@@ -396,6 +439,29 @@ export default function ExpenseFormModal({
           </div>
         )}
 
+        {!editingExpense && createLinkedDebt && (
+          <div className="animate-surface-enter w-full pb-2">
+            <Input
+              label="Valor da cobrança (R$)"
+              type="text"
+              inputMode="decimal"
+              value={linkedDebtAmount}
+              onChange={(e) => {
+                setLinkedDebtAmount(e.target.value)
+                setIsDebtAmountEdited(true)
+              }}
+              onBlur={() => {
+                const parsed = parseMoneyInput(linkedDebtAmount)
+                if (!Number.isNaN(parsed) && parsed >= 0) {
+                  setLinkedDebtAmount(formatMoneyInput(parsed))
+                }
+              }}
+              placeholder="0,00"
+              required
+            />
+          </div>
+        )}
+
         {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
           <p className="modal-intro modal-panel-glass p-3">
             Esta despesa pertence ao parcelamento{' '}
@@ -412,6 +478,8 @@ export default function ExpenseFormModal({
       title="Excluir despesa"
       confirmLabel="Excluir despesa"
       confirmVariant="danger"
+      requireCheckbox={true}
+      checkboxLabel="Estou ciente de que esta despesa será excluída permanentemente."
       onConfirm={() => void confirmDeleteExpense()}
     >
       <p className="text-sm text-primary">Tem certeza que deseja excluir esta despesa?</p>

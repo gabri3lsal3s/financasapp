@@ -427,6 +427,8 @@ export default function IncomeFormModal({
       title="Excluir renda"
       confirmLabel="Excluir renda"
       confirmVariant="danger"
+      requireCheckbox={true}
+      checkboxLabel="Estou ciente de que esta renda será excluída permanentemente."
       onConfirm={() => void confirmDeleteIncome()}
     >
       <p className="text-sm text-primary">Tem certeza que deseja excluir esta renda?</p>

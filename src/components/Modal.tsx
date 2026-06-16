@@ -150,6 +150,7 @@ export default function Modal({
           side="bottom"
           showCloseButton={false}
           overlayClassName={stack.overlay}
+          aria-describedby={undefined}
           onPointerDownOutside={(e) => {
             if (isCalculatorElement(e.target)) {
               e.preventDefault()
@@ -187,6 +188,7 @@ export default function Modal({
       <DialogContent
         showCloseButton={false}
         overlayClassName={stack.overlay}
+        aria-describedby={undefined}
         onPointerDownOutside={(e) => {
           if (isCalculatorElement(e.target)) {
             e.preventDefault()

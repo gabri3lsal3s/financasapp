@@ -10,10 +10,9 @@ interface AlertCardProps {
   alert: AlertItem
   todayStr: string
   snoozeAlert: (id: string) => void
-  markAsRead: (id: string) => void
 }
 
-function AlertCard({ alert, todayStr, snoozeAlert, markAsRead }: AlertCardProps) {
+function AlertCard({ alert, todayStr, snoozeAlert }: AlertCardProps) {
   const showSnooze = !alert.isOverdue && alert.dueDate > todayStr
 
   return (
@@ -50,44 +49,21 @@ function AlertCard({ alert, todayStr, snoozeAlert, markAsRead }: AlertCardProps)
         </div>
       </div>
 
-      {/* Balanced 2-column grid for action buttons to eliminate overflow and keep them perfectly centered and aligned */}
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-primary/10">
-        {showSnooze ? (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => snoozeAlert(alert.id)}
-              className="w-full text-[10px] font-bold text-secondary hover:text-primary hover:bg-primary/5 py-1.5 px-0 h-auto rounded-lg transition-all text-center uppercase tracking-normal"
-              title="Adia o lembrete para reaparecer no dia do vencimento"
-            >
-              Lembrar mais tarde
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => markAsRead(alert.id)}
-              className="w-full text-[10px] font-bold text-secondary hover:text-primary hover:bg-primary/5 py-1.5 px-0 h-auto rounded-lg transition-all text-center uppercase tracking-normal"
-              title="Remove definitivamente o lembrete desta lista"
-            >
-              Marcar como lida
-            </Button>
-          </>
-        ) : (
+      {/* Action buttons footer */}
+      {showSnooze && (
+        <div className="pt-2 border-t border-primary/10">
           <Button
             type="button"
             variant="ghost"
             size="xs"
-            onClick={() => markAsRead(alert.id)}
-            className="col-span-2 w-full text-[10px] font-bold text-secondary hover:text-primary hover:bg-primary/5 py-1.5 px-0 h-auto rounded-lg transition-all text-center uppercase tracking-normal"
-            title="Remove definitivamente o lembrete desta lista"
+            onClick={() => snoozeAlert(alert.id)}
+            className="w-full text-[10px] font-bold text-secondary hover:text-primary hover:bg-primary/5 py-1.5 px-0 h-auto rounded-lg transition-all text-center uppercase tracking-normal"
+            title="Adia o lembrete para reaparecer no dia do vencimento"
           >
-            Marcar como lida
+            Lembrar mais tarde
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -102,7 +78,6 @@ export default function NotificationsWidget() {
     isDesktopAlertsOpen,
     setIsDesktopAlertsOpen,
     snoozeAlert,
-    markAsRead,
     todayStr,
   } = useNotifications()
 
@@ -130,7 +105,6 @@ export default function NotificationsWidget() {
                 alert={alert}
                 todayStr={todayStr}
                 snoozeAlert={snoozeAlert}
-                markAsRead={markAsRead}
               />
             ))}
           </div>
@@ -193,7 +167,6 @@ export default function NotificationsWidget() {
                     alert={alert}
                     todayStr={todayStr}
                     snoozeAlert={snoozeAlert}
-                    markAsRead={markAsRead}
                   />
                 ))}
               </div>

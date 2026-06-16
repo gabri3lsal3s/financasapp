@@ -22,6 +22,8 @@ import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
+import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
+import ConfirmModal from '@/components/ConfirmModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import MobileAlertsPill from '@/components/MobileAlertsPill'
 
@@ -91,6 +93,17 @@ export default function Expenses() {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean
+    type: 'expense' | 'debt'
+    id: string
+    installmentNumber: number
+    installmentTotal: number
+  } | null>(null)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean
+    id: string
+  } | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
 
@@ -128,6 +141,27 @@ export default function Expenses() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setEditingExpense(null)
+  }
+
+  const handleDeleteExpenseFromFormModal = async (id: string) => {
+    const expense = expenses.find((e) => e.id === id)
+    if (expense && Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
+      setDeleteModalState({
+        isOpen: true,
+        type: 'expense',
+        id: expense.id,
+        installmentNumber: expense.installment_number || 1,
+        installmentTotal: expense.installment_total || 1,
+      })
+      handleCloseModal()
+      return { error: null }
+    } else {
+      const { error } = await deleteExpense(id)
+      if (error) {
+        alert(`Erro ao excluir despesa: ${error}`)
+      }
+      return { error }
+    }
   }
 
   useEffect(() => {
@@ -286,8 +320,19 @@ export default function Expenses() {
                           onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
                           onEdit={() => handleOpenModal(expense)}
                           onDelete={async () => {
-                            if (window.confirm('Deseja realmente excluir esta despesa?')) {
-                              await deleteExpense(expense.id)
+                            if (Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
+                              setDeleteModalState({
+                                isOpen: true,
+                                type: 'expense',
+                                id: expense.id,
+                                installmentNumber: expense.installment_number || 1,
+                                installmentTotal: expense.installment_total || 1,
+                              })
+                            } else {
+                              setDeleteConfirmState({
+                                isOpen: true,
+                                id: expense.id,
+                              })
                             }
                           }}
                         />
@@ -339,9 +384,10 @@ export default function Expenses() {
                           onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
                           onEdit={() => handleOpenModal(expense)}
                           onDelete={async () => {
-                            if (window.confirm('Deseja realmente excluir esta despesa?')) {
-                              await deleteExpense(expense.id)
-                            }
+                            setDeleteConfirmState({
+                              isOpen: true,
+                              id: expense.id,
+                            })
                           }}
                         />
                       )
@@ -362,8 +408,45 @@ export default function Expenses() {
         creditCards={creditCards}
         onCreate={createExpense}
         onUpdate={updateExpense}
-        onDelete={deleteExpense}
+        onDelete={handleDeleteExpenseFromFormModal}
       />
+
+      {deleteModalState?.isOpen && (
+        <DeleteInstallmentsModal
+          isOpen={deleteModalState.isOpen}
+          onClose={() => setDeleteModalState(null)}
+          onConfirm={async (mode) => {
+            const { error } = await deleteExpense(deleteModalState.id, mode)
+            if (error) {
+              alert(`Erro ao excluir despesa: ${error}`)
+            }
+          }}
+          type={deleteModalState.type}
+          installmentNumber={deleteModalState.installmentNumber}
+          installmentTotal={deleteModalState.installmentTotal}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={deleteConfirmState?.isOpen || false}
+        onClose={() => setDeleteConfirmState(null)}
+        title="Excluir despesa"
+        confirmLabel="Excluir despesa"
+        confirmVariant="danger"
+        requireCheckbox={true}
+        checkboxLabel="Estou ciente de que esta despesa será excluída permanentemente."
+        onConfirm={async () => {
+          if (deleteConfirmState) {
+            const { error } = await deleteExpense(deleteConfirmState.id)
+            if (error) {
+              alert(`Erro ao excluir despesa: ${error}`)
+            }
+            setDeleteConfirmState(null)
+          }
+        }}
+      >
+        <p className="text-sm text-primary">Tem certeza que deseja excluir esta despesa?</p>
+      </ConfirmModal>
     </div>
   )
 }

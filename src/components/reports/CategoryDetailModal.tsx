@@ -77,6 +77,7 @@ interface CategoryDetailModalProps {
   incomeCategoryIdToColor: Record<string, string>
   includeReportWeights: boolean
   yearDetailLoading: boolean
+  isCustomPeriod?: boolean
 }
 
 const PAYMENT_METHOD_COLORS: Record<string, string> = {
@@ -119,6 +120,7 @@ export default function CategoryDetailModal({
   incomeCategoryIdToColor,
   includeReportWeights,
   yearDetailLoading,
+  isCustomPeriod = false,
 }: CategoryDetailModalProps) {
   const [modalTab, setModalTab] = useState<'summary' | 'transactions'>('summary')
   const [detailSearch, setDetailSearch] = useState('')
@@ -416,238 +418,327 @@ export default function CategoryDetailModal({
       } • ${categoryName}`}
     >
       <div className="modal-body-stack">
-        {/* Modal Tab Switcher */}
-        <Tabs
-          value={modalTab}
-          onValueChange={(value) => setModalTab(value as 'summary' | 'transactions')}
-          className="mb-2"
-        >
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="summary" className="text-xs">
-              Resumo e Metas
-            </TabsTrigger>
-            <TabsTrigger value="transactions" className="text-xs">
-              Lançamentos ({filteredDetailItems.length})
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        {modalTab === 'summary' ? (
+        {isCustomPeriod ? (
           <div className="space-y-4">
-            {/* Historical Comparison */}
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
-                Comparativo Histórico
+            {/* Total no período */}
+            <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
+              <p className="text-[10px] text-secondary uppercase font-bold tracking-wider">
+                Total no período selecionado
               </p>
-              <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] text-secondary">
-                      Total em {period === 'year' ? selectedYear : formatMonth(selectedMonth)}
-                    </p>
-                    <p className="text-lg font-bold text-primary font-mono">
-                      {formatCurrency(detailCurrentTotal)}
-                    </p>
-                  </div>
-                  {detailDifferencePct !== null && (
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        detailDifference >= 0
-                          ? type === 'expense'
-                            ? 'text-expense bg-expense/10'
-                            : 'text-income bg-income/10'
-                          : type === 'expense'
-                          ? 'text-income bg-income/10'
-                          : 'text-expense bg-expense/10'
-                      }`}
-                    >
-                      {detailDifference >= 0 ? '+' : ''}
-                      {formatNumberWithTwoDecimalsBR(detailDifferencePct)}%
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2.5 pt-2.5 border-t border-glass flex justify-between text-xs text-secondary">
-                  <span>Período anterior:</span>
-                  <span className="font-semibold text-primary font-mono">
-                    {formatCurrency(detailPreviousTotal)}
-                  </span>
-                </div>
-                <div className="mt-1 flex justify-between text-xs text-secondary">
-                  <span>Variação absoluta:</span>
-                  <span
-                    className={`font-semibold ${
-                      detailDifference >= 0
-                        ? type === 'expense'
-                          ? 'text-expense'
-                          : 'text-income'
-                        : type === 'expense'
-                        ? 'text-income'
-                        : 'text-expense'
-                    }`}
-                  >
-                    {detailDifference >= 0 ? '+' : ''}
-                    {formatCurrency(detailDifference)}
-                  </span>
-                </div>
-              </div>
+              <p className="text-lg font-bold text-primary font-mono mt-0.5">
+                {formatCurrency(detailCurrentTotal)}
+              </p>
             </div>
 
-            {/* Goals/Expectations */}
-            {period === 'month' && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
-                  Metas Orçamentárias
-                </p>
-                <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
-                  {detailMonthlyGoal?.configured ? (
-                    <div>
-                      <div className="flex justify-between text-xs text-secondary mb-1">
-                        <span>Consumo do Limite</span>
-                        <span className="font-semibold text-primary font-mono">
-                          {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)} de{' '}
-                          {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}
-                        </span>
-                      </div>
-                      {/* Progress Bar */}
-                      <div className="w-full h-1.5 rounded-full bg-secondary bg-opacity-20 overflow-hidden mb-2">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            detailMonthlyGoal.isExceeded ? 'bg-expense' : 'bg-primary'
-                          }`}
-                          style={{
-                            width: `${Math.min(
-                              ((detailMonthlyGoal.currentAmount ?? 0) /
-                                (detailMonthlyGoal.targetAmount ?? 1)) *
-                                100,
-                              100
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                      <p
-                        className={`text-xs font-semibold ${
-                          detailMonthlyGoal.isExceeded ? 'text-expense' : 'text-income'
+            {/* Listagem Simplificada */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-1.5">
+                  Buscar por descrição
+                </label>
+                <Input
+                  type="text"
+                  value={detailSearch}
+                  onChange={(event) => setDetailSearch(event.target.value)}
+                  placeholder="Digite parte da descrição do lançamento..."
+                />
+              </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {filteredDetailItems.length === 0 ? (
+                  <p className="text-xs text-secondary py-6 text-center">
+                    Nenhum lançamento encontrado para os filtros.
+                  </p>
+                ) : (
+                  <>
+                    {visibleDetailItems.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
+                          index < 8
+                            ? [
+                                'delay-50',
+                                'delay-100',
+                                'delay-150',
+                                'delay-200',
+                                'delay-250',
+                                'delay-300',
+                                'delay-350',
+                                'delay-400',
+                              ][index]
+                            : ''
                         }`}
                       >
-                        {detailMonthlyGoal.isExceeded
-                          ? `Excedido em ${formatCurrency(
-                              detailMonthlyGoal.differenceAmount ?? 0
-                            )}`
-                          : `Restam ${formatCurrency(
-                              detailMonthlyGoal.differenceAmount ?? 0
-                            )} para o limite`}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-secondary text-center py-2">
-                      Sem meta ou limite de orçamento configurado no mês.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Trend Chart */}
-            {isOpen && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
-                  Tendência da Categoria
-                </p>
-                <div className="rounded-xl border border-glass surface-glass p-3 shadow-sm">
-                  <CategoryDetailMiniChart
-                    detailItems={detailItems}
-                    period={period}
-                    selectedMonth={selectedMonth}
-                    selectedYear={selectedYear}
-                    color={detailCategoryColor}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {/* Search Input */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-1.5">
-                Buscar por descrição
-              </label>
-              <Input
-                type="text"
-                value={detailSearch}
-                onChange={(event) => setDetailSearch(event.target.value)}
-                placeholder="Digite parte da descrição do lançamento..."
-              />
-            </div>
-
-            {/* Transactions List */}
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {filteredDetailItems.length === 0 ? (
-                <p className="text-xs text-secondary py-6 text-center">
-                  {yearDetailLoading && period === 'year' ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 size={14} className="animate-spin text-primary" />
-                      Buscando lançamentos...
-                    </span>
-                  ) : !isOnline && period === 'year' ? (
-                    'Você está offline. Conecte-se à internet para buscar lançamentos anuais.'
-                  ) : (
-                    'Nenhum lançamento encontrado para os filtros.'
-                  )}
-                </p>
-              ) : (
-                <>
-                  {visibleDetailItems.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
-                        index < 8
-                          ? [
-                              'delay-50',
-                              'delay-100',
-                              'delay-150',
-                              'delay-200',
-                              'delay-250',
-                              'delay-300',
-                              'delay-350',
-                              'delay-400',
-                            ][index]
-                          : ''
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-primary truncate font-sans">
-                          {item.description}
-                        </p>
-                        <p className="text-[9px] font-mono text-secondary mt-1">
-                          {formatDate(item.date)}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-primary truncate font-sans">
+                            {item.description}
+                          </p>
+                          <p className="text-[9px] font-mono text-secondary mt-1">
+                            {formatDate(item.date)}
+                          </p>
+                        </div>
+                        <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
+                          {formatCurrency(item.amount)}
                         </p>
                       </div>
-                      <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
-                        {formatCurrency(item.amount)}
-                      </p>
-                    </div>
-                  ))}
+                    ))}
 
-                  {hasMoreDetailItems && (
-                    <div className="pt-2 text-center">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)
-                        }
-                        className="w-full"
-                      >
-                        Carregar mais lançamentos
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
+                    {hasMoreDetailItems && (
+                      <div className="pt-2 text-center">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)
+                          }
+                          className="w-full"
+                        >
+                          Carregar mais lançamentos
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            {/* Modal Tab Switcher */}
+            <Tabs
+              value={modalTab}
+              onValueChange={(value) => setModalTab(value as 'summary' | 'transactions')}
+              className="mb-2"
+            >
+              <TabsList className="w-full grid grid-cols-2">
+                <TabsTrigger value="summary" className="text-xs">
+                  Resumo e Metas
+                </TabsTrigger>
+                <TabsTrigger value="transactions" className="text-xs">
+                  Lançamentos ({filteredDetailItems.length})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {modalTab === 'summary' ? (
+              <div className="space-y-4">
+                {/* Historical Comparison */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
+                    Comparativo Histórico
+                  </p>
+                  <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] text-secondary">
+                          Total em {period === 'year' ? selectedYear : formatMonth(selectedMonth)}
+                        </p>
+                        <p className="text-lg font-bold text-primary font-mono">
+                          {formatCurrency(detailCurrentTotal)}
+                        </p>
+                      </div>
+                      {detailDifferencePct !== null && (
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            detailDifference >= 0
+                              ? type === 'expense'
+                                ? 'text-expense bg-expense/10'
+                                : 'text-income bg-income/10'
+                              : type === 'expense'
+                              ? 'text-income bg-income/10'
+                              : 'text-expense bg-expense/10'
+                          }`}
+                        >
+                          {detailDifference >= 0 ? '+' : ''}
+                          {formatNumberWithTwoDecimalsBR(detailDifferencePct)}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2.5 pt-2.5 border-t border-glass flex justify-between text-xs text-secondary">
+                      <span>Período anterior:</span>
+                      <span className="font-semibold text-primary font-mono">
+                        {formatCurrency(detailPreviousTotal)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex justify-between text-xs text-secondary">
+                      <span>Variação absoluta:</span>
+                      <span
+                        className={`font-semibold ${
+                          detailDifference >= 0
+                            ? type === 'expense'
+                              ? 'text-expense'
+                              : 'text-income'
+                            : type === 'expense'
+                            ? 'text-income'
+                            : 'text-expense'
+                        }`}
+                      >
+                        {detailDifference >= 0 ? '+' : ''}
+                        {formatCurrency(detailDifference)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Goals/Expectations */}
+                {period === 'month' && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
+                      Metas Orçamentárias
+                    </p>
+                    <div className="rounded-xl border border-glass surface-glass p-3.5 shadow-sm">
+                      {detailMonthlyGoal?.configured ? (
+                        <div>
+                          <div className="flex justify-between text-xs text-secondary mb-1">
+                            <span>Consumo do Limite</span>
+                            <span className="font-semibold text-primary font-mono">
+                              {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)} de{' '}
+                              {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}
+                            </span>
+                          </div>
+                          {/* Progress Bar */}
+                          <div className="w-full h-1.5 rounded-full bg-secondary bg-opacity-20 overflow-hidden mb-2">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                detailMonthlyGoal.isExceeded ? 'bg-expense' : 'bg-primary'
+                              }`}
+                              style={{
+                                width: `${Math.min(
+                                  ((detailMonthlyGoal.currentAmount ?? 0) /
+                                    (detailMonthlyGoal.targetAmount ?? 1)) *
+                                    100,
+                                  100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                          <p
+                            className={`text-xs font-semibold ${
+                              detailMonthlyGoal.isExceeded ? 'text-expense' : 'text-income'
+                            }`}
+                          >
+                            {detailMonthlyGoal.isExceeded
+                              ? `Excedido em ${formatCurrency(
+                                  detailMonthlyGoal.differenceAmount ?? 0
+                                )}`
+                              : `Restam ${formatCurrency(
+                                  detailMonthlyGoal.differenceAmount ?? 0
+                                )} para o limite`}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-secondary text-center py-2">
+                          Sem meta ou limite de orçamento configurado no mês.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Trend Chart */}
+                {isOpen && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
+                      Tendência da Categoria
+                    </p>
+                    <div className="rounded-xl border border-glass surface-glass p-3 shadow-sm">
+                      <CategoryDetailMiniChart
+                        detailItems={detailItems}
+                        period={period}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        color={detailCategoryColor}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Search Input */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-1.5">
+                    Buscar por descrição
+                  </label>
+                  <Input
+                    type="text"
+                    value={detailSearch}
+                    onChange={(event) => setDetailSearch(event.target.value)}
+                    placeholder="Digite parte da descrição do lançamento..."
+                  />
+                </div>
+
+                {/* Transactions List */}
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {filteredDetailItems.length === 0 ? (
+                    <p className="text-xs text-secondary py-6 text-center">
+                      {yearDetailLoading && period === 'year' ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 size={14} className="animate-spin text-primary" />
+                          Buscando lançamentos...
+                        </span>
+                      ) : !isOnline && period === 'year' ? (
+                        'Você está offline. Conecte-se à internet para buscar lançamentos anuais.'
+                      ) : (
+                        'Nenhum lançamento encontrado para os filtros.'
+                      )}
+                    </p>
+                  ) : (
+                    <>
+                      {visibleDetailItems.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
+                            index < 8
+                              ? [
+                                  'delay-50',
+                                  'delay-100',
+                                  'delay-150',
+                                  'delay-200',
+                                  'delay-250',
+                                  'delay-300',
+                                  'delay-350',
+                                  'delay-400',
+                                ][index]
+                              : ''
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-primary truncate font-sans">
+                              {item.description}
+                            </p>
+                            <p className="text-[9px] font-mono text-secondary mt-1">
+                              {formatDate(item.date)}
+                            </p>
+                          </div>
+                          <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
+                            {formatCurrency(item.amount)}
+                          </p>
+                        </div>
+                      ))}
+
+                      {hasMoreDetailItems && (
+                        <div className="pt-2 text-center">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setDetailVisibleCount((prev) => prev + DETAIL_ITEMS_STEP)
+                            }
+                            className="w-full"
+                          >
+                            Carregar mais lançamentos
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </Modal>

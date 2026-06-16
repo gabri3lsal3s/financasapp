@@ -41,6 +41,10 @@ export default function YearSelector({
     }
   }
 
+  const currentYear = new Date().getFullYear()
+  const isCurrentYear = value === currentYear
+  const canReturnToCurrent = !isCurrentYear
+
   const handleSelectYear = (year: number) => {
     onChange(year)
     setIsPickerOpen(false)
@@ -48,7 +52,7 @@ export default function YearSelector({
 
   return (
     <>
-      <div className={cn('flex items-center justify-between', className)}>
+      <div className={cn('mb-4 flex items-center justify-between year-selector', className)}>
         <div className="flex h-10 w-10 items-center justify-center">
           {canNavigatePrev ? (
             <IconButton
@@ -64,17 +68,29 @@ export default function YearSelector({
           <button
             type="button"
             onClick={() => setIsPickerOpen(true)}
-            className="group rounded-lg px-3 py-1 transition-colors hover:bg-accent flex items-center gap-1.5"
+            className="group rounded-lg px-2 py-0.5 transition-colors hover:bg-accent"
             aria-label="Abrir seletor de ano"
           >
-            <span className="text-base font-semibold text-primary sm:text-lg">
+            <span className="inline-block text-base font-semibold text-primary sm:text-lg">
               {value}
             </span>
           </button>
-          <div className="flex h-4 items-center justify-center">
-            <span className="text-[10px] text-secondary font-medium select-none uppercase tracking-wider opacity-60">
-              Visualização Anual
-            </span>
+          <div className="flex h-8 items-center justify-center">
+            {canReturnToCurrent ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onChange(currentYear)}
+                className="h-auto px-2 py-0.5 text-xs text-secondary"
+              >
+                Voltar ao ano atual
+              </Button>
+            ) : (
+              <span className="text-xs text-secondary font-medium px-2 py-0.5 select-none">
+                Ano atual
+              </span>
+            )}
           </div>
         </div>
 
