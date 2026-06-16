@@ -714,12 +714,14 @@
   @keyframes page-enter {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
+      filter: blur(4px);
     }
 
     to {
       opacity: 1;
       transform: translateY(0);
+      filter: blur(0);
     }
   }
 
@@ -1472,6 +1474,67 @@ body {
   background-size: 24px 24px;
 }
 
+/* Animações fluídas de Cascata Lineares/Laterais para o Glow de Fundo */
+@keyframes glow-cascade-mobile-before {
+  0% {
+    transform: translate3d(0, 20%, 0) scaleY(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(0, -15%, 0) scaleY(1.3);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(0, 20%, 0) scaleY(0.9);
+    opacity: 0.7;
+  }
+}
+
+@keyframes glow-cascade-mobile-after {
+  0% {
+    transform: translate3d(0, 25%, 0) scaleY(0.85);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate3d(0, -10%, 0) scaleY(1.2);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(0, 25%, 0) scaleY(0.85);
+    opacity: 0.35;
+  }
+}
+
+@keyframes glow-cascade-desktop-before {
+  0% {
+    transform: translate3d(-15%, 0, 0) scaleX(0.85);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate3d(15%, 0, 0) scaleX(1.25);
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate3d(-15%, 0, 0) scaleX(0.85);
+    opacity: 0.45;
+  }
+}
+
+@keyframes glow-cascade-desktop-after {
+  0% {
+    transform: translate3d(-10%, 0, 0) scaleX(0.9);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translate3d(20%, 0, 0) scaleX(1.15);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate3d(-10%, 0, 0) scaleX(0.9);
+    opacity: 0.2;
+  }
+}
+
 .app-shell-glow {
   pointer-events: none;
   position: fixed;
@@ -1487,65 +1550,74 @@ body {
   transition:
     background var(--ds-motion-duration-normal) var(--ds-motion-easing-standard),
     opacity var(--ds-motion-duration-normal) var(--ds-motion-easing-standard);
+  will-change: transform, opacity;
 }
 
-/* Mobile: barra de glow sobe da nav — formato horizontal plano */
+/* Mobile: barra de glow linear na base que sobe até o centro — sem formato circular */
 .app-shell-glow::before {
-  width: 110%;
-  height: 100px;
-  max-width: none;
-  max-height: none;
+  left: 0;
+  right: 0;
   bottom: 0;
   top: auto;
-  left: -5%;
-  transform: none;
-  border-radius: 50%;
-  filter: blur(52px);
-  opacity: 0.72;
-  background: var(--ambient-glow-primary);
+  width: 100%;
+  height: 40vh;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  filter: blur(80px);
+  background: linear-gradient(to top, var(--ambient-glow-primary), transparent);
+  transform-origin: bottom center;
+  animation: glow-cascade-mobile-before 12s ease-in-out infinite;
 }
 
 .app-shell-glow::after {
-  width: 80%;
-  height: 60px;
-  max-width: none;
-  max-height: none;
+  left: 0;
+  right: 0;
   bottom: 0;
   top: auto;
-  left: 10%;
-  transform: none;
-  border-radius: 50%;
-  filter: blur(72px);
-  opacity: 0.38;
-  background: var(--ambient-glow-primary);
+  width: 100%;
+  height: 25vh;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  filter: blur(100px);
+  background: linear-gradient(to top, var(--ambient-glow-secondary, var(--ambient-glow-primary)), transparent);
+  transform-origin: bottom center;
+  animation: glow-cascade-mobile-after 15s ease-in-out infinite;
 }
 
-/* Desktop: glow no topo-esquerdo, próximo à sidebar */
+/* Desktop: glow linear na lateral esquerda (sidebar) que avança ao centro — sem formato circular */
 @media (min-width: 1024px) {
   .app-shell-glow::before {
-    width: 520px;
-    height: 420px;
-    bottom: auto;
-    top: -140px;
-    left: -60px;
-    transform: none;
-    border-radius: 9999px;
-    filter: blur(100px);
-    background: var(--ambient-glow-primary);
-    opacity: 0.42;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: auto;
+    width: 45vw;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    filter: blur(120px);
+    background: linear-gradient(to right, var(--ambient-glow-primary), transparent);
+    transform-origin: left center;
+    animation: glow-cascade-desktop-before 16s ease-in-out infinite;
   }
 
   .app-shell-glow::after {
-    width: 380px;
-    height: 300px;
-    bottom: auto;
-    top: 60px;
-    left: 220px;
-    transform: none;
-    border-radius: 9999px;
-    filter: blur(100px);
-    background: var(--ambient-glow-secondary);
-    opacity: 0.20;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: auto;
+    width: 30vw;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    filter: blur(140px);
+    background: linear-gradient(to right, var(--ambient-glow-secondary), transparent);
+    transform-origin: left center;
+    animation: glow-cascade-desktop-after 20s ease-in-out infinite;
   }
 }
 

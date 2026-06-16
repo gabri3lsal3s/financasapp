@@ -28,6 +28,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <DatePicker
             id={inputId}
             value={String(props.value ?? '')}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onChange={props.onChange as any}
             name={props.name}
             placeholder={props.placeholder}

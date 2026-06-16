@@ -100,7 +100,13 @@ export default function Contas() {
   const [isRefundIncomeEditModalOpen, setIsRefundIncomeEditModalOpen] = useState(false)
   const [editingRefundPaymentItem, setEditingRefundPaymentItem] = useState<PaymentItem | null>(null)
   const [editingRefundIncomeId, setEditingRefundIncomeId] = useState<string>('')
-  const [editingRefundIncomeInitialData, setEditingRefundIncomeInitialData] = useState<any>(null)
+  const [editingRefundIncomeInitialData, setEditingRefundIncomeInitialData] = useState<{
+    amount: string
+    report_amount: string
+    date: string
+    income_category_id: string
+    description: string
+  } | null>(null)
   const [reconciliationCardId, setReconciliationCardId] = useState<string>('')
   const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)

@@ -63,10 +63,15 @@ interface CategoryDetailModalProps {
   yearIncomeItems: DetailIncomeEntry[]
   previousYearExpenseItems: DetailExpenseEntry[]
   previousYearIncomeItems: DetailIncomeEntry[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   monthExpenseLimits: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   previousMonthExpenseLimits: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   monthIncomeExpectations: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   previousMonthIncomeExpectations: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   creditCards: any[]
   expenseCategoryIdToColor: Record<string, string>
   incomeCategoryIdToColor: Record<string, string>
