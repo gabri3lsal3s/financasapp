@@ -250,19 +250,12 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
                     <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.2} />
                     <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
-                  <filter id="cyberGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={(v) => formatAxisCurrencyThousands(Number(v))} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} filter="url(#cyberGlow)" {...animProps} />
+                <Area type="monotone" dataKey="Patrimônio" stroke="var(--color-primary)" strokeWidth={2} fill="url(#chartEvolutionGrad)" dot={{ fill: 'var(--color-primary)', r: 3 }} {...animProps} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

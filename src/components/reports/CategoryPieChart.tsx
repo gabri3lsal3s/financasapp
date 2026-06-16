@@ -69,8 +69,8 @@ export default function CategoryPieChart({ data, onClick, outerRadius = 90, inne
                 key={`${entry.name}-${index}`} 
                 fill={entry.color} 
                 style={{
-                  filter: activeIndex === index ? 'drop-shadow(0px 0px 6px rgba(var(--color-primary-rgb), 0.35))' : 'none',
-                  transition: 'filter 0.2s ease, transform 0.2s ease',
+                  filter: 'none',
+                  transition: 'transform 0.2s ease',
                   cursor: 'pointer',
                   transform: activeIndex === index ? 'scale(1.03)' : 'scale(1)',
                   transformOrigin: '50% 50%',

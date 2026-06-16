@@ -2139,17 +2139,17 @@ export default function Reports() {
         <div className="w-full flex justify-center">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'month' | 'year' | 'custom')} className="w-full max-w-md mx-auto">
             <TabsList className="grid grid-cols-3 w-full">
-              <TabsTrigger value="month" className="text-xs font-bold gap-1.5">
+              <TabsTrigger value="month" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-1.5 px-1 sm:px-2">
                 <CalendarDays size={14} className={viewMode === 'month' ? 'text-balance' : 'text-secondary'} />
                 <span>Mensal</span>
               </TabsTrigger>
-              <TabsTrigger value="year" className="text-xs font-bold gap-1.5">
+              <TabsTrigger value="year" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-1.5 px-1 sm:px-2">
                 <Calendar size={14} className={viewMode === 'year' ? 'text-balance' : 'text-secondary'} />
                 <span>Anual</span>
               </TabsTrigger>
-              <TabsTrigger value="custom" className="text-xs font-bold gap-1.5">
+              <TabsTrigger value="custom" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-1.5 px-1 sm:px-2">
                 <CalendarDays size={14} className={viewMode === 'custom' ? 'text-balance' : 'text-secondary'} />
-                <span>Personalizado</span>
+                <span>Período</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
