@@ -1104,6 +1104,7 @@ export default function Contas() {
         date: selectedDebtForIncome.due_date || format(new Date(), 'yyyy-MM-dd'),
         income_category_id: categoryId,
         report_weight: 1.0,
+        type: 'other',
       })
       if (incomeError) {
         alert(`Erro ao criar receita: ${incomeError}`)
