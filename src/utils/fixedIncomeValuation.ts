@@ -36,9 +36,17 @@ function accumulatePostFixed(
   let value = principal
   const factor = indexerPercent / 100
 
+  // Busca a primeira taxa válida disponível no mapa para usar como taxa inicial de fallback
+  const firstAvailableRate = Object.values(indexRates).find(v => v !== undefined && v !== null)
+  let lastKnownRate = firstAvailableRate ?? 0
+
   for (const day of businessDays) {
-    const rawRate = indexRates[day]
-    if (rawRate === undefined || rawRate === null) continue
+    let rawRate = indexRates[day]
+    if (rawRate === undefined || rawRate === null) {
+      rawRate = lastKnownRate
+    } else {
+      lastKnownRate = rawRate
+    }
     const dailyDecimal = rawRate / 100
     value *= 1 + dailyDecimal * factor
   }

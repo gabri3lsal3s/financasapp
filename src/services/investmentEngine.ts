@@ -90,13 +90,27 @@ export function calculateShareHistory(
   transactions: PortfolioTransaction[],
   prices: Record<string, AssetPrice>,
   definitions: PortfolioAssetDefinition[] = [],
-  indexRatesByIndexer: Record<string, IndexRateMap> = {}
+  indexRatesByIndexer: Record<string, IndexRateMap> = {},
+  historicalPrices: Record<string, Record<string, number>> = {}
 ): { currentShareValue: number; totalShares: number; shareHistory: { date: string; shareValue: number }[] } {
-  // Ordena transações por data
-  const sortedTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
+  // Ordena transações por data e ID/created_at para garantir determinismo e ordem correta de buy/sell no mesmo dia
+  const sortedTxs = [...transactions].sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      (a.created_at || '').localeCompare(b.created_at || '') ||
+      a.id.localeCompare(b.id)
+  )
   
   if (sortedTxs.length === 0) {
     return { currentShareValue: 1.0, totalShares: 0, shareHistory: [] }
+  }
+
+  // Otimização: pré-agrupar transações por ticker para evitar .filter repetidos de complexidade O(N^2)
+  const txsByTicker: Record<string, PortfolioTransaction[]> = {}
+  for (const tx of sortedTxs) {
+    const t = tx.ticker.toUpperCase()
+    if (!txsByTicker[t]) txsByTicker[t] = []
+    txsByTicker[t].push(tx)
   }
 
   const getPricingMode = (ticker: string): string => {
@@ -127,7 +141,7 @@ export function calculateShareHistory(
     const tickerUpper = ticker.toUpperCase()
     const currentPrice = prices[tickerUpper]?.current_price || FALLBACK_PRICE(tickerUpper)
     
-    const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === tickerUpper)
+    const tickerTxs = txsByTicker[tickerUpper] || []
     if (tickerTxs.length === 0) {
       return currentPrice
     }
@@ -161,6 +175,32 @@ export function calculateShareHistory(
     
     const fraction = (t - t1) / (t2 - t1)
     return p1 + (p2 - p1) * fraction
+  }
+
+  // Função que combina cotações históricas reais do banco com fallback para interpolação
+  const getHistoricalOrInterpolatedPrice = (ticker: string, dateStr: string): number => {
+    const tickerUpper = ticker.toUpperCase()
+    
+    // 1. Tenta pegar o preço real histórico daquele dia
+    if (historicalPrices[tickerUpper] && historicalPrices[tickerUpper][dateStr] !== undefined) {
+      return historicalPrices[tickerUpper][dateStr]
+    }
+    
+    // 2. Se não existir naquele dia exato (ex: fim de semana), busca o último preço útil antes daquela data
+    if (historicalPrices[tickerUpper]) {
+      const dates = Object.keys(historicalPrices[tickerUpper]).sort()
+      let lastPrice = -1
+      for (const d of dates) {
+        if (d > dateStr) break
+        lastPrice = historicalPrices[tickerUpper][d]
+      }
+      if (lastPrice > 0) {
+        return lastPrice
+      }
+    }
+    
+    // 3. Fallback para interpolação linear se não houver dados no histórico
+    return getInterpolatedPrice(ticker, dateStr)
   }
 
   /** WHY: blueprint v2 sugere cota inicial 10,00; mantemos 1,00 para compatibilidade com histórico e KPIs existentes. */
@@ -228,11 +268,11 @@ export function calculateShareHistory(
           val = 0
         }
       } else if (pricingMode === 'manual_value') {
-        val = qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
+        val = qty * (def?.manual_current_value ?? getHistoricalOrInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
         val = qty * 1.00
       } else {
-        const assetPrice = getInterpolatedPrice(ticker, date)
+        const assetPrice = getHistoricalOrInterpolatedPrice(ticker, date)
         val = qty * assetPrice
       }
       
@@ -341,11 +381,11 @@ export function calculateShareHistory(
           val = 0
         }
       } else if (pricingMode === 'manual_value') {
-        val = qty * (def?.manual_current_value ?? getInterpolatedPrice(ticker, date))
+        val = qty * (def?.manual_current_value ?? getHistoricalOrInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
         val = qty * 1.00
       } else {
-        const assetPrice = getInterpolatedPrice(ticker, date)
+        const assetPrice = getHistoricalOrInterpolatedPrice(ticker, date)
         val = qty * assetPrice
       }
       

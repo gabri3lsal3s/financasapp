@@ -41,31 +41,51 @@ export function nonCashPortfolioPerformance(
   const nonCash = positions.filter((p) => p.pricing_mode !== 'cash')
   let totalCostBrl = 0
   let totalCurrentBrl = 0
+  let totalDividendsBrl = 0
+  let netGainBrl = 0
 
   for (const pos of nonCash) {
-    totalCostBrl += positionCostInBrl(pos)
-    totalCurrentBrl += positionValueInBrl(pos)
+    const cost = positionCostInBrl(pos)
+    const current = positionValueInBrl(pos)
+    const usdRate = pos.usd_rate ?? 5.25
+
+    totalCostBrl += cost
+    totalCurrentBrl += current
+
+    const divBrl = pos.currency === 'USD' ? pos.accumulated_dividends * usdRate : pos.accumulated_dividends
+    totalDividendsBrl += divBrl
+
+    if (basis === 'net') {
+      let posNetGainBrl = 0
+      if (cost > 0) {
+        posNetGainBrl = pos.currency === 'USD'
+          ? (cost * (pos.net_yield_pct / 100)) * usdRate
+          : cost * (pos.net_yield_pct / 100)
+      } else {
+        posNetGainBrl = current - cost
+      }
+      netGainBrl += posNetGainBrl
+    }
   }
 
   if (basis === 'net') {
-    let netCurrent = 0
-    for (const pos of nonCash) {
-      const cost = positionCostInBrl(pos)
-      const current = positionValueInBrl(pos)
-      const netYield = pos.net_yield_pct / 100
-      netCurrent += cost > 0 ? cost * (1 + netYield) : current
+    const yieldPct = totalCostBrl > 0 ? (netGainBrl / totalCostBrl) * 100 : 0
+    return {
+      totalCostBrl,
+      totalCurrentBrl: totalCostBrl + netGainBrl,
+      gainBrl: Math.round(netGainBrl * 100) / 100,
+      yieldPct: Math.round(yieldPct * 100) / 100,
     }
-    totalCurrentBrl = netCurrent
   }
 
-  const gainBrl = totalCurrentBrl - totalCostBrl
+  const gainBrl = totalCurrentBrl - totalCostBrl + totalDividendsBrl
   const yieldPct = totalCostBrl > 0 ? (gainBrl / totalCostBrl) * 100 : 0
 
   return {
     totalCostBrl,
     totalCurrentBrl,
-    gainBrl,
-    yieldPct,
+    gainBrl: Math.round(gainBrl * 100) / 100,
+    yieldPct: Math.round(yieldPct * 100) / 100,
   }
 }
 

@@ -58,5 +58,5 @@ export function calendarDaysBetween(startDate: string, endDate: string): number 
   const start = parseISO(startDate.length === 10 ? startDate : startDate.slice(0, 10))
   const end = parseISO(endDate.length === 10 ? endDate : endDate.slice(0, 10))
   const diffMs = end.getTime() - start.getTime()
-  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+  return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)))
 }

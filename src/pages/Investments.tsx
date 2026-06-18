@@ -16,7 +16,7 @@ import {
   formatSignedPercentBR,
 } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw, Wallet } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw, Wallet, Info } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -32,6 +32,7 @@ import AssetTransactionsModal from '@/components/investments/AssetTransactionsMo
 import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
 import GroupTargetModal from '@/components/investments/GroupTargetModal'
+import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
@@ -137,7 +138,8 @@ export default function Investments() {
   const [targetAllocations, setTargetAllocations] = useState<TargetAllocation[]>([])
   const [valuationPrices, setValuationPrices] = useState<Record<string, import('@/types').AssetPrice>>({})
   const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
-  const { closing: closingPortfolio, runClose } = usePortfolioClose()
+  const [snapshots, setSnapshots] = useState<import('@/types').PortfolioPeriodSnapshotRow[]>([])
+  const { closing: closingPortfolio, runClose, loadPeriodSnapshots } = usePortfolioClose()
 
   const sumClass = useMemo(() => {
     return groupTargets
@@ -394,6 +396,7 @@ export default function Investments() {
           if (cached.transactions) setTransactions(cached.transactions)
           if (cached.groupTargets) setGroupTargets(cached.groupTargets)
           if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
+          if (cached.snapshots) setSnapshots(cached.snapshots)
         }
       }
 
@@ -439,6 +442,9 @@ export default function Investments() {
       setGroupTargets(finalGroupTargets)
       setTargetAllocations(targets || [])
 
+      const snaps = await loadPeriodSnapshots(portfolio.id)
+      setSnapshots(snaps || [])
+
       if (finalTransactions.length === 0) {
         const emptyPortfolio = {
           cashBalance: 0,
@@ -456,7 +462,8 @@ export default function Investments() {
           portfolioData: emptyPortfolio,
           transactions: finalTransactions,
           groupTargets: finalGroupTargets,
-          assetDefinitions: []
+          assetDefinitions: [],
+          snapshots: snaps || []
         })
         return
       }
@@ -494,7 +501,8 @@ export default function Investments() {
         portfolioData: nextPortfolioData,
         transactions: finalTransactions,
         groupTargets: finalGroupTargets,
-        assetDefinitions: valuation.definitions
+        assetDefinitions: valuation.definitions,
+        snapshots: snaps || []
       })
     } catch (err) {
       console.error('Erro ao carregar carteira de consultoria em investimentos:', err)
@@ -747,53 +755,55 @@ export default function Investments() {
                         <div 
                           ref={chartContainerRef}
                           onClick={() => setSelectedPieSegment(null)}
-                          className="relative w-full h-64 sm:h-80 flex items-center justify-center cursor-pointer"
+                          className="relative w-full h-64 sm:h-80 cursor-pointer"
                         >
-                          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                            <PieChart>
-                              <Pie
-                                data={pieData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius="62%"
-                                outerRadius="82%"
-                                paddingAngle={3}
-                                dataKey="value"
-                                onMouseEnter={(_, index) => {
-                                  if (window.matchMedia('(hover: hover)').matches) {
-                                    if (pieData[index]) setHoveredPieSegment(pieData[index])
-                                  }
-                                }}
-                                onMouseLeave={() => setHoveredPieSegment(null)}
-                                onClick={(_, index, event) => {
-                                  if (event && event.stopPropagation) {
-                                    event.stopPropagation()
-                                  }
-                                  const segment = pieData[index]
-                                  if (segment) {
-                                    setSelectedPieSegment(prev => 
-                                      prev?.name === segment.name ? null : segment
+                          <div className="absolute inset-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={pieData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius="62%"
+                                  outerRadius="82%"
+                                  paddingAngle={3}
+                                  dataKey="value"
+                                  onMouseEnter={(_, index) => {
+                                    if (window.matchMedia('(hover: hover)').matches) {
+                                      if (pieData[index]) setHoveredPieSegment(pieData[index])
+                                    }
+                                  }}
+                                  onMouseLeave={() => setHoveredPieSegment(null)}
+                                  onClick={(_, index, event) => {
+                                    if (event && event.stopPropagation) {
+                                      event.stopPropagation()
+                                    }
+                                    const segment = pieData[index]
+                                    if (segment) {
+                                      setSelectedPieSegment(prev => 
+                                        prev?.name === segment.name ? null : segment
+                                      )
+                                    }
+                                  }}
+                                >
+                                  {pieData.map((entry, index) => {
+                                    const isSelected = selectedPieSegment ? selectedPieSegment.name === entry.name : false
+                                    const hasSelection = selectedPieSegment !== null
+                                    return (
+                                      <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={chartPalette[index % chartPalette.length]} 
+                                        stroke="var(--color-border)" 
+                                        strokeWidth={isSelected ? 2.5 : 1}
+                                        opacity={hasSelection ? (isSelected ? 1.0 : 0.4) : 1.0}
+                                        className="outline-none cursor-pointer transition-all duration-300"
+                                      />
                                     )
-                                  }
-                                }}
-                              >
-                                {pieData.map((entry, index) => {
-                                  const isSelected = selectedPieSegment ? selectedPieSegment.name === entry.name : false
-                                  const hasSelection = selectedPieSegment !== null
-                                  return (
-                                    <Cell 
-                                      key={`cell-${index}`} 
-                                      fill={chartPalette[index % chartPalette.length]} 
-                                      stroke="var(--color-border)" 
-                                      strokeWidth={isSelected ? 2.5 : 1}
-                                      opacity={hasSelection ? (isSelected ? 1.0 : 0.4) : 1.0}
-                                      className="outline-none cursor-pointer transition-all duration-300"
-                                    />
-                                  )
-                                })}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
+                                  })}
+                                </Pie>
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
  
                           {/* Texto no Centro do Donut */}
                           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
@@ -1121,6 +1131,11 @@ export default function Investments() {
                     )}
                   </div>
                 </div>
+
+                {/* Matriz de Rentabilidade (Heatmap de retornos mensais TWR) */}
+                <div className="mt-6">
+                  <ReturnHeatmap snapshots={snapshots} />
+                </div>
               </TabsContent>
 
               {/* Aba 2: Detalhamento de Ativos */}
@@ -1336,6 +1351,13 @@ export default function Investments() {
                                       <td className={`px-4 py-3 pl-7 font-bold text-primary border-l-4 ${isPositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'}`}>
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span className="font-mono font-black text-xs tracking-wider">{pos.ticker}</span>
+                                          {pos.pricing_mode === 'fixed_income' && (
+                                            <Info 
+                                              size={12} 
+                                              className="text-secondary/60 cursor-help shrink-0" 
+                                              title="Valoração na curva (taxa pactuada). Não reflete o valor de resgate antecipado a mercado."
+                                            />
+                                          )}
                                           {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
                                             <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-warning/10 text-warning font-sans">
                                               Desatualizada
@@ -1495,9 +1517,18 @@ export default function Investments() {
                                         <div className="flex items-center gap-2.5 min-w-0">
                                           <span className={`w-2 h-2 rounded-full shrink-0 ${isGrossPositive ? 'bg-income' : 'bg-expense'}`} />
                                           <div className="text-left min-w-0">
-                                            <span className="font-mono font-black text-primary text-[13px] block leading-tight tracking-wider truncate">
-                                              {pos.ticker}
-                                            </span>
+                                            <div className="flex items-center gap-1">
+                                              <span className="font-mono font-black text-primary text-[13px] block leading-tight tracking-wider truncate">
+                                                {pos.ticker}
+                                              </span>
+                                              {pos.pricing_mode === 'fixed_income' && (
+                                                <Info 
+                                                  size={11} 
+                                                  className="text-secondary/60 cursor-help shrink-0" 
+                                                  title="Valoração na curva (taxa pactuada). Não reflete o valor de resgate antecipado a mercado."
+                                                />
+                                              )}
+                                            </div>
                                             <span className="text-[10px] text-secondary font-medium block truncate">
                                               {pos.sector || pos.asset_class || 'Outros'}
                                             </span>

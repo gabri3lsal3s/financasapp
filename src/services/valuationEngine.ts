@@ -367,6 +367,7 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
             asOfDate,
             taxExempt: definition.tax_exempt,
             pricingMode: definition.pricing_mode,
+            accumulatedDividends: ledger.accumulatedDividends,
           })
 
     const valueBrl = currency === 'USD' ? currentValue * usdCoeff : currentValue

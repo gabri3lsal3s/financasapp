@@ -50,7 +50,6 @@ export function applyPortfolioTransaction(
 
   if (isPortfolioIncomeType(tx.operation_type)) {
     pos.accumulatedDividends += qty * price
-    pos.totalCost = Math.max(0, pos.totalCost - qty * price)
     return
   }
 
@@ -109,7 +108,7 @@ export function buildSimplePositionLedger(
         pos.totalCost = pos.quantity * avg
       }
     } else if (isPortfolioIncomeType(tx.operation_type)) {
-      pos.totalCost = Math.max(0, pos.totalCost - qty * price)
+      // Proventos não alteram o custo de aquisição do ativo
     } else if (tx.operation_type === 'split') {
       pos.quantity += qty
     } else if (tx.operation_type === 'reverse_split') {

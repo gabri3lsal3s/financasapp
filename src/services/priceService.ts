@@ -79,6 +79,38 @@ export async function recordAssetPriceDaily(
   }
 }
 
+export async function loadHistoricalPrices(
+  tickers: string[],
+  startDate: string,
+  endDate: string
+): Promise<Record<string, Record<string, number>>> {
+  const map: Record<string, Record<string, number>> = {}
+  if (tickers.length === 0) return map
+  const uppercaseTickers = tickers.map((t) => t.toUpperCase())
+  try {
+    const { data, error } = await supabase
+      .from('asset_price_daily')
+      .select('ticker, price_date, close_price')
+      .in('ticker', uppercaseTickers)
+      .gte('price_date', startDate)
+      .lte('price_date', endDate)
+    if (!error && data) {
+      for (const row of data) {
+        const ticker = row.ticker.toUpperCase()
+        const date = row.price_date
+        if (!map[ticker]) {
+          map[ticker] = {}
+        }
+        map[ticker][date] = Number(row.close_price)
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao carregar preços históricos:', err)
+  }
+  return map
+}
+
+
 // Cotações base de fallback para os ativos mais comuns brasileiras/americanas (caso APIs falhem ou estejam sem rede)
 const FALLBACK_PRICES: Record<string, number> = {
   WEGE3: 39.50,
@@ -130,84 +162,112 @@ async function safeJson(response: Response): Promise<unknown> {
  */
 async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Response> {
   const proxies = [
-    (targetUrl: string) => `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
-    (targetUrl: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-    (targetUrl: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-  ];
+    {
+      name: 'corsfix',
+      urlBuilder: (target: string) => `https://proxy.corsfix.com/?url=${encodeURIComponent(target)}`,
+      unwrap: async (res: Response) => {
+        const text = await res.text()
+        if (text.includes('corsfix_error')) {
+          throw new Error('corsfix error content')
+        }
+        return text
+      }
+    },
+    {
+      name: 'corsproxy_io',
+      urlBuilder: (target: string) => `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+      unwrap: async (res: Response) => res.text()
+    },
+    {
+      name: 'allorigins_get',
+      urlBuilder: (target: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`,
+      unwrap: async (res: Response) => {
+        const json = await res.json() as { contents?: string; status?: { http_code?: number } }
+        if (json && json.status?.http_code === 404) {
+          throw new Response('', { status: 404 })
+        }
+        if (json && json.contents) {
+          return json.contents
+        }
+        throw new Error('allorigins missing contents')
+      }
+    },
+    {
+      name: 'codetabs',
+      urlBuilder: (target: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+      unwrap: async (res: Response) => res.text()
+    }
+  ]
 
-  let lastError: unknown = null;
+  let lastError: unknown = null
 
   for (let i = 0; i < proxies.length; i++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500); // Reduzido de 6s para 2.5s para maior resiliência e velocidade
+    const proxy = proxies[i]
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3500) // 3.5s timeout por proxy
 
     try {
-      const proxyUrl = proxies[i](url);
-      const response = await fetch(proxyUrl, { ...init, signal: controller.signal });
-      clearTimeout(timeoutId);
+      const proxyUrl = proxy.urlBuilder(url)
+      const response = await fetch(proxyUrl, { ...init, signal: controller.signal })
+      clearTimeout(timeoutId)
 
-      // Se o destino retornou 404 (Não Encontrado), o ativo de fato não existe no Yahoo Finance.
-      // Retorna imediatamente para evitar cascata desnecessária em outros proxies.
       if (response.status === 404) {
-        return response;
+        return response
       }
 
       if (response.ok) {
-        // Valida se o corpo é um JSON legível para evitar aceitar respostas textuais de erro (ex: "Edge: Too Many Requests")
-        const text = await response.text();
         try {
-          JSON.parse(text); // Tenta fazer o parse do JSON
-          // Retorna um novo objeto Response construído a partir do texto JSON validado
-          return new Response(text, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-          });
+          const rawText = await proxy.unwrap(response)
+          JSON.parse(rawText)
+          return new Response(rawText, {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
         } catch (jsonErr) {
-          console.warn(`[CORS Proxy] Resposta do proxy ${i} (${proxyUrl}) não é um JSON válido. Ignorando lote...`, jsonErr);
-          // Trata como falha de rede/proxy para seguir ao próximo da lista
-          continue;
+          if (jsonErr instanceof Response && jsonErr.status === 404) {
+            return jsonErr
+          }
+          console.warn(`[CORS Proxy] Resposta do proxy ${proxy.name} não é um JSON válido. Tentando próximo...`, jsonErr)
+          continue
         }
       }
-      
-      // 429 = rate-limit atingido neste proxy — tenta o próximo sem logar
-      if (response.status === 429) continue;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      lastError = err;
-      // Só exibe aviso ao trocar para o último proxy de backup
-      if (i === proxies.length - 2) {
-        console.warn('[CORS Proxy] Proxies principais indisponíveis, tentando último backup...', err);
+
+      if (response.status === 429) {
+        continue
       }
+    } catch (err) {
+      clearTimeout(timeoutId)
+      lastError = err
+      console.warn(`[CORS Proxy] Falha no proxy ${proxy.name}:`, err)
     }
   }
 
   // Tentativa direta como último recurso (falhará por CORS no browser, mas pode funcionar em SSR ou fora de sandbox)
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2000); // Reduzido de 5s para 2s
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 2000)
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    clearTimeout(timeoutId);
+    const response = await fetch(url, { ...init, signal: controller.signal })
+    clearTimeout(timeoutId)
     if (response.status === 404) {
-      return response;
+      return response
     }
     if (response.ok) {
-      const text = await response.text();
+      const text = await response.text()
       try {
-        JSON.parse(text);
+        JSON.parse(text)
         return new Response(text, {
           status: response.status,
           statusText: response.statusText,
           headers: response.headers,
-        });
+        })
       } catch (jsonErr) {
-        throw new SyntaxError(`Resposta direta não retornou um JSON válido: ${text.slice(0, 80)}`);
+        throw new SyntaxError(`Resposta direta não retornou um JSON válido: ${text.slice(0, 80)}`)
       }
     }
     return response;
   } catch (err) {
-    clearTimeout(timeoutId);
-    throw lastError || err;
+    clearTimeout(timeoutId)
+    throw lastError || err
   }
 }
 

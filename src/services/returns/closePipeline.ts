@@ -4,6 +4,7 @@ import { calculatePortfolioValuation } from '@/services/valuationEngine'
 import { buildLotsFromTransactions, valueLot } from '@/services/returns/lotValuation'
 import { calculateLotTaxProvision, sumNetPortfolioFromLots } from '@/services/returns/taxProvision'
 import { loadVnaMap } from '@/services/vnaService'
+import { loadHistoricalPrices } from '@/services/priceService'
 import type {
   PortfolioAssetDefinition,
   PortfolioTransaction,
@@ -23,6 +24,7 @@ export interface DailyCloseInput {
   asOfDate?: string
   fallbackPrice?: (ticker: string) => number
   vnaMap?: Record<string, number>
+  historicalPrices?: Record<string, Record<string, number>>
 }
 
 export interface DailyCloseResult {
@@ -74,13 +76,15 @@ export function computeDailyClose(
   const { grossPl: lotsGross, netPl: lotsNet } = sumNetPortfolioFromLots(lotTaxes)
   const grossPl =
     lots.length > 0 ? lotsGross + valuation.cashValue : valuation.totalValue
-  const netPl = lots.length > 0 ? lotsNet + valuation.cashValue : valuation.totalValue
+  const netPl =
+    lots.length > 0 ? lotsNet + valuation.cashValue : valuation.totalValue
 
   const shareResult = calculateShareHistory(
     input.transactions,
     input.prices,
     input.definitions,
-    input.indexRatesByIndexer
+    input.indexRatesByIndexer,
+    input.historicalPrices ?? {}
   )
 
   return {
@@ -102,7 +106,11 @@ export async function runDailyClose(input: DailyCloseInput): Promise<DailyCloseR
       .filter(Boolean)
       .sort()[0] ?? asOfDate
   const vnaMap = input.vnaMap ?? (await loadVnaMap(startDate, asOfDate))
-  return computeDailyClose({ ...input, asOfDate }, vnaMap)
+  
+  const tickers = Array.from(new Set(input.transactions.map((t) => t.ticker.toUpperCase())))
+  const historicalPrices = input.historicalPrices ?? (await loadHistoricalPrices(tickers, startDate, asOfDate))
+  
+  return computeDailyClose({ ...input, asOfDate, historicalPrices }, vnaMap)
 }
 
 export async function persistDailyClose(result: DailyCloseResult): Promise<void> {

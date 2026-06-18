@@ -39,8 +39,19 @@ export function buildLotsFromTransactions(
 
   const buysByTicker = new Map<string, PositionLot[]>()
 
+  const isLegacyCash = (ticker: string): boolean => {
+    const upper = ticker.toUpperCase().trim()
+    return upper === 'CAIXA' || upper === 'SALDO_INV' || upper === 'SALDO EM CAIXA' || upper === 'SALDO_EM_CAIXA'
+  }
+
   const settled = transactions
-    .filter((t) => (t.settlement_status ?? 'settled') === 'settled')
+    .filter((t) => {
+      if ((t.settlement_status ?? 'settled') !== 'settled') return false
+      const upper = t.ticker.toUpperCase().trim()
+      const def = defMap[upper]
+      const pricingMode = def?.pricing_mode ?? (isLegacyCash(upper) ? 'cash' : 'market')
+      return pricingMode !== 'cash'
+    })
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
 
   for (const tx of settled) {

@@ -23,14 +23,12 @@ export function getMarketAssetIrRate(): number {
 }
 
 export function resolveIrRate(input: InvestmentTaxInput): number {
-  if (input.pricingMode === 'cash' || input.taxExempt || input.grossGain <= 0) return 0
+  if (input.taxExempt) return 0
+  if (input.pricingMode !== 'fixed_income') return 0
+  if (!input.applicationDate || !input.asOfDate) return 0.225
 
-  if (input.pricingMode === 'fixed_income') {
-    const days = calendarDaysBetween(input.applicationDate, input.asOfDate)
-    return getRegressiveIrRate(days)
-  }
-
-  return getMarketAssetIrRate()
+  const holdingDays = calendarDaysBetween(input.applicationDate, input.asOfDate)
+  return getRegressiveIrRate(holdingDays)
 }
 
 export function calculateNetGain(input: InvestmentTaxInput): number {
@@ -47,11 +45,27 @@ export function calculateYieldPct(costBasis: number, gain: number): number {
 export function calculateGrossAndNetYield(
   costBasis: number,
   currentValue: number,
-  taxInput: Omit<InvestmentTaxInput, 'grossGain'>
+  taxInput: Omit<InvestmentTaxInput, 'grossGain'> & { accumulatedDividends?: number }
 ): { grossGain: number; netGain: number; grossYieldPct: number; netYieldPct: number; irRate: number } {
-  const grossGain = Math.round((currentValue - costBasis) * 100) / 100
-  const irRate = resolveIrRate({ ...taxInput, grossGain })
-  const netGain = calculateNetGain({ ...taxInput, grossGain })
+  const accDividends = taxInput.accumulatedDividends ?? 0
+  
+  let grossGain = 0
+  if (taxInput.pricingMode === 'market') {
+    grossGain = Math.round((currentValue - costBasis + accDividends) * 100) / 100
+  } else {
+    grossGain = Math.round((currentValue - costBasis) * 100) / 100
+  }
+
+  const irRate = resolveIrRate({
+    grossGain,
+    applicationDate: taxInput.applicationDate,
+    asOfDate: taxInput.asOfDate,
+    taxExempt: taxInput.taxExempt,
+    pricingMode: taxInput.pricingMode,
+  })
+
+  const irAmount = grossGain > 0 ? Math.round(grossGain * irRate * 100) / 100 : 0
+  const netGain = Math.round((grossGain - irAmount) * 100) / 100
 
   return {
     grossGain,
@@ -61,3 +75,4 @@ export function calculateGrossAndNetYield(
     irRate,
   }
 }
+

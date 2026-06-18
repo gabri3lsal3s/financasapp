@@ -575,17 +575,15 @@ export default function PortfolioTransactionFormModal({
         </div>
 
         {/* Row 2: Tipo de Ativo */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-          <div>
-            <Select
-              label="Tipo de ativo"
-              value={pricingMode}
-              onChange={(e) => handlePricingModeChange(e.target.value as PortfolioPricingMode)}
-              options={PORTFOLIO_PRICING_MODE_OPTIONS}
-              disabled={isPricingModeLocked}
-              className="rounded-xl font-semibold disabled:opacity-60"
-            />
-          </div>
+        <div>
+          <Select
+            label="Tipo de ativo"
+            value={pricingMode}
+            onChange={(e) => handlePricingModeChange(e.target.value as PortfolioPricingMode)}
+            options={PORTFOLIO_PRICING_MODE_OPTIONS}
+            disabled={isPricingModeLocked}
+            className="rounded-xl font-semibold disabled:opacity-60"
+          />
         </div>
 
         {/* Badges de classificação inteligente em Lançamentos */}
