@@ -65,6 +65,7 @@ export default function ExpenseFormModal({
   const [createLinkedDebt, setCreateLinkedDebt] = useState(false)
   const [linkedDebtAmount, setLinkedDebtAmount] = useState('')
   const [isDebtAmountEdited, setIsDebtAmountEdited] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -129,6 +130,7 @@ export default function ExpenseFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (saving) return
     if (!formData.amount || !formData.category_id) return
 
     const amount = parseMoneyInput(formData.amount)
@@ -193,48 +195,53 @@ export default function ExpenseFormModal({
       ...(formData.description && { description: formData.description }),
     }
 
-    if (editingExpense) {
-      const { error } = await onUpdate(editingExpense.id, expenseData)
-      if (!error) {
-        onClose()
-      } else {
-        alert('Erro ao atualizar despesa: ' + error)
-      }
-    } else {
-      const { data, error, insertedExpenses } = await onCreate(expenseData)
-      if (!error) {
-        if (createLinkedDebt) {
-          const categoryName = categories.find((c) => c.id === expenseData.category_id)?.name || 'Categoria'
-          const expensesToLink = insertedExpenses && insertedExpenses.length > 0 ? insertedExpenses : (data ? [data] : [])
-
-          const debtInstallments = installmentTotal > 1
-            ? splitAmountIntoInstallments(parsedDebtAmount, installmentTotal)
-            : [parsedDebtAmount]
-
-          for (let i = 0; i < expensesToLink.length; i++) {
-            const exp = expensesToLink[i]
-            const debtAmount = debtInstallments[i] ?? exp.amount
-            const installmentSuffix = exp.installment_total && exp.installment_total > 1
-              ? ` (${exp.installment_number}/${exp.installment_total})`
-              : ''
-            const name = (expenseData.description || `Cobrança - ${categoryName}`) + installmentSuffix
-            await createDebt({
-              name,
-              type: 'receivable',
-              amount: debtAmount,
-              due_date: exp.date,
-              description: expenseData.description
-                ? `Cobrança integrada à despesa: ${expenseData.description}${installmentSuffix}`
-                : `Cobrança vinculada à despesa de ${categoryName}${installmentSuffix}`,
-              status: 'pending',
-              expense_id: exp.id && !exp.id.startsWith('offline-') ? exp.id : null,
-            })
-          }
+    setSaving(true)
+    try {
+      if (editingExpense) {
+        const { error } = await onUpdate(editingExpense.id, expenseData)
+        if (!error) {
+          onClose()
+        } else {
+          alert('Erro ao atualizar despesa: ' + error)
         }
-        onClose()
       } else {
-        alert('Erro ao criar despesa: ' + error)
+        const { data, error, insertedExpenses } = await onCreate(expenseData)
+        if (!error) {
+          if (createLinkedDebt) {
+            const categoryName = categories.find((c) => c.id === expenseData.category_id)?.name || 'Categoria'
+            const expensesToLink = insertedExpenses && insertedExpenses.length > 0 ? insertedExpenses : (data ? [data] : [])
+
+            const debtInstallments = installmentTotal > 1
+              ? splitAmountIntoInstallments(parsedDebtAmount, installmentTotal)
+              : [parsedDebtAmount]
+
+            for (let i = 0; i < expensesToLink.length; i++) {
+              const exp = expensesToLink[i]
+              const debtAmount = debtInstallments[i] ?? exp.amount
+              const installmentSuffix = exp.installment_total && exp.installment_total > 1
+                ? ` (${exp.installment_number}/${exp.installment_total})`
+                : ''
+              const name = (expenseData.description || `Cobrança - ${categoryName}`) + installmentSuffix
+              await createDebt({
+                name,
+                type: 'receivable',
+                amount: debtAmount,
+                due_date: exp.date,
+                description: expenseData.description
+                  ? `Cobrança integrada à despesa: ${expenseData.description}${installmentSuffix}`
+                  : `Cobrança vinculada à despesa de ${categoryName}${installmentSuffix}`,
+                status: 'pending',
+                expense_id: exp.id && !exp.id.startsWith('offline-') ? exp.id : null,
+              })
+            }
+          }
+          onClose()
+        } else {
+          alert('Erro ao criar despesa: ' + error)
+        }
       }
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -268,9 +275,10 @@ export default function ExpenseFormModal({
           formId={formId}
           onCancel={onClose}
           submitLabel={editingExpense ? 'Salvar alterações' : 'Salvar'}
-          submitDisabled={!formData.category_id}
+          submitDisabled={!formData.category_id || saving}
           deleteLabel={editingExpense ? 'Excluir despesa' : undefined}
           onDelete={editingExpense ? handleDeleteFromModal : undefined}
+          loading={saving}
         />
       )}
     >

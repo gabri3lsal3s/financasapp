@@ -112,7 +112,7 @@ export interface IncomeCategoryMonthExpectation {
   user_id?: string
 }
 
-export type IncomeType = 'salary' | 'freelancer' | 'dividends' | 'rent' | 'other'
+export type IncomeType = 'cash' | 'pix' | 'transfer' | 'other'
 
 export interface Investment {
   id: string

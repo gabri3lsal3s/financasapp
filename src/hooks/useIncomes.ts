@@ -135,7 +135,7 @@ export function useIncomes(month?: string) {
     }
   }
 
-  const createIncome = async (income: Omit<Income, 'id' | 'created_at' | 'type'>) => {
+  const createIncome = async (income: Omit<Income, 'id' | 'created_at' | 'income_category'>) => {
     try {
       // Validar campos obrigatórios
       if (!income.income_category_id || !income.amount) {
@@ -154,7 +154,7 @@ export function useIncomes(month?: string) {
       const incomeData = {
         amount: income.amount,
         date: income.date || format(new Date(), 'yyyy-MM-dd'),
-        type: 'other',
+        type: income.type || 'other',
         income_category_id: income.income_category_id,
         ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
         ...(income.description && { description: income.description }),
@@ -179,7 +179,7 @@ export function useIncomes(month?: string) {
           payload: {
             amount: income.amount,
             date: income.date || format(new Date(), 'yyyy-MM-dd'),
-            type: 'other',
+            type: income.type || 'other',
             income_category_id: income.income_category_id,
             ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
             ...(income.description && { description: income.description }),
@@ -199,7 +199,7 @@ export function useIncomes(month?: string) {
           id: uiId,
           amount: income.amount,
           date: income.date || format(new Date(), 'yyyy-MM-dd'),
-          type: 'other',
+          type: income.type || 'other',
           income_category_id: income.income_category_id,
           ...(income.report_weight !== undefined && { report_weight: income.report_weight }),
           ...(income.description && { description: income.description }),

@@ -3,10 +3,10 @@ import { useMemo } from 'react'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 
 import type { ChartTooltipEntry } from '@/types/recharts'
-import Button from '@/components/Button'
 import type { Payload } from 'recharts/types/component/DefaultLegendContent'
 import { ResponsiveContainer, AreaChart, Area } from 'recharts'
 
+// ─── Formatação de eixo ──────────────────────────────────────────────────────
 
 export function formatChartAxisTick(value: number): string {
   const numericValue = Number.isFinite(value) ? value : 0
@@ -15,6 +15,8 @@ export function formatChartAxisTick(value: number): string {
   }
   return `R$ ${formatNumberBR(numericValue, { maximumFractionDigits: 0 })}`
 }
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 export function ChartTooltip({
   active,
@@ -52,6 +54,8 @@ export function ChartTooltip({
   )
 }
 
+// ─── Pie Tooltip ─────────────────────────────────────────────────────────────
+
 export function PieTooltip({
   active,
   payload,
@@ -76,6 +80,122 @@ export function PieTooltip({
   )
 }
 
+// ─── ChartSeriesBadge ─────────────────────────────────────────────────────────
+// Badge unitário para legenda de série de gráfico.
+// Clicável para toggle de visibilidade, com ponto colorido e label.
+
+export interface ChartSeriesBadgeItem {
+  /** Chave única da série (usada para toggle) */
+  key: string
+  /** Label exibida */
+  label: string
+  /** Cor da série (CSS color ou var(--...)) */
+  color: string
+  /** Se a série é tracejada (comparação com período anterior) */
+  dashed?: boolean
+}
+
+interface ChartSeriesBadgeProps {
+  item: ChartSeriesBadgeItem
+  isHidden: boolean
+  isLastVisible?: boolean
+  onToggle: (key: string) => void
+}
+
+export function ChartSeriesBadge({ item, isHidden, isLastVisible = false, onToggle }: ChartSeriesBadgeProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!isLastVisible) onToggle(item.key)
+      }}
+      disabled={isLastVisible}
+      title={
+        isLastVisible
+          ? 'Pelo menos 1 série deve ficar visível'
+          : isHidden
+            ? `Mostrar ${item.label}`
+            : `Ocultar ${item.label}`
+      }
+      aria-pressed={!isHidden}
+      className={[
+        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border',
+        'transition-all duration-200 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
+        isHidden
+          ? 'opacity-40 border-glass bg-transparent text-secondary'
+          : 'border-glass/60 surface-glass shadow-sm text-primary',
+        isLastVisible ? 'cursor-not-allowed' : 'cursor-pointer hover:opacity-80',
+      ].join(' ')}
+    >
+      {/* Ponto colorido — sólido ou tracejado/anel para séries de comparação */}
+      {item.dashed ? (
+        <span
+          className="w-3 h-[2px] rounded-full flex-shrink-0 opacity-70"
+          style={{
+            background: `repeating-linear-gradient(90deg, ${item.color} 0px, ${item.color} 3px, transparent 3px, transparent 5px)`,
+          }}
+        />
+      ) : (
+        <span
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{
+            backgroundColor: item.color,
+            boxShadow: isHidden ? 'none' : `0 0 5px ${item.color}70`,
+          }}
+        />
+      )}
+      <span className="leading-none truncate max-w-[110px]">{item.label}</span>
+    </button>
+  )
+}
+
+// ─── ChartSeriesBadges ────────────────────────────────────────────────────────
+// Contêiner de badges de séries — use fora do ResponsiveContainer para legendas
+// externas (ex: WeekdayExpenseChart) ou como bloco autônomo abaixo de um gráfico.
+
+interface ChartSeriesBadgesProps {
+  items: ChartSeriesBadgeItem[]
+  hiddenSeries: string[]
+  onToggle: (key: string) => void
+  /** Se true, impede desmarcar a última série visível */
+  preventEmpty?: boolean
+  className?: string
+}
+
+export function ChartSeriesBadges({
+  items,
+  hiddenSeries,
+  onToggle,
+  preventEmpty = true,
+  className = '',
+}: ChartSeriesBadgesProps) {
+  if (!items.length) return null
+
+  const visibleCount = items.filter((item) => !hiddenSeries.includes(item.key)).length
+
+  return (
+    <div className={`flex flex-wrap gap-1.5 justify-center px-1 ${className}`}>
+      {items.map((item) => {
+        const isHidden = hiddenSeries.includes(item.key)
+        const isLastVisible = preventEmpty && !isHidden && visibleCount === 1
+        return (
+          <ChartSeriesBadge
+            key={item.key}
+            item={item}
+            isHidden={isHidden}
+            isLastVisible={isLastVisible}
+            onToggle={onToggle}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── InteractiveChartLegend ───────────────────────────────────────────────────
+// Compatível com <Legend content={...}> do Recharts.
+// Filtra séries de comparação (Mês/Ano Ant.) da legenda principal.
+
 interface InteractiveChartLegendProps {
   payload?: Payload[]
   hiddenSeries: string[]
@@ -83,46 +203,33 @@ interface InteractiveChartLegendProps {
 }
 
 export function InteractiveChartLegend({ payload, hiddenSeries, onToggle }: InteractiveChartLegendProps) {
-  if (!payload?.length) return null
-
-  const filteredPayload = payload.filter((entry) => {
-    const dataKey = String(entry.dataKey ?? entry.value ?? '')
-    const isComparison = dataKey.includes('(Mês Ant.)') || dataKey.includes('(Ano Ant.)') || dataKey.includes('Ant.')
-    return !isComparison
-  })
-
-  if (!filteredPayload.length) return null
+  const items = useMemo<ChartSeriesBadgeItem[]>(() => {
+    if (!payload?.length) return []
+    return payload
+      .filter((entry) => {
+        const dataKey = String(entry.dataKey ?? entry.value ?? '')
+        // Ocultar séries de comparação da legenda (são tracejadas e vinculadas à série principal)
+        return !dataKey.includes('(Mês Ant.)') && !dataKey.includes('(Ano Ant.)') && !dataKey.includes('Ant.')
+      })
+      .map((entry) => ({
+        key: String(entry.dataKey ?? entry.value ?? ''),
+        label: String(entry.value ?? entry.dataKey ?? ''),
+        color: String(entry.color ?? 'var(--color-primary)'),
+      }))
+  }, [payload])
 
   return (
-    <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-1.5 sm:pt-2 justify-center max-w-full overflow-x-hidden px-1">
-      {filteredPayload.map((entry) => {
-        const dataKey = String(entry.dataKey ?? entry.value ?? '')
-        const isHidden = hiddenSeries.includes(dataKey)
-
-        return (
-          <Button
-            key={dataKey}
-            type="button"
-            variant={isHidden ? 'outline' : 'secondary'}
-            onClick={() => onToggle(dataKey)}
-            className={`h-auto py-1 px-1.5 sm:px-2 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl transition-all ${
-              isHidden ? 'opacity-50' : ''
-            }`}
-            aria-pressed={!isHidden}
-          >
-            <span 
-              className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0" 
-              style={{ backgroundColor: entry.color }} 
-            />
-            <span className="truncate max-w-[85px] sm:max-w-none">
-              {entry.value}
-            </span>
-          </Button>
-        )
-      })}
-    </div>
+    <ChartSeriesBadges
+      items={items}
+      hiddenSeries={hiddenSeries}
+      onToggle={onToggle}
+      preventEmpty
+      className="pt-2"
+    />
   )
 }
+
+// ─── Sparkline ────────────────────────────────────────────────────────────────
 
 interface SparklineProps {
   data: number[]
@@ -141,7 +248,7 @@ export function Sparkline({ data, compareData, color, height = 32, width = '100%
     return Array.from({ length: len }, (_, idx) => ({
       idx,
       value: data[idx] ?? 0,
-      ...(compareData ? { compareValue: compareData[idx] ?? 0 } : {})
+      ...(compareData ? { compareValue: compareData[idx] ?? 0 } : {}),
     }))
   }, [data, compareData])
 
@@ -180,5 +287,3 @@ export function Sparkline({ data, compareData, color, height = 32, width = '100%
     </ResponsiveContainer>
   )
 }
-
-

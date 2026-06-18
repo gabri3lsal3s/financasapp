@@ -36,6 +36,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
           stroke="var(--color-text-secondary)" 
           fontSize={12} 
           tick={{ fill: 'var(--color-text-secondary)' }} 
+          minTickGap={30}
         />
         <YAxis
           stroke="var(--color-text-secondary)"

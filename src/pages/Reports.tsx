@@ -178,7 +178,7 @@ export default function Reports() {
   const [hiddenDailyConsolidatedSeries, setHiddenDailyConsolidatedSeries] = useState<string[]>([])
   const [hiddenMonthCompositionSeries, setHiddenMonthCompositionSeries] = useState<string[]>([])
   const [evolutionType, setEvolutionType] = useState<'expense' | 'income'>('expense')
-  const [monthChartTab, setMonthChartTab] = useState<'daily' | 'weekly' | 'composition'>('daily')
+  const [monthChartTab, setMonthChartTab] = useState<'daily' | 'weekly' | 'composition' | 'balance' | 'trend'>('daily')
   const [compositionPieType, setCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
   const [annualCompositionPieType, setAnnualCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
   const [annualChartType, setAnnualChartType] = useState<'flow' | 'balance' | 'trend'>('flow')
@@ -798,15 +798,439 @@ export default function Reports() {
       }))
   }, [incomeByCategory, getIncomeColor])
 
-  useEffect(() => {
-    const validKeys = new Set(annualExpenseTrendSeries.map((series) => series.key))
-    setHiddenExpenseSeries((prev) => prev.filter((key) => validKeys.has(key)))
-  }, [annualExpenseTrendSeries])
+  // Mapeamento de despesas por categoria no período customizado
+  const customCategoryExpenses = useMemo(() => {
+    const expenseCategoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
+    customExpenses.forEach((exp) => {
+      const catId = exp.category_id
+      const cat = exp.category as { id?: string; name?: string; color?: string } | null
+      const total = getAmountByMode(exp)
+      if (!expenseCategoryMap.has(catId)) {
+        expenseCategoryMap.set(catId, {
+          category_id: catId,
+          category_name: cat?.name ?? 'Sem categoria',
+          total: 0,
+          color: cat?.color ?? 'var(--category-fallback-neutral)',
+        })
+      }
+      expenseCategoryMap.get(catId)!.total += total
+    })
+    return Array.from(expenseCategoryMap.values())
+  }, [customExpenses, getAmountByMode])
+
+  // Mapeamento de receitas por categoria no período customizado
+  const customCategoryIncomes = useMemo(() => {
+    const incomeCategoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
+    customIncomes.forEach((inc) => {
+      const catId = inc.income_category_id
+      const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
+      const total = getAmountByMode(inc)
+      if (!incomeCategoryMap.has(catId)) {
+        incomeCategoryMap.set(catId, {
+          income_category_id: catId,
+          category_name: cat?.name ?? 'Sem categoria',
+          total: 0,
+          color: cat?.color ?? 'var(--category-fallback-neutral)',
+        })
+      }
+      incomeCategoryMap.get(catId)!.total += total
+    })
+    return Array.from(incomeCategoryMap.values())
+  }, [customIncomes, getAmountByMode])
+
+  // Lista de meses no intervalo do período customizado
+  const customMonths = useMemo(() => {
+    if (!customStartDate || !customEndDate) return []
+    const startYear = parseInt(customStartDate.slice(0, 4))
+    const startMonth = parseInt(customStartDate.slice(5, 7))
+    const endYear = parseInt(customEndDate.slice(0, 4))
+    const endMonth = parseInt(customEndDate.slice(5, 7))
+
+    const monthsList: string[] = []
+    let currYear = startYear
+    let currMonth = startMonth
+
+    while (currYear < endYear || (currYear === endYear && currMonth <= endMonth)) {
+      const monthStr = `${currYear}-${String(currMonth).padStart(2, '0')}`
+      monthsList.push(monthStr)
+      currMonth++
+      if (currMonth > 12) {
+        currMonth = 1
+        currYear++
+      }
+    }
+    return monthsList
+  }, [customStartDate, customEndDate])
+
+  const isSingleMonth = useMemo(() => customMonths.length <= 1, [customMonths])
+
+  // Lista de dias no intervalo do período customizado
+  const customDays = useMemo(() => {
+    if (!customStartDate || !customEndDate) return []
+    const start = new Date(`${customStartDate}T00:00:00`)
+    const end = new Date(`${customEndDate}T00:00:00`)
+    
+    const diffTime = Math.abs(end.getTime() - start.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    if (diffDays > 366) return [] // Safety limit
+
+    const daysList: string[] = []
+    const current = new Date(start)
+    while (current <= end) {
+      const yyyy = current.getFullYear()
+      const mm = String(current.getMonth() + 1).padStart(2, '0')
+      const dd = String(current.getDate()).padStart(2, '0')
+      daysList.push(`${yyyy}-${mm}-${dd}`)
+      current.setDate(current.getDate() + 1)
+    }
+    return daysList
+  }, [customStartDate, customEndDate])
+
+  // Resumo mensal do período customizado (quando período > 1 mês)
+  const customMonthlySummaries = useMemo(() => {
+    if (viewMode !== 'custom' || customMonths.length === 0) return []
+
+    return customMonths.map((monthStr) => {
+      const monthExpenses = customExpenses.filter((exp) => {
+        return exp.date.startsWith(monthStr) && exp.date >= customStartDate && exp.date <= customEndDate
+      })
+
+      const monthIncomes = customIncomes.filter((inc) => {
+        return inc.date.startsWith(monthStr) && inc.date >= customStartDate && inc.date <= customEndDate
+      })
+
+      const monthTxs = customPortfolioTransactions.filter((tx) => {
+        return tx.date.startsWith(monthStr) && tx.date >= customStartDate && tx.date <= customEndDate
+      })
+
+      const monthDebts = debts.filter((d) => {
+        return d.due_date.startsWith(monthStr) && d.due_date >= customStartDate && d.due_date <= customEndDate
+      })
+
+      const paidReceivables = monthDebts
+        .filter((d) => d.type === 'receivable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+        
+      const paidPayables = monthDebts
+        .filter((d) => d.type === 'payable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+
+      const totalExpenses = monthExpenses.reduce((sum, exp) => sum + getAmountByMode(exp), 0) + paidPayables
+      const totalIncomes = monthIncomes.reduce((sum, inc) => sum + getAmountByMode(inc), 0) + paidReceivables
+      
+      const totalInvestments = monthTxs.reduce((sum, tx) => {
+        return sum + transactionInvestmentAmount(tx.operation_type, Number(tx.quantity), Number(tx.price))
+      }, 0)
+
+      return {
+        month: monthStr,
+        total_income: totalIncomes,
+        total_expenses: totalExpenses,
+        total_investments: totalInvestments,
+        balance: totalIncomes - totalExpenses - totalInvestments,
+      }
+    })
+  }, [viewMode, customMonths, customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode])
+
+  // Resumo diário do período customizado (quando período <= 1 mês)
+  const customDailySummaries = useMemo(() => {
+    if (viewMode !== 'custom' || !isSingleMonth || customDays.length === 0) return []
+
+    return customDays.map((dateStr) => {
+      const dd = dateStr.slice(8, 10)
+      const mm = dateStr.slice(5, 7)
+      const label = `${dd}/${mm}`
+
+      const dayExpenses = customExpenses.filter((exp) => exp.date === dateStr)
+      const dayIncomes = customIncomes.filter((inc) => inc.date === dateStr)
+      const dayTxs = customPortfolioTransactions.filter((tx) => tx.date === dateStr)
+      
+      const dayDebts = debts.filter((d) => d.due_date === dateStr)
+      const paidReceivables = dayDebts
+        .filter((d) => d.type === 'receivable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+      const paidPayables = dayDebts
+        .filter((d) => d.type === 'payable' && d.status === 'paid')
+        .reduce((sum, d) => sum + d.amount, 0)
+
+      const totalExpenses = dayExpenses.reduce((sum, exp) => sum + getAmountByMode(exp), 0) + paidPayables
+      const totalIncomes = dayIncomes.reduce((sum, inc) => sum + getAmountByMode(inc), 0) + paidReceivables
+
+      const totalInvestments = dayTxs.reduce((sum, tx) => {
+        return sum + transactionInvestmentAmount(tx.operation_type, Number(tx.quantity), Number(tx.price))
+      }, 0)
+
+      return {
+        date: dateStr,
+        label,
+        total_income: totalIncomes,
+        total_expenses: totalExpenses,
+        total_investments: totalInvestments,
+        balance: totalIncomes - totalExpenses - totalInvestments,
+      }
+    })
+  }, [viewMode, isSingleMonth, customDays, customExpenses, customIncomes, customPortfolioTransactions, debts, getAmountByMode])
+
+  // Despesas de categoria por mês no período customizado (quando período > 1 mês)
+  const customMonthlyCategoryExpenses = useMemo(() => {
+    const map: Record<string, ExpenseCategorySummary[]> = {}
+    if (viewMode !== 'custom') return map
+
+    customMonths.forEach((monthStr) => {
+      const monthExpenses = customExpenses.filter((exp) => {
+        return exp.date.startsWith(monthStr) && exp.date >= customStartDate && exp.date <= customEndDate
+      })
+
+      const categoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
+      monthExpenses.forEach((exp) => {
+        const catId = exp.category_id
+        const cat = exp.category as { id?: string; name?: string; color?: string } | null
+        const total = getAmountByMode(exp)
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, {
+            category_id: catId,
+            category_name: cat?.name ?? 'Sem categoria',
+            total: 0,
+            color: cat?.color ?? 'var(--category-fallback-neutral)',
+          })
+        }
+        categoryMap.get(catId)!.total += total
+      })
+      map[monthStr] = Array.from(categoryMap.values())
+    })
+    return map
+  }, [viewMode, customMonths, customExpenses, customStartDate, customEndDate, getAmountByMode])
+
+  // Despesas de categoria por dia no período customizado (quando período <= 1 mês)
+  const customDailyCategoryExpenses = useMemo(() => {
+    const map: Record<string, ExpenseCategorySummary[]> = {}
+    if (viewMode !== 'custom' || !isSingleMonth) return map
+
+    customDays.forEach((dateStr) => {
+      const dayExpenses = customExpenses.filter((exp) => exp.date === dateStr)
+      const categoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
+      
+      dayExpenses.forEach((exp) => {
+        const catId = exp.category_id
+        const cat = exp.category as { id?: string; name?: string; color?: string } | null
+        const total = getAmountByMode(exp)
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, {
+            category_id: catId,
+            category_name: cat?.name ?? 'Sem categoria',
+            total: 0,
+            color: cat?.color ?? 'var(--category-fallback-neutral)',
+          })
+        }
+        categoryMap.get(catId)!.total += total
+      })
+      map[dateStr] = Array.from(categoryMap.values())
+    })
+    return map
+  }, [viewMode, isSingleMonth, customDays, customExpenses, getAmountByMode])
+
+  // Receitas de categoria por mês no período customizado (quando período > 1 mês)
+  const customMonthlyIncomeByCategory = useMemo(() => {
+    const map: Record<string, IncomeCategorySummary[]> = {}
+    if (viewMode !== 'custom') return map
+
+    customMonths.forEach((monthStr) => {
+      const monthIncomes = customIncomes.filter((inc) => {
+        return inc.date.startsWith(monthStr) && inc.date >= customStartDate && inc.date <= customEndDate
+      })
+
+      const categoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
+      monthIncomes.forEach((inc) => {
+        const catId = inc.income_category_id
+        const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
+        const total = getAmountByMode(inc)
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, {
+            income_category_id: catId,
+            category_name: cat?.name ?? 'Sem categoria',
+            total: 0,
+            color: cat?.color ?? 'var(--category-fallback-neutral)',
+          })
+        }
+        categoryMap.get(catId)!.total += total
+      })
+      map[monthStr] = Array.from(categoryMap.values())
+    })
+    return map
+  }, [viewMode, customMonths, customIncomes, customStartDate, customEndDate, getAmountByMode])
+
+  // Receitas de categoria por dia no período customizado (quando período <= 1 mês)
+  const customDailyIncomeByCategory = useMemo(() => {
+    const map: Record<string, IncomeCategorySummary[]> = {}
+    if (viewMode !== 'custom' || !isSingleMonth) return map
+
+    customDays.forEach((dateStr) => {
+      const dayIncomes = customIncomes.filter((inc) => inc.date === dateStr)
+      const categoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
+
+      dayIncomes.forEach((inc) => {
+        const catId = inc.income_category_id
+        const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
+        const total = getAmountByMode(inc)
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, {
+            income_category_id: catId,
+            category_name: cat?.name ?? 'Sem categoria',
+            total: 0,
+            color: cat?.color ?? 'var(--category-fallback-neutral)',
+          })
+        }
+        categoryMap.get(catId)!.total += total
+      })
+      map[dateStr] = Array.from(categoryMap.values())
+    })
+    return map
+  }, [viewMode, isSingleMonth, customDays, customIncomes, getAmountByMode])
+
+  // Saldo acumulado do período customizado
+  const customCumulativeBalanceData = useMemo(() => {
+    let cumulative = 0
+    if (isSingleMonth) {
+      return customDailySummaries.map((item) => {
+        cumulative += item.balance
+        return {
+          month: item.label,
+          SaldoAcumulado: cumulative,
+        }
+      })
+    }
+    return customMonthlySummaries.map((item) => {
+      cumulative += item.balance
+      return {
+        month: formatMonthShort(item.month),
+        SaldoAcumulado: cumulative,
+      }
+    })
+  }, [isSingleMonth, customDailySummaries, customMonthlySummaries])
+
+  // Evolução de despesas do período customizado
+  const customExpenseTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
+    return [...customCategoryExpenses]
+      .sort((a, b) => b.total - a.total)
+      .map((category) => ({
+        key: category.category_id,
+        name: category.category_name,
+        color: getExpenseColor(category.category_id, category.color),
+      }))
+  }, [customCategoryExpenses, getExpenseColor])
+
+  const customExpenseTrendData = useMemo(() => {
+    if (isSingleMonth) {
+      return customDailySummaries.map((summary) => {
+        const row: Record<string, string | number> = {
+          month: summary.label,
+        }
+
+        const dayCategories = customDailyCategoryExpenses[summary.date] ?? []
+        customExpenseTrendSeries.forEach((series) => {
+          const match = dayCategories.find((item) => item.category_id === series.key)
+          row[series.key] = match?.total ?? 0
+        })
+
+        return row
+      })
+    }
+
+    return customMonthlySummaries.map((summary) => {
+      const row: Record<string, string | number> = {
+        month: formatMonthShort(summary.month),
+      }
+
+      const monthCategories = customMonthlyCategoryExpenses[summary.month] ?? []
+      customExpenseTrendSeries.forEach((series) => {
+        const match = monthCategories.find((item) => item.category_id === series.key)
+        row[series.key] = match?.total ?? 0
+      })
+
+      return row
+    })
+  }, [isSingleMonth, customDailySummaries, customMonthlySummaries, customDailyCategoryExpenses, customMonthlyCategoryExpenses, customExpenseTrendSeries])
+
+  const customExpenseTrendVisibleData = useMemo(() => {
+    if (customExpenseTrendSeries.length === 0) {
+      return [] as Array<Record<string, string | number>>
+    }
+
+    return customExpenseTrendData.filter((row) =>
+      customExpenseTrendSeries.some((series) => Number(row[series.key] ?? 0) > 0)
+    )
+  }, [customExpenseTrendData, customExpenseTrendSeries])
+
+  // Evolução de receitas do período customizado
+  const customIncomeTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
+    return [...customCategoryIncomes]
+      .sort((a, b) => b.total - a.total)
+      .map((category) => ({
+        key: category.income_category_id,
+        name: category.category_name,
+        color: getIncomeColor(category.income_category_id, category.color),
+      }))
+  }, [customCategoryIncomes, getIncomeColor])
+
+  const customIncomeTrendData = useMemo(() => {
+    if (isSingleMonth) {
+      return customDailySummaries.map((summary) => {
+        const row: Record<string, string | number> = {
+          month: summary.label,
+        }
+
+        const dayCategories = customDailyIncomeByCategory[summary.date] ?? []
+        customIncomeTrendSeries.forEach((series) => {
+          const match = dayCategories.find((item) => item.income_category_id === series.key)
+          row[series.key] = match?.total ?? 0
+        })
+
+        return row
+      })
+    }
+
+    return customMonthlySummaries.map((summary) => {
+      const row: Record<string, string | number> = {
+        month: formatMonthShort(summary.month),
+      }
+
+      const monthCategories = customMonthlyIncomeByCategory[summary.month] ?? []
+      customIncomeTrendSeries.forEach((series) => {
+        const match = monthCategories.find((item) => item.income_category_id === series.key)
+        row[series.key] = match?.total ?? 0
+      })
+
+      return row
+    })
+  }, [isSingleMonth, customDailySummaries, customMonthlySummaries, customDailyIncomeByCategory, customMonthlyIncomeByCategory, customIncomeTrendSeries])
+
+  const customIncomeTrendVisibleData = useMemo(() => {
+    if (customIncomeTrendSeries.length === 0) {
+      return [] as Array<Record<string, string | number>>
+    }
+
+    return customIncomeTrendData.filter((row) =>
+      customIncomeTrendSeries.some((series) => Number(row[series.key] ?? 0) > 0)
+    )
+  }, [customIncomeTrendData, customIncomeTrendSeries])
 
   useEffect(() => {
-    const validKeys = new Set(annualIncomeTrendSeries.map((series) => series.key))
+    if (viewMode === 'month' && (monthChartTab === 'balance' || monthChartTab === 'trend')) {
+      setMonthChartTab('daily')
+    }
+  }, [viewMode, monthChartTab])
+
+  useEffect(() => {
+    const activeSeries = viewMode === 'custom' ? customExpenseTrendSeries : annualExpenseTrendSeries
+    const validKeys = new Set(activeSeries.map((series) => series.key))
+    setHiddenExpenseSeries((prev) => prev.filter((key) => validKeys.has(key)))
+  }, [annualExpenseTrendSeries, customExpenseTrendSeries, viewMode])
+
+  useEffect(() => {
+    const activeSeries = viewMode === 'custom' ? customIncomeTrendSeries : annualIncomeTrendSeries
+    const validKeys = new Set(activeSeries.map((series) => series.key))
     setHiddenIncomeSeries((prev) => prev.filter((key) => validKeys.has(key)))
-  }, [annualIncomeTrendSeries])
+  }, [annualIncomeTrendSeries, customIncomeTrendSeries, viewMode])
 
   const annualExpenseTrendData = useMemo(() => {
     return monthlySummaries.map((summary) => {
@@ -1019,45 +1443,7 @@ export default function Reports() {
     return map
   }, [monthIncomeExpectations])
 
-  // Mapeamento de despesas por categoria no período customizado
-  const customCategoryExpenses = useMemo(() => {
-    const expenseCategoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
-    customExpenses.forEach((exp) => {
-      const catId = exp.category_id
-      const cat = exp.category as { id?: string; name?: string; color?: string } | null
-      const total = getAmountByMode(exp)
-      if (!expenseCategoryMap.has(catId)) {
-        expenseCategoryMap.set(catId, {
-          category_id: catId,
-          category_name: cat?.name ?? 'Sem categoria',
-          total: 0,
-          color: cat?.color ?? 'var(--category-fallback-neutral)',
-        })
-      }
-      expenseCategoryMap.get(catId)!.total += total
-    })
-    return Array.from(expenseCategoryMap.values())
-  }, [customExpenses, getAmountByMode])
 
-  // Mapeamento de receitas por categoria no período customizado
-  const customCategoryIncomes = useMemo(() => {
-    const incomeCategoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
-    customIncomes.forEach((inc) => {
-      const catId = inc.income_category_id
-      const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
-      const total = getAmountByMode(inc)
-      if (!incomeCategoryMap.has(catId)) {
-        incomeCategoryMap.set(catId, {
-          income_category_id: catId,
-          category_name: cat?.name ?? 'Sem categoria',
-          total: 0,
-          color: cat?.color ?? 'var(--category-fallback-neutral)',
-        })
-      }
-      incomeCategoryMap.get(catId)!.total += total
-    })
-    return Array.from(incomeCategoryMap.values())
-  }, [customIncomes, getAmountByMode])
 
   // Gráfico de Pizza: despesas customizadas
   const customPieExpenses = useMemo(() => {
@@ -1138,27 +1524,46 @@ export default function Reports() {
     return results
   }, [customExpenses, creditCards, getAmountByMode])
 
-  // Distribuição semanal de despesas customizadas
+  // Distribuição semanal de despesas, rendas e investimentos customizados
   const customWeekdayExpenseData = useMemo(() => {
     const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
     const totals = labels.map((label) => ({
       dia: label,
       Despesas: 0,
+      Rendas: 0,
+      Investimentos: 0,
     }))
 
     customExpenses.forEach((expense) => {
       const localDate = new Date(`${expense.date}T00:00:00`)
-      if (Number.isNaN(localDate.getTime())) {
-        return
-      }
-
+      if (Number.isNaN(localDate.getTime())) return
       const dayOfWeek = localDate.getDay()
       const mondayFirstIndex = (dayOfWeek + 6) % 7
       totals[mondayFirstIndex].Despesas += getAmountByMode(expense)
     })
 
+    customIncomes.forEach((income) => {
+      const localDate = new Date(`${income.date}T00:00:00`)
+      if (Number.isNaN(localDate.getTime())) return
+      const dayOfWeek = localDate.getDay()
+      const mondayFirstIndex = (dayOfWeek + 6) % 7
+      totals[mondayFirstIndex].Rendas += getAmountByMode(income)
+    })
+
+    customPortfolioTransactions.forEach((tx) => {
+      const localDate = new Date(`${tx.date}T00:00:00`)
+      if (Number.isNaN(localDate.getTime())) return
+      const dayOfWeek = localDate.getDay()
+      const mondayFirstIndex = (dayOfWeek + 6) % 7
+      totals[mondayFirstIndex].Investimentos += transactionInvestmentAmount(
+        tx.operation_type,
+        Number(tx.quantity),
+        Number(tx.price)
+      )
+    })
+
     return totals
-  }, [customExpenses, getAmountByMode])
+  }, [customExpenses, customIncomes, customPortfolioTransactions, getAmountByMode])
 
   // Valores consolidados customizados
   const customSummary = useMemo(() => {
@@ -1596,55 +2001,84 @@ export default function Reports() {
     const totals = labels.map((label) => ({
       dia: label,
       Despesas: 0,
-      ...(compareWithPrevious ? { 'Despesas (Mês Ant.)': 0 } : {})
+      Rendas: 0,
+      Investimentos: 0,
+      ...(compareWithPrevious ? { 'Despesas (Mês Ant.)': 0, 'Rendas (Mês Ant.)': 0, 'Investimentos (Mês Ant.)': 0 } : {})
     })) as Array<{
       dia: string
       Despesas: number
+      Rendas: number
+      Investimentos: number
       'Despesas (Mês Ant.)'?: number
+      'Rendas (Mês Ant.)'?: number
+      'Investimentos (Mês Ant.)'?: number
     }>
 
     monthExpenses.forEach((expense) => {
-      if (!expense.date?.startsWith(selectedMonth)) {
-        return
-      }
-
+      if (!expense.date?.startsWith(selectedMonth)) return
       const localDate = new Date(`${expense.date}T00:00:00`)
-      if (Number.isNaN(localDate.getTime())) {
-        return
-      }
-
-      const dayOfWeek = localDate.getDay()
-      const mondayFirstIndex = (dayOfWeek + 6) % 7
+      if (Number.isNaN(localDate.getTime())) return
+      const mondayFirstIndex = (localDate.getDay() + 6) % 7
       totals[mondayFirstIndex].Despesas += getAmountByMode(expense)
     })
 
-    if (compareWithPrevious && previousMonthExpenses.length > 0) {
+    monthIncomes.forEach((income) => {
+      if (!income.date?.startsWith(selectedMonth)) return
+      const localDate = new Date(`${income.date}T00:00:00`)
+      if (Number.isNaN(localDate.getTime())) return
+      const mondayFirstIndex = (localDate.getDay() + 6) % 7
+      totals[mondayFirstIndex].Rendas += getAmountByMode(income)
+    })
+
+    portfolioTransactions.forEach((tx) => {
+      const localDate = new Date(`${tx.date}T00:00:00`)
+      if (Number.isNaN(localDate.getTime())) return
+      const mondayFirstIndex = (localDate.getDay() + 6) % 7
+      totals[mondayFirstIndex].Investimentos += transactionInvestmentAmount(
+        tx.operation_type,
+        Number(tx.quantity),
+        Number(tx.price)
+      )
+    })
+
+    if (compareWithPrevious) {
       previousMonthExpenses.forEach((expense) => {
-        if (!expense.date?.startsWith(previousMonth)) {
-          return
-        }
-
+        if (!expense.date?.startsWith(previousMonth)) return
         const localDate = new Date(`${expense.date}T00:00:00`)
-        if (Number.isNaN(localDate.getTime())) {
-          return
-        }
+        if (Number.isNaN(localDate.getTime())) return
+        const mondayFirstIndex = (localDate.getDay() + 6) % 7
+        totals[mondayFirstIndex]['Despesas (Mês Ant.)'] = (totals[mondayFirstIndex]['Despesas (Mês Ant.)'] ?? 0) + getAmountByMode(expense)
+      })
 
-        const dayOfWeek = localDate.getDay()
-        const mondayFirstIndex = (dayOfWeek + 6) % 7
-        if (totals[mondayFirstIndex]) {
-          totals[mondayFirstIndex]['Despesas (Mês Ant.)'] = (totals[mondayFirstIndex]['Despesas (Mês Ant.)'] ?? 0) + getAmountByMode(expense)
-        }
+      previousMonthIncomes.forEach((income) => {
+        if (!income.date?.startsWith(previousMonth)) return
+        const localDate = new Date(`${income.date}T00:00:00`)
+        if (Number.isNaN(localDate.getTime())) return
+        const mondayFirstIndex = (localDate.getDay() + 6) % 7
+        totals[mondayFirstIndex]['Rendas (Mês Ant.)'] = (totals[mondayFirstIndex]['Rendas (Mês Ant.)'] ?? 0) + getAmountByMode(income)
+      })
+
+      previousPortfolioTransactions.forEach((tx) => {
+        const localDate = new Date(`${tx.date}T00:00:00`)
+        if (Number.isNaN(localDate.getTime())) return
+        const mondayFirstIndex = (localDate.getDay() + 6) % 7
+        const amt = transactionInvestmentAmount(tx.operation_type, Number(tx.quantity), Number(tx.price))
+        totals[mondayFirstIndex]['Investimentos (Mês Ant.)'] = (totals[mondayFirstIndex]['Investimentos (Mês Ant.)'] ?? 0) + amt
       })
     }
 
     return totals
   }, [
     monthExpenses,
+    monthIncomes,
+    portfolioTransactions,
     selectedMonth,
     getAmountByMode,
     compareWithPrevious,
     previousMonthExpenses,
-    previousMonth
+    previousMonth,
+    previousMonthIncomes,
+    previousPortfolioTransactions
   ])
 
   const topWeekdayExpense = useMemo(() => {
@@ -2434,37 +2868,77 @@ export default function Reports() {
                       <div>
                         <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
                           {monthChartTab === 'daily' ? 'Fluxo Diário Consolidado' :
-                           monthChartTab === 'weekly' ? 'Gastos por Dia da Semana' :
-                           'Composição de Saldo'}
+                           monthChartTab === 'weekly' ? 'Fluxo por Dia da Semana' :
+                           monthChartTab === 'composition' ? 'Composição de Saldo' :
+                           monthChartTab === 'balance' ? 'Saldo Acumulado' :
+                           'Evolução por Categoria'}
                         </h3>
                          <p className="text-[10px] text-secondary mt-0.5">
                            {monthChartTab === 'daily' ? `Rendas, despesas e investimentos por dia em ${activePeriodLabel}` :
                             monthChartTab === 'weekly' ? (topWeekdayExpense && topWeekdayExpense.Despesas > 0
                               ? `Maior gasto: ${topWeekdayExpense.dia} (${formatCurrency(topWeekdayExpense.Despesas)})`
-                              : `Distribuição semanal de despesas em ${activePeriodLabel}`) :
-                            `Proporções e saldos consolidados no período`}
+                              : `Distribuição semanal — despesas, rendas e investimentos em ${activePeriodLabel}`) :
+                            monthChartTab === 'composition' ? `Proporções e saldos consolidados no período` :
+                            monthChartTab === 'balance' ? `Evolução do patrimônio líquido acumulado no período` :
+                            `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} no período`}
                          </p>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0 bg-secondary/10 p-0.5 rounded-lg border border-glass self-start sm:self-auto">
-                        <ReportsTabButton
-                          active={monthChartTab === 'daily'}
-                          onClick={() => setMonthChartTab('daily')}
-                        >
-                          Fluxo Diário
-                        </ReportsTabButton>
-                        <ReportsTabButton
-                          active={monthChartTab === 'weekly'}
-                          onClick={() => setMonthChartTab('weekly')}
-                        >
-                          Semana
-                        </ReportsTabButton>
-                        <ReportsTabButton
-                          active={monthChartTab === 'composition'}
-                          onClick={() => setMonthChartTab('composition')}
-                        >
-                          Composição
-                        </ReportsTabButton>
+                      <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto shrink-0">
+                        {/* Sub-seletor condicional para Despesas/Rendas na Evolução do Período */}
+                        {viewMode === 'custom' && monthChartTab === 'trend' && (
+                          <div className="flex items-center gap-1 mr-2 border-r border-glass/40 pr-2">
+                            <ReportsTabButton
+                              active={evolutionType === 'expense'}
+                              onClick={() => setEvolutionType('expense')}
+                            >
+                              Despesas
+                            </ReportsTabButton>
+                            <ReportsTabButton
+                              active={evolutionType === 'income'}
+                              onClick={() => setEvolutionType('income')}
+                            >
+                              Rendas
+                            </ReportsTabButton>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-1 bg-secondary/10 p-0.5 rounded-lg border border-glass">
+                          <ReportsTabButton
+                            active={monthChartTab === 'daily'}
+                            onClick={() => setMonthChartTab('daily')}
+                          >
+                            Fluxo Diário
+                          </ReportsTabButton>
+                          <ReportsTabButton
+                            active={monthChartTab === 'weekly'}
+                            onClick={() => setMonthChartTab('weekly')}
+                          >
+                            Semana
+                          </ReportsTabButton>
+                          <ReportsTabButton
+                            active={monthChartTab === 'composition'}
+                            onClick={() => setMonthChartTab('composition')}
+                          >
+                            Composição
+                          </ReportsTabButton>
+                          {viewMode === 'custom' && (
+                            <>
+                              <ReportsTabButton
+                                active={monthChartTab === 'balance'}
+                                onClick={() => setMonthChartTab('balance')}
+                              >
+                                Saldo
+                              </ReportsTabButton>
+                              <ReportsTabButton
+                                active={monthChartTab === 'trend'}
+                                onClick={() => setMonthChartTab('trend')}
+                              >
+                                Evolução
+                              </ReportsTabButton>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -2486,6 +2960,26 @@ export default function Reports() {
                           hiddenSeries={hiddenMonthCompositionSeries}
                           onToggleSeries={toggleMonthCompositionSeries}
                         />
+                      )}
+                      {viewMode === 'custom' && monthChartTab === 'balance' && (
+                        <CumulativeBalanceChart data={customCumulativeBalanceData} />
+                      )}
+                      {viewMode === 'custom' && monthChartTab === 'trend' && (
+                        <>
+                          {((evolutionType === 'expense' ? customExpenseTrendSeries : customIncomeTrendSeries).length === 0 || 
+                            (evolutionType === 'expense' ? customExpenseTrendVisibleData : customIncomeTrendVisibleData).length === 0) ? (
+                            <p className="text-sm text-secondary py-12 text-center italic">
+                              Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no período selecionado.
+                            </p>
+                          ) : (
+                            <CategoryTrendChart
+                              data={evolutionType === 'expense' ? customExpenseTrendVisibleData : customIncomeTrendVisibleData}
+                              series={evolutionType === 'expense' ? customExpenseTrendSeries : customIncomeTrendSeries}
+                              hiddenSeries={evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries}
+                              onToggleSeries={evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries}
+                            />
+                          )}
+                        </>
                       )}
                     </div>
                   </Card>

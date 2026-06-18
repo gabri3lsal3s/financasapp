@@ -28,6 +28,7 @@ export default function CategoryTrendChart({ data, series, hiddenSeries, onToggl
           stroke="var(--color-text-secondary)" 
           fontSize={12} 
           tick={{ fill: 'var(--color-text-secondary)' }} 
+          minTickGap={30}
         />
         <YAxis
           stroke="var(--color-text-secondary)"

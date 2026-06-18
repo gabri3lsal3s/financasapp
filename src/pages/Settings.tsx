@@ -362,19 +362,19 @@ export default function Settings() {
 
             <Card className="animate-stagger-item delay-75 border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 min-w-0">
                   <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-tertiary border border-primary">
                     <Crown size={20} className="text-[var(--color-primary)]" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-base font-semibold text-primary">Super Administrador</h3>
                     <p className="text-sm text-secondary mt-0.5">
                       Conta principal com acesso total, aprovação de usuários e consultoria.
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <p className="font-medium text-primary">{ADMIN_EMAIL}</p>
+                      <p className="font-medium text-primary break-all">{ADMIN_EMAIL}</p>
                       {isCurrentSuperAdmin && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-success)]/10 text-[var(--color-success)]">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-success)]/10 text-[var(--color-success)] flex-shrink-0">
                           Sessão atual
                         </span>
                       )}
@@ -404,30 +404,32 @@ export default function Settings() {
                 <div className="divide-y divide-primary">
                   {allUsers.map((pUser) => (
                     <div key={pUser.id} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-primary">{pUser.email}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <p className="font-medium text-primary break-all">{pUser.email}</p>
+                          <div className="flex-shrink-0">
                           {pUser.is_blocked || pUser.rejection_count >= 2 ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-danger)]/10 text-[var(--color-danger)]">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-danger)]/10 text-[var(--color-danger)] whitespace-nowrap">
                               Bloqueado
                             </span>
                           ) : pUser.is_rejected ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-warning)]/10 text-[var(--color-warning)] whitespace-nowrap">
                               Recusado ({pUser.rejection_count})
                             </span>
                           ) : pUser.is_approved ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-success)]/10 text-[var(--color-success)]">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-success)]/10 text-[var(--color-success)] whitespace-nowrap">
                               Ativo
                             </span>
                           ) : (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-warning)]/10 text-[var(--color-warning)]">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-[var(--color-warning)]/10 text-[var(--color-warning)] whitespace-nowrap">
                               Pendente
                             </span>
                           )}
+                          </div>
                         </div>
                         <p className="text-xs text-secondary mt-0.5">Entrou em: {new Date(pUser.created_at).toLocaleDateString()}</p>
                       </div>
-                      <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3 sm:mt-0 w-full sm:w-auto">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3 sm:mt-0 w-full sm:w-auto flex-shrink-0">
                         {pUser.is_approved ? (
                           <Button
                             type="button"
@@ -521,9 +523,10 @@ export default function Settings() {
               </SettingRow>
 
               {remindersEnabled && (
-                <div className="mt-4 pt-4 border-t border-primary space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex-1">
+                <div className="mt-4 pt-4 border-t border-primary space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {/* WHY: layout em coluna em mobile para o dropdown ter espaço de abertura sem overlay */}
+                  <div className="flex flex-col gap-2">
+                    <div>
                       <h4 className="text-sm font-medium text-primary">Antecedência para contas</h4>
                       <p className="text-xs text-secondary mt-0.5">Dias antes do vencimento para alertar contas a pagar/receber.</p>
                     </div>
@@ -531,11 +534,10 @@ export default function Settings() {
                       value={String(remindersDaysBeforeDebts)}
                       onChange={(e) => setRemindersDaysBeforeDebts(Number(e.target.value))}
                       options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
-                      className="min-w-[150px] sm:w-[150px]"
                     />
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex-1">
+                  <div className="flex flex-col gap-2">
+                    <div>
                       <h4 className="text-sm font-medium text-primary">Antecedência para faturas</h4>
                       <p className="text-xs text-secondary mt-0.5">Dias antes do vencimento para alertar faturas de cartão de crédito.</p>
                     </div>
@@ -543,7 +545,6 @@ export default function Settings() {
                       value={String(remindersDaysBeforeCardBills)}
                       onChange={(e) => setRemindersDaysBeforeCardBills(Number(e.target.value))}
                       options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
-                      className="min-w-[150px] sm:w-[150px]"
                     />
                   </div>
                 </div>

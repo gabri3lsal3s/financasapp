@@ -30,7 +30,7 @@ interface IncomeFormModalProps {
   editingIncome: Income | null
   incomeCategories: IncomeCategory[]
   onCreate: (
-    income: Omit<Income, 'id' | 'created_at' | 'income_category' | 'type'>
+    income: Omit<Income, 'id' | 'created_at' | 'income_category'>
   ) => Promise<{ data: Income | null; error: string | null }>
   onUpdate: (
     id: string,
@@ -55,7 +55,9 @@ export default function IncomeFormModal({
     date: format(new Date(), 'yyyy-MM-dd'),
     income_category_id: '',
     description: '',
+    type: 'other',
   })
+  const [saving, setSaving] = useState(false)
 
   const [refundOriginLoading, setRefundOriginLoading] = useState(false)
   const [refundOrigin, setRefundOrigin] = useState<{
@@ -119,6 +121,7 @@ export default function IncomeFormModal({
           date: editingIncome.date,
           income_category_id: editingIncome.income_category_id,
           description: editingIncome.description || '',
+          type: editingIncome.type || 'other',
         })
 
         if (isRefundIncome(editingIncome)) {
@@ -134,6 +137,7 @@ export default function IncomeFormModal({
           date: format(new Date(), 'yyyy-MM-dd'),
           income_category_id: incomeCategories[0]?.id || '',
           description: '',
+          type: 'other',
         })
         setRefundOrigin(null)
         setRefundOriginLoading(false)
@@ -168,6 +172,7 @@ export default function IncomeFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (saving) return
     if (editingIncome && isRefundIncome(editingIncome)) {
       alert('Estornos devem ser editados pela tela de Cartões.')
       return
@@ -214,29 +219,35 @@ export default function IncomeFormModal({
 
     const incomeData: Omit<
       Income,
-      'id' | 'created_at' | 'income_category' | 'type'
+      'id' | 'created_at' | 'income_category'
     > = {
       amount,
       report_weight: reportWeight,
       date: formData.date,
       income_category_id: formData.income_category_id,
+      type: formData.type as Income['type'],
       ...(formData.description && { description: formData.description }),
     }
 
-    if (editingIncome) {
-      const { error } = await onUpdate(editingIncome.id, incomeData)
-      if (!error) {
-        onClose()
+    setSaving(true)
+    try {
+      if (editingIncome) {
+        const { error } = await onUpdate(editingIncome.id, incomeData)
+        if (!error) {
+          onClose()
+        } else {
+          alert('Erro ao atualizar renda: ' + error)
+        }
       } else {
-        alert('Erro ao atualizar renda: ' + error)
+        const { error } = await onCreate(incomeData)
+        if (!error) {
+          onClose()
+        } else {
+          alert('Erro ao criar renda: ' + error)
+        }
       }
-    } else {
-      const { error } = await onCreate(incomeData)
-      if (!error) {
-        onClose()
-      } else {
-        alert('Erro ao criar renda: ' + error)
-      }
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -339,8 +350,10 @@ export default function IncomeFormModal({
           formId={formId}
           onCancel={onClose}
           submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
+          submitDisabled={saving}
           deleteLabel={editingIncome ? 'Excluir renda' : undefined}
           onDelete={editingIncome ? handleDeleteFromModal : undefined}
+          loading={saving}
         />
       )}
     >
@@ -403,6 +416,20 @@ export default function IncomeFormModal({
               })
             )}
             required
+          />
+
+          <Select
+            label="Forma de recebimento"
+            value={formData.type}
+            onChange={(e) =>
+              setFormData({ ...formData, type: e.target.value })
+            }
+            options={[
+              { value: 'other', label: 'Outros' },
+              { value: 'cash', label: 'Dinheiro' },
+              { value: 'pix', label: 'PIX' },
+              { value: 'transfer', label: 'Transferência' },
+            ]}
           />
 
           {!editingIncome && (

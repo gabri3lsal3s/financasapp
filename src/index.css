@@ -87,10 +87,24 @@
     font-family: var(--ds-font-family-base);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Impede seleção de texto acidental em todo o app */
+    user-select: none;
+    -webkit-user-select: none;
+    /* Remove highlight azul/cinza de toque em mobile (iOS/Android) */
+    -webkit-tap-highlight-color: transparent;
   }
 
   * {
     border-color: var(--color-border);
+  }
+
+  /* Reabilita seleção apenas em campos de formulário (usabilidade) */
+  input,
+  textarea,
+  select,
+  [contenteditable='true'] {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   /* Helper para sincronizar transição de temas */

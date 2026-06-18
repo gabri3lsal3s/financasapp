@@ -24,6 +24,20 @@ import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import MobileAlertsPill from '@/components/MobileAlertsPill'
 import ConfirmModal from '@/components/ConfirmModal'
 
+const INCOME_TYPE_LABELS: Record<NonNullable<Income['type']>, string> = {
+  other: 'Outros',
+  cash: 'Dinheiro',
+  pix: 'PIX',
+  transfer: 'Transferência',
+}
+
+const INCOME_TYPE_COLORS: Record<NonNullable<Income['type']>, string> = {
+  other: 'var(--color-text-secondary)',
+  cash: 'var(--color-text-secondary)',
+  pix: 'var(--color-income)',
+  transfer: 'var(--color-primary)',
+}
+
 export default function Incomes() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
@@ -181,6 +195,8 @@ export default function Incomes() {
                         id: income.id,
                       })
                     }}
+                    paymentLabel={INCOME_TYPE_LABELS[income.type || 'other']}
+                    paymentColor={INCOME_TYPE_COLORS[income.type || 'other']}
                   />
                 )
               })}

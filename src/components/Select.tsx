@@ -18,19 +18,47 @@ interface SelectProps {
 const Select = forwardRef<HTMLDivElement, SelectProps>(
   ({ label, error, options, value, onChange, placeholder = 'Selecione...', name, className = '', disabled, required, onClick }, ref) => {
     const [isOpen, setIsOpen] = useState(false)
+    // WHY: true = dropdown abre para cima quando não há espaço suficiente abaixo
+    const [openUpward, setOpenUpward] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
+    const buttonRef = useRef<HTMLButtonElement>(null)
 
     const selectedOption = options.find(opt => opt.value === value)
 
+    // WHY: fecha ao clicar fora e ao pressionar Escape (acessibilidade)
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
         if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
           setIsOpen(false)
         }
       }
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') setIsOpen(false)
+      }
       document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('keydown', handleKeyDown)
+      }
     }, [])
+
+    // WHY: calcula se há espaço abaixo do botão antes de abrir para decidir a direção
+    const handleToggle = (e: React.MouseEvent) => {
+      onClick?.(e)
+      if (disabled) return
+
+      if (!isOpen && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect()
+        const spaceBelow = window.innerHeight - rect.bottom
+        const spaceAbove = rect.top
+        // dropdown com max-h-48 (192px) + margem
+        const dropdownHeight = Math.min(options.length * 44 + 12, 200)
+        setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > spaceBelow)
+      }
+
+      setIsOpen(prev => !prev)
+    }
 
     const handleSelect = (val: string) => {
       if (disabled) return
@@ -48,12 +76,10 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
         
         <div className={`relative ${isOpen ? 'z-30' : ''}`} ref={ref}>
           <button
+            ref={buttonRef}
             type="button"
             disabled={disabled}
-            onClick={(e) => {
-              onClick?.(e)
-              if (!disabled) setIsOpen(!isOpen)
-            }}
+            onClick={handleToggle}
             className={`
               w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium surface-glass
               ${isOpen 
@@ -87,8 +113,15 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
           </button>
 
           {isOpen && (
-            <div className="absolute z-[1000] w-full mt-2 select-dropdown-solid rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="max-h-60 overflow-y-auto custom-scrollbar p-1.5">
+            <div
+              className={`
+                absolute z-[1000] w-full select-dropdown-solid rounded-2xl overflow-hidden
+                animate-in fade-in zoom-in-95 duration-200
+                ${openUpward ? 'bottom-full mb-2' : 'top-full mt-2'}
+              `}
+            >
+              {/* WHY: max-h menor em mobile para não ultrapassar metade da tela */}
+              <div className="max-h-[min(15rem,45vh)] overflow-y-auto custom-scrollbar p-1.5">
                 {options.length === 0 ? (
                   <div className="p-4 text-center text-xs text-secondary/40 italic">Nenhuma opção disponível</div>
                 ) : (
@@ -100,7 +133,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
                         type="button"
                         onClick={() => handleSelect(option.value)}
                         className={`
-                          w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all mb-0.5 last:mb-0
+                          w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm transition-all mb-0.5 last:mb-0
                           ${isSelected 
                             ? 'bg-primary/10 text-primary font-bold' 
                             : 'text-secondary hover:bg-tertiary hover:text-primary'
