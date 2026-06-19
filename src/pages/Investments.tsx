@@ -68,6 +68,7 @@ type PortfolioValuationCache = {
   transactions?: PortfolioTransaction[]
   groupTargets?: PortfolioGroupTarget[]
   assetDefinitions?: PortfolioAssetDefinition[]
+  snapshots?: import('@/types').PortfolioPeriodSnapshotRow[]
 }
 
 export default function Investments() {
@@ -1352,11 +1353,13 @@ export default function Investments() {
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span className="font-mono font-black text-xs tracking-wider">{pos.ticker}</span>
                                           {pos.pricing_mode === 'fixed_income' && (
-                                            <Info 
-                                              size={12} 
-                                              className="text-secondary/60 cursor-help shrink-0" 
-                                              title="Valoração na curva (taxa pactuada). Não reflete o valor de resgate antecipado a mercado."
-                                            />
+                                            <span title="Valoração na curva (taxa pactuada). Não reflete o valor de resgate antecipado a mercado." className="inline-flex shrink-0">
+                                              <Info 
+                                                size={12} 
+                                                className="text-secondary/60 cursor-help" 
+                                                aria-label="Valoração na curva"
+                                              />
+                                            </span>
                                           )}
                                           {pos.pricing_mode === 'market' && pos.is_b3_linked && (pos.quotation_status === 'stale' || pos.quotation_status === 'unavailable') && (
                                             <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-warning/10 text-warning font-sans">
@@ -1522,11 +1525,13 @@ export default function Investments() {
                                                 {pos.ticker}
                                               </span>
                                               {pos.pricing_mode === 'fixed_income' && (
-                                                <Info 
-                                                  size={11} 
-                                                  className="text-secondary/60 cursor-help shrink-0" 
-                                                  title="Valoração na curva (taxa pactuada). Não reflete o valor de resgate antecipado a mercado."
-                                                />
+                                                <span title="Valoração na curva (taxa pactuada). Não reflete o valor de resgate antecipado a mercado." className="inline-flex shrink-0">
+                                                  <Info 
+                                                    size={11} 
+                                                    className="text-secondary/60 cursor-help" 
+                                                    aria-label="Valoração na curva"
+                                                  />
+                                                </span>
                                               )}
                                             </div>
                                             <span className="text-[10px] text-secondary font-medium block truncate">
