@@ -102,43 +102,7 @@ describe('investmentEngine - calculateShareHistory com Caixa', () => {
     expect(metrics.data_source).toBe('share_history')
   })
 
-  it('prioriza retornos de snapshots mensais quando disponíveis', () => {
-    const shareHistory = [{ date: '2026-01-01', shareValue: 1.0 }]
-    const snapshots = [
-      {
-        id: '1',
-        portfolio_id: 'p1',
-        period_type: 'month' as const,
-        period_key: '2026-01',
-        cota_abertura: 1,
-        cota_fechamento: 1.02,
-        somatorio_aportes: 0,
-        somatorio_resgates: 0,
-        dividendos_recebidos: 0,
-        drawdown_maximo: 0,
-        period_return: 0.02,
-        created_at: '',
-      },
-      {
-        id: '2',
-        portfolio_id: 'p1',
-        period_type: 'month' as const,
-        period_key: '2026-02',
-        cota_abertura: 1.02,
-        cota_fechamento: 1.05,
-        somatorio_aportes: 0,
-        somatorio_resgates: 0,
-        dividendos_recebidos: 0,
-        drawdown_maximo: 0,
-        period_return: 0.0294,
-        created_at: '',
-      },
-    ]
 
-    const metrics = calculatePerformanceMetrics(shareHistory, snapshots)
-    expect(metrics.data_source).toBe('snapshots')
-    expect(metrics.return_monthly_avg).toBeGreaterThan(0)
-  })
 
   it('inclui caixa e ativo de mercado no valor final da cota', () => {
     const transactions: PortfolioTransaction[] = [
@@ -222,7 +186,7 @@ describe('investmentEngine - calculateShareHistory com Caixa', () => {
 
     const result = calculateShareHistory(transactions, prices, definitions)
 
-    expect(result.shareHistory).toHaveLength(1)
+    expect(result.shareHistory).toHaveLength(2)
     expect(result.shareHistory[0].totalValue).toBe(1000)
   })
 })

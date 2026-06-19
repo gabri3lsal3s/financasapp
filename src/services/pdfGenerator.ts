@@ -9,7 +9,7 @@ interface PDFData {
   portfolio: Portfolio
   positions: AssetPosition[]
   shareHistory: { date: string; shareValue: number }[]
-  metrics: PerformanceMetrics
+  metrics?: PerformanceMetrics
   theses: Record<string, string>
   cashBalance: number
   /** Patrimônio total (ativos + caixa). Se omitido, soma posições em BRL. */
@@ -52,7 +52,6 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
     clientName, 
     positions, 
     shareHistory, 
-    metrics, 
     theses, 
     groupTargets, 
     executiveSummary, 
@@ -159,7 +158,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   
   // Total de Páginas:
   // 1: Capa, 2: Ativos/Posições, 3: Classes, 4: Setores, 5: Ativos vs Metas, 6 (se houver): Atenção, 7: Qualitativo, 8: Risco/Faturamento
-  const totalPages = 7 + thesisPages + (hasAttentionSection ? 1 : 0)
+  const totalPages = 6 + thesisPages + (hasAttentionSection ? 1 : 0)
 
   // ==========================================
   // PÁGINA 1: CAPA INSTITUCIONAL E ELEGANTE
@@ -848,7 +847,9 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
       const thesis = theses[pos.ticker]
       
       if (currentY > pageHeight - 50) {
+        drawPageFooter(doc, pageCounter, totalPages)
         doc.addPage()
+        pageCounter++
         drawPageHeader(doc, 'ANÁLISE QUALITATIVA (TESES DE INVESTIMENTO)', competenceMonth)
         currentY = 32
       }
@@ -884,7 +885,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   // ==========================================
   doc.addPage()
   pageCounter++
-  drawPageHeader(doc, 'PERFORMANCE, RISCO & FATURAMENTO FEE-BASED', competenceMonth)
+  drawPageHeader(doc, 'RENTABILIDADE & FATURAMENTO FEE-BASED', competenceMonth)
 
   // 1. Métricas de Rentabilidade Temporal (Lado a Lado)
   currentY = 32
@@ -918,68 +919,8 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   doc.setFont('Helvetica', 'bold')
   doc.text(`${totalYieldPct >= 0 ? '+' : ''}${totalYieldPct.toFixed(2)}%`, 113, currentY + 16)
 
-  // 2. Indicadores de Risco & Sharpe Gauge
-  currentY += 30
-  doc.setFontSize(9.5)
-  doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
-  doc.setFont('Helvetica', 'bold')
-  doc.text('Estatísticas de Volatilidade e Ajuste ao Risco', 20, currentY)
-
-  currentY += 5
-  // Gauge Bar do Sharpe
-  // Sharpe normalizado de -1.0 a 3.0
-  const normalizedS = Math.max(-1.0, Math.min(3.0, metrics.sharpe_ratio))
-  const gaugePct = ((normalizedS + 1.0) / 4.0) * 100
-  const barW = (gaugePct / 100) * 170
-
-  // Trilho de fundo
-  doc.setFillColor(226, 232, 240)
-  doc.roundedRect(20, currentY, pageWidth - 40, 5, 0.8, 0.8, 'F')
-  
-  // Barra preenchida baseada no Sharpe
-  let sharpeCol = [245, 158, 11] // Amber
-  if (metrics.sharpe_ratio >= 2.0) sharpeCol = [20, 184, 166] // Teal
-  else if (metrics.sharpe_ratio >= 1.0) sharpeCol = [99, 102, 241] // Indigo
-  else if (metrics.sharpe_ratio < 0) sharpeCol = [239, 68, 68] // Red
-  
-  doc.setFillColor(sharpeCol[0], sharpeCol[1], sharpeCol[2])
-  doc.roundedRect(20, currentY, Math.max(2, barW), 5, 0.8, 0.8, 'F')
-
-  // Marcadores do Sharpe
-  doc.setFontSize(6.5)
-  doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2])
-  doc.setFont('Helvetica', 'normal')
-  doc.text('-1.0', 20, currentY + 9)
-  doc.text('0.0 (CDI)', 20 + 0.25 * 170, currentY + 9)
-  doc.text('1.0', 20 + 0.5 * 170, currentY + 9)
-  doc.text('2.0', 20 + 0.75 * 170, currentY + 9)
-  doc.text('3.0', 190, currentY + 9, { align: 'right' })
-
-  // Valor atual do Sharpe destacado
-  doc.setFontSize(8.5)
-  doc.setFont('Helvetica', 'bold')
-  doc.setTextColor(sharpeCol[0], sharpeCol[1], sharpeCol[2])
-  doc.text(`Índice Sharpe Atual: ${metrics.sharpe_ratio.toFixed(2)}`, 20, currentY - 2.5)
-
-  // Outras Métricas de Risco (Grade)
-  currentY += 15
-  doc.setFillColor(COLOR_BG_LIGHT[0], COLOR_BG_LIGHT[1], COLOR_BG_LIGHT[2])
-  doc.roundedRect(20, currentY, pageWidth - 40, 24, 1.5, 1.5, 'F')
-
-  doc.setFontSize(7.5)
-  doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
-  doc.setFont('Helvetica', 'bold')
-  doc.text('VOLATILIDADE MENSAL DA CARTEIRA:', 25, currentY + 7)
-  doc.text('COEFICIENTE BETA VS IBOVESPA:', 25, currentY + 14)
-  doc.text('COEFICIENTE BETA VS S&P 500:', 25, currentY + 21)
-
-  doc.setTextColor(COLOR_PRIMARY[0], COLOR_PRIMARY[1], COLOR_PRIMARY[2])
-  doc.text(`${metrics.volatility_monthly.toFixed(2)}%`, 160, currentY + 7)
-  doc.text(metrics.beta_ibov.toFixed(2), 160, currentY + 14)
-  doc.text(metrics.beta_sp500.toFixed(2), 160, currentY + 21)
-
-  // 3. Bloco do Demonstrativo de Faturamento Fee-Based
-  currentY += 34
+  // 2. Bloco do Demonstrativo de Faturamento Fee-Based
+  currentY += 32
   doc.setFontSize(9.5)
   doc.setTextColor(COLOR_SECONDARY[0], COLOR_SECONDARY[1], COLOR_SECONDARY[2])
   doc.setFont('Helvetica', 'bold')

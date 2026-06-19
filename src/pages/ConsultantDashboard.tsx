@@ -24,27 +24,26 @@ import InvestmentsGroupTargetForm from '@/components/investments/InvestmentsGrou
 import Switch from '@/components/Switch'
 import { isProvisionalClientEmail } from '@/constants/provisionalClient'
 import { resolveProfileDisplayName } from '@/utils/profileDisplayName'
+import { getAllocationClassColor } from '@/utils/categoryColors'
+import { nonCashPortfolioPerformance } from '@/utils/portfolioDisplayMetrics'
 
 // Componentes Modulares
 import AdvisorOverview from '@/components/consulting/AdvisorOverview'
 import ClientOverviewHeader from '@/components/consulting/ClientOverviewHeader'
 import ClientKpiCards, { type ClientKpiYieldBasis } from '@/components/consulting/ClientKpiCards'
-import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
-import OrganicVsContributionsChart from '@/components/consulting/OrganicVsContributionsChart'
 import ClientAllocationCharts from '@/components/consulting/ClientAllocationCharts'
 import RebalancingChecklist from '@/components/consulting/RebalancingChecklist'
 import PositionsTable from '@/components/consulting/PositionsTable'
-import AdvisorNotes from '@/components/consulting/AdvisorNotes'
 import LedgerBook from '@/components/consulting/LedgerBook'
-import QualitativeAnalysis from '@/components/consulting/QualitativeAnalysis'
 import ClientPickerModal from '@/components/consulting/ClientPickerModal'
 import SectorExposureChart from '@/components/consulting/SectorExposureChart'
 import ExposureVsLimitsChart from '@/components/consulting/ExposureVsLimitsChart'
-import WeeklyVariationChart from '@/components/consulting/WeeklyVariationChart'
-import PerformanceMetricsCard from '@/components/consulting/PerformanceMetricsCard'
 import ExposureLimitsPanel from '@/components/consulting/ExposureLimitsPanel'
 import EditAssetClassModal from '@/components/consulting/EditAssetClassModal'
 import ConsultantTabBar, { type ConsultantTab } from '@/components/consulting/ConsultantTabBar'
+import ReportAndBilling from '@/components/consulting/ReportAndBilling'
+import AssetThesesEditor from '@/components/consulting/AssetThesesEditor'
+import InvestmentEvolutionChart from '@/components/investments/InvestmentEvolutionChart'
 
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
@@ -95,7 +94,7 @@ export default function ConsultantDashboard() {
     portfolio, transactions, positions, investedValue, cashValue, totalValue,
     shareValue, totalShares, assetPrices, assetDefinitions,
     groupTargets, billingFeeRate, clientNotes, assetTheses,
-    executiveSummary, nextMonthPlan, periodSnapshots, shareHistoryData,
+    executiveSummary, nextMonthPlan, shareHistoryData,
     performanceMetrics, consolidatedClass: consolidatedClassData,
     consolidatedSector: consolidatedSectorData, loadingPortfolio,
     loadPortfolioData, updateClientNotes, updateBillingFeeRate,
@@ -151,15 +150,13 @@ export default function ConsultantDashboard() {
 
   // ── Cálculos derivados (memo) ─────────────────────────────────────────────
 
-  const overallYieldPct = React.useMemo(() => {
-    const totalCostBasis = positions.reduce((sum, p) => sum + p.cost_basis, 0)
-    if (totalCostBasis <= 0) return 0
-    if (yieldBasis === 'net') {
-      const totalNetGain = positions.reduce((s, p) => s + p.cost_basis * (p.net_yield_pct / 100), 0)
-      return (totalNetGain / totalCostBasis) * 100
+  // Rentabilidade consolidada corrigida (com dividendos) e ganho em BRL
+  const { overallYieldPct, overallGainBrl } = React.useMemo(() => {
+    const perf = nonCashPortfolioPerformance(positions, yieldBasis)
+    return {
+      overallYieldPct: perf.yieldPct,
+      overallGainBrl: perf.gainBrl
     }
-    const totalGrossGain = positions.reduce((s, p) => s + p.cost_basis * (p.gross_yield_pct / 100), 0)
-    return (totalGrossGain / totalCostBasis) * 100
   }, [positions, yieldBasis])
 
   const netShareValue = React.useMemo(() => {
@@ -292,7 +289,6 @@ export default function ConsultantDashboard() {
       setGlobalAumData({ totalAum: overallAum, totalCash: overallCash, clientCount: portfoliosList.length, clientRows: rows })
     } catch (e) {
       console.error('[ConsultantDashboard] loadGlobalOverview:', e)
-    } finally {
     }
   }
 
@@ -584,9 +580,9 @@ export default function ConsultantDashboard() {
         <div className={`transition-all duration-300 ${loadingPortfolio ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="space-y-6 animate-page-enter">
 
-            {/* Aba: Resumo & Risco */}
+            {/* Aba: Resumo & Relatório */}
             {activeTab === 'overview' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 <div className="flex items-center gap-2 text-sm text-secondary">
                   <Switch
                     checked={yieldBasis === 'net'}
@@ -604,25 +600,32 @@ export default function ConsultantDashboard() {
                   overallYieldPct={overallYieldPct}
                   yieldBasis={yieldBasis}
                   netShareValue={netShareValue}
+                  overallGainBrl={overallGainBrl}
                 />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <ReturnHeatmap snapshots={periodSnapshots} />
-                  <OrganicVsContributionsChart snapshots={periodSnapshots} />
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
-                  <WeeklyVariationChart shareHistory={shareHistoryData} />
-                  <PerformanceMetricsCard metrics={performanceMetrics} />
-                </div>
-                <AdvisorNotes
+                <InvestmentEvolutionChart shareHistoryData={shareHistoryData} />
+                <ReportAndBilling
                   clientNotes={clientNotes}
                   setClientNotes={updateClientNotes}
                   onSaveNotes={handleSavePortfolioSettings}
-                  savingSettings={savingSettings}
+                  savingNotes={savingSettings}
+                  executiveSummary={executiveSummary}
+                  setExecutiveSummary={updateExecutiveSummary}
+                  nextMonthPlan={nextMonthPlan}
+                  setNextMonthPlan={updateNextMonthPlan}
+                  savingReport={savingReport}
+                  onSaveReport={handleSaveReport}
+                  portfolioValue={totalValue}
+                  billingFeeRate={billingFeeRate}
+                  setBillingFeeRate={handleSaveFeeRate}
+                  positionsCount={positions.length}
+                  thesesCount={Object.keys(assetTheses).filter(k => !k.startsWith('__') && assetTheses[k]?.trim()).length}
+                  totalPositions={positions.filter(p => !p.ticker.startsWith('__')).length}
+                  onExportPDF={handleExportPDF}
                 />
               </div>
             )}
 
-            {/* Aba: Distribuição & Limites */}
+            {/* Aba: Alocação & Simulação */}
             {activeTab === 'allocation' && (
               <div className="space-y-6 animate-fade-in">
                 <ExposureLimitsPanel
@@ -644,7 +647,7 @@ export default function ConsultantDashboard() {
                     classChartData={consolidatedClassData.map((g) => ({
                       name: g.name,
                       value: g.total_value,
-                      color: 'rgb(59, 130, 246)',
+                      color: getAllocationClassColor(g.name),
                     }))}
                     consolidatedClass={consolidatedClassData}
                   />
@@ -653,12 +656,6 @@ export default function ConsultantDashboard() {
                 <div className="text-left">
                   <ExposureVsLimitsChart positions={positions} />
                 </div>
-              </div>
-            )}
-
-            {/* Aba: Rebalanceamento */}
-            {activeTab === 'rebalancing' && (
-              <div className="space-y-6">
                 <ContributionSimulator
                   portfolio={portfolio}
                   positions={positions}
@@ -670,32 +667,45 @@ export default function ConsultantDashboard() {
               </div>
             )}
 
-            {/* Aba: Posições */}
+            {/* Aba: Posições & Teses */}
             {activeTab === 'positions' && (
-              <PositionsTable
-                positions={positions}
-                groupTargets={groupTargets}
-                assetTheses={assetTheses}
-                showGroupTargetForm={showGroupTargetForm}
-                groupTargetType={groupTargetType}
-                setGroupTargetType={setGroupTargetType}
-                groupTargetName={groupTargetName}
-                setGroupTargetName={setGroupTargetName}
-                groupTargetPct={groupTargetPct}
-                setGroupTargetPct={setGroupTargetPct}
-                onSaveGroupTarget={handleSaveGroupTarget}
-                onDeleteGroupTarget={handleDeleteGroupTarget}
-                onEditAssetClassification={(ticker, cls, sector) => {
-                  setEditingAssetTicker(ticker)
-                  setEditingAssetClass(cls)
-                  setEditingAssetSector(sector)
-                  setIsEditAssetModalOpen(true)
-                }}
-                onOpenAssetConfig={(ticker) => {
-                  setAssetDefTicker(ticker)
-                  setAssetDefModalOpen(true)
-                }}
-              />
+              <div className="space-y-6 animate-fade-in">
+                <PositionsTable
+                  positions={positions}
+                  groupTargets={groupTargets}
+                  assetTheses={assetTheses}
+                  showGroupTargetForm={showGroupTargetForm}
+                  groupTargetType={groupTargetType}
+                  setGroupTargetType={setGroupTargetType}
+                  groupTargetName={groupTargetName}
+                  setGroupTargetName={setGroupTargetName}
+                  groupTargetPct={groupTargetPct}
+                  setGroupTargetPct={setGroupTargetPct}
+                  onSaveGroupTarget={handleSaveGroupTarget}
+                  onDeleteGroupTarget={handleDeleteGroupTarget}
+                  onEditAssetClassification={(ticker, cls, sector) => {
+                    setEditingAssetTicker(ticker)
+                    setEditingAssetClass(cls)
+                    setEditingAssetSector(sector)
+                    setIsEditAssetModalOpen(true)
+                  }}
+                  onOpenAssetConfig={(ticker) => {
+                    setAssetDefTicker(ticker)
+                    setAssetDefModalOpen(true)
+                  }}
+                />
+                <AssetThesesEditor
+                  positions={positions}
+                  assetTheses={assetTheses}
+                  editingThesisTicker={editingThesisTicker}
+                  setEditingThesisTicker={setEditingThesisTicker}
+                  thesisText={thesisText}
+                  setThesisText={setThesisText}
+                  savingThesis={savingThesis}
+                  onSaveThesis={handleSaveThesis}
+                  onDeleteThesis={handleDeleteThesis}
+                />
+              </div>
             )}
 
             {/* Aba: Livro-Razão */}
@@ -706,31 +716,6 @@ export default function ConsultantDashboard() {
                 onOpenReconciliation={() => setIsReconciliationOpen(true)}
                 portfolioId={portfolio?.id}
                 onSaved={() => loadPortfolioData(selectedClientId)}
-              />
-            )}
-
-            {/* Aba: Relatório & PDF */}
-            {activeTab === 'qualitative' && (
-              <QualitativeAnalysis
-                positions={positions}
-                assetTheses={assetTheses}
-                editingThesisTicker={editingThesisTicker}
-                setEditingThesisTicker={setEditingThesisTicker}
-                thesisText={thesisText}
-                setThesisText={setThesisText}
-                savingThesis={savingThesis}
-                onSaveThesis={handleSaveThesis}
-                onDeleteThesis={handleDeleteThesis}
-                executiveSummary={executiveSummary}
-                setExecutiveSummary={updateExecutiveSummary}
-                nextMonthPlan={nextMonthPlan}
-                setNextMonthPlan={updateNextMonthPlan}
-                savingReport={savingReport}
-                onSaveReport={handleSaveReport}
-                portfolioValue={totalValue}
-                billingFeeRate={billingFeeRate}
-                setBillingFeeRate={handleSaveFeeRate}
-                onExportPDF={handleExportPDF}
               />
             )}
           </div>

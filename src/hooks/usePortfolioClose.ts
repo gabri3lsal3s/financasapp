@@ -2,10 +2,9 @@ import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   executeAndPersistDailyClose,
-  runMonthEndSnapshots,
   type DailyCloseInput,
 } from '@/services/returns/portfolioCloseService'
-import type { PortfolioPeriodSnapshotRow, PortfolioShareDailyRow } from '@/types'
+import type { PortfolioShareDailyRow } from '@/types'
 import { supabase } from '@/lib/supabase'
 
 export function usePortfolioClose() {
@@ -26,23 +25,6 @@ export function usePortfolioClose() {
     }
   }, [])
 
-  const runMonthEnd = useCallback(
-    async (portfolioId: string, monthKey: string, input: DailyCloseInput) => {
-      setClosing(true)
-      try {
-        await executeAndPersistDailyClose(input)
-        await runMonthEndSnapshots(portfolioId, monthKey, input.transactions)
-        toast.success('Snapshot mensal gravado.')
-        window.dispatchEvent(new Event('local-data-changed'))
-      } catch {
-        toast.error('Erro ao fechar o mês.')
-      } finally {
-        setClosing(false)
-      }
-    },
-    []
-  )
-
   const loadShareDaily = useCallback(
     async (portfolioId: string, limit = 400): Promise<PortfolioShareDailyRow[]> => {
       const { data } = await supabase
@@ -56,23 +38,9 @@ export function usePortfolioClose() {
     []
   )
 
-  const loadPeriodSnapshots = useCallback(
-    async (portfolioId: string): Promise<PortfolioPeriodSnapshotRow[]> => {
-      const { data } = await supabase
-        .from('portfolio_period_snapshots')
-        .select('*')
-        .eq('portfolio_id', portfolioId)
-        .order('period_key', { ascending: true })
-      return (data ?? []) as PortfolioPeriodSnapshotRow[]
-    },
-    []
-  )
-
   return {
     closing,
     runClose,
-    runMonthEnd,
     loadShareDaily,
-    loadPeriodSnapshots,
   }
 }

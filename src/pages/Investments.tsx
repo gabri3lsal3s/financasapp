@@ -32,6 +32,7 @@ import AssetTransactionsModal from '@/components/investments/AssetTransactionsMo
 import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
 import GroupTargetModal from '@/components/investments/GroupTargetModal'
+import InvestmentEvolutionChart from '@/components/investments/InvestmentEvolutionChart'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
@@ -133,7 +134,7 @@ export default function Investments() {
   const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
   const [vnaMap, setVnaMap] = useState<Record<string, number>>({})
 
-  const { closing: closingPortfolio, runClose, loadPeriodSnapshots } = usePortfolioClose()
+  const { closing: closingPortfolio, runClose } = usePortfolioClose()
 
   const sumClass = useMemo(() => {
     return groupTargets
@@ -450,10 +451,6 @@ export default function Investments() {
       setGroupTargets(finalGroupTargets)
       setTargetAllocations(targets || [])
 
-      const snaps = await loadPeriodSnapshots(portfolio.id)
-
-
-
       if (finalTransactions.length === 0) {
         const emptyPortfolio = {
           cashBalance: 0,
@@ -472,7 +469,6 @@ export default function Investments() {
           transactions: finalTransactions,
           groupTargets: finalGroupTargets,
           assetDefinitions: [],
-          snapshots: snaps || []
         })
         return
       }
@@ -512,7 +508,6 @@ export default function Investments() {
         transactions: finalTransactions,
         groupTargets: finalGroupTargets,
         assetDefinitions: valuation.definitions,
-        snapshots: snaps || []
       })
     } catch (err) {
       console.error('Erro ao carregar carteira de consultoria em investimentos:', err)
@@ -697,7 +692,10 @@ export default function Investments() {
                 </div>
               </Card>
             ) : (
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <>
+                <InvestmentEvolutionChart shareHistoryData={dynamicHistory.shareHistory || []} />
+                
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-6">
                 <TabsTrigger value="distribution" className="text-xs font-bold gap-1.5">
                   <Layers size={14} />
@@ -1729,6 +1727,7 @@ export default function Investments() {
                 />
               </TabsContent>
             </Tabs>
+            </>
           )}
           </div>
         )}

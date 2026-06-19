@@ -158,8 +158,11 @@ export function calculateLotBasedFixedIncomeValue({
 }): number {
   const upperTicker = ticker.toUpperCase().trim()
 
+  // Filtrar transações históricas até a data de valoração informada
+  const historicalTxs = transactions.filter((t) => t.date <= asOfDate)
+
   const buyLots = sortTransactionsStably(
-    transactions.filter(
+    historicalTxs.filter(
       (t) =>
         t.ticker.toUpperCase().trim() === upperTicker &&
         (t.operation_type === 'buy' || t.operation_type === 'subscription') &&
@@ -177,7 +180,7 @@ export function calculateLotBasedFixedIncomeValue({
           : null,
     }))
 
-  const sales = transactions.filter(
+  const sales = historicalTxs.filter(
     (t) =>
       t.ticker.toUpperCase().trim() === upperTicker &&
       t.operation_type === 'sell' &&

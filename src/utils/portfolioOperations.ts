@@ -42,12 +42,31 @@ export function portfolioOperationLabel(op: PortfolioOperationType): string {
 
 /**
  * Ordena transações cronologicamente de forma determinística e estável.
- * Utiliza 'date' como chave primária, desempatando por 'created_at' e depois por 'id' defensivamente.
+ * Utiliza 'date' como chave primária, desempatando por prioridade de tipo de operação
+ * (splits -> compras -> vendas -> proventos), depois por 'created_at' e id.
  */
 export function sortTransactionsStably(transactions: PortfolioTransaction[]): PortfolioTransaction[] {
+  const getPriority = (type: string): number => {
+    const priorities: Record<string, number> = {
+      split: 1,
+      reverse_split: 1,
+      buy: 2,
+      subscription: 2,
+      sell: 3,
+      dividend: 4,
+      jcp: 4,
+      fii_yield: 4,
+    }
+    return priorities[type] ?? 99
+  }
+
   return [...transactions].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date)
     if (dateDiff !== 0) return dateDiff
+
+    // Priority tie-breaker for same-day operations
+    const prioDiff = getPriority(a.operation_type) - getPriority(b.operation_type)
+    if (prioDiff !== 0) return prioDiff
 
     const createdDiff = (a.created_at || '').localeCompare(b.created_at || '')
     if (createdDiff !== 0) return createdDiff

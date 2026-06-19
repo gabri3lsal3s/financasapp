@@ -4,7 +4,6 @@ import {
   AssetPrice,
   PortfolioGroupTarget,
   PortfolioAssetDefinition,
-  PortfolioPeriodSnapshotRow,
 } from '@/types'
 import { isPortfolioIncomeType, sortTransactionsStably } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
@@ -26,7 +25,7 @@ export interface PortfolioSummary {
   total_shares: number // Quantidade atual de cotas
 }
 
-export type PerformanceMetricsDataSource = 'snapshots' | 'share_history' | 'insufficient'
+export type PerformanceMetricsDataSource = 'share_history' | 'insufficient'
 
 export interface PerformanceMetrics {
   sharpe_ratio: number
@@ -258,6 +257,28 @@ export function calculateShareHistory(
     ? usdPriceObj.current_price
     : 5.25
 
+  const getHistoricalUsdRate = (dateStr: string): number => {
+    const tickerUpper = 'USDBRL=X'
+    const tickerHist = historicalPrices[tickerUpper]
+    if (tickerHist && tickerHist[dateStr] !== undefined && tickerHist[dateStr] > 0) {
+      return tickerHist[dateStr]
+    }
+    
+    const sortedDatesList = sortedHistDatesMap.get(tickerUpper)
+    if (sortedDatesList && sortedDatesList.length > 0) {
+      let lastPrice = -1
+      for (const d of sortedDatesList) {
+        if (d > dateStr) break
+        lastPrice = tickerHist[d]
+      }
+      if (lastPrice > 0) {
+        return lastPrice
+      }
+    }
+    
+    return usdCoeff
+  }
+
   const getInterpolatedPrice = (ticker: string, dateStr: string): number => {
     const tickerUpper = ticker.toUpperCase()
     const currentPrice = prices[tickerUpper]?.current_price || FALLBACK_PRICE(tickerUpper)
@@ -395,6 +416,7 @@ export function calculateShareHistory(
 
   for (const date of sortedDates) {
     const dayTxs = txsByDate[date]
+    const dailyUsdRate = getHistoricalUsdRate(date)
 
     let assetsValueBefore = 0
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
@@ -414,7 +436,7 @@ export function calculateShareHistory(
       }
       
       const isUsd = getAssetCurrency(ticker) === 'USD'
-      assetsValueBefore += isUsd ? val * usdCoeff : val
+      assetsValueBefore += isUsd ? val * dailyUsdRate : val
     }
     const totalValueBefore = assetsValueBefore + currentCash
 
@@ -430,7 +452,7 @@ export function calculateShareHistory(
       const price = Number(tx.price)
       const amount = qty * price
       const isUsd = getAssetCurrency(ticker) === 'USD'
-      const amountBrl = isUsd ? amount * usdCoeff : amount
+      const amountBrl = isUsd ? amount * dailyUsdRate : amount
       const pricingMode = getPricingMode(ticker)
 
       if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
@@ -448,11 +470,6 @@ export function calculateShareHistory(
             vna_at_purchase: tx.vna_at_purchase !== undefined && tx.vna_at_purchase !== null ? Number(tx.vna_at_purchase) : null,
             date: date
           })
-        }
-        
-        if (currentCash < 0) {
-          netCapitalFlow += Math.abs(currentCash)
-          currentCash = 0
         }
       } else if (tx.operation_type === 'sell') {
         currentCash += amountBrl
@@ -485,6 +502,11 @@ export function calculateShareHistory(
       }
     }
 
+    if (currentCash < 0) {
+      netCapitalFlow += Math.abs(currentCash)
+      currentCash = 0
+    }
+
     if (netCapitalFlow !== 0) {
       if (totalShares === 0) {
         shareValue = INITIAL_SHARE_VALUE
@@ -513,6 +535,7 @@ export function calculateShareHistory(
   const lastDate = sortedDates[sortedDates.length - 1]
   if (lastDate && lastDate < todayStr) {
     let finalAssetsValue = 0
+    const finalUsdRate = getHistoricalUsdRate(todayStr)
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
       if (qty <= 0) continue
       const def = definitionMap.get(ticker)
@@ -530,12 +553,20 @@ export function calculateShareHistory(
       }
       
       const isUsd = getAssetCurrency(ticker) === 'USD'
-      finalAssetsValue += isUsd ? val * usdCoeff : val
+      finalAssetsValue += isUsd ? val * finalUsdRate : val
     }
     const finalTotalValue = finalAssetsValue + currentCash
     if (totalShares > 0) {
       shareValue = finalTotalValue / totalShares
     }
+
+    shareHistory.push({
+      date: todayStr,
+      shareValue: Math.round(shareValue * 10000) / 10000,
+      totalValue: Math.round(finalTotalValue * 100) / 100,
+      cashValue: Math.round(currentCash * 100) / 100,
+      investedValue: Math.round(finalAssetsValue * 100) / 100
+    })
   }
 
   return {
@@ -545,32 +576,9 @@ export function calculateShareHistory(
   }
 }
 
-/**
- * Calcula indicadores de Risco e Sharpe/Beta para o relatório.
- */
-function monthlyReturnsFromSnapshots(
-  snapshots: PortfolioPeriodSnapshotRow[],
-): number[] {
-  const monthly = snapshots
-    .filter((s) => s.period_type === 'month' && s.period_return != null)
-    .sort((a, b) => a.period_key.localeCompare(b.period_key))
-
-  return monthly.map((s) => Number(s.period_return))
-}
-
 export function calculatePerformanceMetrics(
   shareHistory: { date: string; shareValue: number }[],
-  periodSnapshots?: PortfolioPeriodSnapshotRow[],
 ): PerformanceMetrics {
-  const snapshotReturns =
-    periodSnapshots && periodSnapshots.length > 0
-      ? monthlyReturnsFromSnapshots(periodSnapshots)
-      : []
-
-  if (snapshotReturns.length >= 2) {
-    return buildPerformanceMetricsFromReturns(snapshotReturns, 'snapshots')
-  }
-
   // Retorna métricas padrão caso o histórico seja curto
   if (shareHistory.length < 2) {
     return {

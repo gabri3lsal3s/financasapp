@@ -3,18 +3,16 @@
  * WHY: Extrai a barra de navegação por abas premium do ConsultantDashboard,
  *      tornando-a reutilizável e reduzindo o tamanho do componente pai.
  */
-import { LayoutDashboard, PieChart, RefreshCw, Briefcase, History, FileText } from 'lucide-react'
+import { LayoutDashboard, PieChart, Briefcase, History } from 'lucide-react'
 import Button from '@/components/Button'
 
-export type ConsultantTab = 'overview' | 'allocation' | 'rebalancing' | 'positions' | 'ledger' | 'qualitative'
+export type ConsultantTab = 'overview' | 'allocation' | 'positions' | 'ledger'
 
 const TABS: { id: ConsultantTab; label: string; icon: React.ElementType }[] = [
-  { id: 'overview', label: 'Resumo & Risco', icon: LayoutDashboard },
-  { id: 'allocation', label: 'Distribuição & Limites', icon: PieChart },
-  { id: 'rebalancing', label: 'Rebalanceamento', icon: RefreshCw },
-  { id: 'positions', label: 'Posições', icon: Briefcase },
+  { id: 'overview', label: 'Resumo & Relatório', icon: LayoutDashboard },
+  { id: 'allocation', label: 'Alocação & Simulação', icon: PieChart },
+  { id: 'positions', label: 'Posições & Teses', icon: Briefcase },
   { id: 'ledger', label: 'Livro-Razão', icon: History },
-  { id: 'qualitative', label: 'Relatório & PDF', icon: FileText },
 ]
 
 interface Props {

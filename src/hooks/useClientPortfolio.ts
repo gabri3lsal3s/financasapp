@@ -18,7 +18,6 @@ import {
 } from '@/services/investmentEngine'
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
-import { usePortfolioClose } from '@/hooks/usePortfolioClose'
 import type { IndexRateMap } from '@/utils/fixedIncomeValuation'
 import type {
   Portfolio,
@@ -26,7 +25,6 @@ import type {
   PortfolioGroupTarget,
   PortfolioAssetDefinition,
   AssetPrice,
-  PortfolioPeriodSnapshotRow,
 } from '@/types'
 import type { PerformanceMetrics, ConsolidatedGroup } from '@/services/investmentEngine'
 import toast from 'react-hot-toast'
@@ -74,7 +72,6 @@ export interface ClientPortfolioData {
   assetTheses: Record<string, string>
   executiveSummary: string
   nextMonthPlan: string
-  periodSnapshots: PortfolioPeriodSnapshotRow[]
   // Dados derivados já calculados
   shareHistoryData: ReturnType<typeof calculateShareHistory>['shareHistory']
   performanceMetrics: PerformanceMetrics
@@ -114,7 +111,6 @@ const EMPTY: ClientPortfolioData = {
   assetTheses: {},
   executiveSummary: '',
   nextMonthPlan: '',
-  periodSnapshots: [],
   shareHistoryData: [],
   performanceMetrics: {
     sharpe_ratio: 0,
@@ -132,7 +128,6 @@ const EMPTY: ClientPortfolioData = {
 
 export function useClientPortfolio(): UseClientPortfolioReturn {
   const { user } = useAuth()
-  const { loadPeriodSnapshots } = usePortfolioClose()
 
   const [data, setData] = useState<ClientPortfolioData>(EMPTY)
   const [loadingPortfolio, setLoadingPortfolio] = useState(false)
@@ -159,7 +154,7 @@ export function useClientPortfolio(): UseClientPortfolioReturn {
 
       try {
         // ── 2. Portfolio ──────────────────────────────────────────────────
-        let portLookup = await supabase
+        const portLookup = await supabase
           .from('portfolios')
           .select('*')
           .eq('client_id', clientId)
@@ -207,13 +202,7 @@ export function useClientPortfolio(): UseClientPortfolioReturn {
 
         if (isStale(clientId)) return
 
-        // ── 3. Snapshots de período ───────────────────────────────────────
-        const snapshotsPromise = loadPeriodSnapshots(portData!.id).then((snaps) => {
-          if (!isStale(clientId)) {
-            setData((prev) => ({ ...prev, periodSnapshots: snaps }))
-          }
-          return snaps
-        })
+        // ── 3. Inicialização de notas ──────────────────────────────────────
 
         const currentNotes = portData?.notes || ''
         const currentFee =
@@ -295,8 +284,7 @@ export function useClientPortfolio(): UseClientPortfolioReturn {
           shareHistoryData = shareResult.shareHistory
         }
 
-        const snapshots = await snapshotsPromise
-        const performanceMetrics = calculatePerformanceMetrics(shareHistoryData, snapshots)
+        const performanceMetrics = calculatePerformanceMetrics(shareHistoryData)
         const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, currentGroupTargets)
         const consolidatedSector = calculateConsolidatedBySector(positions, totalValue, currentGroupTargets)
 
@@ -321,7 +309,6 @@ export function useClientPortfolio(): UseClientPortfolioReturn {
           assetTheses: mappedTheses,
           executiveSummary: execSummary,
           nextMonthPlan: monthPlan,
-          periodSnapshots: snapshots,
           shareHistoryData,
           performanceMetrics,
           consolidatedClass,

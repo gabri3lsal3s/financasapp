@@ -33,15 +33,7 @@ describe('businessDays', () => {
     // Caso padrão: 2 dias completos
     expect(calendarDaysBetween('2025-10-18', '2025-10-20')).toBe(2)
 
-    // Caso de Horário de Verão (DST) onde um dia tem 23 horas (diferença de 47 horas em vez de 48)
-    // Usando Date.parse para simular as datas com fusos horários/desvios de 1 hora a menos
-    const startIso = '2025-10-18T00:00:00Z'
-    // 2 dias depois menos 1 hora (simulando perda de 1 hora devido à entrada do DST)
-    const endIso = new Date(new Date('2025-10-20T00:00:00Z').getTime() - 60 * 60 * 1000).toISOString() // 2025-10-19T23:00:00Z
-
     // Com o antigo Math.floor, isso resultaria em 1 dia. Com Math.round, resulta nos 2 dias reais.
-    const startShort = startIso.slice(0, 10)
-    const endShort = endIso.slice(0, 10)
 
     // Nota: calendarDaysBetween aceita strings YYYY-MM-DD
     // Vamos simular a diferença de milissegundos convertendo as datas diretamente

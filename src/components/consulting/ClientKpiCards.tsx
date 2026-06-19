@@ -1,4 +1,4 @@
-import KpiCard from '@/components/KpiCard'
+import KpiCard from '@/components/KpiCard'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { Wallet, TrendingUp } from 'lucide-react'
 
@@ -15,6 +15,7 @@ interface ClientKpiCardsProps {
   overallYieldPct?: number
   yieldBasis?: ClientKpiYieldBasis
   netShareValue?: number
+  overallGainBrl?: number
 }
 
 function formatSignedYieldPct(yieldsPercentage: number): string {
@@ -31,22 +32,22 @@ export default function ClientKpiCards({
   overallYieldPct,
   yieldBasis = 'gross',
   netShareValue,
+  overallGainBrl,
 }: ClientKpiCardsProps) {
   const effectiveShare =
     yieldBasis === 'net' && netShareValue != null && netShareValue > 0 ? netShareValue : shareValue
   const yieldsPercentage =
     overallYieldPct !== undefined ? overallYieldPct : (effectiveShare - 1) * 100
   const hasYieldBasis = totalShares > 0
-  const accumulatedAmount = hasYieldBasis ? totalValue - totalShares : 0
+  const accumulatedAmount = overallGainBrl !== undefined
+    ? overallGainBrl
+    : (hasYieldBasis ? totalShares * (effectiveShare - 1) : 0)
   const yieldPctClass = yieldsPercentage >= 0 ? 'text-income' : 'text-expense'
 
   const yieldLabel = 'Rentabilidade Total'
-
   const yieldPrimary = formatSignedYieldPct(yieldsPercentage)
 
-
-
-  const yieldSecondary = hasYieldBasis ? (
+  const yieldSecondary = hasYieldBasis || overallGainBrl !== undefined ? (
     <span className="block sm:inline sm:ml-1.5 text-[9px] xs:text-[10px] sm:text-xs text-secondary font-medium font-sans">
       ({accumulatedAmount >= 0 ? '+' : ''}{formatCurrency(accumulatedAmount)})
     </span>
@@ -67,7 +68,7 @@ export default function ClientKpiCards({
       <KpiCard
         title={yieldLabel}
         value={
-          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-1.5 block truncate" title={`${yieldPrimary} ${hasYieldBasis ? `(${accumulatedAmount >= 0 ? '+' : ''}${formatCurrency(accumulatedAmount)})` : ''}`}>
+          <strong className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl font-extrabold font-mono text-primary mt-1.5 block truncate" title={`${yieldPrimary} ${hasYieldBasis || overallGainBrl !== undefined ? `(${accumulatedAmount >= 0 ? '+' : ''}${formatCurrency(accumulatedAmount)})` : ''}`}>
             <span className={yieldPctClass}>{yieldPrimary}</span>
             {yieldSecondary}
           </strong>
