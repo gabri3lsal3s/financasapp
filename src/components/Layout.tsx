@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, LogOut, Users, Receipt } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, LogOut, Receipt } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
 import NotificationsWidget from '@/components/NotificationsWidget'
@@ -18,7 +18,6 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useAdvisoryPortfolioLink } from '@/hooks/useAdvisoryPortfolioLink'
 import { useBackgroundCache } from '@/hooks/useBackgroundCache'
 import { useNavigate } from 'react-router-dom'
 
@@ -55,7 +54,6 @@ function OfflinePlaceholder() {
 export default function Layout({ children }: LayoutProps) {
   const { floatingCalculatorEnabled } = useAppSettings()
   const { signOut, profile } = useAuth()
-  const { hasAdvisoryLink } = useAdvisoryPortfolioLink()
   useBackgroundCache()
   const navigate = useNavigate()
   const location = useLocation()
@@ -93,13 +91,7 @@ export default function Layout({ children }: LayoutProps) {
       { path: '/investments', icon: PiggyBank, label: 'Investimentos', onlineOnly: false },
     ]
 
-    if (hasAdvisoryLink) {
-      items.push({ path: '/my-consulting', icon: Users, label: 'Minha Consultoria', onlineOnly: false })
-    }
 
-    if (profile?.role === 'consultant') {
-      items.push({ path: '/consulting', icon: Users, label: 'Consultoria', onlineOnly: false })
-    }
 
     items.push(
       { path: '/reports', icon: BarChart3, label: 'Relatórios', onlineOnly: true },
@@ -245,24 +237,7 @@ export default function Layout({ children }: LayoutProps) {
                   <Settings size={20} className="text-secondary mb-2" />
                   <span className="text-xs font-bold text-primary">Ajustes</span>
                 </Link>
-                {hasAdvisoryLink && (
-                  <Link
-                    to="/my-consulting"
-                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2 glass-glow-card"
-                  >
-                    <Users size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Minha Consultoria</span>
-                  </Link>
-                )}
-                {profile?.role === 'consultant' && (
-                  <Link
-                    to="/consulting"
-                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none col-span-2 glass-glow-card"
-                  >
-                    <Users size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Consultoria</span>
-                  </Link>
-                )}
+
                 <Button
                   variant="danger"
                   onClick={() => {

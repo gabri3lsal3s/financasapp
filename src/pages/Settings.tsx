@@ -369,7 +369,7 @@ export default function Settings() {
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold text-primary">Super Administrador</h3>
                     <p className="text-sm text-secondary mt-0.5">
-                      Conta principal com acesso total, aprovação de usuários e consultoria.
+                      Conta principal com acesso total e aprovação de usuários.
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <p className="font-medium text-primary break-all">{ADMIN_EMAIL}</p>

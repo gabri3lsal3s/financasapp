@@ -43,12 +43,5 @@ export const PAGE_HEADERS = {
     title: 'Configurações',
     description: 'Ajustes e preferências',
   },
-  consulting: {
-    title: 'Consultoria de Investimentos',
-    description: 'Gestão patrimonial e alocação',
-  },
-  clientConsulting: {
-    title: 'Minha Consultoria',
-    description: 'Acompanhamento da sua carteira',
-  },
+
 } as const

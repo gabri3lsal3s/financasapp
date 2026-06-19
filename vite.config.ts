@@ -50,7 +50,6 @@ export default defineConfig({
           ],
           charts: ['recharts'],
           motion: ['framer-motion'],
-          pdf: ['jspdf', 'html2canvas'],
           xlsx: ['xlsx'],
         },
       },

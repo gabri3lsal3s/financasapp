@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
@@ -9,7 +9,6 @@ import NetworkStatusToast from './components/NetworkStatusToast'
 import { ConflictResolutionModal } from './components/ConflictResolutionModal'
 import { Toaster } from 'react-hot-toast'
 import Loader from './components/Loader'
-import { useAdvisoryPortfolioLink } from './hooks/useAdvisoryPortfolioLink'
 import { NotificationsProvider } from '@/contexts/NotificationsContext'
 
 // Páginas — carregadas sob demanda (code-splitting por rota)
@@ -28,33 +27,10 @@ const Login               = lazy(() => import('./pages/Login'))
 const Register            = lazy(() => import('./pages/Register'))
 const ForgotPassword      = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword       = lazy(() => import('./pages/ResetPassword'))
-const ConsultantDashboard = lazy(() => import('./pages/ConsultantDashboard'))
-const ClientDashboard     = lazy(() => import('./pages/ClientDashboard'))
 
 const PageFallback = () => <Loader text="Carregando..." className="py-24" />
 
-function MyConsultingRoute() {
-  const { profile } = useAuth()
-  const { hasAdvisoryLink, loading } = useAdvisoryPortfolioLink()
-
-  if (profile?.role === 'consultant') {
-    return <Navigate to="/" replace />
-  }
-
-  if (loading) {
-    return <Loader text="Carregando..." className="py-24" />
-  }
-
-  if (!hasAdvisoryLink) {
-    return <Navigate to="/" replace />
-  }
-
-  return <ClientDashboard />
-}
-
 function AppRoutes() {
-  const { profile } = useAuth()
-
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
@@ -66,12 +42,6 @@ function AppRoutes() {
         <Route path="/income-categories" element={<IncomeCategories />} />
         <Route path="/onboarding" element={<OnboardingCategories />} />
         <Route path="/investments" element={<Investments />} />
-        <Route path="/my-consulting" element={<MyConsultingRoute />} />
-
-        {profile?.role === 'consultant' && (
-          <Route path="/consulting" element={<ConsultantDashboard />} />
-        )}
-
         <Route path="/contas" element={<Contas />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />

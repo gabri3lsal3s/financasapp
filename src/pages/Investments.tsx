@@ -29,10 +29,9 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 import AssetDefinitionFormModal from '@/components/investments/AssetDefinitionFormModal'
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetTransactionsModal from '@/components/investments/AssetTransactionsModal'
-import LedgerBook from '@/components/consulting/LedgerBook'
+import LedgerBook from '@/components/investments/LedgerBook'
 import toast from 'react-hot-toast'
 import GroupTargetModal from '@/components/investments/GroupTargetModal'
-import InvestmentEvolutionChart from '@/components/investments/InvestmentEvolutionChart'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
@@ -693,8 +692,6 @@ export default function Investments() {
               </Card>
             ) : (
               <>
-                <InvestmentEvolutionChart shareHistoryData={dynamicHistory.shareHistory || []} />
-                
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-6">
                 <TabsTrigger value="distribution" className="text-xs font-bold gap-1.5">
