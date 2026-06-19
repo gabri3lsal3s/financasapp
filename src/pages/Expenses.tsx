@@ -190,7 +190,7 @@ export default function Expenses() {
   const sortExpensesByDateDesc = (a: Expense, b: Expense) => {
     const dateDiff = b.date.localeCompare(a.date)
     if (dateDiff !== 0) return dateDiff
-    return b.created_at.localeCompare(a.created_at)
+    return (b.created_at || '').localeCompare(a.created_at || '')
   }
 
   const installmentExpenses = expenses

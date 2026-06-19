@@ -6,10 +6,12 @@ import {
   PortfolioAssetDefinition,
   PortfolioPeriodSnapshotRow,
 } from '@/types'
-import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
+import { isPortfolioIncomeType, sortTransactionsStably } from '@/utils/portfolioOperations'
 import { calculatePortfolioValuation, type ValuedPosition } from '@/services/valuationEngine'
-import { calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
-import { detectDefaultCurrency } from '@/services/priceService'
+import { type IndexRateMap } from '@/utils/fixedIncomeValuation'
+import { detectDefaultCurrency, isTreasuryTicker } from '@/services/priceService'
+import { isBusinessDay } from '@/utils/businessDays'
+import { FALLBACK_VNA } from '@/services/vnaService'
 
 export type AssetPosition = ValuedPosition
 
@@ -82,6 +84,91 @@ export function calculatePositions(
   }
 }
 
+class BusinessDayHelper {
+  private businessDaysList: string[] = []
+  private nextBusinessDayIdx = new Map<string, number>()
+  private prevBusinessDayIdx = new Map<string, number>()
+
+  constructor(startDateStr: string, endDateStr: string) {
+    const startParts = startDateStr.slice(0, 10).split('-')
+    const endParts = endDateStr.slice(0, 10).split('-')
+    const start = new Date(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10))
+    const end = new Date(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10))
+
+    const cursor = new Date(start)
+    while (cursor <= end) {
+      const yyyy = cursor.getFullYear()
+      const mm = String(cursor.getMonth() + 1).padStart(2, '0')
+      const dd = String(cursor.getDate()).padStart(2, '0')
+      const dateStr = `${yyyy}-${mm}-${dd}`
+      
+      if (isBusinessDay(cursor)) {
+        this.businessDaysList.push(dateStr)
+      }
+      cursor.setDate(cursor.getDate() + 1)
+    }
+
+    let currentNextIdx = 0
+    let lastPrevIdx = -1
+
+    const cursorNext = new Date(start)
+    while (cursorNext <= end) {
+      const yyyy = cursorNext.getFullYear()
+      const mm = String(cursorNext.getMonth() + 1).padStart(2, '0')
+      const dd = String(cursorNext.getDate()).padStart(2, '0')
+      const dateStr = `${yyyy}-${mm}-${dd}`
+
+      while (currentNextIdx < this.businessDaysList.length && this.businessDaysList[currentNextIdx] < dateStr) {
+        currentNextIdx++
+      }
+      this.nextBusinessDayIdx.set(dateStr, currentNextIdx)
+      cursorNext.setDate(cursorNext.getDate() + 1)
+    }
+
+    const cursorPrev = new Date(start)
+    while (cursorPrev <= end) {
+      const yyyy = cursorPrev.getFullYear()
+      const mm = String(cursorPrev.getMonth() + 1).padStart(2, '0')
+      const dd = String(cursorPrev.getDate()).padStart(2, '0')
+      const dateStr = `${yyyy}-${mm}-${dd}`
+
+      while (lastPrevIdx + 1 < this.businessDaysList.length && this.businessDaysList[lastPrevIdx + 1] <= dateStr) {
+        lastPrevIdx++
+      }
+      this.prevBusinessDayIdx.set(dateStr, lastPrevIdx)
+      cursorPrev.setDate(cursorPrev.getDate() + 1)
+    }
+  }
+
+  private getNextIdx(d: string): number {
+    const cached = this.nextBusinessDayIdx.get(d)
+    if (cached !== undefined) return cached
+    if (this.businessDaysList.length > 0 && d < this.businessDaysList[0]) return 0
+    return this.businessDaysList.length
+  }
+
+  private getPrevIdx(d: string): number {
+    const cached = this.prevBusinessDayIdx.get(d)
+    if (cached !== undefined) return cached
+    if (this.businessDaysList.length > 0 && d < this.businessDaysList[0]) return -1
+    return this.businessDaysList.length - 1
+  }
+
+  public countBusinessDaysBetween(d1: string, d2: string): number {
+    const idx1 = this.getNextIdx(d1)
+    const idx2 = this.getPrevIdx(d2)
+    if (idx1 > idx2) return 0
+    return idx2 - idx1 + 1
+  }
+
+  public eachBusinessDayBetween(d1: string, d2: string): string[] {
+    const idx1 = this.getNextIdx(d1)
+    const idx2 = this.getPrevIdx(d2)
+    if (idx1 > idx2) return []
+    return this.businessDaysList.slice(idx1, idx2 + 1)
+  }
+}
+
 /**
  * Sistema de Cotização Clássico:
  * Reconstrói a linha temporal da carteira isolando aportes/saques para calcular o valor real.
@@ -91,21 +178,34 @@ export function calculateShareHistory(
   prices: Record<string, AssetPrice>,
   definitions: PortfolioAssetDefinition[] = [],
   indexRatesByIndexer: Record<string, IndexRateMap> = {},
-  historicalPrices: Record<string, Record<string, number>> = {}
-): { currentShareValue: number; totalShares: number; shareHistory: { date: string; shareValue: number }[] } {
-  // Ordena transações por data e ID/created_at para garantir determinismo e ordem correta de buy/sell no mesmo dia
-  const sortedTxs = [...transactions].sort(
-    (a, b) =>
-      a.date.localeCompare(b.date) ||
-      (a.created_at || '').localeCompare(b.created_at || '') ||
-      a.id.localeCompare(b.id)
-  )
+  historicalPrices: Record<string, Record<string, number>> = {},
+  vnaMap: Record<string, number> = {}
+): {
+  currentShareValue: number
+  totalShares: number
+  shareHistory: {
+    date: string
+    shareValue: number
+    totalValue?: number
+    cashValue?: number
+    investedValue?: number
+  }[]
+} {
+  const sortedTxs = sortTransactionsStably(transactions)
   
   if (sortedTxs.length === 0) {
     return { currentShareValue: 1.0, totalShares: 0, shareHistory: [] }
   }
 
-  // Otimização: pré-agrupar transações por ticker para evitar .filter repetidos de complexidade O(N^2)
+  const firstTxDate = sortedTxs[0].date
+  const todayStr = new Date().toISOString().split('T')[0]
+  const helper = new BusinessDayHelper(firstTxDate, todayStr)
+
+  const definitionMap = new Map<string, PortfolioAssetDefinition>()
+  for (const def of definitions) {
+    definitionMap.set(def.ticker.toUpperCase(), def)
+  }
+
   const txsByTicker: Record<string, PortfolioTransaction[]> = {}
   for (const tx of sortedTxs) {
     const t = tx.ticker.toUpperCase()
@@ -113,17 +213,42 @@ export function calculateShareHistory(
     txsByTicker[t].push(tx)
   }
 
+  const sortedHistDatesMap = new Map<string, string[]>()
+  for (const [ticker, pricesObj] of Object.entries(historicalPrices)) {
+    if (pricesObj) {
+      sortedHistDatesMap.set(ticker.toUpperCase(), Object.keys(pricesObj).sort())
+    }
+  }
+
+  const indexerFallbackRate = new Map<string, number>()
+  for (const [indexer, rates] of Object.entries(indexRatesByIndexer)) {
+    const firstRate = Object.values(rates).find(v => v !== undefined && v !== null)
+    indexerFallbackRate.set(indexer.toLowerCase(), firstRate ?? 0)
+  }
+
+  const sortedVnaDates = Object.keys(vnaMap).sort()
+  const resolveVnaForDateFast = (date: string): number => {
+    if (vnaMap[date] != null) return vnaMap[date]
+    let last = FALLBACK_VNA
+    for (const d of sortedVnaDates) {
+      if (d > date) break
+      last = vnaMap[d]
+    }
+    return last
+  }
+
   const getPricingMode = (ticker: string): string => {
-    const upper = ticker.toUpperCase()
+    const upper = ticker.toUpperCase().trim()
     if (upper === 'CAIXA' || upper === 'SALDO_INV' || upper === 'SALDO EM CAIXA' || upper === 'SALDO_EM_CAIXA') return 'cash'
-    const def = definitions.find(d => d.ticker.toUpperCase() === upper)
+    const def = definitionMap.get(upper)
     if (def?.pricing_mode) return def.pricing_mode
+    if (isTreasuryTicker(upper)) return 'fixed_income'
     return 'market'
   }
 
   const getAssetCurrency = (ticker: string): 'BRL' | 'USD' => {
     const upper = ticker.toUpperCase()
-    const def = definitions.find(d => d.ticker.toUpperCase() === upper)
+    const def = definitionMap.get(upper)
     if (def?.currency) return def.currency
     return detectDefaultCurrency(ticker)
   }
@@ -133,10 +258,6 @@ export function calculateShareHistory(
     ? usdPriceObj.current_price
     : 5.25
 
-  const todayStr = new Date().toISOString().split('T')[0]
-
-  // Função interna robusta para estimar o preço de um ativo em qualquer data histórica
-  // fazendo a interpolação linear entre o último preço de compra/venda e o preço de mercado atual (ou próximo ponto de transação)
   const getInterpolatedPrice = (ticker: string, dateStr: string): number => {
     const tickerUpper = ticker.toUpperCase()
     const currentPrice = prices[tickerUpper]?.current_price || FALLBACK_PRICE(tickerUpper)
@@ -146,22 +267,25 @@ export function calculateShareHistory(
       return currentPrice
     }
     
-    const txsBeforeOrOn = tickerTxs.filter(t => t.date <= dateStr)
-    if (txsBeforeOrOn.length === 0) {
+    let lastTx: PortfolioTransaction | null = null
+    let nextTx: PortfolioTransaction | null = null
+    for (const t of tickerTxs) {
+      if (t.date <= dateStr) {
+        lastTx = t
+      } else {
+        nextTx = t
+        break
+      }
+    }
+    
+    if (!lastTx) {
       return Number(tickerTxs[0].price)
     }
     
-    const lastTx = txsBeforeOrOn[txsBeforeOrOn.length - 1]
-    
-    // Procura o próximo ponto conhecido para interpolar (próxima transação ou hoje)
-    const txsAfter = tickerTxs.filter(t => t.date > dateStr)
-    const nextPointDate = txsAfter.length > 0 ? txsAfter[0].date : todayStr
-    const nextPointPrice = txsAfter.length > 0 ? Number(txsAfter[0].price) : currentPrice
-    
     const d1 = lastTx.date
-    const d2 = nextPointDate
     const p1 = Number(lastTx.price)
-    const p2 = nextPointPrice
+    const d2 = nextTx ? nextTx.date : todayStr
+    const p2 = nextTx ? Number(nextTx.price) : currentPrice
     
     if (d1 === d2) return p1
     
@@ -177,43 +301,90 @@ export function calculateShareHistory(
     return p1 + (p2 - p1) * fraction
   }
 
-  // Função que combina cotações históricas reais do banco com fallback para interpolação
   const getHistoricalOrInterpolatedPrice = (ticker: string, dateStr: string): number => {
     const tickerUpper = ticker.toUpperCase()
-    
-    // 1. Tenta pegar o preço real histórico daquele dia
-    if (historicalPrices[tickerUpper] && historicalPrices[tickerUpper][dateStr] !== undefined) {
-      return historicalPrices[tickerUpper][dateStr]
+    const tickerHist = historicalPrices[tickerUpper]
+    if (tickerHist && tickerHist[dateStr] !== undefined) {
+      return tickerHist[dateStr]
     }
     
-    // 2. Se não existir naquele dia exato (ex: fim de semana), busca o último preço útil antes daquela data
-    if (historicalPrices[tickerUpper]) {
-      const dates = Object.keys(historicalPrices[tickerUpper]).sort()
+    const sortedDatesList = sortedHistDatesMap.get(tickerUpper)
+    if (sortedDatesList && sortedDatesList.length > 0) {
       let lastPrice = -1
-      for (const d of dates) {
+      for (const d of sortedDatesList) {
         if (d > dateStr) break
-        lastPrice = historicalPrices[tickerUpper][d]
+        lastPrice = tickerHist[d]
       }
       if (lastPrice > 0) {
         return lastPrice
       }
     }
     
-    // 3. Fallback para interpolação linear se não houver dados no histórico
     return getInterpolatedPrice(ticker, dateStr)
   }
 
-  /** WHY: blueprint v2 sugere cota inicial 10,00; mantemos 1,00 para compatibilidade com histórico e KPIs existentes. */
   const INITIAL_SHARE_VALUE = 1.0
-
   let totalShares = 0
   let shareValue = INITIAL_SHARE_VALUE
-  const currentPortfolio: Record<string, number> = {} // ticker -> quantidade
+  const currentPortfolio: Record<string, number> = {}
   let currentCash = 0
   
-  const shareHistory: { date: string; shareValue: number }[] = []
+  const activeLotsMap = new Map<string, {
+    quantity: number
+    price: number
+    contract_rate: number | null
+    vna_at_purchase: number | null
+    date: string
+  }[]>()
 
-  // Agrupa transações por data para processar dia a dia
+  const shareHistory: { 
+    date: string; 
+    shareValue: number;
+    totalValue?: number;
+    cashValue?: number;
+    investedValue?: number;
+  }[] = []
+
+  const valueFixedIncomeTicker = (ticker: string, date: string): number => {
+    const def = definitionMap.get(ticker.toUpperCase())
+    if (!def) return 0
+    const lots = activeLotsMap.get(ticker.toUpperCase()) || []
+    const indexRates = indexRatesByIndexer[def.indexer || 'none'] || {}
+    const fallbackRate = indexerFallbackRate.get(def.indexer?.toLowerCase() || 'none') ?? 0
+    
+    let totalVal = 0
+    for (const lot of lots) {
+      let val = lot.quantity * lot.price
+      if (def.indexer === 'ipca' && lot.vna_at_purchase) {
+        const n = helper.countBusinessDaysBetween(lot.date, date)
+        const vnaToday = resolveVnaForDateFast(date)
+        const purchaseVna = lot.vna_at_purchase || FALLBACK_VNA
+        const vnaFactor = purchaseVna > 0 ? vnaToday / purchaseVna : 1.0
+        const rate = lot.contract_rate !== null ? lot.contract_rate : (def.contract_rate ?? 0)
+        val = (lot.quantity * lot.price) * vnaFactor * Math.pow(1 + rate / 100, n / 252)
+      } else if (def.indexer && def.indexer !== 'none') {
+        const days = helper.eachBusinessDayBetween(lot.date, date)
+        const factor = (def.indexer_percent ?? 100) / 100
+        let lastKnown = fallbackRate
+        for (const day of days) {
+          let rawRate = indexRates[day]
+          if (rawRate === undefined || rawRate === null) {
+            rawRate = lastKnown
+          } else {
+            lastKnown = rawRate
+          }
+          val *= 1 + (rawRate / 100) * factor
+        }
+      } else if (def.contract_rate !== null && def.contract_rate > 0) {
+        const n = helper.countBusinessDaysBetween(lot.date, date)
+        const rate = lot.contract_rate !== null ? lot.contract_rate : def.contract_rate
+        val *= Math.pow(1 + rate / 100, n / 252)
+      }
+      totalVal += Math.round(val * 100) / 100
+    }
+    return totalVal
+  }
+
   const txsByDate: Record<string, PortfolioTransaction[]> = {}
   for (const tx of sortedTxs) {
     if (!txsByDate[tx.date]) txsByDate[tx.date] = []
@@ -225,55 +396,21 @@ export function calculateShareHistory(
   for (const date of sortedDates) {
     const dayTxs = txsByDate[date]
 
-    // 1. Antes de aplicar as operações do dia, valoriza a carteira com preços interpolados ou valor teórico da data
     let assetsValueBefore = 0
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
-      const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
+      if (qty <= 0) continue
+      const def = definitionMap.get(ticker)
       const pricingMode = getPricingMode(ticker)
       let val = 0
 
-      if (pricingMode === 'fixed_income') {
-        const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
-        const buyTransactions = tickerTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
-        const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-
-        if (buyTransactions.length > 0) {
-          const actualDef: PortfolioAssetDefinition = def || {
-            id: '',
-            portfolio_id: '',
-            ticker: ticker.toUpperCase(),
-            pricing_mode: 'fixed_income',
-            is_b3_linked: false,
-            applied_amount: null,
-            contract_rate: null,
-            indexer: 'none',
-            indexer_percent: 100,
-            maturity_date: null,
-            manual_current_value: null,
-            manual_value_updated_at: null,
-            tax_exempt: false,
-            is_treasury: false,
-            application_date: null,
-            created_at: '',
-            updated_at: '',
-          }
-          val = calculateLotBasedFixedIncomeValue({
-            transactions: tickerTxs,
-            ticker,
-            definition: actualDef,
-            asOfDate: date,
-            indexRates,
-          })
-        } else {
-          val = 0
-        }
+      if (pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)) {
+        val = valueFixedIncomeTicker(ticker, date)
       } else if (pricingMode === 'manual_value') {
         val = qty * (def?.manual_current_value ?? getHistoricalOrInterpolatedPrice(ticker, date))
       } else if (pricingMode === 'cash') {
         val = qty * 1.00
       } else {
-        const assetPrice = getHistoricalOrInterpolatedPrice(ticker, date)
-        val = qty * assetPrice
+        val = qty * getHistoricalOrInterpolatedPrice(ticker, date)
       }
       
       const isUsd = getAssetCurrency(ticker) === 'USD'
@@ -285,8 +422,7 @@ export function calculateShareHistory(
       shareValue = totalValueBefore / totalShares
     }
 
-    // 2. Aplica as transações do dia
-    let netCapitalFlow = 0 // Aportes de fora (dinheiro novo) ou saques
+    let netCapitalFlow = 0
 
     for (const tx of dayTxs) {
       const ticker = tx.ticker.toUpperCase()
@@ -297,9 +433,23 @@ export function calculateShareHistory(
       const amountBrl = isUsd ? amount * usdCoeff : amount
       const pricingMode = getPricingMode(ticker)
 
-      if (tx.operation_type === 'buy') {
+      if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
         currentCash -= amountBrl
         currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amountBrl : qty)
+        
+        if (pricingMode === 'fixed_income' || definitionMap.get(ticker)?.is_treasury || isTreasuryTicker(ticker)) {
+          if (!activeLotsMap.has(ticker)) {
+            activeLotsMap.set(ticker, [])
+          }
+          activeLotsMap.get(ticker)!.push({
+            quantity: qty,
+            price: price,
+            contract_rate: tx.contract_rate !== undefined && tx.contract_rate !== null ? Number(tx.contract_rate) : null,
+            vna_at_purchase: tx.vna_at_purchase !== undefined && tx.vna_at_purchase !== null ? Number(tx.vna_at_purchase) : null,
+            date: date
+          })
+        }
+        
         if (currentCash < 0) {
           netCapitalFlow += Math.abs(currentCash)
           currentCash = 0
@@ -309,6 +459,21 @@ export function calculateShareHistory(
         if (currentPortfolio[ticker]) {
           currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - (pricingMode === 'cash' ? amountBrl : qty))
         }
+        
+        if (pricingMode === 'fixed_income' || definitionMap.get(ticker)?.is_treasury || isTreasuryTicker(ticker)) {
+          let qtyToSell = qty
+          const lots = activeLotsMap.get(ticker) || []
+          while (qtyToSell > 0 && lots.length > 0) {
+            const firstLot = lots[0]
+            if (firstLot.quantity <= qtyToSell) {
+              qtyToSell -= firstLot.quantity
+              lots.shift()
+            } else {
+              firstLot.quantity -= qtyToSell
+              qtyToSell = 0
+            }
+          }
+        }
       } else if (isPortfolioIncomeType(tx.operation_type)) {
         currentCash += amountBrl
       } else if (tx.operation_type === 'split') {
@@ -317,151 +482,60 @@ export function calculateShareHistory(
         if (currentPortfolio[ticker]) {
           currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - qty)
         }
-      } else if (tx.operation_type === 'subscription') {
-        currentCash -= amountBrl
-        currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amountBrl : qty)
-        if (currentCash < 0) {
-          netCapitalFlow += Math.abs(currentCash)
-          currentCash = 0
-        }
       }
     }
 
-    // Se houve fluxo de capital externo (Aporte/Saque), ajusta o número de cotas
     if (netCapitalFlow !== 0) {
       if (totalShares === 0) {
         shareValue = INITIAL_SHARE_VALUE
-        totalShares = netCapitalFlow // 1 cota = 1 real
+        totalShares = netCapitalFlow
       } else {
         const newShares = netCapitalFlow / shareValue
         totalShares += newShares
       }
     }
 
-    // Registra a cota do fim do dia com base nos preços daquela data específica
-    let assetsValueAfter = 0
-    for (const [ticker, qty] of Object.entries(currentPortfolio)) {
-      const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
-      const pricingMode = getPricingMode(ticker)
-      let val = 0
-
-      if (pricingMode === 'fixed_income') {
-        const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase() && t.date <= date)
-        const buyTransactions = tickerTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
-        const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-
-        if (buyTransactions.length > 0) {
-          const actualDef: PortfolioAssetDefinition = def || {
-            id: '',
-            portfolio_id: '',
-            ticker: ticker.toUpperCase(),
-            pricing_mode: 'fixed_income',
-            is_b3_linked: false,
-            applied_amount: null,
-            contract_rate: null,
-            indexer: 'none',
-            indexer_percent: 100,
-            maturity_date: null,
-            manual_current_value: null,
-            manual_value_updated_at: null,
-            tax_exempt: false,
-            is_treasury: false,
-            application_date: null,
-            created_at: '',
-            updated_at: '',
-          }
-          val = calculateLotBasedFixedIncomeValue({
-            transactions: tickerTxs,
-            ticker,
-            definition: actualDef,
-            asOfDate: date,
-            indexRates,
-          })
-        } else {
-          val = 0
-        }
-      } else if (pricingMode === 'manual_value') {
-        val = qty * (def?.manual_current_value ?? getHistoricalOrInterpolatedPrice(ticker, date))
-      } else if (pricingMode === 'cash') {
-        val = qty * 1.00
-      } else {
-        const assetPrice = getHistoricalOrInterpolatedPrice(ticker, date)
-        val = qty * assetPrice
-      }
-      
-      const isUsd = getAssetCurrency(ticker) === 'USD'
-      assetsValueAfter += isUsd ? val * usdCoeff : val
-    }
-    const totalValueAfter = assetsValueAfter + currentCash
-    
+    const totalValueAfter = totalValueBefore + netCapitalFlow
     if (totalShares > 0) {
       shareValue = totalValueAfter / totalShares
     }
+    const assetsValueAfter = totalValueAfter - currentCash
 
     shareHistory.push({
       date,
-      shareValue: Math.round(shareValue * 10000) / 10000
+      shareValue: Math.round(shareValue * 10000) / 10000,
+      totalValue: Math.round(totalValueAfter * 100) / 100,
+      cashValue: Math.round(currentCash * 100) / 100,
+      investedValue: Math.round(assetsValueAfter * 100) / 100
     })
   }
 
-  // 3. Ponderação final com preços correntes de mercado reais hoje
-  let finalAssetsValue = 0
-  for (const [ticker, qty] of Object.entries(currentPortfolio)) {
-    const def = definitions.find(d => d.ticker.toUpperCase() === ticker.toUpperCase())
-    const pricingMode = getPricingMode(ticker)
-    let val = 0
+  const lastDate = sortedDates[sortedDates.length - 1]
+  if (lastDate && lastDate < todayStr) {
+    let finalAssetsValue = 0
+    for (const [ticker, qty] of Object.entries(currentPortfolio)) {
+      if (qty <= 0) continue
+      const def = definitionMap.get(ticker)
+      const pricingMode = getPricingMode(ticker)
+      let val = 0
 
-    if (pricingMode === 'fixed_income') {
-      const tickerTxs = sortedTxs.filter(t => t.ticker.toUpperCase() === ticker.toUpperCase())
-      const buyTransactions = tickerTxs.filter(t => t.operation_type === 'buy' || t.operation_type === 'subscription')
-      const indexRates = indexRatesByIndexer[def?.indexer || 'none'] || {}
-
-      if (buyTransactions.length > 0) {
-        const actualDef: PortfolioAssetDefinition = def || {
-          id: '',
-          portfolio_id: '',
-          ticker: ticker.toUpperCase(),
-          pricing_mode: 'fixed_income',
-          is_b3_linked: false,
-          applied_amount: null,
-          contract_rate: null,
-          indexer: 'none',
-          indexer_percent: 100,
-          maturity_date: null,
-          manual_current_value: null,
-          manual_value_updated_at: null,
-          tax_exempt: false,
-          is_treasury: false,
-          application_date: null,
-          created_at: '',
-          updated_at: '',
-        }
-        val = calculateLotBasedFixedIncomeValue({
-          transactions: tickerTxs,
-          ticker,
-          definition: actualDef,
-          asOfDate: todayStr,
-          indexRates,
-        })
+      if (pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)) {
+        val = valueFixedIncomeTicker(ticker, todayStr)
+      } else if (pricingMode === 'manual_value') {
+        val = qty * (def?.manual_current_value ?? (prices[ticker]?.current_price || FALLBACK_PRICE(ticker)))
+      } else if (pricingMode === 'cash') {
+        val = qty * 1.00
       } else {
-        val = 0
+        val = qty * (prices[ticker]?.current_price || FALLBACK_PRICE(ticker))
       }
-    } else if (pricingMode === 'manual_value') {
-      val = qty * (def?.manual_current_value ?? (prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)))
-    } else if (pricingMode === 'cash') {
-      val = qty * 1.00
-    } else {
-      const currentPrice = prices[ticker.toUpperCase()]?.current_price || FALLBACK_PRICE(ticker)
-      val = qty * currentPrice
+      
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      finalAssetsValue += isUsd ? val * usdCoeff : val
     }
-    
-    const isUsd = getAssetCurrency(ticker) === 'USD'
-    finalAssetsValue += isUsd ? val * usdCoeff : val
-  }
-  const finalTotalValue = finalAssetsValue + currentCash
-  
-  if (totalShares > 0) {
-    shareValue = finalTotalValue / totalShares
+    const finalTotalValue = finalAssetsValue + currentCash
+    if (totalShares > 0) {
+      shareValue = finalTotalValue / totalShares
+    }
   }
 
   return {

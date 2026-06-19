@@ -23,6 +23,7 @@ export interface PortfolioValuationBundle {
   prices: Record<string, AssetPrice>
   definitions: PortfolioAssetDefinition[]
   indexRatesByIndexer: Record<string, IndexRateMap>
+  vnaMap?: Record<string, number>
 }
 
 export async function loadPortfolioValuation(
@@ -65,6 +66,7 @@ export async function loadPortfolioValuation(
     prices: batch.prices,
     definitions: batch.normalizedDefinitions,
     indexRatesByIndexer: batch.indexRatesByIndexer,
+    vnaMap: batch.vnaMap,
   }
 }
 

@@ -1,5 +1,7 @@
 import { countBusinessDaysBetween, eachBusinessDayBetween } from '@/utils/businessDays'
 import type { PortfolioAssetIndexer, PortfolioTransaction, PortfolioAssetDefinition } from '@/types'
+import { sortTransactionsStably } from '@/utils/portfolioOperations'
+import { FALLBACK_VNA } from '@/services/vnaService'
 
 export interface IndexRateMap {
   [date: string]: number
@@ -103,24 +105,18 @@ export function calculateFixedIncomeValue(input: FixedIncomeValuationInput): num
 
   if (principal <= 0) return 0
 
-  const isIpcaTreasury =
-    indexer === 'ipca' &&
-    vnaAtPurchase != null &&
-    vnaAtPurchase > 0 &&
-    vnaToday != null &&
-    vnaToday > 0 &&
-    contractRateAnnual != null &&
-    contractRateAnnual > 0
-
-  if (isIpcaTreasury) {
+  if (indexer === 'ipca') {
+    const finalVnaAtPurchase = vnaAtPurchase || FALLBACK_VNA
+    const finalVnaToday = vnaToday || FALLBACK_VNA
+    const finalRate = contractRateAnnual ?? 0
     return Math.round(
       accumulateIpcaPlusTreasury(
         principal,
         applicationDate,
         asOfDate,
-        contractRateAnnual,
-        vnaAtPurchase,
-        vnaToday
+        finalRate,
+        finalVnaAtPurchase,
+        finalVnaToday
       ) * 100
     ) / 100
   }
@@ -162,15 +158,14 @@ export function calculateLotBasedFixedIncomeValue({
 }): number {
   const upperTicker = ticker.toUpperCase().trim()
 
-  const buyLots = transactions
-    .filter(
+  const buyLots = sortTransactionsStably(
+    transactions.filter(
       (t) =>
         t.ticker.toUpperCase().trim() === upperTicker &&
         (t.operation_type === 'buy' || t.operation_type === 'subscription') &&
         (t.settlement_status ?? 'settled') === 'settled'
     )
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((t) => ({
+  ).map((t) => ({
       date: t.date,
       quantity: Number(t.quantity),
       price: Number(t.price),

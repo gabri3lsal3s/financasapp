@@ -16,7 +16,7 @@ import {
   formatSignedPercentBR,
 } from '@/utils/format'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw, Wallet, Info } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, TrendingDown, Layers, Trash2, Settings2, FileSpreadsheet, Edit2, Check, X, BarChart2, Search, ChevronDown, RefreshCw, Wallet, Info } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { getCache, setCache } from '@/services/offlineCache'
@@ -32,12 +32,12 @@ import AssetTransactionsModal from '@/components/investments/AssetTransactionsMo
 import LedgerBook from '@/components/consulting/LedgerBook'
 import toast from 'react-hot-toast'
 import GroupTargetModal from '@/components/investments/GroupTargetModal'
-import ReturnHeatmap from '@/components/consulting/ReturnHeatmap'
 import { 
   AssetPosition, 
   ConsolidatedGroup, 
   calculateConsolidatedByClass, 
-  calculateConsolidatedBySector 
+  calculateConsolidatedBySector,
+  calculateShareHistory
 } from '@/services/investmentEngine'
 
 import { loadPortfolioValuation } from '@/utils/portfolioValuationLoader'
@@ -91,15 +91,7 @@ export default function Investments() {
     }))
   }
 
-  const [activeKpiIndex, setActiveKpiIndex] = useState<number>(0)
   const [showFilters, setShowFilters] = useState<boolean>(false)
-
-  const handleKpisScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const container = e.currentTarget
-    const cardWidth = container.clientWidth * 0.85
-    const index = Math.round(container.scrollLeft / cardWidth)
-    setActiveKpiIndex(index)
-  }
 
   const chartContainerRef = useRef<HTMLDivElement>(null)
 
@@ -139,7 +131,8 @@ export default function Investments() {
   const [targetAllocations, setTargetAllocations] = useState<TargetAllocation[]>([])
   const [valuationPrices, setValuationPrices] = useState<Record<string, import('@/types').AssetPrice>>({})
   const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
-  const [snapshots, setSnapshots] = useState<import('@/types').PortfolioPeriodSnapshotRow[]>([])
+  const [vnaMap, setVnaMap] = useState<Record<string, number>>({})
+
   const { closing: closingPortfolio, runClose, loadPeriodSnapshots } = usePortfolioClose()
 
   const sumClass = useMemo(() => {
@@ -240,6 +233,20 @@ export default function Investments() {
     })
     return Array.from(sectors).sort()
   }, [portfolioData?.positions])
+
+  const dynamicHistory = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return { currentShareValue: 1.0, totalShares: 0, shareHistory: [] }
+    }
+    return calculateShareHistory(
+      transactions,
+      valuationPrices,
+      assetDefinitions,
+      indexRatesByIndexer,
+      {},
+      vnaMap
+    )
+  }, [transactions, valuationPrices, assetDefinitions, indexRatesByIndexer, vnaMap])
 
   const chartPalette = useMemo(() => {
     if (colorPalette === 'monochrome') {
@@ -397,7 +404,7 @@ export default function Investments() {
           if (cached.transactions) setTransactions(cached.transactions)
           if (cached.groupTargets) setGroupTargets(cached.groupTargets)
           if (cached.assetDefinitions) setAssetDefinitions(cached.assetDefinitions)
-          if (cached.snapshots) setSnapshots(cached.snapshots)
+
         }
       }
 
@@ -444,7 +451,8 @@ export default function Investments() {
       setTargetAllocations(targets || [])
 
       const snaps = await loadPeriodSnapshots(portfolio.id)
-      setSnapshots(snaps || [])
+
+
 
       if (finalTransactions.length === 0) {
         const emptyPortfolio = {
@@ -480,6 +488,7 @@ export default function Investments() {
       setAssetDefinitions(valuation.definitions)
       setValuationPrices(valuation.prices)
       setIndexRatesByIndexer(valuation.indexRatesByIndexer)
+      setVnaMap(valuation.vnaMap || {})
 
       const { positions, investedValue, cashValue, totalValue } = valuation
       const consolidatedClass = calculateConsolidatedByClass(positions, totalValue, finalGroupTargets)
@@ -593,81 +602,102 @@ export default function Investments() {
           <Loader text="Carregando sua carteira..." className="py-12" />
         ) : portfolioData && (
           <div className="space-y-6 animate-fade-in">
-            {/* Cards de KPIs da Consultoria */}
             {(() => {
               const { yieldPct: consolidatedYield, gainBrl: consolidatedGain } =
                 nonCashPortfolioPerformance(portfolioData.positions, 'gross')
               const isPositive = consolidatedYield >= 0
               const totalCash = portfolioData.cashValue
 
+              // Calculate daily history dynamically using the same engine as ClientDashboard
+              const shareHistoryData = dynamicHistory.shareHistory || []
+
+              const sparklineValuation = shareHistoryData.map(h => h.investedValue ?? 0)
+              const sparklineCash = shareHistoryData.map(h => h.cashValue ?? 0)
+              const sparklineYield = shareHistoryData.map(h => h.shareValue ?? 1)
+
               return (
-                <div className="flex flex-col gap-2">
-                  <div 
-                    onScroll={handleKpisScroll}
-                    className="flex overflow-x-auto gap-3 pb-2 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-3 sm:gap-4 sm:pb-0 sm:items-stretch"
-                  >
-                    <KpiCard
-                      title="Patrimônio Investido"
-                      value={formatCurrency(portfolioData.investedValue)}
-                      subtext="Valor total de investimentos"
-                      icon={<Briefcase size={16} className="w-4 h-4" />}
-                      glowColor="var(--color-income)"
-                      showGlow={true}
-                      index={1}
-                      className="flex-none w-[90%] sm:w-auto sm:h-full snap-center"
-                    />
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 items-stretch">
+                  <KpiCard
+                    title="Patrimônio Investido"
+                    value={formatCurrency(portfolioData.investedValue)}
+                    subtext="Valor total de investimentos"
+                    icon={<Briefcase size={16} className="w-4 h-4" />}
+                    glowColor="var(--color-income)"
+                    showGlow={true}
+                    sparklineData={sparklineValuation}
+                    index={1}
+                    className="col-span-1"
+                  />
 
-                    <KpiCard
-                      title="Saldo em Caixa"
-                      value={formatCurrency(totalCash)}
-                      subtext="Disponível para novos aportes"
-                      icon={<Wallet size={16} className="w-4 h-4" />}
-                      glowColor="var(--color-balance)"
-                      showGlow={false}
-                      index={2}
-                      className="flex-none w-[90%] sm:w-auto sm:h-full snap-center"
-                    />
+                  <KpiCard
+                    title="Saldo em Caixa"
+                    value={formatCurrency(totalCash)}
+                    subtext="Disponível para novos aportes"
+                    icon={<Wallet size={16} className="w-4 h-4" />}
+                    glowColor="var(--color-balance)"
+                    showGlow={false}
+                    sparklineData={sparklineCash}
+                    index={2}
+                    className="col-span-1"
+                  />
 
-                    <KpiCard
-                      title="Rentabilidade Consolidada"
-                      value={
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <p className={`text-sm xs:text-base sm:text-2xl font-black font-mono flex items-center ${
-                            isPositive ? 'text-income' : 'text-expense'
-                          }`}>
-                            {formatSignedPercentBR(consolidatedYield)}
-                          </p>
-                          <span className={`text-[10px] sm:text-xs font-semibold font-mono whitespace-nowrap ${
-                            consolidatedGain >= 0 ? 'text-income' : 'text-expense'
-                          }`}>
-                            ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
-                          </span>
-                        </div>
-                      }
-                      subtext="Retorno sobre o capital investido"
-                      icon={<TrendingUp size={16} className="w-4 h-4" />}
-                      glowColor={isPositive ? 'var(--color-income)' : 'var(--color-expense)'}
-                      showGlow={true}
-                      isTrendPositive={isPositive}
-                      index={3}
-                      className="flex-none w-[90%] sm:w-auto sm:h-full snap-center"
-                    />
-                  </div>
-                  {/* Pontos de paginação apenas no mobile */}
-                  <div className="flex justify-center gap-1.5 mt-1 sm:hidden">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                          activeKpiIndex === i ? 'bg-primary w-3.5' : 'bg-primary/20'
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  <KpiCard
+                    title="Rentabilidade Consolidada"
+                    value={
+                      <span className={`text-[clamp(11px,3.3vw,1.25rem)] font-extrabold font-mono leading-none ${isPositive ? 'text-income' : 'text-expense'}`}>
+                        {formatSignedPercentBR(consolidatedYield)}
+                        <span className="text-xs sm:text-sm font-medium font-sans ml-1.5 opacity-90">
+                          ({consolidatedGain >= 0 ? '+' : ''}{formatCurrency(consolidatedGain)})
+                        </span>
+                      </span>
+                    }
+                    subtext="Retorno sobre o capital investido"
+                    icon={isPositive ? <TrendingUp size={16} className="w-4 h-4" /> : <TrendingDown size={16} className="w-4 h-4" />}
+                    glowColor={isPositive ? 'var(--color-income)' : 'var(--color-expense)'}
+                    showGlow={true}
+                    sparklineData={sparklineYield}
+                    isTrendPositive={isPositive}
+                    index={3}
+                    className="col-span-2 sm:col-span-1"
+                  />
                 </div>
               )
             })()}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+
+            {transactions.length === 0 ? (
+              <Card className="p-8 border border-balance/25 bg-balance/5 rounded-3xl flex flex-col items-center justify-center text-center gap-6 shadow-sm max-w-2xl mx-auto my-6 animate-page-enter">
+                <div className="w-16 h-16 rounded-2xl bg-balance/10 flex items-center justify-center text-balance shrink-0">
+                  <Briefcase size={30} />
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-base font-black text-primary">Sua carteira de investimentos está vazia</h4>
+                  <p className="text-xs text-secondary leading-relaxed max-w-md font-medium">
+                    Para começar a acompanhar sua alocação, rentabilidade e rebalanceamento automático, sugerimos inserir seus investimentos importando os dados da B3 ou cadastrando transações manualmente.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto shrink-0 justify-center">
+                  <Button
+                    type="button"
+                    variant="income"
+                    onClick={() => setIsReconciliationOpen(true)}
+                    className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider py-2.5 px-5 h-11 rounded-xl w-full sm:w-auto"
+                  >
+                    <FileSpreadsheet size={16} />
+                    <span>Conciliação B3</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="balance"
+                    onClick={() => handleOpenTxModal()}
+                    className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider py-2.5 px-5 h-11 rounded-xl w-full sm:w-auto"
+                  >
+                    <Plus size={16} />
+                    <span>Lançamento Manual</span>
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-6">
                 <TabsTrigger value="distribution" className="text-xs font-bold gap-1.5">
                   <Layers size={14} />
@@ -693,58 +723,23 @@ export default function Investments() {
                       <h4 className="text-xs font-black uppercase tracking-wider text-primary">Alocação Atual</h4>
                       
                       {/* Switcher de Consolidação */}
-                      <div className="relative inline-flex items-center border border-glass surface-glass p-0.5 rounded-full select-none shrink-0 shadow-sm h-[32px] w-40 overflow-hidden">
-                        {/* Camada Estática de Fundo (Texto Secundário) */}
-                        <div className="absolute inset-0 flex items-center text-[10px] font-black uppercase tracking-wider text-secondary pointer-events-none">
-                          <span className="w-1/2 text-center">Classes</span>
-                          <span className="w-1/2 text-center">Setores</span>
-                        </div>
-
-                        {/* Botão Seletor Deslizante (Pill com Máscara e Cores Ativas) */}
-                        <div 
-                          className="absolute top-[2px] bottom-[2px] left-[2px] w-[calc(50%-2px)] rounded-full transition-transform duration-300 ease-out bg-background border border-glass/40 shadow-sm overflow-hidden pointer-events-none"
-                          style={{
-                            transform: consolidationView === 'class' ? 'translateX(0px)' : 'translateX(78px)'
-                          }}
-                        >
-                          {/* Texto Estacionário Interno (Revelado pela Máscara do Seletor) */}
-                          <div 
-                            className="absolute top-0 bottom-0 left-[-2px] w-40 flex items-center text-[10px] font-black uppercase tracking-wider transition-transform duration-300 ease-out pointer-events-none"
-                            style={{
-                              transform: consolidationView === 'class' ? 'translateX(0px)' : 'translateX(-78px)'
-                            }}
-                          >
-                            <span className="w-1/2 text-center text-[var(--color-balance)]">Classes</span>
-                            <span className="w-1/2 text-center text-[var(--color-income)]">Setores</span>
-                          </div>
-                        </div>
-
-                        {/* Camada Interativa (Botões do Componente Invisíveis por cima) */}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setConsolidationView('class')
-                            setSelectedPieSegment(null)
-                          }}
-                          className="relative z-10 w-1/2 h-full opacity-0 cursor-pointer hover:bg-transparent !min-h-0 py-0"
-                          title="Exibir Classes"
-                        >
-                          Classes
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setConsolidationView('sector')
-                            setSelectedPieSegment(null)
-                          }}
-                          className="relative z-10 w-1/2 h-full opacity-0 cursor-pointer hover:bg-transparent !min-h-0 py-0"
-                          title="Exibir Setores"
-                        >
-                          Setores
-                        </Button>
-                      </div>
+                      <Tabs 
+                        value={consolidationView} 
+                        onValueChange={(val) => {
+                          setConsolidationView(val as 'class' | 'sector')
+                          setSelectedPieSegment(null)
+                        }}
+                        className="w-auto shrink-0"
+                      >
+                        <TabsList className="grid grid-cols-2 w-40 h-[32px] p-0.5">
+                          <TabsTrigger value="class" className="text-[10px] font-black uppercase tracking-wider py-1">
+                            Classes
+                          </TabsTrigger>
+                          <TabsTrigger value="sector" className="text-[10px] font-black uppercase tracking-wider py-1">
+                            Setores
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
                     </div>
 
                     {pieData.length === 0 ? (
@@ -906,15 +901,15 @@ export default function Investments() {
                             if (targetPct > 0) {
                               if (devPct > 1.0) {
                                 statusColor = 'text-expense'
-                                statusBg = 'bg-expense/10'
+                                statusBg = 'bg-expense/10 border border-expense/20'
                                 statusText = `Venda sugerida: -${formatCurrencyByCode(Math.abs(diffValue), pos.currency)}`
                               } else if (devPct < -1.0) {
                                 statusColor = 'text-income'
-                                statusBg = 'bg-income/10'
+                                statusBg = 'bg-income/10 border border-income/20'
                                 statusText = `Aporte sugerido: +${formatCurrencyByCode(diffValue, pos.currency)}`
                               } else {
                                 statusColor = 'text-primary'
-                                statusBg = 'bg-primary border border-primary/30'
+                                statusBg = 'bg-primary/10 border border-primary/20'
                                 statusText = 'Alinhado'
                               }
                             }
@@ -928,7 +923,7 @@ export default function Investments() {
                                   setSelectedSectorFilter('all')
                                   setActiveTab('assets')
                                 }}
-                                className="p-3 bg-secondary/50 border border-primary rounded-xl flex flex-col gap-2 text-left cursor-pointer hover:border-primary/80 transition-all select-none"
+                                className="p-3.5 surface-glass border border-glass rounded-2xl flex flex-col gap-2 text-left cursor-pointer hover-lift-subtle shadow-sm transition-all select-none"
                               >
                                 <div className="flex items-center justify-between flex-wrap gap-2">
                                   <div className="flex items-center gap-1.5 min-w-0">
@@ -945,14 +940,14 @@ export default function Investments() {
 
                                 {/* Barra horizontal de alocação vs alvo */}
                                 <div className="space-y-1">
-                                  <div className="w-full h-1.5 rounded-full bg-primary relative overflow-hidden">
+                                  <div className="w-full h-1.5 rounded-full bg-primary/10 relative overflow-hidden">
                                     <div 
                                       className="h-full bg-income rounded-full transition-all duration-500" 
                                       style={{ width: `${Math.min(pos.current_percentage, 100)}%` }} 
                                     />
                                     {targetPct > 0 && (
                                       <div 
-                                        className="absolute top-0 bottom-0 w-0.5 bg-primary-dark/60 dark:bg-white/60"
+                                        className="absolute top-0 bottom-0 w-0.5 bg-primary/60"
                                         style={{ left: `${Math.min(targetPct, 99)}%` }}
                                       />
                                     )}
@@ -977,21 +972,21 @@ export default function Investments() {
                           const diffValue = portfolioData.totalValue * (targetPct / 100) - group.total_value
 
                           let statusColor = 'text-secondary'
-                          let statusBg = 'bg-secondary/40'
+                          let statusBg = 'bg-secondary/40 border border-secondary/50'
                           let statusText = 'Sem meta'
 
                           if (targetPct > 0) {
                             if (devPct > 1.5) {
                               statusColor = 'text-expense'
-                              statusBg = 'bg-expense/10'
-                              statusText = `Venda sugerida: -${formatCurrency(Math.abs(diffValue))}`
+                              statusBg = 'bg-expense/10 border border-expense/20'
+                              statusText = `Venda: -${formatCurrency(Math.abs(diffValue))}`
                             } else if (devPct < -1.5) {
                               statusColor = 'text-income'
-                              statusBg = 'bg-income/10'
-                              statusText = `Aporte sugerido: +${formatCurrency(diffValue)}`
+                              statusBg = 'bg-income/10 border border-income/20'
+                              statusText = `Aporte: +${formatCurrency(diffValue)}`
                             } else {
                               statusColor = 'text-primary'
-                              statusBg = 'bg-primary border border-primary/30'
+                              statusBg = 'bg-primary/10 border border-primary/20'
                               statusText = 'Alinhado'
                             }
                           }
@@ -1007,7 +1002,7 @@ export default function Investments() {
                                   target: group.target_percentage
                                 })
                               }}
-                              className="p-3 bg-secondary/50 border border-primary rounded-xl flex flex-col gap-2 text-left cursor-pointer hover:border-primary/80 transition-all select-none"
+                              className="p-3.5 surface-glass border border-glass rounded-2xl flex flex-col gap-2 text-left cursor-pointer hover-lift-subtle shadow-sm transition-all select-none"
                             >
                               <div className="flex items-center justify-between flex-wrap gap-2">
                                 <div className="flex items-center gap-1.5 min-w-0">
@@ -1024,7 +1019,7 @@ export default function Investments() {
 
                               {/* Barra horizontal de alocação vs alvo */}
                               <div className="space-y-1">
-                                <div className="w-full h-1.5 rounded-full bg-primary relative overflow-hidden">
+                                <div className="w-full h-1.5 rounded-full bg-primary/10 relative overflow-hidden">
                                   <div 
                                     className={`h-full rounded-full transition-all duration-500 ${
                                       consolidationView === 'class' ? 'bg-balance' : 'bg-income'
@@ -1033,7 +1028,7 @@ export default function Investments() {
                                   />
                                   {targetPct > 0 && (
                                     <div 
-                                      className="absolute top-0 bottom-0 w-0.5 bg-primary-dark/60 dark:bg-white/60"
+                                      className="absolute top-0 bottom-0 w-0.5 bg-primary/60"
                                       style={{ left: `${Math.min(targetPct, 99)}%` }}
                                     />
                                   )}
@@ -1052,7 +1047,7 @@ export default function Investments() {
                 </div>
 
                 {/* Limites de Exposição - Fica no rodapé da Distribuição */}
-                <div className="bg-secondary/40 border border-primary p-4 rounded-2xl space-y-4">
+                <Card className="space-y-4">
                   <div 
                     onClick={() => setLimitsCollapsed(!limitsCollapsed)}
                     className="flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-85 transition-opacity duration-200 select-none"
@@ -1087,7 +1082,7 @@ export default function Investments() {
                         <div 
                           key={gt.id} 
                           onClick={() => handleEditGroupTarget(gt)}
-                          className="cursor-pointer flex items-center justify-between p-3.5 bg-primary border border-primary/50 rounded-2xl shadow-sm hover:border-balance/30 active:bg-secondary/40 transition-all select-none animate-page-enter w-full"
+                          className="cursor-pointer flex items-center justify-between p-3.5 surface-glass border border-glass rounded-2xl shadow-sm hover:border-balance/30 hover-lift-subtle active:scale-[0.99] transition-all select-none animate-page-enter w-full"
                         >
                           <div className="flex items-center gap-3">
                             <div className="flex flex-col text-left">
@@ -1131,12 +1126,8 @@ export default function Investments() {
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
 
-                {/* Matriz de Rentabilidade (Heatmap de retornos mensais TWR) */}
-                <div className="mt-6">
-                  <ReturnHeatmap snapshots={snapshots} />
-                </div>
               </TabsContent>
 
               {/* Aba 2: Detalhamento de Ativos */}
@@ -1291,7 +1282,6 @@ export default function Investments() {
                       <thead>
                         <tr className="surface-glass border-b border-glass text-[10px] font-black text-secondary uppercase tracking-widest">
                           <th className="px-4 py-3">Ativo</th>
-                          <th className="px-4 py-3">Classe</th>
                           <th className="px-4 py-3">Setor</th>
                           <th className="px-4 py-3 text-right">Qtd</th>
                           <th className="px-4 py-3 text-right">Cotação</th>
@@ -1305,7 +1295,7 @@ export default function Investments() {
                       <tbody className="divide-y divide-glass">
                         {Object.entries(filteredPositionsByClass).length === 0 ? (
                           <tr>
-                            <td colSpan={10} className="py-12 text-center">
+                            <td colSpan={9} className="py-12 text-center">
                               <div className="flex flex-col items-center gap-3 text-secondary">
                                 <Search size={28} className="opacity-30" />
                                 <p className="text-sm font-semibold">Nenhum ativo encontrado</p>
@@ -1321,9 +1311,9 @@ export default function Investments() {
                                 {/* Linha de cabeçalho do grupo de classe (Clicável para recolher) */}
                                 <tr 
                                   onClick={() => toggleClassCollapsed(className)}
-                                  className="surface-glass border-l-4 border-l-[var(--color-income)] text-primary cursor-pointer hover:bg-secondary/70 transition-colors select-none"
+                                  className="surface-glass border-l-4 border-l-[var(--color-primary)] border-b border-glass text-primary cursor-pointer hover:bg-secondary/60 transition-all duration-200 select-none"
                                 >
-                                  <td colSpan={10} className="px-4 py-2.5">
+                                  <td colSpan={9} className="px-4 py-2.5">
                                     <div className="flex items-center justify-between">
                                       <span className="text-[10px] font-black uppercase tracking-widest text-secondary">{className}</span>
                                       <div className="flex items-center gap-2">
@@ -1345,7 +1335,7 @@ export default function Investments() {
                                   return (
                                     <tr
                                       key={pos.ticker}
-                                      className="hover:bg-secondary/50 transition-colors cursor-pointer group/row"
+                                      className="hover:bg-primary/5 border-b border-glass/30 transition-all duration-200 cursor-pointer group/row"
                                       onClick={() => handleOpenAssetTxModal(pos)}
                                       title="Ver transações do ativo"
                                     >
@@ -1367,11 +1357,6 @@ export default function Investments() {
                                             </span>
                                           )}
                                         </div>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <span className="text-[10px] font-semibold text-secondary bg-secondary/60 px-2 py-0.5 rounded-md">
-                                          {pos.asset_class || 'Não classificado'}
-                                        </span>
                                       </td>
                                       <td className="px-4 py-3 text-xs text-secondary font-medium">{pos.sector || 'Outros'}</td>
                                       <td className="px-4 py-3 text-right font-mono text-xs text-primary font-semibold">
@@ -1562,24 +1547,26 @@ export default function Investments() {
                                           isExpanded ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'
                                         }`}
                                       >
-                                        <div className="px-4 pb-4 pt-3 border-t border-primary/10 space-y-3.5 bg-secondary/10 text-left">
+                                        <div className="px-4 pb-4 pt-3 border-t border-glass space-y-3.5 modal-panel-glass text-left">
                                           {/* Grid de Métricas — 2x2 com separadores */}
-                                          <div className="grid grid-cols-2 gap-0 rounded-xl border border-primary/10 overflow-hidden">
-                                            <div className="p-3 bg-secondary/30">
+                                          <div className="grid grid-cols-2 gap-0 rounded-xl border border-glass overflow-hidden">
+                                            <div className="p-3 bg-secondary/15">
                                               <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Quantidade</span>
                                               <span className="text-xs font-bold text-primary font-mono">
                                                 {formatQuantityBR(pos.quantity)}
                                               </span>
                                             </div>
 
-                                            <div className="p-3 bg-secondary/30 border-l border-primary/10">
-                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Custo Total</span>
+                                            <div className="p-3 bg-secondary/15 border-l border-glass">
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Preço Médio</span>
                                               <span className="text-xs font-bold text-primary font-mono">
-                                                {formatCurrencyByCode(pos.cost_basis, pos.currency)}
+                                                {pos.quantity > 0 
+                                                  ? formatCurrencyByCode(pos.cost_basis / pos.quantity, pos.currency) 
+                                                  : formatCurrencyByCode(0, pos.currency)}
                                               </span>
                                             </div>
 
-                                            <div className="p-3 bg-secondary/20 border-t border-primary/10">
+                                            <div className="p-3 bg-secondary/5 border-t border-glass">
                                               <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Cotação</span>
                                               <div className="flex items-center gap-1">
                                                 <span className="text-xs font-bold text-primary font-mono">
@@ -1601,10 +1588,10 @@ export default function Investments() {
                                               </div>
                                             </div>
 
-                                            <div className="p-3 bg-secondary/20 border-t border-l border-primary/10">
-                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Rent. Bruta</span>
-                                              <span className={`text-xs font-black font-mono ${isGrossPositive ? 'text-income' : 'text-expense'}`}>
-                                                {formatSignedPercentBR(pos.gross_yield_pct)}
+                                            <div className="p-3 bg-secondary/5 border-t border-l border-glass">
+                                              <span className="text-[9px] uppercase font-extrabold text-secondary block mb-0.5">Custo Total</span>
+                                              <span className="text-xs font-bold text-primary font-mono">
+                                                {formatCurrencyByCode(pos.cost_basis, pos.currency)}
                                               </span>
                                             </div>
                                           </div>
@@ -1742,6 +1729,7 @@ export default function Investments() {
                 />
               </TabsContent>
             </Tabs>
+          )}
           </div>
         )}
       </div>

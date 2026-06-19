@@ -313,4 +313,47 @@ describe('valuationEngine', () => {
 
     expect(result.positions[0].total_value).toBe(750)
   })
+
+  it('valora ativo do tesouro pela curva teórica mesmo se houver cotação de mercado cadastrada', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'TESOURO IPCA+ 2029',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 100,
+        date: '2025-01-01',
+        created_at: '',
+      },
+    ]
+
+    const result = calculatePortfolioValuation({
+      transactions,
+      definitions: [
+        baseDefinition({
+          ticker: 'TESOURO IPCA+ 2029',
+          pricing_mode: 'market',
+          is_treasury: true,
+          contract_rate: 6.5,
+          indexer: 'none',
+        }),
+      ],
+      targets: [],
+      prices: {
+        'TESOURO IPCA+ 2029': {
+          ticker: 'TESOURO IPCA+ 2029',
+          current_price: 150,
+          last_updated: '2026-01-01',
+        },
+      },
+      cashBalance: 0,
+      indexRatesByIndexer: { none: {}, cdi: {}, selic: {}, ipca: {} },
+      asOfDate: '2026-01-01',
+    })
+
+    expect(result.positions[0].total_value).toBeLessThan(1400)
+    expect(result.positions[0].total_value).toBeGreaterThan(1000)
+    expect(result.positions[0].valuation_source).toBe('fixed_income')
+  })
 })

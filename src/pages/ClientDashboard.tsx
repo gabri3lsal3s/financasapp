@@ -44,6 +44,7 @@ type ClientDashboardCache = {
   totalValue?: number
   shareValue?: number
   totalShares?: number
+  vnaMap?: Record<string, number>
 }
 
 export default function ClientDashboard() {
@@ -54,6 +55,7 @@ export default function ClientDashboard() {
   const [assetTheses, setAssetTheses] = useState<Record<string, string>>({})
   const [assetDefinitions, setAssetDefinitions] = useState<PortfolioAssetDefinition[]>([])
   const [indexRatesByIndexer, setIndexRatesByIndexer] = useState<Record<string, IndexRateMap>>({})
+  const [vnaMap, setVnaMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState<boolean>(true)
 
   // Estados calculados
@@ -99,6 +101,7 @@ export default function ClientDashboard() {
         }
         if (cached.shareValue) setShareValue(cached.shareValue)
         if (cached.totalShares) setTotalShares(cached.totalShares)
+        if (cached.vnaMap) setVnaMap(cached.vnaMap)
       }
 
       setLoading(!cached)
@@ -161,6 +164,7 @@ export default function ClientDashboard() {
       let finalTotal = 0
       let finalDefinitions: PortfolioAssetDefinition[] = []
       let finalIndexRates: Record<string, IndexRateMap> = {}
+      let finalVna = {}
       let currentShareValue = 1.0
       let sharesOutstanding = 0
 
@@ -183,7 +187,9 @@ export default function ClientDashboard() {
           txs,
           valuation.prices,
           valuation.definitions,
-          valuation.indexRatesByIndexer
+          valuation.indexRatesByIndexer,
+          {},
+          valuation.vnaMap || {}
         )
         currentShareValue = shareHistoryResult.currentShareValue
         sharesOutstanding = shareHistoryResult.totalShares
@@ -197,6 +203,7 @@ export default function ClientDashboard() {
         finalTotal = valuation.totalValue
         finalDefinitions = valuation.definitions
         finalIndexRates = valuation.indexRatesByIndexer
+        finalVna = valuation.vnaMap || {}
       } else {
         setPositions([])
         setInvestedValue(0)
@@ -206,6 +213,7 @@ export default function ClientDashboard() {
         setTotalShares(0)
         setAssetDefinitions([])
         setIndexRatesByIndexer({})
+        setVnaMap({})
       }
 
       // Cache all details
@@ -221,7 +229,8 @@ export default function ClientDashboard() {
         cashValue: finalCash,
         totalValue: finalTotal,
         shareValue: currentShareValue,
-        totalShares: sharesOutstanding
+        totalShares: sharesOutstanding,
+        vnaMap: finalVna
       })
 
     } catch (err) {
@@ -236,7 +245,14 @@ export default function ClientDashboard() {
     if (!portfolio) return
     toast.loading('Compilando seu relatório premium...', { id: 'client-report' })
     try {
-      const { shareHistory } = calculateShareHistory(transactions, assetPrices, assetDefinitions, indexRatesByIndexer)
+      const { shareHistory } = calculateShareHistory(
+        transactions,
+        assetPrices,
+        assetDefinitions,
+        indexRatesByIndexer,
+        {},
+        vnaMap
+      )
       const metrics = calculatePerformanceMetrics(shareHistory, periodSnapshots)
 
       await generateConsultingPDF({

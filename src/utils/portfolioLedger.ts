@@ -1,5 +1,5 @@
 import type { PortfolioTransaction } from '@/types'
-import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
+import { isPortfolioIncomeType, sortTransactionsStably } from '@/utils/portfolioOperations'
 
 export interface PositionLedgerEntry {
   quantity: number
@@ -66,7 +66,7 @@ export function applyPortfolioTransaction(
 
 export function buildPortfolioLedger(transactions: PortfolioTransaction[]): PositionLedgerMap {
   const map: PositionLedgerMap = {}
-  const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
+  const sorted = sortTransactionsStably(transactions)
 
   for (const tx of sorted) {
     const ticker = tx.ticker.toUpperCase().trim()
@@ -87,7 +87,7 @@ export function buildSimplePositionLedger(
   transactions: PortfolioTransaction[]
 ): Record<string, SimplePositionLedgerEntry> {
   const map: Record<string, SimplePositionLedgerEntry> = {}
-  const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
+  const sorted = sortTransactionsStably(transactions)
 
   for (const tx of sorted) {
     const ticker = tx.ticker.toUpperCase().trim()

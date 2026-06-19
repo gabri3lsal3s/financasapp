@@ -186,4 +186,43 @@ describe('investmentEngine - calculateShareHistory com Caixa', () => {
     expect(result.currentShareValue).toBeGreaterThan(1)
     expect(result.currentShareValue * result.totalShares).toBeCloseTo(5000, 0)
   })
+
+  it('valora ativo do tesouro pela curva em calculateShareHistory mesmo se houver cotação a mercado cadastrada', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'TESOURO SELIC 2029',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 100,
+        date: '2026-01-01',
+        created_at: '',
+      },
+    ]
+
+    const prices: Record<string, AssetPrice> = {
+      'TESOURO SELIC 2029': {
+        ticker: 'TESOURO SELIC 2029',
+        current_price: 150,
+        last_updated: '2026-01-02',
+        quotation_status: 'live',
+      },
+    }
+
+    const definitions: PortfolioAssetDefinition[] = [
+      baseDefinition({
+        ticker: 'TESOURO SELIC 2029',
+        pricing_mode: 'market',
+        is_treasury: true,
+        contract_rate: 10,
+        indexer: 'none',
+      }),
+    ]
+
+    const result = calculateShareHistory(transactions, prices, definitions)
+
+    expect(result.shareHistory).toHaveLength(1)
+    expect(result.shareHistory[0].totalValue).toBe(1000)
+  })
 })

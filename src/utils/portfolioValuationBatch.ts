@@ -1,6 +1,6 @@
 import { buildCombinedIndexRates } from '@/services/bcbIndexService'
 import { loadVnaMap } from '@/services/vnaService'
-import { getAssetPrices, detectDefaultCurrency } from '@/services/priceService'
+import { getAssetPrices, detectDefaultCurrency, isTreasuryTicker } from '@/services/priceService'
 import { calculatePositions } from '@/services/investmentEngine'
 import type {
   AssetPrice,
@@ -16,7 +16,30 @@ export function normalizePortfolioDefinitions(
   return definitions.map((d) => {
     const detectedCurrency = detectDefaultCurrency(d.ticker)
     const currency: 'BRL' | 'USD' = d.currency === 'USD' ? 'USD' : detectedCurrency
-    return { ...d, currency }
+    
+    // Normalize Treasury assets to fixed income pricing on the curve
+    const isTr = d.is_treasury || isTreasuryTicker(d.ticker)
+    const pricingMode = isTr ? 'fixed_income' : d.pricing_mode
+    const valuationMode = isTr ? 'curve' : d.valuation_mode
+    
+    let indexer = d.indexer
+    if (isTr && (d.indexer === 'none' || !d.indexer)) {
+      const upper = d.ticker.toUpperCase()
+      indexer = upper.includes('SELIC') || upper.startsWith('LFT')
+        ? 'selic'
+        : upper.includes('IPCA') || upper.startsWith('NTN')
+        ? 'ipca'
+        : 'none'
+    }
+
+    return {
+      ...d,
+      currency,
+      is_treasury: isTr,
+      pricing_mode: pricingMode,
+      valuation_mode: valuationMode,
+      indexer,
+    }
   })
 }
 

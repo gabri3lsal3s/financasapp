@@ -1,4 +1,4 @@
-import type { PortfolioOperationType } from '@/types'
+import type { PortfolioOperationType, PortfolioTransaction } from '@/types'
 
 const INCOME_TYPES: PortfolioOperationType[] = ['dividend', 'jcp', 'fii_yield']
 
@@ -39,3 +39,20 @@ export function portfolioOperationLabel(op: PortfolioOperationType): string {
       return op
   }
 }
+
+/**
+ * Ordena transações cronologicamente de forma determinística e estável.
+ * Utiliza 'date' como chave primária, desempatando por 'created_at' e depois por 'id' defensivamente.
+ */
+export function sortTransactionsStably(transactions: PortfolioTransaction[]): PortfolioTransaction[] {
+  return [...transactions].sort((a, b) => {
+    const dateDiff = a.date.localeCompare(b.date)
+    if (dateDiff !== 0) return dateDiff
+
+    const createdDiff = (a.created_at || '').localeCompare(b.created_at || '')
+    if (createdDiff !== 0) return createdDiff
+
+    return (a.id || '').localeCompare(b.id || '')
+  })
+}
+

@@ -9,7 +9,8 @@ import {
   type IndexRateMap,
 } from '@/utils/fixedIncomeValuation'
 import { resolveVnaForDate } from '@/services/vnaService'
-import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
+import { isPortfolioIncomeType, sortTransactionsStably } from '@/utils/portfolioOperations'
+import { isTreasuryTicker } from '@/services/priceService'
 
 export interface PositionLot {
   ticker: string
@@ -44,40 +45,47 @@ export function buildLotsFromTransactions(
     return upper === 'CAIXA' || upper === 'SALDO_INV' || upper === 'SALDO EM CAIXA' || upper === 'SALDO_EM_CAIXA'
   }
 
-  const settled = transactions
-    .filter((t) => {
+  const settled = sortTransactionsStably(
+    transactions.filter((t) => {
       if ((t.settlement_status ?? 'settled') !== 'settled') return false
       const upper = t.ticker.toUpperCase().trim()
       const def = defMap[upper]
       const pricingMode = def?.pricing_mode ?? (isLegacyCash(upper) ? 'cash' : 'market')
       return pricingMode !== 'cash'
     })
-    .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
+  )
 
   for (const tx of settled) {
     const upper = tx.ticker.toUpperCase().trim()
     if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+      const isTr = isTreasuryTicker(upper)
       const def =
         defMap[upper] ??
         ({
           id: '',
           portfolio_id: tx.portfolio_id,
           ticker: upper,
-          pricing_mode: 'market',
-          is_b3_linked: true,
+          pricing_mode: isTr ? 'fixed_income' : 'market',
+          is_b3_linked: isTr ? false : true,
           applied_amount: null,
           contract_rate: null,
-          indexer: 'none',
+          indexer: isTr
+            ? upper.includes('SELIC') || upper.startsWith('LFT')
+              ? 'selic'
+              : upper.includes('IPCA') || upper.startsWith('NTN')
+              ? 'ipca'
+              : 'none'
+            : 'none',
           indexer_percent: 100,
           maturity_date: null,
           manual_current_value: null,
           manual_value_updated_at: null,
           tax_exempt: false,
-          is_treasury: false,
+          is_treasury: isTr,
           application_date: null,
           created_at: '',
           updated_at: '',
-          valuation_mode: 'market',
+          valuation_mode: isTr ? 'curve' : 'market',
         } satisfies PortfolioAssetDefinition)
 
       const qty = Number(tx.quantity)
@@ -139,8 +147,7 @@ export function valueLot(
   if (definition.pricing_mode === 'cash') {
     grossValue = costBasis
   } else if (definition.pricing_mode === 'fixed_income' || definition.is_treasury) {
-    const useCurve =
-      definition.is_treasury && (definition.valuation_mode ?? 'curve') === 'curve'
+    const useCurve = true
 
     if (useCurve) {
       const vnaToday =

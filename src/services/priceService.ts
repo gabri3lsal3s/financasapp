@@ -352,11 +352,7 @@ export async function getAssetPrices(
       const found = supabasePrices.find(p => p.ticker === ticker)
       const isSubscriptionOrRight = isSubscriptionOrRightTicker(ticker)
 
-      const isTreasury = ticker.toUpperCase().includes('TESOURO') ||
-                         ticker.toUpperCase().startsWith('LFT') ||
-                         ticker.toUpperCase().startsWith('NTN') ||
-                         ticker.toUpperCase().startsWith('LTN') ||
-                         /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(ticker)
+      const isTreasury = isTreasuryTicker(ticker)
 
       // Se achou no cache e NÃO estamos forçando atualização, aproveita
       if (found && !forceRefresh) {
@@ -1017,6 +1013,20 @@ export function isSubscriptionOrRightTicker(ticker: string): boolean {
     }
   }
   return false
+}
+
+/**
+ * Detecta se o ticker é de um título público do Tesouro Direto.
+ */
+export function isTreasuryTicker(ticker: string): boolean {
+  const upper = ticker.trim().toUpperCase()
+  return (
+    upper.includes('TESOURO') ||
+    upper.startsWith('LFT') ||
+    upper.startsWith('NTN') ||
+    upper.startsWith('LTN') ||
+    /^(IPCA|SELIC|PRE)\s*\d{2}$/i.test(upper)
+  )
 }
 
 /** Limpa completamente o cache em memória das cotações */

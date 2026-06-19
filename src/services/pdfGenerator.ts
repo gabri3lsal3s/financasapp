@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import { Portfolio, PortfolioGroupTarget, AssetPrice, PortfolioTransaction } from '@/types'
 import { AssetPosition, PerformanceMetrics, calculateConsolidatedByClass, calculateConsolidatedBySector } from '@/services/investmentEngine'
 import { totalValueFromPositions } from '@/utils/portfolioDisplayMetrics'
+import { sortTransactionsStably } from '@/utils/portfolioOperations'
 
 interface PDFData {
   clientName: string          // nome para exibição (display name)
@@ -108,7 +109,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
   const getHoldingDays = (className: string) => {
     if (className === 'Saldo em Caixa') {
       if (transactions.length === 0) return 365
-      const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date))
+      const sorted = sortTransactionsStably(transactions)
       const firstDate = new Date(sorted[0].date)
       const diffTime = Math.abs(new Date().getTime() - firstDate.getTime())
       return Math.max(30, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
@@ -122,7 +123,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
     
     if (classTxs.length === 0) return 365
     
-    const sorted = classTxs.sort((a, b) => a.date.localeCompare(b.date))
+    const sorted = sortTransactionsStably(classTxs)
     const firstDate = new Date(sorted[0].date)
     const diffTime = Math.abs(new Date().getTime() - firstDate.getTime())
     return Math.max(30, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
@@ -137,7 +138,7 @@ export async function generateConsultingPDF(data: PDFData): Promise<void> {
     
     if (sectorTxs.length === 0) return 365
     
-    const sorted = sectorTxs.sort((a, b) => a.date.localeCompare(b.date))
+    const sorted = sortTransactionsStably(sectorTxs)
     const firstDate = new Date(sorted[0].date)
     const diffTime = Math.abs(new Date().getTime() - firstDate.getTime())
     return Math.max(30, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))

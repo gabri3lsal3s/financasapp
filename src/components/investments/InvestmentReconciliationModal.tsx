@@ -33,7 +33,7 @@ import {
   isPortfolioIncomeType,
   PORTFOLIO_OPERATION_OPTIONS,
 } from '@/utils/portfolioOperations'
-import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
+import { isB3TickerPattern, detectDefaultCurrency, isTreasuryTicker } from '@/services/priceService'
 import { formatQuantityBR } from '@/utils/format'
 
 type PortfolioTransactionInsert = Omit<PortfolioTransaction, 'created_at'>
@@ -752,8 +752,8 @@ export default function InvestmentReconciliationModal({
         if (error) throw error
 
         // Automatically sync cash offsets for this transaction
-        const pricingMode = draft.official.ticker.toUpperCase().includes('TESOURO')
-          ? 'market'
+        const pricingMode = isTreasuryTicker(draft.official.ticker)
+          ? 'fixed_income'
           : isB3TickerPattern(draft.official.ticker) ? 'market' : 'fixed_income'
 
         const context = await fetchPortfolioCashContext(portfolioId)

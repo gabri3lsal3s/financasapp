@@ -8,7 +8,8 @@ import { buildPortfolioLedger, type PositionLedgerEntry } from '@/utils/portfoli
 import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue, type IndexRateMap } from '@/utils/fixedIncomeValuation'
 import { resolveVnaForDate } from '@/services/vnaService'
 import { calculateGrossAndNetYield } from '@/utils/incomeTaxInvestment'
-import { isB3TickerPattern, detectDefaultCurrency } from '@/services/priceService'
+import { isB3TickerPattern, detectDefaultCurrency, isTreasuryTicker } from '@/services/priceService'
+import { sortTransactionsStably } from '@/utils/portfolioOperations'
 
 export type ValuationSource = 'market' | 'fixed_income' | 'manual' | 'hybrid' | 'cash' | 'unavailable'
 
@@ -39,29 +40,37 @@ export interface ValuedPosition {
 type PositionLedger = PositionLedgerEntry
 
 function defaultDefinition(ticker: string): PortfolioAssetDefinition {
-  const upper = ticker.toUpperCase()
+  const upper = ticker.toUpperCase().trim()
   const isLegacyCash = upper === 'SALDO_INV' || upper === 'CAIXA' || upper === 'SALDO EM CAIXA' || upper === 'SALDO_EM_CAIXA'
   const isB3 = isB3TickerPattern(upper)
+  const isTreasury = isTreasuryTicker(upper)
+  const defaultIndexer = isTreasury
+    ? upper.includes('SELIC') || upper.startsWith('LFT')
+      ? 'selic'
+      : upper.includes('IPCA') || upper.startsWith('NTN')
+      ? 'ipca'
+      : 'none'
+    : 'none'
   return {
     id: '',
     portfolio_id: '',
     ticker: upper,
-    pricing_mode: isLegacyCash ? 'cash' : 'market',
-    is_b3_linked: isB3,
+    pricing_mode: isLegacyCash ? 'cash' : isTreasury ? 'fixed_income' : 'market',
+    is_b3_linked: isLegacyCash || isTreasury ? false : isB3,
     applied_amount: null,
     contract_rate: null,
-    indexer: 'none',
+    indexer: defaultIndexer,
     indexer_percent: 100,
     maturity_date: null,
     manual_current_value: null,
     manual_value_updated_at: null,
     tax_exempt: false,
-    is_treasury: false,
+    is_treasury: isTreasury,
     application_date: null,
     created_at: '',
     updated_at: '',
     currency: detectDefaultCurrency(upper),
-    valuation_mode: isLegacyCash ? 'curve' : 'market',
+    valuation_mode: isLegacyCash || isTreasury ? 'curve' : 'market',
   }
 }
 
@@ -79,9 +88,9 @@ function resolveApplicationDate(
   ticker: string
 ): string {
   if (definition.application_date) return definition.application_date
-  const buys = transactions
-    .filter((t) => t.ticker.toUpperCase() === ticker && (t.operation_type === 'buy' || t.operation_type === 'subscription'))
-    .sort((a, b) => a.date.localeCompare(b.date))
+  const buys = sortTransactionsStably(
+    transactions.filter((t) => t.ticker.toUpperCase() === ticker && (t.operation_type === 'buy' || t.operation_type === 'subscription'))
+  )
   return buys[0]?.date ?? new Date().toISOString().slice(0, 10)
 }
 
@@ -95,18 +104,14 @@ function resolveCostBasis(
   if (ledger.quantity <= 0) {
     return 0
   }
+  const ledgerCost = netInvestedFromLedger(ledger)
+  if (ledgerCost > 0) {
+    return ledgerCost
+  }
   if (definition.applied_amount !== null && definition.applied_amount > 0) {
     return definition.applied_amount
   }
-  return netInvestedFromLedger(ledger)
-}
-
-function isMarketQuoteFresh(price?: AssetPrice): boolean {
-  if (!price) return false
-  if (price.quotation_status === 'live' || price.quotation_status === 'stale') {
-    return price.current_price > 0
-  }
-  return price.current_price > 0 && price.quotation_status !== 'unavailable'
+  return 0
 }
 
 function valueMarketPosition(
@@ -127,72 +132,6 @@ function valueMarketPosition(
     source: 'market',
     quotationStatus: price?.quotation_status ?? 'live',
   }
-}
-
-function valueTreasuryHybrid(
-  definition: PortfolioAssetDefinition,
-  ledger: PositionLedger,
-  price: AssetPrice | undefined,
-  fallbackPrice: number,
-  indexRates: IndexRateMap,
-  asOfDate: string,
-  applicationDate: string,
-  costBasis: number,
-  transactions: PortfolioTransaction[],
-  ticker: string,
-  vnaMap: Record<string, number> = {}
-): { currentValue: number; unitPrice: number; source: ValuationSource; quotationStatus?: AssetPrice['quotation_status'] } {
-  const market = valueMarketPosition(ledger, price, fallbackPrice)
-  
-  const buyTransactions = transactions.filter(
-    (t) =>
-      t.ticker.toUpperCase().trim() === ticker.toUpperCase().trim() &&
-      (t.operation_type === 'buy' || t.operation_type === 'subscription')
-  )
-
-  let theoretical = 0
-  if (buyTransactions.length > 0 && ledger.quantity > 0) {
-    const vnaToday =
-      definition.indexer === 'ipca' ? resolveVnaForDate(vnaMap, asOfDate) : undefined
-    theoretical = calculateLotBasedFixedIncomeValue({
-      transactions,
-      ticker,
-      definition,
-      asOfDate,
-      indexRates,
-      vnaToday,
-    })
-  } else {
-    theoretical = calculateFixedIncomeValue({
-      principal: costBasis,
-      contractRateAnnual: definition.contract_rate,
-      indexer: definition.indexer,
-      indexerPercent: definition.indexer_percent,
-      applicationDate,
-      asOfDate,
-      indexRates,
-    })
-  }
-
-  const preferMarket =
-    definition.valuation_mode === 'market' ||
-    (!definition.is_treasury && definition.valuation_mode !== 'curve')
-
-  if (preferMarket && definition.is_b3_linked && isMarketQuoteFresh(price) && market.currentValue > 0) {
-    return market
-  }
-
-  if (theoretical > 0) {
-    const unitPrice = ledger.quantity > 0 ? theoretical / ledger.quantity : theoretical
-    return {
-      currentValue: theoretical,
-      unitPrice,
-      source: 'hybrid',
-      quotationStatus: price?.quotation_status ?? 'manual',
-    }
-  }
-
-  return market
 }
 
 export interface PortfolioValuationInput {
@@ -290,7 +229,7 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
     let valuationSource: ValuationSource = 'unavailable'
     let quotationStatus = priceObj?.quotation_status
 
-    if (definition.pricing_mode === 'fixed_income') {
+    if (definition.pricing_mode === 'fixed_income' || definition.is_treasury) {
       const buyTransactions = transactions.filter(
         (t) =>
           t.ticker.toUpperCase().trim() === upperTicker &&
@@ -331,24 +270,6 @@ export function calculatePortfolioValuation(input: PortfolioValuationInput): Por
       unitPrice = currentValue
       valuationSource = 'cash'
       quotationStatus = 'manual'
-    } else if (definition.is_treasury) {
-      const treasuryVal = valueTreasuryHybrid(
-        definition,
-        ledger,
-        priceObj,
-        fallbackPrice(ticker),
-        indexRates,
-        asOfDate,
-        applicationDate,
-        costBasis,
-        transactions,
-        upperTicker,
-        vnaMap
-      )
-      currentValue = treasuryVal.currentValue
-      unitPrice = treasuryVal.unitPrice
-      valuationSource = treasuryVal.source
-      quotationStatus = treasuryVal.quotationStatus
     } else {
       const marketVal = valueMarketPosition(ledger, priceObj, fallbackPrice(ticker))
       currentValue = marketVal.currentValue

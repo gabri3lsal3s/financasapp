@@ -84,7 +84,8 @@ export function computeDailyClose(
     input.prices,
     input.definitions,
     input.indexRatesByIndexer,
-    input.historicalPrices ?? {}
+    input.historicalPrices ?? {},
+    vnaMap
   )
 
   return {

@@ -187,7 +187,7 @@ export function useExpenses(month?: string) {
     [...list].sort((a, b) => {
       const dateDiff = b.date.localeCompare(a.date)
       if (dateDiff !== 0) return dateDiff
-      return b.created_at.localeCompare(a.created_at)
+      return (b.created_at || '').localeCompare(a.created_at || '')
     })
 
   const loadExpenses = async () => {
