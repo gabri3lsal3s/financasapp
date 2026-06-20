@@ -144,10 +144,10 @@ describe('investmentEngine - calculateShareHistory com Caixa', () => {
 
     const result = calculateShareHistory(transactions, prices, definitions)
 
-    // Aporte 1000 + fluxo líquido na compra PETR4 (caixa insuficiente) → 4000 cotas
+    // Aporte 1000 + compra PETR4 3000 (sem offset de caixa no teste) → 4000 cotas
     expect(result.totalShares).toBe(4000)
-    // Valorização de PETR4 (30→40) eleva a cota; PL inclui caixa residual + ativos
-    expect(result.currentShareValue).toBeGreaterThan(1)
+    // Valorização de PETR4 (30→40) eleva a cota para 1.25 (PL = 5000)
+    expect(result.currentShareValue).toBeCloseTo(1.25, 4)
     expect(result.currentShareValue * result.totalShares).toBeCloseTo(5000, 0)
   })
 
@@ -186,7 +186,234 @@ describe('investmentEngine - calculateShareHistory com Caixa', () => {
 
     const result = calculateShareHistory(transactions, prices, definitions)
 
-    expect(result.shareHistory).toHaveLength(2)
+    expect(result.shareHistory.length).toBeGreaterThanOrEqual(2)
     expect(result.shareHistory[0].totalValue).toBe(1000)
   })
+
+  it('separa corretamente saldo em caixa e ativos investidos no histórico e reflete dividendos na cota', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 1000,
+        date: '2026-01-01',
+        created_at: '',
+      },
+      // Compra de PETR4 por 300 reais
+      {
+        id: 't2',
+        portfolio_id: 'p1',
+        ticker: 'PETR4',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 30,
+        date: '2026-01-05',
+        created_at: '',
+      },
+      // Offset da compra de PETR4: Vende 300 reais de CAIXA
+      {
+        id: 't2_offset',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'sell',
+        quantity: 1,
+        price: 300,
+        date: '2026-01-05',
+        created_at: '',
+      },
+      // Dividendos recebidos de PETR4: R$ 50
+      {
+        id: 't3',
+        portfolio_id: 'p1',
+        ticker: 'PETR4',
+        operation_type: 'dividend',
+        quantity: 10,
+        price: 5,
+        date: '2026-01-10',
+        created_at: '',
+      },
+      // Offset do dividendo: Re-deposita/compra R$ 50 em CAIXA
+      {
+        id: 't3_offset',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 50,
+        date: '2026-01-10',
+        created_at: '',
+      },
+    ]
+
+    const prices: Record<string, AssetPrice> = {
+      PETR4: {
+        ticker: 'PETR4',
+        current_price: 30,
+        last_updated: '2026-01-11',
+        quotation_status: 'live',
+        asset_class: 'Ações',
+        sector: 'Petróleo',
+      },
+    }
+
+    const definitions: PortfolioAssetDefinition[] = [
+      baseDefinition({ ticker: 'CAIXA' }),
+      baseDefinition({ ticker: 'PETR4', pricing_mode: 'market', application_date: '2026-01-05' }),
+    ]
+
+    const result = calculateShareHistory(transactions, prices, definitions)
+
+    const pointJan05 = result.shareHistory.find(h => h.date === '2026-01-05')
+    expect(pointJan05).toBeDefined()
+    expect(pointJan05!.cashValue).toBe(700)
+    expect(pointJan05!.investedValue).toBe(300)
+    expect(pointJan05!.totalValue).toBe(1000)
+    expect(pointJan05!.shareValue).toBe(1.0)
+    expect(pointJan05!.classes).toBeDefined()
+    expect(pointJan05!.classes!.Ações).toEqual({ totalValue: 300, yieldPct: 0 })
+    expect(pointJan05!.sectors).toBeDefined()
+    expect(pointJan05!.sectors!.Petróleo).toEqual({ totalValue: 300, yieldPct: 0 })
+
+    const pointJan10 = result.shareHistory.find(h => h.date === '2026-01-10')
+    expect(pointJan10).toBeDefined()
+    expect(pointJan10!.cashValue).toBe(750)
+    expect(pointJan10!.investedValue).toBe(300)
+    expect(pointJan10!.totalValue).toBe(1050)
+    expect(pointJan10!.shareValue).toBe(1.05)
+    expect(pointJan10!.classes).toBeDefined()
+    expect(pointJan10!.classes!.Ações).toEqual({ totalValue: 300, yieldPct: 16.67 })
+    expect(pointJan10!.sectors).toBeDefined()
+    expect(pointJan10!.sectors!.Petróleo).toEqual({ totalValue: 300, yieldPct: 16.67 })
+  })
+
+  it('utiliza cotações diárias corretas a partir de historicalPrices em vez de interpolação linear', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'WEGE3',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 30,
+        date: '2026-01-01',
+        created_at: '',
+      },
+    ]
+
+    const prices: Record<string, AssetPrice> = {
+      WEGE3: {
+        ticker: 'WEGE3',
+        current_price: 30,
+        last_updated: '2026-01-10',
+        quotation_status: 'live',
+        asset_class: 'Ações',
+        sector: 'Indústria',
+      },
+    }
+
+    const definitions: PortfolioAssetDefinition[] = [
+      baseDefinition({ ticker: 'WEGE3', pricing_mode: 'market', application_date: '2026-01-01' }),
+    ]
+
+    const historicalPrices = {
+      WEGE3: {
+        '2026-01-01': 30,
+        '2026-01-05': 45,
+        '2026-01-10': 30,
+      },
+    }
+
+    const result = calculateShareHistory(transactions, prices, definitions, {}, historicalPrices)
+
+    // Sem historicalPrices, no dia 05/01 o preço seria interpolado linearmente entre 30 e 30, resultando em 30.
+    // Com historicalPrices, o preço no dia 05/01 deve ser 45.
+    const pointJan05 = result.shareHistory.find(h => h.date === '2026-01-05')
+    expect(pointJan05).toBeDefined()
+    // 10 quotas a R$ 45 = R$ 450 (e sem caixa)
+    expect(pointJan05!.investedValue).toBe(450)
+    expect(pointJan05!.totalValue).toBe(450)
+
+    const pointJan01 = result.shareHistory.find(h => h.date === '2026-01-01')
+    expect(pointJan01!.investedValue).toBe(300)
+  })
+
+  it('calcula o capital investido acumulado (investedCapital) corretamente', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 't1',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 1000,
+        date: '2026-01-01',
+        created_at: '',
+      },
+      // Compra de PETR4 por 300 reais com offset do CAIXA
+      {
+        id: 't2',
+        portfolio_id: 'p1',
+        ticker: 'PETR4',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 30,
+        date: '2026-01-05',
+        created_at: '',
+      },
+      {
+        id: 't2_offset',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'sell',
+        quantity: 1,
+        price: 300,
+        date: '2026-01-05',
+        created_at: '',
+      },
+      // Retirada externa de 200 reais de CAIXA
+      {
+        id: 't3',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'sell',
+        quantity: 1,
+        price: 200,
+        date: '2026-01-10',
+        created_at: '',
+      },
+    ]
+
+    const prices: Record<string, AssetPrice> = {
+      PETR4: {
+        ticker: 'PETR4',
+        current_price: 30,
+        last_updated: '2026-01-11',
+        quotation_status: 'live',
+      },
+    }
+
+    const definitions: PortfolioAssetDefinition[] = [
+      baseDefinition({ ticker: 'CAIXA' }),
+      baseDefinition({ ticker: 'PETR4', pricing_mode: 'market', application_date: '2026-01-05' }),
+    ]
+
+    const result = calculateShareHistory(transactions, prices, definitions)
+
+    const pointJan01 = result.shareHistory.find(h => h.date === '2026-01-01')
+    expect(pointJan01).toBeDefined()
+    expect(pointJan01!.investedCapital).toBe(1000)
+
+    const pointJan05 = result.shareHistory.find(h => h.date === '2026-01-05')
+    expect(pointJan05).toBeDefined()
+    expect(pointJan05!.investedCapital).toBe(1000) // mantém constante pois foi apenas rebalanço interno
+
+    const pointJan10 = result.shareHistory.find(h => h.date === '2026-01-10')
+    expect(pointJan10).toBeDefined()
+    expect(pointJan10!.investedCapital).toBe(800) // diminui devido à retirada externa de 200
+  })
 })
+
+

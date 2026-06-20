@@ -192,7 +192,7 @@ export default function Reports() {
   const [customExpenses, setCustomExpenses] = useState<DetailExpenseEntry[]>([])
   const [customIncomes, setCustomIncomes] = useState<DetailIncomeEntry[]>([])
   const [customPortfolioTransactions, setCustomPortfolioTransactions] = useState<
-    Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
+    Pick<PortfolioTransaction, 'id' | 'cash_offset_source_id' | 'date' | 'operation_type' | 'quantity' | 'price'>[]
   >([])
   const [customLoading, setCustomLoading] = useState(false)
 
@@ -251,7 +251,10 @@ export default function Reports() {
       if (incomesError) throw incomesError
 
       // 3. Fetch portfolio transactions
-      let transactions: Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[] = []
+      let transactions: Pick<
+        PortfolioTransaction,
+        'id' | 'cash_offset_source_id' | 'date' | 'operation_type' | 'quantity' | 'price'
+      >[] = []
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: portfolio } = await supabase
@@ -263,13 +266,21 @@ export default function Reports() {
         if (portfolio) {
           const { data: txs } = await supabase
             .from('portfolio_transactions')
-            .select('date, operation_type, quantity, price')
+            .select('id, cash_offset_source_id, date, operation_type, quantity, price')
             .eq('portfolio_id', portfolio.id)
             .gte('date', customStartDate)
             .lte('date', customEndDate)
 
           if (txs) {
-            transactions = txs
+            const rawTxs = txs || []
+            const offsetSourceIds = new Set(
+              rawTxs
+                .map((t) => t.cash_offset_source_id)
+                .filter((id): id is string => !!id)
+            )
+            transactions = rawTxs.filter(
+              (t) => !t.cash_offset_source_id && !offsetSourceIds.has(t.id)
+            )
           }
         }
       }
@@ -514,10 +525,10 @@ export default function Reports() {
   const { isOnline } = useNetworkStatus()
 
   const [portfolioTransactions, setPortfolioTransactions] = useState<
-    Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
+    Pick<PortfolioTransaction, 'id' | 'cash_offset_source_id' | 'date' | 'operation_type' | 'quantity' | 'price'>[]
   >([])
   const [previousPortfolioTransactions, setPreviousPortfolioTransactions] = useState<
-    Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[]
+    Pick<PortfolioTransaction, 'id' | 'cash_offset_source_id' | 'date' | 'operation_type' | 'quantity' | 'price'>[]
   >([])
 
   useEffect(() => {
@@ -560,21 +571,41 @@ export default function Reports() {
       const [currentRes, previousRes] = await Promise.all([
         supabase
           .from('portfolio_transactions')
-          .select('date, operation_type, quantity, price')
+          .select('id, cash_offset_source_id, date, operation_type, quantity, price')
           .eq('portfolio_id', portfolio.id)
           .gte('date', `${selectedMonth}-01`)
           .lte('date', rangeEnd),
         supabase
           .from('portfolio_transactions')
-          .select('date, operation_type, quantity, price')
+          .select('id, cash_offset_source_id, date, operation_type, quantity, price')
           .eq('portfolio_id', portfolio.id)
           .gte('date', `${previousMonth}-01`)
           .lte('date', prevRangeEnd)
       ])
 
       if (!canceled) {
-        setPortfolioTransactions(currentRes.data || [])
-        setPreviousPortfolioTransactions(previousRes.data || [])
+        const rawCurrent = currentRes.data || []
+        const currentOffsetSourceIds = new Set(
+          rawCurrent
+            .map((t) => t.cash_offset_source_id)
+            .filter((id): id is string => !!id)
+        )
+        const filteredCurrent = rawCurrent.filter(
+          (t) => !t.cash_offset_source_id && !currentOffsetSourceIds.has(t.id)
+        )
+
+        const rawPrevious = previousRes.data || []
+        const previousOffsetSourceIds = new Set(
+          rawPrevious
+            .map((t) => t.cash_offset_source_id)
+            .filter((id): id is string => !!id)
+        )
+        const filteredPrevious = rawPrevious.filter(
+          (t) => !t.cash_offset_source_id && !previousOffsetSourceIds.has(t.id)
+        )
+
+        setPortfolioTransactions(filteredCurrent)
+        setPreviousPortfolioTransactions(filteredPrevious)
       }
     }
 
@@ -643,12 +674,12 @@ export default function Reports() {
           month: formatMonthShort(s.month),
           Rendas: s.total_income,
           Despesas: s.total_expenses,
-          Investimentos: Math.max(0, s.total_investments),
+          Investimentos: s.total_investments,
           Saldo: s.balance,
           ...(compareWithPrevious && prev ? {
             'Rendas (Ano Ant.)': prev.total_income,
             'Despesas (Ano Ant.)': prev.total_expenses,
-            'Investimentos (Ano Ant.)': Math.max(0, prev.total_investments),
+            'Investimentos (Ano Ant.)': prev.total_investments,
           } : {})
         }
       }),
@@ -1681,8 +1712,7 @@ export default function Reports() {
           Number(tx.quantity),
           Number(tx.price)
         )
-        const outflow = amount > 0 ? amount : 0
-        match.Investimentos += outflow
+        match.Investimentos += amount
       }
     })
 

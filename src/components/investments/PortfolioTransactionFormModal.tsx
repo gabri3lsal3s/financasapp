@@ -9,7 +9,16 @@ import Input from '@/components/Input'
 import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
 import Select from '@/components/Select'
-import { searchB3Assets, getAssetRichData, isB3TickerPattern } from '@/services/priceService'
+import { searchB3Assets, getAssetRichData } from '@/services/priceService'
+import {
+  isCashTicker,
+  isFixedIncomeTicker,
+  isB3VariableTicker,
+  toPricingMode,
+  isTreasury as checkIsTreasury,
+  detectCurrency,
+} from '@/utils/assetClassifier'
+import ConfirmModal from '@/components/ConfirmModal'
 import type {
   PortfolioOperationType,
   PortfolioTransaction,
@@ -115,11 +124,18 @@ export default function PortfolioTransactionFormModal({
   const [isTreasury, setIsTreasury] = useState(false)
   const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
   const [portfolioDefinitions, setPortfolioDefinitions] = useState<PortfolioAssetDefinition[]>([])
+  const [portfolioTargets, setPortfolioTargets] = useState<{ ticker: string; target_percentage: number }[]>([])
+  const [currency, setCurrency] = useState<'BRL' | 'USD'>('BRL')
+  const [indexerPercent, setIndexerPercent] = useState('100')
+  const [maturityDate, setMaturityDate] = useState('')
+  const [targetPct, setTargetPct] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false)
 
   const tUpper = ticker.trim().toUpperCase()
-  const isB3Var = isB3TickerPattern(tUpper) && !tUpper.includes('TESOURO')
-  const isFixedInc = tUpper.startsWith('CDB') || tUpper.startsWith('LCI') || tUpper.startsWith('LCA') || tUpper.startsWith('CRI') || tUpper.startsWith('CRA') || tUpper.includes('TESOURO') || tUpper.includes('DEBENTURE') || tUpper.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tUpper)
-  const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(tUpper)
+  const isB3Var = isB3VariableTicker(tUpper)
+  const isFixedInc = isFixedIncomeTicker(tUpper)
+  const isCash = isCashTicker(tUpper)
 
   const isPricingModeLocked = isB3Var || isFixedInc || isCash
 
@@ -128,19 +144,16 @@ export default function PortfolioTransactionFormModal({
     const t = ticker.trim().toUpperCase()
     if (!t) return
 
-    const isB3 = isB3TickerPattern(t) && !t.includes('TESOURO')
-    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
-    const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(t)
-
-    if (isB3) {
+    const mode = toPricingMode(t)
+    if (mode === 'market') {
       setPricingMode('market')
       setIsB3Linked(true)
       setIsTreasury(false)
-    } else if (isFixed) {
+    } else if (mode === 'fixed_income') {
       setPricingMode('fixed_income')
       setIsB3Linked(false)
-      setIsTreasury(t.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t))
-    } else if (isCash) {
+      setIsTreasury(checkIsTreasury(t))
+    } else if (mode === 'cash') {
       setPricingMode('cash')
       setIsB3Linked(false)
       setIsTreasury(false)
@@ -187,6 +200,14 @@ export default function PortfolioTransactionFormModal({
       const { transactions, definitions } = await fetchPortfolioCashContext(portfolioId)
       setPortfolioTransactions(transactions)
       setPortfolioDefinitions(definitions)
+
+      const { data: targets } = await supabase
+        .from('target_allocations')
+        .select('ticker, target_percentage')
+        .eq('portfolio_id', portfolioId)
+      if (targets) {
+        setPortfolioTargets(targets)
+      }
     }
 
     void loadCashContext()
@@ -198,26 +219,38 @@ export default function PortfolioTransactionFormModal({
     const tickerUpper = ticker.toUpperCase().trim()
     if (!tickerUpper) {
       resetPricingFields(pricingSetters)
+      setCurrency('BRL')
+      setIndexerPercent('100')
+      setMaturityDate('')
+      setTargetPct('')
       return
     }
 
-    if (tickerUpper === 'SALDO_INV' || tickerUpper === 'CAIXA' || tickerUpper === 'SALDO EM CAIXA' || tickerUpper === 'SALDO_EM_CAIXA') {
-      setPricingMode('cash')
-      setIsB3Linked(false)
-      setIsTreasury(false)
+    const existingDef = portfolioDefinitions.find(
+      (d) => d.ticker.toUpperCase() === tickerUpper
+    )
+    if (existingDef) {
+      applyDefinitionToForm(existingDef, pricingSetters)
+      setCurrency(existingDef.currency || detectCurrency(tickerUpper))
+      setIndexerPercent(String(existingDef.indexer_percent ?? 100))
+      setMaturityDate(existingDef.maturity_date ?? '')
     } else {
-      const existingDef = portfolioDefinitions.find(
-        (d) => d.ticker.toUpperCase() === tickerUpper
-      )
-      if (existingDef) {
-        applyDefinitionToForm(existingDef, pricingSetters)
-      } else {
-        // Fallback for new tickers
-        resetPricingFields(pricingSetters)
-        setIsB3Linked(isB3TickerPattern(tickerUpper))
-      }
+      resetPricingFields(pricingSetters)
+      setIsB3Linked(isB3VariableTicker(tickerUpper))
+      setCurrency(detectCurrency(tickerUpper))
+      setIndexerPercent('100')
+      setMaturityDate('')
     }
-  }, [isOpen, ticker, portfolioDefinitions, portfolioId, pricingSetters])
+
+    const existingTarget = portfolioTargets.find(
+      (t) => t.ticker.toUpperCase() === tickerUpper
+    )
+    if (existingTarget) {
+      setTargetPct(String(existingTarget.target_percentage))
+    } else {
+      setTargetPct('')
+    }
+  }, [isOpen, ticker, portfolioDefinitions, portfolioTargets, portfolioId, pricingSetters])
 
   useEffect(() => {
     if (!isOpen || ticker.length < 3 || pricingMode !== 'market') {
@@ -248,9 +281,10 @@ export default function PortfolioTransactionFormModal({
   }, [ticker, isOpen, editingTransaction, price, pricingMode])
 
   const handleTickerChange = async (val: string) => {
-    setTicker(val)
-    if (pricingMode === 'market' && val.length >= 2) {
-      const results = await searchB3Assets(val)
+    const valUpper = val.toUpperCase()
+    setTicker(valUpper)
+    if (pricingMode === 'market' && valUpper.length >= 2) {
+      const results = await searchB3Assets(valUpper)
       setSuggestions(results)
       setShowSuggestions(true)
     } else {
@@ -282,8 +316,8 @@ export default function PortfolioTransactionFormModal({
     unitPrice: number,
     qty: number
   ) => {
-    const isFixedOrTreasury = pricingMode === 'fixed_income' || isTreasury || tickerUpper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tickerUpper)
-    const isTr = isTreasury || tickerUpper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(tickerUpper)
+    const isFixedOrTreasury = pricingMode === 'fixed_income' || isTreasury || checkIsTreasury(tickerUpper)
+    const isTr = isTreasury || checkIsTreasury(tickerUpper)
     return {
       portfolio_id: portfolioId,
       ticker: tickerUpper,
@@ -293,13 +327,15 @@ export default function PortfolioTransactionFormModal({
         pricingMode === 'fixed_income' || pricingMode === 'manual_value' ? unitPrice * qty : null,
       contract_rate: isFixedOrTreasury && contractRate ? Number(contractRate) : null,
       indexer: isFixedOrTreasury ? indexer : 'none',
-      indexer_percent: 100,
+      indexer_percent: isFixedOrTreasury ? (Number(indexerPercent) || 100) : 100,
+      maturity_date: isFixedOrTreasury ? (maturityDate || null) : null,
       application_date: date,
       manual_current_value:
         pricingMode === 'manual_value' && manualCurrentValue ? Number(manualCurrentValue) : null,
       manual_value_updated_at: manualCurrentValue ? new Date().toISOString() : null,
       tax_exempt: taxExempt,
       is_treasury: isTr,
+      currency: currency,
       updated_at: new Date().toISOString(),
     }
   }
@@ -357,6 +393,7 @@ export default function PortfolioTransactionFormModal({
   const netContribution = useMemo(() => {
     return Math.max(0, purchaseAmount - totalCashUsed)
   }, [purchaseAmount, totalCashUsed])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!portfolioId) {
@@ -428,6 +465,25 @@ export default function PortfolioTransactionFormModal({
 
       if (defError) throw defError
 
+      // Salvar a meta de alocação (target_allocations)
+      const pct = parseFloat(targetPct)
+      if (!isNaN(pct) && pct > 0) {
+        const { error: targetError } = await supabase
+          .from('target_allocations')
+          .upsert({
+            portfolio_id: portfolioId,
+            ticker: tickerUpper,
+            target_percentage: pct
+          }, { onConflict: 'portfolio_id,ticker' })
+        if (targetError) throw targetError
+      } else {
+        await supabase
+          .from('target_allocations')
+          .delete()
+          .eq('portfolio_id', portfolioId)
+          .eq('ticker', tickerUpper)
+      }
+
       const currentTxAmount = qty * unitPrice
 
       // Reconciliar os offsets de caixa vinculados no livro-razão de forma automática
@@ -471,14 +527,16 @@ export default function PortfolioTransactionFormModal({
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!editingTransaction) return
-    if (!confirm('Tem certeza que deseja excluir esta transação?')) return
+    setIsConfirmDeleteOpen(true)
+  }
 
+  const confirmDelete = async () => {
+    if (!editingTransaction) return
+    setIsConfirmDeleteOpen(false)
     setSaving(true)
     try {
-
-
       // Excluir todas as transações de offset de caixa vinculadas no livro-razão
       await deleteCashOffsetTransactions(portfolioId, editingTransaction.id)
 
@@ -520,7 +578,8 @@ export default function PortfolioTransactionFormModal({
   const modalTitle = editingTransaction ? 'Editar transação' : 'Lançar transação'
 
   return (
-    <ModalForm
+    <>
+      <ModalForm
       isOpen={isOpen}
       onClose={onClose}
       title={modalTitle}
@@ -561,7 +620,7 @@ export default function PortfolioTransactionFormModal({
                   onMouseDown={(e) => {
                     e.preventDefault(); // Impede o blur do input
                     setTicker(s.ticker)
-                    setIsB3Linked(isB3TickerPattern(s.ticker))
+                    setIsB3Linked(isB3VariableTicker(s.ticker))
                     setShowSuggestions(false)
                   }}
                   className="w-full text-left px-4 py-2.5 text-xs hover:bg-balance/10 text-primary flex items-center justify-between transition-colors"
@@ -798,8 +857,121 @@ export default function PortfolioTransactionFormModal({
               }
             />
           )
+        )}{/* Aviso de saldo em caixa insuficiente para compras */}
+        {pricingMode !== 'cash' &&
+          (operationType === 'buy' || operationType === 'subscription') &&
+          !editingTransaction &&
+          purchaseAmount > 0 &&
+          totalAvailableCash < purchaseAmount && (
+            <div className="flex items-start gap-3 p-3.5 bg-expense/10 border border-expense/30 rounded-xl animate-fade-in">
+              <span className="text-expense text-lg leading-none mt-0.5">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-expense font-bold text-xs leading-snug">
+                  Saldo em caixa insuficiente para este aporte
+                </p>
+                <p className="text-expense/80 text-[11px] font-medium mt-0.5 leading-snug">
+                  Caixa disponível:{' '}
+                  <span className="font-mono font-bold">{formatCurrency(totalAvailableCash)}</span>
+                  {' · '}
+                  Necessário:{' '}
+                  <span className="font-mono font-bold">{formatCurrency(purchaseAmount)}</span>
+                  {' · '}
+                  Falta:{' '}
+                  <span className="font-mono font-bold">{formatCurrency(purchaseAmount - totalAvailableCash)}</span>
+                </p>
+              </div>
+            </div>
+          )}
+
+        {/* Accordion de Configurações Avançadas */}
+        {pricingMode !== 'cash' && (
+          <div className="border border-glass rounded-xl overflow-hidden mt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-glass hover:bg-glass-strong transition-all text-xs font-semibold text-primary"
+            >
+              <div className="flex items-center gap-2">
+                <span>⚙️</span>
+                <span>Configurações Avançadas do Ativo ({ticker || 'Novo'})</span>
+              </div>
+              <span className={`transform transition-transform duration-200 ${showAdvanced ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+            </button>
+            
+            {showAdvanced && (
+              <div className="p-4 space-y-4 bg-glass-clear border-t border-glass animate-page-enter">
+                <Select
+                  label="Moeda de Precificação"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value as 'BRL' | 'USD')}
+                  options={[
+                    { value: 'BRL', label: 'BRL - Real Brasileiro (R$)' },
+                    { value: 'USD', label: 'USD - Dólar Americano ($)' },
+                  ]}
+                  className="rounded-xl font-semibold text-sm"
+                />
+
+                <Input
+                  label="Meta de Alocação Ideal no Portfólio (%)"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  placeholder="Ex: 15"
+                  value={targetPct}
+                  onChange={(e) => setTargetPct(e.target.value)}
+                  className="text-sm font-semibold font-mono rounded-xl text-sm"
+                />
+
+                {pricingMode === 'fixed_income' && (
+                  <>
+                    <Input
+                      label="% do indexador (ex: 100% CDI)"
+                      type="number"
+                      step="0.01"
+                      value={indexerPercent}
+                      onChange={(e) => setIndexerPercent(e.target.value)}
+                      className="font-semibold rounded-xl text-sm"
+                    />
+                    <Input
+                      label="Data de Vencimento"
+                      type="date"
+                      value={maturityDate}
+                      onChange={(e) => setMaturityDate(e.target.value)}
+                      className="font-semibold rounded-xl text-sm"
+                    />
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
     </ModalForm>
+
+      {editingTransaction && (
+        <ConfirmModal
+          isOpen={isConfirmDeleteOpen}
+          onClose={() => setIsConfirmDeleteOpen(false)}
+          title="Excluir Transação"
+          confirmLabel="Sim, excluir"
+          confirmVariant="danger"
+          loading={saving}
+          onConfirm={confirmDelete}
+        >
+          <div className="space-y-2">
+            <p className="text-sm text-secondary font-medium">
+              Tem certeza de que deseja excluir permanentemente esta transação de{' '}
+              <strong className="text-primary font-bold">{editingTransaction.ticker}</strong>?
+            </p>
+            <p className="text-xs text-secondary/80">
+              Esta ação removerá a transação da carteira e atualizará os saldos em caixa vinculados de forma automática.
+            </p>
+          </div>
+        </ConfirmModal>
+      )}
+    </>
   )
 }

@@ -46,7 +46,7 @@ describe('portfolioInvestmentByDay', () => {
     expect(byDay[0]).toBe(0)
   })
 
-  it('ignora vendas e proventos (sem valores negativos no gráfico)', () => {
+  it('considera vendas e proventos como valores negativos', () => {
     const byDay = portfolioInvestmentByDay(
       [
         { date: '2026-05-03', operation_type: 'buy', quantity: 2, price: 50 },
@@ -56,7 +56,7 @@ describe('portfolioInvestmentByDay', () => {
       '2026-05',
       31
     )
-    expect(byDay[2]).toBe(100)
-    expect(byDay[9]).toBe(0)
+    expect(byDay[2]).toBe(60) // 100 - 40
+    expect(byDay[9]).toBe(-30) // provento
   })
 })

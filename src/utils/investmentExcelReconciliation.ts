@@ -291,6 +291,19 @@ export const parseB3Product = (rawProduct: string) => {
     const yearSuffix = yearMatch ? yearMatch[1].slice(-2) : ''
     finalTicker = `${type} ${yearSuffix}`.trim()
   }
+
+  // -----------------------------------------------------------------------
+  // Sufixo de vencimento para Renda Fixa (CDB, LCI, LCA, CRI, CRA)
+  // Garante que dois CDBs do mesmo banco com vencimentos distintos gerem
+  // tickers únicos na carteira. Ex: "CDB - BANCO XP - 2026-12" vs "CDB - BANCO XP - 2028-06"
+  // Sem sufixo → mesclados no mesmo lote, gerando erro de contabilidade.
+  // -----------------------------------------------------------------------
+  if (isCdbOrSimilar && maturityDate) {
+    // Usa apenas YYYY-MM para o sufixo (mês de vencimento), evitando tickers longos demais.
+    const suffix = maturityDate.slice(0, 7) // "YYYY-MM"
+    finalTicker = `${finalTicker} - ${suffix}`
+  }
+
   if (finalTicker.length > 50) {
     finalTicker = finalTicker.slice(0, 50).trim()
   }

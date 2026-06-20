@@ -115,10 +115,12 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
 
       const { data: authData } = await supabase.auth.getUser()
       let portfolioTransactions: {
+        id: string
         date: string
         operation_type: PortfolioOperationType
         quantity: number
         price: number
+        cash_offset_source_id?: string | null
       }[] = []
 
       if (authData.user) {
@@ -131,12 +133,21 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
         if (portfolio) {
           const { data: txs } = await supabase
             .from('portfolio_transactions')
-            .select('date, operation_type, quantity, price')
+            .select('id, cash_offset_source_id, date, operation_type, quantity, price')
             .eq('portfolio_id', portfolio.id)
             .gte('date', format(startDate, 'yyyy-MM-dd'))
             .lte('date', format(endDate, 'yyyy-MM-dd'))
 
-          portfolioTransactions = txs || []
+          const rawTxs = txs || []
+          const offsetSourceIds = new Set(
+            rawTxs
+              .map((t) => t.cash_offset_source_id)
+              .filter((id): id is string => !!id)
+          )
+
+          portfolioTransactions = rawTxs.filter(
+            (t) => !t.cash_offset_source_id && !offsetSourceIds.has(t.id)
+          )
         }
       }
 

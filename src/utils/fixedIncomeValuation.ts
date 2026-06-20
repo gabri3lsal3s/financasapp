@@ -26,6 +26,89 @@ function dailyRateFromAnnualPercent(annualPercent: number, businessDaysInYear = 
   return Math.pow(1 + annualDecimal, 1 / businessDaysInYear) - 1
 }
 
+// ---------------------------------------------------------------------------
+// Otimização O(1): mapa de fator acumulado pré-computado
+// ---------------------------------------------------------------------------
+
+/**
+ * Pré-computa, para cada data em `dates`, o fator de capitalização acumulado
+ * do indexador levando em conta `indexerPercent` (ex: 110 para 110% CDI).
+ *
+ * Uso: valor_lote = principal × (cumMap[asOfDate] / cumMap[dayBeforePurchase])
+ *
+ * @param dates          Lista de datas ordenadas (dias úteis)
+ * @param indexRates     Mapa date → taxa diária (% ao dia)
+ * @param indexerPercent Percentual do indexador (ex: 100 = 100% CDI)
+ */
+export function buildCumulativeIndexerMap(
+  dates: string[],
+  indexRates: IndexRateMap,
+  indexerPercent = 100
+): Record<string, number> {
+  if (dates.length === 0) return {}
+
+  const pct = indexerPercent / 100
+  const cumMap: Record<string, number> = {}
+  let cumFactor = 1.0
+  let lastKnownRate = Object.values(indexRates).find(v => v !== undefined && v !== null) ?? 0
+
+  for (const date of dates) {
+    const raw = indexRates[date]
+    if (raw !== undefined && raw !== null) lastKnownRate = raw
+    const dailyDecimal = lastKnownRate / 100
+    cumFactor *= 1 + dailyDecimal * pct
+    cumMap[date] = cumFactor
+  }
+
+  return cumMap
+}
+
+/**
+ * Retorna o fator de crescimento de um lote entre purchaseDate e asOfDate
+ * usando um mapa de fatores pré-computados (O(1) por lote).
+ *
+ * Lógica: o lote começa a crescer em purchaseDate. O divisor é o fator
+ * acumulado imediatamente ANTES de purchaseDate (fator "zero" do lote).
+ * Se purchaseDate for o início do mapa, o divisor é 1.0.
+ */
+export function getLotGrowthFactor(
+  cumMap: Record<string, number>,
+  purchaseDate: string,
+  asOfDate: string
+): number {
+  const sortedDates = Object.keys(cumMap).sort()
+  if (sortedDates.length === 0) return 1.0
+
+  const resolveUpTo = (targetDate: string): number => {
+    let last = 1.0
+    for (const d of sortedDates) {
+      if (d > targetDate) break
+      last = cumMap[d]
+    }
+    return last
+  }
+
+  // Fator do dia imediatamente antes da compra
+  const resolveStrictlyBefore = (targetDate: string): number => {
+    let last = 1.0
+    for (const d of sortedDates) {
+      if (d >= targetDate) break
+      last = cumMap[d]
+    }
+    return last
+  }
+
+  const factorBefore = resolveStrictlyBefore(purchaseDate)
+  const factorAtAsOf = resolveUpTo(asOfDate)
+
+  if (factorBefore <= 0) return 1.0
+  return factorAtAsOf / factorBefore
+}
+
+// ---------------------------------------------------------------------------
+// Funções privadas de capitalização
+// ---------------------------------------------------------------------------
+
 function accumulatePostFixed(
   principal: number,
   businessDays: string[],
@@ -87,6 +170,10 @@ function accumulateIpcaPlusTreasury(
   return principal * vnaFactor * rateFactor
 }
 
+// ---------------------------------------------------------------------------
+// API pública
+// ---------------------------------------------------------------------------
+
 /**
  * Valor teórico de renda fixa (pré ou pós-fixada por dias úteis).
  */
@@ -138,8 +225,11 @@ export function calculateFixedIncomeValue(input: FixedIncomeValuationInput): num
 }
 
 /**
- * Calcula o valor teórico total de renda fixa (pré ou pós-fixada) lote por lote (FIFO),
+ * Calcula o valor teórico total de renda fixa lote por lote (FIFO),
  * considerando as diferentes taxas e datas acordadas em cada aporte individual.
+ *
+ * Para indexadores CDI/Selic, aceita `cumulativeIndexerMap` pré-computado para
+ * valoração O(1) por lote (em vez do loop O(D) original).
  */
 export function calculateLotBasedFixedIncomeValue({
   transactions,
@@ -148,6 +238,7 @@ export function calculateLotBasedFixedIncomeValue({
   asOfDate,
   indexRates,
   vnaToday,
+  cumulativeIndexerMap,
 }: {
   transactions: PortfolioTransaction[]
   ticker: string
@@ -155,6 +246,8 @@ export function calculateLotBasedFixedIncomeValue({
   asOfDate: string
   indexRates: IndexRateMap
   vnaToday?: number | null
+  /** Mapa pré-computado O(1) para indexadores CDI/Selic — gerado por buildCumulativeIndexerMap. */
+  cumulativeIndexerMap?: Record<string, number>
 }): number {
   const upperTicker = ticker.toUpperCase().trim()
 
@@ -199,23 +292,38 @@ export function calculateLotBasedFixedIncomeValue({
     }
   }
 
+  // Usa o mapa de fatores acumulados O(1) para indexadores pós-fixados (CDI/Selic)
+  const canUseO1 =
+    cumulativeIndexerMap !== undefined &&
+    Object.keys(cumulativeIndexerMap).length > 0 &&
+    definition.indexer !== 'none' &&
+    definition.indexer !== 'ipca'
+
   let totalTheoreticalValue = 0
   for (const lot of buyLots) {
     if (lot.quantity <= 0) continue
     const lotPrincipal = lot.quantity * lot.price
-    const lotRate = lot.contract_rate !== null ? lot.contract_rate : definition.contract_rate
-    const lotValue = calculateFixedIncomeValue({
-      principal: lotPrincipal,
-      contractRateAnnual: lotRate,
-      indexer: definition.indexer,
-      indexerPercent: definition.indexer_percent,
-      applicationDate: lot.date,
-      asOfDate,
-      indexRates,
-      vnaAtPurchase: lot.vna_at_purchase ?? undefined,
-      vnaToday: vnaToday ?? undefined,
-    })
-    totalTheoreticalValue += lotValue
+
+    if (canUseO1) {
+      // Caminho O(1): multiplica o principal pelo fator de crescimento entre compra e hoje
+      const growthFactor = getLotGrowthFactor(cumulativeIndexerMap!, lot.date, asOfDate)
+      totalTheoreticalValue += Math.round(lotPrincipal * growthFactor * 100) / 100
+    } else {
+      // Caminho fallback O(D): comportamento original preservado
+      const lotRate = lot.contract_rate !== null ? lot.contract_rate : definition.contract_rate
+      const lotValue = calculateFixedIncomeValue({
+        principal: lotPrincipal,
+        contractRateAnnual: lotRate,
+        indexer: definition.indexer,
+        indexerPercent: definition.indexer_percent,
+        applicationDate: lot.date,
+        asOfDate,
+        indexRates,
+        vnaAtPurchase: lot.vna_at_purchase ?? undefined,
+        vnaToday: vnaToday ?? undefined,
+      })
+      totalTheoreticalValue += lotValue
+    }
   }
 
   return totalTheoreticalValue

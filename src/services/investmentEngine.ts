@@ -188,6 +188,9 @@ export function calculateShareHistory(
     totalValue?: number
     cashValue?: number
     investedValue?: number
+    investedCapital?: number
+    classes?: Record<string, { totalValue: number; yieldPct: number }>
+    sectors?: Record<string, { totalValue: number; yieldPct: number }>
   }[]
 } {
   const sortedTxs = sortTransactionsStably(transactions)
@@ -208,32 +211,10 @@ export function calculateShareHistory(
   const txsByTicker: Record<string, PortfolioTransaction[]> = {}
   for (const tx of sortedTxs) {
     const t = tx.ticker.toUpperCase()
-    if (!txsByTicker[t]) txsByTicker[t] = []
-    txsByTicker[t].push(tx)
-  }
-
-  const sortedHistDatesMap = new Map<string, string[]>()
-  for (const [ticker, pricesObj] of Object.entries(historicalPrices)) {
-    if (pricesObj) {
-      sortedHistDatesMap.set(ticker.toUpperCase(), Object.keys(pricesObj).sort())
+    if (tx.operation_type === 'buy' || tx.operation_type === 'sell' || tx.operation_type === 'subscription') {
+      if (!txsByTicker[t]) txsByTicker[t] = []
+      txsByTicker[t].push(tx)
     }
-  }
-
-  const indexerFallbackRate = new Map<string, number>()
-  for (const [indexer, rates] of Object.entries(indexRatesByIndexer)) {
-    const firstRate = Object.values(rates).find(v => v !== undefined && v !== null)
-    indexerFallbackRate.set(indexer.toLowerCase(), firstRate ?? 0)
-  }
-
-  const sortedVnaDates = Object.keys(vnaMap).sort()
-  const resolveVnaForDateFast = (date: string): number => {
-    if (vnaMap[date] != null) return vnaMap[date]
-    let last = FALLBACK_VNA
-    for (const d of sortedVnaDates) {
-      if (d > date) break
-      last = vnaMap[d]
-    }
-    return last
   }
 
   const getPricingMode = (ticker: string): string => {
@@ -252,41 +233,24 @@ export function calculateShareHistory(
     return detectDefaultCurrency(ticker)
   }
 
-  const usdPriceObj = prices['USDBRL=X']
-  const usdCoeff = usdPriceObj?.current_price && usdPriceObj.current_price > 0
-    ? usdPriceObj.current_price
-    : 5.25
-
-  const getHistoricalUsdRate = (dateStr: string): number => {
-    const tickerUpper = 'USDBRL=X'
-    const tickerHist = historicalPrices[tickerUpper]
-    if (tickerHist && tickerHist[dateStr] !== undefined && tickerHist[dateStr] > 0) {
-      return tickerHist[dateStr]
-    }
-    
-    const sortedDatesList = sortedHistDatesMap.get(tickerUpper)
-    if (sortedDatesList && sortedDatesList.length > 0) {
-      let lastPrice = -1
-      for (const d of sortedDatesList) {
-        if (d > dateStr) break
-        lastPrice = tickerHist[d]
-      }
-      if (lastPrice > 0) {
-        return lastPrice
-      }
-    }
-    
-    return usdCoeff
+  // 1. Definir o conjunto de todas as datas avaliadas no histórico (dias úteis + transações + hoje)
+  const dateSet = new Set<string>()
+  const bizDays = helper.eachBusinessDayBetween(firstTxDate, todayStr)
+  for (const d of bizDays) {
+    dateSet.add(d)
   }
+  for (const tx of sortedTxs) {
+    dateSet.add(tx.date)
+  }
+  dateSet.add(todayStr)
+  const sortedDates = Array.from(dateSet).sort()
 
+  // 2. Pré-organizar e preencher cotações diárias interpolando/carregando preço de todos os ativos nas datas avaliadas
   const getInterpolatedPrice = (ticker: string, dateStr: string): number => {
     const tickerUpper = ticker.toUpperCase()
     const currentPrice = prices[tickerUpper]?.current_price || FALLBACK_PRICE(tickerUpper)
-    
     const tickerTxs = txsByTicker[tickerUpper] || []
-    if (tickerTxs.length === 0) {
-      return currentPrice
-    }
+    if (tickerTxs.length === 0) return currentPrice
     
     let lastTx: PortfolioTransaction | null = null
     let nextTx: PortfolioTransaction | null = null
@@ -298,10 +262,7 @@ export function calculateShareHistory(
         break
       }
     }
-    
-    if (!lastTx) {
-      return Number(tickerTxs[0].price)
-    }
+    if (!lastTx) return Number(tickerTxs[0].price)
     
     const d1 = lastTx.date
     const p1 = Number(lastTx.price)
@@ -322,32 +283,89 @@ export function calculateShareHistory(
     return p1 + (p2 - p1) * fraction
   }
 
+  const dailyPrices: Record<string, Record<string, number>> = {}
+  for (const ticker of Object.keys(txsByTicker)) {
+    const tickerUpper = ticker.toUpperCase()
+    dailyPrices[tickerUpper] = {}
+    const tickerHist = historicalPrices[tickerUpper] || {}
+    const histDates = Object.keys(tickerHist).sort()
+    
+    for (const date of sortedDates) {
+      if (tickerHist[date] !== undefined && tickerHist[date] > 0) {
+        dailyPrices[tickerUpper][date] = tickerHist[date]
+      } else {
+        let lastHistPrice = -1
+        for (const hd of histDates) {
+          if (hd > date) break
+          lastHistPrice = tickerHist[hd]
+        }
+        if (lastHistPrice > 0) {
+          dailyPrices[tickerUpper][date] = lastHistPrice
+        } else {
+          dailyPrices[tickerUpper][date] = getInterpolatedPrice(tickerUpper, date)
+        }
+      }
+    }
+  }
+
   const getHistoricalOrInterpolatedPrice = (ticker: string, dateStr: string): number => {
     const tickerUpper = ticker.toUpperCase()
-    const tickerHist = historicalPrices[tickerUpper]
-    if (tickerHist && tickerHist[dateStr] !== undefined) {
-      return tickerHist[dateStr]
+    return dailyPrices[tickerUpper]?.[dateStr] ?? prices[tickerUpper]?.current_price ?? FALLBACK_PRICE(tickerUpper)
+  }
+
+  // 3. Pré-organizar e preencher cotações USD diárias
+  const dailyUsdRates: Record<string, number> = {}
+  const usdTickerUpper = 'USDBRL=X'
+  const usdPriceObj = prices[usdTickerUpper]
+  const usdCoeff = usdPriceObj?.current_price && usdPriceObj.current_price > 0
+    ? usdPriceObj.current_price
+    : 5.25
+  const usdHist = historicalPrices[usdTickerUpper] || {}
+  let lastUsd = usdCoeff
+  for (const date of sortedDates) {
+    if (usdHist[date] !== undefined && usdHist[date] > 0) {
+      lastUsd = usdHist[date]
     }
-    
-    const sortedDatesList = sortedHistDatesMap.get(tickerUpper)
-    if (sortedDatesList && sortedDatesList.length > 0) {
-      let lastPrice = -1
-      for (const d of sortedDatesList) {
-        if (d > dateStr) break
-        lastPrice = tickerHist[d]
-      }
-      if (lastPrice > 0) {
-        return lastPrice
-      }
+    dailyUsdRates[date] = lastUsd
+  }
+
+  const getHistoricalUsdRate = (dateStr: string): number => {
+    return dailyUsdRates[dateStr] ?? usdCoeff
+  }
+
+  // 4. Pré-organizar VNAs
+  const dailyVna: Record<string, number> = {}
+  const sortedVnaDates = Object.keys(vnaMap).sort()
+  const resolveVnaForDateFastTemp = (dateStr: string): number => {
+    if (vnaMap[dateStr] != null) return vnaMap[dateStr]
+    let last = FALLBACK_VNA
+    for (const d of sortedVnaDates) {
+      if (d > dateStr) break
+      last = vnaMap[d]
     }
-    
-    return getInterpolatedPrice(ticker, dateStr)
+    return last
+  }
+  for (const date of sortedDates) {
+    dailyVna[date] = resolveVnaForDateFastTemp(date)
+  }
+
+  const resolveVnaForDateFast = (date: string): number => {
+    return dailyVna[date] ?? FALLBACK_VNA
+  }
+
+  const indexerFallbackRate = new Map<string, number>()
+  for (const [indexer, rates] of Object.entries(indexRatesByIndexer)) {
+    const firstRate = Object.values(rates).find(v => v !== undefined && v !== null)
+    indexerFallbackRate.set(indexer.toLowerCase(), firstRate ?? 0)
   }
 
   const INITIAL_SHARE_VALUE = 1.0
   let totalShares = 0
   let shareValue = INITIAL_SHARE_VALUE
+  let runningInvestedCapital = 0
   const currentPortfolio: Record<string, number> = {}
+  const runningLedger: Record<string, { quantity: number; totalCost: number; accumulatedDividends: number }> = {}
+  const runningRealizedGains: Record<string, number> = {}
   let currentCash = 0
   
   const activeLotsMap = new Map<string, {
@@ -364,6 +382,9 @@ export function calculateShareHistory(
     totalValue?: number;
     cashValue?: number;
     investedValue?: number;
+    investedCapital?: number;
+    classes?: Record<string, { totalValue: number; yieldPct: number }>
+    sectors?: Record<string, { totalValue: number; yieldPct: number }>
   }[] = []
 
   const valueFixedIncomeTicker = (ticker: string, date: string): number => {
@@ -412,13 +433,12 @@ export function calculateShareHistory(
     txsByDate[tx.date].push(tx)
   }
 
-  const sortedDates = Object.keys(txsByDate).sort()
-
   for (const date of sortedDates) {
-    const dayTxs = txsByDate[date]
+    const dayTxs = txsByDate[date] || []
     const dailyUsdRate = getHistoricalUsdRate(date)
 
-    let assetsValueBefore = 0
+    let cashPositionsValueBefore = 0
+    let investedPositionsValueBefore = 0
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
       if (qty <= 0) continue
       const def = definitionMap.get(ticker)
@@ -436,9 +456,15 @@ export function calculateShareHistory(
       }
       
       const isUsd = getAssetCurrency(ticker) === 'USD'
-      assetsValueBefore += isUsd ? val * dailyUsdRate : val
+      const valBrl = isUsd ? val * dailyUsdRate : val
+      if (pricingMode === 'cash') {
+        cashPositionsValueBefore += valBrl
+      } else {
+        investedPositionsValueBefore += valBrl
+      }
     }
-    const totalValueBefore = assetsValueBefore + currentCash
+    const totalCashBefore = currentCash + cashPositionsValueBefore
+    const totalValueBefore = investedPositionsValueBefore + totalCashBefore
 
     if (totalShares > 0 && totalValueBefore > 0) {
       shareValue = totalValueBefore / totalShares
@@ -455,10 +481,18 @@ export function calculateShareHistory(
       const amountBrl = isUsd ? amount * dailyUsdRate : amount
       const pricingMode = getPricingMode(ticker)
 
+      if (!runningLedger[ticker]) {
+        runningLedger[ticker] = { quantity: 0, totalCost: 0, accumulatedDividends: 0 }
+      }
+      const ledgerPos = runningLedger[ticker]
+
       if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
         currentCash -= amountBrl
         currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + (pricingMode === 'cash' ? amountBrl : qty)
         
+        ledgerPos.quantity += (pricingMode === 'cash' ? amountBrl : qty)
+        ledgerPos.totalCost += (pricingMode === 'cash' ? amountBrl : amount)
+
         if (pricingMode === 'fixed_income' || definitionMap.get(ticker)?.is_treasury || isTreasuryTicker(ticker)) {
           if (!activeLotsMap.has(ticker)) {
             activeLotsMap.set(ticker, [])
@@ -472,9 +506,28 @@ export function calculateShareHistory(
           })
         }
       } else if (tx.operation_type === 'sell') {
-        currentCash += amountBrl
+        if (pricingMode === 'cash') {
+          netCapitalFlow -= amountBrl
+        } else {
+          currentCash += amountBrl
+        }
+
         if (currentPortfolio[ticker]) {
           currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - (pricingMode === 'cash' ? amountBrl : qty))
+        }
+
+        if (ledgerPos.quantity > 0) {
+          const soldQty = pricingMode === 'cash' ? amountBrl : qty
+          const avg = ledgerPos.totalCost / ledgerPos.quantity
+          const soldCost = pricingMode === 'cash' ? amountBrl : (soldQty * avg)
+          const realizedGain = pricingMode === 'cash' ? 0 : ((soldQty * price) - soldCost)
+          
+          ledgerPos.quantity = Math.max(0, ledgerPos.quantity - soldQty)
+          ledgerPos.totalCost = ledgerPos.quantity * avg
+          
+          if (pricingMode !== 'cash') {
+            runningRealizedGains[ticker] = (runningRealizedGains[ticker] || 0) + realizedGain
+          }
         }
         
         if (pricingMode === 'fixed_income' || definitionMap.get(ticker)?.is_treasury || isTreasuryTicker(ticker)) {
@@ -493,12 +546,15 @@ export function calculateShareHistory(
         }
       } else if (isPortfolioIncomeType(tx.operation_type)) {
         currentCash += amountBrl
+        ledgerPos.accumulatedDividends += amount
       } else if (tx.operation_type === 'split') {
         currentPortfolio[ticker] = (currentPortfolio[ticker] || 0) + qty
+        ledgerPos.quantity += qty
       } else if (tx.operation_type === 'reverse_split') {
         if (currentPortfolio[ticker]) {
           currentPortfolio[ticker] = Math.max(0, currentPortfolio[ticker] - qty)
         }
+        ledgerPos.quantity = Math.max(0, ledgerPos.quantity - qty)
       }
     }
 
@@ -507,34 +563,145 @@ export function calculateShareHistory(
       currentCash = 0
     }
 
+    runningInvestedCapital += netCapitalFlow
+
     if (netCapitalFlow !== 0) {
       if (totalShares === 0) {
         shareValue = INITIAL_SHARE_VALUE
-        totalShares = netCapitalFlow
+        totalShares = Math.max(0, netCapitalFlow)
       } else {
         const newShares = netCapitalFlow / shareValue
-        totalShares += newShares
+        totalShares = Math.max(0, totalShares + newShares)
       }
     }
 
-    const totalValueAfter = totalValueBefore + netCapitalFlow
+    let cashPositionsValueAfter = 0
+    let investedPositionsValueAfter = 0
+    for (const [ticker, qty] of Object.entries(currentPortfolio)) {
+      if (qty <= 0) continue
+      const def = definitionMap.get(ticker)
+      const pricingMode = getPricingMode(ticker)
+      let val = 0
+
+      if (pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)) {
+        val = valueFixedIncomeTicker(ticker, date)
+      } else if (pricingMode === 'manual_value') {
+        val = qty * (def?.manual_current_value ?? getHistoricalOrInterpolatedPrice(ticker, date))
+      } else if (pricingMode === 'cash') {
+        val = qty * 1.00
+      } else {
+        val = qty * getHistoricalOrInterpolatedPrice(ticker, date)
+      }
+      
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      const valBrl = isUsd ? val * dailyUsdRate : val
+      if (pricingMode === 'cash') {
+        cashPositionsValueAfter += valBrl
+      } else {
+        investedPositionsValueAfter += valBrl
+      }
+    }
+    const totalCashAfter = currentCash + cashPositionsValueAfter
+    const totalValueAfter = investedPositionsValueAfter + totalCashAfter
+
     if (totalShares > 0) {
       shareValue = totalValueAfter / totalShares
     }
-    const assetsValueAfter = totalValueAfter - currentCash
+
+    const classValues: Record<string, number> = {}
+    const classCosts: Record<string, number> = {}
+    const classGains: Record<string, number> = {}
+    const sectorValues: Record<string, number> = {}
+    const sectorCosts: Record<string, number> = {}
+    const sectorGains: Record<string, number> = {}
+
+    for (const [ticker, pos] of Object.entries(runningLedger)) {
+      const def = definitionMap.get(ticker)
+      const pricingMode = getPricingMode(ticker)
+      if (pricingMode === 'cash') continue
+      
+      let val = 0
+      if (pos.quantity > 0) {
+        if (pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)) {
+          val = valueFixedIncomeTicker(ticker, date)
+        } else if (pricingMode === 'manual_value') {
+          val = pos.quantity * (def?.manual_current_value ?? getHistoricalOrInterpolatedPrice(ticker, date))
+        } else {
+          val = pos.quantity * getHistoricalOrInterpolatedPrice(ticker, date)
+        }
+      }
+
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      const valBrl = isUsd ? val * dailyUsdRate : val
+      const costBrl = isUsd ? pos.totalCost * dailyUsdRate : pos.totalCost
+      const accDivBrl = isUsd ? pos.accumulatedDividends * dailyUsdRate : pos.accumulatedDividends
+      const realizedGainBrl = isUsd
+        ? (runningRealizedGains[ticker] || 0) * dailyUsdRate
+        : (runningRealizedGains[ticker] || 0)
+
+      let gainBrl = (valBrl - costBrl) + realizedGainBrl
+      if (pricingMode === 'market') {
+        gainBrl += accDivBrl
+      }
+
+      const priceObj = prices[ticker]
+      const className = pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)
+          ? 'Renda Fixa'
+          : priceObj?.asset_class || 'Não classificado'
+
+      const sectorName = pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)
+          ? 'Títulos Públicos/Privados'
+          : priceObj?.sector || 'Outros'
+
+      classValues[className] = (classValues[className] || 0) + valBrl
+      classCosts[className] = (classCosts[className] || 0) + costBrl
+      classGains[className] = (classGains[className] || 0) + gainBrl
+
+      sectorValues[sectorName] = (sectorValues[sectorName] || 0) + valBrl
+      sectorCosts[sectorName] = (sectorCosts[sectorName] || 0) + costBrl
+      sectorGains[sectorName] = (sectorGains[sectorName] || 0) + gainBrl
+    }
+
+    const classesGroup: Record<string, { totalValue: number; yieldPct: number }> = {}
+    for (const name of Object.keys(classValues)) {
+      const val = classValues[name]
+      const cost = classCosts[name]
+      const gain = classGains[name]
+      const yld = cost > 0 ? (gain / cost) * 100 : 0
+      classesGroup[name] = {
+        totalValue: Math.round(val * 100) / 100,
+        yieldPct: Math.round(yld * 100) / 100,
+      }
+    }
+
+    const sectorsGroup: Record<string, { totalValue: number; yieldPct: number }> = {}
+    for (const name of Object.keys(sectorValues)) {
+      const val = sectorValues[name]
+      const cost = sectorCosts[name]
+      const gain = sectorGains[name]
+      const yld = cost > 0 ? (gain / cost) * 100 : 0
+      sectorsGroup[name] = {
+        totalValue: Math.round(val * 100) / 100,
+        yieldPct: Math.round(yld * 100) / 100,
+      }
+    }
 
     shareHistory.push({
       date,
       shareValue: Math.round(shareValue * 10000) / 10000,
       totalValue: Math.round(totalValueAfter * 100) / 100,
-      cashValue: Math.round(currentCash * 100) / 100,
-      investedValue: Math.round(assetsValueAfter * 100) / 100
+      cashValue: Math.round(totalCashAfter * 100) / 100,
+      investedValue: Math.round(investedPositionsValueAfter * 100) / 100,
+      investedCapital: Math.round(runningInvestedCapital * 100) / 100,
+      classes: classesGroup,
+      sectors: sectorsGroup,
     })
   }
 
   const lastDate = sortedDates[sortedDates.length - 1]
   if (lastDate && lastDate < todayStr) {
-    let finalAssetsValue = 0
+    let finalCashPositionsValue = 0
+    let finalInvestedPositionsValue = 0
     const finalUsdRate = getHistoricalUsdRate(todayStr)
     for (const [ticker, qty] of Object.entries(currentPortfolio)) {
       if (qty <= 0) continue
@@ -553,19 +720,106 @@ export function calculateShareHistory(
       }
       
       const isUsd = getAssetCurrency(ticker) === 'USD'
-      finalAssetsValue += isUsd ? val * finalUsdRate : val
+      const valBrl = isUsd ? val * finalUsdRate : val
+      if (pricingMode === 'cash') {
+        finalCashPositionsValue += valBrl
+      } else {
+        finalInvestedPositionsValue += valBrl
+      }
     }
-    const finalTotalValue = finalAssetsValue + currentCash
+    const finalCashValue = currentCash + finalCashPositionsValue
+    const finalTotalValue = finalInvestedPositionsValue + finalCashValue
     if (totalShares > 0) {
       shareValue = finalTotalValue / totalShares
+    }
+
+    const classValuesToday: Record<string, number> = {}
+    const classCostsToday: Record<string, number> = {}
+    const classGainsToday: Record<string, number> = {}
+    const sectorValuesToday: Record<string, number> = {}
+    const sectorCostsToday: Record<string, number> = {}
+    const sectorGainsToday: Record<string, number> = {}
+
+    for (const [ticker, pos] of Object.entries(runningLedger)) {
+      const def = definitionMap.get(ticker)
+      const pricingMode = getPricingMode(ticker)
+      if (pricingMode === 'cash') continue
+      
+      let val = 0
+      if (pos.quantity > 0) {
+        if (pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)) {
+          val = valueFixedIncomeTicker(ticker, todayStr)
+        } else if (pricingMode === 'manual_value') {
+          val = pos.quantity * (def?.manual_current_value ?? (prices[ticker]?.current_price || FALLBACK_PRICE(ticker)))
+        } else {
+          val = pos.quantity * (prices[ticker]?.current_price || FALLBACK_PRICE(ticker))
+        }
+      }
+
+      const isUsd = getAssetCurrency(ticker) === 'USD'
+      const valBrl = isUsd ? val * finalUsdRate : val
+      const costBrl = isUsd ? pos.totalCost * finalUsdRate : pos.totalCost
+      const accDivBrl = isUsd ? pos.accumulatedDividends * finalUsdRate : pos.accumulatedDividends
+      const realizedGainBrl = isUsd
+        ? (runningRealizedGains[ticker] || 0) * finalUsdRate
+        : (runningRealizedGains[ticker] || 0)
+
+      let gainBrl = (valBrl - costBrl) + realizedGainBrl
+      if (pricingMode === 'market') {
+        gainBrl += accDivBrl
+      }
+
+      const priceObj = prices[ticker]
+      const className = pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)
+          ? 'Renda Fixa'
+          : priceObj?.asset_class || 'Não classificado'
+
+      const sectorName = pricingMode === 'fixed_income' || def?.is_treasury || isTreasuryTicker(ticker)
+          ? 'Títulos Públicos/Privados'
+          : priceObj?.sector || 'Outros'
+
+      classValuesToday[className] = (classValuesToday[className] || 0) + valBrl
+      classCostsToday[className] = (classCostsToday[className] || 0) + costBrl
+      classGainsToday[className] = (classGainsToday[className] || 0) + gainBrl
+
+      sectorValuesToday[sectorName] = (sectorValuesToday[sectorName] || 0) + valBrl
+      sectorCostsToday[sectorName] = (sectorCostsToday[sectorName] || 0) + costBrl
+      sectorGainsToday[sectorName] = (sectorGainsToday[sectorName] || 0) + gainBrl
+    }
+
+    const classesGroupToday: Record<string, { totalValue: number; yieldPct: number }> = {}
+    for (const name of Object.keys(classValuesToday)) {
+      const val = classValuesToday[name]
+      const cost = classCostsToday[name]
+      const gain = classGainsToday[name]
+      const yld = cost > 0 ? (gain / cost) * 100 : 0
+      classesGroupToday[name] = {
+        totalValue: Math.round(val * 100) / 100,
+        yieldPct: Math.round(yld * 100) / 100,
+      }
+    }
+
+    const sectorsGroupToday: Record<string, { totalValue: number; yieldPct: number }> = {}
+    for (const name of Object.keys(sectorValuesToday)) {
+      const val = sectorValuesToday[name]
+      const cost = sectorCostsToday[name]
+      const gain = sectorGainsToday[name]
+      const yld = cost > 0 ? (gain / cost) * 100 : 0
+      sectorsGroupToday[name] = {
+        totalValue: Math.round(val * 100) / 100,
+        yieldPct: Math.round(yld * 100) / 100,
+      }
     }
 
     shareHistory.push({
       date: todayStr,
       shareValue: Math.round(shareValue * 10000) / 10000,
       totalValue: Math.round(finalTotalValue * 100) / 100,
-      cashValue: Math.round(currentCash * 100) / 100,
-      investedValue: Math.round(finalAssetsValue * 100) / 100
+      cashValue: Math.round(finalCashValue * 100) / 100,
+      investedValue: Math.round(finalInvestedPositionsValue * 100) / 100,
+      investedCapital: Math.round(runningInvestedCapital * 100) / 100,
+      classes: classesGroupToday,
+      sectors: sectorsGroupToday,
     })
   }
 

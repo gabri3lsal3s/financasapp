@@ -81,7 +81,7 @@ describe('B3 Investment Reconciliation Utilities', () => {
 
     it('should split LCI and keep bank name as ticker and code as name, protecting BTG Pactual from corporate mapping', () => {
       const { ticker, name } = parseB3Product('LCI - 24F02320359 - BANCO BTG PACTUAL S/A - 29/12/2025')
-      expect(ticker).toBe('LCI - BANCO BTG PACTUAL S/A')
+      expect(ticker).toBe('LCI - BANCO BTG PACTUAL S/A - 2025-12')
       expect(name).toBe('24F02320359')
     })
 

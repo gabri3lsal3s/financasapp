@@ -8,7 +8,14 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
 import { supabase } from '@/lib/supabase'
-import { isB3TickerPattern, searchB3Assets, detectDefaultCurrency } from '@/services/priceService'
+import { searchB3Assets } from '@/services/priceService'
+import {
+  isCashTicker as isCashTypeFn,
+  isFixedIncomeTicker as isFixedIncomePrefixFn,
+  isB3VariableTicker as isB3VariableFn,
+  isTreasury as checkIsTreasury,
+  detectCurrency as detectDefaultCurrency,
+} from '@/utils/assetClassifier'
 import type { PortfolioAssetDefinition, PortfolioPricingMode, PortfolioAssetIndexer } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -60,24 +67,24 @@ export default function AssetDefinitionFormModal({
   const [targetPct, setTargetPct] = useState('')
 
   const upperTicker = assetTicker.trim().toUpperCase()
-  const isB3Variable = isB3TickerPattern(upperTicker) && !upperTicker.includes('TESOURO')
-  const isFixedIncomePrefix = upperTicker.startsWith('CDB') || upperTicker.startsWith('LCI') || upperTicker.startsWith('LCA') || upperTicker.startsWith('CRI') || upperTicker.startsWith('CRA') || upperTicker.includes('TESOURO') || upperTicker.includes('DEBENTURE') || upperTicker.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(upperTicker)
-  const isCashType = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(upperTicker)
+  const isB3Variable = isB3VariableFn(upperTicker)
+  const isFixedIncomePrefix = isFixedIncomePrefixFn(upperTicker)
+  const isCashType = isCashTypeFn(upperTicker)
 
   // Re-classify dynamically as the user types
   useEffect(() => {
     const t = assetTicker.trim().toUpperCase()
     if (!t) return
 
-    const isB3 = isB3TickerPattern(t) && !t.includes('TESOURO')
-    const isFixed = t.startsWith('CDB') || t.startsWith('LCI') || t.startsWith('LCA') || t.startsWith('CRI') || t.startsWith('CRA') || t.includes('TESOURO') || t.includes('DEBENTURE') || t.includes('DEBÊNTURE') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)
-    const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'SALDO'].includes(t)
+    const isB3 = isB3VariableFn(t)
+    const isFixed = isFixedIncomePrefixFn(t)
+    const isCash = isCashTypeFn(t)
 
     if (isB3) {
       setAssetCategory('variable')
     } else if (isFixed) {
       setAssetCategory('fixed_or_other')
-      if (t.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(t)) {
+      if (checkIsTreasury(t)) {
         setFixedSubtype('treasury')
       } else {
         setFixedSubtype('fixed_income_standard')
@@ -165,8 +172,8 @@ export default function AssetDefinitionFormModal({
           }
         }
       } else {
-        const isB3 = isB3TickerPattern(upper)
-        const isTreasuryAsset = upper.includes('TESOURO') || /^(IPCA|SELIC|PRE)\s+\d{2}$/i.test(upper)
+        const isB3 = isB3VariableFn(upper)
+        const isTreasuryAsset = checkIsTreasury(upper)
         
         if (isB3 && !isTreasuryAsset) {
           setAssetCategory('variable')
@@ -177,7 +184,7 @@ export default function AssetDefinitionFormModal({
           setAssetCategory('fixed_or_other')
           if (isTreasuryAsset) {
             setFixedSubtype('treasury')
-          } else if (upper.startsWith('CDB') || upper.startsWith('LCI') || upper.startsWith('LCA') || upper.startsWith('CRI') || upper.startsWith('CRA')) {
+          } else if (isFixedIncomePrefixFn(upper)) {
             setFixedSubtype('fixed_income_standard')
           } else {
             setFixedSubtype('manual')
@@ -382,7 +389,7 @@ export default function AssetDefinitionFormModal({
                       onMouseDown={(e) => {
                         e.preventDefault(); // Impede o blur do input
                         setAssetTicker(s.ticker)
-                        setIsB3Linked(isB3TickerPattern(s.ticker))
+                        setIsB3Linked(isB3VariableFn(s.ticker))
                         setSuggestions([])
                       }}
                       className="w-full text-left px-4 py-2.5 text-xs hover:bg-balance/10 text-primary flex items-center justify-between transition-colors"

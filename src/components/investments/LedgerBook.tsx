@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { PortfolioTransaction } from '@/types'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check, Search, BookOpen } from 'lucide-react'
+import { Wallet, Plus, FileSpreadsheet, Trash2, CheckSquare, Square, X, Check, Search, BookOpen, TrendingUp, TrendingDown } from 'lucide-react'
 import { formatCurrency, formatNumberBR } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { deleteCashOffsetTransactionsMultiple, fetchPortfolioCashContext } from '@/services/cashOffsetService'
@@ -434,116 +434,184 @@ function LedgerBook({
               ? 'border-balance/40 bg-secondary/40'
               : 'border-glass hover:border-glass'
 
+            const displayDate = tx.date.split('-').reverse().join('/')
             return (
-              <div
-                key={tx.id}
-                className={`border rounded-xl transition-all overflow-hidden ${borderColor}`}
-              >
-                {/* Linha compacta principal */}
+              <div key={tx.id} className="space-y-1.5">
+                {/* Visualização Mobile */}
                 <div
                   onClick={() => {
                     if (isSelectionMode) {
                       handleToggleSelect(tx.id)
                     } else {
-                      setExpandedId(isExpanded ? null : tx.id)
+                      onOpenTxModal(tx)
                     }
                   }}
-                  className="flex items-center gap-2.5 px-3 py-2 cursor-pointer select-none"
+                  className={`flex sm:hidden items-center gap-3 p-3.5 cursor-pointer select-none rounded-xl border transition-all ${borderColor}`}
                 >
                   {/* Checkbox em modo seleção */}
                   {isSelectionMode && (
-                    <div className={`w-3.5 h-3.5 rounded-full border shrink-0 flex items-center justify-center transition-all ${
+                    <div className={`w-4 h-4 rounded-full border shrink-0 flex items-center justify-center transition-all ${
                       isSelected ? 'bg-balance border-balance text-white' : 'border-primary/40'
                     }`}>
-                      {isSelected && <Check size={9} strokeWidth={4} />}
+                      {isSelected && <Check size={10} strokeWidth={4} />}
                     </div>
                   )}
 
-                  {/* Badge de operação (bolinha colorida) */}
+                  {/* Ícone da Operação */}
                   {!isSelectionMode && (
-                    <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-                      tx.operation_type === 'buy' || tx.operation_type === 'subscription' ? 'bg-income'
-                      : isPortfolioIncomeType(tx.operation_type) ? 'bg-balance'
-                      : 'bg-expense'
-                    }`} />
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      tx.operation_type === 'buy' || tx.operation_type === 'subscription'
+                        ? 'bg-income/10 text-income'
+                        : isPortfolioIncomeType(tx.operation_type)
+                        ? 'bg-balance/10 text-balance'
+                        : 'bg-expense/10 text-expense'
+                    }`}>
+                      {tx.operation_type === 'buy' || tx.operation_type === 'subscription' ? (
+                        <TrendingUp size={16} />
+                      ) : isPortfolioIncomeType(tx.operation_type) ? (
+                        <Wallet size={16} />
+                      ) : (
+                        <TrendingDown size={16} />
+                      )}
+                    </div>
                   )}
 
-                  {/* Ticker */}
-                  <span className="font-bold font-mono text-sm text-primary truncate flex-1 min-w-0">
-                    {displayTicker}
-                  </span>
-
-                  {/* Badge tipo operação */}
-                  <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md shrink-0 ${opColor}`}>
-                    {opLabel}
-                  </span>
-
-                  {/* Data (pill compacta) */}
-                  <span className="font-mono text-[9px] text-secondary bg-secondary/60 px-1.5 py-0.5 rounded-md shrink-0">
-                    {tx.date.split('-').reverse().slice(0, 2).join('/')}
-                  </span>
-
-                  {/* Valor total */}
-                  <span className="font-mono font-bold text-[11px] text-primary shrink-0">
-                    {formatCurrency(total)}
-                  </span>
-
-                  {/* Indicador de expandir */}
-                  {!isSelectionMode && (
-                    <svg
-                      className={`w-3 h-3 text-secondary shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Painel de detalhes expansível */}
-                {isExpanded && (
-                  <div className="px-3 pb-3 pt-0 animate-page-enter">
-                    <div className="border-t border-primary/8 pt-2.5 space-y-2">
-                      {/* Grade de detalhes */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="surface-glass border border-glass rounded-xl p-2 text-center">
-                          <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Quantidade</div>
-                          <div className="font-mono font-bold text-xs text-primary">{formatNumberBR(tx.quantity)}</div>
-                        </div>
-                        <div className="surface-glass border border-glass rounded-xl p-2 text-center">
-                          <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Preço unit.</div>
-                          <div className="font-mono font-bold text-xs text-primary">{formatCurrency(tx.price)}</div>
-                        </div>
-                        <div className="surface-glass border border-glass rounded-xl p-2 text-center">
-                          <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Data</div>
-                          <div className="font-mono font-bold text-xs text-primary">
-                            {tx.date.split('-').reverse().join('/')}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Total destacado */}
-                      <div className="flex items-center justify-between surface-glass border border-glass rounded-xl px-3 py-1.5">
-                        <span className="text-[10px] font-bold text-secondary">Total movimentado</span>
-                        <span className="font-mono font-black text-sm text-primary">{formatCurrency(total)}</span>
-                      </div>
-
-                      {/* Botão editar */}
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpenTxModal(tx) }}
-                        className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 rounded-xl border border-balance/25 text-balance hover:bg-balance/10 transition-all"
-                      >
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Editar lançamento
-                      </button>
+                  {/* Informações da Transação (Esquerda) */}
+                  <div className="flex-1 min-w-0 text-left space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold font-mono text-sm text-primary truncate">
+                        {displayTicker}
+                      </span>
+                      <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md shrink-0 ${opColor}`}>
+                        {opLabel}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-secondary font-semibold">
+                      {displayDate}
                     </div>
                   </div>
-                )}
+
+                  {/* Valores e Detalhes (Direita) */}
+                  <div className="text-right space-y-0.5 shrink-0">
+                    <div className="font-mono font-black text-sm text-primary">
+                      {formatCurrency(total)}
+                    </div>
+                    <div className="font-mono text-[9px] text-secondary">
+                      {formatNumberBR(tx.quantity)} un × {formatCurrency(tx.price)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visualização Desktop */}
+                <div
+                  className={`hidden sm:block border rounded-xl transition-all overflow-hidden ${borderColor}`}
+                >
+                  {/* Linha compacta principal */}
+                  <div
+                    onClick={() => {
+                      if (isSelectionMode) {
+                        handleToggleSelect(tx.id)
+                      } else {
+                        setExpandedId(isExpanded ? null : tx.id)
+                      }
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 cursor-pointer select-none"
+                  >
+                    {/* Checkbox em modo seleção */}
+                    {isSelectionMode && (
+                      <div className={`w-3.5 h-3.5 rounded-full border shrink-0 flex items-center justify-center transition-all ${
+                        isSelected ? 'bg-balance border-balance text-white' : 'border-primary/40'
+                      }`}>
+                        {isSelected && <Check size={9} strokeWidth={4} />}
+                      </div>
+                    )}
+
+                    {/* Badge de operação (bolinha colorida) */}
+                    {!isSelectionMode && (
+                      <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${
+                        tx.operation_type === 'buy' || tx.operation_type === 'subscription' ? 'bg-income'
+                        : isPortfolioIncomeType(tx.operation_type) ? 'bg-balance'
+                        : 'bg-expense'
+                      }`} />
+                    )}
+
+                    {/* Ticker */}
+                    <span className="font-bold font-mono text-sm text-primary truncate flex-1 min-w-0">
+                      {displayTicker}
+                    </span>
+
+                    {/* Badge tipo operação */}
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md shrink-0 ${opColor}`}>
+                      {opLabel}
+                    </span>
+
+                    {/* Data (pill compacta) */}
+                    <span className="font-mono text-[9px] text-secondary bg-secondary/60 px-1.5 py-0.5 rounded-md shrink-0">
+                      {tx.date.split('-').reverse().slice(0, 2).join('/')}
+                    </span>
+
+                    {/* Valor total */}
+                    <span className="font-mono font-bold text-[11px] text-primary shrink-0">
+                      {formatCurrency(total)}
+                    </span>
+
+                    {/* Indicador de expandir */}
+                    {!isSelectionMode && (
+                      <svg
+                        className={`w-3 h-3 text-secondary shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Painel de detalhes expansível */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-0 animate-page-enter">
+                      <div className="border-t border-primary/8 pt-2.5 space-y-2">
+                        {/* Grade de detalhes */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="surface-glass border border-glass rounded-xl p-2 text-center">
+                            <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Quantidade</div>
+                            <div className="font-mono font-bold text-xs text-primary">{formatNumberBR(tx.quantity)}</div>
+                          </div>
+                          <div className="surface-glass border border-glass rounded-xl p-2 text-center">
+                            <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Preço unit.</div>
+                            <div className="font-mono font-bold text-xs text-primary">{formatCurrency(tx.price)}</div>
+                          </div>
+                          <div className="surface-glass border border-glass rounded-xl p-2 text-center">
+                            <div className="text-[9px] uppercase font-extrabold tracking-wider text-secondary mb-0.5">Data</div>
+                            <div className="font-mono font-bold text-xs text-primary">
+                              {tx.date.split('-').reverse().join('/')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total destacado */}
+                        <div className="flex items-center justify-between surface-glass border border-glass rounded-xl px-3 py-1.5">
+                          <span className="text-[10px] font-bold text-secondary">Total movimentado</span>
+                          <span className="font-mono font-black text-sm text-primary">{formatCurrency(total)}</span>
+                        </div>
+
+                        {/* Botão editar */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onOpenTxModal(tx) }}
+                          className="w-full flex items-center justify-center gap-1.5 text-[11px] font-bold py-2 rounded-xl border border-balance/25 text-balance hover:bg-balance/10 transition-all"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Editar lançamento
+                        </button>
+                      </div>
+                    </div>
+                  )}
               </div>
-            )
-          })
+            </div>
+          )
+        })
         )}
       </div>
 

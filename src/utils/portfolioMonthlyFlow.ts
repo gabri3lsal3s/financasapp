@@ -42,17 +42,7 @@ export function sumPortfolioTransactionsForMonth(
   }, 0)
 }
 
-/** Apenas aplicações (compras/subscrições) — vendas e proventos não entram no gráfico diário. */
-function transactionInvestmentOutflowAmount(
-  operationType: PortfolioOperationType,
-  quantity: number,
-  price: number
-): number {
-  const amount = transactionInvestmentAmount(operationType, quantity, price)
-  return amount > 0 ? amount : 0
-}
-
-/** Valores por dia (índice 0 = dia 1) para gráfico diário de investimentos (somente saídas). */
+/** Valores por dia (índice 0 = dia 1) para gráfico diário de investimentos líquidos. */
 export function portfolioInvestmentByDay(
   transactions: Pick<PortfolioTransaction, 'date' | 'operation_type' | 'quantity' | 'price'>[],
   month: string,
@@ -65,7 +55,7 @@ export function portfolioInvestmentByDay(
     if (!tx.date || normalizeMonthKey(tx.date) !== monthKey) continue
     const day = new Date(`${tx.date}T00:00:00`).getDate()
     if (day < 1 || day > daysInMonth) continue
-    series[day - 1] += transactionInvestmentOutflowAmount(
+    series[day - 1] += transactionInvestmentAmount(
       tx.operation_type,
       Number(tx.quantity),
       Number(tx.price)
