@@ -141,6 +141,11 @@ export default function InvestmentReconciliationModal({
   const [parseStatus, setParseStatus] = useState('')
   const [reconciliation, setReconciliation] = useState<InvestmentReconciliationResult | null>(null)
   const [parsedEquityItems, setParsedEquityItems] = useState<B3TransactionItem[]>([])
+  const [detectedManualAssets, setDetectedManualAssets] = useState<Array<{
+    ticker: string
+    product_name: string
+    type: 'fixed_income' | 'treasury'
+  }>>([])
   
   const [missingDrafts, setMissingDrafts] = useState<MissingDraft[]>([])
   const [conflictDrafts, setConflictDrafts] = useState<ConflictDraft[]>([])
@@ -240,6 +245,7 @@ export default function InvestmentReconciliationModal({
       setParseStatus('')
       setReconciliation(null)
       setParsedEquityItems([])
+      setDetectedManualAssets([])
       setMissingDrafts([])
       setConflictDrafts([])
       setImportedDrafts([])
@@ -392,10 +398,10 @@ export default function InvestmentReconciliationModal({
         continue
       }
       const upper = tx.ticker.toUpperCase()
-      // Ativos B3, renda fixa ou tesouro direto constam na custódia B3
+      // Ativos B3 constam na custódia B3 (exclusivo renda variável)
       const category = classifyB3Item(upper)
-      const isB3 = isB3TickerPattern(upper) || category === 'fixedIncome' || category === 'treasury'
-      if (!isB3) continue
+      const isB3 = isB3TickerPattern(upper)
+      if (!isB3 || category === 'fixedIncome' || category === 'treasury') continue
       tickers.add(upper)
     }
     const map: Record<string, number> = {}
@@ -427,6 +433,21 @@ export default function InvestmentReconciliationModal({
     return map
   }, [existingTransactions])
 
+  const detectedManualPositionAssets = useMemo(() => {
+    if (!officialPosition) return []
+    const list: Array<{ ticker: string; quantity: number; type: 'fixed_income' | 'treasury' }> = []
+    
+    Object.entries(officialPosition.fixedIncome).forEach(([ticker, qty]) => {
+      list.push({ ticker, quantity: qty, type: 'fixed_income' })
+    })
+    
+    Object.entries(officialPosition.treasury).forEach(([ticker, qty]) => {
+      list.push({ ticker, quantity: qty, type: 'treasury' })
+    })
+    
+    return list
+  }, [officialPosition])
+
   const positionPreviewRows = useMemo(() => {
     const allTickers = new Set([
       ...Object.keys(b3ParsedPositions),
@@ -449,8 +470,6 @@ export default function InvestmentReconciliationModal({
   ) => {
     const combinedOfficial = {
       ...official.equity,
-      ...official.treasury,
-      ...official.fixedIncome,
     }
     const validation = buildPositionValidation(combinedOfficial, movements, system)
     setPositionValidation(validation)
@@ -511,18 +530,50 @@ export default function InvestmentReconciliationModal({
         return
       }
 
-      // ── Manter ativos de Renda Fixa e Tesouro Direto no parse (conciliação RV separada) ──
+      // ── Filtrar ativos de Renda Fixa e Tesouro Direto para inserção manual ──
       let subscriptionRightsCount = 0
+      let fixedIncomeCount = 0
+      let treasuryCount = 0
+      const manualAssetsList: Array<{ ticker: string; product_name: string; type: 'fixed_income' | 'treasury' }> = []
+      const seenManualTickers = new Set<string>()
+
       const parsedItems = allParsedItems.filter((item) => {
         if (isB3SubscriptionRightsTicker(item.ticker)) {
           subscriptionRightsCount++
           return false
         }
+        const category = classifyB3Item(item.ticker, item.product_name)
+        if (category === 'fixedIncome') {
+          fixedIncomeCount++
+          if (!seenManualTickers.has(item.ticker)) {
+            seenManualTickers.add(item.ticker)
+            manualAssetsList.push({
+              ticker: item.ticker,
+              product_name: item.product_name,
+              type: 'fixed_income',
+            })
+          }
+          return false
+        }
+        if (category === 'treasury') {
+          treasuryCount++
+          if (!seenManualTickers.has(item.ticker)) {
+            seenManualTickers.add(item.ticker)
+            manualAssetsList.push({
+              ticker: item.ticker,
+              product_name: item.product_name,
+              type: 'treasury',
+            })
+          }
+          return false
+        }
         return true
       })
+
+      setDetectedManualAssets(manualAssetsList)
       setExcludedCount({
-        fixedIncome: 0,
-        treasury: 0,
+        fixedIncome: fixedIncomeCount,
+        treasury: treasuryCount,
         ignoredByMovement: parseResult.ignoredByMovement,
         subscriptionRights: subscriptionRightsCount,
         dedupe: parseResult.dedupe,
@@ -1536,48 +1587,82 @@ export default function InvestmentReconciliationModal({
                     <Layers size={14} className="text-balance" />
                     Auditoria Preliminar de Cotas de Custódia
                   </p>
-                  <div className="modal-table-shell rounded-xl">
-                    <table className="w-full text-[11px] font-mono border-collapse">
-                      <thead>
-                        <tr className="modal-table-head text-secondary uppercase text-[9px] tracking-wider">
-                          <th className="text-left px-4 py-2.5 font-extrabold">Ticker</th>
-                          <th className="text-right px-4 py-2.5 font-extrabold">Extrato B3</th>
-                          <th className="text-right px-4 py-2.5 font-extrabold">Sistema (Livro-Razão)</th>
-                          <th className="text-right px-4 py-2.5 font-extrabold">delta ($\Delta$)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/20">
-                        {positionPreviewRows.map((row) => {
-                          const delta = row.b3 - row.system
-                          const diff = Math.abs(delta) > 0.0001
-                          return (
-                            <tr
-                              key={row.ticker}
-                              className={`transition-colors duration-150 ${
-                                diff ? 'bg-warning/5 hover:bg-warning/10' : 'hover:bg-primary/5'
-                              }`}
-                            >
-                              <td className="px-4 py-2 font-bold text-primary text-xs">{row.ticker}</td>
-                              <td className="px-4 py-2 text-right tabular-nums">{formatQuantityBR(row.b3)}</td>
-                              <td className="px-4 py-2 text-right tabular-nums">{formatQuantityBR(row.system)}</td>
-                              <td className={`px-4 py-2 text-right font-black tabular-nums ${
-                                diff ? (delta > 0 ? 'text-income' : 'text-expense') : 'text-secondary/60'
-                              }`}>
-                                {diff ? `${delta > 0 ? '+' : ''}${formatQuantityBR(delta)}` : '—'}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {positionPreviewRows.map((row) => {
+                      const delta = row.b3 - row.system
+                      const diff = Math.abs(delta) > 0.0001
+                      return (
+                        <div
+                          key={row.ticker}
+                          className={`p-3 rounded-2xl border transition-all duration-300 ${
+                            diff 
+                              ? 'bg-warning/5 border-warning/20 hover:bg-warning/10' 
+                              : 'bg-primary/5 border-border/40 hover:bg-primary/10'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center border-b border-border/10 pb-1.5 mb-2">
+                            <span className="font-black text-primary font-mono text-sm">{row.ticker}</span>
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                              diff ? 'bg-warning/10 text-warning' : 'bg-income/10 text-income'
+                            }`}>
+                              {diff ? 'Ajustar' : 'Sincronizado'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                            <div>
+                              <span className="text-secondary/70 uppercase text-[8px] block font-bold">Extrato B3</span>
+                              <span className="text-primary font-bold">{formatQuantityBR(row.b3)}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-secondary/70 uppercase text-[8px] block font-bold">Sistema</span>
+                              <span className="text-primary font-bold">{formatQuantityBR(row.system)}</span>
+                            </div>
+                            {diff && (
+                              <div className="col-span-2 border-t border-border/5 pt-1.5 mt-1 flex justify-between items-center">
+                                <span className="text-secondary/70 uppercase text-[8px] font-bold">Desvio (Δ)</span>
+                                <span className={`font-black ${delta > 0 ? 'text-income' : 'text-expense'}`}>
+                                  {delta > 0 ? '+' : ''}{formatQuantityBR(delta)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Renda Fixa / Tesouro Manual Alert */}
+              {detectedManualAssets.length > 0 && (
+                <div className="w-full bg-warning/5 border border-warning/20 rounded-2xl p-4 text-left flex gap-3 items-start animate-page-enter">
+                  <AlertCircle size={18} className="text-warning shrink-0 mt-0.5" />
+                  <div className="space-y-2 w-full">
+                    <p className="text-xs font-bold text-warning uppercase tracking-tight">
+                      Atenção: Ativos de Renda Fixa e Tesouro Direto Detectados
+                    </p>
+                    <p className="text-[10px] text-secondary leading-relaxed">
+                      O aplicativo não importa ativos de renda fixa ou Tesouro Direto automaticamente. 
+                      Os seguintes ativos foram identificados no extrato e <strong>devem ser adicionados manualmente</strong> no Livro-Razão para manter sua carteira atualizada:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                      {detectedManualAssets.map((asset) => (
+                        <div key={asset.ticker} className="bg-primary/5 border border-border/40 rounded-xl p-2 flex flex-col justify-center">
+                          <span className="text-[10px] font-bold text-primary font-mono">{asset.ticker}</span>
+                          {asset.product_name && (
+                            <span className="text-[9px] text-secondary truncate" title={asset.product_name}>
+                              {asset.product_name}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Banner: itens excluídos da conciliação */}
-              {(excludedCount.fixedIncome > 0 ||
-                excludedCount.treasury > 0 ||
-                excludedCount.ignoredByMovement > 0 ||
+              {(excludedCount.ignoredByMovement > 0 ||
                 excludedCount.subscriptionRights > 0 ||
                 excludedCount.dedupe.ignoredInternal > 0 ||
                 excludedCount.dedupe.ignoredCorporate > 0 ||
@@ -1626,20 +1711,6 @@ export default function InvestmentReconciliationModal({
                           {excludedCount.subscriptionRights > 1 ? 's' : ''} de subscrição (ticker temporário, ex. MXRF12).
                         </span>
                       )}
-                      {excludedCount.treasury > 0 && (
-                        <span>
-                          {' '}
-                          <strong>{excludedCount.treasury}</strong> Tesouro Direto
-                        </span>
-                      )}
-                      {excludedCount.fixedIncome > 0 && (
-                        <span>
-                          {excludedCount.treasury > 0 ? ' e ' : ' '}
-                          <strong>{excludedCount.fixedIncome}</strong> renda fixa (CDB/LCI/LCA)
-                        </span>
-                      )}
-                      {(excludedCount.treasury > 0 || excludedCount.fixedIncome > 0) &&
-                        ' não entram na conciliação RV — cadastre no Livro-Razão manualmente.'}
                     </p>
                   </div>
                 </div>
@@ -1781,44 +1852,38 @@ export default function InvestmentReconciliationModal({
               </div>
             </div>
 
-            {/* Customization grid / table */}
-            <div className="modal-table-shell">
-              <table className="w-full border-collapse text-left text-xs min-w-[980px]">
-                <thead>
-                  <tr className="modal-table-head text-[9px] font-extrabold text-secondary uppercase tracking-wider">
-                    <th className="p-3.5 text-center w-12">Importar</th>
-                    <th className="p-3.5 w-28">Ticker</th>
-                    <th className="p-3.5 w-36">Mov. B3</th>
-                    <th className="p-3.5 w-32">Operação</th>
-                    <th className="p-3.5 w-32">Data</th>
-                    <th className="p-3.5 w-24 text-right">Qtd</th>
-                    <th className="p-3.5 w-32 text-right">Preço Un.</th>
-                    <th className="p-3.5 w-40 text-left">Tipo de Ativo (Definição)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/20 font-mono">
-                  {missingDrafts.map((draft) => (
-                    <tr
-                      key={draft.id}
-                      className={`glass-table-row-hover transition-colors ${
-                        draft.selected ? 'modal-upload-zone--ready-balance' : 'opacity-70'
-                      }`}
-                    >
-                      <td className="p-2.5 text-center">
+            {/* Customization grid / cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[380px] overflow-y-auto pr-1">
+              {missingDrafts.map((draft) => {
+                const isBuy = draft.operation_type === 'buy' || draft.operation_type === 'subscription'
+                const isSell = draft.operation_type === 'sell'
+                const isIncome = isPortfolioIncomeType(draft.operation_type)
+                const total = Number(draft.quantity) * Number(draft.price)
+                
+                return (
+                  <div
+                    key={draft.id}
+                    className={`p-4 rounded-3xl border transition-all duration-300 text-left flex flex-col justify-between gap-3 ${
+                      draft.selected 
+                        ? 'bg-glass/5 border-balance/40 shadow-sm' 
+                        : 'bg-glass/5 border-border/20 opacity-70'
+                    }`}
+                  >
+                    {/* Header: Import Checkbox, Ticker and Operation Badge */}
+                    <div className="flex items-center justify-between border-b border-border/10 pb-2.5">
+                      <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
+                          className="h-4.5 w-4.5 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
                           checked={draft.selected}
                           onChange={(e) => updateMissingDraft(draft.id, 'selected', e.target.checked)}
                         />
-                      </td>
-                      <td className="p-2.5">
-                        <div className="relative flex items-center gap-1.5">
+                        <div className="relative flex items-center gap-1.5 w-24">
                           <input
                             type="text"
                             value={draft.ticker}
                             onChange={(e) => updateMissingDraft(draft.id, 'ticker', e.target.value)}
-                            className="modal-input-compact w-full text-primary px-2.5 uppercase text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                            className="modal-input-compact w-full text-primary px-2 py-1 uppercase text-xs font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
                           />
                           {existingSystemTickers.length > 0 && (
                             <select
@@ -1828,87 +1893,108 @@ export default function InvestmentReconciliationModal({
                                   updateMissingDraft(draft.id, 'ticker', e.target.value)
                                 }
                               }}
-                              className="modal-input-compact w-9 px-1 text-xs text-secondary text-center cursor-pointer"
-                              title="Vincular a um ativo existente na carteira"
+                              className="modal-input-compact w-7 px-0 text-xs text-center cursor-pointer border-none bg-transparent"
+                              title="Vincular a um ativo existente"
                             >
                               <option value="">🔗</option>
                               {existingSystemTickers.map((t) => (
-                                <option key={t} value={t}>
+                                <option key={t} value={t} className="bg-background text-primary">
                                   {t}
                                 </option>
                               ))}
                             </select>
                           )}
                         </div>
-                      </td>
-                      <td className="p-2.5">
-                        <span
-                          className="block text-[10px] text-secondary truncate max-w-[140px] font-sans"
-                          title={draft.official.raw_operation_type}
-                        >
-                          {draft.official.raw_operation_type}
-                        </span>
-                      </td>
-                      <td className="p-2.5">
-                        <select
-                          value={draft.operation_type}
-                          onChange={(e) =>
-                            updateMissingDraft(draft.id, 'operation_type', e.target.value as PortfolioOperationType)
-                          }
-                          className="modal-input-compact w-full text-primary px-2.5 text-[11px] font-bold focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm cursor-pointer font-sans"
-                        >
-                          {OPERATION_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-2.5">
+                      </div>
+                      
+                      <select
+                        value={draft.operation_type}
+                        onChange={(e) =>
+                          updateMissingDraft(draft.id, 'operation_type', e.target.value as PortfolioOperationType)
+                        }
+                        className={`text-[10px] font-black uppercase py-1 px-2.5 rounded-lg focus:outline-none border border-transparent shadow-sm cursor-pointer ${
+                          isBuy
+                            ? 'text-balance bg-balance/10'
+                            : isSell
+                              ? 'text-expense bg-expense/10'
+                              : isIncome
+                                ? 'text-income bg-income/10'
+                                : 'text-secondary bg-glass/10'
+                        }`}
+                      >
+                        {OPERATION_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value} className="bg-background text-primary">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Content parameters */}
+                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                      <div>
+                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Data</span>
                         <input
                           type="date"
                           value={draft.date}
                           onChange={(e) => updateMissingDraft(draft.id, 'date', e.target.value)}
-                          className="modal-input-compact w-full text-primary px-2.5 text-[11px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                          className="modal-input-compact w-full text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none"
                         />
-                      </td>
-                      <td className="p-2.5 text-right">
+                      </div>
+                      <div className="text-right">
+                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Mov. Oficial B3</span>
+                        <span className="text-secondary font-bold block truncate max-w-[140px] font-sans" title={draft.official.raw_operation_type}>
+                          {draft.official.raw_operation_type}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Qtd</span>
                         <input
                           type="number"
                           step="any"
                           value={draft.quantity}
                           onChange={(e) => updateMissingDraft(draft.id, 'quantity', e.target.value)}
-                          className="modal-input-compact w-full text-primary px-2.5 text-right text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                          className="modal-input-compact w-full text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none font-black"
                         />
-                      </td>
-                      <td className="p-2.5 text-right">
+                      </div>
+                      <div className="text-right">
+                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Preço Unitário</span>
                         <input
                           type="number"
                           step="any"
                           value={draft.price}
                           onChange={(e) => updateMissingDraft(draft.id, 'price', e.target.value)}
-                          className="modal-input-compact w-full text-primary px-2.5 text-right text-[11px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
+                          className="modal-input-compact w-full text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none text-right font-black"
                         />
-                      </td>
-                      <td className="p-2.5 text-left">
+                      </div>
+                    </div>
+
+                    {/* Total & Pricing Mode row */}
+                    <div className="flex justify-between items-center border-t border-border/10 pt-2.5 mt-1">
+                      <div>
+                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Total Estimado</span>
+                        <span className="text-xs font-black text-primary font-mono">{formatCurrency(total)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Tipo de Ativo</span>
                         <select
                           value={draft.pricing_mode}
                           onChange={(e) =>
                             updateMissingDraft(draft.id, 'pricing_mode', e.target.value as PortfolioPricingMode)
                           }
-                          className="modal-input-compact w-full text-primary px-2.5 text-[11px] font-bold focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm cursor-pointer font-sans"
+                          className="modal-input-compact text-[10px] font-bold text-primary focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none cursor-pointer bg-transparent text-right"
                         >
                           {PORTFOLIO_PRICING_MODE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
+                            <option key={opt.value} value={opt.value} className="bg-background text-primary">
                               {opt.label}
                             </option>
                           ))}
                         </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
 
 
@@ -2086,11 +2172,7 @@ export default function InvestmentReconciliationModal({
               onApplyAdjustments={handleApplyPositionAdjustments}
               applyingAdjustments={loading}
               positionOnlyMode={positionOnlyMode}
-              showNonEquityNote={
-                !!officialPosition &&
-                (Object.keys(officialPosition.treasury).length > 0 ||
-                  Object.keys(officialPosition.fixedIncome).length > 0)
-              }
+              detectedManualPositionAssets={detectedManualPositionAssets}
             />
           </div>
         )}

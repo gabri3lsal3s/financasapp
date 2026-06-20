@@ -14,11 +14,12 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,json,woff2}'],
         cleanupOutdatedCaches: true,
+        navigateFallback: 'index.html',
         navigateFallbackAllowlist: [/^\/[^.]*$/],
         runtimeCaching: [],
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
       },
     }),
   ],

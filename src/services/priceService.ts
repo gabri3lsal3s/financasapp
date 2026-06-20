@@ -538,6 +538,13 @@ export async function getAssetPrices(
             await supabase
               .from('asset_prices')
               .upsert(updatesToSave)
+            
+            // Dispatch event to notify listeners that prices were updated
+            window.dispatchEvent(
+              new CustomEvent('local-data-changed', {
+                detail: { entity: 'asset_prices' }
+              })
+            )
           } catch (err) {
             console.error('Erro de conexão ao salvar cotações:', err)
           }
@@ -594,6 +601,12 @@ export async function forceUpdateAssetPrice(ticker: string, price: number): Prom
       .single()
 
     if (!error && data) {
+      // Dispatch event to notify listeners that prices were updated
+      window.dispatchEvent(
+        new CustomEvent('local-data-changed', {
+          detail: { entity: 'asset_prices' }
+        })
+      )
       return data as AssetPrice
     }
   } catch (err) {

@@ -27,7 +27,7 @@ interface B3PositionValidationPanelProps {
   onPositionFileChange: (file: File) => void
   onApplyAdjustments: () => void
   applyingAdjustments: boolean
-  showNonEquityNote: boolean
+  detectedManualPositionAssets?: Array<{ ticker: string; quantity: number; type: 'fixed_income' | 'treasury' }>
   /** Quando true, não há extrato de movimentação — oculta coluna Mov. e filtra falsos positivos de "Extrato incompleto" */
   positionOnlyMode?: boolean
 }
@@ -57,7 +57,7 @@ export default function B3PositionValidationPanel({
   onPositionFileChange,
   onApplyAdjustments,
   applyingAdjustments,
-  showNonEquityNote,
+  detectedManualPositionAssets,
   positionOnlyMode = false,
 }: B3PositionValidationPanelProps) {
   const selectedCount = useMemo(
@@ -206,78 +206,81 @@ export default function B3PositionValidationPanel({
             </div>
           )}
 
-          {/* Premium Audit Grid */}
-          {showNonEquityNote && (
-            <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-2.5 border border-glass items-center mb-1 animate-page-enter">
-              <AlertCircle size={14} className="shrink-0 text-balance" />
-              <span className="leading-normal">
-                Ativos de <strong>Renda Fixa e Tesouro Direto</strong> lidos apenas para mapeamento cadastral e rentabilidade.
-              </span>
+          {/* Renda Fixa / Tesouro Manual Alert */}
+          {detectedManualPositionAssets && detectedManualPositionAssets.length > 0 && (
+            <div className="w-full bg-warning/5 border border-warning/20 rounded-2xl p-4 text-left flex gap-3 items-start animate-page-enter mb-3">
+              <AlertCircle size={18} className="text-warning shrink-0 mt-0.5 animate-pulse" />
+              <div className="space-y-2 w-full">
+                <p className="text-xs font-bold text-warning uppercase tracking-tight">
+                  Aviso: Custódia de Renda Fixa e Tesouro Direto
+                </p>
+                <p className="text-[10px] text-secondary leading-relaxed">
+                  Os seguintes ativos foram encontrados no relatório de posição, mas <strong>não são ajustados automaticamente</strong> pelo aplicativo. 
+                  Adicione ou ajuste-os manualmente no Livro-Razão se necessário:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                  {detectedManualPositionAssets.map((asset) => (
+                    <div key={asset.ticker} className="bg-primary/5 border border-border/40 rounded-xl p-2.5 flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-primary font-mono truncate max-w-[180px]" title={asset.ticker}>{asset.ticker}</span>
+                      <span className="text-[10px] font-black text-secondary/80 font-mono tabular-nums">{asset.quantity.toLocaleString('pt-BR')} un</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="modal-table-shell">
-            <table className="w-full text-[11px] border-collapse">
-              <thead>
-                <tr className="modal-table-head text-secondary text-[9px] uppercase tracking-wider">
-                  <th className="text-left px-4 py-3 font-extrabold">Ativo / Ticker</th>
-                  <th className="text-right px-4 py-3 font-extrabold">Custódia B3</th>
-                  {!positionOnlyMode && (
-                    <th className="text-right px-4 py-3 font-extrabold hidden sm:table-cell">Histórico Mov.</th>
-                  )}
-                  <th className="text-right px-4 py-3 font-extrabold">Livro-Razão</th>
-                  <th className="text-right px-4 py-3 font-extrabold">Desvio ($\Delta$)</th>
-                  <th className="text-left px-4 py-3 font-extrabold">Parecer</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono divide-y divide-border/20">
-                {visibleRows.map((row) => {
-                  const delta = row.official - row.system
-                  const isOk = row.status === 'ok'
-                  return (
-                    <tr 
-                      key={row.ticker} 
-                      className={`transition-colors duration-200 hover:bg-primary/5 ${
-                        isOk ? '' : 'bg-warning/[0.02]'
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {visibleRows.map((row) => {
+              const delta = row.official - row.system
+              const isOk = row.status === 'ok'
+              return (
+                <div
+                  key={row.ticker}
+                  className={`p-3 rounded-2xl border transition-all duration-300 flex flex-col justify-between gap-2 text-left ${
+                    isOk 
+                      ? 'bg-glass/5 border-border/40 hover:bg-glass/10' 
+                      : 'bg-warning/[0.03] border-warning/20 hover:bg-warning/[0.06]'
+                  }`}
+                >
+                  <div className="flex justify-between items-center border-b border-border/10 pb-1.5">
+                    <span className="font-black text-primary font-mono text-sm tracking-wide">{row.ticker}</span>
+                    <span
+                      className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
+                        isOk 
+                          ? 'bg-income/10 text-income border border-income/10' 
+                          : 'bg-warning/10 text-warning border border-warning/10'
                       }`}
                     >
-                      <td className="px-4 py-2.5 font-bold text-primary text-xs tracking-wide">
-                        {row.ticker}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
-                        {row.official}
-                      </td>
-                      {!positionOnlyMode && (
-                        <td className="px-4 py-2.5 text-right text-secondary/80 tabular-nums hidden sm:table-cell">
-                          {row.fromMovements}
-                        </td>
-                      )}
-                      <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
-                        {row.system}
-                      </td>
-                      <td
-                        className={`px-4 py-2.5 text-right tabular-nums font-black ${
-                          isOk ? 'text-secondary/60' : delta > 0 ? 'text-income' : 'text-expense'
-                        }`}
-                      >
+                      {statusLabel(row)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                    <div>
+                      <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Custódia B3</span>
+                      <span className="text-primary font-bold">{row.official}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Livro-Razão</span>
+                      <span className="text-primary font-bold">{row.system}</span>
+                    </div>
+                    {!positionOnlyMode && (
+                      <div>
+                        <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Movimentado</span>
+                        <span className="text-secondary font-medium">{row.fromMovements}</span>
+                      </div>
+                    )}
+                    <div className="text-right">
+                      <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Desvio (Δ)</span>
+                      <span className={`font-black ${isOk ? 'text-secondary/60' : delta > 0 ? 'text-income' : 'text-expense'}`}>
                         {isOk ? '—' : `${delta > 0 ? '+' : ''}${delta}`}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
-                            isOk 
-                              ? 'bg-income/10 text-income border border-income/10' 
-                              : 'bg-warning/10 text-warning border border-warning/10'
-                          }`}
-                        >
-                          {statusLabel(row)}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {!positionOnlyMode && mismatchRows.some((r) => r.status === 'movements_official') && (

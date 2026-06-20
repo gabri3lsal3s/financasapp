@@ -4,9 +4,10 @@ import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ModalFieldRow from '@/components/ModalFieldRow'
 import Input from '@/components/Input'
+import Select from '@/components/Select'
 import { supabase } from '@/lib/supabase'
-import type { PortfolioTransaction } from '@/types'
-import { toPricingMode, detectCurrency, isTreasury } from '@/utils/assetClassifier'
+import type { PortfolioTransaction, PortfolioOperationType } from '@/types'
+import { detectDefaultCurrency } from '@/utils/portfolioCalculations'
 import { formatCurrency } from '@/utils/format'
 import { fetchPortfolioCashContext, reconcileCashOffsetOnTransactionSave, deleteCashOffsetTransactions } from '@/services/cashOffsetService'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
@@ -30,22 +31,30 @@ export default function PortfolioTransactionFormModal({
   onSaved,
   zIndexClass,
 }: PortfolioTransactionFormModalProps) {
+  const [ticker, setTicker] = useState('CAIXA')
+  const [operationType, setOperationType] = useState<PortfolioOperationType>('buy')
   const [amount, setAmount] = useState('')
-  const [quantity, setQuantity] = useState('')
+  const [quantity, setQuantity] = useState('1')
   const [price, setPrice] = useState('')
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  
   const [saving, setSaving] = useState(false)
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false)
 
   const isEditing = !!editingTransaction
-  const isCashType = isEditing ? (editingTransaction.ticker === 'CAIXA' || editingTransaction.ticker === 'SALDO_INV') : true
+  const isCashType = ticker === 'CAIXA' || ticker === 'SALDO_INV' || ticker === 'SALDO EM CAIXA' || ticker === 'SALDO_EM_CAIXA'
 
   useEffect(() => {
     if (!isOpen) return
 
     if (editingTransaction) {
+      setTicker(editingTransaction.ticker.toUpperCase().trim())
+      setOperationType(editingTransaction.operation_type)
       setDate(editingTransaction.date)
-      if (editingTransaction.ticker === 'CAIXA' || editingTransaction.ticker === 'SALDO_INV') {
+      
+      const isCash = editingTransaction.ticker === 'CAIXA' || editingTransaction.ticker === 'SALDO_INV' || editingTransaction.ticker === 'SALDO EM CAIXA' || editingTransaction.ticker === 'SALDO_EM_CAIXA'
+      
+      if (isCash) {
         setAmount(String(editingTransaction.price))
         setQuantity('1')
         setPrice(String(editingTransaction.price))
@@ -55,12 +64,21 @@ export default function PortfolioTransactionFormModal({
         setPrice(String(editingTransaction.price))
       }
     } else {
+      setTicker('CAIXA')
+      setOperationType('buy')
       setAmount('')
       setQuantity('1')
       setPrice('')
       setDate(format(new Date(), 'yyyy-MM-dd'))
     }
   }, [isOpen, editingTransaction])
+
+  // Ajustar tipo de operação adequado se o ticker mudar para CAIXA
+  useEffect(() => {
+    if (isCashType && !['buy', 'sell'].includes(operationType)) {
+      setOperationType('buy')
+    }
+  }, [ticker])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,13 +89,13 @@ export default function PortfolioTransactionFormModal({
 
     setSaving(true)
     try {
-      const tickerUpper = isEditing ? editingTransaction.ticker.toUpperCase().trim() : 'CAIXA'
-      const operationType = isEditing ? editingTransaction.operation_type : 'buy'
+      const tickerUpper = ticker.toUpperCase().trim()
+      if (!tickerUpper) throw new Error('O ticker é obrigatório.')
 
       let qty = 1
       let unitPrice = 0
 
-      if (tickerUpper === 'CAIXA' || tickerUpper === 'SALDO_INV') {
+      if (isCashType) {
         unitPrice = parseFloat(amount)
         qty = 1
         if (isNaN(unitPrice) || unitPrice <= 0) {
@@ -93,10 +111,6 @@ export default function PortfolioTransactionFormModal({
           throw new Error('Preço unitário inválido.')
         }
       }
-
-      const pricingMode = toPricingMode(tickerUpper) || 'market'
-      const isTr = isTreasury(tickerUpper)
-      const currency = detectCurrency(tickerUpper)
 
       const payload = {
         ticker: tickerUpper,
@@ -131,29 +145,41 @@ export default function PortfolioTransactionFormModal({
         txId = inserted.id
       }
 
-      // Upsert asset definitions to support cashOffsetService classifications
-      await supabase
-        .from('portfolio_asset_definitions')
-        .upsert({
-          portfolio_id: portfolioId,
-          ticker: tickerUpper,
-          pricing_mode: pricingMode,
-          is_b3_linked: pricingMode === 'market',
-          applied_amount: pricingMode === 'fixed_income' || pricingMode === 'manual_value' ? qty * unitPrice : null,
-          contract_rate: null,
-          indexer: 'none',
-          indexer_percent: 100,
-          maturity_date: null,
-          application_date: date,
-          manual_current_value: null,
-          manual_value_updated_at: null,
-          tax_exempt: false,
-          is_treasury: isTr,
-          currency: currency,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'portfolio_id,ticker' })
+      // 2. Criar definição básica do ativo se ainda não existir
+      const pricingMode = isCashType ? 'cash' : (['CDI', 'SELIC', 'IPCA', 'TESOURO'].some(rf => tickerUpper.includes(rf)) ? 'fixed_income' : 'market')
+      const currency = detectDefaultCurrency(tickerUpper)
 
-      // Automatically reconcile cash offsets in database
+      const { data: existingDef } = await supabase
+        .from('portfolio_asset_definitions')
+        .select('id')
+        .eq('portfolio_id', portfolioId)
+        .eq('ticker', tickerUpper)
+        .maybeSingle()
+
+      if (!existingDef) {
+        await supabase
+          .from('portfolio_asset_definitions')
+          .insert({
+            portfolio_id: portfolioId,
+            ticker: tickerUpper,
+            pricing_mode: pricingMode,
+            is_b3_linked: pricingMode === 'market',
+            applied_amount: pricingMode === 'fixed_income' ? qty * unitPrice : null,
+            contract_rate: pricingMode === 'fixed_income' ? 0 : null,
+            indexer: pricingMode === 'fixed_income' ? 'none' : 'none',
+            indexer_percent: 100,
+            maturity_date: null,
+            application_date: date,
+            manual_current_value: null,
+            manual_value_updated_at: null,
+            tax_exempt: false,
+            is_treasury: tickerUpper.includes('TESOURO'),
+            currency: currency,
+            updated_at: new Date().toISOString(),
+          })
+      }
+
+      // 3. Reconciliar caixa automaticamente
       const context = await fetchPortfolioCashContext(portfolioId)
       await reconcileCashOffsetOnTransactionSave({
         portfolioId,
@@ -166,11 +192,17 @@ export default function PortfolioTransactionFormModal({
         definitions: context.definitions,
       })
 
-      toast.success(isEditing ? 'Transação atualizada!' : 'Aporte em caixa registrado!')
+      toast.success(isEditing ? 'Lançamento atualizado!' : 'Transação registrada com sucesso!')
+      
+      // Disparar evento local
+      window.dispatchEvent(new CustomEvent('local-data-changed', {
+        detail: { entity: 'portfolio_transactions' }
+      }))
+
       onSaved()
       onClose()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar transação.')
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar transação.')
     } finally {
       setSaving(false)
     }
@@ -193,9 +225,10 @@ export default function PortfolioTransactionFormModal({
 
       await cleanupOrphanPortfolioTickers(portfolioId, [editingTransaction.ticker])
 
-      window.dispatchEvent(
-        new CustomEvent('local-data-changed', { detail: { entity: 'investments' } })
-      )
+      window.dispatchEvent(new CustomEvent('local-data-changed', {
+        detail: { entity: 'portfolio_transactions' }
+      }))
+
       toast.success('Lançamento excluído!')
       onSaved()
       onClose()
@@ -211,7 +244,7 @@ export default function PortfolioTransactionFormModal({
       <ModalForm
         isOpen={isOpen}
         onClose={onClose}
-        title={isEditing ? 'Editar Lançamento' : 'Adicionar Saldo em Caixa'}
+        title={isEditing ? 'Editar Lançamento' : 'Lançar Transação'}
         onSubmit={handleSubmit}
         size="md"
         zIndexClass={zIndexClass}
@@ -219,31 +252,63 @@ export default function PortfolioTransactionFormModal({
           <ModalFooter
             formId={formId}
             onCancel={onClose}
-            submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Aporte'}
-            submitDisabled={saving || (!isEditing && !amount.trim())}
+            submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Transação'}
+            submitDisabled={saving || (!isEditing && isCashType && !amount.trim()) || (!isEditing && !isCashType && (!ticker.trim() || !price.trim()))}
             loading={saving}
             deleteLabel={isEditing ? 'Excluir lançamento' : undefined}
             onDelete={isEditing ? () => setIsConfirmDeleteOpen(true) : undefined}
           />
         )}
       >
-        {isEditing && (
-          <div className="flex gap-4 p-3 bg-glass border border-glass rounded-xl text-xs font-semibold text-secondary items-center">
-            <div>
-              <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Ativo</span>
-              <strong className="text-primary font-mono text-sm">{editingTransaction.ticker}</strong>
+        <div className="space-y-4 text-left">
+          {/* Seletor de Ticker e Tipo (Apenas ao Adicionar) */}
+          {!isEditing ? (
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Ativo (Ticker)"
+                type="text"
+                required
+                placeholder="Ex: WEGE3, CAIXA, VOO"
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                className="h-10 w-full uppercase font-mono"
+              />
+              <Select
+                label="Tipo de Operação"
+                value={operationType}
+                onChange={(e) => setOperationType(e.target.value as any)}
+                options={isCashType ? [
+                  { value: 'buy', label: 'Depósito (Entrada)' },
+                  { value: 'sell', label: 'Resgate (Saída)' }
+                ] : [
+                  { value: 'buy', label: 'Compra' },
+                  { value: 'sell', label: 'Venda' },
+                  { value: 'dividend', label: 'Dividendo' },
+                  { value: 'jcp', label: 'Juros sobre Capital (JCP)' },
+                  { value: 'fii_yield', label: 'Rendimento FII' },
+                  { value: 'split', label: 'Desdobro' },
+                  { value: 'reverse_split', label: 'Grupamento' },
+                  { value: 'subscription', label: 'Subscrição' }
+                ]}
+              />
             </div>
-            <div className="w-[1px] h-6 bg-glass-strong" />
-            <div>
-              <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Operação</span>
-              <strong className="text-primary text-sm uppercase">
-                {editingTransaction.operation_type === 'buy' ? 'Aporte/Compra' : editingTransaction.operation_type === 'sell' ? 'Retirada/Venda' : editingTransaction.operation_type}
-              </strong>
+          ) : (
+            <div className="flex gap-4 p-3 bg-glass border border-glass rounded-xl text-xs font-semibold text-secondary items-center select-none">
+              <div>
+                <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Ativo</span>
+                <strong className="text-primary font-mono text-sm">{ticker}</strong>
+              </div>
+              <div className="w-[1px] h-6 bg-glass-strong" />
+              <div>
+                <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Operação</span>
+                <strong className="text-primary text-sm uppercase">
+                  {operationType === 'buy' ? 'Compra' : operationType === 'sell' ? 'Venda' : operationType}
+                </strong>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="space-y-4">
+          {/* Data do Lançamento */}
           <Input
             label="Data do Lançamento"
             type="date"
@@ -253,19 +318,18 @@ export default function PortfolioTransactionFormModal({
             className="font-semibold rounded-xl"
           />
 
+          {/* Inputs Condicionais baseados em Ticker */}
           {isCashType ? (
-            <div>
-              <Input
-                label="Valor do Aporte em Caixa (R$)"
-                type="number"
-                required
-                step="0.01"
-                placeholder="Ex: 5000.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="font-semibold rounded-xl text-base focus:ring-2 focus:ring-primary"
-              />
-            </div>
+            <Input
+              label="Valor em Caixa (R$)"
+              type="number"
+              required
+              step="0.01"
+              placeholder="Ex: 5000.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="font-semibold rounded-xl text-base focus:ring-2 focus:ring-primary"
+            />
           ) : (
             <ModalFieldRow>
               <Input
@@ -291,9 +355,10 @@ export default function PortfolioTransactionFormModal({
             </ModalFieldRow>
           )}
 
+          {/* Visualizador de Total */}
           {!isCashType && quantity && price && (
-            <div className="p-3 bg-balance/5 border border-balance/25 rounded-2xl animate-fade-in text-left">
-              <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Valor Total Movimentado</span>
+            <div className="p-3 bg-balance/5 border border-balance/25 rounded-2xl animate-fade-in text-left select-none">
+              <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Valor Total do Lançamento</span>
               <span className="text-xl font-mono font-black text-balance mt-0.5 block">
                 {formatCurrency(parseFloat(quantity || '0') * parseFloat(price || '0'))}
               </span>
@@ -315,7 +380,7 @@ export default function PortfolioTransactionFormModal({
           <div className="space-y-2">
             <p className="text-sm text-secondary font-medium">
               Tem certeza de que deseja excluir permanentemente este lançamento do ativo{' '}
-              <strong className="text-primary font-bold">{editingTransaction.ticker}</strong>?
+              <strong className="text-primary font-bold">{ticker}</strong>?
             </p>
             <p className="text-xs text-secondary/80">
               Esta ação removerá o lançamento da carteira e atualizará os saldos em caixa vinculados de forma automática.
