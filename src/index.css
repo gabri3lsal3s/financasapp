@@ -2539,6 +2539,25 @@ nav.glass-bottom-nav {
   color: var(--color-text-secondary) !important;
 }
 
+.text-secondary\/90 {
+  color: color-mix(in srgb, var(--color-text-secondary) 90%, transparent) !important;
+}
+.text-secondary\/80 {
+  color: color-mix(in srgb, var(--color-text-secondary) 80%, transparent) !important;
+}
+.text-secondary\/70 {
+  color: color-mix(in srgb, var(--color-text-secondary) 70%, transparent) !important;
+}
+.text-secondary\/60 {
+  color: color-mix(in srgb, var(--color-text-secondary) 60%, transparent) !important;
+}
+.text-secondary\/50 {
+  color: color-mix(in srgb, var(--color-text-secondary) 50%, transparent) !important;
+}
+.text-secondary\/40 {
+  color: color-mix(in srgb, var(--color-text-secondary) 40%, transparent) !important;
+}
+
 /* Efeito de mola elástica física para abas e botões flutuantes */
 .motion-spring {
   transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);

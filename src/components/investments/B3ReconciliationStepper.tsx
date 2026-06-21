@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 export interface B3WizardStep {
@@ -30,17 +31,17 @@ export default function B3ReconciliationStepper({
     : 0
 
   return (
-    <div className="relative border-b border-glass pb-4 mb-2 space-y-3">
+    <div className="relative border-b border-glass pb-3.5 mb-2.5 space-y-2">
       <div className="relative flex items-start justify-between w-full py-1">
         {/* Connector Line Background - Mathematically Centered */}
         <div 
-          className="absolute h-[3px] bg-border/20 -z-10 rounded-full top-[20px]"
+          className="absolute h-[2px] bg-border/20 -z-10 rounded-full top-[16px]"
           style={{ left: `${offsetPercent}%`, right: `${offsetPercent}%` }}
         />
         
         {/* Connector Line Active Progress - Mathematically Centered */}
         <div 
-          className="absolute h-[3px] bg-gradient-to-r from-balance via-primary to-income -z-10 rounded-full transition-all duration-500 ease-out top-[20px]"
+          className="absolute h-[2px] bg-gradient-to-r from-balance via-primary to-income -z-10 rounded-full transition-all duration-500 ease-out top-[16px]"
           style={{ 
             left: `${offsetPercent}%`, 
             width: `${activeWidth}%` 
@@ -55,7 +56,7 @@ export default function B3ReconciliationStepper({
               key={step.id}
               type="button"
               onClick={() => onStepClick(step.id)}
-              className={`flex-1 flex flex-col items-center gap-2 p-1.5 rounded-xl text-[11px] font-bold transition-all duration-300 hover-lift-subtle press-subtle group ${
+              className={`flex-1 flex flex-col items-center gap-1.5 p-1 rounded-xl text-[10px] font-bold transition-all duration-300 hover-lift-subtle press-subtle group ${
                 isActive
                   ? 'text-primary'
                   : isDone
@@ -65,15 +66,15 @@ export default function B3ReconciliationStepper({
             >
               {/* Step Circle */}
               <span
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all duration-300 border shrink-0 ${
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black transition-all duration-300 border shrink-0 ${
                   isActive
-                    ? 'bg-primary text-primary-foreground border-transparent scale-110 ring-4 ring-primary/10'
+                    ? 'bg-primary text-primary-foreground border-transparent scale-105 ring-2 ring-primary/10'
                     : isDone
                       ? 'bg-income text-white border-transparent scale-100'
                       : 'bg-card text-secondary border-glass group-hover:border-primary/50 group-hover:text-primary'
                 }`}
               >
-                {isDone ? '✓' : index + 1}
+                {isDone ? <Check size={11} className="stroke-[3.5px]" /> : index + 1}
               </span>
 
               {/* Label and Badge Container */}

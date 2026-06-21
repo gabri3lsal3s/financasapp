@@ -4,6 +4,7 @@ import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import { getAssetPrices } from '@/services/priceService'
 import { loadIndexRatesFromDb } from '@/services/indexRatesFetcher'
 import { computePositions, type ValuedPosition } from '@/utils/portfolioCalculations'
+import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import type {
   PortfolioAssetDefinition,
   PortfolioGroupTarget,
@@ -81,6 +82,16 @@ export function usePortfolioState() {
       if (!portfolio) return
       setPortfolioId(portfolio.id)
 
+      if (options?.forceRefresh) {
+        try {
+          await supabase.functions.invoke('daily-close', {
+            body: { portfolioId: portfolio.id }
+          })
+        } catch (err) {
+          console.warn('[usePortfolioState] Error invoking daily-close on forceRefresh:', err)
+        }
+      }
+
       // 2. Carregar dados do banco de dados relacionados
       const [txsData, defsData, targetsData, groupsData, shareData] = await Promise.all([
         fetchAllPortfolioTransactions(portfolio.id),
@@ -108,8 +119,20 @@ export function usePortfolioState() {
         setPositions([])
         setTotalValue(0)
         setInvestedValue(0)
-        setCashValue(Number(portfolio.cash_balance) || 0)
+        setCashValue(0)
         setShareHistory([])
+        
+        // Auto-heal database cash_balance if it is out of sync (e.g. all transactions deleted)
+        if (Math.abs(Number(portfolio.cash_balance) || 0) > 0.001) {
+          supabase
+            .from('portfolios')
+            .update({ cash_balance: 0.0 })
+            .eq('id', portfolio.id)
+            .then(({ error }) => {
+              if (error) console.error('[usePortfolioState] Error resetting cash balance:', error)
+            })
+        }
+        
         setLoading(false)
         return
       }
@@ -133,12 +156,25 @@ export function usePortfolioState() {
         ipca: {}
       }
 
-      // 5. Calcular posições atuais locais
+      // 5. Calcular posições atuais locais de forma dinâmica
+      const calculatedCash = calculateLedgerCashBalance(finalTxs, finalDefs)
+      
+      // Auto-heal database cash_balance if it is out of sync (e.g. manual transaction saves/deletes)
+      if (Math.abs(calculatedCash - (Number(portfolio.cash_balance) || 0)) > 0.001) {
+        supabase
+          .from('portfolios')
+          .update({ cash_balance: calculatedCash })
+          .eq('id', portfolio.id)
+          .then(({ error }) => {
+            if (error) console.error('[usePortfolioState] Error updating out-of-sync cash balance:', error)
+          })
+      }
+
       const valuation = computePositions(
         finalTxs,
         finalDefs,
         prices,
-        Number(portfolio.cash_balance) || 0,
+        calculatedCash,
         indexRates,
         {},
         todayStr
@@ -309,6 +345,19 @@ export function usePortfolioState() {
     }
   }, [loadData])
 
+  const reload = useCallback(async () => {
+    if (portfolioId) {
+      try {
+        await supabase.functions.invoke('daily-close', {
+          body: { portfolioId }
+        })
+      } catch (err) {
+        console.warn('[usePortfolioState] Error invoking daily-close during reload:', err)
+      }
+    }
+    await loadData({ silent: true })
+  }, [portfolioId, loadData])
+
   return {
     loading,
     refreshing,
@@ -323,6 +372,6 @@ export function usePortfolioState() {
     investedValue,
     cashValue,
     refresh,
-    reload: () => loadData({ silent: true })
+    reload
   }
 }

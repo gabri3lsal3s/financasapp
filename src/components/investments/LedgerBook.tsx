@@ -339,8 +339,9 @@ export default function LedgerBook({
                       {formatDate(tx.date)} • {formatQuantityBR(Number(tx.quantity), 4)} un x {formatCurrency(Number(tx.price))}
                     </div>
                   </div>
+                </div>
                   
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                     <div className="text-right">
                       <span className="text-sm font-black text-primary font-mono block">
                         {formatCurrency(total)}

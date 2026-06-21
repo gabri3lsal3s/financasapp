@@ -55,7 +55,7 @@ export default function B3ReconciliationKpiGrid({ items }: B3ReconciliationKpiGr
             className={`modal-panel-glass rounded-2xl border ${styles.border} ${styles.bg} px-4 py-3.5 text-left transition-all duration-300 hover-lift-subtle hover:shadow-lg ${styles.glow} group animate-stagger-item ${delayClass}`}
           >
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-widest text-secondary/70">
+              <p className="text-[10px] font-black uppercase tracking-widest text-secondary opacity-70">
                 {item.label}
               </p>
               <span className={`w-1.5 h-1.5 rounded-full ${styles.text.replace('text-', 'bg-')} animate-pulse`} />
@@ -65,7 +65,7 @@ export default function B3ReconciliationKpiGrid({ items }: B3ReconciliationKpiGr
               {item.value}
             </p>
             
-            <p className="text-[10px] text-secondary/80 mt-1 leading-snug font-medium">
+            <p className="text-[10px] text-secondary opacity-80 mt-1 leading-snug font-medium">
               {item.hint}
             </p>
           </div>

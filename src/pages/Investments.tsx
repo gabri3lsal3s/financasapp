@@ -5,7 +5,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, Layers, FileSpreadsheet } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, FileSpreadsheet } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { formatCurrency } from '@/utils/format'
 

@@ -34,7 +34,7 @@ import {
   PORTFOLIO_OPERATION_OPTIONS,
 } from '@/utils/portfolioOperations'
 import { isB3TickerPattern, detectDefaultCurrency, isTreasuryTicker } from '@/services/priceService'
-import { formatQuantityBR } from '@/utils/format'
+import { formatQuantityBR, formatCurrency } from '@/utils/format'
 
 type PortfolioTransactionInsert = Omit<PortfolioTransaction, 'created_at'>
 
@@ -78,7 +78,7 @@ import {
   getPreferredCashTicker,
 } from '@/utils/cashBalanceApplication'
 import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
-import { Upload, FileCheck, ArrowRight, Layers, Check, AlertCircle, ShieldCheck } from 'lucide-react'
+import { Upload, FileCheck, ArrowRight, ArrowLeft, RefreshCw, ChevronDown, Link, Layers, Check, AlertCircle, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface InvestmentReconciliationModalProps {
@@ -281,6 +281,21 @@ export default function InvestmentReconciliationModal({
     [conflictDrafts, missingDrafts, reconciliation]
   )
 
+  useEffect(() => {
+    if (currentStep === 'corrections') {
+      if (correctionsTab === 'conflicts' && wizardCounts.conflicts === 0) {
+        if (wizardCounts.missing > 0) setCorrectionsTab('missing')
+        else if (wizardCounts.suspicious > 0) setCorrectionsTab('suspicious')
+      } else if (correctionsTab === 'missing' && wizardCounts.missing === 0) {
+        if (wizardCounts.conflicts > 0) setCorrectionsTab('conflicts')
+        else if (wizardCounts.suspicious > 0) setCorrectionsTab('suspicious')
+      } else if (correctionsTab === 'suspicious' && wizardCounts.suspicious === 0) {
+        if (wizardCounts.conflicts > 0) setCorrectionsTab('conflicts')
+        else if (wizardCounts.missing > 0) setCorrectionsTab('missing')
+      }
+    }
+  }, [currentStep, correctionsTab, wizardCounts])
+
   const positionAdjustments = useMemo((): PositionAdjustmentSuggestion[] => {
     if (!positionValidation) return []
     return suggestPositionAdjustments(
@@ -374,6 +389,211 @@ export default function InvestmentReconciliationModal({
     () => missingDrafts.filter((draft) => draft.selected).length,
     [missingDrafts]
   )
+
+  const modalFooter = useMemo(() => {
+    if (loading) return null
+
+    switch (currentStep) {
+      case 'upload': {
+        if (!fileName && !positionFileName) return null
+        return (
+          <div className="flex justify-end gap-3 w-full">
+            {positionFileName && !fileName && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setPositionOnlyMode(true)
+                  setCurrentStep('position')
+                }}
+                className="font-bold gap-1.5 animate-pulse-slow text-xs"
+              >
+                Continuar Apenas com Posição <ArrowRight size={14} />
+              </Button>
+            )}
+            {fileName && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setCurrentStep('summary')
+                }}
+                className="font-bold gap-1.5 hover:scale-102 transition-all duration-300 text-xs"
+              >
+                {positionFileName ? 'Iniciar Auditoria Completa' : 'Iniciar Auditoria de Movimentações'} <ArrowRight size={14} />
+              </Button>
+            )}
+          </div>
+        )
+      }
+      case 'summary': {
+        if (!reconciliation) return null
+        return (
+          <div className="flex justify-end w-full">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => goToNextStepAfter('summary')}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              {wizardCounts.corrections > 0 ? (
+                <>
+                  Corrigir pendências <ArrowRight size={13} />
+                </>
+              ) : (
+                <>
+                  Validar posição B3 <ArrowRight size={13} />
+                </>
+              )}
+            </Button>
+          </div>
+        )
+      }
+      case 'corrections': {
+        return (
+          <div className="flex justify-between items-center w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentStep('summary')}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              <ArrowLeft size={13} /> Voltar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                if (manualYieldRequiredAssets.length > 0) {
+                  setCurrentStep('yield_config')
+                } else {
+                  goToNextStepAfter('corrections')
+                }
+              }}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              {manualYieldRequiredAssets.length > 0 ? (
+                <>
+                  Avançar para Rentabilidade <ArrowRight size={13} />
+                </>
+              ) : (
+                <>
+                  Validar posição B3 <ArrowRight size={13} />
+                </>
+              )}
+            </Button>
+          </div>
+        )
+      }
+      case 'yield_config': {
+        return (
+          <div className="flex justify-between items-center w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentStep('corrections')}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              <ArrowLeft size={13} /> Voltar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setCurrentStep('position')}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              Avançar para Custódia B3 <ArrowRight size={13} />
+            </Button>
+          </div>
+        )
+      }
+      case 'position': {
+        return (
+          <div className="flex justify-between items-center w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => positionOnlyMode ? setCurrentStep('upload') : setCurrentStep('corrections')}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              <ArrowLeft size={13} /> Voltar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!positionValidation}
+              onClick={() => positionOnlyMode ? onClose() : setCurrentStep('review')}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              {positionOnlyMode ? (
+                <>
+                  Concluir Validação <Check size={13} />
+                </>
+              ) : (
+                <>
+                  Avançar para Conclusão <ArrowRight size={13} />
+                </>
+              )}
+            </Button>
+          </div>
+        )
+      }
+      case 'review': {
+        return (
+          <div className="flex justify-between items-center w-full gap-3">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentStep('position')}
+                className="font-bold text-xs flex items-center gap-1.5"
+              >
+                <ArrowLeft size={13} /> Voltar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFileName('')
+                  setPositionFileName('')
+                  setReconciliation(null)
+                  setPositionValidation(null)
+                  setMissingDrafts([])
+                  setConflictDrafts([])
+                  setPositionOnlyMode(false)
+                  setCurrentStep('upload')
+                }}
+                className="font-bold text-xs flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} /> Novo Extrato
+              </Button>
+            </div>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={onClose}
+              className="font-bold text-xs flex items-center gap-1.5"
+            >
+              <Check size={13} /> Concluir Conciliação
+            </Button>
+          </div>
+        )
+      }
+      default:
+        return null
+    }
+  }, [
+    currentStep,
+    loading,
+    fileName,
+    positionFileName,
+    reconciliation,
+    wizardCounts.corrections,
+    manualYieldRequiredAssets.length,
+    positionOnlyMode,
+    positionValidation,
+    onClose,
+  ])
 
   const selectedConflictCount = useMemo(
     () => conflictDrafts.filter((draft) => draft.selected && !draft.applied).length,
@@ -1220,6 +1440,7 @@ export default function InvestmentReconciliationModal({
       onClose={onClose}
       title="Conciliação B3 — Movimentação e Posição"
       size="2xl"
+      footer={modalFooter}
     >
       <div className="modal-form-stack w-full text-left">
         {/* Invisible anchor for scrolling to top */}
@@ -1440,34 +1661,6 @@ export default function InvestmentReconciliationModal({
               </div>
             )}
 
-            {/* Action buttons */}
-            <div className="modal-section-divider flex justify-end gap-3 border-t pt-2">
-              {positionFileName && !fileName && (
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => {
-                    setPositionOnlyMode(true)
-                    setCurrentStep('position')
-                  }}
-                  className="font-bold gap-1.5 animate-pulse-slow"
-                >
-                  Continuar Apenas com Posição <ArrowRight size={14} />
-                </Button>
-              )}
-              {fileName && (
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => {
-                    setCurrentStep('summary')
-                  }}
-                  className="font-bold gap-1.5 hover:scale-102 transition-all duration-300"
-                >
-                  {positionFileName ? 'Iniciar Auditoria Completa' : 'Iniciar Auditoria de Movimentações'} <ArrowRight size={14} />
-                </Button>
-              )}
-            </div>
           </div>
         )}
 
@@ -1482,19 +1675,14 @@ export default function InvestmentReconciliationModal({
 
           return (
             <div className="space-y-4 animate-page-enter text-left">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b modal-section-divider pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-income/10 flex items-center justify-center text-income shrink-0">
-                    <FileCheck size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-primary uppercase tracking-tight">Diagnóstico Eletrônico</h4>
-                    <p className="text-[11px] text-secondary">cruzamento de lançamentos e históricos finalizado.</p>
-                  </div>
+              <div className="flex items-center gap-3 border-b modal-section-divider pb-3">
+                <div className="w-10 h-10 rounded-xl bg-income/10 flex items-center justify-center text-income shrink-0">
+                  <FileCheck size={20} />
                 </div>
-                <Button type="button" variant="primary" onClick={() => goToNextStepAfter('summary')} className="font-bold shrink-0 self-end sm:self-auto">
-                  {wizardCounts.corrections > 0 ? 'Corrigir pendências →' : 'Validar posição B3 →'}
-                </Button>
+                <div>
+                  <h4 className="text-sm font-black text-primary uppercase tracking-tight">Diagnóstico Eletrônico</h4>
+                  <p className="text-[11px] text-secondary">cruzamento de lançamentos e históricos finalizado.</p>
+                </div>
               </div>
 
               {/* Glassmorphic Match Rate Panel */}
@@ -1527,7 +1715,7 @@ export default function InvestmentReconciliationModal({
                       <p className="text-2xl font-black font-mono tracking-tighter text-income tabular-nums">
                         {matchRate}%
                       </p>
-                      <p className="text-[8px] font-black uppercase text-secondary/60 tracking-wider">
+                      <p className="text-[8px] font-black uppercase text-secondary opacity-60 tracking-wider">
                         Alinhados
                       </p>
                     </div>
@@ -1546,7 +1734,7 @@ export default function InvestmentReconciliationModal({
                       <span>Auditoria iniciada. Detectamos desvios significativos no histórico. Recomendamos aplicar as correções e importações recomendadas para restabelecer a precisão da carteira.</span>
                     )}
                   </p>
-                  <p className="text-[10px] text-secondary/70">
+                  <p className="text-[10px] text-secondary opacity-70">
                     O sistema processou <strong className="text-primary font-bold">{totalItems} transações</strong> no extrato de negociações da B3.
                   </p>
                 </div>
@@ -1587,44 +1775,43 @@ export default function InvestmentReconciliationModal({
                     <Layers size={14} className="text-balance" />
                     Auditoria Preliminar de Cotas de Custódia
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="divide-y divide-border/10 border border-border/20 rounded-2xl overflow-y-auto max-h-72 bg-glass/5 pr-1 scrollbar-thin">
                     {positionPreviewRows.map((row) => {
                       const delta = row.b3 - row.system
                       const diff = Math.abs(delta) > 0.0001
                       return (
                         <div
                           key={row.ticker}
-                          className={`p-3 rounded-2xl border transition-all duration-300 ${
-                            diff 
-                              ? 'bg-warning/5 border-warning/20 hover:bg-warning/10' 
-                              : 'bg-primary/5 border-border/40 hover:bg-primary/10'
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3.5 py-2 text-xs transition-colors hover:bg-glass/10 ${
+                            diff ? 'bg-warning/[0.01]' : ''
                           }`}
                         >
-                          <div className="flex justify-between items-center border-b border-border/10 pb-1.5 mb-2">
-                            <span className="font-black text-primary font-mono text-sm">{row.ticker}</span>
-                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          {/* Ticker & Status Info */}
+                          <div className="flex items-center gap-2.5 min-w-[120px]">
+                            <span className="font-extrabold text-primary font-mono text-[13px] tracking-wide">{row.ticker}</span>
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md tracking-wider whitespace-nowrap ${
                               diff ? 'bg-warning/10 text-warning' : 'bg-income/10 text-income'
                             }`}>
-                              {diff ? 'Ajustar' : 'Sincronizado'}
+                              {diff ? 'Ajustar' : 'Sinc.'}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+
+                          {/* Metrics grid aligned on the right */}
+                          <div className="flex-1 grid grid-cols-3 gap-3 text-right font-mono text-[11px]">
                             <div>
-                              <span className="text-secondary/70 uppercase text-[8px] block font-bold">Extrato B3</span>
+                              <span className="text-secondary opacity-50 text-[7.5px] uppercase block font-bold">Extrato B3</span>
                               <span className="text-primary font-bold">{formatQuantityBR(row.b3)}</span>
                             </div>
-                            <div className="text-right">
-                              <span className="text-secondary/70 uppercase text-[8px] block font-bold">Sistema</span>
+                            <div>
+                              <span className="text-secondary opacity-50 text-[7.5px] uppercase block font-bold">Sistema</span>
                               <span className="text-primary font-bold">{formatQuantityBR(row.system)}</span>
                             </div>
-                            {diff && (
-                              <div className="col-span-2 border-t border-border/5 pt-1.5 mt-1 flex justify-between items-center">
-                                <span className="text-secondary/70 uppercase text-[8px] font-bold">Desvio (Δ)</span>
-                                <span className={`font-black ${delta > 0 ? 'text-income' : 'text-expense'}`}>
-                                  {delta > 0 ? '+' : ''}{formatQuantityBR(delta)}
-                                </span>
-                              </div>
-                            )}
+                            <div>
+                              <span className="text-secondary opacity-50 text-[7.5px] uppercase block font-bold">Desvio</span>
+                              <span className={`font-black ${diff ? (delta > 0 ? 'text-income' : 'text-expense') : 'text-secondary opacity-40'}`}>
+                                {diff ? `${delta > 0 ? '+' : ''}${formatQuantityBR(delta)}` : '—'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       )
@@ -1635,22 +1822,21 @@ export default function InvestmentReconciliationModal({
 
               {/* Renda Fixa / Tesouro Manual Alert */}
               {detectedManualAssets.length > 0 && (
-                <div className="w-full bg-warning/5 border border-warning/20 rounded-2xl p-4 text-left flex gap-3 items-start animate-page-enter">
-                  <AlertCircle size={18} className="text-warning shrink-0 mt-0.5" />
-                  <div className="space-y-2 w-full">
+                <div className="w-full bg-warning/[0.03] border border-warning/15 rounded-2xl p-3.5 text-left flex gap-2.5 items-start animate-page-enter">
+                  <AlertCircle size={15} className="text-warning shrink-0 mt-0.5 animate-pulse" />
+                  <div className="space-y-1.5 w-full">
                     <p className="text-xs font-bold text-warning uppercase tracking-tight">
-                      Atenção: Ativos de Renda Fixa e Tesouro Direto Detectados
+                      Ativos de Renda Fixa e Tesouro Detectados
                     </p>
                     <p className="text-[10px] text-secondary leading-relaxed">
-                      O aplicativo não importa ativos de renda fixa ou Tesouro Direto automaticamente. 
-                      Os seguintes ativos foram identificados no extrato e <strong>devem ser adicionados manualmente</strong> no Livro-Razão para manter sua carteira atualizada:
+                      Esses ativos não são conciliados de forma automática. Adicione-os manualmente no Livro-Razão se necessário:
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
                       {detectedManualAssets.map((asset) => (
-                        <div key={asset.ticker} className="bg-primary/5 border border-border/40 rounded-xl p-2 flex flex-col justify-center">
-                          <span className="text-[10px] font-bold text-primary font-mono">{asset.ticker}</span>
+                        <div key={asset.ticker} className="bg-primary/5 border border-border/30 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
+                          <span className="text-[10px] font-black text-primary font-mono">{asset.ticker}</span>
                           {asset.product_name && (
-                            <span className="text-[9px] text-secondary truncate" title={asset.product_name}>
+                            <span className="text-[8px] text-secondary truncate" title={asset.product_name}>
                               {asset.product_name}
                             </span>
                           )}
@@ -1661,59 +1847,65 @@ export default function InvestmentReconciliationModal({
                 </div>
               )}
 
-              {/* Banner: itens excluídos da conciliação */}
+              {/* Banner: itens excluídos da conciliação (Simplificado com details) */}
               {(excludedCount.ignoredByMovement > 0 ||
                 excludedCount.subscriptionRights > 0 ||
                 excludedCount.dedupe.ignoredInternal > 0 ||
                 excludedCount.dedupe.ignoredCorporate > 0 ||
                 excludedCount.dedupe.dedupedTrades > 0) && (
-                <div className="w-full bg-warning/5 border border-warning/20 rounded-2xl p-4 text-left flex gap-3 items-start">
-                  <AlertCircle size={16} className="text-warning shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-warning">Linhas desconsideradas do parser B3</p>
-                    <p className="text-[10px] text-secondary leading-relaxed">
-                      A conciliação automatizada considera apenas <strong>negociações, proventos e eventos corporativos</strong> de renda variável.
+                <details className="w-full bg-glass/5 border border-border/20 rounded-2xl p-3 text-left transition-all duration-300 group">
+                  <summary className="text-[10px] font-bold text-secondary cursor-pointer select-none flex items-center justify-between outline-none">
+                    <span className="flex items-center gap-2">
+                      <AlertCircle size={13} className="text-secondary opacity-70" />
+                      Visualizar linhas desconsideradas do parser B3 ({
+                        excludedCount.ignoredByMovement + 
+                        excludedCount.subscriptionRights + 
+                        excludedCount.dedupe.ignoredInternal + 
+                        excludedCount.dedupe.ignoredCorporate + 
+                        excludedCount.dedupe.dedupedTrades
+                      })
+                    </span>
+                    <ChevronDown size={13} className="text-secondary transition-transform duration-200 group-open:rotate-180" />
+                  </summary>
+                  <div className="text-[9.5px] text-secondary opacity-80 leading-relaxed mt-2 pl-5 space-y-1">
+                    <p>A conciliação automatizada considera apenas <strong>negociações, proventos e eventos corporativos</strong> de renda variável.</p>
+                    <p className="list-disc pl-3">
                       {excludedCount.ignoredByMovement > 0 && (
                         <span>
-                          {' '}
-                          <strong>{excludedCount.ignoredByMovement}</strong> linha
+                          • <strong>{excludedCount.ignoredByMovement}</strong> linha
                           {excludedCount.ignoredByMovement > 1 ? 's' : ''} ignorada
-                          {excludedCount.ignoredByMovement > 1 ? 's' : ''} no parse (transferências internas, empréstimos, etc.)
+                          {excludedCount.ignoredByMovement > 1 ? 's' : ''} no parse (transferências internas, empréstimos, etc).<br />
                         </span>
                       )}
                       {excludedCount.dedupe.ignoredInternal > 0 && (
                         <span>
-                          {' '}
-                          <strong>{excludedCount.dedupe.ignoredInternal}</strong> espelho
+                          • <strong>{excludedCount.dedupe.ignoredInternal}</strong> espelho
                           {excludedCount.dedupe.ignoredInternal > 1 ? 's' : ''} de transferência Crédito/Débito removido
-                          {excludedCount.dedupe.ignoredInternal > 2 ? 's' : ''}.
+                          {excludedCount.dedupe.ignoredInternal > 2 ? 's' : ''}.<br />
                         </span>
                       )}
                       {excludedCount.dedupe.ignoredCorporate > 0 && (
                         <span>
-                          {' '}
-                          <strong>{excludedCount.dedupe.ignoredCorporate}</strong> cessão
+                          • <strong>{excludedCount.dedupe.ignoredCorporate}</strong> cessão
                           {excludedCount.dedupe.ignoredCorporate > 1 ? 'ões' : 'ão'} de direitos removida
-                          {excludedCount.dedupe.ignoredCorporate > 1 ? 's' : ''}.
+                          {excludedCount.dedupe.ignoredCorporate > 1 ? 's' : ''}.<br />
                         </span>
                       )}
                       {excludedCount.dedupe.dedupedTrades > 0 && (
                         <span>
-                          {' '}
-                          <strong>{excludedCount.dedupe.dedupedTrades}</strong> compra/venda redundante
-                          {excludedCount.dedupe.dedupedTrades > 1 ? 's' : ''} (já coberta pela liquidação).
+                          • <strong>{excludedCount.dedupe.dedupedTrades}</strong> compra/venda redundante
+                          {excludedCount.dedupe.dedupedTrades > 1 ? 's' : ''} (já coberta pela liquidação).<br />
                         </span>
                       )}
                       {excludedCount.subscriptionRights > 0 && (
                         <span>
-                          {' '}
-                          <strong>{excludedCount.subscriptionRights}</strong> direito
-                          {excludedCount.subscriptionRights > 1 ? 's' : ''} de subscrição (ticker temporário, ex. MXRF12).
+                          • <strong>{excludedCount.subscriptionRights}</strong> direito
+                          {excludedCount.subscriptionRights > 1 ? 's' : ''} de subscrição (ticker temporário).
                         </span>
                       )}
                     </p>
                   </div>
-                </div>
+                </details>
               )}
 
             </div>
@@ -1723,26 +1915,6 @@ export default function InvestmentReconciliationModal({
         {/* Correções unificadas */}
         {currentStep === 'corrections' && reconciliation && (
           <div className="space-y-3 animate-page-enter">
-            <div className="modal-toolbar gap-3">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('summary')} className="font-bold">
-                ← Voltar
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  if (manualYieldRequiredAssets.length > 0) {
-                    setCurrentStep('yield_config')
-                  } else {
-                    goToNextStepAfter('corrections')
-                  }
-                }}
-                className="font-bold"
-              >
-                {manualYieldRequiredAssets.length > 0 ? 'Avançar para Rentabilidade →' : 'Validar posição B3 →'}
-              </Button>
-            </div>
-
             <div className="modal-tab-bar">
               {(
                 [
@@ -1750,30 +1922,34 @@ export default function InvestmentReconciliationModal({
                   { id: 'missing' as const, label: 'Faltando', count: wizardCounts.missing },
                   { id: 'suspicious' as const, label: 'Alertas', count: wizardCounts.suspicious },
                 ] as const
-              ).map((tab) => {
-                const isActive = correctionsTab === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setCorrectionsTab(tab.id)}
-                    className={`flex-1 min-w-0 px-3 py-2 rounded-xl text-[11px] font-black transition-all duration-300 ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground border-none scale-[1.02]'
-                        : 'text-secondary hover:text-primary hover:bg-primary/5'
-                    }`}
-                  >
-                    {tab.label}
-                    {tab.count > 0 && (
-                      <span className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                        isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-secondary'
-                      }`}>
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
+              )
+                .filter((tab) => tab.count > 0)
+                .map((tab) => {
+                  const isActive = correctionsTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setCorrectionsTab(tab.id)}
+                      className={`flex-1 min-w-0 px-3 py-2 rounded-xl text-[11px] font-black transition-all duration-300 ${
+                        isActive
+                          ? 'bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] border-none scale-[1.02]'
+                          : 'text-secondary hover:text-primary hover:bg-[var(--ds-color-accent-primary)]/5'
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.count > 0 && (
+                        <span className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                          isActive
+                            ? 'bg-[var(--ds-color-button-text)]/20 text-[var(--ds-color-button-text)]'
+                            : 'bg-[var(--ds-color-accent-primary)]/10 text-secondary'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
             </div>
 
             {correctionsTab === 'conflicts' && (
@@ -1852,8 +2028,8 @@ export default function InvestmentReconciliationModal({
               </div>
             </div>
 
-            {/* Customization grid / cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[380px] overflow-y-auto pr-1">
+            {/* Customization compact list */}
+            <div className="divide-y divide-border/10 border border-border/20 rounded-2xl overflow-y-auto max-h-[380px] bg-glass/5 pr-1 scrollbar-thin">
               {missingDrafts.map((draft) => {
                 const isBuy = draft.operation_type === 'buy' || draft.operation_type === 'subscription'
                 const isSell = draft.operation_type === 'sell'
@@ -1863,29 +2039,30 @@ export default function InvestmentReconciliationModal({
                 return (
                   <div
                     key={draft.id}
-                    className={`p-4 rounded-3xl border transition-all duration-300 text-left flex flex-col justify-between gap-3 ${
-                      draft.selected 
-                        ? 'bg-glass/5 border-balance/40 shadow-sm' 
-                        : 'bg-glass/5 border-border/20 opacity-70'
-                    }`}
+                    className={cn(
+                      "flex flex-col md:flex-row md:items-center justify-between gap-3 px-3.5 py-2.5 text-xs transition-colors hover:bg-glass/10",
+                      !draft.selected && "opacity-60"
+                    )}
                   >
-                    {/* Header: Import Checkbox, Ticker and Operation Badge */}
-                    <div className="flex items-center justify-between border-b border-border/10 pb-2.5">
-                      <div className="flex items-center gap-3">
+                    {/* Left: Select + Ticker input + Date input */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-4.5 w-4.5 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
+                        checked={draft.selected}
+                        onChange={(e) => updateMissingDraft(draft.id, 'selected', e.target.checked)}
+                      />
+                      
+                      <div className="relative flex items-center gap-1">
                         <input
-                          type="checkbox"
-                          className="h-4.5 w-4.5 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
-                          checked={draft.selected}
-                          onChange={(e) => updateMissingDraft(draft.id, 'selected', e.target.checked)}
+                          type="text"
+                          value={draft.ticker}
+                          onChange={(e) => updateMissingDraft(draft.id, 'ticker', e.target.value)}
+                          className="modal-input-compact w-18 text-primary px-1.5 py-0.5 uppercase text-[10px] font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none pr-5"
                         />
-                        <div className="relative flex items-center gap-1.5 w-24">
-                          <input
-                            type="text"
-                            value={draft.ticker}
-                            onChange={(e) => updateMissingDraft(draft.id, 'ticker', e.target.value)}
-                            className="modal-input-compact w-full text-primary px-2 py-1 uppercase text-xs font-black font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none transition-all duration-300 shadow-sm"
-                          />
-                          {existingSystemTickers.length > 0 && (
+                        {existingSystemTickers.length > 0 && (
+                          <div className="absolute right-1 flex items-center justify-center w-4 h-4 text-secondary pointer-events-none hover:text-primary transition-colors">
+                            <Link size={10} />
                             <select
                               value=""
                               onChange={(e) => {
@@ -1893,34 +2070,44 @@ export default function InvestmentReconciliationModal({
                                   updateMissingDraft(draft.id, 'ticker', e.target.value)
                                 }
                               }}
-                              className="modal-input-compact w-7 px-0 text-xs text-center cursor-pointer border-none bg-transparent"
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-auto"
                               title="Vincular a um ativo existente"
                             >
-                              <option value="">🔗</option>
+                              <option value="" disabled className="bg-background text-primary">
+                                Vincular...
+                              </option>
                               {existingSystemTickers.map((t) => (
                                 <option key={t} value={t} className="bg-background text-primary">
                                   {t}
                                 </option>
                               ))}
                             </select>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
-                      
+
+                      <input
+                        type="date"
+                        value={draft.date}
+                        onChange={(e) => updateMissingDraft(draft.id, 'date', e.target.value)}
+                        className="modal-input-compact w-24 text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Middle: Operation Type & Pricing Mode selectors */}
+                    <div className="flex items-center gap-2">
                       <select
                         value={draft.operation_type}
                         onChange={(e) =>
                           updateMissingDraft(draft.id, 'operation_type', e.target.value as PortfolioOperationType)
                         }
-                        className={`text-[10px] font-black uppercase py-1 px-2.5 rounded-lg focus:outline-none border border-transparent shadow-sm cursor-pointer ${
-                          isBuy
-                            ? 'text-balance bg-balance/10'
-                            : isSell
-                              ? 'text-expense bg-expense/10'
-                              : isIncome
-                                ? 'text-income bg-income/10'
-                                : 'text-secondary bg-glass/10'
-                        }`}
+                        className={cn(
+                          "text-[10px] font-black uppercase py-0.5 px-2.5 rounded-lg focus:outline-none border border-transparent shadow-sm cursor-pointer h-7",
+                          isBuy && "text-balance bg-balance/10",
+                          isSell && "text-expense bg-expense/10",
+                          isIncome && "text-income bg-income/10",
+                          !isBuy && !isSell && !isIncome && "text-secondary bg-glass/10"
+                        )}
                       >
                         {OPERATION_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value} className="bg-background text-primary">
@@ -1928,76 +2115,54 @@ export default function InvestmentReconciliationModal({
                           </option>
                         ))}
                       </select>
+
+                      <select
+                        value={draft.pricing_mode}
+                        onChange={(e) =>
+                          updateMissingDraft(draft.id, 'pricing_mode', e.target.value as PortfolioPricingMode)
+                        }
+                        className="modal-input-compact text-[10px] font-bold text-primary focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none cursor-pointer bg-transparent w-24 h-7"
+                      >
+                        {PORTFOLIO_PRICING_MODE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value} className="bg-background text-primary">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Content parameters */}
-                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                      <div>
-                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Data</span>
-                        <input
-                          type="date"
-                          value={draft.date}
-                          onChange={(e) => updateMissingDraft(draft.id, 'date', e.target.value)}
-                          className="modal-input-compact w-full text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none"
-                        />
-                      </div>
-                      <div className="text-right">
-                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Mov. Oficial B3</span>
-                        <span className="text-secondary font-bold block truncate max-w-[140px] font-sans" title={draft.official.raw_operation_type}>
-                          {draft.official.raw_operation_type}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Qtd</span>
+                    {/* Right: Qtd & Price Inputs + Total */}
+                    <div className="flex items-center gap-2 justify-between md:justify-end min-w-[200px]">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[8px] text-secondary opacity-60 font-bold font-sans">QTD</span>
                         <input
                           type="number"
                           step="any"
                           value={draft.quantity}
                           onChange={(e) => updateMissingDraft(draft.id, 'quantity', e.target.value)}
-                          className="modal-input-compact w-full text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none font-black"
+                          className="modal-input-compact w-14 px-1 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none font-bold text-right"
                         />
                       </div>
-                      <div className="text-right">
-                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Preço Unitário</span>
+
+                      <div className="flex items-center gap-1">
+                        <span className="text-[8px] text-secondary opacity-60 font-bold font-sans">PREÇO</span>
                         <input
                           type="number"
                           step="any"
                           value={draft.price}
                           onChange={(e) => updateMissingDraft(draft.id, 'price', e.target.value)}
-                          className="modal-input-compact w-full text-primary px-1.5 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none text-right font-black"
+                          className="modal-input-compact w-16 px-1 py-0.5 text-[10px] font-mono focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none font-bold text-right"
                         />
                       </div>
-                    </div>
 
-                    {/* Total & Pricing Mode row */}
-                    <div className="flex justify-between items-center border-t border-border/10 pt-2.5 mt-1">
-                      <div>
-                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Total Estimado</span>
-                        <span className="text-xs font-black text-primary font-mono">{formatCurrency(total)}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-secondary/70 uppercase text-[8px] block font-bold">Tipo de Ativo</span>
-                        <select
-                          value={draft.pricing_mode}
-                          onChange={(e) =>
-                            updateMissingDraft(draft.id, 'pricing_mode', e.target.value as PortfolioPricingMode)
-                          }
-                          className="modal-input-compact text-[10px] font-bold text-primary focus:border-balance focus:ring-2 focus:ring-balance/15 focus:outline-none cursor-pointer bg-transparent text-right"
-                        >
-                          {PORTFOLIO_PRICING_MODE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value} className="bg-background text-primary">
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                      <div className="text-right min-w-[80px]">
+                        <span className="text-primary font-mono font-black text-[11px] block">{formatCurrency(total)}</span>
                       </div>
                     </div>
                   </div>
                 )
               })}
             </div>
-
-
           </div>
             )}
 
@@ -2036,15 +2201,6 @@ export default function InvestmentReconciliationModal({
 
         {currentStep === 'yield_config' && (
           <div className="space-y-4 animate-page-enter">
-            <div className="modal-toolbar gap-3">
-              <Button variant="outline" size="sm" onClick={() => setCurrentStep('corrections')} className="font-bold">
-                ← Voltar
-              </Button>
-              <Button variant="primary" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
-                Avançar para Custódia B3 →
-              </Button>
-            </div>
-
             <B3ReconciliationGuidance title="Rentabilidade dos Novos Aportes" variant="info">
               Configure as taxas contratadas (ex: % do CDI ou taxa pré-fixada a.a.) e datas de vencimento para cada aporte de Renda Fixa importado. Isso garante a precisão do cálculo de rendimento.
             </B3ReconciliationGuidance>
@@ -2069,25 +2225,6 @@ export default function InvestmentReconciliationModal({
 
         {currentStep === 'position' && (reconciliation || positionOnlyMode) && (
           <div className="space-y-3 animate-page-enter">
-            <div className="modal-toolbar gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => positionOnlyMode ? setCurrentStep('upload') : setCurrentStep('corrections')}
-                className="font-bold"
-              >
-                ← Voltar
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!positionValidation}
-                onClick={() => positionOnlyMode ? onClose() : setCurrentStep('review')}
-                className="font-bold"
-              >
-                {positionOnlyMode ? 'Concluir Validação ✓' : 'Avançar para Conclusão →'}
-              </Button>
-            </div>
 
             {/* Banner: ativos fora do padrão B3 cadastrados no livro-razão */}
             {Object.keys(nonB3SystemPositions).length > 0 && (
@@ -2180,19 +2317,6 @@ export default function InvestmentReconciliationModal({
         {/* STEP 5: Review */}
         {currentStep === 'review' && reconciliation && (
           <div className="space-y-5 text-center animate-page-enter max-w-xl mx-auto py-4 text-left">
-            <div className="modal-toolbar flex-wrap gap-3">
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setCurrentStep('position')} className="font-bold">
-                  ← Revisar Custódia B3
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')} className="font-bold">
-                  🔄 Outro Extrato
-                </Button>
-              </div>
-              <Button variant="success" size="sm" onClick={onClose} className="font-bold">
-                ✓ Concluir Conciliação
-              </Button>
-            </div>
             {/* Animated Celebration Gauge */}
             <div className="flex flex-col items-center justify-center text-center space-y-3">
               <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-income to-income/80 text-white flex items-center justify-center shadow-lg shadow-income/20 animate-scale-fade-in scale-105">
@@ -2214,25 +2338,25 @@ export default function InvestmentReconciliationModal({
             <div className="modal-panel-glass relative overflow-hidden rounded-3xl p-5 space-y-4 group">
               <h5 className="font-black text-xs text-primary uppercase tracking-widest border-b modal-section-divider pb-2 flex items-center justify-between">
                 <span>Relatório Consolidado de Auditoria</span>
-                <span className="text-[9px] font-mono text-secondary/60">Hash: {crypto.randomUUID().slice(0, 8).toUpperCase()}</span>
+                <span className="text-[9px] font-mono text-secondary opacity-60">Hash: {crypto.randomUUID().slice(0, 8).toUpperCase()}</span>
               </h5>
               
               <div className="space-y-2.5 text-xs font-mono">
                 <div className="flex justify-between">
-                  <span className="text-secondary/70 uppercase text-[10px]">Total de Lançamentos Analisados:</span>
+                  <span className="text-secondary opacity-70 uppercase text-[10px]">Total de Lançamentos Analisados:</span>
                   <span className="font-bold text-primary">
                     {reconciliation.matched.length + reconciliation.conflicts.length + reconciliation.missing.length}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-secondary/70 uppercase text-[10px]">Lançamentos Conciliados (OK):</span>
+                  <span className="text-secondary opacity-70 uppercase text-[10px]">Lançamentos Conciliados (OK):</span>
                   <span className="font-bold text-income">
                     {reconciliation.matched.length + conflictDrafts.filter(c => c.applied).length}
                   </span>
                 </div>
                 {positionValidation && (
                   <div className="flex justify-between border-t modal-section-divider pt-2.5">
-                    <span className="text-secondary/70 uppercase text-[10px]">Auditoria de Custódia:</span>
+                    <span className="text-secondary opacity-70 uppercase text-[10px]">Auditoria de Custódia:</span>
                     <span
                       className={`font-black flex items-center gap-1 uppercase text-[10px] ${
                         positionValidation.allOk ? 'text-income' : 'text-warning'

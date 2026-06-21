@@ -7,7 +7,6 @@ import B3AdjustmentCard from '@/components/investments/B3AdjustmentCard'
 import type {
   PositionAdjustmentSuggestion,
   PositionValidationResult,
-  PositionValidationRow,
 } from '@/utils/investmentExcelReconciliation'
 
 interface B3PositionValidationPanelProps {
@@ -30,14 +29,6 @@ interface B3PositionValidationPanelProps {
   detectedManualPositionAssets?: Array<{ ticker: string; quantity: number; type: 'fixed_income' | 'treasury' }>
   /** Quando true, não há extrato de movimentação — oculta coluna Mov. e filtra falsos positivos de "Extrato incompleto" */
   positionOnlyMode?: boolean
-}
-
-const statusLabel = (row: PositionValidationRow): string => {
-  if (row.status === 'ok') return 'OK'
-  if (row.status === 'ghost_system') return 'Fantasma'
-  if (row.status === 'movements_official') return 'Extrato incompleto'
-  if (row.status === 'system_official') return 'Ajustar sistema'
-  return 'Divergente'
 }
 
 export default function B3PositionValidationPanel({
@@ -104,9 +95,12 @@ export default function B3PositionValidationPanel({
             if (file) onPositionFileChange(file)
           }}
         />
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
-          positionFileName ? 'bg-income/10 text-income' : 'bg-primary/30 text-secondary'
-        } group-hover:scale-105`}>
+        <div
+          className={cn(
+            'modal-upload-zone__icon shrink-0',
+            positionFileName && 'modal-upload-zone__icon--income'
+          )}
+        >
           <Upload size={20} className={positionDragActive ? 'animate-bounce' : ''} />
         </div>
         <div className="min-w-0 flex-1 text-center sm:text-left">
@@ -222,73 +216,11 @@ export default function B3PositionValidationPanel({
                   {detectedManualPositionAssets.map((asset) => (
                     <div key={asset.ticker} className="bg-primary/5 border border-border/40 rounded-xl p-2.5 flex justify-between items-center">
                       <span className="text-[10px] font-bold text-primary font-mono truncate max-w-[180px]" title={asset.ticker}>{asset.ticker}</span>
-                      <span className="text-[10px] font-black text-secondary/80 font-mono tabular-nums">{asset.quantity.toLocaleString('pt-BR')} un</span>
+                      <span className="text-[10px] font-black text-secondary opacity-80 font-mono tabular-nums">{asset.quantity.toLocaleString('pt-BR')} un</span>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {visibleRows.map((row) => {
-              const delta = row.official - row.system
-              const isOk = row.status === 'ok'
-              return (
-                <div
-                  key={row.ticker}
-                  className={`p-3 rounded-2xl border transition-all duration-300 flex flex-col justify-between gap-2 text-left ${
-                    isOk 
-                      ? 'bg-glass/5 border-border/40 hover:bg-glass/10' 
-                      : 'bg-warning/[0.03] border-warning/20 hover:bg-warning/[0.06]'
-                  }`}
-                >
-                  <div className="flex justify-between items-center border-b border-border/10 pb-1.5">
-                    <span className="font-black text-primary font-mono text-sm tracking-wide">{row.ticker}</span>
-                    <span
-                      className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap ${
-                        isOk 
-                          ? 'bg-income/10 text-income border border-income/10' 
-                          : 'bg-warning/10 text-warning border border-warning/10'
-                      }`}
-                    >
-                      {statusLabel(row)}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                    <div>
-                      <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Custódia B3</span>
-                      <span className="text-primary font-bold">{row.official}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Livro-Razão</span>
-                      <span className="text-primary font-bold">{row.system}</span>
-                    </div>
-                    {!positionOnlyMode && (
-                      <div>
-                        <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Movimentado</span>
-                        <span className="text-secondary font-medium">{row.fromMovements}</span>
-                      </div>
-                    )}
-                    <div className="text-right">
-                      <span className="text-secondary/70 uppercase text-[8.5px] block font-bold">Desvio (Δ)</span>
-                      <span className={`font-black ${isOk ? 'text-secondary/60' : delta > 0 ? 'text-income' : 'text-expense'}`}>
-                        {isOk ? '—' : `${delta > 0 ? '+' : ''}${delta}`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {!positionOnlyMode && mismatchRows.some((r) => r.status === 'movements_official') && (
-            <div className="flex gap-2.5 text-[10px] text-secondary bg-primary/10 rounded-xl px-4 py-3 border border-glass items-start">
-              <AlertCircle size={15} className="shrink-0 text-warning mt-0.5 animate-pulse" />
-              <span className="leading-relaxed">
-                <strong>Observação de Auditoria:</strong> Alguns ativos exibem a marcação &quot;Extrato incompleto&quot;. Isso indica que as quantidades finais no livro-razão coincidem com a B3, mas a planilha de movimentações carregada não possui histórico suficiente para justificar a evolução do saldo.
-              </span>
             </div>
           )}
         </>
