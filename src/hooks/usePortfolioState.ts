@@ -15,6 +15,7 @@ import type {
 import toast from 'react-hot-toast'
 import { isBusinessDay } from '@/utils/businessDays'
 import { subDays, format } from 'date-fns'
+import { runClientSideHistoricalRecalculation } from '@/services/portfolioHistoricalRecalc'
 
 function getLatestTradingDate(): string {
   const now = new Date()
@@ -61,13 +62,14 @@ export function usePortfolioState() {
       if (!user) return
 
       // 1. Obter ou criar portfólio
-      let { data: portfolio, error: portError } = await supabase
+      const { data: portfolioData, error: portError } = await supabase
         .from('portfolios')
         .select('id, cash_balance')
         .eq('client_id', user.id)
         .maybeSingle()
 
       if (portError) throw portError
+      let portfolio = portfolioData
 
       if (!portfolio) {
         const { data: newPort, error: createError } = await supabase
@@ -84,11 +86,17 @@ export function usePortfolioState() {
 
       if (options?.forceRefresh) {
         try {
-          await supabase.functions.invoke('daily-close', {
+          const { error } = await supabase.functions.invoke('daily-close', {
             body: { portfolioId: portfolio.id }
           })
+          if (error) throw error
         } catch (err) {
-          console.warn('[usePortfolioState] Error invoking daily-close on forceRefresh:', err)
+          console.warn('[usePortfolioState] Error invoking daily-close on forceRefresh, running client-side recalculation fallback:', err)
+          try {
+            await runClientSideHistoricalRecalculation(portfolio.id)
+          } catch (recalcErr) {
+            console.error('[usePortfolioState] Failed client-side recalculation fallback on forceRefresh:', recalcErr)
+          }
         }
       }
 
@@ -199,35 +207,35 @@ export function usePortfolioState() {
         }
       })
 
-      // Calcular o Total Aportado (capital investido + caixa aportado)
-      // Se houver transações de depósito manual no CAIXA, usamos a soma líquida de depósitos/resgates.
-      // Caso contrário, somamos o custo de aquisição dos ativos ativos + caixa.
-      const isCashTicker = (t: string) => ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(t.toUpperCase().trim())
-      
-      let calculatedInvestedValue = 0
-      let hasManualCashTx = false
-      let netCashDeposits = 0
+      // Calcular o Total Aportado (soma cumulativa dos fluxos externos de caixa)
+      let cumulativeExternalContribution = 0
+      const legacyCashTickers = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA']
 
       for (const tx of finalTxs) {
-        if (isCashTicker(tx.ticker) && !tx.cash_offset_source_id) {
-          hasManualCashTx = true
-          if (tx.operation_type === 'buy') {
-            netCashDeposits += Number(tx.quantity) * Number(tx.price)
-          } else if (tx.operation_type === 'sell') {
-            netCashDeposits -= Number(tx.quantity) * Number(tx.price)
+        const tickerUpper = tx.ticker.trim().toUpperCase()
+        const isCash = legacyCashTickers.includes(tickerUpper) || 
+          finalDefs.some(d => d.ticker.trim().toUpperCase() === tickerUpper && d.pricing_mode === 'cash')
+
+        // Ignorar se for offset automático de proventos/rendimentos (não afeta fluxo externo)
+        if (isCash && tx.cash_offset_source_id) {
+          const sourceTx = finalTxs.find(t => t.id === tx.cash_offset_source_id)
+          if (sourceTx && ['dividend', 'jcp', 'fii_yield'].includes(sourceTx.operation_type)) {
+            continue
           }
+        }
+
+        const q = Number(tx.quantity)
+        const p = Number(tx.price)
+        const type = tx.operation_type
+
+        if (type === 'buy' || type === 'subscription') {
+          cumulativeExternalContribution += q * p
+        } else if (type === 'sell') {
+          cumulativeExternalContribution -= q * p
         }
       }
 
-      if (hasManualCashTx) {
-        calculatedInvestedValue = netCashDeposits
-      } else {
-        const activeAssetsCost = positionsWithTargets.reduce((sum, pos) => {
-          const costInBrl = pos.currency === 'USD' ? pos.cost_basis * pos.usd_rate : pos.cost_basis
-          return sum + costInBrl
-        }, 0)
-        calculatedInvestedValue = activeAssetsCost + valuation.cashValue
-      }
+      const calculatedInvestedValue = cumulativeExternalContribution
 
       setPositions(positionsWithTargets)
       setTotalValue(valuation.totalValue)
@@ -237,7 +245,7 @@ export function usePortfolioState() {
       // Simulação do ponto de hoje no gráfico para refletir mudanças de cotação/ledger em tempo real
       const hasToday = finalShares.some(s => s.rate_date === todayStr)
       
-      let chartShares = [...finalShares]
+      const chartShares = [...finalShares]
       if (!hasToday) {
         if (finalShares.length > 0) {
           const lastClose = finalShares[finalShares.length - 1]
@@ -348,11 +356,17 @@ export function usePortfolioState() {
   const reload = useCallback(async () => {
     if (portfolioId) {
       try {
-        await supabase.functions.invoke('daily-close', {
+        const { error } = await supabase.functions.invoke('daily-close', {
           body: { portfolioId }
         })
+        if (error) throw error
       } catch (err) {
-        console.warn('[usePortfolioState] Error invoking daily-close during reload:', err)
+        console.warn('[usePortfolioState] Error invoking daily-close during reload, running client-side recalculation fallback:', err)
+        try {
+          await runClientSideHistoricalRecalculation(portfolioId)
+        } catch (recalcErr) {
+          console.error('[usePortfolioState] Failed client-side recalculation fallback during reload:', recalcErr)
+        }
       }
     }
     await loadData({ silent: true })

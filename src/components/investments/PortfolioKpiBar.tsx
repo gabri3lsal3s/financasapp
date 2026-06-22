@@ -1,18 +1,20 @@
 import KpiCard from '@/components/KpiCard'
 import { formatCurrency, formatSignedPercentBR } from '@/utils/format'
-import { Wallet, TrendingUp, ArrowUpRight, Percent } from 'lucide-react'
-import type { PortfolioShareDailyRow } from '@/types'
+import { Wallet, ArrowUpRight, Percent, Coins } from 'lucide-react'
+import type { PortfolioShareDailyRow, PortfolioTransaction } from '@/types'
 
 interface PortfolioKpiBarProps {
   totalValue: number
   investedValue: number
   shareHistory: PortfolioShareDailyRow[]
+  transactions: PortfolioTransaction[]
 }
 
 export default function PortfolioKpiBar({
   totalValue,
   investedValue,
-  shareHistory
+  shareHistory,
+  transactions
 }: PortfolioKpiBarProps) {
   const absoluteProfit = totalValue - investedValue
   const profitPercentage = investedValue > 0 ? (absoluteProfit / investedValue) * 100 : 0
@@ -22,7 +24,24 @@ export default function PortfolioKpiBar({
   const equityHistory = shareHistory.map(h => Number(h.gross_pl))
   const cotaHistory = shareHistory.map(h => Number(h.share_value))
   const profitHistory = shareHistory.map(h => Number(h.net_pl))
-  const investedHistory = shareHistory.map(h => Number(h.gross_pl) - Number(h.net_pl))
+
+  // Filtra as transações de proventos/rendimentos (dividendos, JCP, rendimento FII)
+  const earningsTransactions = (transactions || []).filter(tx =>
+    ['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type)
+  )
+
+  // Calcula o total acumulado de proventos
+  const totalEarnings = earningsTransactions.reduce(
+    (sum, tx) => sum + (Number(tx.quantity) * Number(tx.price)),
+    0
+  )
+
+  // Mapeia o histórico diário de proventos acumulados para o sparkline
+  const earningsHistory = shareHistory.map(h => {
+    return earningsTransactions
+      .filter(tx => tx.date <= h.rate_date)
+      .reduce((sum, tx) => sum + (Number(tx.quantity) * Number(tx.price)), 0)
+  })
 
   // Calcular variação diária baseado nos 2 últimos dias de histórico (se houver)
   let dailyVariationPercent: number | null = null
@@ -51,15 +70,15 @@ export default function PortfolioKpiBar({
         index={1}
       />
 
-      {/* Total Aportado */}
+      {/* Proventos Recebidos */}
       <KpiCard
-        title="Total Aportado"
-        value={formatCurrency(investedValue)}
-        subtext="custo de aquisição"
-        icon={<TrendingUp size={16} />}
-        glowColor="var(--color-balance)"
+        title="Proventos recebidos"
+        value={formatCurrency(totalEarnings)}
+        subtext="total acumulado"
+        icon={<Coins size={16} />}
+        glowColor="var(--color-income)"
         showGlow={false}
-        sparklineData={investedHistory}
+        sparklineData={earningsHistory}
         trendPercent={null}
         index={2}
       />

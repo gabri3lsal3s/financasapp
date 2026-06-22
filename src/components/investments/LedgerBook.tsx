@@ -8,6 +8,7 @@ import type { PortfolioTransaction } from '@/types'
 import { Search, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 
 interface LedgerBookProps {
   transactions: PortfolioTransaction[]
@@ -52,12 +53,23 @@ export default function LedgerBook({
   const handleDelete = async (id: string) => {
     setDeletingId(id)
     try {
+      const txToDelete = transactions.find((t) => t.id === id)
+      const tickerToCheck = txToDelete?.ticker
+
       const { error } = await supabase
         .from('portfolio_transactions')
         .delete()
         .eq('id', id)
 
       if (error) throw error
+
+      if (txToDelete && tickerToCheck) {
+        try {
+          await cleanupOrphanPortfolioTickers(txToDelete.portfolio_id, [tickerToCheck])
+        } catch (cleanupErr) {
+          console.warn('[LedgerBook] Error cleaning up orphan tickers:', cleanupErr)
+        }
+      }
 
       toast.success('Transação excluída!')
       setSelectedIds((prev) => {
@@ -86,12 +98,29 @@ export default function LedgerBook({
     
     setIsBulkDeleting(true)
     try {
-      const { error } = await supabase
-        .from('portfolio_transactions')
-        .delete()
-        .in('id', Array.from(selectedIds))
+      const txsToDelete = transactions.filter((t) => selectedIds.has(t.id))
+      const tickersToCheck = Array.from(new Set(txsToDelete.map((t) => t.ticker)))
+      const portfolioId = txsToDelete[0]?.portfolio_id
 
-      if (error) throw error
+      const idArray = Array.from(selectedIds)
+      const batchSize = 100
+      for (let i = 0; i < idArray.length; i += batchSize) {
+        const batch = idArray.slice(i, i + batchSize)
+        const { error } = await supabase
+          .from('portfolio_transactions')
+          .delete()
+          .in('id', batch)
+
+        if (error) throw error
+      }
+
+      if (portfolioId && tickersToCheck.length > 0) {
+        try {
+          await cleanupOrphanPortfolioTickers(portfolioId, tickersToCheck)
+        } catch (cleanupErr) {
+          console.warn('[LedgerBook] Error cleaning up bulk orphan tickers:', cleanupErr)
+        }
+      }
 
       toast.success(`${selectedIds.size} transações excluídas!`)
       setSelectedIds(new Set())

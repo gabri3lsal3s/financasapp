@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Upload, Wand2, AlertCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Button from '@/components/Button'
+import { formatNumberBR } from '@/utils/format'
 import B3ReconciliationGuidance from '@/components/investments/B3ReconciliationGuidance'
 import B3AdjustmentCard from '@/components/investments/B3AdjustmentCard'
 import type {
@@ -214,9 +215,9 @@ export default function B3PositionValidationPanel({
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                   {detectedManualPositionAssets.map((asset) => (
-                    <div key={asset.ticker} className="bg-primary/5 border border-border/40 rounded-xl p-2.5 flex justify-between items-center">
+                    <div key={asset.ticker} className="bg-primary/5 border border-glass/40 rounded-xl p-2.5 flex justify-between items-center">
                       <span className="text-[10px] font-bold text-primary font-mono truncate max-w-[180px]" title={asset.ticker}>{asset.ticker}</span>
-                      <span className="text-[10px] font-black text-secondary opacity-80 font-mono tabular-nums">{asset.quantity.toLocaleString('pt-BR')} un</span>
+                      <span className="text-[10px] font-black text-secondary opacity-80 font-mono tabular-nums">{formatNumberBR(asset.quantity)} un</span>
                     </div>
                   ))}
                 </div>

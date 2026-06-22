@@ -112,6 +112,7 @@ export default function Investments() {
               totalValue={totalValue}
               investedValue={investedValue}
               shareHistory={shareHistory}
+              transactions={transactions}
             />
 
             {/* Controle de Navegação em Abas */}

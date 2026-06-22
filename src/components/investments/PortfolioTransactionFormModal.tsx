@@ -54,6 +54,7 @@ export default function PortfolioTransactionFormModal({
 
   const [showAssetConfig, setShowAssetConfig] = useState(false)
   const [isNewAsset, setIsNewAsset] = useState(false)
+  const [cashBalance, setCashBalance] = useState<number>(0)
 
   const isEditing = !!editingTransaction
   const isCashType = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker.toUpperCase().trim())
@@ -87,6 +88,29 @@ export default function PortfolioTransactionFormModal({
       setDate(format(new Date(), 'yyyy-MM-dd'))
     }
   }, [isOpen, editingTransaction])
+
+  // Carregar saldo em caixa do portfólio para simulação
+  useEffect(() => {
+    if (!isOpen || !portfolioId) return
+
+    const fetchCash = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('portfolios')
+          .select('cash_balance')
+          .eq('id', portfolioId)
+          .maybeSingle()
+
+        if (!error && data) {
+          setCashBalance(Number(data.cash_balance) || 0)
+        }
+      } catch (err) {
+        console.warn('Erro ao buscar saldo em caixa no modal:', err)
+      }
+    }
+
+    fetchCash()
+  }, [isOpen, portfolioId])
 
   // Ajustar tipo de operação adequado se o ticker mudar para CAIXA
   useEffect(() => {
@@ -641,14 +665,51 @@ export default function PortfolioTransactionFormModal({
           )}
 
           {/* Visualizador de Total */}
-          {!isCashType && quantity && price && (
-            <div className="p-3 bg-balance/5 border border-balance/25 rounded-2xl animate-fade-in text-left select-none">
-              <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Valor Total do Lançamento</span>
-              <span className="text-xl font-mono font-black text-balance mt-0.5 block">
-                {formatCurrency(parseFloat(quantity || '0') * parseFloat(price || '0'))}
-              </span>
-            </div>
-          )}
+          {!isCashType && quantity && price && (() => {
+            const totalTxValue = parseFloat(quantity || '0') * parseFloat(price || '0')
+            if (isNaN(totalTxValue) || totalTxValue <= 0) return null
+
+            const isCashInflow = ['sell', 'dividend', 'jcp', 'fii_yield'].includes(operationType)
+            const isCashOutflow = ['buy', 'subscription'].includes(operationType)
+
+            let cashText = ''
+            let cashVal = 0
+            let isWarning = false
+
+            if (isCashOutflow) {
+              if (cashBalance >= totalTxValue) {
+                cashText = 'Saldo em caixa restante'
+                cashVal = cashBalance - totalTxValue
+              } else {
+                cashText = 'Aporte de caixa adicional necessário'
+                cashVal = totalTxValue - cashBalance
+                isWarning = true
+              }
+            } else if (isCashInflow) {
+              cashText = 'Novo saldo em caixa'
+              cashVal = cashBalance + totalTxValue
+            }
+
+            return (
+              <div className="p-4 bg-glass/5 border border-glass/40 rounded-2xl animate-fade-in text-left space-y-3 select-none">
+                <div>
+                  <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Valor Total do Lançamento</span>
+                  <span className="text-xl font-mono font-black text-primary mt-0.5 block">
+                    {formatCurrency(totalTxValue)}
+                  </span>
+                </div>
+
+                {(isCashOutflow || isCashInflow) && (
+                  <div className="pt-3 border-t border-glass/25 flex justify-between items-center text-[10px] uppercase tracking-wider font-black">
+                    <span className="text-secondary">{cashText}:</span>
+                    <span className={`font-mono text-xs ${isWarning ? 'text-expense bg-expense/10 px-2 py-0.5 rounded-lg border border-expense/20' : 'text-income bg-income/10 px-2 py-0.5 rounded-lg border border-income/20'}`}>
+                      {formatCurrency(cashVal)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </ModalForm>
 

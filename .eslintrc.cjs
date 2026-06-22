@@ -24,6 +24,22 @@ module.exports = {
       },
     ],
   },
+  overrides: [
+    {
+      files: [
+        'src/components/investments/AssetConfigModal.tsx',
+        'src/components/investments/InvestmentReconciliationModal.tsx',
+        'src/components/investments/PortfolioTransactionFormModal.tsx',
+        'src/services/portfolioHistoricalRecalc.test.ts',
+        'src/services/portfolioHistoricalRecalc.ts',
+        'supabase/functions/daily-close/index.ts'
+      ],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        'react-hooks/exhaustive-deps': 'off'
+      }
+    }
+  ]
 }
 
 

@@ -1775,7 +1775,7 @@ export default function InvestmentReconciliationModal({
                     <Layers size={14} className="text-balance" />
                     Auditoria Preliminar de Cotas de Custódia
                   </p>
-                  <div className="divide-y divide-border/10 border border-border/20 rounded-2xl overflow-y-auto max-h-72 bg-glass/5 pr-1 scrollbar-thin">
+                  <div className="divide-y divide-glass/10 border border-glass/20 rounded-2xl overflow-y-auto max-h-72 bg-glass/5 pr-1 scrollbar-thin">
                     {positionPreviewRows.map((row) => {
                       const delta = row.b3 - row.system
                       const diff = Math.abs(delta) > 0.0001
@@ -1833,7 +1833,7 @@ export default function InvestmentReconciliationModal({
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
                       {detectedManualAssets.map((asset) => (
-                        <div key={asset.ticker} className="bg-primary/5 border border-border/30 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
+                        <div key={asset.ticker} className="bg-primary/5 border border-glass/30 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
                           <span className="text-[10px] font-black text-primary font-mono">{asset.ticker}</span>
                           {asset.product_name && (
                             <span className="text-[8px] text-secondary truncate" title={asset.product_name}>
@@ -1853,7 +1853,7 @@ export default function InvestmentReconciliationModal({
                 excludedCount.dedupe.ignoredInternal > 0 ||
                 excludedCount.dedupe.ignoredCorporate > 0 ||
                 excludedCount.dedupe.dedupedTrades > 0) && (
-                <details className="w-full bg-glass/5 border border-border/20 rounded-2xl p-3 text-left transition-all duration-300 group">
+                <details className="w-full bg-glass/5 border border-glass/20 rounded-2xl p-3 text-left transition-all duration-300 group">
                   <summary className="text-[10px] font-bold text-secondary cursor-pointer select-none flex items-center justify-between outline-none">
                     <span className="flex items-center gap-2">
                       <AlertCircle size={13} className="text-secondary opacity-70" />
@@ -2029,7 +2029,7 @@ export default function InvestmentReconciliationModal({
             </div>
 
             {/* Customization compact list */}
-            <div className="divide-y divide-border/10 border border-border/20 rounded-2xl overflow-y-auto max-h-[380px] bg-glass/5 pr-1 scrollbar-thin">
+            <div className="divide-y divide-glass/10 border border-glass/20 rounded-2xl overflow-y-auto max-h-[380px] bg-glass/5 pr-1 scrollbar-thin">
               {missingDrafts.map((draft) => {
                 const isBuy = draft.operation_type === 'buy' || draft.operation_type === 'subscription'
                 const isSell = draft.operation_type === 'sell'

@@ -1,87 +1,50 @@
-# Plano de Implementação: Fechamento Diário Automatizado no Backend (Supabase Edge Functions + pg_cron)
+Blueprint Arquitetural: Motor de Cálculo de Rentabilidade (Production-Ready)1. Filosofia e Arquitetura BaseO sistema centraliza a "verdade matemática" no banco de dados, utilizando a metodologia Time-Weighted Return (TWR). O motor é desenhado para impedir anomalias matemáticas na interface de usuário — o uso estrito de tipos numéricos no banco garante que a distribuição do portfólio sempre some exatos 100% (evitando aquele erro clássico de gráficos de pizza que somam 111% por falhas de arredondamento). A conciliação via planilhas da B3 atua apenas como combustível (movimentação) e auditoria (posição).2. Modelagem de Dados (O Ledger no Supabase)Tipos numéricos precisos são inegociáveis. Toda a estrutura depende de rastreabilidade exata.Ativos: Catálogo global.Colunas: id, ticker (ex: HGLG11), classe, moeda.Transacoes: O Livro-Razão imutável da carteira.Colunas: id, usuario_id, ativo_id, ativo_id_origem (Nulo exceto em cisões), hash_idempotencia (MD5 da linha para evitar duplicatas via CSV), tipo_operacao, data, quantidade (DECIMAL 15,6), valor_unitario (DECIMAL 15,6).Posicao_Consolidada: Fotografia em tempo real gerenciada pelo banco.Colunas: usuario_id, ativo_id, quantidade_atual, total_investido.Precos_Diarios: Oráculo global (B3, Bacen, PTAX, Curvas).Colunas: ativo_id, data, preco_fechamento.Snapshots_Usuario: Registro diário para gráficos.Colunas: usuario_id, data, patrimonio_liquido, cotas_emitidas, valor_cota.3. Dicionário de Ingestão B3 e Eventos do SistemaO motor traduz eventos externos para movimentações puras de caixa e custódia.Compra / Transferência (B3): $\rightarrow$ COMPRA. Permuta saldo do caixa por ativo.Venda / Transferência (B3): $\rightarrow$ VENDA. Permuta ativo por caixa. Absorve qualquer marcação a mercado real em caso de resgate antecipado de Renda Fixa.Rendimento / JCP Liquido (B3): $\rightarrow$ DIVIDENDO. Credita o valor direto no caixa. Eleva a cota diária organicamente sem emitir novas cotas.Amortização (B3): $\rightarrow$ AMORTIZACAO. Credita o valor no caixa, mantém a quantidade do ativo intacta, mas reduz o total_investido (ajustando o preço médio).Desdobramento / Grupamento (B3): $\rightarrow$ AJUSTE_CUSTODIA. Modifica a quantidade a custo zero para neutralizar a variação de preço na B3.Cisão / Spin-off: $\rightarrow$ COMPRA com ativo_id_origem. Injeta um novo ativo descontando o valor do custo histórico do ativo de origem.4. Engine em Tempo Real (Triggers PL/pgSQL)Este código roda no "bare metal" do PostgreSQL. Intercepta inserções no Ledger e atualiza a posição instantaneamente, garantindo complexidade O(1) na hora de fechar a carteira à noite.SQLCREATE OR REPLACE FUNCTION tf_atualizar_posicao_consolidada()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.ativo_id IS NOT NULL AND NEW.tipo_operacao IN ('COMPRA', 'VENDA', 'AJUSTE_CUSTODIA', 'AMORTIZACAO') THEN
+        INSERT INTO posicao_consolidada (usuario_id, ativo_id, quantidade_atual, total_investido, ultima_atualizacao)
+        VALUES (
+            NEW.usuario_id, NEW.ativo_id,
+            CASE 
+                WHEN NEW.tipo_operacao IN ('COMPRA', 'AJUSTE_CUSTODIA') THEN NEW.quantidade
+                WHEN NEW.tipo_operacao = 'VENDA' THEN -NEW.quantidade
+                ELSE 0 
+            END,
+            CASE 
+                WHEN NEW.tipo_operacao = 'COMPRA' THEN (NEW.quantidade * NEW.valor_unitario)
+                ELSE 0 
+            END,
+            NOW()
+        )
+        ON CONFLICT (usuario_id, ativo_id) 
+        DO UPDATE SET
+            quantidade_atual = posicao_consolidada.quantidade_atual + 
+                CASE 
+                    WHEN NEW.tipo_operacao IN ('COMPRA', 'AJUSTE_CUSTODIA') THEN NEW.quantidade
+                    WHEN NEW.tipo_operacao = 'VENDA' THEN -NEW.quantidade
+                    ELSE 0 
+                END,
+            total_investido = GREATEST(0, posicao_consolidada.total_investido + 
+                CASE 
+                    WHEN NEW.tipo_operacao = 'COMPRA' THEN (NEW.quantidade * NEW.valor_unitario)
+                    WHEN NEW.tipo_operacao = 'VENDA' THEN -(NEW.quantidade * (posicao_consolidada.total_investido / NULLIF(posicao_consolidada.quantidade_atual, 0)))
+                    WHEN NEW.tipo_operacao = 'AMORTIZACAO' THEN -(NEW.quantidade * NEW.valor_unitario)
+                    ELSE 0 
+                END),
+            ultima_atualizacao = NOW();
+            
+        -- Cisão: Abate o custo do ativo de origem
+        IF NEW.ativo_id_origem IS NOT NULL THEN
+            UPDATE posicao_consolidada 
+            SET total_investido = GREATEST(0, total_investido - (NEW.quantidade * NEW.valor_unitario))
+            WHERE usuario_id = NEW.usuario_id AND ativo_id = NEW.ativo_id_origem;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-Este plano descreve como desacoplar a lógica de fechamento diário de investimentos do navegador e movê-la inteiramente para o backend. Isso garantirá que o fechamento ocorra pontualmente todas as noites (às 18h/19h BRT) de forma 100% autônoma, populando a tabela `portfolio_share_daily` e recalculando as cotas com alta precisão matemática, sem depender da abertura do app pelo usuário.
-
----
-
-## Perguntas para Alinhamento (Open Questions)
-
-Para garantir que a integração atenda perfeitamente ao seu ecossistema, responda às seguintes perguntas:
-
-> [!IMPORTANT]
-> **1. Ambiente do Supabase (Cloud vs. Local/Docker):** Seu projeto do Supabase está rodando na nuvem (Supabase Cloud) ou localmente em containers Docker? Se estiver na nuvem, o agendamento via `pg_cron` usará o host HTTP da nuvem; se for local, usaremos `http://kong:8000/functions/v1/daily-close`.
->
-> **2. Horário do Cron Job:** Propomos rodar o cron job de fechamento diariamente às **22:00 UTC** (19:00 no horário de Brasília), pois a B3 e o Banco Central (BCB) já terão divulgado todas as cotações e taxas diárias de fechamento. Esse horário atende bem, ou prefere outro?
->
-> **3. Fonte das Cotações no Backend:** A Edge Function consultará diretamente o Yahoo Finance para ações, FIIs e criptoativos (reutilizando a lógica resiliente com tratamento de Spikes que já criamos no frontend). Para títulos de Renda Fixa (CDI/SELIC/IPCA e Tesouro), a Edge Function consultará a API do Banco Central (SGS). Está de acordo com essa arquitetura híbrida de dados?
->
-> **4. Abordagem de Deploy:** Deseja que eu crie os scripts e arquivos necessários na pasta `supabase/functions/daily-close` e na pasta de migrations (`supabase/migrations/`) para configurar a extensão `pg_cron` e o agendamento SQL, para que você execute o comando `supabase functions deploy`?
-
----
-
-## Arquitetura Proposta
-
-O fluxo funcionará da seguinte maneira:
-
-```mermaid
-graph TD
-    Cron[Database pg_cron / 19:00 BRT] -->|HTTP POST com Service Role| Edge[Supabase Edge Function: daily-close]
-    Edge -->|Carrega portfólios, transações e metas| DB[(Banco de Dados Supabase)]
-    Edge -->|Busca cotações de fechamento| Yahoo[Yahoo Finance API]
-    Edge -->|Busca taxas CDI / SELIC / IPCA| BCB[Banco Central do Brasil]
-    Edge -->|Valora lote a lote e calcula cota| Engine[Motor de Rentabilidade TS]
-    Engine -->|Salva cotações diárias| PriceTable[asset_price_daily]
-    Engine -->|Persiste cota diária do portfólio| ShareTable[portfolio_share_daily]
-    Engine -->|Se fim do mês: salva snapshot| SnapTable[portfolio_period_snapshots]
-```
-
-### Componentes Técnicos
-
-1. **Supabase Edge Function (`daily-close`):**
-   * Desenvolvida em TypeScript para rodar no Deno (runtime nativo do Supabase Edge Functions).
-   * Irá ler os portfólios ativos no banco de dados.
-   * Fará a requisição assíncrona concorrente à API do Yahoo Finance para cotações de mercado e Banco Central (SGS) para taxas do dia.
-   * Executará o motor de cálculo (lote por lote) para consolidar o patrimônio bruto.
-   * Gravará o fechamento diário e atualizará a cota e os preços históricos de fechamento no banco.
-   * Se a data de execução for o último dia do mês, criará também o snapshot mensal (`portfolio_period_snapshots`) de rentabilidade TWR.
-
-2. **Agendamento no Banco de Dados (`pg_cron`):**
-   * Migração SQL para habilitar a extensão `pg_cron` no Supabase.
-   * Agendamento de uma tarefa recorrente que executa um comando HTTP POST chamando a Edge Function com segurança através do cabeçalho de autorização.
-
----
-
-## Proposta de Alterações
-
-### [Component: Backend Edge Function]
-
-#### [NEW] [index.ts](file:///c:/Users/gabri/OneDrive/Documentos/meusapps/minhas_financas/supabase/functions/daily-close/index.ts)
-* Edge Function autônoma escrita em Deno TypeScript.
-* Implementa o carregamento de dados via Deno Supabase Client (usando o `service_role_key` configurado na Edge Function).
-* Consome APIs externas de cotações e indexadores.
-* Processa a lógica de cálculo de cotas diárias e snapshots.
-
-### [Component: Database Schedule]
-
-#### [NEW] [20260618210000_enable_daily_close_cron.sql](file:///c:/Users/gabri/OneDrive/Documentos/meusapps/minhas_financas/supabase/migrations/20260618210000_enable_daily_close_cron.sql)
-* Script SQL de migração habilitando `pg_cron`.
-* Agendamento automático do fechamento diário ligando o banco de dados diretamente à Edge Function.
-
-### [Component: Frontend Page]
-
-#### [MODIFY] [Investments.tsx](file:///c:/Users/gabri/OneDrive/Documentos/meusapps/minhas_financas/src/pages/Investments.tsx)
-* Desativar a rotina automática de fechamento que rodava no `useEffect` (a qual executava `handleDailyClose` e travava o carregamento inicial).
-* O frontend passará a ler passivamente os dados de fechamento persistidos pelo backend na tabela `portfolio_share_daily`.
-
----
-
-## Plano de Verificação
-
-### Testes de Funcionamento Local
-* Executar a Edge Function localmente usando o comando:
-  `supabase functions serve daily-close --no-verify-jwt`
-* Disparar uma chamada HTTP manual via curl/Postman para testar o fechamento instantâneo de um portfólio.
-* Verificar se a tabela `portfolio_share_daily` e os preços históricos em `asset_price_daily` foram devidamente populados.
-
-### Monitoramento
-* Checar os logs do painel do Supabase (Edge Function Logs e pg_cron logs) para monitorar o sucesso das chamadas recorrentes.
+CREATE TRIGGER trg_atualiza_posicao_consolidada
+AFTER INSERT ON transacoes
+FOR EACH ROW EXECUTE FUNCTION tf_atualizar_posicao_consolidada();
+5. Precificação e Provisão de IR DinâmicoCálculos restritos a dias úteis (consultando cache em memória para evitar requests excessivos).Prefixados (Curva de 252 Dias Úteis):$$VF_{hoje} = VP_{compra} \times (1 + i_{fixo})^{\frac{n}{252}}$$Tesouro IPCA+ (VNA Projetado Sinteticamente):$$VF_{hoje} = VP_{compra} \times \frac{VNA_{hoje}}{VNA_{compra}} \times (1 + i_{fixo})^{\frac{n}{252}}$$Interceptador Fiscal (Tabela Regressiva): Subtraído do lucro latente antes do fechamento do PL diário. Varia de 22,5% (até 180 dias) a 15,0% (acima de 720 dias).6. Pipeline Assíncrono (Worker em Python)Script executado fora do front-end para evitar timeouts, processando o fechamento do dia.Filtro de Calendário & Oráculos: Bloqueia execução se for fim de semana/feriado. Busca PTAX, B3 e gera o VNA daquele dia.Lock Concorrente: Na leitura dos usuários, aplica SELECT FOR UPDATE para evitar inconsistências caso depósitos entrem de madrugada.Last Known Value: Na precificação, usa COALESCE(preco_hoje, preco_ontem) para evitar que falhas da API da B3 zerem a carteira do usuário.Cálculo da Cota TWR: Emissão de cotas fechada com base na rentabilidade pura do mercado:$$Valor\ da\ Cota_{Hoje} = \frac{PL_{Fechamento}}{Cotas\ Emitidas_{Ontem}}$$Limbo de Cota Zero: Se Cotas_Emitidas_Ontem == 0 (resgate total anterior), reseta o valor da cota para base 10.00 antes dos novos aportes do dia.7. Regras de Interface e Experiência do Usuário (UX)O Problema do "Caixa Fantasma": A conciliação da B3 traz os ativos, mas não o dinheiro aportado, negativando a Conta Caixa do sistema.Solução UI: Após importar o CSV com sucesso, exibir modal: "Identificamos suas operações. Qual era seu saldo em conta na corretora no dia X?"O motor calcula a diferença e injeta um DEPOSITO retroativo na data mais antiga, aterrando o PL e a rentabilidade sem distorções.Yield on Cost (YoC): No dashboard, calcular como SUM(dividendos) / total_investido. A existência do evento AMORTIZACAO mantém essa métrica honesta, focada apenas em lucros reais.Benchmarks Naturais: IBOVESPA e CDI são inseridos no banco como ativos comuns, cotizados na base 10.00 no mesmo dia da criação da conta do usuário. Isso permite cruzar gráficos de rentabilidade e Sharpe instantaneamente.

@@ -1,12 +1,11 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
+import { createClient } from "npm:@supabase/supabase-js@2.39.8"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // CORS check
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -26,6 +25,8 @@ serve(async (req) => {
         autoRefreshToken: false,
       }
     })
+
+
 
     // Parse target portfolioId from request body if available
     let targetPortfolioId = null
@@ -58,15 +59,13 @@ serve(async (req) => {
 
     for (const portfolio of portfolios) {
       // 2. Carregar definições e transações
-      const [defRes, txRes, targetRes] = await Promise.all([
+      const [defRes, txRes] = await Promise.all([
         supabase.from('portfolio_asset_definitions').select('*').eq('portfolio_id', portfolio.id),
-        supabase.from('portfolio_transactions').select('*').eq('portfolio_id', portfolio.id).order('date', { ascending: true }),
-        supabase.from('target_allocations').select('*').eq('portfolio_id', portfolio.id)
+        supabase.from('portfolio_transactions').select('*').eq('portfolio_id', portfolio.id).order('date', { ascending: true })
       ])
 
       const definitions = defRes.data || []
       const transactions = txRes.data || []
-      const targets = targetRes.data || []
 
       if (transactions.length === 0) {
         // Limpar todo o histórico e snapshots caso não existam mais transações
@@ -96,6 +95,41 @@ serve(async (req) => {
 
       const tickers = Array.from(new Set(transactions.map(t => t.ticker.trim().toUpperCase())))
 
+      // Limpar definições e metas de ativos órfãos que não possuem mais transações
+      const [defRes, targetRes] = await Promise.all([
+        supabase.from('portfolio_asset_definitions').select('ticker').eq('portfolio_id', portfolio.id),
+        supabase.from('target_allocations').select('ticker').eq('portfolio_id', portfolio.id)
+      ])
+
+      const existingDefs = (defRes.data || []).map((d: any) => d.ticker.trim().toUpperCase())
+      const existingTargets = (targetRes.data || []).map((t: any) => t.ticker.trim().toUpperCase())
+      const allRegisteredTickers = Array.from(new Set([...existingDefs, ...existingTargets]))
+      const orphanTickers = allRegisteredTickers.filter(t => !tickers.includes(t))
+
+      if (orphanTickers.length > 0) {
+        await Promise.all([
+          supabase.from('portfolio_asset_definitions').delete().eq('portfolio_id', portfolio.id).in('ticker', orphanTickers),
+          supabase.from('target_allocations').delete().eq('portfolio_id', portfolio.id).in('ticker', orphanTickers)
+        ])
+
+        // Limpar preços e cotações diárias globais se o ticker não for usado por nenhuma outra carteira
+        for (const ticker of orphanTickers) {
+          const { data: remainingTx } = await supabase
+            .from('portfolio_transactions')
+            .select('id')
+            .eq('ticker', ticker)
+            .limit(1)
+
+          if (!remainingTx || remainingTx.length === 0) {
+            await Promise.all([
+              supabase.from('asset_price_daily').delete().eq('ticker', ticker),
+              supabase.from('asset_prices').delete().eq('ticker', ticker)
+            ])
+            console.log(`[daily-close] Deleted global prices and daily history for unused ticker: ${ticker}`)
+          }
+        }
+      }
+
       // 3. Buscar preços de mercado históricos (Yahoo Finance)
       const prices: Record<string, number> = {}
       const startDate = transactions[0].date
@@ -115,7 +149,12 @@ serve(async (req) => {
             symbol = isB3 ? `${ticker}.SA` : ticker
           }
           const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${period1}&period2=${period2}`
-          const res = await fetch(url)
+          const res = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            }
+          })
           if (res.ok) {
             const data = await res.json()
             const result = data?.chart?.result?.[0]
@@ -162,11 +201,11 @@ serve(async (req) => {
       }
 
       // 4. Carregar taxas diárias CDI/SELIC
-      const startDate = transactions[0].date
+      const startDateStr = transactions[0].date
       const { data: dbRates } = await supabase
         .from('index_rates')
         .select('rate_date, indexer, daily_rate')
-        .gte('rate_date', startDate)
+        .gte('rate_date', startDateStr)
         .lte('rate_date', todayStr)
 
       const ratesMap: Record<string, Record<string, number>> = { cdi: {}, selic: {}, ipca: {} }
@@ -184,7 +223,7 @@ serve(async (req) => {
         .from('asset_price_daily')
         .select('ticker, price_date, close_price')
         .in('ticker', tickers)
-        .gte('price_date', startDate)
+        .gte('price_date', startDateStr)
         .lte('price_date', todayStr)
 
       const priceMap: Record<string, Record<string, number>> = {}
@@ -201,11 +240,12 @@ serve(async (req) => {
       }
 
       // 6. Algoritmo de Fechamento Diário e Cotização (TWR)
-      let curDate = new Date(startDate)
+      const curDate = new Date(startDateStr)
       const endDate = new Date(todayStr)
       
       let totalShares = 0
       let lastShareValue = 1.0
+      let cumulativeExternalContribution = 0
 
       while (curDate <= endDate) {
         const dateStr = curDate.toISOString().slice(0, 10)
@@ -224,7 +264,7 @@ serve(async (req) => {
           dateStr
         )
 
-        // Cota inicial ou reajustada pela valorização dos ativos
+        // Cota inicial ou reajustada pela valorização da carteira (incluindo caixa)
         if (totalShares > 0) {
           lastShareValue = valuationPrev.totalValue / totalShares
         } else if (valuationPrev.totalValue > 0) {
@@ -234,12 +274,24 @@ serve(async (req) => {
 
         // Aplicar transações do dia (aportes/resgates/proventos)
         let cashFlow = 0
+        const legacyCashTickers = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA']
         for (const tx of dayTxs) {
+          const tickerUpper = tx.ticker.trim().toUpperCase()
+          const isCash = legacyCashTickers.includes(tickerUpper) || 
+            definitions.some(d => d.ticker.trim().toUpperCase() === tickerUpper && d.pricing_mode === 'cash')
+
+          // Ignorar se for offset automático de proventos/rendimentos (não afeta fluxo externo)
+          if (isCash && tx.cash_offset_source_id) {
+            const sourceTx = transactions.find(t => t.id === tx.cash_offset_source_id)
+            if (sourceTx && ['dividend', 'jcp', 'fii_yield'].includes(sourceTx.operation_type)) {
+              continue
+            }
+          }
+
           const q = Number(tx.quantity)
           const p = Number(tx.price)
           const type = tx.operation_type
 
-          // Aportes de capital (aumentam patrimônio sem valorizar cota)
           if (type === 'buy' || type === 'subscription') {
             cashFlow += q * p
           } else if (type === 'sell') {
@@ -253,6 +305,8 @@ serve(async (req) => {
           totalShares = Math.max(0, totalShares + sharesDiff)
         }
 
+        cumulativeExternalContribution += cashFlow
+
         // Valoração final do dia (fim do dia, incluindo transações de hoje)
         const dayValuation = calculateSnapshotValuation(
           transactions,
@@ -264,11 +318,19 @@ serve(async (req) => {
         )
 
         const grossPL = dayValuation.totalValue
-        const investedCost = dayValuation.investedCostBasis + dayValuation.cashValue
-        const netPL = grossPL - investedCost
+        const netPL = grossPL - cumulativeExternalContribution
 
-        // Atualizar share value final do dia (para o dia seguinte e para gravação)
-        const endShareValue = totalShares > 0 ? grossPL / totalShares : 1.0
+        // Atualizar share value final do dia com base no valor total (incluindo caixa) com guardrail para valores pequenos
+        let endShareValue = 1.0
+        if (dayValuation.totalValue <= 0.01) {
+          totalShares = 0
+          endShareValue = 1.0
+        } else if (totalShares > 0) {
+          endShareValue = dayValuation.totalValue / totalShares
+        } else {
+          totalShares = dayValuation.totalValue
+          endShareValue = 1.0
+        }
         lastShareValue = endShareValue
 
         // Gravar no histórico de cota diária usando upsert seguro
@@ -323,20 +385,6 @@ serve(async (req) => {
         curDate.setDate(curDate.getDate() + 1)
       }
 
-      // 7. Atualizar colunas cache do portfolios
-      const finalInvested = (positions = []) => {
-        // Obtermos valoração final para atualizar o portfolios
-        const finalVal = calculateSnapshotValuation(
-          transactions,
-          definitions,
-          priceMap,
-          prices,
-          ratesMap,
-          todayStr
-        )
-        return finalVal.investedCostBasis + finalVal.cashValue
-      }
-      
       const finalValuation = calculateSnapshotValuation(
         transactions,
         definitions,
@@ -347,7 +395,7 @@ serve(async (req) => {
       )
 
       const finalGross = finalValuation.totalValue
-      const finalCost = finalValuation.investedCostBasis + finalValuation.cashValue
+      const finalCost = cumulativeExternalContribution
 
       await supabase.from('portfolios').update({
         total_shares: totalShares,
@@ -379,7 +427,7 @@ serve(async (req) => {
       status: 200
     })
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('Erro na Edge Function daily-close:', err)
     return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -453,14 +501,13 @@ function calculateSnapshotValuation(
 
     if (quantity <= 0 && totalCost <= 0) continue
 
-    const isLegacyCash = legacyCashTickers.includes(ticker)
-    const pricingMode = isLegacyCash ? 'cash' : (definition?.pricing_mode ?? 'market')
+    const isCash = cashTickers.has(ticker)
+    const pricingMode = isCash ? 'cash' : (definition?.pricing_mode ?? 'market')
     
     let totalValue = 0
 
     if (pricingMode === 'fixed_income') {
       const idx = definition?.indexer ?? 'none'
-      const activeRates = indexRates[idx.toLowerCase()] ?? {}
       
       const appDate = definition?.application_date ?? (txs[0]?.date || asOfDate)
       const diffDays = Math.max(0, (new Date(asOfDate).getTime() - new Date(appDate).getTime()) / (1000 * 60 * 60 * 24))

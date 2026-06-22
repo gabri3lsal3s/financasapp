@@ -160,7 +160,7 @@ async function safeJson(response: Response): Promise<unknown> {
  * Valida se o conteúdo retornado é um JSON legível para evitar que páginas/erros em texto
  * interrompam o fluxo antes de tentar os demais proxies. Se todos falharem, tenta requisição direta.
  */
-async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Response> {
+export async function fetchWithCorsProxy(url: string, init?: RequestInit): Promise<Response> {
   const proxies = [
     {
       name: 'corsfix',
