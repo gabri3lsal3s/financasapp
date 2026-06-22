@@ -1076,7 +1076,27 @@ export default function InvestmentReconciliationModal({
 
   // Bulk import missing items into DB (fully customized)
   const handleImportSelectedMissing = async () => {
-    const activeMissing = missingDrafts.filter((m) => m.selected)
+    const activeMissing = missingDrafts
+      .filter((m) => m.selected)
+      .sort((a, b) => {
+        const dateDiff = a.date.localeCompare(b.date)
+        if (dateDiff !== 0) return dateDiff
+        
+        const getPriority = (type: string): number => {
+          const priorities: Record<string, number> = {
+            split: 1,
+            reverse_split: 1,
+            buy: 2,
+            subscription: 2,
+            sell: 3,
+            dividend: 4,
+            jcp: 4,
+            fii_yield: 4,
+          }
+          return priorities[type] ?? 99
+        }
+        return getPriority(a.operation_type) - getPriority(b.operation_type)
+      })
     if (activeMissing.length === 0) return
 
     setLoading(true)
@@ -1166,7 +1186,7 @@ export default function InvestmentReconciliationModal({
                 amount,
                 draft.operation_type,
                 draft.pricing_mode,
-                localTransactions,
+                localTransactions.filter((t) => t.date <= draft.date),
                 localDefinitions
               )
               
@@ -1288,7 +1308,9 @@ export default function InvestmentReconciliationModal({
   }
 
   const handleApplyPositionAdjustments = async () => {
-    const active = positionAdjustments.filter((a) => selectedAdjustmentTickers.has(a.ticker))
+    const active = positionAdjustments
+      .filter((a) => selectedAdjustmentTickers.has(a.ticker))
+      .sort((a, b) => a.date.localeCompare(b.date))
     if (active.length === 0) return
 
     const invalid = active.filter((a) => a.price <= 0)
@@ -1343,7 +1365,7 @@ export default function InvestmentReconciliationModal({
             amount,
             'buy',
             'market',
-            localTransactions,
+            localTransactions.filter((t) => t.date <= adj.date),
             localDefinitions
           )
           plan.sellTransactions.forEach((sell) => {

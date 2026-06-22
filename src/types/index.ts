@@ -259,6 +259,8 @@ export interface PortfolioShareDailyRow {
   gross_pl: number
   net_pl: number
   total_shares: number
+  cash_value?: number
+  invested_cost?: number
 }
 
 export interface PortfolioPeriodSnapshotRow {

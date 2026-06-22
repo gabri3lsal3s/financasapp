@@ -200,7 +200,7 @@ export async function applyCashOffsetAfterBuy(params: {
     buyAmount,
     operationType,
     assetPricingMode,
-    transactions,
+    transactions.filter((t) => t.date <= buyDate),
     definitions
   )
 

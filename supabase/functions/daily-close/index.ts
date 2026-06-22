@@ -5,6 +5,126 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
 }
 
+function sortTransactionsStably(transactions: any[]): any[] {
+  const getPriority = (type: string): number => {
+    const priorities: Record<string, number> = {
+      split: 1,
+      reverse_split: 1,
+      buy: 2,
+      subscription: 2,
+      sell: 3,
+      dividend: 4,
+      jcp: 4,
+      fii_yield: 4,
+    }
+    return priorities[type] ?? 99
+  }
+
+  return [...transactions].sort((a, b) => {
+    const dateDiff = a.date.localeCompare(b.date)
+    if (dateDiff !== 0) return dateDiff
+
+    const prioDiff = getPriority(a.operation_type) - getPriority(b.operation_type)
+    if (prioDiff !== 0) return prioDiff
+
+    const createdDiff = (a.created_at || '').localeCompare(b.created_at || '')
+    if (createdDiff !== 0) return createdDiff
+
+    return (a.id || '').localeCompare(b.id || '')
+  })
+}
+
+async function fetchAllPortfolioTransactions(supabase: any, portfolioId: string): Promise<any[]> {
+  let allTxs: any[] = []
+  let page = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('portfolio_transactions')
+      .select('*')
+      .eq('portfolio_id', portfolioId)
+      .order('date', { ascending: true })
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allTxs = [...allTxs, ...data]
+      if (data.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+
+  return allTxs
+}
+
+async function fetchAllIndexRates(supabase: any, startDate: string, endDate: string): Promise<any[]> {
+  let allRates: any[] = []
+  let page = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('index_rates')
+      .select('rate_date, indexer, daily_rate')
+      .gte('rate_date', startDate)
+      .lte('rate_date', endDate)
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allRates = [...allRates, ...data]
+      if (data.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+
+  return allRates
+}
+
+async function fetchAllAssetPrices(supabase: any, tickers: string[], startDate: string, endDate: string): Promise<any[]> {
+  let allPrices: any[] = []
+  let page = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('asset_price_daily')
+      .select('ticker, price_date, close_price')
+      .in('ticker', tickers)
+      .gte('price_date', startDate)
+      .lte('price_date', endDate)
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allPrices = [...allPrices, ...data]
+      if (data.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+
+  return allPrices
+}
+
 Deno.serve(async (req) => {
   // CORS check
   if (req.method === 'OPTIONS') {
@@ -59,13 +179,14 @@ Deno.serve(async (req) => {
 
     for (const portfolio of portfolios) {
       // 2. Carregar definições e transações
-      const [defRes, txRes] = await Promise.all([
+      const [defRes, txsData] = await Promise.all([
         supabase.from('portfolio_asset_definitions').select('*').eq('portfolio_id', portfolio.id),
-        supabase.from('portfolio_transactions').select('*').eq('portfolio_id', portfolio.id).order('date', { ascending: true })
+        fetchAllPortfolioTransactions(supabase, portfolio.id)
       ])
 
       const definitions = defRes.data || []
-      const transactions = txRes.data || []
+      const rawTransactions = sortTransactionsStably(txsData || [])
+      const transactions = adjustTransactionsForSplits(rawTransactions)
 
       if (transactions.length === 0) {
         // Limpar todo o histórico e snapshots caso não existam mais transações
@@ -202,11 +323,7 @@ Deno.serve(async (req) => {
 
       // 4. Carregar taxas diárias CDI/SELIC
       const startDateStr = transactions[0].date
-      const { data: dbRates } = await supabase
-        .from('index_rates')
-        .select('rate_date, indexer, daily_rate')
-        .gte('rate_date', startDateStr)
-        .lte('rate_date', todayStr)
+      const dbRates = await fetchAllIndexRates(supabase, startDateStr, todayStr)
 
       const ratesMap: Record<string, Record<string, number>> = { cdi: {}, selic: {}, ipca: {} }
       if (dbRates) {
@@ -219,12 +336,7 @@ Deno.serve(async (req) => {
       }
 
       // 5. Carregar cotações de fechamento históricas do banco de dados
-      const { data: dbPrices } = await supabase
-        .from('asset_price_daily')
-        .select('ticker, price_date, close_price')
-        .in('ticker', tickers)
-        .gte('price_date', startDateStr)
-        .lte('price_date', todayStr)
+      const dbPrices = await fetchAllAssetPrices(supabase, tickers, startDateStr, todayStr)
 
       const priceMap: Record<string, Record<string, number>> = {}
       for (const ticker of tickers) {
@@ -340,7 +452,9 @@ Deno.serve(async (req) => {
           share_value: endShareValue,
           gross_pl: grossPL,
           net_pl: netPL,
-          total_shares: totalShares
+          total_shares: totalShares,
+          cash_value: dayValuation.cashValue,
+          invested_cost: dayValuation.investedCostBasis
         }, { onConflict: 'portfolio_id,rate_date' })
 
         // Snapshot Mensal
@@ -437,6 +551,81 @@ Deno.serve(async (req) => {
 })
 
 // Função local auxiliar para valoração de carteira de fechamento histórico no servidor
+function adjustTransactionsForSplits(txs: any[]): any[] {
+  // Agrupar por ticker
+  const txByTicker: Record<string, any[]> = {}
+  for (const tx of txs) {
+    const ticker = tx.ticker.trim().toUpperCase()
+    if (!txByTicker[ticker]) txByTicker[ticker] = []
+    txByTicker[ticker].push(tx)
+  }
+
+  const adjustedAll: any[] = []
+
+  for (const ticker of Object.keys(txByTicker)) {
+    const sorted = sortTransactionsStably(txByTicker[ticker])
+    const hasSplits = sorted.some(tx => tx.operation_type === 'split' || tx.operation_type === 'reverse_split')
+    
+    if (!hasSplits) {
+      adjustedAll.push(...sorted)
+      continue
+    }
+
+    let qtyMultiplier = 1.0
+    const adjusted: any[] = []
+    const originalQuantities: number[] = []
+    let currentQty = 0
+
+    for (const tx of sorted) {
+      originalQuantities.push(currentQty)
+      const q = Number(tx.quantity)
+      if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+        currentQty += q
+      } else if (tx.operation_type === 'sell') {
+        currentQty = Math.max(0, currentQty - q)
+      } else if (tx.operation_type === 'split') {
+        currentQty += q
+      } else if (tx.operation_type === 'reverse_split') {
+        currentQty = Math.max(0, currentQty - q)
+      }
+    }
+
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const tx = sorted[i]
+      const type = tx.operation_type
+      const q = Number(tx.quantity)
+      const p = Number(tx.price)
+
+      if (type === 'split') {
+        const qtyBefore = originalQuantities[i]
+        if (qtyBefore > 0) {
+          const ratio = (qtyBefore + q) / qtyBefore
+          qtyMultiplier *= ratio
+        }
+        continue
+      } else if (type === 'reverse_split') {
+        const qtyBefore = originalQuantities[i]
+        if (qtyBefore > 0) {
+          const ratio = Math.max(0, qtyBefore - q) / qtyBefore
+          qtyMultiplier *= ratio
+        }
+        continue
+      }
+
+      adjusted.unshift({
+        ...tx,
+        quantity: q * qtyMultiplier,
+        price: qtyMultiplier > 0 ? p / qtyMultiplier : p
+      })
+    }
+    
+    adjustedAll.push(...adjusted)
+  }
+
+  return sortTransactionsStably(adjustedAll)
+}
+
+// Função local auxiliar para valoração de carteira de fechamento histórico no servidor
 function calculateSnapshotValuation(
   transactions: any[],
   definitions: any[],
@@ -473,7 +662,8 @@ function calculateSnapshotValuation(
   let investedCostBasis = 0
 
   for (const ticker of tickers) {
-    const txs = [...(txByTicker[ticker] ?? [])]
+    const rawTxs = sortTransactionsStably(txByTicker[ticker] ?? [])
+    const txs = adjustTransactionsForSplits(rawTxs)
     const definition = defByTicker[ticker]
 
     let quantity = 0
@@ -501,10 +691,6 @@ function calculateSnapshotValuation(
           quantity = Math.max(0, quantity - q)
           totalCost = quantity * pm
         }
-      } else if (tx.operation_type === 'split') {
-        if (!isCash) quantity += q
-      } else if (tx.operation_type === 'reverse_split') {
-        if (!isCash) quantity = Math.max(0, quantity - q)
       }
     }
 
@@ -517,18 +703,40 @@ function calculateSnapshotValuation(
     if (pricingMode === 'fixed_income') {
       const idx = definition?.indexer ?? 'none'
       
-      const appDate = definition?.application_date ?? (txs[0]?.date || asOfDate)
-      const diffDays = Math.max(0, (new Date(asOfDate).getTime() - new Date(appDate).getTime()) / (1000 * 60 * 60 * 24))
-      const rate = definition?.contract_rate ?? 0
+      // Acumular lotes de renda fixa para a data de corte
+      const lots: { principal: number; date: string }[] = []
+      let totalQty = 0
       
+      for (const tx of txs) {
+        const q = Number(tx.quantity)
+        const p = Number(tx.price)
+        if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+          lots.push({ principal: q * p, date: tx.date })
+          totalQty += q
+        } else if (tx.operation_type === 'sell') {
+          if (totalQty > 0) {
+            const sellRatio = Math.max(0, 1 - (q / totalQty))
+            for (const lot of lots) {
+              lot.principal *= sellRatio
+            }
+            totalQty = Math.max(0, totalQty - q)
+          }
+        }
+      }
+      
+      const rate = definition?.contract_rate ?? 0
+      let dailyRate = 0
       if (idx === 'none') {
-        const dailyRate = Math.pow(1 + rate / 100, 1 / 252) - 1
-        totalValue = totalCost * Math.pow(1 + dailyRate, diffDays * 5 / 7)
+        dailyRate = Math.pow(1 + rate / 100, 1 / 252) - 1
       } else {
         const avgIndexerDaily = idx === 'cdi' ? 0.000412 : 0.000411
         const percent = definition?.indexer_percent ?? 100
-        const dailyRate = avgIndexerDaily * (percent / 100)
-        totalValue = totalCost * Math.pow(1 + dailyRate, diffDays * 5 / 7)
+        dailyRate = avgIndexerDaily * (percent / 100)
+      }
+      
+      for (const lot of lots) {
+        const diffDays = Math.max(0, (new Date(asOfDate).getTime() - new Date(lot.date).getTime()) / (1000 * 60 * 60 * 24))
+        totalValue += lot.principal * Math.pow(1 + dailyRate, diffDays * 5 / 7)
       }
     } else if (pricingMode === 'manual_value') {
       totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0

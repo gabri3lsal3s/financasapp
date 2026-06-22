@@ -1,5 +1,6 @@
 import type { PortfolioTransaction, PortfolioAssetDefinition, AssetPrice } from '@/types'
 import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
+import { sortTransactionsStably } from './portfolioOperations'
 
 export interface ValuedPosition {
   ticker: string
@@ -87,9 +88,11 @@ export function computePositions(
     ? Number(usdPriceObj.current_price)
     : 5.25
 
+  const sortedTransactions = sortTransactionsStably(transactions)
+
   // Agrupar transações por ticker
   const txByTicker: Record<string, PortfolioTransaction[]> = {}
-  for (const tx of transactions) {
+  for (const tx of sortedTransactions) {
     const ticker = tx.ticker.trim().toUpperCase()
     if (!txByTicker[ticker]) {
       txByTicker[ticker] = []
@@ -109,7 +112,6 @@ export function computePositions(
 
   const positions: Omit<ValuedPosition, 'current_percentage' | 'gap_financial' | 'gap_percentage'>[] = []
   let investedValue = 0
-  let cashFromPositions = 0
   let investedCostBasis = 0
 
   for (const ticker of tickers) {
@@ -117,7 +119,7 @@ export function computePositions(
       continue
     }
 
-    const txs = [...(txByTicker[ticker] ?? [])].sort((a, b) => a.date.localeCompare(b.date))
+    const txs = sortTransactionsStably(txByTicker[ticker] ?? [])
     const definition = defByTicker[ticker]
 
     let quantity = 0
@@ -175,26 +177,14 @@ export function computePositions(
     if (pricingMode === 'fixed_income') {
       const idx = definition?.indexer ?? 'none'
       const activeRates = indexRates[idx] ?? {}
-      if (definition?.is_treasury) {
-        totalValue = calculateLotBasedFixedIncomeValue({
-          transactions: txs,
-          ticker,
-          definition,
-          asOfDate,
-          indexRates: activeRates,
-          vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined
-        })
-      } else {
-        totalValue = calculateFixedIncomeValue({
-          principal: totalCost,
-          contractRateAnnual: definition?.contract_rate ?? 0,
-          indexer: idx,
-          indexerPercent: definition?.indexer_percent ?? 100,
-          applicationDate: definition?.application_date ?? (txs[0]?.date || asOfDate),
-          asOfDate,
-          indexRates: activeRates
-        })
-      }
+      totalValue = calculateLotBasedFixedIncomeValue({
+        transactions: txs,
+        ticker,
+        definition,
+        asOfDate,
+        indexRates: activeRates,
+        vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined
+      })
       currentPrice = quantity > 0 ? totalValue / quantity : 0
     } else if (pricingMode === 'manual_value') {
       totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0
@@ -237,9 +227,7 @@ export function computePositions(
     const valueBrl = currency === 'USD' ? totalValue * usdRate : totalValue
     const costBasisBrl = currency === 'USD' ? costBasis * usdRate : costBasis
 
-    if (pricingMode === 'cash') {
-      cashFromPositions += valueBrl
-    } else {
+    if (pricingMode !== 'cash') {
       investedValue += valueBrl
       investedCostBasis += costBasisBrl
     }

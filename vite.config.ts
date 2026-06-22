@@ -22,6 +22,28 @@ export default defineConfig({
         enabled: true,
       },
     }),
+    {
+      name: 'dump-data-middleware',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url === '/api/dump-data' && req.method === 'POST') {
+            let body = ''
+            req.on('data', chunk => { body += chunk })
+            req.on('end', () => {
+              import('fs').then(fs => {
+                import('path').then(path => {
+                  fs.writeFileSync(path.resolve(__dirname, 'tmp_dump.json'), body)
+                  res.writeHead(200, { 'Content-Type': 'application/json' })
+                  res.end(JSON.stringify({ success: true }))
+                })
+              })
+            })
+          } else {
+            next()
+          }
+        })
+      }
+    }
   ],
   resolve: {
     alias: {

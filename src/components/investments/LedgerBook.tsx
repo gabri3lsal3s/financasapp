@@ -3,6 +3,7 @@ import Card from '@/components/Card'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { formatCurrency, formatQuantityBR, formatDate } from '@/utils/format'
 import type { PortfolioTransaction } from '@/types'
 import { Search, Trash2 } from 'lucide-react'
@@ -14,16 +15,17 @@ interface LedgerBookProps {
   transactions: PortfolioTransaction[]
   onDeleteTransaction: () => void
   initialSearchTerm?: string
+  onEditTransaction?: (tx: PortfolioTransaction) => void
 }
 
 export default function LedgerBook({ 
   transactions, 
   onDeleteTransaction,
-  initialSearchTerm = ''
+  initialSearchTerm = '',
+  onEditTransaction
 }: LedgerBookProps) {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm)
   const [opFilter, setOpFilter] = useState('all')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
@@ -57,48 +59,6 @@ export default function LedgerBook({
       })
       .sort((a, b) => b.date.localeCompare(a.date)) // Mais recentes primeiro
   }, [transactions, searchTerm, opFilter])
-
-  const handleDelete = async (id: string) => {
-    setDeletingId(id)
-    try {
-      const txToDelete = transactions.find((t) => t.id === id)
-      const tickerToCheck = txToDelete?.ticker
-
-      const { error } = await supabase
-        .from('portfolio_transactions')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
-      if (txToDelete && tickerToCheck) {
-        try {
-          await cleanupOrphanPortfolioTickers(txToDelete.portfolio_id, [tickerToCheck])
-        } catch (cleanupErr) {
-          console.warn('[LedgerBook] Error cleaning up orphan tickers:', cleanupErr)
-        }
-      }
-
-      toast.success('Transação excluída!')
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-      
-      // Disparar evento local de alteração
-      window.dispatchEvent(new CustomEvent('local-data-changed', {
-        detail: { entity: 'portfolio_transactions' }
-      }))
-
-      onDeleteTransaction()
-    } catch (err) {
-      console.error('[LedgerBook] Erro ao deletar:', err)
-      toast.error('Erro ao excluir a transação.')
-    } finally {
-      setDeletingId(null)
-    }
-  }
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return
@@ -218,13 +178,11 @@ export default function LedgerBook({
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="border-b border-glass/40 text-secondary font-bold select-none bg-glass/5 text-[9px] uppercase tracking-wider">
-                  <th className="py-2.5 px-3 text-center w-12 select-none">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
+                  <th className="py-3 px-3 text-center w-12 select-none">
+                    <Checkbox
                       checked={filteredTxs.length > 0 && selectedIds.size === filteredTxs.length}
-                      onChange={(e) => {
-                        if (e.target.checked) {
+                      onCheckedChange={(checked) => {
+                        if (checked) {
                           setSelectedIds(new Set(filteredTxs.map((tx) => tx.id)))
                         } else {
                           setSelectedIds(new Set())
@@ -237,8 +195,7 @@ export default function LedgerBook({
                   <th className="py-2.5 px-3 font-bold">Operação</th>
                   <th className="py-2.5 px-3 text-right font-bold">Qtd</th>
                   <th className="py-2.5 px-3 text-right font-bold">Preço</th>
-                  <th className="py-2.5 px-3 text-right font-bold">Total</th>
-                  <th className="py-2.5 px-4 text-center font-bold">Excluir</th>
+                  <th className="py-2.5 px-4 text-right font-bold">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -268,16 +225,18 @@ export default function LedgerBook({
                         : 'text-secondary bg-glass/10'
 
                    return (
-                     <tr key={tx.id} className="border-b border-glass/20 hover:bg-glass/10 transition-colors font-semibold">
-                       <td className="py-3 px-3 text-center">
-                         <input
-                           type="checkbox"
-                           className="h-4 w-4 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
+                     <tr 
+                       key={tx.id} 
+                       onClick={() => onEditTransaction?.(tx)}
+                       className="border-b border-glass/20 hover:bg-glass/10 transition-colors font-semibold cursor-pointer"
+                     >
+                       <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                         <Checkbox
                            checked={selectedIds.has(tx.id)}
-                           onChange={(e) => {
+                           onCheckedChange={(checked) => {
                              setSelectedIds((prev) => {
                                const next = new Set(prev)
-                               if (e.target.checked) next.add(tx.id)
+                               if (checked) next.add(tx.id)
                                else next.delete(tx.id)
                                return next
                              })
@@ -297,23 +256,8 @@ export default function LedgerBook({
                       <td className="py-3 px-3 text-right font-mono text-secondary">
                         {formatCurrency(Number(tx.price))}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-primary font-black">
+                      <td className="py-3 px-4 text-right font-mono text-primary font-black">
                         {formatCurrency(total)}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Button
-                          type="button"
-                          variant="link"
-                          disabled={deletingId === tx.id}
-                          onClick={() => {
-                            if (confirm(`Deseja excluir o lançamento de ${opLabel} de ${tx.ticker}?`)) {
-                              void handleDelete(tx.id)
-                            }
-                          }}
-                          className="h-8 w-8 p-0 rounded-lg hover:bg-expense/10 text-secondary hover:text-expense transition-all flex items-center justify-center border border-transparent hover:border-expense/20"
-                        >
-                          <Trash2 size={13} />
-                        </Button>
                       </td>
                     </tr>
                   )
@@ -350,54 +294,42 @@ export default function LedgerBook({
                     : 'text-secondary bg-glass/10'
 
               return (
-                <div key={tx.id} className="py-3 flex items-center justify-between gap-3 text-left animate-fade-in">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 cursor-pointer rounded border-glass text-balance focus:ring-balance/20 focus:ring-offset-0 focus:outline-none"
-                      checked={selectedIds.has(tx.id)}
-                      onChange={(e) => {
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev)
-                          if (e.target.checked) next.add(tx.id)
-                          else next.delete(tx.id)
-                          return next
-                        })
-                      }}
-                    />
-                    <div className="space-y-1">
+                <div 
+                  key={tx.id} 
+                  onClick={() => onEditTransaction?.(tx)}
+                  className="py-3 flex items-center justify-between gap-3 text-left animate-fade-in hover:bg-glass/10 active:scale-[0.99] cursor-pointer transition-all px-2 rounded-xl"
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div onClick={(e) => e.stopPropagation()} className="flex items-center shrink-0">
+                      <Checkbox
+                        checked={selectedIds.has(tx.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev)
+                            if (checked) next.add(tx.id)
+                            else next.delete(tx.id)
+                            return next
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-primary font-mono text-sm">{tx.ticker}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${opColor}`}>
-                        {opLabel}
-                      </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${opColor}`}>
+                          {opLabel}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-secondary font-medium font-mono truncate">
+                        {formatDate(tx.date)} • {formatQuantityBR(Number(tx.quantity), 4)} un x {formatCurrency(Number(tx.price))}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-secondary font-medium font-mono">
-                      {formatDate(tx.date)} • {formatQuantityBR(Number(tx.quantity), 4)} un x {formatCurrency(Number(tx.price))}
-                    </div>
-                  </div>
-                </div>
-                  
-                <div className="flex items-center gap-3">
-                    <div className="text-right">
+                    
+                    <div className="text-right shrink-0">
                       <span className="text-sm font-black text-primary font-mono block">
                         {formatCurrency(total)}
                       </span>
                     </div>
-                    
-                    <Button
-                      type="button"
-                      variant="link"
-                      disabled={deletingId === tx.id}
-                      onClick={() => {
-                        if (confirm(`Deseja excluir o lançamento de ${opLabel} de ${tx.ticker}?`)) {
-                          void handleDelete(tx.id)
-                        }
-                      }}
-                      className="h-8 w-8 p-0 rounded-lg hover:bg-expense/10 text-secondary hover:text-expense transition-all flex items-center justify-center border border-transparent hover:border-expense/20"
-                    >
-                      <Trash2 size={13} />
-                    </Button>
                   </div>
                 </div>
               )

@@ -1,4 +1,5 @@
 import type { PortfolioTransaction, PortfolioAssetDefinition } from '@/types'
+import { sortTransactionsStably } from './portfolioOperations'
 
 interface FixedIncomeParams {
   principal: number
@@ -128,43 +129,76 @@ interface LotBasedParams {
 }
 
 /**
- * Calcula o valor na curva de Renda Fixa agrupado por lotes/transações de aportes.
- * Útil para títulos públicos do Tesouro Direto que possuem aportes em datas distintas.
+ * Calcula o valor na curva de Renda Fixa agrupado por lotes/transações de aportes. Rastreia compras e vendas.
  */
 export function calculateLotBasedFixedIncomeValue(params: LotBasedParams): number {
   const { transactions, ticker, definition, asOfDate, indexRates, vnaToday } = params
 
-  const buys = transactions.filter(
-    (t) =>
-      t.ticker.toUpperCase().trim() === ticker.toUpperCase().trim() &&
-      (t.operation_type === 'buy' || t.operation_type === 'subscription') &&
-      t.date <= asOfDate
+  const tickerTxs = transactions.filter(
+    (t) => t.ticker.toUpperCase().trim() === ticker.toUpperCase().trim() && t.date <= asOfDate
   )
+  const sortedTxs = sortTransactionsStably(tickerTxs)
+
+  interface Lot {
+    quantity: number
+    principal: number
+    date: string
+    contractRate: number
+    vnaAtPurchase?: number
+  }
+
+  const lots: Lot[] = []
+  let totalQty = 0
+
+  for (const tx of sortedTxs) {
+    const q = Number(tx.quantity)
+    const p = Number(tx.price)
+    const type = tx.operation_type
+
+    if (type === 'buy' || type === 'subscription') {
+      lots.push({
+        quantity: q,
+        principal: q * p,
+        date: tx.date,
+        contractRate: definition.contract_rate ?? tx.contract_rate ?? 0,
+        vnaAtPurchase: tx.vna_at_purchase ? Number(tx.vna_at_purchase) : undefined
+      })
+      totalQty += q
+    } else if (type === 'sell') {
+      if (totalQty > 0) {
+        const sellRatio = Math.max(0, 1 - (q / totalQty))
+        for (const lot of lots) {
+          lot.quantity *= sellRatio
+          lot.principal *= sellRatio
+        }
+        totalQty = Math.max(0, totalQty - q)
+      }
+    }
+  }
 
   let totalValue = 0
 
-  for (const buy of buys) {
-    const principal = Number(buy.quantity) * Number(buy.price)
-    
+  for (const lot of lots) {
+    if (lot.principal <= 0) continue
+
     // IPCA+ com VNA ANBIMA
-    if (definition.indexer === 'ipca' && vnaToday && buy.vna_at_purchase) {
-      const vnaPurchase = Number(buy.vna_at_purchase)
+    if (definition.indexer === 'ipca' && vnaToday && lot.vnaAtPurchase) {
+      const vnaPurchase = lot.vnaAtPurchase
       const vnaFactor = vnaPurchase > 0 ? vnaToday / vnaPurchase : 1.0
       
-      const businessDays = countBusinessDays(buy.date, asOfDate)
-      const rateAnnual = definition.contract_rate ?? buy.contract_rate ?? 0
-      const fixedDaily = annualToDailyRate(rateAnnual)
+      const businessDays = countBusinessDays(lot.date, asOfDate)
+      const fixedDaily = annualToDailyRate(lot.contractRate)
       const fixedFactor = Math.pow(1 + fixedDaily, businessDays)
 
-      totalValue += principal * vnaFactor * fixedFactor
+      totalValue += lot.principal * vnaFactor * fixedFactor
     } else {
       // Outros indexadores pós-fixados normais por lote
       const lotVal = calculateFixedIncomeValue({
-        principal,
-        contractRateAnnual: definition.contract_rate ?? buy.contract_rate ?? 0,
+        principal: lot.principal,
+        contractRateAnnual: lot.contractRate,
         indexer: definition.indexer,
         indexerPercent: definition.indexer_percent,
-        applicationDate: buy.date,
+        applicationDate: lot.date,
         asOfDate,
         indexRates
       })

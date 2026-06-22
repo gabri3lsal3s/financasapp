@@ -21,6 +21,7 @@ import InvestmentsInsights from '@/components/investments/InvestmentsInsights'
 import AssetConfigModal from '@/components/investments/AssetConfigModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
+import AssetDetailModal from '@/components/investments/AssetDetailModal'
 
 import type { PortfolioTransaction } from '@/types'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
@@ -53,6 +54,10 @@ export default function Investments() {
   const [isConfigOpen, setIsConfigOpen] = useState(false)
   const [configTicker, setConfigTicker] = useState('')
 
+  // Modal de Detalhamento do Ativo
+  const [selectedAssetPosition, setSelectedAssetPosition] = useState<ValuedPosition | null>(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+
   const handleOpenTxModal = (tx?: PortfolioTransaction) => {
     setEditingTransaction(tx ?? null)
     setIsTxModalOpen(true)
@@ -68,11 +73,15 @@ export default function Investments() {
     setIsConfigOpen(true)
   }
 
-  const handleOpenAssetTransactions = (pos: ValuedPosition) => {
-    // Definimos o filtro no livro razão e mudamos de aba
+  const handleOpenAssetDetail = (pos: ValuedPosition) => {
+    setSelectedAssetPosition(pos)
+    setIsDetailModalOpen(true)
+  }
+
+  const handleViewInLedger = (ticker: string) => {
+    setIsDetailModalOpen(false)
     setActiveTab('ledger')
-    // Simulamos busca no LedgerBook filtrando pelo ticker
-    setLedgerSearchTicker(pos.ticker)
+    setLedgerSearchTicker(ticker)
   }
 
   return (
@@ -81,7 +90,7 @@ export default function Investments() {
         title={PAGE_HEADERS.investments.title}
         subtitle={PAGE_HEADERS.investments.description}
         action={
-          <PageHeaderActions launchModalOpen={isReconciliationOpen || isTxModalOpen || isConfigOpen}>
+          <PageHeaderActions launchModalOpen={isReconciliationOpen || isTxModalOpen || isConfigOpen || isDetailModalOpen}>
             <PageHeaderActionButton
               intent="income"
               icon={FileSpreadsheet}
@@ -213,8 +222,7 @@ export default function Investments() {
                   <div className="xl:col-span-2">
                     <HoldingsTable
                       positions={positions}
-                      onOpenAssetConfig={handleOpenConfig}
-                      onOpenAssetTransactions={handleOpenAssetTransactions}
+                      onOpenAssetDetail={handleOpenAssetDetail}
                     />
                   </div>
                   <div className="xl:col-span-1">
@@ -232,6 +240,7 @@ export default function Investments() {
                   transactions={transactions}
                   onDeleteTransaction={reload}
                   initialSearchTerm={ledgerSearchTicker}
+                  onEditTransaction={handleOpenTxModal}
                 />
               </TabsContent>
             </Tabs>
@@ -271,6 +280,26 @@ export default function Investments() {
             portfolioId={portfolioId}
             ticker={configTicker}
             onSaved={reload}
+          />
+
+          {/* Modal de Detalhamento de Ativo */}
+          <AssetDetailModal
+            isOpen={isDetailModalOpen}
+            onClose={() => {
+              setIsDetailModalOpen(false)
+              setSelectedAssetPosition(null)
+            }}
+            position={selectedAssetPosition}
+            transactions={transactions}
+            onOpenAssetConfig={(ticker) => {
+              setIsDetailModalOpen(false)
+              handleOpenConfig(ticker)
+            }}
+            onEditTransaction={(tx) => {
+              setIsDetailModalOpen(false)
+              handleOpenTxModal(tx)
+            }}
+            onViewInLedger={handleViewInLedger}
           />
         </>
       )}

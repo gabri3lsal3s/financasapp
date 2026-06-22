@@ -139,4 +139,35 @@ describe('cashBalanceApplication', () => {
     expect(preview.availableCash).toBe(5000)
     expect(preview.cashUsed).toBe(4000)
   })
+
+  it('não consome caixa depositado no futuro', () => {
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 'cash-dep-future',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 5000,
+        date: '2025-02-01',
+        created_at: '',
+      },
+    ]
+
+    const buyDate = '2025-01-01'
+    const filteredTxs = transactions.filter((t) => t.date <= buyDate)
+    expect(filteredTxs).toHaveLength(0)
+
+    const preview = computeCashOffsetPreview(
+      4000,
+      'buy',
+      'market',
+      filteredTxs,
+      [cashDefinition('CAIXA')]
+    )
+
+    expect(preview.availableCash).toBe(0)
+    expect(preview.cashUsed).toBe(0)
+    expect(preview.netContribution).toBe(4000)
+  })
 })

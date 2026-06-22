@@ -17,6 +17,36 @@ import { isBusinessDay } from '@/utils/businessDays'
 import { subDays, format } from 'date-fns'
 import { runClientSideHistoricalRecalculation } from '@/services/portfolioHistoricalRecalc'
 
+async function fetchAllShareHistory(portfolioId: string): Promise<PortfolioShareDailyRow[]> {
+  let allShares: PortfolioShareDailyRow[] = []
+  let page = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('portfolio_share_daily')
+      .select('*')
+      .eq('portfolio_id', portfolioId)
+      .order('rate_date', { ascending: true })
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allShares = [...allShares, ...(data as PortfolioShareDailyRow[])]
+      if (data.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+
+  return allShares
+}
+
 function getLatestTradingDate(): string {
   const now = new Date()
   const hours = now.getHours()
@@ -98,17 +128,14 @@ export function usePortfolioState() {
         supabase.from('portfolio_asset_definitions').select('*').eq('portfolio_id', portfolio.id),
         supabase.from('target_allocations').select('*').eq('portfolio_id', portfolio.id),
         supabase.from('portfolio_group_targets').select('*').eq('portfolio_id', portfolio.id),
-        supabase.from('portfolio_share_daily')
-          .select('*')
-          .eq('portfolio_id', portfolio.id)
-          .order('rate_date', { ascending: true })
+        fetchAllShareHistory(portfolio.id)
       ])
 
       const finalTxs = txsData || []
       const finalDefs = (defsData.data as PortfolioAssetDefinition[]) || []
       const finalTargets = (targetsData.data as TargetAllocation[]) || []
       const finalGroups = (groupsData.data as PortfolioGroupTarget[]) || []
-      const finalShares = (shareData.data as PortfolioShareDailyRow[]) || []
+      const finalShares = shareData || []
 
       setTransactions(finalTxs)
       setAssetDefinitions(finalDefs)

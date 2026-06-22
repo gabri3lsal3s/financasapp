@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
 import { 
   formatCurrency, 
   formatQuantityBR, 
@@ -9,18 +8,16 @@ import {
   formatSignedPercentBR 
 } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
-import { Settings2, History, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 interface HoldingsTableProps {
   positions: ValuedPosition[]
-  onOpenAssetConfig: (ticker: string) => void
-  onOpenAssetTransactions: (pos: ValuedPosition) => void
+  onOpenAssetDetail: (pos: ValuedPosition) => void
 }
 
 export default function HoldingsTable({
   positions,
-  onOpenAssetConfig,
-  onOpenAssetTransactions
+  onOpenAssetDetail
 }: HoldingsTableProps) {
   const [collapsedClasses, setCollapsedClasses] = useState<Record<string, boolean>>({})
 
@@ -53,7 +50,7 @@ export default function HoldingsTable({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       {Object.entries(groupedPositions).map(([assetClass, items]) => {
         const isCollapsed = collapsedClasses[assetClass]
         const classTotal = items.reduce((sum, item) => sum + (item.currency === 'USD' ? item.total_value * item.usd_rate : item.total_value), 0)
@@ -98,8 +95,7 @@ export default function HoldingsTable({
                         <th className="py-3 px-3 text-right font-bold">Pço Atual</th>
                         <th className="py-3 px-3 text-right font-bold">Total</th>
                         <th className="py-3 px-3 text-right font-bold">Rentabilidade</th>
-                        <th className="py-3 px-3 text-right font-bold">Alocação</th>
-                        <th className="py-3 px-4 text-center font-bold">Ações</th>
+                        <th className="py-3 px-4 text-right font-bold">Alocação</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -110,7 +106,11 @@ export default function HoldingsTable({
                         const isProfit = absoluteGain >= 0
 
                         return (
-                          <tr key={pos.ticker} className="border-b border-glass/20 hover:bg-glass/10 transition-colors font-semibold">
+                          <tr 
+                            key={pos.ticker} 
+                            onClick={() => onOpenAssetDetail(pos)}
+                            className="border-b border-glass/20 hover:bg-glass/10 transition-colors font-semibold cursor-pointer"
+                          >
                             {/* Ticker */}
                             <td className="py-3 px-4">
                               <span className="font-black text-primary font-mono text-sm">{pos.ticker}</span>
@@ -141,34 +141,11 @@ export default function HoldingsTable({
                               {formatSignedPercentBR(pos.gross_yield_pct)}
                             </td>
                             {/* Alocação */}
-                            <td className="py-3 px-3 text-right font-mono text-secondary font-bold">
+                            <td className="py-3 px-4 text-right font-mono text-secondary font-bold">
                               {formatPercentBR(pos.current_percentage)}
                               {pos.target_percentage > 0 && (
                                 <span className="block text-[8px] text-tertiary">alvo: {formatPercentBR(pos.target_percentage)}</span>
                               )}
-                            </td>
-                            {/* Ações */}
-                            <td className="py-3 px-4 text-center">
-                              <div className="flex justify-center items-center gap-1.5">
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  onClick={() => onOpenAssetConfig(pos.ticker)}
-                                  className="h-8 w-8 p-0 rounded-lg hover:bg-glass/10 text-secondary hover:text-primary transition-all flex items-center justify-center border border-transparent hover:border-glass"
-                                  title="Configurações do ativo"
-                                >
-                                  <Settings2 size={14} />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  onClick={() => onOpenAssetTransactions(pos)}
-                                  className="h-8 w-8 p-0 rounded-lg hover:bg-glass/10 text-secondary hover:text-primary transition-all flex items-center justify-center border border-transparent hover:border-glass"
-                                  title="Histórico de transações"
-                                >
-                                  <History size={14} />
-                                </Button>
-                              </div>
                             </td>
                           </tr>
                         )
@@ -186,7 +163,11 @@ export default function HoldingsTable({
                     const isProfit = absoluteGain >= 0
 
                     return (
-                      <div key={pos.ticker} className="p-4 space-y-3 hover:bg-glass/5 transition-colors text-left">
+                      <div 
+                        key={pos.ticker} 
+                        onClick={() => onOpenAssetDetail(pos)}
+                        className="p-4 space-y-3 hover:bg-glass/10 active:scale-[0.99] cursor-pointer transition-all text-left"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="font-black text-primary font-mono text-base">{pos.ticker}</span>
@@ -198,27 +179,6 @@ export default function HoldingsTable({
                             <span className="text-[10px] text-secondary font-bold font-mono">
                               {formatQuantityBR(pos.quantity, 4)} un
                             </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              type="button"
-                              variant="link"
-                              onClick={() => onOpenAssetConfig(pos.ticker)}
-                              className="h-8 w-8 p-0 rounded-lg hover:bg-glass/10 text-secondary hover:text-primary transition-all flex items-center justify-center border border-transparent hover:border-glass"
-                              title="Configurações do ativo"
-                            >
-                              <Settings2 size={14} />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="link"
-                              onClick={() => onOpenAssetTransactions(pos)}
-                              className="h-8 w-8 p-0 rounded-lg hover:bg-glass/10 text-secondary hover:text-primary transition-all flex items-center justify-center border border-transparent hover:border-glass"
-                              title="Histórico de transações"
-                            >
-                              <History size={14} />
-                            </Button>
                           </div>
                         </div>
 
