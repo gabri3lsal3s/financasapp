@@ -80,6 +80,7 @@ export function computePositions(
   investedValue: number
   cashValue: number
   totalValue: number
+  investedCostBasis: number
 } {
   const usdPriceObj = prices['USDBRL=X']
   const usdRate = usdPriceObj?.current_price && usdPriceObj.current_price > 0
@@ -109,6 +110,7 @@ export function computePositions(
   const positions: Omit<ValuedPosition, 'current_percentage' | 'gap_financial' | 'gap_percentage'>[] = []
   let investedValue = 0
   let cashFromPositions = 0
+  let investedCostBasis = 0
 
   for (const ticker of tickers) {
     if (['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker)) {
@@ -154,7 +156,7 @@ export function computePositions(
 
     // Identificar classificação
     const meta = getAssetMetadata(ticker)
-    const assetClass = definition?.pricing_mode === 'cash' ? 'Saldo em caixa'
+    const assetClass = definition?.pricing_mode === 'cash' ? 'Saldo em Caixa'
       : (definition?.pricing_mode === 'fixed_income' || definition?.is_treasury) ? 'Renda Fixa'
       : prices[ticker]?.asset_class || meta.asset_class
 
@@ -233,11 +235,13 @@ export function computePositions(
     const netYieldPct = costBasis > 0 ? (netYield / costBasis) * 100 : 0
 
     const valueBrl = currency === 'USD' ? totalValue * usdRate : totalValue
+    const costBasisBrl = currency === 'USD' ? costBasis * usdRate : costBasis
 
     if (pricingMode === 'cash') {
       cashFromPositions += valueBrl
     } else {
       investedValue += valueBrl
+      investedCostBasis += costBasisBrl
     }
 
     positions.push({
@@ -260,7 +264,7 @@ export function computePositions(
     })
   }
 
-  const finalCash = cashBalance + cashFromPositions
+  const finalCash = cashBalance
   const totalValue = investedValue + finalCash
 
   return {
@@ -277,6 +281,7 @@ export function computePositions(
     }),
     investedValue,
     cashValue: finalCash,
-    totalValue
+    totalValue,
+    investedCostBasis
   }
 }

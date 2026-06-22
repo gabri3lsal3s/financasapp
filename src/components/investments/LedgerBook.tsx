@@ -43,6 +43,14 @@ export default function LedgerBook({
   const filteredTxs = useMemo(() => {
     return transactions
       .filter((tx) => {
+        // Ocultar lançamentos de caixa automáticos que são contrapartidas de proventos
+        if (tx.cash_offset_source_id) {
+          const sourceTx = transactions.find((t) => t.id === tx.cash_offset_source_id)
+          if (sourceTx && ['dividend', 'jcp', 'fii_yield'].includes(sourceTx.operation_type)) {
+            return false
+          }
+        }
+
         const matchesSearch = tx.ticker.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesOp = opFilter === 'all' || tx.operation_type === opFilter
         return matchesSearch && matchesOp

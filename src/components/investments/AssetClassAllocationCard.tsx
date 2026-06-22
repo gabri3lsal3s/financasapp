@@ -42,6 +42,7 @@ export default function AssetClassAllocationCard({
 
     // Agregar posições por classe de ativos
     positions.forEach(pos => {
+      if (pos.pricing_mode === 'cash') return
       const className = pos.asset_class || 'Outros'
       const valueInBrl = pos.currency === 'USD' ? pos.total_value * pos.usd_rate : pos.total_value
       map.set(className, (map.get(className) || 0) + valueInBrl)

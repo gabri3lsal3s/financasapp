@@ -246,8 +246,8 @@ export async function runClientSideHistoricalRecalculation(portfolioId: string):
       dateStr
     )
 
-    const grossPL = dayValuation.totalValue
-    const netPL = grossPL - cumulativeExternalContribution
+    const grossPL = dayValuation.investedValue // Bruto investido (exclui caixa)
+    const netPL = grossPL - dayValuation.investedCostBasis // Lucro investido (exclui caixa)
 
     // Atualizar share value final do dia com base no valor total (incluindo caixa) com guardrail para valores pequenos
     let endShareValue = 1.0
@@ -388,30 +388,38 @@ function calculateSnapshotValuation(
 
     let quantity = 0
     let totalCost = 0
+    const isCash = cashTickers.has(ticker)
 
     for (const tx of txs) {
       const q = Number(tx.quantity)
       const p = Number(tx.price)
       
       if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-        quantity += q
-        totalCost += q * p
+        if (isCash) {
+          totalCost += q * p
+          quantity = totalCost
+        } else {
+          quantity += q
+          totalCost += q * p
+        }
       } else if (tx.operation_type === 'sell') {
-        if (quantity > 0) {
+        if (isCash) {
+          totalCost = Math.max(0, totalCost - q * p)
+          quantity = totalCost
+        } else if (quantity > 0) {
           const pm = totalCost / quantity
           quantity = Math.max(0, quantity - q)
           totalCost = quantity * pm
         }
       } else if (tx.operation_type === 'split') {
-        quantity += q
+        if (!isCash) quantity += q
       } else if (tx.operation_type === 'reverse_split') {
-        quantity = Math.max(0, quantity - q)
+        if (!isCash) quantity = Math.max(0, quantity - q)
       }
     }
 
     if (quantity <= 0 && totalCost <= 0) continue
 
-    const isCash = cashTickers.has(ticker)
     const pricingMode = isCash ? 'cash' : (definition?.pricing_mode ?? 'market')
     
     let totalValue = 0

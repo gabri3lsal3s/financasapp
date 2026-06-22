@@ -141,4 +141,64 @@ describe('computePositions', () => {
     expect(pos.average_price).toBe(15.00) // custo total 300 / 20 unidades antes de venda = 15.00 de custo médio
     expect(pos.total_value).toBe(600.00) // 15 * 40.00
   })
+
+  it('correctly handles custom cash assets and avoids double counting in cashValue and totalValue', () => {
+    const cashDefinitions: PortfolioAssetDefinition[] = [
+      ...mockDefinitions,
+      {
+        id: 'def-xp-cash',
+        portfolio_id: 'port-1',
+        ticker: 'XP_CAIXA',
+        pricing_mode: 'cash',
+        is_b3_linked: false,
+        applied_amount: null,
+        contract_rate: null,
+        indexer: 'none',
+        indexer_percent: 100,
+        maturity_date: null,
+        application_date: null,
+        manual_current_value: null,
+        manual_value_updated_at: null,
+        tax_exempt: false,
+        is_treasury: false,
+        created_at: '',
+        updated_at: ''
+      }
+    ]
+
+    const transactions: PortfolioTransaction[] = [
+      {
+        id: 'tx-1',
+        portfolio_id: 'port-1',
+        ticker: 'WEGE3',
+        operation_type: 'buy',
+        quantity: 10,
+        price: 35.00,
+        date: '2026-06-01',
+        created_at: ''
+      },
+      {
+        id: 'tx-2',
+        portfolio_id: 'port-1',
+        ticker: 'XP_CAIXA',
+        operation_type: 'buy',
+        quantity: 500,
+        price: 1.00,
+        date: '2026-06-01',
+        created_at: ''
+      }
+    ]
+
+    const result = computePositions(transactions, cashDefinitions, mockPrices, 700)
+
+    const xpCashPos = result.positions.find(p => p.ticker === 'XP_CAIXA')
+    expect(xpCashPos).toBeDefined()
+    expect(xpCashPos?.pricing_mode).toBe('cash')
+    expect(xpCashPos?.asset_class).toBe('Saldo em Caixa')
+    expect(xpCashPos?.total_value).toBe(500)
+
+    expect(result.investedValue).toBe(400.00)
+    expect(result.cashValue).toBe(700)
+    expect(result.totalValue).toBe(1100.00)
+  })
 })

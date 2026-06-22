@@ -8,7 +8,7 @@ import Select from '@/components/Select'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction, PortfolioOperationType, PortfolioPricingMode, PortfolioAssetIndexer, PortfolioAssetDefinition } from '@/types'
 import { detectDefaultCurrency } from '@/utils/portfolioCalculations'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrencyByCode } from '@/utils/format'
 import { fetchPortfolioCashContext, reconcileCashOffsetOnTransactionSave, deleteCashOffsetTransactions } from '@/services/cashOffsetService'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -58,6 +58,7 @@ export default function PortfolioTransactionFormModal({
 
   const isEditing = !!editingTransaction
   const isCashType = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker.toUpperCase().trim())
+  const isIncomeType = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
 
   // Carregar dados da transação ao abrir
   useEffect(() => {
@@ -69,11 +70,17 @@ export default function PortfolioTransactionFormModal({
       setDate(editingTransaction.date)
       
       const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(editingTransaction.ticker.toUpperCase().trim())
+      const isIncome = ['dividend', 'jcp', 'fii_yield'].includes(editingTransaction.operation_type)
       
       if (isCash) {
         setAmount(String(editingTransaction.price))
         setQuantity('1')
         setPrice(String(editingTransaction.price))
+      } else if (isIncome) {
+        const totalVal = Number(editingTransaction.quantity) * Number(editingTransaction.price)
+        setAmount(String(totalVal))
+        setQuantity('1')
+        setPrice(String(totalVal))
       } else {
         setAmount('')
         setQuantity(String(editingTransaction.quantity))
@@ -216,11 +223,11 @@ export default function PortfolioTransactionFormModal({
       let qty = 1
       let unitPrice = 0
 
-      if (isCashType) {
+      if (isCashType || isIncomeType) {
         unitPrice = parseFloat(amount)
         qty = 1
         if (isNaN(unitPrice) || unitPrice <= 0) {
-          throw new Error('Insira um valor de caixa válido maior que zero.')
+          throw new Error(isCashType ? 'Insira um valor de caixa válido maior que zero.' : 'Insira um valor de provento válido maior que zero.')
         }
       } else {
         qty = parseFloat(quantity)
@@ -426,7 +433,7 @@ export default function PortfolioTransactionFormModal({
             formId={formId}
             onCancel={onClose}
             submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Transação'}
-            submitDisabled={saving || (isCashType && !amount.trim()) || (!isCashType && (!ticker.trim() || !price.trim()))}
+            submitDisabled={saving || ((isCashType || isIncomeType) && !amount.trim()) || (!(isCashType || isIncomeType) && (!ticker.trim() || !price.trim()))}
             loading={saving}
             deleteLabel={isEditing ? 'Excluir lançamento' : undefined}
             onDelete={isEditing ? () => setIsConfirmDeleteOpen(true) : undefined}
@@ -448,7 +455,27 @@ export default function PortfolioTransactionFormModal({
             <Select
               label="Tipo de Operação"
               value={operationType}
-              onChange={(e) => setOperationType(e.target.value as any)}
+              onChange={(e) => {
+                const newOp = e.target.value as PortfolioOperationType
+                const wasIncome = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
+                const isIncome = ['dividend', 'jcp', 'fii_yield'].includes(newOp)
+
+                if (isIncome && !wasIncome) {
+                  const qtyVal = parseFloat(quantity)
+                  const priceVal = parseFloat(price)
+                  if (!isNaN(qtyVal) && !isNaN(priceVal)) {
+                    setAmount(String(qtyVal * priceVal))
+                  }
+                } else if (!isIncome && wasIncome) {
+                  const amountVal = parseFloat(amount)
+                  if (!isNaN(amountVal)) {
+                    setPrice(String(amountVal))
+                    setQuantity('1')
+                  }
+                }
+
+                setOperationType(newOp)
+              }}
               options={isCashType ? [
                 { value: 'buy', label: 'Depósito (Entrada)' },
                 { value: 'sell', label: 'Resgate (Saída)' }
@@ -475,14 +502,14 @@ export default function PortfolioTransactionFormModal({
             className="font-semibold rounded-xl"
           />
 
-          {/* Inputs Condicionais baseados em Ticker */}
-          {isCashType ? (
+          {/* Inputs Condicionais baseados em Ticker ou Provento */}
+          {isCashType || isIncomeType ? (
             <Input
-              label="Valor em Caixa (R$)"
+              label={isCashType ? "Valor em Caixa (R$)" : `Valor do Provento (${currency === 'USD' ? '$' : 'R$'})`}
               type="number"
               required
               step="0.01"
-              placeholder="Ex: 5000.00"
+              placeholder={isCashType ? "Ex: 5000.00" : "Ex: 150.00"}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="font-semibold rounded-xl text-base focus:ring-2 focus:ring-primary"
@@ -665,8 +692,8 @@ export default function PortfolioTransactionFormModal({
           )}
 
           {/* Visualizador de Total */}
-          {!isCashType && quantity && price && (() => {
-            const totalTxValue = parseFloat(quantity || '0') * parseFloat(price || '0')
+          {!isCashType && ((isIncomeType && amount) || (!isIncomeType && quantity && price)) && (() => {
+            const totalTxValue = isIncomeType ? parseFloat(amount || '0') : (parseFloat(quantity || '0') * parseFloat(price || '0'))
             if (isNaN(totalTxValue) || totalTxValue <= 0) return null
 
             const isCashInflow = ['sell', 'dividend', 'jcp', 'fii_yield'].includes(operationType)
@@ -695,7 +722,7 @@ export default function PortfolioTransactionFormModal({
                 <div>
                   <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Valor Total do Lançamento</span>
                   <span className="text-xl font-mono font-black text-primary mt-0.5 block">
-                    {formatCurrency(totalTxValue)}
+                    {formatCurrencyByCode(totalTxValue, currency === 'USD' ? 'USD' : 'BRL')}
                   </span>
                 </div>
 
@@ -703,7 +730,7 @@ export default function PortfolioTransactionFormModal({
                   <div className="pt-3 border-t border-glass/25 flex justify-between items-center text-[10px] uppercase tracking-wider font-black">
                     <span className="text-secondary">{cashText}:</span>
                     <span className={`font-mono text-xs ${isWarning ? 'text-expense bg-expense/10 px-2 py-0.5 rounded-lg border border-expense/20' : 'text-income bg-income/10 px-2 py-0.5 rounded-lg border border-income/20'}`}>
-                      {formatCurrency(cashVal)}
+                      {formatCurrencyByCode(cashVal, currency === 'USD' ? 'USD' : 'BRL')}
                     </span>
                   </div>
                 )}

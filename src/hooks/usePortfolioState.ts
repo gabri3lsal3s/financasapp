@@ -86,17 +86,9 @@ export function usePortfolioState() {
 
       if (options?.forceRefresh) {
         try {
-          const { error } = await supabase.functions.invoke('daily-close', {
-            body: { portfolioId: portfolio.id }
-          })
-          if (error) throw error
-        } catch (err) {
-          console.warn('[usePortfolioState] Error invoking daily-close on forceRefresh, running client-side recalculation fallback:', err)
-          try {
-            await runClientSideHistoricalRecalculation(portfolio.id)
-          } catch (recalcErr) {
-            console.error('[usePortfolioState] Failed client-side recalculation fallback on forceRefresh:', recalcErr)
-          }
+          await runClientSideHistoricalRecalculation(portfolio.id)
+        } catch (recalcErr) {
+          console.error('[usePortfolioState] Failed client-side recalculation on forceRefresh:', recalcErr)
         }
       }
 
@@ -249,16 +241,16 @@ export function usePortfolioState() {
       if (!hasToday) {
         if (finalShares.length > 0) {
           const lastClose = finalShares[finalShares.length - 1]
-          const todayShareValue = lastClose.gross_pl > 0
-            ? lastClose.share_value * (valuation.totalValue / lastClose.gross_pl)
+          const todayShareValue = lastClose.total_shares > 0
+            ? valuation.totalValue / lastClose.total_shares
             : lastClose.share_value
 
           chartShares.push({
             portfolio_id: portfolio.id,
             rate_date: todayStr,
             share_value: todayShareValue,
-            gross_pl: valuation.totalValue,
-            net_pl: valuation.totalValue - calculatedInvestedValue,
+            gross_pl: valuation.investedValue,
+            net_pl: valuation.investedValue - valuation.investedCostBasis,
             total_shares: lastClose.total_shares
           })
         } else if (valuation.totalValue > 0) {
@@ -271,14 +263,40 @@ export function usePortfolioState() {
             portfolio_id: portfolio.id,
             rate_date: todayStr,
             share_value: initialShareValue,
-            gross_pl: valuation.totalValue,
-            net_pl: valuation.totalValue - calculatedInvestedValue,
+            gross_pl: valuation.investedValue,
+            net_pl: valuation.investedValue - valuation.investedCostBasis,
             total_shares: 100
           })
         }
       }
 
       setShareHistory(chartShares)
+
+      // Auto-heal: detectar discrepância entre a cota histórica do banco e a rentabilidade dinâmica investida
+      const lastDbShare = finalShares[finalShares.length - 1]
+      if (lastDbShare && !options?.forceRefresh) {
+        const lastCotaYield = (Number(lastDbShare.share_value) - 1.0) * 100
+        
+        const totalEarnings = finalTxs
+          .filter(tx => ['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type))
+          .reduce((sum, tx) => sum + (Number(tx.quantity) * Number(tx.price)), 0)
+
+        const dynamicYield = valuation.investedCostBasis > 0
+          ? ((valuation.investedValue + totalEarnings - valuation.investedCostBasis) / valuation.investedCostBasis) * 100
+          : 0
+        
+        if (Math.abs(lastCotaYield - dynamicYield) > 1.0) {
+          console.log(`[AutoHeal] Discrepância de cota detectada (Histórico banco: ${lastCotaYield.toFixed(2)}%, Dinâmico local: ${dynamicYield.toFixed(2)}%). Corrigindo histórico no banco...`)
+          setTimeout(async () => {
+            try {
+              await runClientSideHistoricalRecalculation(portfolio.id)
+              void loadData({ silent: true })
+            } catch (err) {
+              console.error('[AutoHeal] Erro ao executar auto-heal da cota:', err)
+            }
+          }, 200)
+        }
+      }
 
       // Verificação de auto-refresh de cotações pós-fechamento do mercado
       const latestTradingDateStr = getLatestTradingDate()
@@ -356,17 +374,9 @@ export function usePortfolioState() {
   const reload = useCallback(async () => {
     if (portfolioId) {
       try {
-        const { error } = await supabase.functions.invoke('daily-close', {
-          body: { portfolioId }
-        })
-        if (error) throw error
-      } catch (err) {
-        console.warn('[usePortfolioState] Error invoking daily-close during reload, running client-side recalculation fallback:', err)
-        try {
-          await runClientSideHistoricalRecalculation(portfolioId)
-        } catch (recalcErr) {
-          console.error('[usePortfolioState] Failed client-side recalculation fallback during reload:', recalcErr)
-        }
+        await runClientSideHistoricalRecalculation(portfolioId)
+      } catch (recalcErr) {
+        console.error('[usePortfolioState] Failed client-side recalculation during reload:', recalcErr)
       }
     }
     await loadData({ silent: true })

@@ -33,9 +33,10 @@ export function resolvePricingMode(
 }
 
 function buildPositionLedger(
-  transactions: PortfolioTransaction[]
+  transactions: PortfolioTransaction[],
+  cashTickers?: Set<string>
 ): Record<string, PositionLedger> {
-  return buildSimplePositionLedger(transactions)
+  return buildSimplePositionLedger(transactions, cashTickers)
 }
 
 /** Lista saldos disponíveis em ativos com pricing_mode cash. */
@@ -43,11 +44,14 @@ export function listAvailableCashBalances(
   transactions: PortfolioTransaction[],
   definitions: PortfolioAssetDefinition[]
 ): CashBalanceSlot[] {
-  const ledger = buildPositionLedger(transactions)
+  const cashTickers = new Set<string>([
+    ...Array.from(LEGACY_CASH_TICKERS),
+    ...definitions.filter((d) => d.pricing_mode === 'cash').map((d) => d.ticker.toUpperCase().trim()),
+  ])
+  const ledger = buildPositionLedger(transactions, cashTickers)
   const tickers = new Set<string>([
     ...Object.keys(ledger),
-    ...definitions.filter((d) => d.pricing_mode === 'cash').map((d) => d.ticker.toUpperCase()),
-    ...Array.from(LEGACY_CASH_TICKERS),
+    ...cashTickers,
   ])
 
   const slots: CashBalanceSlot[] = []

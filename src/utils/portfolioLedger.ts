@@ -28,19 +28,28 @@ function ensureTicker(map: PositionLedgerMap, ticker: string): PositionLedgerEnt
  */
 export function applyPortfolioTransaction(
   pos: PositionLedgerEntry,
-  tx: Pick<PortfolioTransaction, 'operation_type' | 'quantity' | 'price'>
+  tx: Pick<PortfolioTransaction, 'operation_type' | 'quantity' | 'price'>,
+  isCash?: boolean
 ): void {
   const qty = Number(tx.quantity)
   const price = Number(tx.price)
 
   if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-    pos.quantity += qty
-    pos.totalCost += qty * price
+    if (isCash) {
+      pos.totalCost += qty * price
+      pos.quantity = pos.totalCost
+    } else {
+      pos.quantity += qty
+      pos.totalCost += qty * price
+    }
     return
   }
 
   if (tx.operation_type === 'sell') {
-    if (pos.quantity > 0) {
+    if (isCash) {
+      pos.totalCost = Math.max(0, pos.totalCost - qty * price)
+      pos.quantity = pos.totalCost
+    } else if (pos.quantity > 0) {
       const avg = pos.totalCost / pos.quantity
       pos.quantity = Math.max(0, pos.quantity - qty)
       pos.totalCost = pos.quantity * avg
@@ -54,24 +63,28 @@ export function applyPortfolioTransaction(
   }
 
   if (tx.operation_type === 'split') {
-    pos.quantity += qty
+    if (!isCash) pos.quantity += qty
     return
   }
 
   if (tx.operation_type === 'reverse_split') {
-    pos.quantity = Math.max(0, pos.quantity - qty)
+    if (!isCash) pos.quantity = Math.max(0, pos.quantity - qty)
     return
   }
 }
 
-export function buildPortfolioLedger(transactions: PortfolioTransaction[]): PositionLedgerMap {
+export function buildPortfolioLedger(
+  transactions: PortfolioTransaction[],
+  cashTickers?: Set<string>
+): PositionLedgerMap {
   const map: PositionLedgerMap = {}
   const sorted = sortTransactionsStably(transactions)
 
   for (const tx of sorted) {
     const ticker = tx.ticker.toUpperCase().trim()
     const pos = ensureTicker(map, ticker)
-    applyPortfolioTransaction(pos, tx)
+    const isCash = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker) || cashTickers?.has(ticker)
+    applyPortfolioTransaction(pos, tx, isCash)
   }
 
   return map
@@ -84,7 +97,8 @@ export interface SimplePositionLedgerEntry {
 }
 
 export function buildSimplePositionLedger(
-  transactions: PortfolioTransaction[]
+  transactions: PortfolioTransaction[],
+  cashTickers?: Set<string>
 ): Record<string, SimplePositionLedgerEntry> {
   const map: Record<string, SimplePositionLedgerEntry> = {}
   const sorted = sortTransactionsStably(transactions)
@@ -97,12 +111,21 @@ export function buildSimplePositionLedger(
     const pos = map[ticker]
     const qty = Number(tx.quantity)
     const price = Number(tx.price)
+    const isCash = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker) || cashTickers?.has(ticker)
 
     if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-      pos.quantity += qty
-      pos.totalCost += qty * price
+      if (isCash) {
+        pos.totalCost += qty * price
+        pos.quantity = pos.totalCost
+      } else {
+        pos.quantity += qty
+        pos.totalCost += qty * price
+      }
     } else if (tx.operation_type === 'sell') {
-      if (pos.quantity > 0) {
+      if (isCash) {
+        pos.totalCost = Math.max(0, pos.totalCost - qty * price)
+        pos.quantity = pos.totalCost
+      } else if (pos.quantity > 0) {
         const avg = pos.totalCost / pos.quantity
         pos.quantity = Math.max(0, pos.quantity - qty)
         pos.totalCost = pos.quantity * avg
@@ -110,9 +133,9 @@ export function buildSimplePositionLedger(
     } else if (isPortfolioIncomeType(tx.operation_type)) {
       // Proventos não alteram o custo de aquisição do ativo
     } else if (tx.operation_type === 'split') {
-      pos.quantity += qty
+      if (!isCash) pos.quantity += qty
     } else if (tx.operation_type === 'reverse_split') {
-      pos.quantity = Math.max(0, pos.quantity - qty)
+      if (!isCash) pos.quantity = Math.max(0, pos.quantity - qty)
     }
   }
 

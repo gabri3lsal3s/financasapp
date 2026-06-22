@@ -167,6 +167,101 @@ describe('runClientSideHistoricalRecalculation', () => {
 
     expect(day3.share_value).toBeCloseTo(1.0, 4)
     expect(day3.total_shares).toBeCloseTo(1000.0, 4)
-    expect(day3.net_pl).toBeCloseTo(0.0, 4)
+    expect(day3.net_pl).toBeCloseTo(-50.0, 4)
+  })
+
+  it('reproduz a simulacao do screenshot para depuração de cota', async () => {
+    const testTxs = [
+      {
+        id: 'tx-dep',
+        portfolio_id: 'mock-portfolio-id',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 500.0,
+        date: '2026-06-22',
+        cash_offset_source_id: null
+      },
+      {
+        id: 'tx-buy-wege',
+        portfolio_id: 'mock-portfolio-id',
+        ticker: 'WEGE3',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 50.0,
+        date: '2026-06-22',
+        cash_offset_source_id: null
+      },
+      {
+        id: 'tx-offset-buy-wege',
+        portfolio_id: 'mock-portfolio-id',
+        ticker: 'CAIXA',
+        operation_type: 'sell',
+        quantity: 1,
+        price: 50.0,
+        date: '2026-06-22',
+        cash_offset_source_id: 'tx-buy-wege'
+      },
+      {
+        id: 'tx-div-wege',
+        portfolio_id: 'mock-portfolio-id',
+        ticker: 'WEGE3',
+        operation_type: 'dividend',
+        quantity: 1,
+        price: 50.0,
+        date: '2026-06-22',
+        cash_offset_source_id: null
+      }
+    ]
+
+    const testDefs = [
+      { ticker: 'CAIXA', pricing_mode: 'cash' },
+      { ticker: 'WEGE3', pricing_mode: 'market' }
+    ]
+
+    const upsertedRows: any[] = []
+    const mockUpsert = vi.fn().mockImplementation((chunk) => {
+      upsertedRows.push(...chunk)
+      return Promise.resolve({ error: null })
+    })
+
+    const mockFrom = vi.fn().mockImplementation((table) => {
+      let data: any[] = []
+      if (table === 'portfolio_transactions') {
+        data = testTxs
+      } else if (table === 'portfolio_asset_definitions') {
+        data = testDefs
+      } else if (table === 'asset_prices') {
+        data = [{ ticker: 'WEGE3', current_price: 19.66 }, { ticker: 'CAIXA', current_price: 1.0 }]
+      } else if (table === 'asset_price_daily') {
+        data = [
+          { ticker: 'WEGE3', price_date: '2026-06-22', close_price: 19.66 }
+        ]
+      }
+
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockImplementation(() => Promise.resolve({ data, error: null })),
+        delete: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        upsert: table === 'portfolio_share_daily' ? mockUpsert : vi.fn().mockImplementation(() => Promise.resolve({ error: null })),
+        gte: vi.fn().mockReturnThis(),
+        lte: vi.fn().mockImplementation(() => Promise.resolve({ data, error: null })),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+      }
+    })
+
+    vi.spyOn(supabase, 'from').mockImplementation(mockFrom as any)
+
+    await runClientSideHistoricalRecalculation('mock-portfolio-id')
+
+    console.log('--- UPSERTED DAILY ROWS IN TEST ---', upsertedRows)
+    expect(upsertedRows.length).toBe(1)
+    const day = upsertedRows[0]
+    expect(day.rate_date).toBe('2026-06-22')
+    // Esperamos cota = 469.66 / 500 = 0.93932 (retorno -6.07%)
+    expect(day.share_value).toBeCloseTo(0.93932, 4)
   })
 })

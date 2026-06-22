@@ -72,4 +72,16 @@ describe('portfolioLedger', () => {
     ])
     expect(ledger.WEGE3?.quantity).toBe(10)
   })
+
+  it('calcula saldo em caixa aditivamente para múltiplos depósitos e retiradas de valores diferentes', () => {
+    const transactions: PortfolioTransaction[] = [
+      tx({ date: '2026-06-01', ticker: 'CAIXA', operation_type: 'buy', quantity: 1, price: 10000.0 }),
+      tx({ date: '2026-06-02', ticker: 'CAIXA', operation_type: 'sell', quantity: 0.4, price: 10000.0 }),
+      tx({ date: '2026-06-03', ticker: 'CAIXA', operation_type: 'buy', quantity: 1, price: 50.0 }),
+      tx({ date: '2026-06-04', ticker: 'CAIXA', operation_type: 'sell', quantity: 1, price: 2000.0 }),
+    ]
+    const ledger = buildPortfolioLedger(transactions)
+    expect(ledger.CAIXA?.totalCost).toBe(4050.0) // 10000 - 4000 + 50 - 2000 = 4050
+    expect(ledger.CAIXA?.quantity).toBe(4050.0)
+  })
 })
