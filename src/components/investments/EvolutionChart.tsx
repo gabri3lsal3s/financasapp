@@ -33,10 +33,11 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
       const grossPL = Number(h.gross_pl)
       const investedPL = Number(h.gross_pl) - Number(h.net_pl)
       const yieldPercent = (Number(h.share_value) - 1.0) * 100
+      const fullDate = h.rate_date
 
       return {
-        date: h.rate_date.split('-').reverse().slice(0, 2).join('/'), // format DD/MM or MM/YYYY
-        fullDate: h.rate_date,
+        date: `${fullDate.slice(8, 10)}/${fullDate.slice(5, 7)}/${fullDate.slice(0, 4)}`,
+        fullDate,
         grossPL,
         investedPL,
         yieldPercent,
@@ -112,11 +113,13 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
             <XAxis
-              dataKey="date"
+              dataKey="fullDate"
               tickLine={false}
               axisLine={false}
               tick={{ fill: 'var(--color-text-secondary)', fontSize: 9, fontWeight: 700 }}
+              tickFormatter={(value: string) => `${value.slice(8, 10)}/${value.slice(5, 7)}`}
               dy={10}
+              minTickGap={24}
             />
             <YAxis
               tickLine={false}

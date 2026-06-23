@@ -1,5 +1,5 @@
 import type { PortfolioTransaction, PortfolioAssetDefinition, AssetPrice } from '@/types'
-import { calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
+import { calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
 import { sortTransactionsStably } from './portfolioOperations'
 
 export interface ValuedPosition {

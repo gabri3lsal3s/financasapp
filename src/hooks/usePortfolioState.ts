@@ -16,6 +16,7 @@ import toast from 'react-hot-toast'
 import { isBusinessDay } from '@/utils/businessDays'
 import { subDays, format } from 'date-fns'
 import { runClientSideHistoricalRecalculation } from '@/services/portfolioHistoricalRecalc'
+import { computeDailyShareHistory, needsHistoricalBackfill } from '@/utils/portfolioTwrEngine'
 
 async function fetchAllShareHistory(portfolioId: string): Promise<PortfolioShareDailyRow[]> {
   let allShares: PortfolioShareDailyRow[] = []
@@ -85,7 +86,7 @@ export function usePortfolioState() {
   const [investedValue, setInvestedValue] = useState(0)
   const [cashValue, setCashValue] = useState(0)
 
-  const loadData = useCallback(async (options?: { forceRefresh?: boolean; silent?: boolean }) => {
+  const loadData = useCallback(async (options?: { forceRefresh?: boolean; silent?: boolean; skipBackfill?: boolean }) => {
     if (!options?.silent) setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -261,68 +262,75 @@ export function usePortfolioState() {
       setInvestedValue(calculatedInvestedValue)
       setCashValue(valuation.cashValue)
 
-      // Simulação do ponto de hoje no gráfico para refletir mudanças de cotação/ledger em tempo real
-      const hasToday = finalShares.some(s => s.rate_date === todayStr)
-      
-      const chartShares = [...finalShares]
-      if (!hasToday) {
-        if (finalShares.length > 0) {
-          const lastClose = finalShares[finalShares.length - 1]
-          const todayShareValue = lastClose.total_shares > 0
-            ? valuation.totalValue / lastClose.total_shares
-            : lastClose.share_value
+      const firstTxDate = finalTxs.map(t => t.date).sort()[0] || todayStr
+      const pricesTodayMap = Object.fromEntries(
+        tickers.map(t => [t, prices[t]?.current_price ?? 0])
+      )
 
-          chartShares.push({
-            portfolio_id: portfolio.id,
-            rate_date: todayStr,
-            share_value: todayShareValue,
-            gross_pl: valuation.investedValue,
-            net_pl: valuation.investedValue - valuation.investedCostBasis,
-            total_shares: lastClose.total_shares
-          })
-        } else if (valuation.totalValue > 0) {
-          // Portfólio sem fechamento diário histórico no banco, mas com posições ativas
-          const initialShareValue = calculatedInvestedValue > 0
-            ? 1.0 * (valuation.totalValue / calculatedInvestedValue)
-            : 1.0
+      let displayShares: PortfolioShareDailyRow[] = [...finalShares]
+      const shouldBackfill = needsHistoricalBackfill(finalShares, firstTxDate, todayStr)
 
-          chartShares.push({
-            portfolio_id: portfolio.id,
-            rate_date: todayStr,
-            share_value: initialShareValue,
-            gross_pl: valuation.investedValue,
-            net_pl: valuation.investedValue - valuation.investedCostBasis,
-            total_shares: 100
-          })
+      if (shouldBackfill) {
+        const { dailyRows } = computeDailyShareHistory({
+          portfolioId: portfolio.id,
+          transactions: finalTxs,
+          definitions: finalDefs,
+          priceMap: {},
+          pricesToday: pricesTodayMap,
+          indexRates,
+          startDate: firstTxDate,
+          endDate: todayStr
+        })
+
+        if (dailyRows.length > displayShares.length) {
+          displayShares = dailyRows
         }
       }
 
-      setShareHistory(chartShares)
+      const hasToday = displayShares.some(s => s.rate_date === todayStr)
+      if (!hasToday && displayShares.length > 0) {
+        const lastClose = displayShares[displayShares.length - 1]
+        const todayShareValue = lastClose.total_shares > 0
+          ? valuation.totalValue / lastClose.total_shares
+          : lastClose.share_value
 
-      // Auto-heal: detectar discrepância entre a cota histórica do banco e a rentabilidade dinâmica investida
-      const lastDbShare = finalShares[finalShares.length - 1]
-      if (lastDbShare && !options?.forceRefresh) {
-        const lastCotaYield = (Number(lastDbShare.share_value) - 1.0) * 100
-        
-        const totalEarnings = finalTxs
-          .filter(tx => ['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type))
-          .reduce((sum, tx) => sum + (Number(tx.quantity) * Number(tx.price)), 0)
+        displayShares.push({
+          portfolio_id: portfolio.id,
+          rate_date: todayStr,
+          share_value: todayShareValue,
+          gross_pl: valuation.investedValue,
+          net_pl: valuation.investedValue - valuation.investedCostBasis,
+          total_shares: lastClose.total_shares,
+          cash_value: valuation.cashValue,
+          invested_cost: valuation.investedCostBasis
+        })
+      } else if (!hasToday && displayShares.length === 0 && valuation.totalValue > 0) {
+        displayShares.push({
+          portfolio_id: portfolio.id,
+          rate_date: todayStr,
+          share_value: calculatedInvestedValue > 0
+            ? valuation.totalValue / calculatedInvestedValue
+            : 1.0,
+          gross_pl: valuation.investedValue,
+          net_pl: valuation.investedValue - valuation.investedCostBasis,
+          total_shares: calculatedInvestedValue > 0 ? calculatedInvestedValue : valuation.totalValue,
+          cash_value: valuation.cashValue,
+          invested_cost: valuation.investedCostBasis
+        })
+      }
 
-        const dynamicYield = valuation.investedCostBasis > 0
-          ? ((valuation.investedValue + totalEarnings - valuation.investedCostBasis) / valuation.investedCostBasis) * 100
-          : 0
-        
-        if (Math.abs(lastCotaYield - dynamicYield) > 1.0) {
-          console.log(`[AutoHeal] Discrepância de cota detectada (Histórico banco: ${lastCotaYield.toFixed(2)}%, Dinâmico local: ${dynamicYield.toFixed(2)}%). Corrigindo histórico no banco...`)
-          setTimeout(async () => {
-            try {
-              await runClientSideHistoricalRecalculation(portfolio.id)
-              void loadData({ silent: true })
-            } catch (err) {
-              console.error('[AutoHeal] Erro ao executar auto-heal da cota:', err)
-            }
-          }, 200)
-        }
+      setShareHistory(displayShares)
+
+      if (shouldBackfill && !options?.skipBackfill) {
+        console.log('[usePortfolioState] Histórico TWR incompleto. Iniciando backfill em background...')
+        setTimeout(async () => {
+          try {
+            await runClientSideHistoricalRecalculation(portfolio.id)
+            void loadData({ silent: true, skipBackfill: true })
+          } catch (err) {
+            console.error('[usePortfolioState] Backfill histórico falhou:', err)
+          }
+        }, 300)
       }
 
       // Verificação de auto-refresh de cotações pós-fechamento do mercado

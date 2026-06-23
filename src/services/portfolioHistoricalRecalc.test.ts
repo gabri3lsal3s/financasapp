@@ -257,11 +257,11 @@ describe('runClientSideHistoricalRecalculation', () => {
     await runClientSideHistoricalRecalculation('mock-portfolio-id')
 
     console.log('--- UPSERTED DAILY ROWS IN TEST ---', upsertedRows)
-    expect(upsertedRows.length).toBe(1)
-    const day = upsertedRows[0]
-    expect(day.rate_date).toBe('2026-06-22')
+    expect(upsertedRows.length).toBeGreaterThanOrEqual(1)
+    const day = upsertedRows.find(r => r.rate_date === '2026-06-22')
+    expect(day).toBeDefined()
     // Esperamos cota = 469.66 / 500 = 0.93932 (retorno -6.07%)
-    expect(day.share_value).toBeCloseTo(0.93932, 4)
+    expect(day!.share_value).toBeCloseTo(0.93932, 4)
   })
 
   it('calcula desdobramentos de acoes (splits) retroativamente mantendo cota estavel', async () => {

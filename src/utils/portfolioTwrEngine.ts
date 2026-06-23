@@ -1,0 +1,467 @@
+import { sortTransactionsStably } from './portfolioOperations'
+import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
+
+export interface DailyShareRow {
+  portfolio_id: string
+  rate_date: string
+  share_value: number
+  gross_pl: number
+  net_pl: number
+  total_shares: number
+  cash_value: number
+  invested_cost: number
+}
+
+export interface PeriodSnapshotRow {
+  portfolio_id: string
+  period_type: 'month'
+  period_key: string
+  cota_abertura: number
+  cota_fechamento: number
+  somatorio_aportes: number
+  somatorio_resgates: number
+  dividendos_recebidos: number
+  drawdown_maximo: number
+  period_return: number
+}
+
+export interface TwrEngineInput {
+  portfolioId: string
+  transactions: PortfolioTransaction[]
+  definitions: PortfolioAssetDefinition[]
+  priceMap: Record<string, Record<string, number>>
+  pricesToday: Record<string, number>
+  indexRates?: Record<string, Record<string, number>>
+  startDate: string
+  endDate: string
+}
+
+export interface TwrEngineResult {
+  dailyRows: DailyShareRow[]
+  periodSnapshots: PeriodSnapshotRow[]
+  totalShares: number
+  lastShareValue: number
+  cumulativeExternalContribution: number
+}
+
+const LEGACY_CASH_TICKERS = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA']
+
+/** Itera datas inclusive usando componentes locais (evita drift de fuso com toISOString). */
+export function iterateDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = []
+  const [sy, sm, sd] = startDate.split('-').map(Number)
+  const [ey, em, ed] = endDate.split('-').map(Number)
+  const endTime = new Date(ey, em - 1, ed).getTime()
+  const cursor = new Date(sy, sm - 1, sd)
+
+  while (cursor.getTime() <= endTime) {
+    const y = cursor.getFullYear()
+    const m = String(cursor.getMonth() + 1).padStart(2, '0')
+    const d = String(cursor.getDate()).padStart(2, '0')
+    dates.push(`${y}-${m}-${d}`)
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return dates
+}
+
+export function adjustTransactionsForSplits(txs: PortfolioTransaction[]): PortfolioTransaction[] {
+  const txByTicker: Record<string, PortfolioTransaction[]> = {}
+  for (const tx of txs) {
+    const ticker = tx.ticker.trim().toUpperCase()
+    if (!txByTicker[ticker]) txByTicker[ticker] = []
+    txByTicker[ticker].push(tx)
+  }
+
+  const adjustedAll: PortfolioTransaction[] = []
+
+  for (const ticker of Object.keys(txByTicker)) {
+    const sorted = sortTransactionsStably(txByTicker[ticker])
+    const hasSplits = sorted.some(tx => tx.operation_type === 'split' || tx.operation_type === 'reverse_split')
+
+    if (!hasSplits) {
+      adjustedAll.push(...sorted)
+      continue
+    }
+
+    let qtyMultiplier = 1.0
+    const adjusted: PortfolioTransaction[] = []
+    const originalQuantities: number[] = []
+    let currentQty = 0
+
+    for (const tx of sorted) {
+      originalQuantities.push(currentQty)
+      const q = Number(tx.quantity)
+      if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+        currentQty += q
+      } else if (tx.operation_type === 'sell') {
+        currentQty = Math.max(0, currentQty - q)
+      } else if (tx.operation_type === 'split') {
+        currentQty += q
+      } else if (tx.operation_type === 'reverse_split') {
+        currentQty = Math.max(0, currentQty - q)
+      }
+    }
+
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const tx = sorted[i]
+      const type = tx.operation_type
+      const q = Number(tx.quantity)
+      const p = Number(tx.price)
+
+      if (type === 'split') {
+        const qtyBefore = originalQuantities[i]
+        if (qtyBefore > 0) {
+          const ratio = (qtyBefore + q) / qtyBefore
+          qtyMultiplier *= ratio
+        }
+        continue
+      }
+
+      if (type === 'reverse_split') {
+        const qtyBefore = originalQuantities[i]
+        if (qtyBefore > 0) {
+          const ratio = Math.max(0, qtyBefore - q) / qtyBefore
+          qtyMultiplier *= ratio
+        }
+        continue
+      }
+
+      adjusted.unshift({
+        ...tx,
+        quantity: q * qtyMultiplier,
+        price: qtyMultiplier > 0 ? p / qtyMultiplier : p
+      })
+    }
+
+    adjustedAll.push(...adjusted)
+  }
+
+  return sortTransactionsStably(adjustedAll)
+}
+
+export function calculateSnapshotValuation(
+  transactions: PortfolioTransaction[],
+  definitions: PortfolioAssetDefinition[],
+  priceMap: Record<string, Record<string, number>>,
+  pricesToday: Record<string, number>,
+  _indexRates: Record<string, Record<string, number>>,
+  asOfDate: string
+) {
+  const txByTicker: Record<string, PortfolioTransaction[]> = {}
+  for (const tx of transactions) {
+    if (tx.date > asOfDate) continue
+    const ticker = tx.ticker.trim().toUpperCase()
+    if (!txByTicker[ticker]) txByTicker[ticker] = []
+    txByTicker[ticker].push(tx)
+  }
+
+  const defByTicker = Object.fromEntries(
+    definitions.map((d) => [d.ticker.trim().toUpperCase(), d])
+  )
+
+  const cashTickers = new Set([
+    ...LEGACY_CASH_TICKERS,
+    ...definitions.filter(d => d.pricing_mode === 'cash').map(d => d.ticker.toUpperCase().trim())
+  ])
+
+  const tickers = new Set([
+    ...Object.keys(txByTicker),
+    ...Object.keys(defByTicker)
+  ])
+
+  let investedValue = 0
+  let cashValue = 0
+  let investedCostBasis = 0
+
+  for (const ticker of tickers) {
+    const rawTxs = sortTransactionsStably(txByTicker[ticker] ?? [])
+    const txs = adjustTransactionsForSplits(rawTxs)
+    const definition = defByTicker[ticker]
+
+    let quantity = 0
+    let totalCost = 0
+    const isCash = cashTickers.has(ticker)
+
+    for (const tx of txs) {
+      const q = Number(tx.quantity)
+      const p = Number(tx.price)
+
+      if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+        if (isCash) {
+          totalCost += q * p
+          quantity = totalCost
+        } else {
+          quantity += q
+          totalCost += q * p
+        }
+      } else if (tx.operation_type === 'sell') {
+        if (isCash) {
+          totalCost = Math.max(0, totalCost - q * p)
+          quantity = totalCost
+        } else if (quantity > 0) {
+          const pm = totalCost / quantity
+          quantity = Math.max(0, quantity - q)
+          totalCost = quantity * pm
+        }
+      }
+    }
+
+    if (quantity <= 0 && totalCost <= 0) continue
+
+    const pricingMode = isCash ? 'cash' : (definition?.pricing_mode ?? 'market')
+    let totalValue = 0
+
+    if (pricingMode === 'fixed_income') {
+      const idx = definition?.indexer ?? 'none'
+
+      const lots: { principal: number; date: string }[] = []
+      let totalQty = 0
+
+      for (const tx of txs) {
+        const q = Number(tx.quantity)
+        const p = Number(tx.price)
+        if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
+          lots.push({ principal: q * p, date: tx.date })
+          totalQty += q
+        } else if (tx.operation_type === 'sell') {
+          if (totalQty > 0) {
+            const sellRatio = Math.max(0, 1 - (q / totalQty))
+            for (const lot of lots) {
+              lot.principal *= sellRatio
+            }
+            totalQty = Math.max(0, totalQty - q)
+          }
+        }
+      }
+
+      const rate = definition?.contract_rate ?? 0
+      let dailyRate = 0
+      if (idx === 'none') {
+        dailyRate = Math.pow(1 + rate / 100, 1 / 252) - 1
+      } else {
+        const avgIndexerDaily = idx === 'cdi' ? 0.000412 : 0.000411
+        const percent = definition?.indexer_percent ?? 100
+        dailyRate = avgIndexerDaily * (percent / 100)
+      }
+
+      for (const lot of lots) {
+        const [ay, am, ad] = lot.date.split('-').map(Number)
+        const [by, bm, bd] = asOfDate.split('-').map(Number)
+        const lotTime = new Date(ay, am - 1, ad).getTime()
+        const asOfTime = new Date(by, bm - 1, bd).getTime()
+        const diffDays = Math.max(0, (asOfTime - lotTime) / (1000 * 60 * 60 * 24))
+        totalValue += lot.principal * Math.pow(1 + dailyRate, diffDays * 5 / 7)
+      }
+    } else if (pricingMode === 'manual_value') {
+      totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0
+    } else if (pricingMode === 'cash') {
+      totalValue = totalCost
+    } else {
+      const tickerPrices = priceMap[ticker]
+      let dayPrice = 0
+
+      if (tickerPrices && tickerPrices[asOfDate] !== undefined) {
+        dayPrice = tickerPrices[asOfDate]
+      } else if (tickerPrices) {
+        const priceDates = Object.keys(tickerPrices).sort()
+        let lastPrice = pricesToday[ticker] ?? 0
+        for (const pd of priceDates) {
+          if (pd > asOfDate) break
+          lastPrice = tickerPrices[pd]
+        }
+        dayPrice = lastPrice
+      } else {
+        dayPrice = pricesToday[ticker] ?? 0
+      }
+
+      totalValue = quantity * (dayPrice > 0 ? dayPrice : (quantity > 0 ? totalCost / quantity : 0))
+    }
+
+    if (pricingMode === 'cash') {
+      cashValue += totalValue
+    } else {
+      investedValue += totalValue
+      investedCostBasis += totalCost
+    }
+  }
+
+  return {
+    investedValue,
+    cashValue,
+    totalValue: investedValue + cashValue,
+    investedCostBasis
+  }
+}
+
+function computeDayCashFlow(
+  dayTxs: PortfolioTransaction[],
+  definitions: PortfolioAssetDefinition[],
+  allTransactions: PortfolioTransaction[]
+): number {
+  let cashFlow = 0
+
+  for (const tx of dayTxs) {
+    const tickerUpper = tx.ticker.trim().toUpperCase()
+    const isCash = LEGACY_CASH_TICKERS.includes(tickerUpper) ||
+      definitions.some(d => d.ticker.trim().toUpperCase() === tickerUpper && d.pricing_mode === 'cash')
+
+    if (isCash && tx.cash_offset_source_id) {
+      const sourceTx = allTransactions.find(t => t.id === tx.cash_offset_source_id)
+      if (sourceTx && ['dividend', 'jcp', 'fii_yield'].includes(sourceTx.operation_type)) {
+        continue
+      }
+    }
+
+    const q = Number(tx.quantity)
+    const p = Number(tx.price)
+    const type = tx.operation_type
+
+    if (type === 'buy' || type === 'subscription') {
+      cashFlow += q * p
+    } else if (type === 'sell') {
+      cashFlow -= q * p
+    }
+  }
+
+  return cashFlow
+}
+
+export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult {
+  const {
+    portfolioId,
+    transactions: rawTransactions,
+    definitions,
+    priceMap,
+    pricesToday,
+    indexRates = {},
+    startDate,
+    endDate
+  } = input
+
+  const transactions = adjustTransactionsForSplits(sortTransactionsStably(rawTransactions))
+  const dateRange = iterateDateRange(startDate, endDate)
+
+  let totalShares = 0
+  let lastShareValue = 1.0
+  let cumulativeExternalContribution = 0
+
+  const dailyRows: DailyShareRow[] = []
+  const periodSnapshots: PeriodSnapshotRow[] = []
+
+  for (const dateStr of dateRange) {
+    const dayTxs = transactions.filter(t => t.date === dateStr)
+    const prevTxs = transactions.filter(t => t.date < dateStr)
+
+    const valuationPrev = calculateSnapshotValuation(
+      prevTxs,
+      definitions,
+      priceMap,
+      pricesToday,
+      indexRates,
+      dateStr
+    )
+
+    if (totalShares > 0) {
+      lastShareValue = valuationPrev.totalValue / totalShares
+    } else if (valuationPrev.totalValue > 0) {
+      totalShares = valuationPrev.totalValue
+      lastShareValue = 1.0
+    }
+
+    const cashFlow = computeDayCashFlow(dayTxs, definitions, transactions)
+
+    if (cashFlow !== 0) {
+      const cota = lastShareValue > 0 ? lastShareValue : 1.0
+      const sharesDiff = cashFlow / cota
+      totalShares = Math.max(0, totalShares + sharesDiff)
+    }
+
+    cumulativeExternalContribution += cashFlow
+
+    const dayValuation = calculateSnapshotValuation(
+      transactions,
+      definitions,
+      priceMap,
+      pricesToday,
+      indexRates,
+      dateStr
+    )
+
+    const grossPL = dayValuation.investedValue
+    const netPL = grossPL - dayValuation.investedCostBasis
+
+    let endShareValue = 1.0
+    if (dayValuation.totalValue <= 0.01) {
+      totalShares = 0
+      endShareValue = 1.0
+    } else if (totalShares > 0) {
+      endShareValue = dayValuation.totalValue / totalShares
+    } else {
+      totalShares = dayValuation.totalValue
+      endShareValue = 1.0
+    }
+    lastShareValue = endShareValue
+
+    dailyRows.push({
+      portfolio_id: portfolioId,
+      rate_date: dateStr,
+      share_value: endShareValue,
+      gross_pl: grossPL,
+      net_pl: netPL,
+      total_shares: totalShares,
+      cash_value: dayValuation.cashValue,
+      invested_cost: dayValuation.investedCostBasis
+    })
+
+    const [y, m] = dateStr.split('-').map(Number)
+    const nextDay = new Date(y, m - 1, Number(dateStr.split('-')[2]) + 1)
+    const isLastDayOfMonth = nextDay.getMonth() !== (m - 1)
+
+    if (isLastDayOfMonth) {
+      const periodKey = `${y}-${String(m).padStart(2, '0')}`
+      const startMonthDate = `${y}-${String(m).padStart(2, '0')}-01`
+      const firstCota = dailyRows.find(row => row.rate_date >= startMonthDate)
+      const cotaAbertura = firstCota?.share_value ? Number(firstCota.share_value) : 1.0
+      const periodReturn = cotaAbertura > 0 ? (endShareValue / cotaAbertura) - 1 : 0
+
+      periodSnapshots.push({
+        portfolio_id: portfolioId,
+        period_type: 'month',
+        period_key: periodKey,
+        cota_abertura: cotaAbertura,
+        cota_fechamento: endShareValue,
+        somatorio_aportes: cashFlow > 0 ? cashFlow : 0,
+        somatorio_resgates: cashFlow < 0 ? Math.abs(cashFlow) : 0,
+        dividendos_recebidos: 0,
+        drawdown_maximo: 0,
+        period_return: periodReturn
+      })
+    }
+  }
+
+  return {
+    dailyRows,
+    periodSnapshots,
+    totalShares,
+    lastShareValue,
+    cumulativeExternalContribution
+  }
+}
+
+export function needsHistoricalBackfill(
+  shareHistory: { rate_date: string }[],
+  firstTransactionDate: string,
+  todayStr: string
+): boolean {
+  if (shareHistory.length === 0) return true
+  if (shareHistory.length === 1) return true
+
+  const firstStored = shareHistory[0]?.rate_date
+  if (firstStored && firstStored > firstTransactionDate) return true
+
+  const expectedDays = iterateDateRange(firstTransactionDate, todayStr).length
+  if (shareHistory.length < Math.max(2, Math.floor(expectedDays * 0.9))) return true
+
+  return false
+}
