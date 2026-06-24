@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
 import Loader from '@/components/Loader'
 import { PAGE_HEADERS } from '@/constants/pages'
-import { Plus, Briefcase, TrendingUp, FileSpreadsheet } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { formatCurrency } from '@/utils/format'
 
@@ -17,14 +16,24 @@ import RebalancingView from '@/components/investments/RebalancingView'
 import LedgerBook from '@/components/investments/LedgerBook'
 import AssetClassAllocationCard from '@/components/investments/AssetClassAllocationCard'
 import InvestmentsInsights from '@/components/investments/InvestmentsInsights'
+import PieChartsSection from '@/components/investments/PieChartsSection'
+import ClassPerformanceCard from '@/components/investments/ClassPerformanceCard'
+import ExposureLimitsEditor from '@/components/investments/ExposureLimitsEditor'
+import MonthlySummaryCard from '@/components/investments/MonthlySummaryCard'
 
 import AssetConfigModal from '@/components/investments/AssetConfigModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
+
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetDetailModal from '@/components/investments/AssetDetailModal'
 
+import GlassChoiceCard from '@/components/GlassChoiceCard'
+import Modal from '@/components/Modal'
+import ModalIntro from '@/components/ModalIntro'
+import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import type { PortfolioTransaction } from '@/types'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
+import { classPerformanceToPieSlices, topAssetsToPieSlices, aggregateClassPerformance } from '@/utils/portfolioBenchmarks'
 
 export default function Investments() {
   const {
@@ -47,6 +56,7 @@ export default function Investments() {
   const [ledgerSearchTicker, setLedgerSearchTicker] = useState<string>('')
 
   // Controle de modais
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isTxModalOpen, setIsTxModalOpen] = useState(false)
   const [isReconciliationOpen, setIsReconciliationOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<PortfolioTransaction | null>(null)
@@ -57,6 +67,38 @@ export default function Investments() {
   // Modal de Detalhamento do Ativo
   const [selectedAssetPosition, setSelectedAssetPosition] = useState<ValuedPosition | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+
+  // Dados para os gráficos pizza
+  const nonCashPositions = useMemo(
+    () => positions.filter(p => p.pricing_mode !== 'cash'),
+    [positions]
+  )
+
+  const classPieData = useMemo(
+    () => classPerformanceToPieSlices(aggregateClassPerformance(nonCashPositions, totalValue)),
+    [nonCashPositions, totalValue]
+  )
+
+  const assetPieData = useMemo(
+    () => topAssetsToPieSlices(nonCashPositions, totalValue, 8),
+    [nonCashPositions, totalValue]
+  )
+
+  // Handler para clique em fatia do gráfico de ativos
+  const handleAssetSliceClick = (sliceName: string) => {
+    if (sliceName === 'Outros') return
+    const pos = positions.find(
+      (p) => p.ticker.toUpperCase() === sliceName.toUpperCase()
+    )
+    if (pos) {
+      handleOpenAssetDetail(pos)
+    }
+  }
+
+  // Handler para clique em fatia do gráfico de classes
+  const handleClassSliceClick = () => {
+    setActiveTab('assets')
+  }
 
   const handleOpenTxModal = (tx?: PortfolioTransaction) => {
     setEditingTransaction(tx ?? null)
@@ -90,21 +132,14 @@ export default function Investments() {
         title={PAGE_HEADERS.investments.title}
         subtitle={PAGE_HEADERS.investments.description}
         action={
-          <PageHeaderActions launchModalOpen={isReconciliationOpen || isTxModalOpen || isConfigOpen || isDetailModalOpen}>
-            <PageHeaderActionButton
-              intent="income"
-              icon={FileSpreadsheet}
-              label="Conciliação B3"
-              compactOnMobile={false}
-              onClick={() => setIsReconciliationOpen(true)}
-            />
+          <PageHeaderActions launchModalOpen={isSelectorOpen || isTxModalOpen || isReconciliationOpen || isConfigOpen || isDetailModalOpen}>
             <PageHeaderActionButton
               actionRole="launch"
               intent="balance"
               icon={Plus}
               label="Lançar transação"
               compactOnMobile={false}
-              onClick={() => handleOpenTxModal()}
+              onClick={() => setIsSelectorOpen(true)}
             />
           </PageHeaderActions>
         }
@@ -140,7 +175,7 @@ export default function Investments() {
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-all whitespace-nowrap shrink-0"
                   >
                     <Briefcase size={12} />
-                    <span>Ativos e Alocação</span>
+                    <span>Ativos</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="ledger"
@@ -152,22 +187,48 @@ export default function Investments() {
                 </TabsList>
               </div>
 
-              {/* Aba 1: Visão Geral (Gráfico + Alocações + Caixa e Insights) */}
+              {/* Aba 1: Visão Geral */}
               <TabsContent value="overview" className="mt-6 space-y-6 animate-fade-in">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
-                  {/* Coluna da Esquerda (2 Colunas no Desktop): Gráfico e Distribuição de Ativos */}
+                  {/* Coluna da Esquerda (2 Colunas no Desktop) */}
                   <div className="flex flex-col gap-5 lg:col-span-2">
                     <EvolutionChart shareHistory={shareHistory} />
+                    
+                    {/* Gráficos Pizza lado a lado */}
+                            {/* Gráficos Pizza com toggle de visibilidade em mobile */}
+                    {assetPieData.length > 0 && classPieData.length > 0 && (
+                      <PieChartsSection
+                        assetPieData={assetPieData}
+                        classPieData={classPieData}
+                        handleAssetSliceClick={handleAssetSliceClick}
+                        handleClassSliceClick={handleClassSliceClick}
+                      />
+                    )}
+
                     <AssetClassAllocationCard
                       positions={positions}
                       cashValue={cashValue}
                       totalValue={totalValue}
                       groupTargets={groupTargets}
                     />
+
+                    {/* Rentabilidade por classe/setor com benchmarks */}
+                    {nonCashPositions.length > 0 && (
+                      <ClassPerformanceCard
+                        positions={nonCashPositions}
+                        totalValue={totalValue}
+                      />
+                    )}
                   </div>
 
-                  {/* Coluna da Direita (1 Coluna no Desktop): Saldo e Insights */}
+                  {/* Coluna da Direita (1 Coluna no Desktop): Resumo Mensal, Saldo e Insights */}
                   <div className="flex flex-col gap-5 lg:col-span-1">
+                    {/* Card de Resumo Mensal (aparece apenas nos primeiros 10 dias) */}
+                    <MonthlySummaryCard
+                      transactions={transactions}
+                      shareHistory={shareHistory}
+                    />
+
                     {/* Card de Resumo de Caixa e Operações */}
                     <Card className="border border-glass bg-glass/5 rounded-3xl p-5 flex flex-col justify-between text-left gap-4 relative overflow-hidden hover:border-glass-strong hover:shadow-md transition-all duration-300">
                       {/* Glow halo baseando-se no nível do saldo */}
@@ -184,26 +245,6 @@ export default function Investments() {
                         </p>
                       </div>
                       
-                      <div className="space-y-2 z-10">
-                        <Button
-                          type="button"
-                          variant="income"
-                          onClick={() => setIsReconciliationOpen(true)}
-                          className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider py-2.5 px-5 h-10 rounded-xl w-full"
-                        >
-                          <FileSpreadsheet size={14} />
-                          <span>Importar Planilha B3</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="balance"
-                          onClick={() => handleOpenTxModal()}
-                          className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider py-2.5 px-5 h-10 rounded-xl w-full"
-                        >
-                          <Plus size={14} />
-                          <span>Lançar Transação</span>
-                        </Button>
-                      </div>
                     </Card>
 
                     {/* Insights da Carteira */}
@@ -216,14 +257,24 @@ export default function Investments() {
                 </div>
               </TabsContent>
 
-              {/* Aba 2: Ativos e Alocação */}
+              {/* Aba 2: Ativos */}
               <TabsContent value="assets" className="mt-6">
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 lg:gap-6 items-start">
-                  <div className="xl:col-span-2">
+                  <div className="xl:col-span-2 space-y-5">
                     <HoldingsTable
                       positions={positions}
                       onOpenAssetDetail={handleOpenAssetDetail}
                     />
+                    {/* Editor de Limites de Exposição */}
+                    {portfolioId && (
+                      <ExposureLimitsEditor
+                        portfolioId={portfolioId}
+                        positions={positions}
+                        totalValue={totalValue}
+                        groupTargets={groupTargets}
+                        onSaved={reload}
+                      />
+                    )}
                   </div>
                   <div className="xl:col-span-1">
                     <RebalancingView
@@ -234,7 +285,7 @@ export default function Investments() {
                 </div>
               </TabsContent>
 
-              {/* Aba 4: Livro Razão de Lançamentos */}
+              {/* Aba 3: Livro Razão de Lançamentos */}
               <TabsContent value="ledger" className="mt-6">
                 <LedgerBook
                   transactions={transactions}
@@ -248,6 +299,33 @@ export default function Investments() {
           </div>
         )}
       </div>
+
+      {/* Modal Seletor: Lançamento Manual ou Conciliação B3 */}
+      <Modal isOpen={isSelectorOpen} onClose={() => setIsSelectorOpen(false)} title="Nova transação">
+        <div className="modal-body-stack">
+          <ModalIntro align="center">Escolha o tipo de lançamento que deseja fazer:</ModalIntro>
+          <ModalChoiceGrid>
+            <GlassChoiceCard
+              label="Lançamento Manual"
+              icon={<PenLine size={24} />}
+              intent="balance"
+              onClick={() => {
+                setIsSelectorOpen(false)
+                handleOpenTxModal()
+              }}
+            />
+            <GlassChoiceCard
+              label="Conciliação B3"
+              icon={<FileSpreadsheet size={24} />}
+              intent="income"
+              onClick={() => {
+                setIsSelectorOpen(false)
+                setIsReconciliationOpen(true)
+              }}
+            />
+          </ModalChoiceGrid>
+        </div>
+      </Modal>
 
       {portfolioId && (
         <>

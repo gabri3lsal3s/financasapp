@@ -48,14 +48,14 @@ export function portfolioOperationLabel(op: PortfolioOperationType): string {
 export function sortTransactionsStably(transactions: PortfolioTransaction[]): PortfolioTransaction[] {
   const getPriority = (type: string): number => {
     const priorities: Record<string, number> = {
-      split: 1,
-      reverse_split: 1,
-      buy: 2,
-      subscription: 2,
-      sell: 3,
-      dividend: 4,
-      jcp: 4,
-      fii_yield: 4,
+      buy: 1,
+      subscription: 1,
+      sell: 2,
+      dividend: 3,
+      jcp: 3,
+      fii_yield: 3,
+      split: 4,
+      reverse_split: 4,
     }
     return priorities[type] ?? 99
   }

@@ -6,10 +6,12 @@ import Input from '@/components/Input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatCurrency, formatQuantityBR, formatDate } from '@/utils/format'
 import type { PortfolioTransaction } from '@/types'
-import { Search, Trash2 } from 'lucide-react'
+import { Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
+
+const PAGE_SIZE = 25
 
 interface LedgerBookProps {
   transactions: PortfolioTransaction[]
@@ -28,6 +30,7 @@ export default function LedgerBook({
   const [opFilter, setOpFilter] = useState('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     setSearchTerm(initialSearchTerm)
@@ -35,6 +38,11 @@ export default function LedgerBook({
 
   useEffect(() => {
     setSelectedIds(new Set())
+  }, [searchTerm, opFilter])
+
+  // Resetar página para 1 quando filtros mudarem
+  useEffect(() => {
+    setCurrentPage(1)
   }, [searchTerm, opFilter])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,12 +53,12 @@ export default function LedgerBook({
   const filteredTxs = useMemo(() => {
     return transactions
       .filter((tx) => {
-        // Ocultar lançamentos de caixa automáticos que são contrapartidas de proventos
+        // Ocultar TODOS os lançamentos de caixa automáticos (seja contrapartida de
+        // aporte, venda ou provento) para manter o livro-razão limpo.
+        // O vínculo via cash_offset_source_id garante que a exclusão do lançamento
+        // original também remova o offset automaticamente.
         if (tx.cash_offset_source_id) {
-          const sourceTx = transactions.find((t) => t.id === tx.cash_offset_source_id)
-          if (sourceTx && ['dividend', 'jcp', 'fii_yield'].includes(sourceTx.operation_type)) {
-            return false
-          }
+          return false
         }
 
         const matchesSearch = tx.ticker.toLowerCase().includes(searchTerm.toLowerCase())
@@ -59,6 +67,24 @@ export default function LedgerBook({
       })
       .sort((a, b) => b.date.localeCompare(a.date)) // Mais recentes primeiro
   }, [transactions, searchTerm, opFilter])
+
+  // Paginação
+  const totalPages = Math.max(1, Math.ceil(filteredTxs.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedTxs = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE
+    return filteredTxs.slice(start, start + PAGE_SIZE)
+  }, [filteredTxs, safePage])
+
+  const startItem = (safePage - 1) * PAGE_SIZE + 1
+  const endItem = Math.min(safePage * PAGE_SIZE, filteredTxs.length)
+
+  // Sincronizar página atual se exceder o total de páginas
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return
@@ -104,6 +130,91 @@ export default function LedgerBook({
     } finally {
       setIsBulkDeleting(false)
     }
+  }
+
+  // Componente de navegação de páginas
+  const PaginationBar = () => {
+    if (totalPages <= 1) return null
+
+    // Gerar lista de páginas visíveis (máx 7)
+    const pageNumbers: (number | string)[] = []
+    const maxVisible = 7
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i)
+    } else {
+      pageNumbers.push(1)
+      if (safePage > 3) pageNumbers.push('...')
+      const startPage = Math.max(2, safePage - 1)
+      const endPage = Math.min(totalPages - 1, safePage + 1)
+      for (let i = startPage; i <= endPage; i++) pageNumbers.push(i)
+      if (safePage < totalPages - 2) pageNumbers.push('...')
+      pageNumbers.push(totalPages)
+    }
+
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-glass/20 text-xs">
+        {/* Contagem */}
+        <span className="text-[10px] text-secondary font-medium font-mono">
+          Mostrando {startItem}–{endItem} de {filteredTxs.length} lançamentos
+        </span>
+
+        {/* Navegação */}
+        <div className="flex items-center gap-1">
+          {/* Anterior */}
+          <button
+            type="button"
+            disabled={safePage <= 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            className="p-1.5 rounded-lg border border-glass/30 hover:bg-glass/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ChevronLeft size={14} />
+          </button>
+
+          {/* Páginas */}
+          {pageNumbers.map((p, i) =>
+            typeof p === 'string' ? (
+              <span key={`ellipsis-${i}`} className="px-1 text-secondary">
+                ...
+              </span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setCurrentPage(p)}
+                className={`min-w-[28px] h-7 rounded-lg text-[10px] font-bold transition-all ${
+                  p === safePage
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'border border-glass/30 hover:bg-glass/10 text-secondary'
+                }`}
+              >
+                {p}
+              </button>
+            )
+          )}
+
+          {/* Próximo */}
+          <button
+            type="button"
+            disabled={safePage >= totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            className="p-1.5 rounded-lg border border-glass/30 hover:bg-glass/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const opLabelMap: Record<string, string> = {
+    buy: 'Compra',
+    sell: 'Venda',
+    dividend: 'Dividendo',
+    jcp: 'JCP',
+    fii_yield: 'Rend. FII',
+    subscription: 'Subscrição',
+    split: 'Desdobro',
+    reverse_split: 'Grupamento',
   }
 
   return (
@@ -180,7 +291,7 @@ export default function LedgerBook({
                 <tr className="border-b border-glass/40 text-secondary font-bold select-none bg-glass/5 text-[9px] uppercase tracking-wider">
                   <th className="py-3 px-3 text-center w-12 select-none">
                     <Checkbox
-                      checked={filteredTxs.length > 0 && selectedIds.size === filteredTxs.length}
+                      checked={paginatedTxs.length > 0 && selectedIds.size === filteredTxs.length}
                       onCheckedChange={(checked) => {
                         if (checked) {
                           setSelectedIds(new Set(filteredTxs.map((tx) => tx.id)))
@@ -199,22 +310,13 @@ export default function LedgerBook({
                 </tr>
               </thead>
               <tbody>
-                {filteredTxs.map((tx) => {
+                {paginatedTxs.map((tx) => {
                   const isBuy = tx.operation_type === 'buy' || tx.operation_type === 'subscription'
                   const isSell = tx.operation_type === 'sell'
                   const isIncome = ['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type)
                   
                   const total = Number(tx.quantity) * Number(tx.price)
-
-                  const opLabel = tx.operation_type === 'buy' ? 'Compra'
-                    : tx.operation_type === 'sell' ? 'Venda'
-                    : tx.operation_type === 'dividend' ? 'Dividendo'
-                    : tx.operation_type === 'jcp' ? 'JCP'
-                    : tx.operation_type === 'fii_yield' ? 'Rend. FII'
-                    : tx.operation_type === 'subscription' ? 'Subscrição'
-                    : tx.operation_type === 'split' ? 'Desdobro'
-                    : tx.operation_type === 'reverse_split' ? 'Grupamento'
-                    : tx.operation_type
+                  const opLabel = opLabelMap[tx.operation_type] || tx.operation_type
 
                   const opColor = isBuy
                     ? 'text-balance bg-balance/10'
@@ -268,22 +370,13 @@ export default function LedgerBook({
 
           {/* Mobile View */}
           <div className="md:hidden divide-y divide-glass/20">
-            {filteredTxs.map((tx) => {
+            {paginatedTxs.map((tx) => {
               const isBuy = tx.operation_type === 'buy' || tx.operation_type === 'subscription'
               const isSell = tx.operation_type === 'sell'
               const isIncome = ['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type)
               
               const total = Number(tx.quantity) * Number(tx.price)
-
-              const opLabel = tx.operation_type === 'buy' ? 'Compra'
-                : tx.operation_type === 'sell' ? 'Venda'
-                : tx.operation_type === 'dividend' ? 'Dividendo'
-                : tx.operation_type === 'jcp' ? 'JCP'
-                : tx.operation_type === 'fii_yield' ? 'Rend. FII'
-                : tx.operation_type === 'subscription' ? 'Subscrição'
-                : tx.operation_type === 'split' ? 'Desdobro'
-                : tx.operation_type === 'reverse_split' ? 'Grupamento'
-                : tx.operation_type
+              const opLabel = opLabelMap[tx.operation_type] || tx.operation_type
 
               const opColor = isBuy
                 ? 'text-balance bg-balance/10'
@@ -335,6 +428,9 @@ export default function LedgerBook({
               )
             })}
           </div>
+
+          {/* Barra de Paginação */}
+          <PaginationBar />
         </>
       )}
     </Card>

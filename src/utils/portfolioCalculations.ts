@@ -28,6 +28,59 @@ export interface ValuedPosition {
 // detectDefaultCurrency e getAssetMetadata agora vêm de assetClassifier.ts
 // (fonte única de verdade para classificação de ativos)
 
+/**
+ * Provisão simplificada de IR sobre ganhos de investimentos.
+ *
+ * ATENÇÃO: Esta é uma aproximação para exibição informativa. Não substitui
+ * o cálculo oficial do Imposto de Renda, que depende de:
+ * - Compensação de prejuízos anteriores
+ * - Alíquota mensal consolidada (não por ativo)
+ * - Isenção de R$ 20k em vendas de ações no mês (não por posição)
+ * - Regras específicas de day-trade
+ * - IRRF retido na fonte (renda fixa já tem IR retido)
+ *
+ * @see https://www.gov.br/receitafederal para apuração oficial
+ */
+export function provisionIncomeTax(
+  grossProfit: number,
+  pricingMode: string,
+  assetClass: string,
+  asOfDate: string,
+  applicationDate?: string
+): number {
+  if (grossProfit <= 0) return grossProfit
+
+  if (pricingMode === 'fixed_income') {
+    // Tabela regressiva de IR para renda fixa (quanto maior o prazo, menor o IR)
+    const appDate = applicationDate || asOfDate
+    const days = (new Date(asOfDate).getTime() - new Date(appDate).getTime()) / (1000 * 60 * 60 * 24)
+    let irRate = 0.15
+    if (days <= 180) irRate = 0.225
+    else if (days <= 360) irRate = 0.20
+    else if (days <= 720) irRate = 0.175
+    return grossProfit * (1 - irRate)
+  }
+
+  if (pricingMode === 'market') {
+    if (assetClass === 'Ações Nacionais') {
+      // Nota: isenção real é de R$ 20k/mês em vendas totais, não por ativo.
+      // Esta provisão aplica 15% apenas quando o ganho individual excede R$ 20k,
+      // o que é uma simplificação.
+      if (grossProfit > 20000) {
+        return grossProfit * 0.85
+      }
+      return grossProfit // isento (provisionado)
+    }
+    if (assetClass === 'Fundos Imobiliários') {
+      // FIIs: 20% sobre o ganho de capital
+      return grossProfit * 0.80
+    }
+  }
+
+  // Demais classes (ETF, internacional, cripto): sem provisão destacada
+  return grossProfit
+}
+
 export function computePositions(
   transactions: PortfolioTransaction[],
   definitions: PortfolioAssetDefinition[],
@@ -162,26 +215,15 @@ export function computePositions(
     const grossYield = totalValue - costBasis + accumulatedDividends
     const grossYieldPct = costBasis > 0 ? (grossYield / costBasis) * 100 : 0
 
-    // Provisionar IR básico
-    let netYield = grossYield
-    if (grossYield > 0) {
-      if (pricingMode === 'fixed_income') {
-        // Regressiva
-        const appDateStr = definition?.application_date ?? (txs[0]?.date || asOfDate)
-        const days = (new Date(asOfDate).getTime() - new Date(appDateStr).getTime()) / (1000 * 60 * 60 * 24)
-        let irRate = 0.15
-        if (days <= 180) irRate = 0.225
-        else if (days <= 360) irRate = 0.20
-        else if (days <= 720) irRate = 0.175
-        netYield = grossYield * (1 - irRate)
-      } else if (pricingMode === 'market' && assetClass === 'Ações Nacionais' && grossYield > 20000) {
-        // Isento até 20k no mês. Caso passe, provisão de 15%
-        netYield = grossYield * 0.85
-      } else if (pricingMode === 'market' && assetClass === 'Fundos Imobiliários') {
-        // FIIs alíquota de 20% sobre ganho
-        netYield = grossYield * 0.80
-      }
-    }
+    // Provisionar IR básico usando função extraída
+    const appDateStr = definition?.application_date ?? (txs[0]?.date || asOfDate)
+    const netYield = provisionIncomeTax(
+      grossYield,
+      pricingMode,
+      assetClass,
+      asOfDate,
+      appDateStr
+    )
     const netYieldPct = costBasis > 0 ? (netYield / costBasis) * 100 : 0
 
     const valueBrl = currency === 'USD' ? totalValue * usdRate : totalValue
