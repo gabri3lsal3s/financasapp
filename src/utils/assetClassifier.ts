@@ -216,3 +216,108 @@ export function toPricingMode(ticker: string): PortfolioPricingMode | null {
   if (isB3VariableTicker(t)) return 'market'
   return null // outro tipo: manual ou internacional
 }
+
+/**
+ * Detecta a moeda padrão de cotação de um ticker (alias para detectCurrency).
+ * BRL para ativos brasileiros, crypto e renda fixa; USD para internacionais.
+ */
+export const detectDefaultCurrency = detectCurrency
+
+/**
+ * Metadados de classificação de ativo: asset_class e sector.
+ * Usa a classificação do ticker para determinar a categoria e setor.
+ */
+export function getAssetMetadata(ticker: string): { asset_class: string; sector: string } {
+  const t = ticker.trim().toUpperCase()
+
+  // 1. Criptomoedas
+  if (CRYPTO_TICKERS.has(t)) {
+    return { asset_class: 'Criptoativos', sector: 'Tecnologia Blockchain' }
+  }
+
+  // Verificar se é Unit B3 (termina em 11 mas é ação, não FII)
+  const BR_UNITS = new Set(['TAEE11', 'KLBN11', 'SANB11', 'BPAC11', 'ALUP11', 'RAPT11', 'SAPR11', 'ENGI11', 'SULA11'])
+  const isBrUnit = BR_UNITS.has(t)
+
+  // 2. Fundos Imobiliários (4 letras + 11)
+  const isFii = /^[A-Z]{4}11$/.test(t) && !isBrUnit && !['BOVA11', 'SMAL11', 'IVVB11', 'ECOO11', 'DIVO11', 'PIBB11'].includes(t)
+  if (isFii) {
+    return { asset_class: 'Fundos Imobiliários', sector: 'Imobiliário Diversificado' }
+  }
+
+  // 3. ETFs
+  if (['BOVA11', 'SMAL11', 'IVVB11', 'VOO', 'IVV', 'SPY', 'QQQ', 'VT', 'BND', 'HASH11', 'QBTC11', 'QETH11', 'GOLD11'].includes(t)) {
+    return { asset_class: 'ETFs', sector: 'Índices de Mercado' }
+  }
+
+  // 4. BDRs (4 letras + 34)
+  if (/^[A-Z]{4}34$/.test(t)) {
+    return { asset_class: 'Ações Internacionais', sector: 'BDRs / Mercado Global' }
+  }
+
+  // 5. Ações Brasileiras (4 letras + 3-8)
+  const isBrStock = /^[A-Z]{4}[345678]$/.test(t) || isBrUnit
+  if (isBrStock) {
+    if (['PETR4', 'PETR3', 'RECV3', 'PRIO3', 'RRRP3', 'UGPA3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Petróleo, Gás e Biocombustíveis' }
+    }
+    if (['VALE3', 'CSNA3', 'GGBR4', 'USIM5', 'KLBN11', 'SUZB3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Materiais Básicos (Mineração/Siderurgia)' }
+    }
+    if (['ITUB4', 'ITUB3', 'BBDC4', 'BBDC3', 'BBAS3', 'SANB11', 'BPAC11', 'CXSE3', 'BBSE3', 'PSSA3', 'IRBR3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Financeiro e Seguros' }
+    }
+    if (['ELET3', 'ELET6', 'CPLE6', 'EGIE3', 'ENGI11', 'TAEE11', 'ALUP11', 'TRPL4', 'CMIG4', 'SBSP3', 'CSMG3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Utilidade Pública (Energia/Saneamento)' }
+    }
+    if (['WEGE3', 'TUPY3', 'EMBR3', 'RAPT4', 'POMO4'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Bens Industriais' }
+    }
+    if (['RENT3', 'MOVI3', 'RAIL3', 'STBP3', 'AZUL4', 'GOLL4', 'JSLG3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Logística e Transportes' }
+    }
+    if (['LREN3', 'MGLU3', 'VIIA3', 'BHIA3', 'AREZ3', 'SOMA3', 'ALPA4', 'PETZ3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Consumo Cíclico (Varejo)' }
+    }
+    if (['ABEV3', 'JBSS3', 'BRFS3', 'MRFG3', 'BEEF3', 'MDIA3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Consumo Não Cíclico (Alimentos/Bebidas)' }
+    }
+    if (['HAPV3', 'RADL3', 'FLRY3', 'ONCO3', 'RDNI3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Saúde' }
+    }
+    if (['VIVT3', 'TIMS3'].includes(t)) {
+      return { asset_class: 'Ações Nacionais', sector: 'Telecomunicações' }
+    }
+    return { asset_class: 'Ações Nacionais', sector: 'Consumo e Indústria Geral' }
+  }
+
+  // 6. Ações Internacionais (3-4 letras, sem números)
+  if (/^[A-Z]{2,5}$/.test(t) && !['CDI', 'SELIC', 'IPCA', 'PRE'].includes(t)) {
+    if (['AAPL', 'MSFT', 'GOOGL', 'GOOG', 'NVDA', 'AMD', 'INTC', 'META', 'NFLX'].includes(t)) {
+      return { asset_class: 'Ações Internacionais', sector: 'Tecnologia' }
+    }
+    if (['JPM', 'BAC', 'WFC', 'C', 'V', 'MA'].includes(t)) {
+      return { asset_class: 'Ações Internacionais', sector: 'Financeiro' }
+    }
+    if (['TSLA', 'AMZN', 'HD', 'NKE', 'DIS', 'MCD'].includes(t)) {
+      return { asset_class: 'Ações Internacionais', sector: 'Consumo' }
+    }
+    if (['JNJ', 'PFE', 'UNH', 'ABBV', 'MRK'].includes(t)) {
+      return { asset_class: 'Ações Internacionais', sector: 'Saúde' }
+    }
+    if (['XOM', 'CVX'].includes(t)) {
+      return { asset_class: 'Ações Internacionais', sector: 'Energia' }
+    }
+    return { asset_class: 'Ações Internacionais', sector: 'EUA / Global Diversificado' }
+  }
+
+  // 7. Renda Fixa
+  if (
+    isFixedIncomeTicker(t) ||
+    ['CDI', 'SELIC', 'IPCA', 'TESOURO', 'LCI', 'LCA', 'CDB', 'DEBENTURE'].some(rf => t.includes(rf))
+  ) {
+    return { asset_class: 'Renda Fixa', sector: 'Títulos Públicos/Privados' }
+  }
+
+  return { asset_class: 'Outros', sector: 'Indefinido' }
+}

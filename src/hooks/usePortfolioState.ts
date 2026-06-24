@@ -17,6 +17,7 @@ import { isBusinessDay } from '@/utils/businessDays'
 import { subDays, format } from 'date-fns'
 import { runClientSideHistoricalRecalculation } from '@/services/portfolioHistoricalRecalc'
 import { computeDailyShareHistory, needsHistoricalBackfill } from '@/utils/portfolioTwrEngine'
+import { isCashTicker } from '@/utils/assetClassifier'
 
 async function fetchAllShareHistory(portfolioId: string): Promise<PortfolioShareDailyRow[]> {
   let allShares: PortfolioShareDailyRow[] = []
@@ -117,7 +118,9 @@ export function usePortfolioState() {
 
       if (options?.forceRefresh) {
         try {
-          await runClientSideHistoricalRecalculation(portfolio.id)
+          await runClientSideHistoricalRecalculation(portfolio.id, (phase) => {
+            console.log('[recalc]', phase)
+          })
         } catch (recalcErr) {
           console.error('[usePortfolioState] Failed client-side recalculation on forceRefresh:', recalcErr)
         }
@@ -229,11 +232,10 @@ export function usePortfolioState() {
 
       // Calcular o Total Aportado (soma cumulativa dos fluxos externos de caixa)
       let cumulativeExternalContribution = 0
-      const legacyCashTickers = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA']
 
       for (const tx of finalTxs) {
         const tickerUpper = tx.ticker.trim().toUpperCase()
-        const isCash = legacyCashTickers.includes(tickerUpper) || 
+        const isCash = isCashTicker(tickerUpper) || 
           finalDefs.some(d => d.ticker.trim().toUpperCase() === tickerUpper && d.pricing_mode === 'cash')
 
         // Ignorar se for offset automático de proventos/rendimentos (não afeta fluxo externo)
@@ -338,7 +340,7 @@ export function usePortfolioState() {
       const closingThresholdUtc = new Date(`${latestTradingDateStr}T21:00:00Z`).getTime()
       
       const marketTickers = tickers.filter(t => 
-        !['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA', 'CDI', 'SELIC', 'IPCA', 'TESOURO', 'DEBENTURE'].includes(t.toUpperCase())
+        !isCashTicker(t) && !['CDI', 'SELIC', 'IPCA', 'TESOURO', 'DEBENTURE'].includes(t.toUpperCase())
       )
 
       let needsAutoRefresh = false
@@ -408,10 +410,15 @@ export function usePortfolioState() {
 
   const reload = useCallback(async () => {
     if (portfolioId) {
+      const toastId = toast.loading('Recalculando rentabilidade histórica...')
       try {
-        await runClientSideHistoricalRecalculation(portfolioId)
+        await runClientSideHistoricalRecalculation(portfolioId, (phase) => {
+          toast.loading(phase, { id: toastId })
+        })
+        toast.success('Rentabilidade recalculada!', { id: toastId })
       } catch (recalcErr) {
         console.error('[usePortfolioState] Failed client-side recalculation during reload:', recalcErr)
+        toast.error('Erro no recálculo de rentabilidade.', { id: toastId })
       }
     }
     await loadData({ silent: true })

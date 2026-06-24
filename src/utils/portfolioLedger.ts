@@ -1,5 +1,6 @@
 import type { PortfolioTransaction } from '@/types'
 import { isPortfolioIncomeType, sortTransactionsStably } from '@/utils/portfolioOperations'
+import { isCashTicker } from '@/utils/assetClassifier'
 
 export interface PositionLedgerEntry {
   quantity: number
@@ -83,7 +84,7 @@ export function buildPortfolioLedger(
   for (const tx of sorted) {
     const ticker = tx.ticker.toUpperCase().trim()
     const pos = ensureTicker(map, ticker)
-    const isCash = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker) || cashTickers?.has(ticker)
+    const isCash = isCashTicker(ticker) || cashTickers?.has(ticker)
     applyPortfolioTransaction(pos, tx, isCash)
   }
 
@@ -111,7 +112,7 @@ export function buildSimplePositionLedger(
     const pos = map[ticker]
     const qty = Number(tx.quantity)
     const price = Number(tx.price)
-    const isCash = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker) || cashTickers?.has(ticker)
+    const isCash = isCashTicker(ticker) || cashTickers?.has(ticker)
 
     if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
       if (isCash) {

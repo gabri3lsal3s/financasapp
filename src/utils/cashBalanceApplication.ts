@@ -1,5 +1,7 @@
-import type { PortfolioAssetDefinition, PortfolioTransaction, PortfolioPricingMode } from '@/types'
+import type { PortfolioAssetDefinition, PortfolioTransaction, PortfolioPricingMode, PortfolioOperationType } from '@/types'
 import { buildSimplePositionLedger } from '@/utils/portfolioLedger'
+import { isCashTicker } from '@/utils/assetClassifier'
+import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 
 interface PositionLedger {
   quantity: number
@@ -19,14 +21,23 @@ export interface CashOffsetPlan {
   sellTransactions: Array<{ ticker: string; quantity: number; price: number }>
 }
 
-const LEGACY_CASH_TICKERS = new Set(['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'])
+export interface CashOffsetTransaction {
+  id: string
+  portfolio_id: string
+  ticker: string
+  operation_type: 'sell' | 'buy'
+  quantity: number
+  price: number
+  date: string
+  cash_offset_source_id: string
+}
 
 export function resolvePricingMode(
   ticker: string,
   definitions: PortfolioAssetDefinition[]
 ): PortfolioPricingMode {
   const upper = ticker.toUpperCase().trim()
-  if (LEGACY_CASH_TICKERS.has(upper)) return 'cash'
+  if (isCashTicker(upper)) return 'cash'
   const found = definitions.find((d) => d.ticker.toUpperCase().trim() === upper)
   if (found) return found.pricing_mode
   return 'market'
@@ -45,7 +56,7 @@ export function listAvailableCashBalances(
   definitions: PortfolioAssetDefinition[]
 ): CashBalanceSlot[] {
   const cashTickers = new Set<string>([
-    ...Array.from(LEGACY_CASH_TICKERS),
+    'CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA',
     ...definitions.filter((d) => d.pricing_mode === 'cash').map((d) => d.ticker.toUpperCase().trim()),
   ])
   const ledger = buildPositionLedger(transactions, cashTickers)
@@ -178,8 +189,7 @@ export function getPreferredCashTicker(
   if (cashDef) return cashDef.ticker.toUpperCase()
 
   const cashTx = [...transactions]
-    .reverse()
-    .find((tx) => tx.ticker === 'CAIXA' || tx.ticker === 'SALDO_INV' || tx.ticker === 'SALDO EM CAIXA' || tx.ticker === 'SALDO_EM_CAIXA')
+    .reverse().find((tx) => isCashTicker(tx.ticker))
   if (cashTx) return cashTx.ticker.toUpperCase()
 
   return 'CAIXA'
@@ -193,3 +203,69 @@ export function calculateLedgerCashBalance(
   return slots.reduce((sum, s) => sum + s.balance, 0)
 }
 
+/**
+ * Gera transações de offset de caixa para uma única transação em lote,
+ * replicando a lógica usada em applyCashOffsetAfterBuy e applyCashOffsetAfterSellOrDividend,
+ * mas sem fazer chamadas de rede — apenas gerando os payloads para inserção em lote.
+ *
+ * Útil para fluxos de importação em massa (conciliação B3) onde múltiplas transações
+ * são inseridas de uma vez e os offsets precisam ser simulados em memória.
+ */
+export function generateBatchCashOffsetTransactions(
+  params: {
+    portfolioId: string
+    sourceTransactionId: string
+    operationType: PortfolioOperationType
+    pricingMode: PortfolioPricingMode
+    amount: number
+    date: string
+    localTransactions: PortfolioTransaction[]
+    localDefinitions: PortfolioAssetDefinition[]
+  }
+): CashOffsetTransaction[] {
+  const { portfolioId, sourceTransactionId, operationType, pricingMode, amount, date, localTransactions, localDefinitions } = params
+  const offsets: CashOffsetTransaction[] = []
+
+  const isIncome = isPortfolioIncomeType(operationType)
+
+  if (operationType === 'buy' || operationType === 'subscription') {
+    if (!shouldApplyCashOffset(operationType, pricingMode)) {
+      return []
+    }
+
+    const plan = computeCashOffsetPreview(
+      amount,
+      operationType,
+      pricingMode,
+      localTransactions.filter((t) => t.date <= date),
+      localDefinitions
+    )
+
+    for (const sell of plan.sellTransactions) {
+      offsets.push({
+        id: crypto.randomUUID(),
+        portfolio_id: portfolioId,
+        ticker: sell.ticker,
+        operation_type: 'sell',
+        quantity: sell.quantity,
+        price: sell.price,
+        date,
+        cash_offset_source_id: sourceTransactionId,
+      })
+    }
+  } else if ((operationType === 'sell' || isIncome) && amount > 0) {
+    const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
+    offsets.push({
+      id: crypto.randomUUID(),
+      portfolio_id: portfolioId,
+      ticker: cashTicker,
+      operation_type: 'buy',
+      quantity: 1,
+      price: amount,
+      date,
+      cash_offset_source_id: sourceTransactionId,
+    })
+  }
+
+  return offsets
+}

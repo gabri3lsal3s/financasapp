@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { detectDefaultCurrency, getAssetMetadata, computePositions } from './portfolioCalculations'
+import { computePositions } from './portfolioCalculations'
+import { detectDefaultCurrency, getAssetMetadata } from './assetClassifier'
 import type { PortfolioTransaction, PortfolioAssetDefinition, AssetPrice } from '@/types'
 
 describe('detectDefaultCurrency', () => {

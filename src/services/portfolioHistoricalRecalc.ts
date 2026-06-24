@@ -68,11 +68,19 @@ async function fetchAllAssetPrices(tickers: string[], startDate: string, endDate
 /**
  * Executa o recálculo histórico do TWR (Time Weighted Return) e da cota diária do portfólio no frontend.
  * Funciona como fallback resiliente caso o motor do backend (Supabase Edge Function daily-close) falhe ou esteja indisponível.
+ *
+ * @param portfolioId - ID do portfólio a recalcular
+ * @param onProgress - Callback opcional para reportar progresso
  */
-export async function runClientSideHistoricalRecalculation(portfolioId: string): Promise<void> {
+export async function runClientSideHistoricalRecalculation(
+  portfolioId: string,
+  onProgress?: (phase: string, current: number, total: number) => void
+): Promise<void> {
   console.log(`[recalcFallback] Iniciando recálculo do portfólio ${portfolioId}...`)
+  onProgress?.('Iniciando recálculo...', 0, 5)
   const todayStr = new Date().toISOString().slice(0, 10)
 
+  onProgress?.('Carregando transações e definições...', 1, 5)
   const [txsData, defRes] = await Promise.all([
     fetchAllPortfolioTransactions(portfolioId),
     supabase
@@ -103,6 +111,7 @@ export async function runClientSideHistoricalRecalculation(portfolioId: string):
     return
   }
 
+  onProgress?.('Buscando cotações históricas...', 2, 5)
   const tickers = Array.from(new Set(rawTransactions.map(t => t.ticker.trim().toUpperCase())))
   const startDateStr = rawTransactions[0].date
 
@@ -166,6 +175,7 @@ export async function runClientSideHistoricalRecalculation(portfolioId: string):
     }
   }
 
+  onProgress?.('Carregando taxas de indexadores...', 3, 5)
   const dbRates = await fetchAllIndexRates(startDateStr, todayStr)
 
   const ratesMap: Record<string, Record<string, number>> = { cdi: {}, selic: {}, ipca: {} }
@@ -178,6 +188,7 @@ export async function runClientSideHistoricalRecalculation(portfolioId: string):
     }
   }
 
+  onProgress?.('Carregando preços históricos...', 4, 5)
   const dbPrices = await fetchAllAssetPrices(tickers, startDateStr, todayStr)
 
   const priceMap: Record<string, Record<string, number>> = {}
@@ -209,6 +220,7 @@ export async function runClientSideHistoricalRecalculation(portfolioId: string):
     supabase.from('portfolio_period_snapshots').delete().eq('portfolio_id', portfolioId)
   ])
 
+  onProgress?.('Calculando histórico de cotas...', 5, 5)
   const {
     dailyRows,
     periodSnapshots,

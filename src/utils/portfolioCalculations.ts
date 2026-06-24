@@ -1,6 +1,7 @@
 import type { PortfolioTransaction, PortfolioAssetDefinition, AssetPrice } from '@/types'
 import { calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
 import { sortTransactionsStably } from './portfolioOperations'
+import { isCashTicker, getAssetMetadata, detectDefaultCurrency } from './assetClassifier'
 
 export interface ValuedPosition {
   ticker: string
@@ -24,49 +25,8 @@ export interface ValuedPosition {
   usd_rate: number
 }
 
-export function detectDefaultCurrency(ticker: string): 'BRL' | 'USD' {
-  const t = ticker.trim().toUpperCase()
-  if (['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOT', 'USDT'].includes(t)) {
-    return 'BRL'
-  }
-  // Se for padrão de ativo americano (geralmente 3 ou 4 letras puras, ex: AAPL, VOO)
-  const isUsStock = /^[A-Z]{3,4}$/.test(t)
-  const isB3 = /^[A-Z]{4}[0-9]{1,2}$/.test(t)
-  if (isUsStock && !isB3 && !['CDI', 'SELIC', 'IPCA'].includes(t)) {
-    return 'USD'
-  }
-  return 'BRL'
-}
-
-export function getAssetMetadata(ticker: string): { asset_class: string; sector: string } {
-  const t = ticker.trim().toUpperCase()
-  if (['BTC', 'ETH', 'SOL', 'ADA', 'XRP', 'DOT'].includes(t)) {
-    return { asset_class: 'Criptoativos', sector: 'Tecnologia Blockchain' }
-  }
-
-  const isBrUnit = ['TAEE11', 'KLBN11', 'SANB11', 'BPAC11', 'ALUP11', 'RAPT11', 'SAPR11', 'ENGI11'].includes(t)
-  const isFii = /^[A-Z]{4}11$/.test(t) && !isBrUnit && !['BOVA11', 'SMAL11', 'IVVB11'].includes(t)
-
-  if (isFii) {
-    return { asset_class: 'Fundos Imobiliários', sector: 'Imobiliário Diversificado' }
-  }
-  if (['BOVA11', 'SMAL11', 'IVVB11', 'VOO', 'SPY', 'QQQ', 'VT'].includes(t)) {
-    return { asset_class: 'ETFs', sector: 'Índices de Mercado' }
-  }
-  if (/^[A-Z]{4}34$/.test(t)) {
-    return { asset_class: 'Ações Internacionais', sector: 'BDRs / Mercado Global' }
-  }
-  if (/^[A-Z]{3,4}$/.test(t) && !['CDI', 'SELIC', 'IPCA'].includes(t)) {
-    return { asset_class: 'Ações Internacionais', sector: 'EUA / Global Diversificado' }
-  }
-  if (/^[A-Z]{4}[345678]$/.test(t) || isBrUnit) {
-    return { asset_class: 'Ações Nacionais', sector: 'Ações Brasil' }
-  }
-  if (['CDI', 'SELIC', 'IPCA', 'TESOURO', 'LCI', 'LCA', 'CDB', 'DEBENTURE'].some(rf => t.includes(rf))) {
-    return { asset_class: 'Renda Fixa', sector: 'Títulos Públicos/Privados' }
-  }
-  return { asset_class: 'Outros', sector: 'Indefinido' }
-}
+// detectDefaultCurrency e getAssetMetadata agora vêm de assetClassifier.ts
+// (fonte única de verdade para classificação de ativos)
 
 export function computePositions(
   transactions: PortfolioTransaction[],
@@ -115,7 +75,7 @@ export function computePositions(
   let investedCostBasis = 0
 
   for (const ticker of tickers) {
-    if (['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker)) {
+    if (isCashTicker(ticker)) {
       continue
     }
 

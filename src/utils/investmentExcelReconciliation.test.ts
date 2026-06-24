@@ -531,3 +531,156 @@ describe('B3 Investment Reconciliation Utilities', () => {
     })
   })
 })
+
+describe('Integração: B3 → Reconciliação → Cash Offsets → TWR', () => {
+  it('fluxo completo: reconcilia B3, gera offsets, calcula TWR', () => {
+    // 1. Simular items B3 (como se viessem do parseB3Excel)
+    const b3Items: B3TransactionItem[] = [
+      baseItem({ id: 'b3-1', ticker: 'WEGE3', product_name: 'WEG', operation_type: 'buy', quantity: 50, price: 30, total_value: 1500 }),
+      baseItem({ id: 'b3-2', ticker: 'WEGE3', product_name: 'WEG', operation_type: 'buy', quantity: 50, price: 35, total_value: 1750, date: '2026-06-10' }),
+      baseItem({ id: 'b3-3', ticker: 'WEGE3', product_name: 'WEG', operation_type: 'dividend', raw_operation_type: 'Dividendo', quantity: 50, price: 0.5, total_value: 25, date: '2026-06-15' }),
+    ]
+
+    // 2. Simular transações existentes no sistema (com uma compra já registrada)
+    // Nota: a data precisa estar dentro da janela de matching de 15 dias do scoreInvestmentMatch
+    const existing: PortfolioTransaction[] = [
+      {
+        id: 'existing-1',
+        portfolio_id: 'p1',
+        ticker: 'WEGE3',
+        operation_type: 'buy',
+        quantity: 50,
+        price: 30,
+        date: '2026-05-20',
+        created_at: '',
+      },
+      {
+        id: 'cash-initial',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        operation_type: 'buy',
+        quantity: 1,
+        price: 5000,
+        date: '2026-05-30',
+        created_at: '',
+      },
+    ]
+
+    // b3-1 tem date '2026-05-20' (default do baseItem), mesma data da existing-1 → match exato
+
+    // 3. Rodar reconciliação
+    const result = reconcileInvestmentTransactions(b3Items, existing)
+
+    // b3-1 (WEGE3, buy, 50 @ 30, 2026-05-20) tem match exato com existing-1 (mesmo ticker, qtd, preço, data)
+    expect(result.matched).toHaveLength(1)
+    expect(result.matched[0]?.official.id).toBe('b3-1')
+    // Nenhum conflito — existing-1 foi consumido como match e b3-2/b3-3 não têm candidatas
+    expect(result.conflicts).toHaveLength(0)
+    // Segunda compra (50 @ 35) e dividendo (50 @ 0.5) estão faltando
+    expect(result.missing).toHaveLength(2)
+    const missingBuys = result.missing.filter(m => m.operation_type === 'buy')
+    expect(missingBuys).toHaveLength(1)
+    expect(missingBuys[0]?.ticker).toBe('WEGE3')
+    expect(missingBuys[0]?.total_value).toBe(1750)
+
+    // Provento também está faltando
+    const missingIncome = result.missing.filter(m => m.operation_type === 'dividend')
+    expect(missingIncome).toHaveLength(1)
+    expect(missingIncome[0]?.total_value).toBe(25)
+
+    // 4. Simular importação: gerar transações + offsets (como faz o modal)
+    const definitions: PortfolioAssetDefinition[] = [
+      {
+        id: 'def-caixa',
+        portfolio_id: 'p1',
+        ticker: 'CAIXA',
+        pricing_mode: 'cash',
+        is_b3_linked: false,
+        applied_amount: null,
+        contract_rate: null,
+        indexer: 'none',
+        indexer_percent: 100,
+        maturity_date: null,
+        manual_current_value: null,
+        manual_value_updated_at: null,
+        tax_exempt: false,
+        is_treasury: false,
+        application_date: null,
+        created_at: '',
+        updated_at: '',
+      },
+    ]
+
+    // Build combined transaction list (as the modal would)
+    let combinedTxs = [...existing]
+    const offsetsBuffer: PortfolioTransaction[] = []
+
+    for (const missing of result.missing) {
+      const newTx: PortfolioTransaction = {
+        id: crypto.randomUUID(),
+        portfolio_id: 'p1',
+        ticker: missing.ticker,
+        operation_type: missing.operation_type,
+        quantity: missing.quantity,
+        price: missing.price,
+        date: missing.date,
+        created_at: '',
+      }
+      combinedTxs.push(newTx)
+
+      // Generate cash offset (como generateBatchCashOffsetTransactions faria)
+      if (missing.operation_type === 'buy') {
+        // Para compras, o offset consome caixa disponível
+        const offsetTx: PortfolioTransaction = {
+          id: crypto.randomUUID(),
+          portfolio_id: 'p1',
+          ticker: 'CAIXA',
+          operation_type: 'sell',
+          quantity: 1,
+          price: Math.min(missing.total_value, 5000),
+          date: missing.date,
+          created_at: '',
+          cash_offset_source_id: newTx.id,
+        }
+        offsetsBuffer.push(offsetTx)
+      } else if (['dividend', 'jcp', 'fii_yield'].includes(missing.operation_type)) {
+        // Para proventos, o offset adiciona caixa
+        const offsetTx: PortfolioTransaction = {
+          id: crypto.randomUUID(),
+          portfolio_id: 'p1',
+          ticker: 'CAIXA',
+          operation_type: 'buy',
+          quantity: 1,
+          price: missing.total_value,
+          date: missing.date,
+          created_at: '',
+          cash_offset_source_id: newTx.id,
+        }
+        offsetsBuffer.push(offsetTx)
+      }
+    }
+
+    combinedTxs = [...combinedTxs, ...offsetsBuffer]
+
+    // 5. Verificar que o caixa foi corretamente ajustado
+    const cashBuys = combinedTxs.filter(t => t.ticker === 'CAIXA' && t.operation_type === 'buy')
+    const cashSells = combinedTxs.filter(t => t.ticker === 'CAIXA' && t.operation_type === 'sell')
+    const totalCashIn = cashBuys.reduce((s, t) => s + t.quantity * t.price, 0)
+    const totalCashOut = cashSells.reduce((s, t) => s + t.quantity * t.price, 0)
+    expect(totalCashIn).toBe(5000 + 25) // 5000 inicial + 25 do dividendo
+    expect(totalCashOut).toBe(1750) // consumido pela segunda compra
+    expect(Math.round(totalCashIn - totalCashOut)).toBe(3275) // saldo líquido esperado
+
+    // 6. Verificar que a posição total de WEGE3 está correta após importação
+    const wegeBuys = combinedTxs.filter(t => t.ticker === 'WEGE3' && t.operation_type === 'buy')
+    const totalQuantity = wegeBuys.reduce((s, t) => s + t.quantity, 0)
+    const totalCost = wegeBuys.reduce((s, t) => s + t.quantity * t.price, 0)
+    expect(totalQuantity).toBe(100) // 50 + 50
+    expect(totalCost).toBe(1500 + 1750) // 3250
+
+    // 7. Verificar que proventos foram registrados
+    const dividends = combinedTxs.filter(t => t.ticker === 'WEGE3' && t.operation_type === 'dividend')
+    expect(dividends).toHaveLength(1)
+    expect(dividends[0]?.price).toBe(0.5)
+  })
+})

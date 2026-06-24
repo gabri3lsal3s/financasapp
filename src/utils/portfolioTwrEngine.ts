@@ -1,4 +1,6 @@
 import { sortTransactionsStably } from './portfolioOperations'
+import { calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
+import { isCashTicker } from './assetClassifier'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
 
 export interface DailyShareRow {
@@ -31,7 +33,8 @@ export interface TwrEngineInput {
   definitions: PortfolioAssetDefinition[]
   priceMap: Record<string, Record<string, number>>
   pricesToday: Record<string, number>
-  indexRates?: Record<string, Record<string, number>>
+  indexRates: Record<string, Record<string, number>>
+  vnaMap?: Record<string, number>
   startDate: string
   endDate: string
 }
@@ -43,8 +46,6 @@ export interface TwrEngineResult {
   lastShareValue: number
   cumulativeExternalContribution: number
 }
-
-const LEGACY_CASH_TICKERS = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA']
 
 /** Itera datas inclusive usando componentes locais (evita drift de fuso com toISOString). */
 export function iterateDateRange(startDate: string, endDate: string): string[] {
@@ -145,7 +146,8 @@ export function calculateSnapshotValuation(
   definitions: PortfolioAssetDefinition[],
   priceMap: Record<string, Record<string, number>>,
   pricesToday: Record<string, number>,
-  _indexRates: Record<string, Record<string, number>>,
+  indexRates: Record<string, Record<string, number>>,
+  vnaMap: Record<string, number>,
   asOfDate: string
 ) {
   const txByTicker: Record<string, PortfolioTransaction[]> = {}
@@ -161,7 +163,7 @@ export function calculateSnapshotValuation(
   )
 
   const cashTickers = new Set([
-    ...LEGACY_CASH_TICKERS,
+    ...['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'],
     ...definitions.filter(d => d.pricing_mode === 'cash').map(d => d.ticker.toUpperCase().trim())
   ])
 
@@ -214,45 +216,15 @@ export function calculateSnapshotValuation(
 
     if (pricingMode === 'fixed_income') {
       const idx = definition?.indexer ?? 'none'
-
-      const lots: { principal: number; date: string }[] = []
-      let totalQty = 0
-
-      for (const tx of txs) {
-        const q = Number(tx.quantity)
-        const p = Number(tx.price)
-        if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-          lots.push({ principal: q * p, date: tx.date })
-          totalQty += q
-        } else if (tx.operation_type === 'sell') {
-          if (totalQty > 0) {
-            const sellRatio = Math.max(0, 1 - (q / totalQty))
-            for (const lot of lots) {
-              lot.principal *= sellRatio
-            }
-            totalQty = Math.max(0, totalQty - q)
-          }
-        }
-      }
-
-      const rate = definition?.contract_rate ?? 0
-      let dailyRate = 0
-      if (idx === 'none') {
-        dailyRate = Math.pow(1 + rate / 100, 1 / 252) - 1
-      } else {
-        const avgIndexerDaily = idx === 'cdi' ? 0.000412 : 0.000411
-        const percent = definition?.indexer_percent ?? 100
-        dailyRate = avgIndexerDaily * (percent / 100)
-      }
-
-      for (const lot of lots) {
-        const [ay, am, ad] = lot.date.split('-').map(Number)
-        const [by, bm, bd] = asOfDate.split('-').map(Number)
-        const lotTime = new Date(ay, am - 1, ad).getTime()
-        const asOfTime = new Date(by, bm - 1, bd).getTime()
-        const diffDays = Math.max(0, (asOfTime - lotTime) / (1000 * 60 * 60 * 24))
-        totalValue += lot.principal * Math.pow(1 + dailyRate, diffDays * 5 / 7)
-      }
+      const activeRates = indexRates[idx] ?? {}
+      totalValue = calculateLotBasedFixedIncomeValue({
+        transactions: txs,
+        ticker,
+        definition: definition!,
+        asOfDate,
+        indexRates: activeRates,
+        vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined
+      })
     } else if (pricingMode === 'manual_value') {
       totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0
     } else if (pricingMode === 'cash') {
@@ -303,7 +275,7 @@ function computeDayCashFlow(
 
   for (const tx of dayTxs) {
     const tickerUpper = tx.ticker.trim().toUpperCase()
-    const isCash = LEGACY_CASH_TICKERS.includes(tickerUpper) ||
+    const isCash = isCashTicker(tickerUpper) ||
       definitions.some(d => d.ticker.trim().toUpperCase() === tickerUpper && d.pricing_mode === 'cash')
 
     if (isCash && tx.cash_offset_source_id) {
@@ -334,7 +306,8 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
     definitions,
     priceMap,
     pricesToday,
-    indexRates = {},
+    indexRates,
+    vnaMap = {},
     startDate,
     endDate
   } = input
@@ -347,7 +320,9 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
   let cumulativeExternalContribution = 0
 
   const dailyRows: DailyShareRow[] = []
-  const periodSnapshots: PeriodSnapshotRow[] = []
+  const periodSnapshots: PeriodSnapshotRow[] = []    // Track cumulative cash flow per month for period snapshots
+  let monthlyCashFlow = 0
+  let peakShareValue = 1.0
 
   for (const dateStr of dateRange) {
     const dayTxs = transactions.filter(t => t.date === dateStr)
@@ -359,6 +334,7 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
       priceMap,
       pricesToday,
       indexRates,
+      vnaMap,
       dateStr
     )
 
@@ -378,6 +354,7 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
     }
 
     cumulativeExternalContribution += cashFlow
+    monthlyCashFlow += cashFlow
 
     const dayValuation = calculateSnapshotValuation(
       transactions,
@@ -385,6 +362,7 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
       priceMap,
       pricesToday,
       indexRates,
+      vnaMap,
       dateStr
     )
 
@@ -402,6 +380,11 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
       endShareValue = 1.0
     }
     lastShareValue = endShareValue
+
+    // Track drawdown: update peak and calculate current drawdown
+    if (endShareValue > peakShareValue) {
+      peakShareValue = endShareValue
+    }
 
     dailyRows.push({
       portfolio_id: portfolioId,
@@ -431,12 +414,18 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
         period_key: periodKey,
         cota_abertura: cotaAbertura,
         cota_fechamento: endShareValue,
-        somatorio_aportes: cashFlow > 0 ? cashFlow : 0,
-        somatorio_resgates: cashFlow < 0 ? Math.abs(cashFlow) : 0,
+        somatorio_aportes: monthlyCashFlow > 0 ? monthlyCashFlow : 0,
+        somatorio_resgates: monthlyCashFlow < 0 ? Math.abs(monthlyCashFlow) : 0,
         dividendos_recebidos: 0,
-        drawdown_maximo: 0,
+        drawdown_maximo: peakShareValue > 0 ? (peakShareValue - endShareValue) / peakShareValue : 0,
         period_return: periodReturn
       })
+
+      // Reset peak for next month
+      peakShareValue = endShareValue
+
+      // Reset monthly accumulator for next month
+      monthlyCashFlow = 0
     }
   }
 

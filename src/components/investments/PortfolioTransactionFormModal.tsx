@@ -7,7 +7,7 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction, PortfolioOperationType, PortfolioPricingMode, PortfolioAssetIndexer, PortfolioAssetDefinition } from '@/types'
-import { detectDefaultCurrency } from '@/utils/portfolioCalculations'
+import { detectDefaultCurrency, isCashTicker } from '@/utils/assetClassifier'
 import { formatCurrencyByCode } from '@/utils/format'
 import { fetchPortfolioCashContext, reconcileCashOffsetOnTransactionSave, deleteCashOffsetTransactions } from '@/services/cashOffsetService'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
@@ -57,7 +57,7 @@ export default function PortfolioTransactionFormModal({
   const [cashBalance, setCashBalance] = useState<number>(0)
 
   const isEditing = !!editingTransaction
-  const isCashType = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(ticker.toUpperCase().trim())
+  const isCashType = isCashTicker(ticker)
   const isIncomeType = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
 
   // Carregar dados da transação ao abrir
@@ -69,7 +69,7 @@ export default function PortfolioTransactionFormModal({
       setOperationType(editingTransaction.operation_type)
       setDate(editingTransaction.date)
       
-      const isCash = ['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(editingTransaction.ticker.toUpperCase().trim())
+      const isCash = isCashTicker(editingTransaction.ticker)
       const isIncome = ['dividend', 'jcp', 'fii_yield'].includes(editingTransaction.operation_type)
       
       if (isCash) {

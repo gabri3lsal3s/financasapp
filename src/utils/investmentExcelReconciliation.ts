@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import type { PortfolioAssetDefinition, PortfolioOperationType, PortfolioTransaction } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { buildPortfolioLedger } from '@/utils/portfolioLedger'
+import { isCashTicker } from '@/utils/assetClassifier'
 
 export type B3AssetCategory = 'equityB3' | 'fixedIncome' | 'treasury' | 'other'
 export type B3MovementCategory = 'trade' | 'income' | 'corporate' | 'ignore'
@@ -766,10 +767,7 @@ export const reconcileInvestmentTransactions = (
 
   const candidates = existingTransactions.filter(
     (tx) =>
-      tx.ticker !== 'SALDO_INV' &&
-      tx.ticker !== 'CAIXA' &&
-      tx.ticker !== 'SALDO EM CAIXA' &&
-      tx.ticker !== 'SALDO_EM_CAIXA'
+      !isCashTicker(tx.ticker)
   )
 
   const matchedOfficialIds = new Set<string>()

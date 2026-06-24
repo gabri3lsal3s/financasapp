@@ -34,6 +34,7 @@ import {
   PORTFOLIO_OPERATION_OPTIONS,
 } from '@/utils/portfolioOperations'
 import { isB3TickerPattern, detectDefaultCurrency, isTreasuryTicker } from '@/services/priceService'
+import { isCashTicker } from '@/utils/assetClassifier'
 import { formatQuantityBR, formatCurrency } from '@/utils/format'
 
 type PortfolioTransactionInsert = Omit<PortfolioTransaction, 'created_at'>
@@ -73,9 +74,8 @@ import {
 } from '@/services/cashOffsetService'
 import {
   calculateLedgerCashBalance,
-  shouldApplyCashOffset,
-  computeCashOffsetPreview,
-  getPreferredCashTicker,
+  generateBatchCashOffsetTransactions,
+  type CashOffsetTransaction,
 } from '@/utils/cashBalanceApplication'
 import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
 import { Upload, FileCheck, ArrowRight, ArrowLeft, RefreshCw, ChevronDown, Link, Layers, Check, AlertCircle, ShieldCheck } from 'lucide-react'
@@ -226,12 +226,7 @@ export default function InvestmentReconciliationModal({
   const existingSystemTickers = useMemo(() => {
     const tickers = new Set<string>()
     existingTransactions.forEach((tx) => {
-      if (
-        tx.ticker !== 'SALDO_INV' &&
-        tx.ticker !== 'CAIXA' &&
-        tx.ticker !== 'SALDO EM CAIXA' &&
-        tx.ticker !== 'SALDO_EM_CAIXA'
-      ) {
+      if (!isCashTicker(tx.ticker)) {
         tickers.add(tx.ticker.toUpperCase())
       }
     })
@@ -609,10 +604,7 @@ export default function InvestmentReconciliationModal({
     const tickers = new Set<string>()
     for (const tx of existingTransactions) {
       if (
-        tx.ticker === 'SALDO_INV' ||
-        tx.ticker === 'CAIXA' ||
-        tx.ticker === 'SALDO EM CAIXA' ||
-        tx.ticker === 'SALDO_EM_CAIXA' ||
+        isCashTicker(tx.ticker) ||
         tx.cash_offset_source_id
       ) {
         continue
@@ -634,10 +626,9 @@ export default function InvestmentReconciliationModal({
 
   /** Tickers com posição positiva no livro-razão que não são padrão B3 (internacionais, cripto, etc.) */
   const nonB3SystemPositions = useMemo(() => {
-    const cashTickers = new Set(['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'])
     const tickers = new Set<string>()
     for (const tx of existingTransactions) {
-      if (cashTickers.has(tx.ticker) || tx.cash_offset_source_id) continue
+      if (isCashTicker(tx.ticker) || tx.cash_offset_source_id) continue
       const upper = tx.ticker.toUpperCase()
       
       const category = classifyB3Item(upper)
@@ -1177,53 +1168,21 @@ export default function InvestmentReconciliationModal({
         }
         defsToUpsertMap.set(tickerUpper, defPayload)
 
-        // 3. Simular offsets de caixa em memória para evitar requisições de rede
+        // 3. Simular offsets de caixa usando função centralizada
         const amount = qty * prc
-        if (draft.pricing_mode !== 'cash') {
-          if (draft.operation_type === 'buy' || draft.operation_type === 'subscription') {
-            if (shouldApplyCashOffset(draft.operation_type, draft.pricing_mode)) {
-              const plan = computeCashOffsetPreview(
-                amount,
-                draft.operation_type,
-                draft.pricing_mode,
-                localTransactions.filter((t) => t.date <= draft.date),
-                localDefinitions
-              )
-              
-              if (plan.sellTransactions.length > 0) {
-                plan.sellTransactions.forEach(sell => {
-                  const offsetTx = {
-                    id: crypto.randomUUID(),
-                    portfolio_id: portfolioId,
-                    ticker: sell.ticker,
-                    operation_type: 'sell' as const,
-                    quantity: sell.quantity,
-                    price: sell.price,
-                    date: draft.date,
-                    cash_offset_source_id: txId,
-                  }
-                  offsetsToInsert.push(offsetTx)
-                  localTransactions.push(toLocalPortfolioTransaction(offsetTx))
-                })
-              }
-            }
-          } else if (draft.operation_type === 'sell' || isPortfolioIncomeType(draft.operation_type)) {
-            if (amount > 0) {
-              const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
-              const offsetTx: PortfolioTransactionInsert = {
-                id: crypto.randomUUID(),
-                portfolio_id: portfolioId,
-                ticker: cashTicker,
-                operation_type: 'buy',
-                quantity: 1,
-                price: amount,
-                date: draft.date,
-                cash_offset_source_id: txId,
-              }
-              offsetsToInsert.push(offsetTx)
-              localTransactions.push(toLocalPortfolioTransaction(offsetTx))
-            }
-          }
+        const batchOffsets = generateBatchCashOffsetTransactions({
+          portfolioId,
+          sourceTransactionId: txId,
+          operationType: draft.operation_type,
+          pricingMode: draft.pricing_mode,
+          amount,
+          date: draft.date,
+          localTransactions,
+          localDefinitions,
+        })
+        for (const offsetTx of batchOffsets) {
+          offsetsToInsert.push(offsetTx)
+          localTransactions.push(toLocalPortfolioTransaction(offsetTx))
         }
 
         importedCount++
@@ -1337,7 +1296,7 @@ export default function InvestmentReconciliationModal({
       const localTransactions: PortfolioTransaction[] = [...context.transactions]
       const localDefinitions: PortfolioAssetDefinition[] = [...context.definitions]
       const txsToInsert: Record<string, unknown>[] = []
-      const offsetsToInsert: Record<string, unknown>[] = []
+      const offsetsToInsert: CashOffsetTransaction[] = []
 
       for (const [index, adj] of active.entries()) {
         setProgress({
@@ -1360,38 +1319,18 @@ export default function InvestmentReconciliationModal({
         localTransactions.push(newTx as PortfolioTransaction)
 
         const amount = adj.quantity * adj.price
-        if (adj.operation_type === 'buy' && shouldApplyCashOffset('buy', 'market')) {
-          const plan = computeCashOffsetPreview(
-            amount,
-            'buy',
-            'market',
-            localTransactions.filter((t) => t.date <= adj.date),
-            localDefinitions
-          )
-          plan.sellTransactions.forEach((sell) => {
-            offsetsToInsert.push({
-              id: crypto.randomUUID(),
-              portfolio_id: portfolioId,
-              ticker: sell.ticker,
-              operation_type: 'sell',
-              quantity: sell.quantity,
-              price: sell.price,
-              date: adj.date,
-              cash_offset_source_id: txId,
-            })
-          })
-        } else if (adj.operation_type === 'sell' && amount > 0) {
-          const cashTicker = getPreferredCashTicker(localTransactions, localDefinitions)
-          offsetsToInsert.push({
-            id: crypto.randomUUID(),
-            portfolio_id: portfolioId,
-            ticker: cashTicker,
-            operation_type: 'buy',
-            quantity: 1,
-            price: amount,
-            date: adj.date,
-            cash_offset_source_id: txId,
-          })
+        const batchOffsets = generateBatchCashOffsetTransactions({
+          portfolioId,
+          sourceTransactionId: txId,
+          operationType: adj.operation_type,
+          pricingMode: 'market',
+          amount,
+          date: adj.date,
+          localTransactions,
+          localDefinitions,
+        })
+        for (const offsetTx of batchOffsets) {
+          offsetsToInsert.push(offsetTx)
         }
       }
 
