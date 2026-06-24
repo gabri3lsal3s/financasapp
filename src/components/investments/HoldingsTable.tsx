@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
+import Input from '@/components/Input'
 import { 
   formatCurrency, 
   formatQuantityBR, 
@@ -8,7 +9,7 @@ import {
   formatSignedPercentBR 
 } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 
 interface HoldingsTableProps {
   positions: ValuedPosition[]
@@ -19,27 +20,40 @@ export default function HoldingsTable({
   positions,
   onOpenAssetDetail
 }: HoldingsTableProps) {
-  const [collapsedClasses, setCollapsedClasses] = useState<Record<string, boolean>>({})
+  const [collapsedClasses, setCollapsedClasses] = useState<Record<string, boolean>>()
+  const [searchTerm, setSearchTerm] = useState('')
 
   const toggleClass = (cls: string) => {
-    setCollapsedClasses(prev => ({ ...prev, [cls]: !prev[cls] }))
+    setCollapsedClasses(prev => ({ ...prev, [cls]: !(prev?.[cls] ?? true) }))
   }
+
+  const isCollapsed = (cls: string) => collapsedClasses?.[cls] ?? true
 
   const activePositions = useMemo(() => 
     positions.filter(p => Math.abs(p.quantity) > 0.000_001), 
     [positions]
   )
 
+  // Filtrar posições por termo de busca
+  const filteredPositions = useMemo(() => {
+    if (!searchTerm.trim()) return activePositions
+    const term = searchTerm.toLowerCase()
+    return activePositions.filter(p => 
+      p.ticker.toLowerCase().includes(term) ||
+      (p.asset_class && p.asset_class.toLowerCase().includes(term))
+    )
+  }, [activePositions, searchTerm])
+
   // Agrupar posições por classe
   const groupedPositions = useMemo(() => {
     const groups: Record<string, ValuedPosition[]> = {}
-    for (const pos of activePositions) {
+    for (const pos of filteredPositions) {
       const cls = pos.asset_class || 'Não classificado'
       if (!groups[cls]) groups[cls] = []
       groups[cls].push(pos)
     }
     return groups
-  }, [activePositions])
+  }, [filteredPositions])
 
   if (activePositions.length === 0) {
     return (
@@ -51,8 +65,27 @@ export default function HoldingsTable({
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Barra de busca responsiva */}
+      <div className="relative">
+        <span className="absolute inset-y-0 left-3 flex items-center text-secondary pointer-events-none z-10">
+          <Search size={14} />
+        </span>
+        <Input
+          type="text"
+          placeholder="Buscar por ticker ou classe..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9 h-10 w-full"
+        />
+        {searchTerm && filteredPositions.length === 0 && (
+          <p className="text-[10px] text-secondary font-medium mt-2 text-center">
+            Nenhum ativo encontrado para &quot;{searchTerm}&quot;
+          </p>
+        )}
+      </div>
+
       {Object.entries(groupedPositions).map(([assetClass, items]) => {
-        const isCollapsed = collapsedClasses[assetClass]
+        const collapsed = isCollapsed(assetClass)
         const classTotal = items.reduce((sum, item) => sum + (item.currency === 'USD' ? item.total_value * item.usd_rate : item.total_value), 0)
         const classAllocation = items.reduce((sum, item) => sum + item.current_percentage, 0)
 
@@ -61,12 +94,12 @@ export default function HoldingsTable({
             {/* Header da Classe */}
             <div
               onClick={() => toggleClass(assetClass)}
-              className="flex items-center justify-between p-4 sm:p-5 cursor-pointer hover:bg-glass/10 transition-colors select-none border-b border-primary/5"
+              className="flex items-center justify-between p-5 lg:p-6 cursor-pointer hover:bg-glass/10 transition-colors select-none border-b border-primary/5"
             >
               <div className="flex items-center gap-2.5">
                 <ChevronRight
                   size={16}
-                  className={`text-secondary transform transition-transform duration-300 ${isCollapsed ? '' : 'rotate-90'}`}
+                  className={`text-secondary transform transition-transform duration-300 ${collapsed ? '' : 'rotate-90'}`}
                 />
                 <div>
                   <h4 className="text-sm font-black text-primary uppercase tracking-wider">{assetClass}</h4>
@@ -82,7 +115,7 @@ export default function HoldingsTable({
             </div>
 
             {/* Tabela de Ativos da Classe */}
-            {!isCollapsed && (
+            {!collapsed && (
               <>
                 {/* Desktop View (Tabela clássica) */}
                 <div className="hidden md:block overflow-x-auto">

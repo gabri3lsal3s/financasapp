@@ -18,6 +18,7 @@ import MonthTransitionView from '@/components/MonthTransitionView'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import ScrollToTop from '@/components/ScrollToTop'
 import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
@@ -214,6 +215,8 @@ export default function Incomes() {
         onUpdate={updateIncome}
         onDelete={deleteIncome}
       />
+
+      <ScrollToTop />
 
       <ConfirmModal
         isOpen={deleteConfirmState?.isOpen || false}

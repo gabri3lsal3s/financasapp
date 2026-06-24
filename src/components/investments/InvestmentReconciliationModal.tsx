@@ -78,7 +78,7 @@ import {
   type CashOffsetTransaction,
 } from '@/utils/cashBalanceApplication'
 import { PORTFOLIO_PRICING_MODE_OPTIONS } from '@/constants/portfolioPricingMode'
-import { Upload, FileCheck, ArrowRight, ArrowLeft, RefreshCw, ChevronDown, Link, Layers, Check, AlertCircle, ShieldCheck } from 'lucide-react'
+import { Upload, FileCheck, ArrowRight, ArrowLeft, RefreshCw, ChevronDown, Link, Layers, Check, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface InvestmentReconciliationModalProps {
@@ -1433,10 +1433,7 @@ export default function InvestmentReconciliationModal({
           <div className="modal-panel-glass space-y-2.5 p-4 animate-pulse-slow border-balance/25">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-balance flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3V4a10 10 0 100 20v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-                </svg>
+                <Loader2 size={14} className="animate-spin text-balance" />
                 {progress.label}
               </span>
               <span className="text-secondary tabular-nums">

@@ -29,11 +29,11 @@ const PIE_COLORS = [
   'var(--color-income-strong)',
   'var(--color-primary-strong)',
   'var(--color-text-secondary)',
-  'var(--color-bg-secondary)',
-  '#f59e0b', // amber
-  '#8b5cf6', // violet
-  '#06b6d4', // cyan
-  '#84cc16', // lime
+  'var(--color-text-secondary)',
+  'var(--chart-glass-3)',
+  'var(--chart-glass-0)',
+  'var(--chart-glass-1)',
+  'var(--chart-glass-2)',
 ]
 
 const DEFAULT_INNER_RADIUS = 55
@@ -71,7 +71,7 @@ export default function PortfolioPieChart({
   if (data.length === 0) return null
 
   return (
-    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 space-y-4 text-left">
+    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 space-y-4 text-left">
       <div className="border-b border-glass/40 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -84,7 +84,7 @@ export default function PortfolioPieChart({
           <button
             type="button"
             onClick={() => setShowPercent((prev) => !prev)}
-            className="shrink-0 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider rounded-lg bg-glass/10 hover:bg-glass/20 text-secondary hover:text-primary transition-all border border-glass/30"
+            className="shrink-0 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg bg-glass/10 hover:bg-glass/20 text-secondary hover:text-primary transition-all border border-glass/30"
             title={showPercent ? 'Mostrar valores em R$' : 'Mostrar percentuais'}
           >
             {showPercent ? 'R$' : '%'}

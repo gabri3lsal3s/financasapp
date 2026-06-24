@@ -218,14 +218,19 @@ export default function LedgerBook({
   }
 
   return (
-    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 space-y-4 text-left">
+    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 space-y-4 text-left">
       {/* Header & Filtros */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-primary/5">
-        <div className="flex items-center justify-between w-full md:w-auto">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-primary/5">
+        {/* Left: Title */}
+        <div className="flex items-center justify-between w-full lg:w-auto shrink-0">
           <div>
             <h4 className="text-sm font-black text-primary uppercase tracking-wider">Histórico de Lançamentos</h4>
             <p className="text-[10px] text-secondary font-medium">Lista completa do livro-razão de investimentos</p>
           </div>
+        </div>
+
+        {/* Right: Bulk delete + Search + Dropdown */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto lg:max-w-[600px]">
           {selectedIds.size > 0 && (
             <Button
               type="button"
@@ -233,18 +238,14 @@ export default function LedgerBook({
               size="sm"
               disabled={isBulkDeleting}
               onClick={handleBulkDelete}
-              className="ml-4 font-bold flex items-center gap-1.5 py-1 px-3"
+              className="font-bold flex items-center gap-1.5 py-1 px-3 shrink-0"
             >
               <Trash2 size={13} />
               Excluir {selectedIds.size}
             </Button>
           )}
-        </div>
-
-        {/* Filtros rápidos */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* Barra de pesquisa */}
-          <div className="relative flex-1 sm:w-48">
+          {/* Barra de pesquisa - flexível */}
+          <div className="relative flex-1 min-w-0">
             <span className="absolute inset-y-0 left-3 flex items-center text-secondary pointer-events-none z-10">
               <Search size={14} />
             </span>
@@ -257,12 +258,12 @@ export default function LedgerBook({
             />
           </div>
           {/* Select Operação */}
-          <div className="w-full sm:w-36">
+          <div className="w-full sm:w-36 shrink-0">
             <Select
               value={opFilter}
               onChange={(e) => setOpFilter(e.target.value)}
               options={[
-                { value: 'all', label: 'Todas operações' },
+                { value: 'all', label: 'Todas' },
                 { value: 'buy', label: 'Compra' },
                 { value: 'sell', label: 'Venda' },
                 { value: 'dividend', label: 'Dividendo' },
@@ -370,6 +371,28 @@ export default function LedgerBook({
 
           {/* Mobile View */}
           <div className="md:hidden divide-y divide-glass/20">
+            {/* Select-all header for mobile */}
+            <div
+              onClick={() => {
+                if (selectedIds.size === paginatedTxs.length) {
+                  setSelectedIds(new Set())
+                } else {
+                  setSelectedIds(new Set(paginatedTxs.map((tx) => tx.id)))
+                }
+              }}
+              className="flex items-center gap-2 px-2 py-2.5 bg-glass/5 rounded-xl mb-1 cursor-pointer hover:bg-glass/10 transition-colors"
+            >
+              <Checkbox
+                checked={paginatedTxs.length > 0 && selectedIds.size === paginatedTxs.length}
+              />
+              <span className="text-[10px] font-bold text-secondary select-none">Selecionar todos</span>
+              {selectedIds.size > 0 && (
+                <span className="text-[9px] font-bold text-primary font-mono ml-auto">
+                  {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
             {paginatedTxs.map((tx) => {
               const isBuy = tx.operation_type === 'buy' || tx.operation_type === 'subscription'
               const isSell = tx.operation_type === 'sell'
@@ -388,26 +411,36 @@ export default function LedgerBook({
 
               return (
                 <div 
-                  key={tx.id} 
-                  onClick={() => onEditTransaction?.(tx)}
-                  className="py-3 flex items-center justify-between gap-3 text-left animate-fade-in hover:bg-glass/10 active:scale-[0.99] cursor-pointer transition-all px-2 rounded-xl"
+                  key={tx.id}
+                  className="py-2.5 flex items-center gap-2 text-left animate-fade-in px-2 rounded-xl hover:bg-glass/5 transition-colors"
                 >
-                  <div className="flex items-center gap-3 w-full">
-                    <div onClick={(e) => e.stopPropagation()} className="flex items-center shrink-0">
+                  {/* Checkbox visível e clicável */}
+                  <div className="flex items-center shrink-0">
+                    <div
+                      onClick={() => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(tx.id)) next.delete(tx.id)
+                          else next.add(tx.id)
+                          return next
+                        })
+                      }}
+                      className="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-glass/10 active:bg-glass/20 cursor-pointer transition-colors"
+                    >
                       <Checkbox
                         checked={selectedIds.has(tx.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev)
-                            if (checked) next.add(tx.id)
-                            else next.delete(tx.id)
-                            return next
-                          })
-                        }}
                       />
                     </div>
+                  </div>
+
+                  {/* Dados da transação */}
+                  <button
+                    type="button"
+                    onClick={() => onEditTransaction?.(tx)}
+                    className="flex items-center justify-between gap-2 flex-1 min-w-0 cursor-pointer hover:bg-glass/5 active:scale-[0.99] transition-all rounded-xl py-2 px-2.5 text-left"
+                  >
                     <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-black text-primary font-mono text-sm">{tx.ticker}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${opColor}`}>
                           {opLabel}
@@ -423,7 +456,7 @@ export default function LedgerBook({
                         {formatCurrency(total)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 </div>
               )
             })}

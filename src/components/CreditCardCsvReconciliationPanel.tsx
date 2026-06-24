@@ -22,6 +22,7 @@ import ConflictDraftCard from '@/components/creditCards/ConflictDraftCard'
 import MissingDraftCard from '@/components/creditCards/MissingDraftCard'
 import SuspiciousDraftCard from '@/components/creditCards/SuspiciousDraftCard'
 import ComparisonRowCard from '@/components/creditCards/ComparisonRowCard'
+import { Info, AlertTriangle, Check, X, FileCheck } from 'lucide-react'
 
 type ReconciliationWizardStep = 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'
 const WIZARD_STEPS: ReconciliationWizardStep[] = ['summary', 'conflicts', 'missing', 'suspicious', 'review']
@@ -729,13 +730,13 @@ export default function CreditCardCsvReconciliationPanel({
             : 'bg-[color-mix(in_srgb,var(--color-income)_8%,var(--glass-layer-panel))] border-[color-mix(in_srgb,var(--color-income)_25%,var(--glass-border))] text-income'
         }`}>
           {alertMessage.type === 'error' && (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <Info size={16} className="shrink-0 mt-0.5 text-expense" />
           )}
           {alertMessage.type === 'warning' && (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" className="shrink-0 mt-0.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <AlertTriangle size={16} className="shrink-0 mt-0.5 text-warning" />
           )}
           {alertMessage.type === 'success' && (
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" className="shrink-0 mt-0.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <Check size={16} className="shrink-0 mt-0.5 text-income" />
           )}
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-bold leading-normal text-primary">
@@ -747,7 +748,7 @@ export default function CreditCardCsvReconciliationPanel({
             onClick={() => setAlertMessage(null)}
             className="text-secondary hover:text-primary transition-colors duration-150 shrink-0 p-0.5"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <X size={14} />
           </button>
         </div>
       )}
@@ -794,7 +795,7 @@ export default function CreditCardCsvReconciliationPanel({
       {currentStep === 'summary' && reconciliation && (
         <div className="modal-panel-glass border-glass rounded-2xl p-6 space-y-4 text-center animate-page-enter shadow-lg">
           <div className="w-12 h-12 rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,var(--glass-layer-panel))] flex items-center justify-center mx-auto text-primary border border-[color-mix(in_srgb,var(--color-primary)_24%,var(--glass-border))] shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-file-check"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+            <FileCheck size={24} className="text-primary" />
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-primary">Arquivo CSV Importado com Sucesso!</h3>
@@ -813,7 +814,7 @@ export default function CreditCardCsvReconciliationPanel({
 
           {csvCompetenceMismatch && (
             <div className="bg-[color-mix(in_srgb,var(--color-warning)_8%,var(--glass-layer-panel))] border border-[color-mix(in_srgb,var(--color-warning)_25%,var(--glass-border))] p-4 rounded-2xl max-w-md mx-auto text-left flex gap-3 items-start shadow-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="text-warning shrink-0 mt-0.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <AlertTriangle size={18} className="text-warning shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="text-xs font-black text-warning uppercase tracking-wider">Aviso de Fatura Incorreta</p>
                 <p className="text-[11px] text-secondary leading-relaxed">

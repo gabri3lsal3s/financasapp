@@ -70,6 +70,8 @@
   --color-income: var(--ds-color-data-income);
   --color-expense: var(--ds-color-data-expense);
   --color-balance: var(--ds-color-data-balance);
+  --color-income-strong: var(--ds-color-accent-primary-strong);
+  --color-primary-strong: var(--color-primary-dark);
   --color-income-text: var(--ds-color-data-income-text, var(--ds-color-data-income));
   --color-expense-text: var(--ds-color-data-expense-text, var(--ds-color-data-expense));
   --color-balance-text: var(--ds-color-data-balance-text, var(--ds-color-data-balance));

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
 import InfoTooltip from '@/components/InfoTooltip'
+import ViewModeToggle from '@/components/ViewModeToggle'
 import { formatCurrency, formatNumberBR, formatChartYAxisCurrency } from '@/utils/format'
 import {
   AreaChart,
@@ -48,7 +48,7 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
 
   if (shareHistory.length === 0) {
     return (
-      <Card className="border border-glass bg-glass/5 rounded-3xl p-8 text-center text-xs font-semibold text-secondary min-h-[300px] flex flex-col justify-center items-center">
+      <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 text-center text-xs font-semibold text-secondary min-h-[300px] flex flex-col justify-center items-center">
         Sem dados históricos suficientes para gerar o gráfico de evolução patrimonial.
         Os dados serão acumulados automaticamente após o processamento diário do backend.
       </Card>
@@ -82,24 +82,15 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
             )}
           </p>
         </div>
-        <div className="flex gap-2 bg-glass/10 p-1 rounded-xl self-start">
-          <Button
-            type="button"
-            variant={chartMode === 'equity' ? 'balance' : 'link'}
-            onClick={() => setChartMode('equity')}
-            className="text-[10px] h-8 px-3 rounded-lg font-black uppercase tracking-wider transition-all"
-          >
-            Patrimônio
-          </Button>
-          <Button
-            type="button"
-            variant={chartMode === 'share' ? 'balance' : 'link'}
-            onClick={() => setChartMode('share')}
-            className="text-[10px] h-8 px-3 rounded-lg font-black uppercase tracking-wider transition-all"
-          >
-            Rentabilidade (Cota)
-          </Button>
-        </div>
+        <ViewModeToggle
+          options={[
+            { value: 'equity', label: 'Patrimônio' },
+            { value: 'share', label: 'Rentabilidade' },
+          ]}
+          value={chartMode}
+          onChange={(v) => setChartMode(v as 'equity' | 'share')}
+          size="md"
+        />
       </div>
 
       <div className="h-[280px] w-full pr-4">

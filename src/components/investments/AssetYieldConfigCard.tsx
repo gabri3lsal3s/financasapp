@@ -1,4 +1,5 @@
 import Button from '@/components/Button'
+import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { formatCurrency } from '@/utils/format'
@@ -93,49 +94,46 @@ export default function AssetYieldConfigCard({
           {asset.indexer !== 'none' ? (
             <div className="animate-page-enter">
               <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">% do Indexador</label>
-              <div className="relative flex items-center">
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={asset.indexer_percent}
-                  onChange={(e) => onUpdateIndexerPercent(e.target.value)}
-                  placeholder="100"
-                  className="font-semibold text-[11px] pl-2.5 pr-6"
-                />
-                <span className="absolute right-2.5 text-secondary font-bold text-[10px]">%</span>
-              </div>
+              <NumberInput
+                step={0.01}
+                value={asset.indexer_percent}
+                onChange={(e) => onUpdateIndexerPercent(e.target.value)}
+                placeholder="100"
+                suffix="%"
+                compact
+                hideSpinButtons
+                className="font-semibold text-[11px]"
+              />
             </div>
           ) : (
             <div className="animate-page-enter">
               <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Taxa Contratada</label>
-              <div className="relative flex items-center">
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={asset.contract_rate}
-                  onChange={(e) => onUpdateContractRate(e.target.value)}
-                  placeholder="12.5"
-                  className="font-semibold text-[11px] pl-2.5 pr-8"
-                />
-                <span className="absolute right-2.5 text-secondary font-bold text-[10px]">% a.a.</span>
-              </div>
+              <NumberInput
+                step={0.0001}
+                value={asset.contract_rate}
+                onChange={(e) => onUpdateContractRate(e.target.value)}
+                placeholder="12.5"
+                suffix="% a.a."
+                compact
+                hideSpinButtons
+                className="font-semibold text-[11px]"
+              />
             </div>
           )}
 
           {asset.indexer !== 'none' && (
             <div className="animate-page-enter">
               <label className="text-secondary font-bold block mb-1 text-[9.5px] uppercase tracking-wider">Taxa Adicional</label>
-              <div className="relative flex items-center">
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={asset.contract_rate}
-                  onChange={(e) => onUpdateContractRate(e.target.value)}
-                  placeholder="6.5"
-                  className="font-semibold text-[11px] pl-2.5 pr-8"
-                />
-                <span className="absolute right-2.5 text-secondary font-bold text-[10px]">% a.a.</span>
-              </div>
+              <NumberInput
+                step={0.0001}
+                value={asset.contract_rate}
+                onChange={(e) => onUpdateContractRate(e.target.value)}
+                placeholder="6.5"
+                suffix="% a.a."
+                compact
+                hideSpinButtons
+                className="font-semibold text-[11px]"
+              />
             </div>
           )}
 

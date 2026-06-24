@@ -26,6 +26,7 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetDetailModal from '@/components/investments/AssetDetailModal'
+import ScrollToTop from '@/components/ScrollToTop'
 
 import GlassChoiceCard from '@/components/GlassChoiceCard'
 import Modal from '@/components/Modal'
@@ -145,7 +146,7 @@ export default function Investments() {
         }
       />
 
-      <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
+      <div className="p-4 lg:p-6 space-y-6 animate-page-enter" id="investments-page-top">
         {loading ? (
           <Loader text="Carregando dados da carteira..." className="py-12" />
         ) : (
@@ -188,84 +189,72 @@ export default function Investments() {
               </div>
 
               {/* Aba 1: Visão Geral */}
-              <TabsContent value="overview" className="mt-6 space-y-6 animate-fade-in">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
-                  {/* Coluna da Esquerda (2 Colunas no Desktop) */}
-                  <div className="flex flex-col gap-5 lg:col-span-2">
-                    <EvolutionChart shareHistory={shareHistory} />
-                    
-                    {/* Gráficos Pizza lado a lado */}
-                            {/* Gráficos Pizza com toggle de visibilidade em mobile */}
-                    {assetPieData.length > 0 && classPieData.length > 0 && (
-                      <PieChartsSection
-                        assetPieData={assetPieData}
-                        classPieData={classPieData}
-                        handleAssetSliceClick={handleAssetSliceClick}
-                        handleClassSliceClick={handleClassSliceClick}
-                      />
-                    )}
-
-                    <AssetClassAllocationCard
-                      positions={positions}
-                      cashValue={cashValue}
-                      totalValue={totalValue}
-                      groupTargets={groupTargets}
-                    />
-
-                    {/* Rentabilidade por classe/setor com benchmarks */}
-                    {nonCashPositions.length > 0 && (
-                      <ClassPerformanceCard
-                        positions={nonCashPositions}
-                        totalValue={totalValue}
-                      />
-                    )}
+              <TabsContent value="overview" className="mt-6 space-y-5 lg:space-y-6 w-full animate-fade-in">
+                {/* Topo: Saldo em Caixa (largura total) */}
+                <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 flex flex-col justify-between text-left gap-4 relative overflow-hidden hover:border-glass-strong hover:shadow-md transition-all duration-300">
+                  <div
+                    className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-[0.08]"
+                    style={{ backgroundColor: cashValue > 0 ? 'var(--color-income)' : 'var(--color-primary)' }}
+                  />
+                  <div className="space-y-1.5 z-10">
+                    <span className="text-[9px] font-black uppercase text-secondary tracking-wider">Saldo em Caixa</span>
+                    <h4 className="text-2xl font-black text-primary font-mono">{formatCurrency(cashValue)}</h4>
+                    <p className="text-[10px] text-secondary font-medium leading-relaxed">
+                      Saldo líquido disponível na corretora para novas compras e rebalanceamento.
+                    </p>
                   </div>
+                </Card>
 
-                  {/* Coluna da Direita (1 Coluna no Desktop): Resumo Mensal, Saldo e Insights */}
-                  <div className="flex flex-col gap-5 lg:col-span-1">
-                    {/* Card de Resumo Mensal (aparece apenas nos primeiros 10 dias) */}
-                    <MonthlySummaryCard
-                      transactions={transactions}
-                      shareHistory={shareHistory}
-                    />
+                {/* Card de Insights em largura total */}
+                <InvestmentsInsights
+                  positions={positions}
+                  cashValue={cashValue}
+                  totalValue={totalValue}
+                />
 
-                    {/* Card de Resumo de Caixa e Operações */}
-                    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 flex flex-col justify-between text-left gap-4 relative overflow-hidden hover:border-glass-strong hover:shadow-md transition-all duration-300">
-                      {/* Glow halo baseando-se no nível do saldo */}
-                      <div
-                        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-[0.08]"
-                        style={{ backgroundColor: cashValue > 0 ? 'var(--color-income)' : 'var(--color-primary)' }}
-                      />
-                      
-                      <div className="space-y-1.5 z-10">
-                        <span className="text-[9px] font-black uppercase text-secondary tracking-wider">Saldo em Caixa</span>
-                        <h4 className="text-2xl font-black text-primary font-mono">{formatCurrency(cashValue)}</h4>
-                        <p className="text-[10px] text-secondary font-medium leading-relaxed">
-                          Saldo líquido disponível na corretora para novas compras de ativos e rebalanceamento da carteira.
-                        </p>
-                      </div>
-                      
-                    </Card>
+                {/* Resumo Mensal com navegação */}
+                <MonthlySummaryCard
+                  transactions={transactions}
+                  shareHistory={shareHistory}
+                />
 
-                    {/* Insights da Carteira */}
-                    <InvestmentsInsights
-                      positions={positions}
-                      cashValue={cashValue}
-                      totalValue={totalValue}
-                    />
-                  </div>
-                </div>
+                {/* Cards em largura total — empilhamento vertical */}
+                <EvolutionChart shareHistory={shareHistory} />
+
+                {/* Gráficos Pizza lado a lado */}
+                {assetPieData.length > 0 && classPieData.length > 0 && (
+                  <PieChartsSection
+                    assetPieData={assetPieData}
+                    classPieData={classPieData}
+                    handleAssetSliceClick={handleAssetSliceClick}
+                    handleClassSliceClick={handleClassSliceClick}
+                  />
+                )}
+
+                <AssetClassAllocationCard
+                  positions={positions}
+                  cashValue={cashValue}
+                  totalValue={totalValue}
+                  groupTargets={groupTargets}
+                />
+
+                {nonCashPositions.length > 0 && (
+                  <ClassPerformanceCard
+                    positions={nonCashPositions}
+                    totalValue={totalValue}
+                    transactions={transactions}
+                  />
+                )}
+
               </TabsContent>
 
               {/* Aba 2: Ativos */}
-              <TabsContent value="assets" className="mt-6">
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 lg:gap-6 items-start">
-                  <div className="xl:col-span-2 space-y-5">
+              <TabsContent value="assets" className="mt-6 w-full">
+                <div className="space-y-5 lg:space-y-6">
                     <HoldingsTable
                       positions={positions}
                       onOpenAssetDetail={handleOpenAssetDetail}
                     />
-                    {/* Editor de Limites de Exposição */}
                     {portfolioId && (
                       <ExposureLimitsEditor
                         portfolioId={portfolioId}
@@ -275,18 +264,15 @@ export default function Investments() {
                         onSaved={reload}
                       />
                     )}
-                  </div>
-                  <div className="xl:col-span-1">
                     <RebalancingView
                       positions={positions}
                       totalValue={totalValue}
                     />
-                  </div>
                 </div>
               </TabsContent>
 
               {/* Aba 3: Livro Razão de Lançamentos */}
-              <TabsContent value="ledger" className="mt-6">
+              <TabsContent value="ledger" className="mt-6 w-full">
                 <LedgerBook
                   transactions={transactions}
                   onDeleteTransaction={reload}
@@ -381,6 +367,8 @@ export default function Investments() {
           />
         </>
       )}
+      {/* ScrollToTop */}
+      <ScrollToTop />
     </div>
   )
 }

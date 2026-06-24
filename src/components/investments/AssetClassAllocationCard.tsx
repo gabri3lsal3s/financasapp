@@ -28,7 +28,7 @@ const CLASS_COLORS: Record<string, string> = {
   'Criptoativos': 'var(--color-income-strong)',
   'Renda Fixa': 'var(--color-primary-strong)',
   'Saldo em Caixa': 'var(--color-text-secondary)',
-  'Outros': 'var(--color-bg-secondary)'
+  'Outros': 'var(--color-text-secondary)'
 }
 
 export default function AssetClassAllocationCard({
@@ -88,7 +88,7 @@ export default function AssetClassAllocationCard({
   }
 
   return (
-    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 space-y-5 text-left">
+    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 space-y-5 text-left">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-glass/40 pb-3">
         <div>
           <h4 className="text-sm font-black text-primary uppercase tracking-wider">Distribuição de Ativos</h4>

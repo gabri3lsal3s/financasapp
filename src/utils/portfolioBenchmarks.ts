@@ -231,15 +231,16 @@ export function classPerformanceToPieSlices(
     'Ações Internacionais': 'var(--color-income)',
     'Fundos Imobiliários': 'var(--color-balance)',
     'ETFs Nacionais': 'var(--color-text-primary)',
-    'ETFs Internacionais': 'var(--color-income-strong)',
+    'ETFs Internacionais': 'var(--color-balance)',
     ETFs: 'var(--color-text-primary)',
-    Criptoativos: 'var(--color-income-strong)',
+    Criptoativos: 'var(--color-warning)',
     'Renda Fixa': 'var(--color-primary-strong)',
-    Outros: 'var(--color-bg-secondary)',
+    Outros: 'var(--color-text-secondary)',
   }
 
   const PIE_FALLBACKS = [
-    '#f59e0b', '#8b5cf6', '#06b6d4', '#84cc16', '#ec4899',
+    'var(--chart-glass-3)', 'var(--chart-glass-0)', 'var(--chart-glass-1)',
+    'var(--chart-glass-2)', 'var(--chart-glass-4)',
   ]
 
   return performances.map((p, i) => ({
@@ -266,7 +267,8 @@ export function topAssetsToPieSlices(
     'var(--color-income-strong)',
     'var(--color-primary-strong)',
     'var(--color-text-secondary)',
-    'var(--color-bg-secondary)',
+    'var(--color-text-secondary)',
+    'var(--color-text-secondary)',
   ]
 
   const sorted = [...positions]
@@ -293,7 +295,7 @@ export function topAssetsToPieSlices(
       name: 'Outros',
       value: restValue,
       percentage: totalValue > 0 ? (restValue / totalValue) * 100 : 0,
-      color: 'var(--color-bg-secondary)',
+      color: 'var(--color-text-secondary)',
     })
   }
 

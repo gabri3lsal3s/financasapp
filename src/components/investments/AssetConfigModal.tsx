@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import Modal from '@/components/Modal'
+import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
-import { X } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface AssetConfigModalProps {
@@ -42,6 +43,7 @@ export default function AssetConfigModal({
     if (isOpen && ticker && portfolioId) {
       void loadConfig()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, ticker, portfolioId])
 
   const loadConfig = async () => {
@@ -198,176 +200,173 @@ export default function AssetConfigModal({
     }
   }
 
+  const handlePricingChange = (e: { target: { value: string } }) => {
+    setPricingMode(e.target.value as any)
+  }
+
+  const handleCurrencyChange = (e: { target: { value: string } }) => {
+    setCurrency(e.target.value as any)
+  }
+
+  const handleIndexerChange = (e: { target: { value: string } }) => {
+    setIndexer(e.target.value as any)
+  }
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md overflow-hidden bg-glass/95 border border-glass rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Parametrizar ${ticker.toUpperCase()}`} size="md">
+      <form onSubmit={handleSubmit} className="space-y-4 text-left">
         
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-glass/40">
-          <div>
-            <h3 className="text-base font-black text-primary uppercase tracking-wider">Parametrizar Ativo</h3>
-            <p className="text-[10px] text-secondary font-bold font-mono">Ticker: {ticker.toUpperCase()}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-glass/10 flex items-center justify-center text-secondary hover:text-primary transition-all"
-          >
-            <X size={16} />
-          </button>
+        {/* Método de Precificação */}
+        <div className="space-y-1">
+          <label className="text-[9px] uppercase font-black text-secondary">Forma de Precificação</label>
+          <Select
+            value={pricingMode}
+            onChange={handlePricingChange}
+            options={[
+              { value: 'market', label: 'Cotação de Mercado (B3 / Yahoo)' },
+              { value: 'fixed_income', label: 'Renda Fixa na Curva (CDI/SELIC/IPCA)' },
+              { value: 'manual_value', label: 'Valor Manual do Ativo' },
+              { value: 'cash', label: 'Saldo em Caixa (Depósitos)' }
+            ]}
+          />
         </div>
 
-        {/* Formulário */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-left">
-          
-          {/* Método de Precificação */}
+        {/* Moeda e Alvo */}
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[9px] uppercase font-black text-secondary">Forma de Precificação</label>
+            <label className="text-[9px] uppercase font-black text-secondary">Moeda Padrão</label>
             <Select
-              value={pricingMode}
-              onChange={(e) => setPricingMode(e.target.value as any)}
+              value={currency}
+              onChange={handleCurrencyChange}
               options={[
-                { value: 'market', label: 'Cotação de Mercado (B3 / Yahoo)' },
-                { value: 'fixed_income', label: 'Renda Fixa na Curva (CDI/SELIC/IPCA)' },
-                { value: 'manual_value', label: 'Valor Manual do Ativo' },
-                { value: 'cash', label: 'Saldo em Caixa (Depósitos)' }
+                { value: 'BRL', label: 'BRL (R$)' },
+                { value: 'USD', label: 'USD ($)' }
               ]}
             />
           </div>
-
-          {/* Moeda e Alvo */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[9px] uppercase font-black text-secondary">Moeda Padrão</label>
-              <Select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as any)}
-                options={[
-                  { value: 'BRL', label: 'BRL (R$)' },
-                  { value: 'USD', label: 'USD ($)' }
-                ]}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] uppercase font-black text-secondary">Alvo na Carteira (%)</label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={targetPercentage}
-                onChange={(e) => setTargetPercentage(e.target.value)}
-                placeholder="Ex: 5.5"
-                required
-              />
-            </div>
+          <div className="space-y-1">
+            <label className="text-[9px] uppercase font-black text-secondary">Alvo na Carteira (%)</label>
+            <NumberInput
+              step={0.01}
+              min={0}
+              max={100}
+              value={targetPercentage}
+              onChange={(e) => setTargetPercentage(e.target.value)}
+              placeholder="Ex: 5.5"
+              required
+              suffix="%"
+              hideSpinButtons
+            />
           </div>
+        </div>
 
-          {/* Campos condicionais para Renda Fixa */}
-          {pricingMode === 'fixed_income' && (
-            <div className="space-y-4 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">Indexador</label>
-                  <Select
-                    value={indexer}
-                    onChange={(e) => setIndexer(e.target.value as any)}
-                    options={[
-                      { value: 'none', label: 'Pré-fixado (Nenhum)' },
-                      { value: 'cdi', label: 'CDI' },
-                      { value: 'selic', label: 'SELIC' },
-                      { value: 'ipca', label: 'IPCA' }
-                    ]}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">% do Indexador</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={indexerPercent}
-                    onChange={(e) => setIndexerPercent(e.target.value)}
-                    placeholder="Ex: 100"
-                    disabled={indexer === 'none'}
-                    required
-                  />
-                </div>
-              </div>
-
+        {/* Campos condicionais para Renda Fixa */}
+        {pricingMode === 'fixed_income' && (
+          <div className="space-y-4 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  value={contractRate}
-                  onChange={(e) => setContractRate(e.target.value)}
-                  placeholder="Ex: 6.5"
-                  required
+                <label className="text-[9px] uppercase font-black text-secondary">Indexador</label>
+                <Select
+                  value={indexer}
+                  onChange={handleIndexerChange}
+                  options={[
+                    { value: 'none', label: 'Pré-fixado (Nenhum)' },
+                    { value: 'cdi', label: 'CDI' },
+                    { value: 'selic', label: 'SELIC' },
+                    { value: 'ipca', label: 'IPCA' }
+                  ]}
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">Data de Aporte</label>
-                  <Input
-                    type="date"
-                    value={applicationDate}
-                    onChange={(e) => setApplicationDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">Vencimento</label>
-                  <Input
-                    type="date"
-                    value={maturityDate}
-                    onChange={(e) => setMaturityDate(e.target.value)}
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="text-[9px] uppercase font-black text-secondary">% do Indexador</label>
+                <NumberInput
+                  step={0.1}
+                  min={0}
+                  value={indexerPercent}
+                  onChange={(e) => setIndexerPercent(e.target.value)}
+                  placeholder="Ex: 100"
+                  disabled={indexer === 'none'}
+                  required
+                  suffix="%"
+                  hideSpinButtons
+                />
               </div>
             </div>
-          )}
 
-          {/* Campos condicionais para Valor Manual */}
-          {pricingMode === 'manual_value' && (
-            <div className="space-y-1 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
-              <label className="text-[9px] uppercase font-black text-secondary">Valor Atual do Ativo (Moeda Local)</label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={manualCurrentValue}
-                onChange={(e) => setManualCurrentValue(e.target.value)}
-                placeholder="Ex: 50000.00"
-                required
-              />
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
+            <NumberInput
+              step={0.0001}
+              min={0}
+              value={contractRate}
+              onChange={(e) => setContractRate(e.target.value)}
+              placeholder="Ex: 6.5"
+              required
+              suffix="% a.a."
+              hideSpinButtons
+            />
             </div>
-          )}
 
-          {/* Botões */}
-          <div className="flex gap-3 pt-3">
-            <Button
-              type="button"
-              variant="link"
-              onClick={onClose}
-              className="flex-1 rounded-xl h-11"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="balance"
-              disabled={loading}
-              className="flex-1 rounded-xl h-11 font-black uppercase tracking-wider text-xs"
-            >
-              {loading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[9px] uppercase font-black text-secondary">Data de Aporte</label>
+                <Input
+                  type="date"
+                  value={applicationDate}
+                  onChange={(e) => setApplicationDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] uppercase font-black text-secondary">Vencimento</label>
+                <Input
+                  type="date"
+                  value={maturityDate}
+                  onChange={(e) => setMaturityDate(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
+        )}
 
-        </form>
-      </div>
-    </div>
+        {/* Campos condicionais para Valor Manual */}
+        {pricingMode === 'manual_value' && (
+          <div className="space-y-1 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
+            <label className="text-[9px] uppercase font-black text-secondary">Valor Atual do Ativo (Moeda Local)</label>
+            <NumberInput
+              step={0.01}
+              min={0}
+              value={manualCurrentValue}
+              onChange={(e) => setManualCurrentValue(e.target.value)}
+              placeholder="Ex: 50000.00"
+              required
+              hideSpinButtons
+            />
+          </div>
+        )}
+
+        {/* Botões */}
+        <div className="flex gap-3 pt-3">
+          <Button
+            type="button"
+            variant="link"
+            onClick={onClose}
+            className="flex-1 rounded-xl h-11"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="balance"
+            disabled={loading}
+            className="flex-1 rounded-xl h-11 font-black uppercase tracking-wider text-xs"
+          >
+            {loading ? 'Salvando...' : 'Salvar Alterações'}
+          </Button>
+        </div>
+
+      </form>
+    </Modal>
   )
 }

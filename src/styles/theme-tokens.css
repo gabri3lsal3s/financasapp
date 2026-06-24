@@ -413,6 +413,31 @@ html.midnight {
   --palette-preview-mono-0: #f5f5f7;
   --palette-preview-mono-1: #a3a3a3;
   --palette-preview-mono-2: #525252;
+  /* category-mono overrides — garante contraste em fundos escuros (midnight #000000) */
+  --category-mono-00: #f5f5f5;
+  --category-mono-01: #e5e5e5;
+  --category-mono-02: #d4d4d4;
+  --category-mono-03: #cfcfcf;
+  --category-mono-04: #bdbdbd;
+  --category-mono-05: #a3a3a3;
+  --category-mono-06: #8a8a8a;
+  --category-mono-07: #737373;
+  --category-mono-08: #9ca3af;
+  --category-mono-09: #6b7280;
+  --category-mono-10: #8a8a8a;
+  --category-mono-11: #a3a3a3;
+  --category-mono-12: #bdbdbd;
+  --category-mono-13: #cfcfcf;
+  --category-mono-14: #8a8a8a;
+  --category-mono-15: #9ca3af;
+  --category-mono-16: #a3a3a3;
+  --category-mono-17: #bdbdbd;
+  --category-mono-18: #cfcfcf;
+  --category-mono-19: #8a8a8a;
+  --category-mono-20: #9ca3af;
+  --category-mono-21: #a3a3a3;
+  --category-mono-22: #bdbdbd;
+  --category-mono-23: #cfcfcf;
 }
 
 :root {
@@ -436,6 +461,22 @@ html.midnight {
   --category-vivid-17: #dbeafe;
   --category-vivid-18: #8b5cf6;
   --category-vivid-19: #d8b4fe;
+}
+
+/* Dark/midnight overrides for category vivid colors — garante contraste mínimo em fundos escuros */
+html.dark,
+html.midnight {
+  --category-vivid-02: #fecaca;
+  --category-vivid-05: #fdba74;
+  --category-vivid-07: #fde68a;
+  --category-vivid-08: #f9a8d4;
+  --category-vivid-10: #6ee7b7;
+  --category-vivid-11: #86efac;
+  --category-vivid-13: #6ee7f9;
+  --category-vivid-14: #67e8f9;
+  --category-vivid-16: #93c5fd;
+  --category-vivid-17: #bfdbfe;
+  --category-vivid-19: #c4b5fd;
 }
 
 :root {
@@ -473,6 +514,18 @@ html.midnight {
   --chart-glass-4: #f472b6;
   --chart-glass-5: #818cf8;
   --chart-glass-6: #ef4444;
+}
+
+/* Dark/midnight overrides for chart glass colors — mais vibrantes e contrastantes */
+html.dark,
+html.midnight {
+  --chart-glass-0: #c4b5fd;
+  --chart-glass-1: #93c5fd;
+  --chart-glass-2: #6ee7b7;
+  --chart-glass-3: #fcd34d;
+  --chart-glass-4: #f9a8d4;
+  --chart-glass-5: #a5b4fc;
+  --chart-glass-6: #fca5a5;
 }
 
 html {

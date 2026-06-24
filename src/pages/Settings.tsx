@@ -20,6 +20,7 @@ import {
   removeBiometricCredential,
 } from '@/utils/biometric'
 import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2, Crown } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import toast from 'react-hot-toast'
 import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
@@ -545,10 +546,11 @@ export default function Settings() {
                       value={String(remindersDaysBeforeCardBills)}
                       onChange={(e) => setRemindersDaysBeforeCardBills(Number(e.target.value))}
                       options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
-                    />
-                  </div>
-                </div>
-              )}
+                    />      </div>
+      <ScrollToTop />
+    </div>
+  )
+}
             </div>
           </Card>
         </section>
@@ -654,10 +656,11 @@ export default function Settings() {
                           Remover biometria
                         </Button>
                       </>
-                    )}
-                  </div>
-                </div>
-              )}
+                    )}      </div>
+      <ScrollToTop />
+    </div>
+  )
+}
 
               {biometricRegistered && (
                 <>

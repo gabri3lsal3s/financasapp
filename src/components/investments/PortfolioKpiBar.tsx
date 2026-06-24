@@ -56,7 +56,7 @@ export default function PortfolioKpiBar({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch animate-page-enter">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-5 lg:gap-6 items-stretch animate-page-enter">
       {/* Patrimônio Total */}
       <KpiCard
         title="Patrimônio Total"

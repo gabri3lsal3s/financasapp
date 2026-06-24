@@ -19,6 +19,7 @@ import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
@@ -426,6 +427,8 @@ export default function Expenses() {
           installmentTotal={deleteModalState.installmentTotal}
         />
       )}
+
+      <ScrollToTop />
 
       <ConfirmModal
         isOpen={deleteConfirmState?.isOpen || false}

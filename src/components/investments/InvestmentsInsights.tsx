@@ -21,7 +21,7 @@ interface InsightItem {
 export default function InvestmentsInsights({
   positions,
   cashValue,
-  totalValue
+  totalValue,
 }: InvestmentsInsightsProps) {
   const insights = useMemo<InsightItem[]>(() => {
     const list: InsightItem[] = []
@@ -105,15 +105,15 @@ export default function InvestmentsInsights({
   }, [positions, cashValue, totalValue])
 
   return (
-    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 space-y-4 text-left">
+    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 space-y-4 text-left">
       <div>
         <h4 className="text-sm font-black text-primary uppercase tracking-wider">Insights da Carteira</h4>
         <p className="text-[10px] text-secondary font-medium">Recomendações e status com base nos ativos custodiados</p>
       </div>
 
-      <div className="space-y-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {insights.length === 0 ? (
-          <div className="text-xs font-semibold text-secondary text-center py-4">
+          <div className="text-xs font-semibold text-secondary text-center py-4 sm:col-span-2">
             Sem dados suficientes para gerar insights da carteira. Insira transações para ativar a análise.
           </div>
         ) : (
@@ -137,7 +137,7 @@ export default function InvestmentsInsights({
                   <span className="font-extrabold text-primary uppercase tracking-wider text-[9px] block">
                     {item.title}
                   </span>
-                  <p className="text-secondary font-medium text-[11px] leading-relaxed">
+                  <p className="text-secondary font-medium text-[10px] leading-relaxed">
                     {item.description}
                   </p>
                 </div>

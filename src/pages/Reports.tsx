@@ -33,6 +33,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { Scale, TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2 } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -3067,6 +3068,7 @@ export default function Reports() {
         previousMonth={previousMonth}
         isCustomPeriod={viewMode === 'custom'}
       />
+      <ScrollToTop />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders, Scale } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
@@ -947,11 +948,11 @@ export default function Categories() {
                                     <span>Definir</span>
                                   </Button>
                                 </>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
+                              )}      </div>
+      <ScrollToTop />
+    </div>
+  )
+})}
 
                       {categories.length < 15 && (
                         <div 
@@ -1171,11 +1172,11 @@ export default function Categories() {
                                     <span>Definir</span>
                                   </Button>
                                 </>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
+                              )}      </div>
+      <ScrollToTop />
+    </div>
+  )
+})}
 
                       {incomeCategories.length < 15 && (
                         <div 

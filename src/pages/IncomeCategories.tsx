@@ -15,6 +15,7 @@ import { IncomeCategory } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 
 export default function IncomeCategories() {
@@ -221,6 +222,7 @@ export default function IncomeCategories() {
           </p>
         )}
       </ConfirmModal>
+      <ScrollToTop />
     </div>
   )
 }

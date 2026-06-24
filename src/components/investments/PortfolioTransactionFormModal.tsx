@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ModalFieldRow from '@/components/ModalFieldRow'
+import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { supabase } from '@/lib/supabase'
@@ -504,37 +505,41 @@ export default function PortfolioTransactionFormModal({
 
           {/* Inputs Condicionais baseados em Ticker ou Provento */}
           {isCashType || isIncomeType ? (
-            <Input
+            <NumberInput
               label={isCashType ? "Valor em Caixa (R$)" : `Valor do Provento (${currency === 'USD' ? '$' : 'R$'})`}
-              type="number"
               required
-              step="0.01"
+              step={0.01}
+              min={0}
               placeholder={isCashType ? "Ex: 5000.00" : "Ex: 150.00"}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="font-semibold rounded-xl text-base focus:ring-2 focus:ring-primary"
+              className="font-semibold rounded-xl text-base"
+              prefix={currency === 'USD' ? '$' : 'R$'}
+              hideSpinButtons
             />
           ) : (
             <ModalFieldRow>
-              <Input
+              <NumberInput
                 label="Quantidade"
-                type="number"
                 required
                 step="any"
+                min={0}
                 placeholder="Ex: 10"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 className="font-semibold rounded-xl text-sm"
+                hideSpinButtons
               />
-              <Input
+              <NumberInput
                 label="Preço Unitário"
-                type="number"
                 required
                 step="any"
+                min={0}
                 placeholder="Ex: 35.50"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 className="font-semibold rounded-xl text-sm"
+                hideSpinButtons
               />
             </ModalFieldRow>
           )}
@@ -592,15 +597,16 @@ export default function PortfolioTransactionFormModal({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] uppercase font-black text-secondary">Alvo na Carteira (%)</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
+                      <NumberInput
+                        step={0.01}
+                        min={0}
+                        max={100}
                         value={targetPercentage}
                         onChange={(e) => setTargetPercentage(e.target.value)}
                         placeholder="Ex: 5.5"
                         required
+                        suffix="%"
+                        hideSpinButtons
                       />
                     </div>
                   </div>
@@ -624,29 +630,31 @@ export default function PortfolioTransactionFormModal({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9px] uppercase font-black text-secondary">% do Indexador</label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="0"
+                          <NumberInput
+                            step={0.1}
+                            min={0}
                             value={indexerPercent}
                             onChange={(e) => setIndexerPercent(e.target.value)}
                             placeholder="Ex: 100"
                             disabled={indexer === 'none'}
                             required
+                            suffix="%"
+                            hideSpinButtons
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1">
                         <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          min="0"
+                        <NumberInput
+                          step={0.0001}
+                          min={0}
                           value={contractRate}
                           onChange={(e) => setContractRate(e.target.value)}
                           placeholder="Ex: 6.5"
                           required
+                          suffix="% a.a."
+                          hideSpinButtons
                         />
                       </div>
 
@@ -675,14 +683,14 @@ export default function PortfolioTransactionFormModal({
                   {pricingMode === 'manual_value' && (
                     <div className="space-y-1 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
                       <label className="text-[9px] uppercase font-black text-secondary">Valor Atual do Ativo (Moeda Local)</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                      <NumberInput
+                        step={0.01}
+                        min={0}
                         value={manualCurrentValue}
                         onChange={(e) => setManualCurrentValue(e.target.value)}
                         placeholder="Ex: 50000.00"
                         required
+                        hideSpinButtons
                       />
                     </div>
                   )}

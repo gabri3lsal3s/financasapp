@@ -33,7 +33,7 @@ export default function RebalancingView({ positions, totalValue }: RebalancingVi
   }
 
   return (
-    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 space-y-5 text-left">
+    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 space-y-5 text-left">
       <div>
         <h4 className="text-sm font-black text-primary uppercase tracking-wider">Rebalanceamento da Carteira</h4>
         <p className="text-[10px] text-secondary font-medium">Aportes inteligentes para manter o alinhamento da alocação alvo</p>

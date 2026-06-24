@@ -15,6 +15,7 @@ import { Category } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 
 export default function ExpenseCategories() {
@@ -166,10 +167,11 @@ export default function ExpenseCategories() {
                     </div>
                   </Card>
                 )
-              })}
-            </div>
-          </div>
-        )}
+              })}      <ScrollToTop />
+    </div>
+  </div>
+)
+}
       </div>
 
       <ModalForm

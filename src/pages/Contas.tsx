@@ -39,6 +39,7 @@ import {
 } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, shiftMonth } from '@/utils/creditCardMonthSelection'
 import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check, Trash2, TrendingUp, TrendingDown, Link2 } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -1533,11 +1534,12 @@ export default function Contas() {
                                         )
                                       })}
                                     </div>
-                                  )}
-                                </div>
+                                  )}    </div>
+      <ScrollToTop />
+  </div>
+)
 
-                              </div>
-                            )}
+}
                           </Card>
                         )
                       })}

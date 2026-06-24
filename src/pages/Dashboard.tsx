@@ -18,6 +18,7 @@ import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent } from 'lucide-react'
+import ScrollToTop from '@/components/ScrollToTop'
 import Button from '@/components/Button'
 import MobileAlertsPill from '@/components/MobileAlertsPill'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
@@ -869,6 +870,7 @@ export default function Dashboard() {
         </div>
       </Modal>
 
-      </div>
+      <ScrollToTop />
+    </div>
     )
   }
