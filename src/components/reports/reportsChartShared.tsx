@@ -31,7 +31,7 @@ export function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="surface-glass-strong border border-glass p-2.5 rounded-xl shadow-lg glass-shadow-tooltip backdrop-blur-md min-w-[150px] flex flex-col gap-1">
+    <div className="surface-glass-strong border border-glass p-2.5 rounded-xl shadow-lg glass-shadow-tooltip min-w-[150px] flex flex-col gap-1">
       {label && (
         <p className="text-[10px] font-semibold text-secondary uppercase tracking-wider border-b border-glass pb-1 mb-1">
           {label}
@@ -68,7 +68,7 @@ export function PieTooltip({
   if (!point) return null
 
   return (
-    <div className="surface-glass-strong border border-glass p-2.5 rounded-xl shadow-lg glass-shadow-tooltip backdrop-blur-md min-w-[130px] flex flex-col gap-0.5">
+    <div className="surface-glass-strong border border-glass p-2.5 rounded-xl shadow-lg glass-shadow-tooltip min-w-[130px] flex flex-col gap-0.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: point.color || payload[0].color || 'var(--color-primary)' }} />
         <span className="truncate">{point.name}</span>

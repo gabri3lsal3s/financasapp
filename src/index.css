@@ -1381,7 +1381,7 @@
   }
 }
 
-/* Recharts: tooltips acima de cards/gráficos adjacentes */
+/* Estilização centralizada de gráficos Recharts */
 .recharts-responsive-container,
 .recharts-wrapper {
   overflow: visible !important;
@@ -1392,9 +1392,8 @@
   pointer-events: none;
 }
 
-/* Estilização Centralizada e Padronizada de Gráficos (Recharts) */
 .recharts-cartesian-grid line {
-  stroke: var(--color-border) !important;
+  stroke: var(--glass-border) !important;
   stroke-width: 1px;
   stroke-dasharray: 4 4;
   opacity: 0.12;
@@ -1402,46 +1401,56 @@
 
 .recharts-text,
 .recharts-label {
-  fill: var(--color-text-secondary) !important;
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  fill: var(--ds-color-text-secondary) !important;
+  font-family: var(--ds-font-family-base) !important;
   font-size: 10px;
   font-weight: 500;
 }
 
 .recharts-legend-item-text {
-  color: var(--color-text-primary) !important;
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  color: var(--ds-color-text-primary) !important;
+  font-family: var(--ds-font-family-base) !important;
   font-size: 11px;
   font-weight: 500;
 }
 
-/* Cursor de Hover nos Gráficos */
 .recharts-tooltip-cursor {
   fill: var(--color-hover) !important;
   opacity: 0.25;
 }
 
-/* Gráfico de Barras com Cantos Arredondados no Clássico */
 .recharts-rectangle {
   rx: 4px;
   ry: 4px;
 }
 
-/* Separação elegante de fatias no Pizza/Donut */
 .recharts-pie-sector {
-  stroke: var(--color-bg-primary) !important;
+  stroke: var(--glass-surface) !important;
   stroke-width: 1.5px;
 }
 
-/* Tooltip global de gráficos */
-.recharts-tooltip-wrapper .bg-primary,
-.recharts-tooltip-wrapper .bg-white,
+/* Tooltip global de gráficos — consolidated */
 .recharts-default-tooltip {
-  background-color: var(--color-bg-secondary) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--ds-radius-md, 8px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-  color: var(--color-text-primary) !important;
+  background-color: var(--glass-surface-strong) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--glass-shadow-tooltip) !important;
+  color: var(--ds-color-text-primary) !important;
+  font-family: inherit;
+  padding: 8px 12px !important;
+}
+
+/* Tooltip global de gráficos — consolidated */
+.recharts-default-tooltip {
+  background-color: var(--glass-surface-strong) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--glass-shadow-tooltip) !important;
+  color: var(--ds-color-text-primary) !important;
   font-family: inherit;
   padding: 8px 12px !important;
 }
@@ -1600,49 +1609,7 @@ nav.glass-bottom-nav {
   padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
 }
 
-/* Recharts glass */
-.recharts-cartesian-grid line {
-  stroke: var(--ds-color-border-default);
-  stroke-width: 1px;
-  stroke-dasharray: 6 6;
-  opacity: 0.08;
-}
-
-.recharts-text,
-.recharts-label {
-  fill: var(--ds-color-text-secondary);
-  font-family: var(--ds-font-family-base);
-  font-size: 10px;
-}
-
-.recharts-line-curve,
-.recharts-area-curve {
-  stroke-width: 2.5px;
-  filter: none;
-}
-
-.recharts-rectangle {
-  rx: 6px;
-  ry: 6px;
-}
-
-.recharts-pie-sector {
-  stroke: var(--ds-color-surface-primary);
-  stroke-width: 2px;
-  transition: all 0.35s var(--ds-motion-easing-standard);
-}
-
-.recharts-tooltip-wrapper .bg-primary,
-.recharts-tooltip-wrapper .bg-white,
-.recharts-default-tooltip {
-  background-color: var(--glass-surface-strong) !important;
-  backdrop-filter: blur(var(--glass-blur)) !important;
-  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
-  border: 1px solid var(--glass-border) !important;
-  border-radius: 12px !important;
-  box-shadow: var(--glass-shadow-tooltip) !important;
-  color: var(--ds-color-text-primary) !important;
-}
+/* Recharts estilos removidos (consolidados com a seção acima) */
 
 /* Modals / dialogs glass */
 :root {

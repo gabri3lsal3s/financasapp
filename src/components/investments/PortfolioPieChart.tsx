@@ -89,7 +89,7 @@ export default function PortfolioPieChart({
                   if (active && payload && payload.length) {
                     const item = payload[0].payload as PieSlice
                     return (
-                      <div className="bg-glass/95 border border-glass rounded-2xl p-3 shadow-lg backdrop-blur-md min-w-[140px] space-y-1">
+                      <div className="bg-glass/95 border border-glass rounded-2xl p-3 shadow-lg min-w-[140px] space-y-1">
                         <div className="flex items-center gap-2">
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"

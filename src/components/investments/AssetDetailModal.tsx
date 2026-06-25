@@ -270,7 +270,7 @@ export default function AssetDetailModal({
                         if (active && payload && payload.length) {
                           const data = payload[0].payload
                           return (
-                            <div className="bg-glass/95 border border-glass rounded-2xl p-2.5 shadow-lg flex flex-col gap-1 backdrop-blur-md text-[10px] font-semibold min-w-[140px]">
+                            <div className="bg-glass/95 border border-glass rounded-2xl p-2.5 shadow-lg flex flex-col gap-1 text-[10px] font-semibold min-w-[140px]">
                               <span className="text-[9px] uppercase font-black text-secondary">{data.fullDate}</span>
                               <div className="flex justify-between items-center gap-2">
                                 <span className="text-secondary">Posição:</span>

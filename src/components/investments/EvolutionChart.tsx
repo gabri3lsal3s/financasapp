@@ -126,7 +126,7 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
                 if (active && payload && payload.length) {
                   const data = payload[0].payload
                   return (
-                    <div className="bg-glass/95 border border-glass rounded-2xl p-3 shadow-lg flex flex-col gap-1.5 backdrop-blur-md min-w-[160px]">
+                    <div className="bg-glass/95 border border-glass rounded-2xl p-3 shadow-lg flex flex-col gap-1.5 min-w-[160px]">
                       <span className="text-[9px] uppercase font-black text-secondary">{data.fullDate}</span>
                       {chartMode === 'equity' ? (
                         <div className="flex flex-col gap-1">
