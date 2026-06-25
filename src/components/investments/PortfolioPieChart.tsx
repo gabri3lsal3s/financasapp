@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react'
-import Card from '@/components/Card'
+import { useMemo } from 'react'
 import { formatCurrency, formatPercentBR } from '@/utils/format'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
@@ -11,7 +10,8 @@ interface PieSlice {
 }
 
 interface PortfolioPieChartProps {
-  title: string
+  /** Título do card — se omitido, o header não é renderizado (útil para uso em cards unificados) */
+  title?: string
   subtitle?: string
   data: PieSlice[]
   innerRadius?: number
@@ -20,24 +20,8 @@ interface PortfolioPieChartProps {
   onSliceClick?: (sliceName: string) => void
 }
 
-// Paleta de cores harmonizada com o design system
-const PIE_COLORS = [
-  'var(--color-primary)',
-  'var(--color-income)',
-  'var(--color-balance)',
-  'var(--color-expense)',
-  'var(--color-income-strong)',
-  'var(--color-primary-strong)',
-  'var(--color-text-secondary)',
-  'var(--color-text-secondary)',
-  'var(--chart-glass-3)',
-  'var(--chart-glass-0)',
-  'var(--chart-glass-1)',
-  'var(--chart-glass-2)',
-]
-
-const DEFAULT_INNER_RADIUS = 55
-const DEFAULT_OUTER_RADIUS = 90
+const DEFAULT_INNER_RADIUS = 65
+const DEFAULT_OUTER_RADIUS = 105
 
 export default function PortfolioPieChart({
   title,
@@ -48,31 +32,19 @@ export default function PortfolioPieChart({
   valueLabel = 'Valor',
   onSliceClick,
 }: PortfolioPieChartProps) {
-  const [showPercent, setShowPercent] = useState(false)
-
   const total = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data])
-  const displayData = useMemo(
-    () =>
-      data.map((d) => ({
-        ...d,
-        displayValue: showPercent
-          ? formatPercentBR(d.percentage, 1)
-          : formatCurrency(d.value),
-      })),
-    [data, showPercent]
-  )
 
   // Ordenar do maior para o menor
-  const sortedData = useMemo(
-    () => [...displayData].sort((a, b) => b.value - a.value),
-    [displayData]
-  )
+  const sortedData = useMemo(() => [...data].sort((a, b) => b.value - a.value), [data])
 
   if (data.length === 0) return null
 
+  const hasHeader = !!title
+
   return (
-    <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 space-y-4 text-left">
-      <div className="border-b border-glass/40 pb-3">
+    <div className="space-y-3">
+      {/* Header opcional — renderizado apenas quando title é fornecido */}
+      {hasHeader && (
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h4 className="text-sm font-black text-primary uppercase tracking-wider">{title}</h4>
@@ -80,21 +52,12 @@ export default function PortfolioPieChart({
               <p className="text-[10px] text-secondary font-medium mt-0.5">{subtitle}</p>
             )}
           </div>
-          {/* Toggle valor/percentual */}
-          <button
-            type="button"
-            onClick={() => setShowPercent((prev) => !prev)}
-            className="shrink-0 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg bg-glass/10 hover:bg-glass/20 text-secondary hover:text-primary transition-all border border-glass/30"
-            title={showPercent ? 'Mostrar valores em R$' : 'Mostrar percentuais'}
-          >
-            {showPercent ? 'R$' : '%'}
-          </button>
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-col sm:flex-row items-center gap-6">
-        {/* Gráfico */}
-        <div className="w-48 h-48 shrink-0">
+      <div className="flex flex-col items-center gap-4">
+        {/* Gráfico — responsivo, ocupa largura total */}
+        <div className="w-full max-w-[300px] aspect-square">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -113,10 +76,10 @@ export default function PortfolioPieChart({
                 }}
                 style={{ cursor: onSliceClick ? 'pointer' : 'default' }}
               >
-                {sortedData.map((entry, index) => (
+                {sortedData.map((entry) => (
                   <Cell
                     key={entry.name}
-                    fill={entry.color || PIE_COLORS[index % PIE_COLORS.length]}
+                    fill={entry.color}
                     stroke="transparent"
                   />
                 ))}
@@ -159,8 +122,8 @@ export default function PortfolioPieChart({
         </div>
 
         {/* Legenda */}
-        <div className="flex-1 space-y-2 w-full min-w-0">
-          {sortedData.map((item, index) => (
+        <div className="w-full space-y-1.5">
+          {sortedData.map((item) => (
             <button
               key={item.name}
               type="button"
@@ -172,15 +135,15 @@ export default function PortfolioPieChart({
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: item.color || PIE_COLORS[index % PIE_COLORS.length] }}
+                  style={{ backgroundColor: item.color }}
                 />
                 <span className="font-bold text-primary truncate">{item.name}</span>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="font-mono text-secondary font-medium">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono text-secondary font-medium text-[11px]">
                   {formatPercentBR(item.percentage, 1)}
                 </span>
-                <span className="font-mono text-primary font-black text-right w-20">
+                <span className="font-mono text-primary font-black text-right text-[11px] w-20 hidden xs:inline-block">
                   {formatCurrency(item.value)}
                 </span>
               </div>
@@ -188,14 +151,14 @@ export default function PortfolioPieChart({
           ))}
 
           {/* Total */}
-          <div className="flex items-center justify-between gap-2 text-xs border-t border-glass/30 pt-2 mt-2 px-2">
-            <span className="font-black text-secondary uppercase tracking-wider">Total</span>
-            <span className="font-mono font-black text-primary">
-              {showPercent ? '100%' : formatCurrency(total)}
+          <div className="flex items-center justify-between gap-2 text-xs border-t border-glass/30 pt-2 mt-1 px-2">
+            <span className="font-black text-secondary uppercase tracking-wider text-[10px]">Total</span>
+            <span className="font-mono font-black text-primary text-[11px]">
+              {formatCurrency(total)}
             </span>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   )
 }

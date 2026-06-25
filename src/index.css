@@ -1490,67 +1490,6 @@ body {
   background-size: 24px 24px;
 }
 
-/* Animações fluídas de Cascata Lineares/Laterais para o Glow de Fundo */
-@keyframes glow-cascade-mobile-before {
-  0% {
-    transform: translate3d(0, 20%, 0) scaleY(0.9);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translate3d(0, -15%, 0) scaleY(1.3);
-    opacity: 0.95;
-  }
-  100% {
-    transform: translate3d(0, 20%, 0) scaleY(0.9);
-    opacity: 0.7;
-  }
-}
-
-@keyframes glow-cascade-mobile-after {
-  0% {
-    transform: translate3d(0, 25%, 0) scaleY(0.85);
-    opacity: 0.35;
-  }
-  50% {
-    transform: translate3d(0, -10%, 0) scaleY(1.2);
-    opacity: 0.55;
-  }
-  100% {
-    transform: translate3d(0, 25%, 0) scaleY(0.85);
-    opacity: 0.35;
-  }
-}
-
-@keyframes glow-cascade-desktop-before {
-  0% {
-    transform: translate3d(-15%, 0, 0) scaleX(0.85);
-    opacity: 0.45;
-  }
-  50% {
-    transform: translate3d(15%, 0, 0) scaleX(1.25);
-    opacity: 0.65;
-  }
-  100% {
-    transform: translate3d(-15%, 0, 0) scaleX(0.85);
-    opacity: 0.45;
-  }
-}
-
-@keyframes glow-cascade-desktop-after {
-  0% {
-    transform: translate3d(-10%, 0, 0) scaleX(0.9);
-    opacity: 0.2;
-  }
-  50% {
-    transform: translate3d(20%, 0, 0) scaleX(1.15);
-    opacity: 0.4;
-  }
-  100% {
-    transform: translate3d(-10%, 0, 0) scaleX(0.9);
-    opacity: 0.2;
-  }
-}
-
 .app-shell-glow {
   pointer-events: none;
   position: fixed;
@@ -1566,10 +1505,8 @@ body {
   transition:
     background var(--ds-motion-duration-normal) var(--ds-motion-easing-standard),
     opacity var(--ds-motion-duration-normal) var(--ds-motion-easing-standard);
-  will-change: transform, opacity;
 }
 
-/* Mobile: barra de glow linear na base que sobe até o centro — sem formato circular */
 .app-shell-glow::before {
   left: 0;
   right: 0;
@@ -1580,10 +1517,8 @@ body {
   max-width: none;
   max-height: none;
   border-radius: 0;
-  filter: blur(80px);
+  opacity: 0.35;
   background: linear-gradient(to top, var(--ambient-glow-primary), transparent);
-  transform-origin: bottom center;
-  animation: glow-cascade-mobile-before 12s ease-in-out infinite;
 }
 
 .app-shell-glow::after {
@@ -1596,13 +1531,10 @@ body {
   max-width: none;
   max-height: none;
   border-radius: 0;
-  filter: blur(100px);
+  opacity: 0.2;
   background: linear-gradient(to top, var(--ambient-glow-secondary, var(--ambient-glow-primary)), transparent);
-  transform-origin: bottom center;
-  animation: glow-cascade-mobile-after 15s ease-in-out infinite;
 }
 
-/* Desktop: glow linear na lateral esquerda (sidebar) que avança ao centro — sem formato circular */
 @media (min-width: 1024px) {
   .app-shell-glow::before {
     left: 0;
@@ -1614,10 +1546,8 @@ body {
     max-width: none;
     max-height: none;
     border-radius: 0;
-    filter: blur(120px);
+    opacity: 0.35;
     background: linear-gradient(to right, var(--ambient-glow-primary), transparent);
-    transform-origin: left center;
-    animation: glow-cascade-desktop-before 16s ease-in-out infinite;
   }
 
   .app-shell-glow::after {
@@ -1630,22 +1560,12 @@ body {
     max-width: none;
     max-height: none;
     border-radius: 0;
-    filter: blur(140px);
+    opacity: 0.2;
     background: linear-gradient(to right, var(--ambient-glow-secondary), transparent);
-    transform-origin: left center;
-    animation: glow-cascade-desktop-after 20s ease-in-out infinite;
   }
 }
 
-.bg-primary {
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-}
-
-.bg-tertiary {
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-}
+/* O blur de destaque foi removido conforme solicitação */
 
 /* Layout glass — desktop sidebar */
 aside.glass-sidebar {
@@ -2216,28 +2136,16 @@ nav.glass-bottom-nav {
   background-color: color-mix(in srgb, var(--glass-modal-panel) 88%, var(--ds-color-accent-primary-soft));
 }
 
-.modal-upload-zone--active-balance {
-  border-color: color-mix(in srgb, var(--color-balance) 55%, var(--glass-border));
-  background-color: color-mix(in srgb, var(--color-balance) 12%, var(--glass-modal-panel));
-  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--color-balance) 25%, transparent);
+.modal-upload-zone--active {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--glass-border));
+  background-color: color-mix(in srgb, var(--color-primary) 12%, var(--glass-modal-panel));
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--color-primary) 25%, transparent);
   transform: scale(1.01);
 }
 
-.modal-upload-zone--active-income {
-  border-color: color-mix(in srgb, var(--color-income) 55%, var(--glass-border));
-  background-color: color-mix(in srgb, var(--color-income) 12%, var(--glass-modal-panel));
-  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--color-income) 25%, transparent);
-  transform: scale(1.01);
-}
-
-.modal-upload-zone--ready-balance {
-  border-color: color-mix(in srgb, var(--color-balance) 40%, var(--glass-border));
-  background-color: color-mix(in srgb, var(--color-balance) 6%, var(--glass-modal-panel));
-}
-
-.modal-upload-zone--ready-income {
-  border-color: color-mix(in srgb, var(--color-income) 40%, var(--glass-border));
-  background-color: color-mix(in srgb, var(--color-income) 6%, var(--glass-modal-panel));
+.modal-upload-zone--ready {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--glass-border));
+  background-color: color-mix(in srgb, var(--color-primary) 6%, var(--glass-modal-panel));
 }
 
 .modal-upload-zone__icon {
@@ -2257,16 +2165,10 @@ nav.glass-bottom-nav {
   transform: scale(1.05);
 }
 
-.modal-upload-zone__icon--balance {
-  color: var(--color-balance);
-  background-color: color-mix(in srgb, var(--color-balance) 14%, transparent);
-  border-color: color-mix(in srgb, var(--color-balance) 25%, var(--glass-border));
-}
-
-.modal-upload-zone__icon--income {
-  color: var(--color-income);
-  background-color: color-mix(in srgb, var(--color-income) 14%, transparent);
-  border-color: color-mix(in srgb, var(--color-income) 25%, var(--glass-border));
+.modal-upload-zone__icon--ready {
+  color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--glass-border));
 }
 
 .modal-chip {

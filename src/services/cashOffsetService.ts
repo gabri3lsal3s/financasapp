@@ -3,6 +3,7 @@ import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { ASSET_DEFINITION_SELECT } from '@/constants/portfolioPricingMode'
 import {
+  calculateLedgerCashBalance,
   computeCashOffsetPreview,
   excludeCashOffsetSells,
   shouldApplyCashOffset,
@@ -340,6 +341,53 @@ export async function reconcileCashOffsetOnTransactionSave(params: {
   }
 
   return { cashUsed: 0, netContribution: amount }
+}
+
+// ── Funções compartilhadas para fluxos de reconciliação em lote ──
+
+/**
+ * Recalcula o saldo de caixa do portfólio após um batch de operações.
+ *
+ * Se localTransactions/localDefinitions forem fornecidos, usa-os diretamente
+ * (evitando uma reconsulta ao banco). Caso contrário, busca o contexto atual.
+ */
+export async function syncPortfolioCashAfterBatch(
+  portfolioId: string,
+  localTransactions?: PortfolioTransaction[],
+  localDefinitions?: PortfolioAssetDefinition[],
+): Promise<void> {
+  let transactions: PortfolioTransaction[]
+  let definitions: PortfolioAssetDefinition[]
+
+  if (localTransactions && localDefinitions) {
+    transactions = localTransactions
+    definitions = localDefinitions
+  } else {
+    const context = await fetchPortfolioCashContext(portfolioId)
+    transactions = context.transactions
+    definitions = context.definitions
+  }
+
+  const finalLedgerCash = calculateLedgerCashBalance(transactions, definitions)
+
+  const { error } = await supabase
+    .from('portfolios')
+    .update({ cash_balance: finalLedgerCash })
+    .eq('id', portfolioId)
+
+  if (error) throw error
+}
+
+/**
+ * Insere transações de offset de caixa em lote, se houver.
+ */
+export async function insertOffsetsBatch(
+  offsetsToInsert: any[],
+): Promise<void> {
+  if (offsetsToInsert.length === 0) return
+
+  const { error } = await supabase.from('portfolio_transactions').insert(offsetsToInsert)
+  if (error) throw error
 }
 
 // Para manter compatibilidade de exportações

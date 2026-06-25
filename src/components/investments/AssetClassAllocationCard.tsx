@@ -125,20 +125,21 @@ export default function AssetClassAllocationCard({
 
           return (
             <div key={item.name} className="space-y-2 hover:bg-glass/5 p-2 rounded-xl transition-all duration-300">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
+              {/* Linha principal: nome e indicadores */}
+              <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1.5 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="font-extrabold text-primary">{item.name}</span>
-                  <span className="font-mono text-secondary">({formatCurrency(item.currentValue)})</span>
+                  <span className="font-extrabold text-primary truncate">{item.name}</span>
+                  <span className="font-mono text-secondary shrink-0">({formatCurrency(item.currentValue)})</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-primary font-bold">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="font-mono text-primary font-bold shrink-0">
                     {formatPercentBR(item.currentPercentage, 1)}
                   </span>
                   {hasTarget && (
                     <>
-                      <span className="text-[10px] text-secondary">/ Alvo: {formatPercentBR(item.targetPercentage, 1)}</span>
-                      <span className={`px-1.5 py-0.5 rounded-md font-bold text-[8px] uppercase tracking-wider flex items-center gap-1 ${statusClass}`}>
+                      <span className="text-[10px] text-secondary whitespace-nowrap">/ Alvo: {formatPercentBR(item.targetPercentage, 1)}</span>
+                      <span className={`px-1.5 py-0.5 rounded-md font-bold text-[8px] uppercase tracking-wider flex items-center gap-1 shrink-0 ${statusClass}`}>
                         <StatusIcon size={9} />
                         {statusLabel}
                       </span>

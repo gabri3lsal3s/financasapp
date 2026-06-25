@@ -207,15 +207,15 @@ export default function Layout({ children }: LayoutProps) {
               <div className="grid grid-cols-2 gap-3">
                 <Link
                   to="/investments"
-                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
                 >
                   <PiggyBank size={20} className="text-secondary mb-2" />
-                  <span className="text-xs font-bold text-primary">Carteira</span>
+                  <span className="text-xs font-bold text-primary">Investimentos</span>
                 </Link>
                 {!(!isOnline) && (
                   <Link
                     to="/reports"
-                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
                   >
                     <BarChart3 size={20} className="text-secondary mb-2" />
                     <span className="text-xs font-bold text-primary">Relatórios</span>
@@ -224,7 +224,7 @@ export default function Layout({ children }: LayoutProps) {
                 {!(!isOnline) && (
                   <Link
                     to="/categories"
-                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                    className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
                   >
                     <Tags size={20} className="text-secondary mb-2" />
                     <span className="text-xs font-bold text-primary">Categorias</span>
@@ -232,7 +232,7 @@ export default function Layout({ children }: LayoutProps) {
                 )}
                 <Link
                   to="/settings"
-                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none glass-glow-card"
+                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
                 >
                   <Settings size={20} className="text-secondary mb-2" />
                   <span className="text-xs font-bold text-primary">Ajustes</span>

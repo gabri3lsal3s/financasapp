@@ -5,13 +5,11 @@ import { formatCurrency, formatDate, roundToDecimals } from '@/utils/format'
 
 interface BillExpenseRowButtonProps {
   item: BillExpenseItem
-  creditCardsWeightsEnabled: boolean
   onOpen: (item: BillExpenseItem) => void
 }
 
 export default function BillExpenseRowButton({
   item,
-  creditCardsWeightsEnabled,
   onOpen,
 }: BillExpenseRowButtonProps) {
   const isRefund = item.amount < 0
@@ -56,9 +54,7 @@ export default function BillExpenseRowButton({
           </p>
           {hasDifference && (
             <p className="text-[9px] sm:text-xs text-secondary">
-              {creditCardsWeightsEnabled
-                ? `Sem pesos: ${formatCurrency(baseAmount)}`
-                : `Com pesos: ${formatCurrency(weightedAmount)}`}
+              Base: {formatCurrency(baseAmount)}
             </p>
           )}
         </div>

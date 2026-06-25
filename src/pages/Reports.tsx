@@ -23,7 +23,6 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
-import { useAppSettings } from '@/hooks/useAppSettings'
 import { useDebts } from '@/hooks/useDebts'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction } from '@/types'
@@ -32,7 +31,7 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { Scale, TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2 } from 'lucide-react'
 import ScrollToTop from '@/components/ScrollToTop'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
@@ -77,6 +76,7 @@ type IncomeCategorySummary = {
 type PieDatum = {
   name: string
   value: number
+  baseValue?: number
   color: string
   categoryId?: string
   detailType?: DetailType
@@ -183,10 +183,6 @@ export default function Reports() {
   const [compositionPieType, setCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
   const [annualCompositionPieType, setAnnualCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
   const [annualChartType, setAnnualChartType] = useState<'flow' | 'balance' | 'trend'>('flow')
-  const {
-    dashboardReportsWeightsEnabled,
-    setDashboardReportsWeightsEnabled,
-  } = useAppSettings()
 
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -455,7 +451,7 @@ export default function Reports() {
   const { colorPalette } = usePaletteColors()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
-  const includeReportWeights = dashboardReportsWeightsEnabled
+  const includeReportWeights = true
   const previousMonth = useMemo(() => addMonths(selectedMonth, -1), [selectedMonth])
   const { monthlySummaries: originalMonthlySummaries, categoryExpenses, monthlyCategoryExpenses, annualExpenses, loading } = useReports(selectedYear, includeReportWeights)
   const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear, includeReportWeights)
@@ -687,6 +683,22 @@ export default function Reports() {
     [monthlySummaries, prevMonthlySummaries, compareWithPrevious]
   )
 
+  const yearBaseExpenseTotalsMap = useMemo(() => {
+    const map = new Map<string, number>()
+    yearExpenseItems.forEach((exp) => {
+      map.set(exp.category_id, (map.get(exp.category_id) || 0) + exp.amount)
+    })
+    return map
+  }, [yearExpenseItems])
+
+  const yearBaseIncomeTotalsMap = useMemo(() => {
+    const map = new Map<string, number>()
+    yearIncomeItems.forEach((inc) => {
+      map.set(inc.income_category_id, (map.get(inc.income_category_id) || 0) + inc.amount)
+    })
+    return map
+  }, [yearIncomeItems])
+
   const annualPieExpenses = useMemo(
     () =>
       categoryExpenses.map((cat: ExpenseCategorySummary) => {
@@ -695,6 +707,7 @@ export default function Reports() {
         return {
           name: cat.category_name,
           value: cat.total,
+          baseValue: yearBaseExpenseTotalsMap.get(cat.category_id) ?? cat.total,
           color: getExpenseColor(cat.category_id, cat.color),
           categoryId: cat.category_id,
           detailType: 'expense' as DetailType,
@@ -702,7 +715,7 @@ export default function Reports() {
           iconName,
         }
       }),
-    [categoryExpenses, categories, getExpenseColor]
+    [categoryExpenses, categories, getExpenseColor, yearBaseExpenseTotalsMap]
   )
 
   const annualPieIncomes = useMemo(
@@ -713,6 +726,7 @@ export default function Reports() {
         return {
           name: cat.category_name,
           value: cat.total,
+          baseValue: yearBaseIncomeTotalsMap.get(cat.income_category_id) ?? cat.total,
           color: getIncomeColor(cat.income_category_id, cat.color),
           categoryId: cat.income_category_id,
           detailType: 'income' as DetailType,
@@ -720,7 +734,7 @@ export default function Reports() {
           iconName,
         }
       }),
-    [incomeByCategory, incomeCategories, getIncomeColor]
+    [incomeByCategory, incomeCategories, getIncomeColor, yearBaseIncomeTotalsMap]
   )
 
   const annualPiePaymentMethods = useMemo(() => {
@@ -1325,6 +1339,23 @@ export default function Reports() {
     () => (selectedMonth ? (monthlyIncomeByCategory[selectedMonth] ?? []) : []),
     [selectedMonth, monthlyIncomeByCategory]
   )
+
+  const baseExpenseTotalsMap = useMemo(() => {
+    const map = new Map<string, number>()
+    monthExpenses.forEach((exp) => {
+      map.set(exp.category_id, (map.get(exp.category_id) || 0) + exp.amount)
+    })
+    return map
+  }, [monthExpenses])
+
+  const baseIncomeTotalsMap = useMemo(() => {
+    const map = new Map<string, number>()
+    monthIncomes.forEach((inc) => {
+      map.set(inc.income_category_id, (map.get(inc.income_category_id) || 0) + inc.amount)
+    })
+    return map
+  }, [monthIncomes])
+
   const monthPieExpenses = useMemo(() => {
     return monthExpenseCategories.map((cat: ExpenseCategorySummary) => {
       const matched = categories.find((c) => c.id === cat.category_id)
@@ -1333,13 +1364,14 @@ export default function Reports() {
         categoryId: cat.category_id,
         name: cat.category_name,
         value: cat.total,
+        baseValue: baseExpenseTotalsMap.get(cat.category_id) ?? cat.total,
         detailType: 'expense' as DetailType,
         detailPeriod: 'month' as const,
         color: getExpenseColor(cat.category_id, cat.color),
         iconName,
       }
     })
-  }, [monthExpenseCategories, categories, getExpenseColor])
+  }, [monthExpenseCategories, categories, getExpenseColor, baseExpenseTotalsMap])
 
   const monthPieIncomes = useMemo(() => {
     return monthIncomeCategories.map((cat: IncomeCategorySummary) => {
@@ -1349,13 +1381,14 @@ export default function Reports() {
         categoryId: cat.income_category_id,
         name: cat.category_name,
         value: cat.total,
+        baseValue: baseIncomeTotalsMap.get(cat.income_category_id) ?? cat.total,
         detailType: 'income' as DetailType,
         detailPeriod: 'month' as const,
         color: getIncomeColor(cat.income_category_id, cat.color),
         iconName,
       }
     })
-  }, [monthIncomeCategories, incomeCategories, getIncomeColor])
+  }, [monthIncomeCategories, incomeCategories, getIncomeColor, baseIncomeTotalsMap])
 
   const monthPiePaymentMethods = useMemo(() => {
     const methodsMap = new Map<string, number>()
@@ -1477,6 +1510,22 @@ export default function Reports() {
 
 
 
+  const customBaseExpenseTotals = useMemo(() => {
+    const map = new Map<string, number>()
+    customExpenses.forEach((exp) => {
+      map.set(exp.category_id, (map.get(exp.category_id) || 0) + exp.amount)
+    })
+    return map
+  }, [customExpenses])
+
+  const customBaseIncomeTotals = useMemo(() => {
+    const map = new Map<string, number>()
+    customIncomes.forEach((inc) => {
+      map.set(inc.income_category_id, (map.get(inc.income_category_id) || 0) + inc.amount)
+    })
+    return map
+  }, [customIncomes])
+
   // Gráfico de Pizza: despesas customizadas
   const customPieExpenses = useMemo(() => {
     return customCategoryExpenses.map((cat) => {
@@ -1486,13 +1535,14 @@ export default function Reports() {
         categoryId: cat.category_id,
         name: cat.category_name,
         value: cat.total,
+        baseValue: customBaseExpenseTotals.get(cat.category_id) ?? cat.total,
         detailType: 'expense' as DetailType,
         detailPeriod: 'month' as const,
         color: getExpenseColor(cat.category_id, cat.color),
         iconName,
       }
     })
-  }, [customCategoryExpenses, categories, getExpenseColor])
+  }, [customCategoryExpenses, categories, getExpenseColor, customBaseExpenseTotals])
 
   // Gráfico de Pizza: receitas customizadas
   const customPieIncomes = useMemo(() => {
@@ -1503,13 +1553,14 @@ export default function Reports() {
         categoryId: cat.income_category_id,
         name: cat.category_name,
         value: cat.total,
+        baseValue: customBaseIncomeTotals.get(cat.income_category_id) ?? cat.total,
         detailType: 'income' as DetailType,
         detailPeriod: 'month' as const,
         color: getIncomeColor(cat.income_category_id, cat.color),
         iconName,
       }
     })
-  }, [customCategoryIncomes, incomeCategories, getIncomeColor])
+  }, [customCategoryIncomes, incomeCategories, getIncomeColor, customBaseIncomeTotals])
 
   // Gráfico de Pizza: meios de pagamento customizados
   const customPiePaymentMethods = useMemo(() => {
@@ -2302,8 +2353,9 @@ export default function Reports() {
                         categoryId={id}
                         categoryName={item.name}
                         total={item.value}
+                        totalBase={item.baseValue}
+                        totalGrand={total}
                         color={item.color}
-                        totalBase={total}
                         targetAmount={target}
                         isExpense={isExpense}
                         staggerClass={staggerClass}
@@ -2506,15 +2558,6 @@ export default function Reports() {
         subtitle={PAGE_HEADERS.reports.description}
         action={
           <PageHeaderActions>
-            {/* Pesos: cinza quando desativado, âmbar quando ativo */}
-            <PageHeaderActionButton
-              key="weights-toggle"
-              intent={dashboardReportsWeightsEnabled ? 'warning' : 'neutral'}
-              icon={Scale}
-              label="Pesos dos Lançamentos"
-              onClick={() => setDashboardReportsWeightsEnabled(!dashboardReportsWeightsEnabled)}
-              title={dashboardReportsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-            />
             {/* Comparar: ícone fixo GitCompareArrows, cinza quando inativo, verde quando ativo (escondido no modo customizado) */}
             {viewMode !== 'custom' && (
               <PageHeaderActionButton

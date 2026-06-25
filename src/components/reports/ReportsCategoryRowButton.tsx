@@ -7,8 +7,10 @@ interface ReportsCategoryRowButtonProps {
   categoryId: string
   categoryName: string
   total: number
+  /** Valor original sem aplicação de peso de relatório */
+  totalBase?: number
   color: string
-  totalBase: number
+  totalGrand: number
   staggerClass?: string
   targetAmount?: number | null
   isExpense?: boolean
@@ -20,15 +22,16 @@ export default function ReportsCategoryRowButton({
   categoryId,
   categoryName,
   total,
-  color,
   totalBase,
+  color,
+  totalGrand,
   staggerClass = '',
   targetAmount,
   isExpense = true,
   iconName,
   onOpen,
 }: ReportsCategoryRowButtonProps) {
-  const sharePct = totalBase > 0 ? (total / totalBase) * 100 : 0
+  const sharePct = totalGrand > 0 ? (total / totalGrand) * 100 : 0
   const icon = getCategoryIcon(categoryName, 14, iconName)
 
   // Cálculos de orçamento / meta
@@ -60,8 +63,13 @@ export default function ReportsCategoryRowButton({
           <span className="text-xs font-semibold text-primary truncate">{categoryName}</span>
         </div>
 
-        <span className="text-xs font-bold text-primary font-mono shrink-0">
-          {formatCurrency(total)}
+        <span className="text-xs font-bold text-primary font-mono shrink-0 flex flex-col items-end">
+          <span>{formatCurrency(total)}</span>
+          {totalBase !== undefined && totalBase !== total && (
+            <span className="text-[8px] text-secondary/50 font-normal leading-tight">
+              base {formatCurrency(totalBase)}
+            </span>
+          )}
         </span>
       </div>
 

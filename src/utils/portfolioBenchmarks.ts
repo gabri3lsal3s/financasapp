@@ -252,12 +252,47 @@ export function classPerformanceToPieSlices(
 }
 
 /**
+ * Gera dados para gráfico pizza a partir de uma agregação de setores.
+ * Usa paleta de fallback independente pois os nomes de setor são imprevisíveis.
+ */
+export function sectorPerformanceToPieSlices(
+  performances: ClassPerformance[]
+): Array<{ name: string; value: number; percentage: number; color: string }> {
+  const SECTOR_COLORS = [
+    'var(--color-primary)',
+    'var(--color-income)',
+    'var(--color-balance)',
+    'var(--color-expense)',
+    'var(--color-income-strong)',
+    'var(--color-primary-strong)',
+    'var(--chart-glass-3)',
+    'var(--chart-glass-0)',
+    'var(--chart-glass-1)',
+    'var(--chart-glass-2)',
+    'var(--chart-glass-4)',
+    'var(--color-text-secondary)',
+  ]
+
+  return performances.map((p, i) => ({
+    name: p.name,
+    value: p.totalValue,
+    percentage: p.percentage,
+    color: SECTOR_COLORS[i % SECTOR_COLORS.length],
+  }))
+}
+
+/**
  * Gera dados para gráfico pizza de TOP N ativos + "Outros".
+ *
+ * @param maxItems - Número máximo de ativos individuais exibidos (default 12)
+ * @param minPct - Percentual mínimo para um ativo aparecer individualmente (default 1.5%)
+ *                 Ativos abaixo desse percentual são agrupados em "Outros"
  */
 export function topAssetsToPieSlices(
   positions: ValuedPosition[],
   totalValue: number,
-  maxItems: number = 8
+  maxItems: number = 12,
+  minPct: number = 1.5
 ): Array<{ name: string; value: number; percentage: number; color: string }> {
   const PIE_COLORS = [
     'var(--color-primary)',
@@ -266,8 +301,11 @@ export function topAssetsToPieSlices(
     'var(--color-expense)',
     'var(--color-income-strong)',
     'var(--color-primary-strong)',
-    'var(--color-text-secondary)',
-    'var(--color-text-secondary)',
+    'var(--chart-glass-3)',
+    'var(--chart-glass-0)',
+    'var(--chart-glass-1)',
+    'var(--chart-glass-2)',
+    'var(--chart-glass-4)',
     'var(--color-text-secondary)',
   ]
 
@@ -279,20 +317,30 @@ export function topAssetsToPieSlices(
     .filter((p) => p.valueInBrl > 0)
     .sort((a, b) => b.valueInBrl - a.valueInBrl)
 
-  const topItems = sorted.slice(0, maxItems)
-  const restItems = sorted.slice(maxItems)
+  // Separar: ativos que aparecem individualmente vs os que vão para "Outros"
+  const individuals: typeof sorted = []
+  const rest: typeof sorted = []
 
-  const slices = topItems.map((pos, i) => ({
+  for (const pos of sorted) {
+    const pct = totalValue > 0 ? (pos.valueInBrl / totalValue) * 100 : 0
+    if (individuals.length < maxItems && pct >= minPct) {
+      individuals.push(pos)
+    } else {
+      rest.push(pos)
+    }
+  }
+
+  const slices = individuals.map((pos, i) => ({
     name: pos.ticker,
     value: pos.valueInBrl,
     percentage: totalValue > 0 ? (pos.valueInBrl / totalValue) * 100 : 0,
     color: PIE_COLORS[i % PIE_COLORS.length],
   }))
 
-  if (restItems.length > 0) {
-    const restValue = restItems.reduce((sum, p) => sum + p.valueInBrl, 0)
+  if (rest.length > 0) {
+    const restValue = rest.reduce((sum, p) => sum + p.valueInBrl, 0)
     slices.push({
-      name: 'Outros',
+      name: rest.length === 1 ? rest[0].ticker : `Outros (${rest.length})`,
       value: restValue,
       percentage: totalValue > 0 ? (restValue / totalValue) * 100 : 0,
       color: 'var(--color-text-secondary)',

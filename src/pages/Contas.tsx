@@ -187,7 +187,7 @@ export default function Contas() {
   const { incomeCategories } = useIncomeCategories()
   const { createExpense, updateExpense, deleteExpense } = useExpenses()
   const { createIncome } = useIncomes()
-  const { creditCardsWeightsEnabled, setCreditCardsWeightsEnabled } = useAppSettings()
+  useAppSettings()
 
   const activeCards = useMemo(
     () => creditCards.filter((card) => card.is_active !== false),
@@ -622,7 +622,7 @@ export default function Contas() {
       targetMonth,
       resolveClosingDay,
     )
-    const expenseRows = prepareBillExpenseRows(filteredExpenses, creditCardsWeightsEnabled)
+    const expenseRows = prepareBillExpenseRows(filteredExpenses, true)
 
     const { data: paymentRows } = await supabase
       .from('credit_card_bill_payments')
@@ -777,7 +777,7 @@ export default function Contas() {
     const hasData = Object.keys(expensesByCard).length > 0
     void loadBillData(hasData)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasResolvedInitialMonth, currentMonth, creditCards, creditCardsWeightsEnabled])
+  }, [hasResolvedInitialMonth, currentMonth, creditCards])
 
   useEffect(() => {
     const targetCardId = searchParams.get('card')
@@ -1267,13 +1267,7 @@ export default function Contas() {
         subtitle="Controle de cartões, faturas e pendências (a pagar e receber)"
         action={
           <PageHeaderActions>
-            <PageHeaderActionButton
-              intent={creditCardsWeightsEnabled ? 'warning' : 'neutral'}
-              icon={Scale}
-              label={creditCardsWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              compactOnMobile={false}
-              onClick={() => setCreditCardsWeightsEnabled(!creditCardsWeightsEnabled)}
-            />
+
             <PageHeaderActionButton
               intent="primary"
               icon={Plus}
@@ -1487,7 +1481,6 @@ export default function Contas() {
                                         <BillExpenseRowButton
                                           key={item.id}
                                           item={item}
-                                          creditCardsWeightsEnabled={creditCardsWeightsEnabled}
                                           onOpen={openExpenseEditModal}
                                         />
                                       ))}

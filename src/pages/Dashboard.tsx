@@ -168,7 +168,7 @@ export default function Dashboard() {
   // monthlyOverviewData removed because pizza chart was removed
 
   const expenseByCategory = useMemo(() => {
-    const map = new Map<string, { categoryId: string; name: string; color: string; iconName?: string; value: number }>()
+    const map = new Map<string, { categoryId: string; name: string; color: string; iconName?: string; value: number; baseValue: number }>()
 
     expenses.forEach((expense) => {
       const name = expense.category?.name || 'Sem categoria'
@@ -182,8 +182,9 @@ export default function Dashboard() {
 
       if (current) {
         current.value += expenseAmountForDashboard(expense.amount, expense.report_weight)
+        current.baseValue += expense.amount
       } else {
-        map.set(key, { categoryId, name, color, iconName, value: expenseAmountForDashboard(expense.amount, expense.report_weight) })
+        map.set(key, { categoryId, name, color, iconName, value: expenseAmountForDashboard(expense.amount, expense.report_weight), baseValue: expense.amount })
       }
     })
 
@@ -280,7 +281,7 @@ export default function Dashboard() {
 
   // Category summaries for FinancialInsights
   const categoryExpenseSummaries = useMemo(() =>
-    expenseByCategory.map(item => ({ category_name: item.name, total: item.value })),
+    expenseByCategory.map(item => ({ category_name: item.name, total: item.value, baseTotal: item.baseValue })),
     [expenseByCategory]
   )
 
@@ -334,6 +335,7 @@ export default function Dashboard() {
       color: string
       iconName?: string
       value: number
+      baseValue: number
       limitAmount: number
       usagePercentage: number
       isExceeded: boolean
@@ -350,6 +352,7 @@ export default function Dashboard() {
         color: alert.color,
         iconName: alert.iconName,
         value: alert.value,
+        baseValue: alert.baseValue,
         limitAmount: alert.limitAmount,
         usagePercentage: alert.usagePercentage,
         isExceeded: true,
@@ -366,6 +369,7 @@ export default function Dashboard() {
         color: alert.color,
         iconName: alert.iconName,
         value: alert.value,
+        baseValue: alert.baseValue,
         limitAmount: alert.limitAmount,
         usagePercentage: alert.usagePercentage,
         isExceeded: false,

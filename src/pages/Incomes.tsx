@@ -133,7 +133,7 @@ export default function Incomes() {
           <PageHeaderActions launchModalOpen={isModalOpen}>
             <PageHeaderActionButton
               actionRole="launch"
-              intent="income"
+              intent="primary"
               icon={Plus}
               label="Adicionar"
               onClick={() => handleOpenModal()}

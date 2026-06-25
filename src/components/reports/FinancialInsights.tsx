@@ -6,6 +6,7 @@ import { Sparkles, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Calend
 interface CategorySummary {
   category_name: string
   total: number
+  baseTotal?: number
 }
 
 interface WeekdayExpense {
@@ -108,7 +109,11 @@ export default function FinancialInsights({
           id: 'top-category',
           type: 'info',
           icon: <Sparkles size={16} className="text-primary" />,
-          text: `A categoria "${topCat.category_name}" foi o seu maior custo no período, representando ${formatNumberWithTwoDecimalsBR(topPct)}% do total de saídas (${formatCurrency(topCat.total)}).`,
+          text: `A categoria "${topCat.category_name}" foi o seu maior custo no período, representando ${formatNumberWithTwoDecimalsBR(topPct)}% do total de saídas (${formatCurrency(topCat.total)})${
+            topCat.baseTotal !== undefined && Math.abs(topCat.baseTotal - topCat.total) > 0.009
+              ? `, valor base ${formatCurrency(topCat.baseTotal)}`
+              : ''
+          }.`,
           highlight: 'Maior Categoria',
         })
       }

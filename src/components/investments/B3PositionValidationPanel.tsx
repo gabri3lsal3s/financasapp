@@ -81,8 +81,8 @@ export default function B3PositionValidationPanel({
         onClick={() => document.getElementById('b3-position-file-input')?.click()}
         className={cn(
           'modal-upload-zone relative flex flex-col items-center gap-4 overflow-hidden p-5 sm:flex-row',
-          positionDragActive && 'modal-upload-zone--active-income',
-          !positionDragActive && positionFileName && 'modal-upload-zone--ready-income'
+          positionDragActive && 'modal-upload-zone--active',
+          !positionDragActive && positionFileName && 'modal-upload-zone--ready'
         )}
       >
         <input
@@ -99,7 +99,7 @@ export default function B3PositionValidationPanel({
         <div
           className={cn(
             'modal-upload-zone__icon shrink-0',
-            positionFileName && 'modal-upload-zone__icon--income'
+            positionFileName && 'modal-upload-zone__icon--ready'
           )}
         >
           <Upload size={20} className={positionDragActive ? 'animate-bounce' : ''} />

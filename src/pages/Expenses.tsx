@@ -251,7 +251,7 @@ export default function Expenses() {
           <PageHeaderActions launchModalOpen={isModalOpen}>
             <PageHeaderActionButton
               actionRole="launch"
-              intent="expense"
+              intent="primary"
               icon={Plus}
               label="Adicionar"
               onClick={() => handleOpenModal()}

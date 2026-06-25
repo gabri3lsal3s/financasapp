@@ -34,7 +34,7 @@ import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import type { PortfolioTransaction } from '@/types'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
-import { classPerformanceToPieSlices, topAssetsToPieSlices, aggregateClassPerformance } from '@/utils/portfolioBenchmarks'
+import { classPerformanceToPieSlices, sectorPerformanceToPieSlices, topAssetsToPieSlices, aggregateClassPerformance, aggregateSectorPerformance } from '@/utils/portfolioBenchmarks'
 
 export default function Investments() {
   const {
@@ -81,7 +81,12 @@ export default function Investments() {
   )
 
   const assetPieData = useMemo(
-    () => topAssetsToPieSlices(nonCashPositions, totalValue, 8),
+    () => topAssetsToPieSlices(nonCashPositions, totalValue),
+    [nonCashPositions, totalValue]
+  )
+
+  const sectorPieData = useMemo(
+    () => sectorPerformanceToPieSlices(aggregateSectorPerformance(nonCashPositions, totalValue)),
     [nonCashPositions, totalValue]
   )
 
@@ -98,6 +103,11 @@ export default function Investments() {
 
   // Handler para clique em fatia do gráfico de classes
   const handleClassSliceClick = () => {
+    setActiveTab('assets')
+  }
+
+  // Handler para clique em fatia do gráfico de setores
+  const handleSectorSliceClick = () => {
     setActiveTab('assets')
   }
 
@@ -136,7 +146,7 @@ export default function Investments() {
           <PageHeaderActions launchModalOpen={isSelectorOpen || isTxModalOpen || isReconciliationOpen || isConfigOpen || isDetailModalOpen}>
             <PageHeaderActionButton
               actionRole="launch"
-              intent="balance"
+              intent="primary"
               icon={Plus}
               label="Lançar transação"
               compactOnMobile={false}
@@ -222,12 +232,14 @@ export default function Investments() {
                 <EvolutionChart shareHistory={shareHistory} />
 
                 {/* Gráficos Pizza lado a lado */}
-                {assetPieData.length > 0 && classPieData.length > 0 && (
+                {(assetPieData.length > 0 || classPieData.length > 0 || sectorPieData.length > 0) && (
                   <PieChartsSection
                     assetPieData={assetPieData}
                     classPieData={classPieData}
+                    sectorPieData={sectorPieData}
                     handleAssetSliceClick={handleAssetSliceClick}
                     handleClassSliceClick={handleClassSliceClick}
+                    handleSectorSliceClick={handleSectorSliceClick}
                   />
                 )}
 

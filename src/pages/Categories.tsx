@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders, Scale } from 'lucide-react'
+import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders } from 'lucide-react'
 import ScrollToTop from '@/components/ScrollToTop'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
@@ -26,7 +26,6 @@ import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Category, IncomeCategory } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { useAppSettings } from '@/hooks/useAppSettings'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import CategoryFormModal from '@/components/categories/CategoryFormModal'
 import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteConfirmModal'
@@ -112,7 +111,6 @@ export default function Categories() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const { isOnline } = useNetworkStatus()
-  const { categoriesWeightsEnabled, setCategoriesWeightsEnabled } = useAppSettings()
 
   useEffect(() => {
     const month = searchParams.get('month')
@@ -323,16 +321,14 @@ export default function Categories() {
     const monthlyTotals: Record<string, number> = {}
     allIncomes.forEach((inc) => {
       const monthStr = inc.date.substring(0, 7) // 'YYYY-MM'
-      const amount = categoriesWeightsEnabled
-        ? getWeightedReportAmount(inc.amount, inc.report_weight)
-        : inc.amount
+      const amount = getWeightedReportAmount(inc.amount, inc.report_weight)
       monthlyTotals[monthStr] = (monthlyTotals[monthStr] || 0) + amount
     })
     const months = Object.keys(monthlyTotals)
     if (months.length === 0) return 0
     const totalSum = months.reduce((sum, m) => sum + monthlyTotals[m], 0)
     return totalSum / months.length
-  }, [allIncomes, categoriesWeightsEnabled])
+  }, [allIncomes])
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
   const { limits: currentMonthLimits, loading: loadingLimits, setCategoryLimit } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthLimits, loading: loadingPreviousLimits } = useExpenseCategoryLimits(previousMonth)
@@ -342,24 +338,36 @@ export default function Categories() {
   const expenseSpentByCategory = useMemo(() => {
     const totals = new Map<string, number>()
     expenses.forEach((item) => {
-      const amount = categoriesWeightsEnabled
-        ? getWeightedReportAmount(item.amount, item.report_weight)
-        : item.amount
+      const amount = getWeightedReportAmount(item.amount, item.report_weight)
       totals.set(item.category_id, (totals.get(item.category_id) || 0) + amount)
     })
     return totals
-  }, [expenses, categoriesWeightsEnabled])
+  }, [expenses])
+
+  const expenseBaseByCategory = useMemo(() => {
+    const totals = new Map<string, number>()
+    expenses.forEach((item) => {
+      totals.set(item.category_id, (totals.get(item.category_id) || 0) + item.amount)
+    })
+    return totals
+  }, [expenses])
 
   const incomeByCategory = useMemo(() => {
     const totals = new Map<string, number>()
     incomes.forEach((item) => {
-      const amount = categoriesWeightsEnabled
-        ? getWeightedReportAmount(item.amount, item.report_weight)
-        : item.amount
+      const amount = getWeightedReportAmount(item.amount, item.report_weight)
       totals.set(item.income_category_id, (totals.get(item.income_category_id) || 0) + amount)
     })
     return totals
-  }, [incomes, categoriesWeightsEnabled])
+  }, [incomes])
+
+  const incomeBaseByCategory = useMemo(() => {
+    const totals = new Map<string, number>()
+    incomes.forEach((item) => {
+      totals.set(item.income_category_id, (totals.get(item.income_category_id) || 0) + item.amount)
+    })
+    return totals
+  }, [incomes])
 
   const expenseCategoryColorMap = useMemo(() => {
     const assignedColors = assignUniquePaletteColors(categories, colorPalette)
@@ -668,13 +676,7 @@ export default function Categories() {
                 setEditingCategoryId(null)
               }}
             />
-            <PageHeaderActionButton
-              intent={categoriesWeightsEnabled ? 'warning' : 'neutral'}
-              icon={Scale}
-              label="Pesos de lançamento"
-              title={categoriesWeightsEnabled ? 'Desconsiderar pesos' : 'Considerar pesos'}
-              onClick={() => setCategoriesWeightsEnabled(!categoriesWeightsEnabled)}
-            />
+
             {activeTab === 'expenses' && (
               <PageHeaderActionButton
                 intent="neutral"
@@ -854,6 +856,15 @@ export default function Categories() {
                                     <span className="font-mono text-[10px]">{Math.round(spentPct)}%</span>
                                   )}
                                 </div>
+                                {(() => {
+                                  const base = expenseBaseByCategory.get(category.id) || 0
+                                  if (base === spent) return null
+                                  return (
+                                    <p className="text-[9px] text-secondary/50">
+                                      base {formatCurrency(base)}
+                                    </p>
+                                  )
+                                })()}
                               </div>
                             </div>
 
@@ -1107,6 +1118,15 @@ export default function Categories() {
                                     <span className="font-mono text-[10px]">{Math.round(receivedPct)}%</span>
                                   )}
                                 </div>
+                                {(() => {
+                                  const base = incomeBaseByCategory.get(category.id) || 0
+                                  if (base === received) return null
+                                  return (
+                                    <p className="text-[9px] text-secondary/50">
+                                      base {formatCurrency(base)}
+                                    </p>
+                                  )
+                                })()}
                               </div>
                             </div>
 
