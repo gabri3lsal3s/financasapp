@@ -31,6 +31,7 @@ import CategoryFormModal from '@/components/categories/CategoryFormModal'
 import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteConfirmModal'
 import LimitSuggestionsModal from '@/components/categories/LimitSuggestionsModal'
 import { logger } from '@/utils/logger'
+import InfoTooltip from '@/components/InfoTooltip'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -861,8 +862,12 @@ export default function Categories() {
                                   const base = expenseBaseByCategory.get(category.id) || 0
                                   if (base === spent) return null
                                   return (
-                                    <p className="text-[9px] text-secondary/50">
-                                      base {formatCurrency(base)}
+                                    <p className="text-[9px] text-secondary/50 flex items-center gap-1">
+                                      <span>Valor base: {formatCurrency(base)}</span>
+                                      <InfoTooltip
+                                        content="Valor original, sem ajustes. O valor considerado nos relatórios aplica o ajuste definido para cada lançamento — útil para despesas compartilhadas."
+                                        iconSize={8}
+                                      />
                                     </p>
                                   )
                                 })()}
@@ -1123,8 +1128,12 @@ export default function Categories() {
                                   const base = incomeBaseByCategory.get(category.id) || 0
                                   if (base === received) return null
                                   return (
-                                    <p className="text-[9px] text-secondary/50">
-                                      base {formatCurrency(base)}
+                                    <p className="text-[9px] text-secondary/50 flex items-center gap-1">
+                                      <span>Valor base: {formatCurrency(base)}</span>
+                                      <InfoTooltip
+                                        content="Valor original, sem ajustes. O valor considerado nos relatórios aplica o ajuste definido para cada recebimento — útil para rendas compartilhadas."
+                                        iconSize={8}
+                                      />
                                     </p>
                                   )
                                 })()}

@@ -43,6 +43,7 @@ import FinancialInsights from '@/components/reports/FinancialInsights'
 import DailyBudgetAdvisor from '@/components/dashboard/DailyBudgetAdvisor'
 import SmartLimitSuggestions from '@/components/dashboard/SmartLimitSuggestions'
 import LimitsControl from '@/components/dashboard/LimitsControl'
+import InfoTooltip from '@/components/InfoTooltip'
 import { logger } from '@/utils/logger'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
@@ -860,9 +861,22 @@ export default function Dashboard() {
                         <p className="text-sm font-medium text-primary truncate">{item.description || item.category?.name || 'Despesa'}</p>
                         <p className="text-xs text-secondary mt-0.5">{formatDate(item.date)}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-0.5">
+                        {showOriginal && (
+                          <p className="flex items-center gap-1">
+                            <span
+                              className="text-[10px] line-through"
+                              style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.6 }}
+                            >
+                              {formatCurrency(item.amount)}
+                            </span>
+                            <InfoTooltip
+                              content="Valor original do lançamento. O valor reportado pode ser diferente quando há ajuste de impacto (ex: despesa compartilhada)."
+                              iconSize={8}
+                            />
+                          </p>
+                        )}
                         <p className="text-sm font-semibold text-primary">{formatCurrency(reportAmount)}</p>
-                        {showOriginal && <p className="text-xs text-secondary">Total: {formatCurrency(item.amount)}</p>}
                       </div>
                     </div>
                   </div>

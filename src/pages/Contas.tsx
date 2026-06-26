@@ -49,6 +49,7 @@ import ModalIntro from '@/components/ModalIntro'
 
 // Componentes refatorados de Cartão e Dívidas
 import CreditCardTimeline, { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
+import InfoTooltip from '@/components/InfoTooltip'
 import CardFormModal from '@/components/creditCards/CardFormModal'
 import BillPaymentModal from '@/components/creditCards/BillPaymentModal'
 import RefundModal from '@/components/creditCards/RefundModal'
@@ -206,7 +207,7 @@ export default function Contas() {
 
   const stats = useMemo(() => {
     const totalFaturasAberto = activeCards.reduce((sum, card) => {
-      const previsto = Number(expensesByCard[card.id] || 0)
+      const previsto = Number(baseExpensesByCard[card.id] || 0)
       const pago = Number(paymentsByCard[card.id] || 0)
       const aberto = Math.max(0, previsto - pago)
       return sum + aberto
@@ -1395,8 +1396,23 @@ export default function Contas() {
 
                               <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
                                 <div className="text-right">
-                                  <p className="text-[10px] sm:text-xs text-secondary leading-tight">Fatura Atual</p>
-                                  <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">{formatCurrency(totalPrevisto)}</p>
+                                  <p className="text-[10px] sm:text-xs text-secondary leading-tight flex items-center justify-end gap-1">
+                                    Fatura Atual
+                                    {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
+                                      <InfoTooltip
+                                        content="Valor real da fatura, sem ajustes. O valor considerado nos relatórios pode ser diferente conforme os ajustes definidos em cada lançamento."
+                                        iconSize={10}
+                                      />
+                                    )}
+                                  </p>
+                                  <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">
+                                    {formatCurrency(baseExpensesByCard[card.id] ?? totalPrevisto)}
+                                  </p>
+                                  {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
+                                    <p className="text-[9px] text-secondary/50 font-sans mt-0.5">
+                                      Relatório: {formatCurrency(totalPrevisto)}
+                                    </p>
+                                  )}
                                 </div>
                                 {isExpanded ? (
                                   <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />

@@ -2183,19 +2183,6 @@ export default function Reports() {
     ? customLoading
     : (loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods || loadingPrevReports)
 
-  if (loadingState) {
-    return (
-      <div className="min-h-[calc(100vh-12rem)] flex flex-col">
-        <PageHeader
-          title={PAGE_HEADERS.reports.title}
-          subtitle={PAGE_HEADERS.reports.description}
-        />
-        <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
-          <SkeletonReports />
-        </div>
-      </div>
-    )
-  }
   const savingsRate = monthSummary && monthSummary.total_income > 0
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0
@@ -2563,6 +2550,20 @@ export default function Reports() {
           </div>
         </div>
       </Card>
+    )
+  }
+
+  if (loadingState) {
+    return (
+      <div className="min-h-[calc(100vh-12rem)] flex flex-col">
+        <PageHeader
+          title={PAGE_HEADERS.reports.title}
+          subtitle={PAGE_HEADERS.reports.description}
+        />
+        <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
+          <SkeletonReports />
+        </div>
+      </div>
     )
   }
 

@@ -1,4 +1,5 @@
 import { RefreshCw, Pencil, Trash2 } from 'lucide-react'
+import InfoTooltip from '@/components/InfoTooltip'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import IconButton from '@/components/IconButton'
@@ -127,11 +128,17 @@ export default function TransactionCard({
               <div className="flex items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col items-end">
                   {showOriginalAmount && (
-                    <p
-                      className="text-[10px] line-through mb-0.5"
-                      style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
-                    >
-                      {formatCurrency(originalAmount)}
+                    <p className="flex items-center gap-1 justify-end mb-0.5">
+                      <span
+                        className="text-[10px] line-through"
+                        style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
+                      >
+                        {formatCurrency(originalAmount)}
+                      </span>
+                      <InfoTooltip
+                        content="Valor original do lançamento. O valor considerado nos relatórios pode ser diferente quando há ajuste de impacto (ex: despesa compartilhada)."
+                        iconSize={8}
+                      />
                     </p>
                   )}
 
@@ -237,11 +244,17 @@ export default function TransactionCard({
               {/* Coluna 5: Valor */}
               <div className="flex flex-col items-end justify-center min-w-[110px] text-right flex-shrink-0 ml-auto">
                 {showOriginalAmount && (
-                  <p
-                    className="text-[10px] line-through mb-0.5"
-                    style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
-                  >
-                    {formatCurrency(originalAmount)}
+                  <p className="flex items-center gap-1 justify-end mb-0.5">
+                    <span
+                      className="text-[10px] line-through"
+                      style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
+                    >
+                      {formatCurrency(originalAmount)}
+                    </span>
+                    <InfoTooltip
+                      content="Valor original do lançamento. O valor considerado nos relatórios pode ser diferente quando há ajuste de impacto (ex: despesa compartilhada)."
+                      iconSize={8}
+                    />
                   </p>
                 )}
                 <p

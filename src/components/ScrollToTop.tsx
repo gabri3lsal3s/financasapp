@@ -1,185 +1,88 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronUp } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
-const SCROLL_DURATION_MS = 500 // scroll animado mais rápido que o padrão do navegador (~800ms)
-const HOLD_DELAY_MS = 800      // tempo de pressão contínua para evitar disparo acidental
-const BOTTOM_THRESHOLD = 80    // px do final para considerar "no fim da página"
+const SCROLL_DURATION_MS = 450
+const SHOW_THRESHOLD = 350
+const HINT_THRESHOLD = 150 // px do final da página para iniciar o pulso sutil
 
-export default function ScrollToTop({ scrollAreaRef }: { scrollAreaRef?: React.RefObject<HTMLElement | null> }) {
+export default function ScrollToTop() {
   const [visible, setVisible] = useState(false)
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isHoldingRef = useRef(false)
+  const [hint, setHint] = useState(false)
   const isAnimatingRef = useRef(false)
 
-  const clearHoldTimer = () => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
-    isHoldingRef.current = false
-  }
-
-  // Scroll suave customizado com duração e aceleração controladas
-  const smoothScrollToTop = () => {
+  const scrollToTop = () => {
     if (isAnimatingRef.current) return
     isAnimatingRef.current = true
 
-    const startPosition = scrollAreaRef?.current
-      ? scrollAreaRef.current.scrollTop
-      : window.scrollY || document.documentElement.scrollTop
-
-    if (startPosition <= 0) {
+    const startPos = window.scrollY || document.documentElement.scrollTop
+    if (startPos <= 0) {
       isAnimatingRef.current = false
       return
     }
 
     const startTime = performance.now()
 
-    const animateScroll = (currentTime: number) => {
-      const elapsed = currentTime - startTime
+    const animate = (now: number) => {
+      const elapsed = now - startTime
       const progress = Math.min(elapsed / SCROLL_DURATION_MS, 1)
+      // Cubic ease-out: desaceleração confortável
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
 
-      // Easing: cubic ease-out para desaceleração confortável
-      const easeOut = 1 - Math.pow(1 - progress, 3)
-      const currentPos = Math.max(0, startPosition * (1 - easeOut))
-
-      if (scrollAreaRef?.current) {
-        scrollAreaRef.current.scrollTop = currentPos
-      } else {
-        window.scrollTo(0, currentPos)
-      }
+      window.scrollTo(0, Math.max(0, startPos * (1 - easeOutCubic)))
 
       if (progress < 1) {
-        requestAnimationFrame(animateScroll)
+        requestAnimationFrame(animate)
       } else {
         isAnimatingRef.current = false
       }
     }
 
-    requestAnimationFrame(animateScroll)
-  }
-
-  const triggerScrollToTop = () => {
-    setVisible(true)
-    smoothScrollToTop()
-    // Esconde o aviso após a animação começar
-    setTimeout(() => setVisible(false), 350)
-    clearHoldTimer()
-  }
-
-  // Inicia o timer de pressão — só dispara se usuário continuar pressionando
-  const startHoldTimer = () => {
-    if (isAnimatingRef.current) return
-    if (isHoldingRef.current) return
-    isHoldingRef.current = true
-
-    holdTimerRef.current = setTimeout(triggerScrollToTop, HOLD_DELAY_MS)
+    requestAnimationFrame(animate)
   }
 
   useEffect(() => {
-    const el = scrollAreaRef?.current || window
-
-    const isAtBottom = (): boolean => {
-      let scrollTop: number
-      let clientHeight: number
-      let scrollHeight: number
-
-      if (scrollAreaRef?.current) {
-        const area = scrollAreaRef.current
-        scrollTop = area.scrollTop
-        clientHeight = area.clientHeight
-        scrollHeight = area.scrollHeight
-      } else {
-        scrollTop = window.scrollY
-        clientHeight = window.innerHeight
-        scrollHeight = document.documentElement.scrollHeight
-      }
-
-      return scrollHeight - scrollTop - clientHeight < BOTTOM_THRESHOLD
-    }
-
-    // Se o usuário sair do final da página, cancela tudo
     const onScroll = () => {
-      if (isAnimatingRef.current) return
-      if (!isAtBottom()) {
-        clearHoldTimer()
-        setVisible(false)
-      }
+      const scrollTop = window.scrollY || document.documentElement.scrollTop
+      const fromBottom =
+        document.documentElement.scrollHeight -
+        scrollTop -
+        window.innerHeight
+
+      setVisible(scrollTop > SHOW_THRESHOLD)
+      setHint(fromBottom < HINT_THRESHOLD && scrollTop > SHOW_THRESHOLD)
     }
 
-    // Wheel / trackpad: rolar para baixo no fim da página = "pressionando"
-    const onWheel = (e: Event) => {
-      if (isAnimatingRef.current) return
-      const we = e as WheelEvent
-      if (we.deltaY > 0 && isAtBottom()) {
-        startHoldTimer()
-      } else if (we.deltaY < 0) {
-        // Rolar para cima — cancela
-        clearHoldTimer()
-        setVisible(false)
-      }
-    }
-
-    // Touch (mobile): detecta pressão mantida no final
-    let touchStartY = 0
-    let wasAtBottomOnTouch = false
-
-    const onTouchStart = (e: Event) => {
-      if (isAnimatingRef.current) return
-      const te = e as TouchEvent
-      touchStartY = te.touches[0].clientY
-      wasAtBottomOnTouch = isAtBottom()
-    }
-
-    const onTouchMove = (e: Event) => {
-      if (isAnimatingRef.current) return
-      const te = e as TouchEvent
-      const deltaY = touchStartY - te.touches[0].clientY
-      // deltaY > 0 = dedo subindo = tentando rolar para baixo
-      if (wasAtBottomOnTouch && deltaY > 0) {
-        startHoldTimer()
-      } else if (!isAtBottom()) {
-        clearHoldTimer()
-        setVisible(false)
-      }
-    }
-
-    const onTouchEnd = () => {
-      // Se o usuário soltar o dedo antes do timer, cancela
-      if (!isAnimatingRef.current) {
-        clearHoldTimer()
-        setVisible(false)
-      }
-    }
-
-    el.addEventListener('scroll', onScroll, { passive: true })
-    el.addEventListener('wheel', onWheel as EventListener, { passive: true })
-    el.addEventListener('touchstart', onTouchStart as EventListener, { passive: true })
-    el.addEventListener('touchmove', onTouchMove as EventListener, { passive: true })
-    el.addEventListener('touchend', onTouchEnd as EventListener, { passive: true })
-
-    return () => {
-      el.removeEventListener('scroll', onScroll)
-      el.removeEventListener('wheel', onWheel)
-      el.removeEventListener('touchstart', onTouchStart)
-      el.removeEventListener('touchmove', onTouchMove)
-      el.removeEventListener('touchend', onTouchEnd)
-      clearHoldTimer()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollAreaRef])
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   return (
-    <div
-      className={cn(
-        'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-2.5 rounded-full border border-glass bg-glass/70 text-secondary shadow-lg transition-all duration-300 motion-standard pointer-events-none',
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-      )}
-      aria-live="polite"
+    <button
+      onClick={scrollToTop}
+      className={[
+        'fixed z-50',
+        'bottom-24 sm:bottom-6 right-4 sm:right-6',
+        'flex items-center gap-2 pl-3 pr-4 sm:pl-4 sm:pr-5 py-2.5',
+        'rounded-full border',
+        'bg-glass/80 backdrop-blur-lg',
+        'shadow-lg shadow-black/5',
+        'transition-all duration-300 motion-standard',
+        'select-none cursor-pointer',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
+        'hover:bg-glass hover:shadow-xl hover:scale-105',
+        'active:scale-95',
+        visible
+          ? 'opacity-100 translate-y-0 scale-100'
+          : 'opacity-0 translate-y-4 scale-90 pointer-events-none',
+        hint && visible ? 'border-primary/20 scroll-hint-pulse' : 'border-glass',
+      ].join(' ')}
+      aria-label="Voltar ao topo"
+      title="Voltar ao topo"
     >
-      <ChevronUp size={16} />
-      <span className="text-xs font-semibold whitespace-nowrap">Voltar ao topo</span>
-    </div>
+      <ChevronUp size={16} className="shrink-0 text-primary" />
+      <span className="text-xs font-semibold whitespace-nowrap hidden sm:inline text-primary">
+        Voltar ao topo
+      </span>
+    </button>
   )
 }

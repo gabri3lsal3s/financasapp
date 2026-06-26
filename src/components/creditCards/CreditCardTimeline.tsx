@@ -1,4 +1,5 @@
 import { AlertCircle, Clock, CreditCard as CreditCardIcon, CheckCircle2, Lock } from 'lucide-react'
+import InfoTooltip from '@/components/InfoTooltip'
 import type { CreditCard } from '@/types'
 import { ensureHexColor } from '@/utils/colorValue'
 import { formatCurrency, formatDate } from '@/utils/format'
@@ -300,11 +301,15 @@ export default function CreditCardTimeline({
               Previsto
             </span>
             <span className="text-sm font-extrabold text-primary font-mono mt-0.5 whitespace-nowrap">
-              {formatCurrency(totalPrevisto)}
+              {formatCurrency(baseExpense !== undefined ? baseExpense : totalPrevisto)}
             </span>
             {baseExpense !== undefined && baseExpense !== totalPrevisto && (
-              <span className="text-[9px] text-secondary opacity-70 font-sans" title="Valor base sem pesos">
-                ({formatCurrency(baseExpense)})
+              <span className="text-[9px] text-secondary/60 font-sans flex items-center gap-0.5 justify-center">
+                <span>({formatCurrency(totalPrevisto)} no relatório)</span>
+                <InfoTooltip
+                  content="Valor que esta fatura representa nos relatórios mensais. O valor real da fatura permanece o mesmo — o ajuste é apenas para organização financeira."
+                  iconSize={8}
+                />
               </span>
             )}
           </div>
@@ -383,8 +388,12 @@ export default function CreditCardTimeline({
                       {formatCurrency(item.metricVal)}
                     </span>
                     {item.extraMetric !== undefined && (
-                      <span className="text-[9px] text-secondary opacity-70 font-sans" title="Valor base sem pesos">
-                        ({formatCurrency(item.extraMetric)})
+                      <span className="text-[9px] text-secondary/60 font-sans flex items-center gap-0.5">
+                        <span>({formatCurrency(item.extraMetric)} no relatório)</span>
+                        <InfoTooltip
+                          content="Valor que esta fatura representa nos relatórios mensais. O valor real da fatura permanece o mesmo — o ajuste é apenas para organização financeira."
+                          iconSize={8}
+                        />
                       </span>
                     )}
                   </div>

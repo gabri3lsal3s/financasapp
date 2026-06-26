@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import InfoTooltip from '@/components/InfoTooltip'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Button from '@/components/Button'
@@ -157,7 +158,7 @@ export default function CategoryDetailModal({
 
   const detailItems = useMemo(() => {
     if (!isOpen) {
-      return [] as Array<{ id: string; description: string; date: string; amount: number }>
+      return [] as Array<{ id: string; description: string; date: string; amount: number; originalAmount: number }>
     }
 
     if (type === 'expense') {
@@ -169,6 +170,7 @@ export default function CategoryDetailModal({
           description: item.description || item.category?.name || 'Despesa',
           date: item.date,
           amount: getAmountByMode(item),
+          originalAmount: item.amount,
         }))
         .sort((a, b) => b.date.localeCompare(a.date))
     }
@@ -182,6 +184,7 @@ export default function CategoryDetailModal({
           description: item.description || item.income_category?.name || 'Renda',
           date: item.date,
           amount: getAmountByMode(item),
+          originalAmount: item.amount,
         }))
         .sort((a, b) => b.date.localeCompare(a.date))
     }
@@ -195,6 +198,7 @@ export default function CategoryDetailModal({
           description: item.description || item.category?.name || 'Despesa',
           date: item.date,
           amount: getAmountByMode(item),
+          originalAmount: item.amount,
         }))
         .sort((a, b) => b.date.localeCompare(a.date))
     }
@@ -208,6 +212,7 @@ export default function CategoryDetailModal({
           description: item.description || item.category?.name || 'Despesa',
           date: item.date,
           amount: getAmountByMode(item),
+          originalAmount: item.amount,
         }))
         .sort((a, b) => b.date.localeCompare(a.date))
     }
@@ -229,6 +234,16 @@ export default function CategoryDetailModal({
   const detailCurrentTotal = useMemo(
     () => detailItems.reduce((sum, item) => sum + item.amount, 0),
     [detailItems]
+  )
+
+  const detailBaseTotal = useMemo(
+    () => detailItems.reduce((sum, item) => sum + item.originalAmount, 0),
+    [detailItems]
+  )
+
+  const hasWeightDifference = useMemo(
+    () => Math.abs(detailCurrentTotal - detailBaseTotal) > 0.009,
+    [detailCurrentTotal, detailBaseTotal]
   )
 
   const filteredDetailItems = useMemo(() => {
@@ -428,6 +443,15 @@ export default function CategoryDetailModal({
               <p className="text-lg font-bold text-primary font-mono mt-0.5">
                 {formatCurrency(detailCurrentTotal)}
               </p>
+              {hasWeightDifference && (
+                <p className="text-[9px] text-secondary/50 mt-0.5 flex items-center gap-1">
+                  <span>Valor base: {formatCurrency(detailBaseTotal)}</span>
+                  <InfoTooltip
+                    content="Valor original dos lançamentos, sem ajustes. O valor exibido como total já considera os ajustes definidos."
+                    iconSize={8}
+                  />
+                </p>
+              )}
             </div>
 
             {/* Listagem Simplificada */}
@@ -477,9 +501,25 @@ export default function CategoryDetailModal({
                             {formatDate(item.date)}
                           </p>
                         </div>
-                        <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
-                          {formatCurrency(item.amount)}
-                        </p>
+                        <div className="text-right flex flex-col items-end gap-0.5">
+                          {Math.abs(item.amount - item.originalAmount) > 0.009 && (
+                            <p className="flex items-center gap-1">
+                              <span
+                                className="text-[9px] line-through"
+                                style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
+                              >
+                                {formatCurrency(item.originalAmount)}
+                              </span>
+                              <InfoTooltip
+                                content="Valor original do lançamento. O valor reportado pode ser diferente quando há ajuste de impacto."
+                                iconSize={7}
+                              />
+                            </p>
+                          )}
+                          <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
+                            {formatCurrency(item.amount)}
+                          </p>
+                        </div>
                       </div>
                     ))}
 
@@ -534,9 +574,18 @@ export default function CategoryDetailModal({
                         <p className="text-[10px] text-secondary">
                           Total em {period === 'year' ? selectedYear : formatMonth(selectedMonth)}
                         </p>
-                        <p className="text-lg font-bold text-primary font-mono">
+                        <p className="text-lg font-bold text-primary font-mono leading-tight">
                           {formatCurrency(detailCurrentTotal)}
                         </p>
+                        {hasWeightDifference && (
+                          <p className="text-[9px] text-secondary/50 mt-0.5 flex items-center gap-1">
+                            <span>Valor base: {formatCurrency(detailBaseTotal)}</span>
+                            <InfoTooltip
+                              content="Valor original dos lançamentos, sem ajustes. O valor exibido como total já considera os ajustes definidos (útil para despesas/rendas compartilhadas)."
+                              iconSize={8}
+                            />
+                          </p>
+                        )}
                       </div>
                       {detailDifferencePct !== null && (
                         <span

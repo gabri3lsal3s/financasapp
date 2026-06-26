@@ -2436,6 +2436,24 @@ nav.glass-bottom-nav {
   box-shadow: var(--glass-inset-highlight);
 }
 
+/* ── Scroll-to-top hint pulse ──────────────────────────────────────────────── */
+@keyframes scroll-hint-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent),
+      0 4px 16px -4px rgba(0,0,0,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px color-mix(in srgb, var(--color-primary) 6%, transparent),
+      0 4px 20px -4px rgba(0,0,0,0.12);
+  }
+}
+
+.scroll-hint-pulse {
+  animation: scroll-hint-pulse 2.5s ease-in-out infinite;
+}
+
 /* Keyframes e animações para modais expandindo a partir dos botões flutuantes (lateral direita) */
 @keyframes modal-open-from-right {
   from {

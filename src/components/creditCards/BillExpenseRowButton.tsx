@@ -1,5 +1,6 @@
 import RowButton from '@/components/RowButton'
 import { Check } from 'lucide-react'
+import InfoTooltip from '@/components/InfoTooltip'
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
 import { formatCurrency, formatDate, roundToDecimals } from '@/utils/format'
 
@@ -45,11 +46,15 @@ export default function BillExpenseRowButton({
 
         <div className="flex flex-col items-end shrink-0 text-right">
           <p className={`text-xs sm:text-sm font-bold ${baseAmount < 0 ? 'text-income' : 'text-primary'} font-mono`}>
-            {formatCurrency(item.amount)}
+            {formatCurrency(baseAmount)}
           </p>
           {hasDifference && (
-            <p className="text-[9px] sm:text-xs text-secondary">
-              Base: {formatCurrency(baseAmount)}
+            <p className="text-[9px] sm:text-[10px] text-secondary flex items-center gap-1 justify-end">
+              <span>Relatório: {formatCurrency(weightedAmount)}</span>
+              <InfoTooltip
+                content="Valor que esta despesa representa nos relatórios mensais. Pode ser diferente do valor real quando o lançamento tem impacto parcial (ex: conta dividida com outra pessoa)."
+                iconSize={10}
+              />
             </p>
           )}
         </div>
