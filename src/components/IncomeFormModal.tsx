@@ -5,11 +5,13 @@ import Modal from '@/components/Modal'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
+import AmountInput from '@/components/AmountInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useFormAmountSync } from '@/hooks/useFormAmountSync'
 import { Income, IncomeCategory } from '@/types'
 import {
   APP_START_DATE,
@@ -58,6 +60,12 @@ export default function IncomeFormModal({
     type: 'other',
   })
   const [saving, setSaving] = useState(false)
+
+  const { handleAmountChange } = useFormAmountSync({
+    amount: formData.amount,
+    reportAmount: formData.report_amount,
+    setAmounts: (next) => setFormData((prev) => ({ ...prev, ...next })),
+  })
 
   const [refundOriginLoading, setRefundOriginLoading] = useState(false)
   const [refundOrigin, setRefundOrigin] = useState<{
@@ -145,23 +153,6 @@ export default function IncomeFormModal({
     }
   }, [isOpen, editingIncome, incomeCategories])
 
-  const handleAmountChange = (nextAmount: string) => {
-    setFormData((prev) => {
-      const prevAmount = parseMoneyInput(prev.amount)
-      const prevReportAmount = parseMoneyInput(prev.report_amount)
-      const shouldSyncReportAmount =
-        !prev.report_amount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
-
-      return {
-        ...prev,
-        amount: nextAmount,
-        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
-      }
-    })
-  }
 
   const incomeCategoriesForManualCreation = incomeCategories.filter(
     (category) =>
@@ -357,40 +348,18 @@ export default function IncomeFormModal({
         />
       )}
     >
-          <Input
+          <AmountInput
             label="Valor"
-            type="text"
-            inputMode="decimal"
             value={formData.amount}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            onBlur={() => {
-              const parsed = parseMoneyInput(formData.amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                handleAmountChange(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
+            onChange={handleAmountChange}
             required
           />
 
-          <Input
+          <AmountInput
             label="Valor no relatório (opcional)"
-            type="text"
-            inputMode="decimal"
             value={formData.report_amount}
-            onChange={(e) =>
-              setFormData({ ...formData, report_amount: e.target.value })
-            }
-            onBlur={() => {
-              if (!formData.report_amount) return
-              const parsed = parseMoneyInput(formData.report_amount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setFormData({
-                  ...formData,
-                  report_amount: formatMoneyInput(parsed),
-                })
-              }
-            }}
+            onChange={(val) => setFormData({ ...formData, report_amount: val })}
+            onBlur={(formatted) => setFormData((prev) => ({ ...prev, report_amount: formatted }))}
             placeholder="Se vazio, usa o valor total"
           />
 

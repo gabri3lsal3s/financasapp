@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import Button from '@/components/Button'
+import RowButton from '@/components/RowButton'
 
 interface PaymentRowButtonProps {
   children: ReactNode
@@ -8,13 +8,8 @@ interface PaymentRowButtonProps {
 
 export default function PaymentRowButton({ children, onClick }: PaymentRowButtonProps) {
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={onClick}
-      className="w-full h-auto text-left flex-col items-stretch p-2.5"
-    >
+    <RowButton onClick={onClick}>
       {children}
-    </Button>
+    </RowButton>
   )
 }

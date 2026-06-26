@@ -1,4 +1,4 @@
-import Button from '@/components/Button'
+import RowButton from '@/components/RowButton'
 import { Check } from 'lucide-react'
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
 import { formatCurrency, formatDate, roundToDecimals } from '@/utils/format'
@@ -23,12 +23,7 @@ export default function BillExpenseRowButton({
   const hasDifference = Math.abs(weightedAmount - baseAmount) > 0.009
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => onOpen(item)}
-      className="w-full h-auto text-left flex-col items-stretch p-2.5"
-    >
+    <RowButton onClick={() => onOpen(item)}>
       <div className="flex items-start justify-between gap-3 w-full">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -59,6 +54,6 @@ export default function BillExpenseRowButton({
           )}
         </div>
       </div>
-    </Button>
+    </RowButton>
   )
 }

@@ -4,10 +4,12 @@ import { ptBR } from 'date-fns/locale'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
+import AmountInput from '@/components/AmountInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
 import { useDebts } from '@/hooks/useDebts'
+import { useFormAmountSync } from '@/hooks/useFormAmountSync'
 import { Expense, Category, CreditCard } from '@/types'
 import {
   APP_START_DATE,
@@ -67,6 +69,19 @@ export default function ExpenseFormModal({
   const [isDebtAmountEdited, setIsDebtAmountEdited] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  const { handleAmountChange } = useFormAmountSync({
+    amount: formData.amount,
+    reportAmount: formData.report_amount,
+    setAmounts: (next) => setFormData((prev) => ({ ...prev, ...next })),
+  })
+
+  const handleExpenseAmountChange = (nextAmount: string) => {
+    handleAmountChange(nextAmount)
+    if (!isDebtAmountEdited) {
+      setLinkedDebtAmount(nextAmount)
+    }
+  }
+
   useEffect(() => {
     if (isOpen) {
       if (editingExpense) {
@@ -105,27 +120,6 @@ export default function ExpenseFormModal({
     }
   }, [isOpen, editingExpense, categories, defaultValues])
 
-  const handleAmountChange = (nextAmount: string) => {
-    setFormData((prev) => {
-      const prevAmount = parseMoneyInput(prev.amount)
-      const prevReportAmount = parseMoneyInput(prev.report_amount)
-      const shouldSyncReportAmount =
-        !prev.report_amount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
-
-      return {
-        ...prev,
-        amount: nextAmount,
-        report_amount: shouldSyncReportAmount ? nextAmount : prev.report_amount,
-      }
-    })
-
-    if (!isDebtAmountEdited) {
-      setLinkedDebtAmount(nextAmount)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -282,40 +276,21 @@ export default function ExpenseFormModal({
         />
       )}
     >
-        <Input
+        <AmountInput
           label="Valor"
-          type="text"
-          inputMode="decimal"
           value={formData.amount}
-          onChange={(e) => handleAmountChange(e.target.value)}
+          onChange={handleExpenseAmountChange}
           onBlur={() => {
-            const parsed = parseMoneyInput(formData.amount)
-            if (!Number.isNaN(parsed) && parsed >= 0) {
-              handleAmountChange(formatMoneyInput(parsed))
-            }
+            if (!isDebtAmountEdited) setLinkedDebtAmount(formData.amount)
           }}
-          placeholder="0,00"
           required
         />
 
-        <Input
+        <AmountInput
           label="Valor no relatório (opcional)"
-          type="text"
-          inputMode="decimal"
           value={formData.report_amount}
-          onChange={(e) =>
-            setFormData({ ...formData, report_amount: e.target.value })
-          }
-          onBlur={() => {
-            if (!formData.report_amount) return
-            const parsed = parseMoneyInput(formData.report_amount)
-            if (!Number.isNaN(parsed) && parsed >= 0) {
-              setFormData({
-                ...formData,
-                report_amount: formatMoneyInput(parsed),
-              })
-            }
-          }}
+          onChange={(val) => setFormData({ ...formData, report_amount: val })}
+          onBlur={(formatted) => setFormData((prev) => ({ ...prev, report_amount: formatted }))}
           placeholder="Se vazio, usa o valor total"
         />
 

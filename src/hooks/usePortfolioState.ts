@@ -18,6 +18,7 @@ import { subDays, format } from 'date-fns'
 import { runClientSideHistoricalRecalculation } from '@/services/portfolioHistoricalRecalc'
 import { computeDailyShareHistory, needsHistoricalBackfill } from '@/utils/portfolioTwrEngine'
 import { isCashTicker } from '@/utils/assetClassifier'
+import { logger } from '@/utils/logger'
 
 async function fetchAllShareHistory(portfolioId: string): Promise<PortfolioShareDailyRow[]> {
   let allShares: PortfolioShareDailyRow[] = []
@@ -119,7 +120,7 @@ export function usePortfolioState() {
       if (options?.forceRefresh) {
         try {
           await runClientSideHistoricalRecalculation(portfolio.id, (phase) => {
-            console.log('[recalc]', phase)
+            logger.debug('[recalc]', phase)
           })
         } catch (recalcErr) {
           console.error('[usePortfolioState] Failed client-side recalculation on forceRefresh:', recalcErr)
@@ -324,7 +325,7 @@ export function usePortfolioState() {
       setShareHistory(displayShares)
 
       if (shouldBackfill && !options?.skipBackfill) {
-        console.log('[usePortfolioState] Histórico TWR incompleto. Iniciando backfill em background...')
+        logger.debug('[usePortfolioState] Histórico TWR incompleto. Iniciando backfill em background...')
         setTimeout(async () => {
           try {
             await runClientSideHistoricalRecalculation(portfolio.id)
@@ -360,7 +361,7 @@ export function usePortfolioState() {
       }
 
       if (needsAutoRefresh && !options?.forceRefresh) {
-        console.log(`[AutoRefresh] Cotações desatualizadas em relação ao fechamento (${latestTradingDateStr} 18h). Forçando atualização em background...`)
+        logger.debug(`[AutoRefresh] Cotações desatualizadas em relação ao fechamento (${latestTradingDateStr} 18h). Forçando atualização em background...`)
         setTimeout(() => {
           void loadData({ forceRefresh: true, silent: true })
         }, 1000)

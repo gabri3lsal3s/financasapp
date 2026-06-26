@@ -50,79 +50,7 @@ function AppRoutes() {
   )
 }
 
-import { useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
-
-async function fetchAllShareHistory(portfolioId: string): Promise<any[]> {
-  let allShares: any[] = []
-  let page = 0
-  const pageSize = 1000
-  let hasMore = true
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from('portfolio_share_daily')
-      .select('*')
-      .eq('portfolio_id', portfolioId)
-      .order('rate_date', { ascending: true })
-      .range(page * pageSize, (page + 1) * pageSize - 1)
-
-    if (error) throw error
-    if (!data || data.length === 0) {
-      hasMore = false
-    } else {
-      allShares = [...allShares, ...data]
-      if (data.length < pageSize) {
-        hasMore = false
-      } else {
-        page++
-      }
-    }
-  }
-
-  return allShares
-}
-
 function App() {
-  useEffect(() => {
-    async function dump() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        
-        const [portfoliosRes, defsRes, pricesRes] = await Promise.all([
-          supabase.from('portfolios').select('*'),
-          supabase.from('portfolio_asset_definitions').select('*'),
-          supabase.from('asset_prices').select('*')
-        ])
-
-        const portfolio = portfoliosRes.data?.[0]
-        if (!portfolio) return
-
-        const [txs, shares] = await Promise.all([
-          fetchAllPortfolioTransactions(portfolio.id),
-          fetchAllShareHistory(portfolio.id)
-        ])
-
-        await fetch('/api/dump-data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            txs: txs,
-            shares: shares,
-            portfolios: portfoliosRes.data || [],
-            definitions: defsRes.data || [],
-            prices: pricesRes.data || []
-          })
-        })
-        console.log('DUMPED DATABASE DATA TO tmp_dump.json!')
-      } catch (err) {
-        console.error('Error dumping data:', err)
-      }
-    }
-    dump()
-  }, [])
 
   return (
     <AuthProvider>
@@ -137,8 +65,10 @@ function App() {
               toastOptions={{
                 duration: 4000,
                 style: {
-                  background: 'var(--color-bg-tertiary)',
-                  color: 'var(--color-text-primary)',
+                  background: 'var(--ds-color-surface-glass)',
+                  color: 'var(--ds-color-text-primary)',
+                  border: '1px solid var(--glass-border)',
+                  backdropFilter: 'blur(12px)',
                 },
               }}
             />

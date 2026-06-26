@@ -61,6 +61,32 @@ export default function PortfolioTransactionFormModal({
   const isCashType = isCashTicker(ticker)
   const isIncomeType = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
 
+  // Type-safe handlers para Selects de tipo literal
+  const PRICING_MODES: PortfolioPricingMode[] = ['market', 'fixed_income', 'manual_value', 'cash']
+  const CURRENCIES = ['BRL', 'USD'] as const
+  const INDEXERS: PortfolioAssetIndexer[] = ['none', 'cdi', 'selic', 'ipca']
+
+  const handlePricingModeChange = (e: { target: { value: string } }) => {
+    const val = e.target.value
+    if ((PRICING_MODES as string[]).includes(val)) {
+      setPricingMode(val as PortfolioPricingMode)
+    }
+  }
+
+  const handleCurrencyChange = (e: { target: { value: string } }) => {
+    const val = e.target.value
+    if ((CURRENCIES as readonly string[]).includes(val)) {
+      setCurrency(val as 'BRL' | 'USD')
+    }
+  }
+
+  const handleIndexerChange = (e: { target: { value: string } }) => {
+    const val = e.target.value
+    if ((INDEXERS as string[]).includes(val)) {
+      setIndexer(val as PortfolioAssetIndexer)
+    }
+  }
+
   // Carregar dados da transação ao abrir
   useEffect(() => {
     if (!isOpen) return
@@ -572,7 +598,7 @@ export default function PortfolioTransactionFormModal({
                     <label className="text-[9px] uppercase font-black text-secondary">Forma de Precificação</label>
                     <Select
                       value={pricingMode}
-                      onChange={(e) => setPricingMode(e.target.value as any)}
+                      onChange={handlePricingModeChange}
                       options={[
                         { value: 'market', label: 'Cotação de Mercado (B3 / Yahoo)' },
                         { value: 'fixed_income', label: 'Renda Fixa na Curva (CDI/SELIC/IPCA)' },
@@ -588,7 +614,7 @@ export default function PortfolioTransactionFormModal({
                       <label className="text-[9px] uppercase font-black text-secondary">Moeda Padrão</label>
                       <Select
                         value={currency}
-                        onChange={(e) => setCurrency(e.target.value as any)}
+                        onChange={handleCurrencyChange}
                         options={[
                           { value: 'BRL', label: 'BRL (R$)' },
                           { value: 'USD', label: 'USD ($)' }
@@ -619,7 +645,7 @@ export default function PortfolioTransactionFormModal({
                           <label className="text-[9px] uppercase font-black text-secondary">Indexador</label>
                           <Select
                             value={indexer}
-                            onChange={(e) => setIndexer(e.target.value as any)}
+                            onChange={handleIndexerChange}
                             options={[
                               { value: 'none', label: 'Pré-fixado (Nenhum)' },
                               { value: 'cdi', label: 'CDI' },

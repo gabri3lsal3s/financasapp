@@ -200,16 +200,33 @@ export default function AssetConfigModal({
     }
   }
 
+  type PricingMode = 'market' | 'fixed_income' | 'manual_value' | 'cash'
+  type Currency = 'BRL' | 'USD'
+  type Indexer = 'none' | 'cdi' | 'selic' | 'ipca'
+
+  const PRICING_MODES: PricingMode[] = ['market', 'fixed_income', 'manual_value', 'cash']
+  const CURRENCIES: Currency[] = ['BRL', 'USD']
+  const INDEXERS: Indexer[] = ['none', 'cdi', 'selic', 'ipca']
+
   const handlePricingChange = (e: { target: { value: string } }) => {
-    setPricingMode(e.target.value as any)
+    const val = e.target.value
+    if ((PRICING_MODES as string[]).includes(val)) {
+      setPricingMode(val as PricingMode)
+    }
   }
 
   const handleCurrencyChange = (e: { target: { value: string } }) => {
-    setCurrency(e.target.value as any)
+    const val = e.target.value
+    if ((CURRENCIES as string[]).includes(val)) {
+      setCurrency(val as Currency)
+    }
   }
 
   const handleIndexerChange = (e: { target: { value: string } }) => {
-    setIndexer(e.target.value as any)
+    const val = e.target.value
+    if ((INDEXERS as string[]).includes(val)) {
+      setIndexer(val as Indexer)
+    }
   }
 
   if (!isOpen) return null

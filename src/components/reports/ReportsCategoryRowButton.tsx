@@ -1,4 +1,4 @@
-import Button from '@/components/Button'
+import RowButton from '@/components/RowButton'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { AlertTriangle } from 'lucide-react'
 import { getCategoryIcon } from '@/utils/categoryIcons'
@@ -45,11 +45,10 @@ export default function ReportsCategoryRowButton({
     : (targetPct >= 100 ? 'text-income font-bold' : 'text-secondary')
 
   return (
-    <Button
-      type="button"
-      variant="outline"
+    <RowButton
       onClick={() => onOpen(categoryId, categoryName)}
-      className={`w-full h-auto text-left flex-col items-stretch p-2.5 animate-stagger-item transition-all hover:scale-[1.005] hover:border-glass-strong surface-glass ${staggerClass}`}
+      animated
+      className={`transition-all hover:scale-[1.005] hover:border-glass-strong surface-glass ${staggerClass}`}
     >
       {/* Linha 1: Categoria + Ícone (Esquerda) e Valor (Direita) */}
       <div className="flex items-center justify-between gap-3 w-full">
@@ -93,7 +92,7 @@ export default function ReportsCategoryRowButton({
       <div className="w-full h-1 rounded-full bg-secondary/20 mt-1.5 overflow-hidden">
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sharePct}%`, backgroundColor: color }} />
       </div>
-    </Button>
+    </RowButton>
   )
 }
 

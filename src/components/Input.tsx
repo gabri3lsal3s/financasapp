@@ -28,8 +28,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <DatePicker
             id={inputId}
             value={String(props.value ?? '')}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onChange={props.onChange as any}
+            onChange={(e) => {
+              if (props.onChange) {
+                // DatePicker emite { target: { value, name } } — compatível estruturalmente com
+                // ChangeEvent<HTMLInputElement>. Criamos um evento sintético mínimo para manter
+                // a tipagem correta sem recorrer a 'as any'.
+                const syntheticEvent = e as unknown as React.ChangeEvent<HTMLInputElement>
+                props.onChange(syntheticEvent)
+              }
+            }}
             name={props.name}
             placeholder={props.placeholder}
             disabled={props.disabled}

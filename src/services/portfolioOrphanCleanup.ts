@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 /**
  * Remove definições e metas de tickers que não possuem mais transações no livro-razão.
@@ -78,7 +79,7 @@ export async function cleanupOrphanPortfolioTickers(
           supabase.from('asset_price_daily').delete().eq('ticker', ticker),
           supabase.from('asset_prices').delete().eq('ticker', ticker)
         ])
-        console.log(`[cleanupOrphan] Deleted global prices and daily history for unused ticker: ${ticker}`)
+        logger.debug(`[cleanupOrphan] Deleted global prices and daily history for unused ticker: ${ticker}`)
       }
     } catch (err) {
       console.warn(`[cleanupOrphan] Error checking or deleting global prices for ticker ${ticker}:`, err)

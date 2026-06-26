@@ -37,6 +37,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
     compact = false,
     disabled,
     placeholder,
+    name,
     ...props 
   }, ref) => {
     const generatedId = useId()
@@ -58,11 +59,11 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       const fakeEvent = {
         target: {
           value: String(clampedValue),
-          name: (props as any).name,
+          name,
         },
       } as React.ChangeEvent<HTMLInputElement>
       onChange(fakeEvent)
-    }, [disabled, step, numericValue, min, max, onChange, props])
+    }, [disabled, step, numericValue, min, max, name, onChange])
 
     // Determinar se os botões devem ser desabilitados
     const canDecrement = min === undefined || numericValue > min

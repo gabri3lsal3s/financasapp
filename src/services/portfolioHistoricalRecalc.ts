@@ -3,6 +3,7 @@ import { fetchWithCorsProxy } from '@/services/priceService'
 import { sortTransactionsStably } from '@/utils/portfolioOperations'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import { computeDailyShareHistory } from '@/utils/portfolioTwrEngine'
+import { logger } from '@/utils/logger'
 
 async function fetchAllIndexRates(startDate: string, endDate: string): Promise<any[]> {
   let allRates: any[] = []
@@ -76,7 +77,7 @@ export async function runClientSideHistoricalRecalculation(
   portfolioId: string,
   onProgress?: (phase: string, current: number, total: number) => void
 ): Promise<void> {
-  console.log(`[recalcFallback] Iniciando recálculo do portfólio ${portfolioId}...`)
+  logger.info(`[recalcFallback] Iniciando recálculo do portfólio ${portfolioId}...`)
   onProgress?.('Iniciando recálculo...', 0, 5)
   const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -95,7 +96,7 @@ export async function runClientSideHistoricalRecalculation(
   const definitions = defRes.data || []
 
   if (rawTransactions.length === 0) {
-    console.log(`[recalcFallback] Portfólio sem transações. Limpando histórico e zerando métricas.`)
+    logger.info(`[recalcFallback] Portfólio sem transações. Limpando histórico e zerando métricas.`)
     await Promise.all([
       supabase.from('portfolio_share_daily').delete().eq('portfolio_id', portfolioId),
       supabase.from('portfolio_period_snapshots').delete().eq('portfolio_id', portfolioId),
@@ -271,5 +272,5 @@ export async function runClientSideHistoricalRecalculation(
     .eq('id', portfolioId)
 
   if (finalError) throw finalError
-  console.log(`[recalcFallback] Recálculo do portfólio ${portfolioId} finalizado com sucesso (${dailyRows.length} dias).`)
+  logger.info(`[recalcFallback] Recálculo do portfólio ${portfolioId} finalizado com sucesso (${dailyRows.length} dias).`)
 }
