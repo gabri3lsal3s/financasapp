@@ -3,7 +3,7 @@ import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import Loader from '@/components/Loader'
+import { SkeletonTransactionList } from '@/components/Skeleton'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
@@ -265,7 +265,7 @@ export default function Expenses() {
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <MonthTransitionView month={currentMonth}>
           {loading && expenses.length === 0 ? (
-            <Loader text="Carregando despesas..." className="py-12" />
+            <SkeletonTransactionList />
           ) : expenses.length === 0 ? (
             <Card className="text-center py-10 space-y-3">
               <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>

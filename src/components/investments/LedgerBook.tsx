@@ -10,6 +10,7 @@ import { Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
+import { logger } from '@/utils/logger'
 
 const PAGE_SIZE = 25
 
@@ -112,7 +113,7 @@ export default function LedgerBook({
         try {
           await cleanupOrphanPortfolioTickers(portfolioId, tickersToCheck)
         } catch (cleanupErr) {
-          console.warn('[LedgerBook] Error cleaning up bulk orphan tickers:', cleanupErr)
+          logger.warn('[LedgerBook] Error cleaning up bulk orphan tickers:', cleanupErr)
         }
       }
 
@@ -125,7 +126,7 @@ export default function LedgerBook({
 
       onDeleteTransaction()
     } catch (err) {
-      console.error('[LedgerBook] Erro ao deletar em massa:', err)
+      logger.error('[LedgerBook] Erro ao deletar em massa:', err)
       toast.error('Erro ao excluir as transações.')
     } finally {
       setIsBulkDeleting(false)

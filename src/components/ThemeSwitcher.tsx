@@ -5,6 +5,7 @@ import Card from './Card'
 import Button from './Button'
 import { appearanceChoiceClass } from '@/components/appearanceChoice'
 import { calculateSunriseSunset, formatCoordinate } from '@/utils/solar'
+import { logger } from '@/utils/logger'
 
 const THEME_PREVIEW_LABELS = {
   bg: 'Fundo',
@@ -72,7 +73,7 @@ export default function ThemeSwitcher() {
         setLocLoading(false)
       },
       (error) => {
-        console.error('Error getting location:', error)
+        logger.error('Error getting location:', error)
         let msg = 'Não foi possível obter sua localização.'
         if (error.code === error.PERMISSION_DENIED) {
           msg = 'Permissão de localização negada pelo navegador.'

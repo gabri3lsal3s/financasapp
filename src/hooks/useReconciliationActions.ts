@@ -19,6 +19,7 @@ import type {
   InvestmentReconciliationResult,
 } from '@/utils/investmentExcelReconciliation'
 import type { MissingDraft, ConflictDraft } from './useReconciliationDrafts'
+import { logger } from '@/utils/logger'
 
 type PortfolioTransactionInsert = Omit<PortfolioTransaction, 'created_at'>
 
@@ -155,7 +156,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
 
       goToNextStepAfter('corrections')
     } catch (err) {
-      console.error(err)
+      logger.error(err)
       toast.error('Ocorreu um erro ao aplicar as correções no banco de dados.')
     } finally {
       setLoading(false)
@@ -315,7 +316,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
 
       goToNextStepAfter('corrections', activeMissing)
     } catch (err) {
-      console.error(err)
+      logger.error(err)
       toast.error(err instanceof Error ? err.message : 'Erro ao efetuar a importação em lote.')
     } finally {
       setLoading(false)
@@ -343,7 +344,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
         toast.success(`Rentabilidade de ${asset.ticker} salva com sucesso!`)
         onSaved()
       } catch (err) {
-        console.error(err)
+        logger.error(err)
         toast.error(`Erro ao salvar rentabilidade de ${asset.ticker}`)
       }
     },
@@ -420,7 +421,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
       toast.success(`${active.length} ajuste(s) aplicado(s) com base na posição B3.`)
       onSaved()
     } catch (err) {
-      console.error(err)
+      logger.error(err)
       toast.error('Erro ao aplicar ajustes de posição.')
     } finally {
       setLoading(false)

@@ -172,7 +172,7 @@ export async function runClientSideHistoricalRecalculation(
         }
       }
     } catch (err) {
-      console.warn(`[recalcFallback] Erro ao buscar cotações históricas para ${ticker}:`, err)
+      logger.warn(`[recalcFallback] Erro ao buscar cotações históricas para ${ticker}:`, err)
     }
   }
 

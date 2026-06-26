@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { ASSET_DEFINITION_SELECT } from '@/constants/portfolioPricingMode'
+import { logger } from '@/utils/logger'
 import {
   calculateLedgerCashBalance,
   computeCashOffsetPreview,
@@ -99,7 +100,7 @@ export async function fetchPortfolioCashContext(portfolioId: string): Promise<{
   } catch (err: unknown) {
     const pgError = err as { code?: string; message?: string }
     if (hasCashOffsetColumn && (pgError.code === '42703' || String(pgError.message).includes('cash_offset_source_id'))) {
-      console.warn('[cashOffsetService] Coluna cash_offset_source_id ausente no banco remoto. Re-consultando sem offset.')
+      logger.warn('[cashOffsetService] Coluna cash_offset_source_id ausente no banco remoto. Re-consultando sem offset.')
       hasCashOffsetColumn = false
       const [transactions, defRes] = await Promise.all([
         fetchAllPortfolioTransactions(portfolioId, {

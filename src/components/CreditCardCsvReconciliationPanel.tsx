@@ -27,6 +27,7 @@ import { Info, AlertTriangle, Check, X, FileCheck } from 'lucide-react'
 type ReconciliationWizardStep = 'summary' | 'conflicts' | 'missing' | 'suspicious' | 'review'
 const WIZARD_STEPS: ReconciliationWizardStep[] = ['summary', 'conflicts', 'missing', 'suspicious', 'review']
 import { formatCurrency, formatMoneyInput, parseMoneyInput } from '@/utils/format'
+import { logger } from '@/utils/logger'
 
 interface CategoryOption {
   id: string
@@ -496,7 +497,7 @@ export default function CreditCardCsvReconciliationPanel({
       setParseStatus('')
       setCurrentStep('summary')
     } catch (error) {
-      console.error('Error in handleCsvUpload:', error)
+      logger.error('Error in handleCsvUpload:', error)
       setParseStatus('Ocorreu um erro ao processar o arquivo. Tente novamente.')
     }
   }

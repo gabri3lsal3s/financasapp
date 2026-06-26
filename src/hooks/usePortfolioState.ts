@@ -123,7 +123,7 @@ export function usePortfolioState() {
             logger.debug('[recalc]', phase)
           })
         } catch (recalcErr) {
-          console.error('[usePortfolioState] Failed client-side recalculation on forceRefresh:', recalcErr)
+          logger.error('[usePortfolioState] Failed client-side recalculation on forceRefresh:', recalcErr)
         }
       }
 
@@ -161,7 +161,7 @@ export function usePortfolioState() {
             .update({ cash_balance: 0.0 })
             .eq('id', portfolio.id)
             .then(({ error }) => {
-              if (error) console.error('[usePortfolioState] Error resetting cash balance:', error)
+              if (error) logger.error('[usePortfolioState] Error resetting cash balance:', error)
             })
         }
         
@@ -198,7 +198,7 @@ export function usePortfolioState() {
           .update({ cash_balance: calculatedCash })
           .eq('id', portfolio.id)
           .then(({ error }) => {
-            if (error) console.error('[usePortfolioState] Error updating out-of-sync cash balance:', error)
+            if (error) logger.error('[usePortfolioState] Error updating out-of-sync cash balance:', error)
           })
       }
 
@@ -331,7 +331,7 @@ export function usePortfolioState() {
             await runClientSideHistoricalRecalculation(portfolio.id)
             void loadData({ silent: true, skipBackfill: true })
           } catch (err) {
-            console.error('[usePortfolioState] Backfill histórico falhou:', err)
+            logger.error('[usePortfolioState] Backfill histórico falhou:', err)
           }
         }, 300)
       }
@@ -368,7 +368,7 @@ export function usePortfolioState() {
       }
 
     } catch (err) {
-      console.error('[usePortfolioState] Erro ao carregar carteira:', err)
+      logger.error('[usePortfolioState] Erro ao carregar carteira:', err)
       toast.error('Erro ao carregar dados da carteira.')
     } finally {
       setLoading(false)
@@ -418,7 +418,7 @@ export function usePortfolioState() {
         })
         toast.success('Rentabilidade recalculada!', { id: toastId })
       } catch (recalcErr) {
-        console.error('[usePortfolioState] Failed client-side recalculation during reload:', recalcErr)
+        logger.error('[usePortfolioState] Failed client-side recalculation during reload:', recalcErr)
         toast.error('Erro no recálculo de rentabilidade.', { id: toastId })
       }
     }

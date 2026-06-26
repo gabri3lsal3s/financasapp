@@ -4,6 +4,7 @@ import { setCache } from '@/services/offlineCache'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { getCurrentMonthString, addMonths } from '@/utils/format'
 import { format } from 'date-fns'
+import { logger } from '@/utils/logger'
 
 export function useBackgroundCache() {
     const { isOnline } = useNetworkStatus()
@@ -48,7 +49,7 @@ export function useBackgroundCache() {
             }
 
         } catch (error) {
-            console.error(`[BackgroundCache] Error caching month ${month}:`, error)
+            logger.error(`[BackgroundCache] Error caching month ${month}:`, error)
         }
     }, [isOnline])
 

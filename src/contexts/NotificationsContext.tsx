@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { resolveBillCompetence } from '@/utils/creditCardBilling'
 import { addMonths, getCurrentMonthString } from '@/utils/format'
+import { logger } from '@/utils/logger'
 
 export interface AlertItem {
   id: string
@@ -211,7 +212,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
       setCardBillAlerts(newAlerts)
     } catch (err) {
-      console.error('Error calculating card bill alerts:', err)
+      logger.error('Error calculating card bill alerts:', err)
     }
   }, [isOnline, creditCards, remindersDaysBeforeCardBills])
 

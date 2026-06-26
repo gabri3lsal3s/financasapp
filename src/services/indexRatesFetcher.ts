@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 interface SGSResponseItem {
   data: string // dd/mm/yyyy
@@ -84,14 +85,14 @@ export async function syncIndexRates(
         .upsert(chunk, { onConflict: 'rate_date,indexer' })
 
       if (error) {
-        console.error(`Erro ao inserir taxas de ${indexer} no Supabase:`, error)
+        logger.error(`Erro ao inserir taxas de ${indexer} no Supabase:`, error)
         throw error
       }
     }
 
     return rows.length
   } catch (err) {
-    console.warn(`[syncIndexRates] Falha ao sincronizar taxas de ${indexer}:`, err)
+    logger.warn(`[syncIndexRates] Falha ao sincronizar taxas de ${indexer}:`, err)
     return 0
   }
 }
@@ -120,7 +121,7 @@ export async function loadIndexRatesFromDb(
       }
     }
   } catch (err) {
-    console.error('Erro ao ler taxas do index rates:', err)
+    logger.error('Erro ao ler taxas do index rates:', err)
   }
 
   return rates

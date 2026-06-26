@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
 import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
-import Loader from '@/components/Loader'
+import { SkeletonInvestments } from '@/components/Skeleton'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -158,7 +158,7 @@ export default function Investments() {
 
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter" id="investments-page-top">
         {loading ? (
-          <Loader text="Carregando dados da carteira..." className="py-12" />
+          <SkeletonInvestments />
         ) : (
           <div className="space-y-6 animate-fade-in">
             

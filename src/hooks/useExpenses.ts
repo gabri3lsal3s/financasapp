@@ -8,6 +8,7 @@ import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_START_DATE } from '@/utils/format'
+import { logger } from '@/utils/logger'
 
 
 const buildInstallmentDates = (startDate: string, installmentTotal: number) => {
@@ -243,7 +244,7 @@ export function useExpenses(month?: string) {
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar despesas')
-      console.error('Error loading expenses:', err)
+      logger.error('Error loading expenses:', err)
     } finally {
       setLoading(false)
     }
@@ -321,7 +322,7 @@ export function useExpenses(month?: string) {
           currentCategories = catCached || []
           currentCards = cardCached || []
         } catch (e) {
-          console.error('Error loading metadata from cache during offline create:', e)
+          logger.error('Error loading metadata from cache during offline create:', e)
         }
 
         const nowIso = new Date().toISOString()

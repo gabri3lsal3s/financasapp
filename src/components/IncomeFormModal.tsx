@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useFormAmountSync } from '@/hooks/useFormAmountSync'
 import { Income, IncomeCategory } from '@/types'
+import { logger } from '@/utils/logger'
 import {
   APP_START_DATE,
   formatCurrency,
@@ -111,7 +112,7 @@ export default function IncomeFormModal({
         competence: String(paymentRow.bill_competence || ''),
       })
     } catch (e) {
-      console.error('Erro ao buscar origem do estorno:', e)
+      logger.error('Erro ao buscar origem do estorno:', e)
     } finally {
       setRefundOriginLoading(false)
     }

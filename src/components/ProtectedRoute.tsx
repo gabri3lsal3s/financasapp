@@ -11,6 +11,7 @@ import { Fingerprint, LogOut, AlertCircle, ShieldCheck } from 'lucide-react';
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 import { getErrorMessage } from '@/utils/errorMessage';
+import { logger } from '@/utils/logger'
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -176,7 +177,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (error) throw error;
         await refreshProfile();
       } catch (err) {
-        console.error('Error retrying registration:', err);
+        logger.error('Error retrying registration:', err);
         alert('Erro ao tentar novamente. Tente atualizar a página.');
       }
     };

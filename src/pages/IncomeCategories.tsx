@@ -8,7 +8,7 @@ import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import Loader from '@/components/Loader'
+import { SkeletonCategoryGrid } from '@/components/Skeleton'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { IncomeCategory } from '@/types'
@@ -122,7 +122,7 @@ export default function IncomeCategories() {
 
       <div className="p-4 lg:p-6">
         {loading && incomeCategories.length === 0 ? (
-          <Loader text="Carregando fontes..." className="py-12" />
+          <SkeletonCategoryGrid />
         ) : incomeCategories.length === 0 ? (
           <Card className="text-center py-10 space-y-3">
             <p className="text-secondary">Nenhuma categoria de renda cadastrada.</p>

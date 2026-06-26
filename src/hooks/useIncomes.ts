@@ -7,6 +7,7 @@ import { getCache, setCache } from '@/services/offlineCache'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_START_DATE } from '@/utils/format'
+import { logger } from '@/utils/logger'
 
 
 export function useIncomes(month?: string) {
@@ -129,7 +130,7 @@ export function useIncomes(month?: string) {
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar rendas')
-      console.error('Error loading incomes:', err)
+      logger.error('Error loading incomes:', err)
     } finally {
       setLoading(false)
     }
@@ -191,7 +192,7 @@ export function useIncomes(month?: string) {
         try {
           currentIncomeCategories = await getCache<IncomeCategory[]>('income_categories-all') || []
         } catch (e) {
-          console.error('Error loading categories from cache during offline create:', e)
+          logger.error('Error loading categories from cache during offline create:', e)
         }
         const matchedCategory = currentIncomeCategories.find(c => c.id === income.income_category_id)
 

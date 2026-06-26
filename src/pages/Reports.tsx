@@ -12,7 +12,7 @@ import Input from '@/components/Input'
 import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { PAGE_HEADERS } from '@/constants/pages'
-import Loader from '@/components/Loader'
+import { SkeletonReports } from '@/components/Skeleton'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
 import { useCategories } from '@/hooks/useCategories'
@@ -47,6 +47,7 @@ import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
 import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
+import { logger } from '@/utils/logger'
 
 type ViewMode = 'year' | 'month' | 'custom'
 type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
@@ -314,7 +315,7 @@ export default function Reports() {
       setCustomIncomes(mappedIncomes)
       setCustomPortfolioTransactions(transactions)
     } catch (err) {
-      console.error('Erro ao carregar dados customizados:', err)
+      logger.error('Erro ao carregar dados customizados:', err)
     } finally {
       setCustomLoading(false)
     }
@@ -2181,6 +2182,20 @@ export default function Reports() {
   const loadingState = viewMode === 'custom'
     ? customLoading
     : (loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods || loadingPrevReports)
+
+  if (loadingState) {
+    return (
+      <div className="min-h-[calc(100vh-12rem)] flex flex-col">
+        <PageHeader
+          title={PAGE_HEADERS.reports.title}
+          subtitle={PAGE_HEADERS.reports.description}
+        />
+        <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
+          <SkeletonReports />
+        </div>
+      </div>
+    )
+  }
   const savingsRate = monthSummary && monthSummary.total_income > 0
     ? ((monthSummary.balance / monthSummary.total_income) * 100)
     : 0
@@ -2665,7 +2680,7 @@ export default function Reports() {
 
         <MonthTransitionView month={viewMode === 'month' ? selectedMonth : (viewMode === 'year' ? String(selectedYear) : activePeriodLabel)}>
         {loadingState ? (
-          <Loader text="Carregando dados..." className="py-12" />
+          <SkeletonReports />
         ) : (
           <>
             {viewMode === 'year' ? (

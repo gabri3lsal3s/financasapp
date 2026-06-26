@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits' | 'income_category_month_expectations' | 'debts'
 type QueueAction = 'create' | 'update' | 'delete'
@@ -158,8 +159,8 @@ async function processOne(item: OfflineQueueItem) {
     const payloadToInsert = sanitizeOfflinePayload(item.payload)
     const { error } = await supabase.from(item.entity).insert([payloadToInsert])
     if (error) {
-      console.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
-      console.error('Payload attempted:', payloadToInsert)
+      logger.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
+      logger.error('Payload attempted:', payloadToInsert)
       throw error
     }
     return
@@ -204,8 +205,8 @@ async function processOne(item: OfflineQueueItem) {
 
     const { error } = await query
     if (error) {
-      console.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
-      console.error('Payload attempted:', payloadToUpdate)
+      logger.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
+      logger.error('Payload attempted:', payloadToUpdate)
       throw error
     }
     return
@@ -222,7 +223,7 @@ async function processOne(item: OfflineQueueItem) {
     }
     const { error } = await deleteQuery
     if (error) {
-      console.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
+      logger.error(`Offline sync failed for ${item.entity}.${item.action}:`, error)
       throw error
     }
   }

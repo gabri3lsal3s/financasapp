@@ -171,3 +171,50 @@ Orquestração em `src/services/returns/closePipeline.ts` (cálculo) e `src/serv
 
 - Botão **Atualizar fechamento** em `Investments.tsx` → `usePortfolioClose().runClose`
 - Futuro backend próprio deve importar as mesmas funções (`computeDailyClose` / `runDailyClose`) sem alterar contratos.
+
+---
+
+## 7. Skeleton Loading States
+
+O componente `Skeleton.tsx` (`src/components/Skeleton.tsx`) fornece placeholders estruturais para loading states em todas as páginas do app:
+
+### Variantes disponíveis
+
+| Variante | Uso | Descrição |
+|----------|-----|-----------|
+| `SkeletonDashboard` | Dashboard | 4 KPIs + gráfico de fluxo + limites + insights |
+| `SkeletonInvestments` | Investimentos | 4 KPIs + tabs + saldo + chart evolução + 3 pizza charts |
+| `SkeletonCategories` | Categorias | 4 KPIs + 6 category cards com status |
+| `SkeletonTransactionList` | Despesas/Rendas | 3 linhas com ícone, título e valor |
+| `SkeletonContas` | Contas | 4 KPIs + tabs + accordion cards + pendências |
+| `SkeletonReports` | Relatórios | tabs período + 4 KPIs + 2 charts + composição + insights |
+| `SkeletonCategoryGrid` | Categ. Despesa/Renda | 4 cards em grid com ícone e nome |
+
+### Primitivos base
+
+- `SkeletonText` — linha de texto placeholder
+- `SkeletonCard` — card placeholder com N linhas
+- `SkeletonKpi` — KPI individual neutro (sem borda colorida)
+- `SkeletonKpiGrid` — grid de 4 KPIs para painéis
+- `SkeletonAccordionCard` — card expansível para listas
+
+Todos os skeletons usam classes `border-glass` e `bg-glass/10` para um visual neutro e padronizado.
+
+---
+
+## 8. Logger Condicional
+
+O `src/utils/logger.ts` padroniza o logging do app:
+
+| Método | Nível | Comportamento em produção |
+|--------|-------|--------------------------|
+| `logger.debug()` | DEBUG | Suprimido |
+| `logger.info()` | INFO | Suprimido |
+| `logger.warn()` | WARN | Exibido |
+| `logger.error()` | ERROR | Exibido |
+
+Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
+
+**89 chamadas `console.*`** foram substituídas pelo logger em **32+ arquivos**.
+
+---

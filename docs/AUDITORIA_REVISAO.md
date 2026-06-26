@@ -26,8 +26,8 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 - **CSS**: Duplicação de estilos Recharts, uso inconsistente de variáveis CSS (migração parcial `--color-*` → `--ds-*`)
 - **Componentes**: Dualidade entre wrappers (Button/Card/Input) e shadcn/ui primitives; duplicação de código entre formulários de despesa/renda
 - **Tipagem**: Uso excessivo de `as any` em componentes críticos (Input, NumberInput, modais)
-- **Estados**: Ausência de componentes Skeleton exportados, estados de loading não padronizados
-- **Performance**: ~135 `useEffect` em todo o app, alguns componentes com dezenas de effects
+- **Estados**: ✅ Skeleton.tsx criado com 7 variantes específicas, integrado em todas as 9 páginas
+- **Performance**: ~131 `useEffect` em todo o app (FloatingCalculator reduzido de 16→12 effects)
 
 ---
 
@@ -90,7 +90,9 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 
 **Severidade:** Média
 
-**Ocorrências:** ~22+ instâncias
+**Correções parciais:** `catch(err: any)` → `catch(err: unknown)` em 2 arquivos ✅
+
+**Ocorrências restantes:** ~20+ instâncias
 
 **Arquivos críticos:**
 | Arquivo | Linha | Problema |
@@ -101,6 +103,8 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 | `src/components/investments/PortfolioTransactionFormModal.tsx` | 575, 591, 622 | Mesmo padrão do AssetConfigModal |
 | Test files | Vários | `as any` tolerável em mocks |
 
+**Corrigido:** `AssetConfigModal.tsx` e `PortfolioTransactionFormModal.tsx` agora usam `catch(err: unknown)` com `err instanceof Error` type narrowing ✅
+
 **Risco:** Perda de segurança de tipos em runtime. Um `onChange` tipado como `any` pode aceitar `string | ChangeEvent`, causando crashes inesperados.
 
 **Solução proposta:** 
@@ -108,51 +112,61 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 - `NumberInput.tsx`: Extrair `name` do rest props: `const { name, ...rest } = props`
 - Modais de ativos: Tipar `e: React.ChangeEvent<HTMLSelectElement>` nos handlers
 
-### 4.2 ⚠️ `console.log` em código de produção
+### 4.2 ✅ `console.log` substituído por logger condicional
 
-**Severidade:** Baixa (mas indica debugging residual)
+**Severidade:** Baixa — **Corrigido**
 
-**Arquivos:**
-| Arquivo | Linhas | Conteúdo |
-|---------|--------|----------|
-| `src/hooks/usePortfolioState.ts` | 122, 327, 363 | Logs de debug: "[recalc]", "Histórico TWR incompleto", "AutoRefresh" |
-| `src/services/portfolioHistoricalRecalc.ts` | 79, 98, 274 | Logs de progresso de recálculo |
-| `src/services/portfolioOrphanCleanup.ts` | 81 | Log de limpeza de tickers |
-| `src/App.tsx` | 119 | Log de dump de dados |
+**O que foi feito:**
+- **89 chamadas `console.*`** substituídas por `logger.debug/info/warn/error` em **32+ arquivos**
+- Logger em `src/utils/logger.ts` já suprime `debug/info` em produção configurado via `VITE_LOG_LEVEL`
+- Imports do logger adicionados automaticamente em todos os arquivos necessários
 
-**Impacto:** Baixo para o usuário, mas polui o console do navegador e pode expor informações internas.
+**Validação:** `tsc --noEmit` zero erros, `vitest run` 238/238 testes passando.
 
-**Solução proposta:** Envolver em `if (process.env.NODE_ENV !== 'production')` ou substituir por chamadas a um logger configurável.
-
-### 4.3 ⚠️ ~135 `useEffect` em todo o app
+### 4.3 ⚠️ ~131 `useEffect` em todo o app (parcialmente corrigido)
 
 **Severidade:** Média (performance em dispositivos lentos)
 
-**Distribuição:**
-| Componente | Qtd useEffects | Observação |
-|------------|---------------|------------|
-| `FloatingCalculator.tsx` | ~16 | Gerenciamento de estado de arrasto/resize |
-| `Reports.tsx` | ~12 | Múltiplos modos de visualização |
-| `Dashboard.tsx` | ~5 | Dados e animações |
-| `usePortfolioState.ts` | ~4 | Dados financeiros complexos |
-| Demais hooks | 2-4 cada | Padrão de load + subscribe |
+**Progresso:** `FloatingCalculator.tsx` reduzido de **16 → 12 effects** ✅
 
-**Problemas comuns:**
-- Múltiplos `useEffect` consecutivos sem dependências compartilhadas
-- Efeitos que poderiam ser combinados
-- `useEffect` para sincronizar estado que poderia ser computado com `useMemo`
+**Distribuição atual:**
+| Componente | Qtd useEffects | Status |
+|------------|---------------|--------|
+| `FloatingCalculator.tsx` | ~12 | ✅ Reduzido (refs sync + mount cleanup consolidados) |
+| `Reports.tsx` | ~12 | ⏳ Pendente |
+| `Dashboard.tsx` | ~5 | ⏳ Pendente |
+| `usePortfolioState.ts` | ~4 | ⏳ Pendente |
+| Demais hooks | 2-4 cada | Padrão normal |
 
-**Solução proposta:** Revisar componentes com >5 effects. Combinar effects relacionados. Usar `useEvent` (quando disponível) ou bibliotecas como `@tanstack/react-query` para gerenciamento de dados.
+**O que foi feito no FloatingCalculator:**
+- `isExpandedRef` + `panelRectRef` combinados em um único effect sem dep array
+- `setMounted` + cleanup de timeouts + cleanup de highlight unificados no effect de mount
+- Icon return animation + persist `iconOrigin` combinados
+- `highlightedField` add/remove consolidados
 
-### 4.4 ⚠️ `Skeleton` não exportado para uso no app
+**Solução proposta (restante):** Revisar componentes com >5 effects. Combinar effects relacionados.
 
-**Severidade:** Baixa
+### 4.4 ✅ `Skeleton.tsx` criado e integrado em todas as 9 páginas
 
-**Arquivo:** `src/components/ui/skeleton.tsx` — existe mas nunca é importado por nenhum componente de página.
+**Severidade:** Baixa — **Corrigido**
 
-**Motivação:** Estados de loading em cards, KPIs e tabelas usam `<Loader>` (spinner) em vez de `<Skeleton>` (placeholder estrutural), que geralmente oferece melhor UX.
+**O que foi feito:**
+- Criado `src/components/Skeleton.tsx` com **7 variantes específicas por página**:
 
-**Solução proposta:** Criar `src/components/Skeleton.tsx` como wrapper e substituir spinners por skeletons em áreas-chave (cards de KPI, tabelas, listas).
+| Variante | Página | Estrutura |
+|----------|--------|-----------|
+| `SkeletonDashboard` | Dashboard | 4 KPIs + chart fluxo + limites + insights |
+| `SkeletonInvestments` | Investimentos | 4 KPIs + tabs + saldo + chart + 3 pizza |
+| `SkeletonCategories` | Categorias | 4 KPIs + 6 category cards |
+| `SkeletonTransactionList` | Despesas/Rendas | 3 linhas com ícone, título e valor |
+| `SkeletonContas` | Contas | 4 KPIs + tabs + 2 accordion + pendências |
+| `SkeletonReports` | Relatórios | tabs + 4 KPIs + 2 charts + composição |
+| `SkeletonCategoryGrid` | Categ. Despesa/Renda | 4 cards em grid |
+
+- **Loader removido de todas as páginas** (Dashboard, Expenses, Incomes, Investments, Categories, Contas, Reports, ExpenseCategories, IncomeCategories)
+- Todos os Skeletons usam `border-glass` e `bg-glass/10` — neutros, sem barras coloridas
+
+**Validação:** `tsc --noEmit` zero erros, `vitest run` 238/238 testes passando.
 
 ### 4.5 ⚠️ Duplicação entre `ExpenseFormModal` e `IncomeFormModal`
 
@@ -281,25 +295,29 @@ Ambos usam `<Input type="text" inputMode="decimal" ...>` com `onBlur` que faz `p
 
 ## 8. Sugestões Futuras
 
-### Prioridade Alta
+### ✅ Concluído
+
+2. ✅ **Logger condicional** — `src/utils/logger.ts` criado, 89 `console.*` substituídos em 32+ arquivos
+3. ✅ **Skeleton.tsx criado** — `src/components/Skeleton.tsx` com 7 variantes específicas, integrado em todas as 9 páginas
+7. ✅ **FloatingCalculator** — Reduzido de 16→12 useEffect (refs sync + mount cleanup consolidados)
+8. ✅ **Skeleton exportado** — `Skeleton.tsx` pronto com `SkeletonText`, `SkeletonCard`, `SkeletonKpi` e variantes por página
+
+### Prioridade Alta (Pendente)
 
 1. **Eliminar `as any` dos componentes de input** — Input.tsx e NumberInput.tsx devem ser prioridade por serem usados em todos os formulários
-2. **Substituir `console.log` por logger condicional** — Criar utilitário `logger.ts` que só exibe em dev
-3. **Criar `Skeleton.tsx` wrapper** e substituir spinners em cards de KPI e tabelas
 
-### Prioridade Média
+### Prioridade Média (Pendente)
 
 4. **Extrair `RowButton`** — Unificar BillExpenseRowButton, PaymentRowButton e ReportsCategoryRowButton
 5. **Extrair `AmountInput`** e `useFormAmountSync` — Reduzir duplicação entre ExpenseFormModal e IncomeFormModal
 6. **Consolidar `Select`** — Substituir Select customizado pelo `ui/select` do Radix para consistência
-7. **Revisar `useEffect` em FloatingCalculator** — 16 effects é sinal de possível simplificação
 
-### Prioridade Baixa
+### Prioridade Baixa (Pendente)
 
-8. **Exportar Skeleton** de `src/components/ui/skeleton.tsx` como componente público
 9. **Migrar `--color-*` restantes para `--ds-*`** no CSS
 10. **Adicionar testes** para os hooks de reconciliação (useReconciliationDrafts, useReconciliationFiles, useReconciliationActions)
-11. **Revisar `PageHeader.tsx`** — Renderiza null, apenas registra ações flutuantes. Talvez renomear ou separar responsabilidades
+11. **Adicionar testes unitários** para os componentes Skeleton
+12. **Revisar `PageHeader.tsx`** — Renderiza null, apenas registra ações flutuantes. Talvez renomear ou separar responsabilidades
 
 ---
 
@@ -314,7 +332,8 @@ Ambos usam `<Input type="text" inputMode="decimal" ...>` com `onBlur` que faz `p
 | **Dashboard** | LimitsControl, FinancialInsights, KpiCard, DashboardKpis, DailyFlowChart, MonthlyOverviewChart, DailyBudgetAdvisor | ✅ Consistentes |
 | **Investimentos** | ~20 componentes de reconciliação, gráficos, tabelas, modais | ⚠️ Complexos |
 | **Cartão de Crédito** | ~15 componentes de fatura, reconciliação CSV, estornos | ⚠️ Complexos |
-| **UI Auxiliares** | Loader, SectionHeader, InfoTooltip, ViewModeToggle, CategoryBadge, CategoryColorBar, AnimatedListItem | ✅ Consistentes |
+| **UI Auxiliares** | Skeleton, SectionHeader, InfoTooltip, ViewModeToggle, CategoryBadge, CategoryColorBar, AnimatedListItem | ✅ Consistentes |
+| **Skeleton** | Skeleton.tsx (SkeletonDashboard, SkeletonInvestments, SkeletonCategories, SkeletonTransactionList, SkeletonContas, SkeletonReports, SkeletonCategoryGrid) | ✅ Integrado em 9 páginas |
 | **Não utilizados** | ScrollArea, Table (ui/), Separator (ui/), Badge (ui/) | ❌ Disponível mas sem uso no app |
 
 ---

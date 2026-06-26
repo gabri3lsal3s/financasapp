@@ -5,7 +5,7 @@ import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
-import Loader from '@/components/Loader'
+import { SkeletonDashboard } from '@/components/Skeleton'
 import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -43,6 +43,7 @@ import FinancialInsights from '@/components/reports/FinancialInsights'
 import DailyBudgetAdvisor from '@/components/dashboard/DailyBudgetAdvisor'
 import SmartLimitSuggestions from '@/components/dashboard/SmartLimitSuggestions'
 import LimitsControl from '@/components/dashboard/LimitsControl'
+import { logger } from '@/utils/logger'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
@@ -91,7 +92,7 @@ export default function Dashboard() {
       })
       setPortfolioTransactions(transactions)
     } catch (err) {
-      console.error('Erro ao carregar livro-razão no dashboard:', err)
+      logger.error('Erro ao carregar livro-razão no dashboard:', err)
       setPortfolioId('')
       setPortfolioTransactions([])
     }
@@ -521,8 +522,8 @@ export default function Dashboard() {
           <div className="mt-4 lg:mt-6">
 
             {loading || isMonthTransitioning ? (
-              <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
-                <Loader text="Carregando dados do mês..." />
+              <div className="animate-fade-in">
+                <SkeletonDashboard />
               </div>
             ) : (
               <>

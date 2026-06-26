@@ -82,7 +82,7 @@ export async function cleanupOrphanPortfolioTickers(
         logger.debug(`[cleanupOrphan] Deleted global prices and daily history for unused ticker: ${ticker}`)
       }
     } catch (err) {
-      console.warn(`[cleanupOrphan] Error checking or deleting global prices for ticker ${ticker}:`, err)
+      logger.warn(`[cleanupOrphan] Error checking or deleting global prices for ticker ${ticker}:`, err)
     }
   }
 

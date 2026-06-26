@@ -8,7 +8,7 @@ import PageHeaderActionButton from '@/components/PageHeaderActionButton'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
-import Loader from '@/components/Loader'
+import { SkeletonCategories } from '@/components/Skeleton'
 import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
@@ -30,6 +30,7 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import CategoryFormModal from '@/components/categories/CategoryFormModal'
 import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteConfirmModal'
 import LimitSuggestionsModal from '@/components/categories/LimitSuggestionsModal'
+import { logger } from '@/utils/logger'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -188,7 +189,7 @@ export default function Categories() {
           }
         }
       } catch (e) {
-        console.error('Error loading limit suggestions from localStorage', e)
+        logger.error('Error loading limit suggestions from localStorage', e)
       }
     }
   }, [user?.id])
@@ -710,7 +711,7 @@ export default function Categories() {
 
 
         {loadingData ? (
-          <Loader text="Carregando dados das categorias..." className="py-12" />
+          <SkeletonCategories />
         ) : (
           <MonthTransitionView month={currentMonth} className="space-y-4 lg:space-y-6 animate-fade-in">
             {activeTab === 'expenses' ? (

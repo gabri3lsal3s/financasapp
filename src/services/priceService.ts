@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { AssetPrice } from '@/types'
+import { logger } from '@/utils/logger'
 
 type YahooChartResponse = {
   chart?: {
@@ -105,7 +106,7 @@ export async function loadHistoricalPrices(
       }
     }
   } catch (err) {
-    console.error('Erro ao carregar preços históricos:', err)
+    logger.error('Erro ao carregar preços históricos:', err)
   }
   return map
 }
@@ -227,7 +228,7 @@ export async function fetchWithCorsProxy(url: string, init?: RequestInit): Promi
           if (jsonErr instanceof Response && jsonErr.status === 404) {
             return jsonErr
           }
-          console.warn(`[CORS Proxy] Resposta do proxy ${proxy.name} não é um JSON válido. Tentando próximo...`, jsonErr)
+          logger.warn(`[CORS Proxy] Resposta do proxy ${proxy.name} não é um JSON válido. Tentando próximo...`, jsonErr)
           continue
         }
       }
@@ -238,7 +239,7 @@ export async function fetchWithCorsProxy(url: string, init?: RequestInit): Promi
     } catch (err) {
       clearTimeout(timeoutId)
       lastError = err
-      console.warn(`[CORS Proxy] Falha no proxy ${proxy.name}:`, err)
+      logger.warn(`[CORS Proxy] Falha no proxy ${proxy.name}:`, err)
     }
   }
 
@@ -340,7 +341,7 @@ export async function getAssetPrices(
         supabasePrices = data as AssetPrice[]
       }
     } catch (err) {
-      console.warn('Erro ao ler cache de cotações do Supabase, operando localmente:', err)
+      logger.warn('Erro ao ler cache de cotações do Supabase, operando localmente:', err)
     }
 
     const pricesToFetchFromApi: string[] = []
@@ -426,13 +427,13 @@ export async function getAssetPrices(
           try {
             response = await fetchWithCorsProxy(url)
           } catch (err) {
-            console.warn(`[getAssetPrices] Falha no query1 via chart para ${symbol}.`, err)
+            logger.warn(`[getAssetPrices] Falha no query1 via chart para ${symbol}.`, err)
           }
 
           // Se for 404 (Não Encontrado), o ativo não existe no Yahoo Finance.
           // Não adianta tentar o query2 pois os dados são idênticos.
           if (response && response.status === 404) {
-            console.warn(`[getAssetPrices] Ticker ${symbol} não encontrado no Yahoo Finance (404).`)
+            logger.warn(`[getAssetPrices] Ticker ${symbol} não encontrado no Yahoo Finance (404).`)
             return
           }
 
@@ -441,7 +442,7 @@ export async function getAssetPrices(
             try {
               response = await fetchWithCorsProxy(backupUrl)
             } catch (err) {
-              console.warn(`[getAssetPrices] Falha no query2 via chart para ${symbol}.`, err)
+              logger.warn(`[getAssetPrices] Falha no query2 via chart para ${symbol}.`, err)
             }
           }
 
@@ -453,7 +454,7 @@ export async function getAssetPrices(
             }
           }
         } catch (tickerErr) {
-          console.warn(`[getAssetPrices] Erro ao buscar cotação via chart para ${ticker}:`, tickerErr)
+          logger.warn(`[getAssetPrices] Erro ao buscar cotação via chart para ${ticker}:`, tickerErr)
         }
       }
 
@@ -469,7 +470,7 @@ export async function getAssetPrices(
         })
         await Promise.all(workers)
       } catch (apiErr) {
-        console.warn('[getAssetPrices] Erro na execução concorrente das cotações via chart:', apiErr)
+        logger.warn('[getAssetPrices] Erro na execução concorrente das cotações via chart:', apiErr)
       }
 
       // Processa tickers buscados e preenche fallbacks para os que falharam
@@ -546,7 +547,7 @@ export async function getAssetPrices(
               })
             )
           } catch (err) {
-            console.error('Erro de conexão ao salvar cotações:', err)
+            logger.error('Erro de conexão ao salvar cotações:', err)
           }
         }
         savePricesBackground()
@@ -610,7 +611,7 @@ export async function forceUpdateAssetPrice(ticker: string, price: number): Prom
       return data as AssetPrice
     }
   } catch (err) {
-    console.error('Erro ao forçar atualização de cotação:', err)
+    logger.error('Erro ao forçar atualização de cotação:', err)
   }
 
   return assetPrice
@@ -833,7 +834,7 @@ export async function getAssetRichData(ticker: string): Promise<AssetRichData | 
     try {
       response = await fetchWithCorsProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
     } catch (err) {
-      console.warn('[getAssetRichData] Falha no host principal query1. Tentando query2...', err)
+      logger.warn('[getAssetRichData] Falha no host principal query1. Tentando query2...', err)
     }
 
     if (!response || !response.ok) {
@@ -856,7 +857,7 @@ export async function getAssetRichData(ticker: string): Promise<AssetRichData | 
       }
     }
   } catch (err) {
-    console.error('Erro ao buscar dados ricos do ativo:', err)
+    logger.error('Erro ao buscar dados ricos do ativo:', err)
   }
 
   return null

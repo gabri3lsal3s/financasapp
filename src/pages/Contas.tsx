@@ -11,7 +11,7 @@ import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
-import Loader from '@/components/Loader'
+import { SkeletonContas } from '@/components/Skeleton'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { useDebts } from '@/hooks/useDebts'
@@ -1286,7 +1286,7 @@ export default function Contas() {
         )}
 
         {loading || !hasResolvedInitialMonth || loadingBills ? (
-          <Loader text="Carregando dados..." className="py-8" />
+          <SkeletonContas />
         ) : (
           <MonthTransitionView month={currentMonth}>
             {/* KPI Cards Summary */}

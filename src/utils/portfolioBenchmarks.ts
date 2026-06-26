@@ -1,6 +1,7 @@
 import type { ValuedPosition } from './portfolioCalculations'
 import { loadIndexRatesFromDb } from '@/services/indexRatesFetcher'
 import { getAssetPrices, loadHistoricalPrices } from '@/services/priceService'
+import { logger } from '@/utils/logger'
 
 export interface BenchmarkInfo {
   name: string
@@ -95,7 +96,7 @@ export async function fetchBenchmarkReturns(
       result['CDI'] = (cdiAccumulated - 1) * 100
     }
   } catch (err) {
-    console.warn('[fetchBenchmarkReturns] Erro ao buscar CDI:', err)
+    logger.warn('[fetchBenchmarkReturns] Erro ao buscar CDI:', err)
   }
 
   // 2. Índices de mercado via Yahoo Finance / cache
@@ -128,7 +129,7 @@ export async function fetchBenchmarkReturns(
       }
     }
   } catch (err) {
-    console.warn('[fetchBenchmarkReturns] Erro ao buscar benchmarks de mercado:', err)
+    logger.warn('[fetchBenchmarkReturns] Erro ao buscar benchmarks de mercado:', err)
   }
 
   return result

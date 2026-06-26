@@ -5,6 +5,7 @@ import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
+import { logger } from '@/utils/logger'
 
 export function useExpenseCategoryLimits(month: string) {
   const { user } = useAuth()
@@ -109,7 +110,7 @@ export function useExpenseCategoryLimits(month: string) {
           })
           setLimits((prev) => {
             const next = prev.filter((item) => !(item.category_id === categoryId && item.month === month))
-            setCache(getCacheKey(), next).catch(console.error)
+            setCache(getCacheKey(), next).catch(err => logger.error(err))
             return next
           })
           return { data: null, error: null }
@@ -138,7 +139,7 @@ export function useExpenseCategoryLimits(month: string) {
         setLimits((prev) => {
           const filtered = prev.filter((item) => !(item.category_id === categoryId && item.month === month))
           const next = [...filtered, itemData as ExpenseCategoryMonthLimit]
-          setCache(getCacheKey(), next).catch(console.error)
+          setCache(getCacheKey(), next).catch(err => logger.error(err))
           return next
         })
 

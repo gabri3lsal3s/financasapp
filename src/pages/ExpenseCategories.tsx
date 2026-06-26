@@ -8,7 +8,7 @@ import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import Loader from '@/components/Loader'
+import { SkeletonCategoryGrid } from '@/components/Skeleton'
 import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
@@ -128,7 +128,7 @@ export default function ExpenseCategories() {
 
       <div className="p-4 lg:p-6">
         {loading && categories.length === 0 ? (
-          <Loader text="Carregando categorias..." className="py-12" />
+          <SkeletonCategoryGrid />
         ) : categories.length === 0 ? (
           <Card className="text-center py-10 space-y-3">
             <p className="text-secondary">Nenhuma categoria cadastrada.</p>

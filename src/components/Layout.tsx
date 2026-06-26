@@ -22,6 +22,7 @@ import { useBackgroundCache } from '@/hooks/useBackgroundCache'
 import { useNavigate } from 'react-router-dom'
 
 import { WifiOff, ArrowLeft } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 interface LayoutProps {
   children: ReactNode
@@ -76,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
       await signOut()
       navigate('/login')
     } catch (error) {
-      console.error('Error logging out:', error)
+      logger.error('Error logging out:', error)
     }
   }
 

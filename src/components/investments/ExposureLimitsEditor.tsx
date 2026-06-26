@@ -7,6 +7,7 @@ import type { PortfolioGroupTarget } from '@/types'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+import { logger } from '@/utils/logger'
 
 const STORAGE_KEY = 'portfolio_exposure_view_mode'
 const SAVE_DEBOUNCE_MS = 800
@@ -147,7 +148,7 @@ export default function ExposureLimitsEditor({
 
       onSaved()
     } catch (err) {
-      console.error('[ExposureLimitsEditor] Error saving:', err)
+      logger.error('[ExposureLimitsEditor] Error saving:', err)
       toast.error('Erro ao salvar limites. Tente novamente.')
     } finally {
       setSaving(false)

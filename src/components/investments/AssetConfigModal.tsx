@@ -6,6 +6,7 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
 import toast from 'react-hot-toast'
+import { logger } from '@/utils/logger'
 
 interface AssetConfigModalProps {
   isOpen: boolean
@@ -97,7 +98,7 @@ export default function AssetConfigModal({
       }
 
     } catch (err) {
-      console.error('[AssetConfigModal] Erro ao carregar configurações:', err)
+      logger.error('[AssetConfigModal] Erro ao carregar configurações:', err)
       toast.error('Erro ao carregar configurações do ativo.')
     } finally {
       setLoading(false)
@@ -192,9 +193,9 @@ export default function AssetConfigModal({
 
       onSaved()
       onClose()
-    } catch (err: any) {
-      console.error('[AssetConfigModal] Erro ao salvar:', err)
-      toast.error(err.message || 'Erro ao salvar parametrização do ativo.')
+    } catch (err: unknown) {
+      logger.error('[AssetConfigModal] Erro ao salvar:', err)
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar parametrização do ativo.')
     } finally {
       setLoading(false)
     }

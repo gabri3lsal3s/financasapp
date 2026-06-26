@@ -4,6 +4,7 @@ import type { CreditCard } from '@/types'
 import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { logger } from '@/utils/logger'
 
 export function useCreditCards() {
   const { isOnline } = useNetworkStatus()
@@ -82,7 +83,7 @@ export function useCreditCards() {
         }
         setCreditCards((previous) => {
           const next = [...previous, offlineCard].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-          setCache('credit_cards-all', next).catch(console.error)
+          setCache('credit_cards-all', next).catch(err => logger.error(err))
           return next
         })
         return { data: offlineCard, error: null }
@@ -119,7 +120,7 @@ export function useCreditCards() {
           const next = previous
             .map((card) => (card.id === id ? { ...card, ...updates } : card))
             .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-          setCache('credit_cards-all', next).catch(console.error)
+          setCache('credit_cards-all', next).catch(err => logger.error(err))
           return next
         })
         return { data: { id, ...updates } as CreditCard, error: null }
@@ -154,7 +155,7 @@ export function useCreditCards() {
         })
         const nextCards = creditCards.filter((card) => card.id !== id)
         setCreditCards(nextCards)
-        await setCache('credit_cards-all', nextCards).catch(console.error)
+        await setCache('credit_cards-all', nextCards).catch(err => logger.error(err))
         return { error: null }
       }
       return { error: err instanceof Error ? err.message : 'Erro ao excluir cartão de crédito' }

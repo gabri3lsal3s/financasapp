@@ -8,6 +8,7 @@ import {
 import { PROFILE_SELECT_COLUMNS } from '@/constants/profileSelect';
 import { clearCacheByKeyPrefix } from '@/services/offlineCache';
 import type { Profile } from '@/types';
+import { logger } from '@/utils/logger'
 
 
 
@@ -69,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(data);
       return data;
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      logger.error('Error fetching profile:', err);
       // Ensure we clear the profile on error to avoid stale state
       setProfile(null);
       return null;
@@ -94,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await fetchProfile(currentUser.id);
         }
       } catch (err) {
-        console.error('Error initializing auth:', err);
+        logger.error('Error initializing auth:', err);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -150,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await clearCacheByKeyPrefix('');
     } catch (e) {
-      console.error('Failed to clear offline cache:', e);
+      logger.error('Failed to clear offline cache:', e);
     }
   };
 

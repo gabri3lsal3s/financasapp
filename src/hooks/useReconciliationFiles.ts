@@ -23,6 +23,7 @@ import { computeTickerQuantity } from '@/utils/portfolioLedger'
 import { isB3TickerPattern } from '@/services/priceService'
 import { isCashTicker } from '@/utils/assetClassifier'
 import type { MissingDraft, ConflictDraft } from './useReconciliationDrafts'
+import { logger } from '@/utils/logger'
 
 export interface FileParseResult {
   reconciliation: InvestmentReconciliationResult
@@ -205,7 +206,7 @@ export function useReconciliationFiles(existingTransactions: PortfolioTransactio
         toast.success('Posição oficial carregada — validação atualizada.')
         return parsed
       } catch (err: unknown) {
-        console.error(err)
+        logger.error(err)
         const message = err instanceof Error ? err.message : 'Erro ao ler o relatório de posição.'
         setPositionParseStatus(
           `Erro ao processar o arquivo: ${message}. Verifique se é um arquivo .xlsx válido exportado da B3.`,

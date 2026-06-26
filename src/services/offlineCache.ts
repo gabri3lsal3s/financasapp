@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 const DB_NAME = 'minhas-financas-offline-db'
 const DB_VERSION = 1
 const STORE_NAME = 'api-cache'
@@ -49,7 +50,7 @@ export async function setCache<T>(key: string, data: T): Promise<void> {
             request.onerror = () => reject(request.error)
         })
     } catch (err) {
-        console.warn('Failed to save to offline cache:', err)
+        logger.warn('Failed to save to offline cache:', err)
     }
 }
 
@@ -72,7 +73,7 @@ export async function getCache<T>(key: string): Promise<T | null> {
             request.onerror = () => reject(request.error)
         })
     } catch (err) {
-        console.warn('Failed to read from offline cache:', err)
+        logger.warn('Failed to read from offline cache:', err)
         return null
     }
 }
@@ -101,6 +102,6 @@ export async function clearCacheByKeyPrefix(prefix: string): Promise<void> {
             request.onerror = () => reject(request.error)
         })
     } catch (err) {
-        console.warn('Failed to clear offline cache with prefix:', err)
+        logger.warn('Failed to clear offline cache with prefix:', err)
     }
 }

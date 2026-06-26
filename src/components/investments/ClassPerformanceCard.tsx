@@ -11,6 +11,7 @@ import {
 } from '@/utils/portfolioBenchmarks'
 import ViewModeToggle from '@/components/ViewModeToggle'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 const STORAGE_KEY = 'portfolio_class_view_mode'
 
@@ -64,7 +65,7 @@ export default function ClassPerformanceCard({
           setBenchmarkReturns(returns)
         }
       })
-      .catch((err) => console.warn('[ClassPerformanceCard] Erro ao buscar benchmarks:', err))
+      .catch((err) => logger.warn('[ClassPerformanceCard] Erro ao buscar benchmarks:', err))
 
     return () => { cancelled = true }
   }, [transactions]) // busca novamente se transações mudarem

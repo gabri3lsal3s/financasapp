@@ -27,6 +27,7 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Switch from '@/components/Switch'
 import AccentToneSwitcher from '@/components/AccentToneSwitcher'
+import { logger } from '@/utils/logger'
 
 
 type SettingsView = 'appearance' | 'security' | 'admin'
@@ -94,7 +95,7 @@ export default function Settings() {
       if (error) throw error
       setAllUsers(data || [])
     } catch (err) {
-      console.error('Error fetching users:', err)
+      logger.error('Error fetching users:', err)
     } finally {
       setAdminLoading(false)
     }
@@ -139,7 +140,7 @@ export default function Settings() {
       )
 
     } catch (err) {
-      console.error('Error updating user status:', err)
+      logger.error('Error updating user status:', err)
       alert('Erro ao atualizar status do usuário.')
     }
   }
@@ -178,7 +179,7 @@ export default function Settings() {
         } : u)
       )
     } catch (err) {
-      console.error('Error rejecting user:', err)
+      logger.error('Error rejecting user:', err)
       alert('Erro ao recusar usuário.')
     }
   }
@@ -217,7 +218,7 @@ export default function Settings() {
       await fetchUsers()
       toast.success(`Usuário ${deletedEmail} excluído permanentemente.`)
     } catch (err) {
-      console.error('Error deleting user:', err)
+      logger.error('Error deleting user:', err)
       const message =
         err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
           ? err.message
@@ -273,7 +274,7 @@ export default function Settings() {
       // 3. Redirecionar será automático pelo ProtectedRoute ao perder a sessão
       alert('Sua conta e todos os dados foram excluídos permanentemente.')
     } catch (err: unknown) {
-      console.error('Error deleting account:', err)
+      logger.error('Error deleting account:', err)
       alert(`Erro ao excluir conta: ${getErrorMessage(err, 'Verifique se a função do banco de dados foi configurada.')}`)
     } finally {
       setDeletingAccount(false)

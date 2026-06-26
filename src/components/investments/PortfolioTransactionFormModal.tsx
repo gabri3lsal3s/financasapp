@@ -14,6 +14,7 @@ import { fetchPortfolioCashContext, reconcileCashOffsetOnTransactionSave, delete
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 import ConfirmModal from '@/components/ConfirmModal'
 import toast from 'react-hot-toast'
+import { logger } from '@/utils/logger'
 
 interface PortfolioTransactionFormModalProps {
   isOpen: boolean
@@ -139,7 +140,7 @@ export default function PortfolioTransactionFormModal({
           setCashBalance(Number(data.cash_balance) || 0)
         }
       } catch (err) {
-        console.warn('Erro ao buscar saldo em caixa no modal:', err)
+        logger.warn('Erro ao buscar saldo em caixa no modal:', err)
       }
     }
 
@@ -222,7 +223,7 @@ export default function PortfolioTransactionFormModal({
           setTargetPercentage('0')
         }
       } catch (err) {
-        console.error('Erro ao carregar definições do ativo no modal:', err)
+        logger.error('Erro ao carregar definições do ativo no modal:', err)
       }
     }
 
@@ -408,8 +409,8 @@ export default function PortfolioTransactionFormModal({
 
       onSaved()
       onClose()
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao salvar transação.')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar transação.')
     } finally {
       setSaving(false)
     }

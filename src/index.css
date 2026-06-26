@@ -1442,19 +1442,6 @@
   padding: 8px 12px !important;
 }
 
-/* Tooltip global de gráficos — consolidated */
-.recharts-default-tooltip {
-  background-color: var(--glass-surface-strong) !important;
-  backdrop-filter: blur(var(--glass-blur)) !important;
-  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
-  border: 1px solid var(--glass-border) !important;
-  border-radius: 12px !important;
-  box-shadow: var(--glass-shadow-tooltip) !important;
-  color: var(--ds-color-text-primary) !important;
-  font-family: inherit;
-  padding: 8px 12px !important;
-}
-
 @media print {
   body {
     background: white !important;
@@ -1574,8 +1561,6 @@ body {
   }
 }
 
-/* O blur de destaque foi removido conforme solicitação */
-
 /* Layout glass — desktop sidebar */
 aside.glass-sidebar {
   border-radius: 24px;
@@ -1608,8 +1593,6 @@ nav.glass-bottom-nav {
 .lg\:hidden main.glass-main-padding {
   padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
 }
-
-/* Recharts estilos removidos (consolidados com a seção acima) */
 
 /* Modals / dialogs glass */
 :root {

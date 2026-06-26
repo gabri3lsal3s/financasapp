@@ -345,14 +345,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [location.pathname])
 
-  useEffect(() => {
-    setMounted(true)
-    return () => {
-      if (iconLabelTimeoutRef.current) {
-        clearTimeout(iconLabelTimeoutRef.current)
-      }
-    }
-  }, [])
+
 
   useEffect(() => {
     const slot = document.getElementById(CALCULATOR_SIDE_SLOT_ID)
@@ -405,14 +398,15 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   useEffect(() => {
     isExpandedRef.current = isExpanded
-  }, [isExpanded])
-
-  useEffect(() => {
     panelRectRef.current = panelRect
-  }, [panelRect])
+  })
 
   useEffect(() => {
+    setMounted(true)
     return () => {
+      if (iconLabelTimeoutRef.current) {
+        clearTimeout(iconLabelTimeoutRef.current)
+      }
       if (iconReturnTimeoutRef.current) {
         window.clearTimeout(iconReturnTimeoutRef.current)
       }
