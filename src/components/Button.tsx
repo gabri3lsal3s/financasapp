@@ -21,7 +21,7 @@ export type ButtonVariant =
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
   variant?: ButtonVariant
-  size?: 'xs' | 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'icon'
   fullWidth?: boolean
 }
 
@@ -47,6 +47,7 @@ const sizeMap: Record<NonNullable<ButtonProps['size']>, NonNullable<ShadcnButton
   sm: 'sm',
   md: 'default',
   lg: 'lg',
+  icon: 'icon',
 }
 
 export default function Button({

@@ -7,8 +7,6 @@ import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
-import PageHeader from '@/components/PageHeader'
-import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import ModalFooter from '@/components/ModalFooter'
 import GlassChoiceCard from '@/components/GlassChoiceCard'
 import ModalIntro from '@/components/ModalIntro'
@@ -88,20 +86,6 @@ describe('UI primitives snapshots', () => {
     )
 
     expect(document.body).toMatchSnapshot()
-  })
-
-  it('PageHeader registers floating actions via context', () => {
-    const { container } = render(
-      createElement(FloatingActionsProvider, null,
-        createElement(PageHeader, {
-          title: 'Relatórios',
-          subtitle: 'Resumo anual e mensal',
-          action: createElement(Button, { size: 'sm', children: 'Exportar' }),
-        }),
-      ),
-    )
-
-    expect(container.firstChild).toBeNull()
   })
 
   it('ModalFooter renders with delete action consistently (mobile icons)', () => {

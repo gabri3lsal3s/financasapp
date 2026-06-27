@@ -68,18 +68,13 @@ export default function Settings() {
   const [deleteUserConfirmEmail, setDeleteUserConfirmEmail] = useState('')
   const [deletingUser, setDeletingUser] = useState(false)
 
-  const {
+  const { settings: {
     floatingCalculatorEnabled,
-    setFloatingCalculatorEnabled,
     biometricLockTimeout,
-    setBiometricLockTimeout,
     remindersEnabled,
-    setRemindersEnabled,
     remindersDaysBeforeDebts,
-    setRemindersDaysBeforeDebts,
     remindersDaysBeforeCardBills,
-    setRemindersDaysBeforeCardBills,
-  } = useAppSettings()
+  }, updateSetting } = useAppSettings()
 
   const fetchUsers = async () => {
     if (!isAdmin) return
@@ -504,7 +499,7 @@ export default function Settings() {
             >
               <Switch
                 checked={floatingCalculatorEnabled}
-                onChange={() => setFloatingCalculatorEnabled(!floatingCalculatorEnabled)}
+                onChange={() => updateSetting('floatingCalculatorEnabled', !floatingCalculatorEnabled)}
                 title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
               />
             </SettingRow>
@@ -518,7 +513,7 @@ export default function Settings() {
               >
                 <Switch
                   checked={remindersEnabled}
-                  onChange={() => setRemindersEnabled(!remindersEnabled)}
+                  onChange={() => updateSetting('remindersEnabled', !remindersEnabled)}
                   title={remindersEnabled ? 'Desativar lembretes' : 'Ativar lembretes'}
                 />
               </SettingRow>
@@ -533,7 +528,7 @@ export default function Settings() {
                     </div>
                     <Select
                       value={String(remindersDaysBeforeDebts)}
-                      onChange={(e) => setRemindersDaysBeforeDebts(Number(e.target.value))}
+                      onChange={(e) => updateSetting('remindersDaysBeforeDebts', Number(e.target.value))}
                       options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
                     />
                   </div>
@@ -544,7 +539,7 @@ export default function Settings() {
                     </div>
                     <Select
                       value={String(remindersDaysBeforeCardBills)}
-                      onChange={(e) => setRemindersDaysBeforeCardBills(Number(e.target.value))}
+                      onChange={(e) => updateSetting('remindersDaysBeforeCardBills', Number(e.target.value))}
                       options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
                     />      </div>
 
@@ -671,7 +666,7 @@ export default function Settings() {
                   >
                   <Select
                     value={String(biometricLockTimeout)}
-                    onChange={(e) => setBiometricLockTimeout(Number(e.target.value) as BiometricLockTimeout)}
+                    onChange={(e) => updateSetting('biometricLockTimeout', Number(e.target.value) as BiometricLockTimeout)}
                     options={[
                       { value: '0', label: 'Imediatamente / Desligar Tela' },
                       { value: '1', label: 'Após 1 minuto' },

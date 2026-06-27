@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useReducer } from 'react'
 
 const FLOATING_CALCULATOR_ENABLED_KEY = 'app.floatingCalculator.enabled'
 const BIOMETRIC_LOCK_TIMEOUT_KEY = 'app.biometric.lockTimeoutMinutes'
@@ -12,6 +12,26 @@ let creditCardsWeightsEnabledMemory = false
 let categoriesWeightsEnabledMemory = true
 
 export type BiometricLockTimeout = 0 | 1 | 5 | 15
+
+export type AppSettingsState = {
+  floatingCalculatorEnabled: boolean
+  dashboardReportsWeightsEnabled: boolean
+  creditCardsWeightsEnabled: boolean
+  categoriesWeightsEnabled: boolean
+  biometricLockTimeout: BiometricLockTimeout
+  remindersEnabled: boolean
+  remindersDaysBeforeDebts: number
+  remindersDaysBeforeCardBills: number
+}
+
+type AppSettingsAction = {
+  key: keyof AppSettingsState
+  value: AppSettingsState[keyof AppSettingsState]
+}
+
+function appSettingsReducer(state: AppSettingsState, action: AppSettingsAction): AppSettingsState {
+  return { ...state, [action.key]: action.value }
+}
 
 const isStorageAvailable = (): boolean => {
   try {
@@ -51,7 +71,7 @@ const readCategoriesWeightsEnabled = (): boolean => {
 const parseBiometricLockTimeout = (value: string | null): BiometricLockTimeout => {
   const parsed = Number(value)
   if (parsed === 0 || parsed === 1 || parsed === 5 || parsed === 15) return parsed
-  return 0 // default to Immediately
+  return 0
 }
 
 const readBiometricLockTimeout = (): BiometricLockTimeout => {
@@ -91,26 +111,30 @@ const readRemindersDaysCards = (): number => {
   return parseRemindersDaysCards(window.localStorage.getItem(REMINDERS_DAYS_CARDS_KEY))
 }
 
+const readAllSettings = (): AppSettingsState => ({
+  floatingCalculatorEnabled: readFloatingCalculatorEnabled(),
+  dashboardReportsWeightsEnabled: readDashboardReportsWeightsEnabled(),
+  creditCardsWeightsEnabled: readCreditCardsWeightsEnabled(),
+  categoriesWeightsEnabled: readCategoriesWeightsEnabled(),
+  biometricLockTimeout: readBiometricLockTimeout(),
+  remindersEnabled: readRemindersEnabled(),
+  remindersDaysBeforeDebts: readRemindersDaysDebts(),
+  remindersDaysBeforeCardBills: readRemindersDaysCards(),
+})
+
 export function useAppSettings() {
-  const [floatingCalculatorEnabled, setFloatingCalculatorEnabledState] = useState<boolean>(readFloatingCalculatorEnabled)
-  const [dashboardReportsWeightsEnabled, setDashboardReportsWeightsEnabledState] = useState<boolean>(readDashboardReportsWeightsEnabled)
-  const [creditCardsWeightsEnabled, setCreditCardsWeightsEnabledState] = useState<boolean>(readCreditCardsWeightsEnabled)
-  const [categoriesWeightsEnabled, setCategoriesWeightsEnabledState] = useState<boolean>(readCategoriesWeightsEnabled)
-  const [biometricLockTimeout, setBiometricLockTimeoutState] = useState<BiometricLockTimeout>(readBiometricLockTimeout)
-  const [remindersEnabled, setRemindersEnabledState] = useState<boolean>(readRemindersEnabled)
-  const [remindersDaysBeforeDebts, setRemindersDaysBeforeDebtsState] = useState<number>(readRemindersDaysDebts)
-  const [remindersDaysBeforeCardBills, setRemindersDaysBeforeCardBillsState] = useState<number>(readRemindersDaysCards)
+  const [settings, dispatch] = useReducer(appSettingsReducer, null, readAllSettings)
 
   useEffect(() => {
     const syncFromStorage = () => {
-      setFloatingCalculatorEnabledState(readFloatingCalculatorEnabled())
-      setDashboardReportsWeightsEnabledState(readDashboardReportsWeightsEnabled())
-      setCreditCardsWeightsEnabledState(readCreditCardsWeightsEnabled())
-      setCategoriesWeightsEnabledState(readCategoriesWeightsEnabled())
-      setBiometricLockTimeoutState(readBiometricLockTimeout())
-      setRemindersEnabledState(readRemindersEnabled())
-      setRemindersDaysBeforeDebtsState(readRemindersDaysDebts())
-      setRemindersDaysBeforeCardBillsState(readRemindersDaysCards())
+      dispatch({ key: 'floatingCalculatorEnabled', value: readFloatingCalculatorEnabled() })
+      dispatch({ key: 'dashboardReportsWeightsEnabled', value: readDashboardReportsWeightsEnabled() })
+      dispatch({ key: 'creditCardsWeightsEnabled', value: readCreditCardsWeightsEnabled() })
+      dispatch({ key: 'categoriesWeightsEnabled', value: readCategoriesWeightsEnabled() })
+      dispatch({ key: 'biometricLockTimeout', value: readBiometricLockTimeout() })
+      dispatch({ key: 'remindersEnabled', value: readRemindersEnabled() })
+      dispatch({ key: 'remindersDaysBeforeDebts', value: readRemindersDaysDebts() })
+      dispatch({ key: 'remindersDaysBeforeCardBills', value: readRemindersDaysCards() })
     }
 
     const onStorage = (event: StorageEvent) => {
@@ -134,88 +158,50 @@ export function useAppSettings() {
     }
   }, [])
 
-  const setFloatingCalculatorEnabled = useCallback((enabled: boolean) => {
-    if (!isStorageAvailable()) return
+  const updateSetting = useCallback(<K extends keyof AppSettingsState>(
+    key: K,
+    value: AppSettingsState[K],
+  ) => {
+    switch (key) {
+      case 'floatingCalculatorEnabled':
+        if (!isStorageAvailable()) return
+        window.localStorage.setItem(FLOATING_CALCULATOR_ENABLED_KEY, String(value))
+        break
+      case 'biometricLockTimeout':
+        if (!isStorageAvailable()) return
+        window.localStorage.setItem(BIOMETRIC_LOCK_TIMEOUT_KEY, String(value))
+        break
+      case 'remindersEnabled':
+        if (!isStorageAvailable()) return
+        window.localStorage.setItem(REMINDERS_ENABLED_KEY, String(value))
+        break
+      case 'remindersDaysBeforeDebts':
+        if (!isStorageAvailable()) return
+        window.localStorage.setItem(REMINDERS_DAYS_DEBTS_KEY, String(value))
+        break
+      case 'remindersDaysBeforeCardBills':
+        if (!isStorageAvailable()) return
+        window.localStorage.setItem(REMINDERS_DAYS_CARDS_KEY, String(value))
+        break
+      case 'dashboardReportsWeightsEnabled':
+        dashboardReportsWeightsEnabledMemory = value as boolean
+        break
+      case 'creditCardsWeightsEnabled':
+        creditCardsWeightsEnabledMemory = value as boolean
+        break
+      case 'categoriesWeightsEnabled':
+        categoriesWeightsEnabledMemory = value as boolean
+        break
+    }
 
-    window.localStorage.setItem(FLOATING_CALCULATOR_ENABLED_KEY, String(enabled))
-    setFloatingCalculatorEnabledState(enabled)
-    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-  }, [])
+    dispatch({ key, value })
 
-  const setDashboardReportsWeightsEnabled = useCallback((enabled: boolean) => {
-    dashboardReportsWeightsEnabledMemory = enabled
-    setDashboardReportsWeightsEnabledState(enabled)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
     }
   }, [])
 
-  const setCreditCardsWeightsEnabled = useCallback((enabled: boolean) => {
-    creditCardsWeightsEnabledMemory = enabled
-    setCreditCardsWeightsEnabledState(enabled)
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-    }
-  }, [])
-
-  const setCategoriesWeightsEnabled = useCallback((enabled: boolean) => {
-    categoriesWeightsEnabledMemory = enabled
-    setCategoriesWeightsEnabledState(enabled)
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-    }
-  }, [])
-
-  const setBiometricLockTimeout = useCallback((timeout: BiometricLockTimeout) => {
-    if (!isStorageAvailable()) return
-
-    window.localStorage.setItem(BIOMETRIC_LOCK_TIMEOUT_KEY, String(timeout))
-    setBiometricLockTimeoutState(timeout)
-    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-  }, [])
-
-  const setRemindersEnabled = useCallback((enabled: boolean) => {
-    if (!isStorageAvailable()) return
-
-    window.localStorage.setItem(REMINDERS_ENABLED_KEY, String(enabled))
-    setRemindersEnabledState(enabled)
-    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-  }, [])
-
-  const setRemindersDaysBeforeDebts = useCallback((days: number) => {
-    if (!isStorageAvailable()) return
-
-    window.localStorage.setItem(REMINDERS_DAYS_DEBTS_KEY, String(days))
-    setRemindersDaysBeforeDebtsState(days)
-    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-  }, [])
-
-  const setRemindersDaysBeforeCardBills = useCallback((days: number) => {
-    if (!isStorageAvailable()) return
-
-    window.localStorage.setItem(REMINDERS_DAYS_CARDS_KEY, String(days))
-    setRemindersDaysBeforeCardBillsState(days)
-    window.dispatchEvent(new Event(APP_SETTINGS_UPDATED_EVENT))
-  }, [])
-
-  return {
-    floatingCalculatorEnabled,
-    setFloatingCalculatorEnabled,
-    dashboardReportsWeightsEnabled,
-    setDashboardReportsWeightsEnabled,
-    creditCardsWeightsEnabled,
-    setCreditCardsWeightsEnabled,
-    categoriesWeightsEnabled,
-    setCategoriesWeightsEnabled,
-    biometricLockTimeout,
-    setBiometricLockTimeout,
-    remindersEnabled,
-    setRemindersEnabled,
-    remindersDaysBeforeDebts,
-    setRemindersDaysBeforeDebts,
-    remindersDaysBeforeCardBills,
-    setRemindersDaysBeforeCardBills,
-  }
+  return { settings, updateSetting }
 }
 
 export {

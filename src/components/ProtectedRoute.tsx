@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const navigate = useNavigate();
 
 
-  const { biometricLockTimeout } = useAppSettings();
+  const { settings: { biometricLockTimeout } } = useAppSettings();
 
   // App Lock pattern: if biometrics are registered, require unlock based on settings and session
   const [isLocked, setIsLocked] = useState(() => {

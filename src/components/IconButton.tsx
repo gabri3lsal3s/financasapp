@@ -1,5 +1,5 @@
 import { ReactNode, ButtonHTMLAttributes } from 'react'
-import { Button } from '@/components/ui/button'
+import Button, { type ButtonVariant } from '@/components/Button'
 import { cn } from '@/lib/utils'
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -15,12 +15,12 @@ const sizeStyles = {
   lg: 'h-11 w-11 min-h-11',
 }
 
-const variantMap = {
-  neutral: 'outline' as const,
-  danger: 'expense' as const,
-  success: 'income' as const,
-  ghost: 'ghost' as const,
-  'ghost-danger': 'ghost-danger' as const,
+const variantMap: Record<string, ButtonVariant> = {
+  neutral: 'outline',
+  danger: 'expense',
+  success: 'income',
+  ghost: 'ghost',
+  'ghost-danger': 'ghost-danger',
 }
 
 export default function IconButton({

@@ -1,38 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Category } from '@/types'
-import { getCache, setCache } from '@/services/offlineCache'
+import { useSupabaseTable } from '@/hooks/useSupabaseTable'
 import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
-import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { setCache } from '@/services/offlineCache'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
 const DEFAULT_CATEGORY_COLOR = 'var(--category-fallback-muted)'
 
+const sortCategories = (items: Category[]) =>
+  [...items].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+
 export function useCategories() {
   const { user } = useAuth()
-  const cacheKey = user?.id ? `categories-all-${user.id}` : 'categories-all'
-  const { isOnline } = useNetworkStatus()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadCategories()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline])
+  const table = useSupabaseTable<Category>({
+    table: 'categories',
+    select: '*',
+    orderBy: { column: 'name', ascending: true },
+    userScoped: true,
+    sortBy: sortCategories,
+    errorMessage: 'Erro ao carregar categorias',
+  })
 
-  useEffect(() => {
-    const onQueueProcessed = () => {
-      loadCategories()
-    }
-    window.addEventListener('offline-queue-processed', onQueueProcessed)
-    return () => window.removeEventListener('offline-queue-processed', onQueueProcessed)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- WHY: listener de sync offline; re-bind só ao montar
-  }, [])
+  const { data: categories, setData } = table
 
-  const getCategoryUsageCount = async (id: string): Promise<number> => {
+  const getCategoryUsageCount = useCallback(async (id: string): Promise<number> => {
     try {
       const { count, error } = await supabase
         .from('expenses')
@@ -45,219 +40,119 @@ export function useCategories() {
       logger.error('Error counting category usage:', err)
       return 0
     }
-  }
+  }, [])
 
-  const loadCategories = async () => {
-    try {
-      setLoading(true)
-      const cached = await getCache<Category[]>(cacheKey)
-      if (cached) {
-        setCategories(cached)
-        setLoading(false)
-      }
-
-      if (!isOnline) {
-        setLoading(false)
-        return
-      }
-
-      const { data, error: fetchError } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name', { ascending: true })
-
-      if (fetchError) throw fetchError
-      const newData = data || []
-      setCategories(newData)
-      await setCache(cacheKey, newData)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar categorias')
-      logger.error('Error loading categories:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const createCategory = async (category: Omit<Category, 'id' | 'created_at'>) => {
-    try {
+  const createCategory = useCallback(
+    async (category: Omit<Category, 'id' | 'created_at'>) => {
       if (categories.length >= 15) {
         return { data: null, error: 'Limite máximo de 15 categorias atingido. Exclua uma categoria existente para criar uma nova.' }
       }
+      return table.create(category)
+    },
+    [categories.length, table],
+  )
 
-      const { data, error: insertError } = await supabase
-        .from('categories')
-        .insert([category])
-        .select()
-        .single()
+  const updateCategory = useCallback(
+    async (id: string, updates: Partial<Category>) => {
+      return table.update(id, updates)
+    },
+    [table],
+  )
 
-      if (insertError) throw insertError
+  const deleteCategory = useCallback(
+    async (id: string, targetCategoryId?: string) => {
+      try {
+        const { data: currentCategory } = await supabase
+          .from('categories')
+          .select('id, name')
+          .eq('id', id)
+          .single()
 
-      setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))
-      return { data, error: null }
-    } catch (err) {
-      if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'categories',
-          action: 'create',
-          payload: category as Record<string, unknown>,
-        })
-        const offlineCategory: Category = {
-          id: `offline-${Date.now()}`,
-          created_at: new Date().toISOString(),
-          ...category,
-        }
-        setCategories((prev) => {
-          const next = [...prev, offlineCategory].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-          setCache(cacheKey, next).catch(err => logger.error('Error setting categories cache:', err))
-          return next
-        })
-        return { data: offlineCategory, error: null }
-      }
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar categoria'
-      return { data: null, error: errorMessage }
-    }
-  }
-
-  const updateCategory = async (id: string, updates: Partial<Category>) => {
-    try {
-      const { data, error: updateError } = await supabase
-        .from('categories')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (updateError) throw updateError
-
-      setCategories((prev) =>
-        prev.map((cat) => (cat.id === id ? data : cat)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-      )
-      return { data, error: null }
-    } catch (err) {
-      if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'categories',
-          action: 'update',
-          recordId: id,
-          payload: updates as Record<string, unknown>,
-        })
-        setCategories((prev) => {
-          const next = prev
-            .map((cat) => (cat.id === id ? { ...cat, ...updates } : cat))
-            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-          setCache(cacheKey, next).catch(err => logger.error('Error setting categories cache:', err))
-          return next
-        })
-        return { data: { id, ...updates } as Category, error: null }
-      }
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar categoria'
-      return { data: null, error: errorMessage }
-    }
-  }
-
-  const deleteCategory = async (id: string, targetCategoryId?: string) => {
-    try {
-      const { data: currentCategory } = await supabase
-        .from('categories')
-        .select('id, name')
-        .eq('id', id)
-        .single()
-
-      if (currentCategory?.name === DEFAULT_CATEGORY_NAME) {
-        return { error: 'A categoria padrão "Sem categoria" não pode ser excluída.' }
-      }
-
-      const { count: linkedExpensesCount, error: countError } = await supabase
-        .from('expenses')
-        .select('id', { count: 'exact', head: true })
-        .eq('category_id', id)
-
-      if (countError) throw countError
-
-      if ((linkedExpensesCount ?? 0) > 0) {
-        let finalTargetId = targetCategoryId
-
-        // Se não houver alvo ou o alvo for ele mesmo (não deve acontecer na UI, mas por segurança)
-        if (!finalTargetId || finalTargetId === id) {
-          const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
-            .from('categories')
-            .select('id, name')
-            .eq('name', DEFAULT_CATEGORY_NAME)
-            .limit(1)
-            .maybeSingle()
-
-          if (defaultFetchError) throw defaultFetchError
-
-          if (existingDefaultCategory?.id) {
-            finalTargetId = existingDefaultCategory.id
-          } else {
-            const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
-              .from('categories')
-              .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
-              .select()
-              .single()
-
-            if (defaultCreateError) throw defaultCreateError
-            finalTargetId = createdDefaultCategory.id
-
-            setCategories((prev) => [...prev, createdDefaultCategory])
-          }
+        if (currentCategory?.name === DEFAULT_CATEGORY_NAME) {
+          return { error: 'A categoria padrão "Sem categoria" não pode ser excluída.' }
         }
 
-        if (!finalTargetId || finalTargetId === id) {
-          return { error: 'Não foi possível reatribuir os itens para a categoria padrão.' }
-        }
-
-        const { error: reassignError } = await supabase
+        const { count: linkedExpensesCount, error: countError } = await supabase
           .from('expenses')
-          .update({ category_id: finalTargetId })
+          .select('id', { count: 'exact', head: true })
           .eq('category_id', id)
 
-        if (reassignError) throw reassignError
+        if (countError) throw countError
+
+        if ((linkedExpensesCount ?? 0) > 0) {
+          let finalTargetId = targetCategoryId
+
+          if (!finalTargetId || finalTargetId === id) {
+            const { data: existingDefaultCategory, error: defaultFetchError } = await supabase
+              .from('categories')
+              .select('id, name')
+              .eq('name', DEFAULT_CATEGORY_NAME)
+              .limit(1)
+              .maybeSingle()
+
+            if (defaultFetchError) throw defaultFetchError
+
+            if (existingDefaultCategory?.id) {
+              finalTargetId = existingDefaultCategory.id
+            } else {
+              const { data: createdDefaultCategory, error: defaultCreateError } = await supabase
+                .from('categories')
+                .insert([{ name: DEFAULT_CATEGORY_NAME, color: DEFAULT_CATEGORY_COLOR }])
+                .select()
+                .single()
+
+              if (defaultCreateError) throw defaultCreateError
+              finalTargetId = createdDefaultCategory.id
+
+              setData((prev) => sortCategories([...prev, createdDefaultCategory]))
+            }
+          }
+
+          if (!finalTargetId || finalTargetId === id) {
+            return { error: 'Não foi possível reatribuir os itens para a categoria padrão.' }
+          }
+
+          const { error: reassignError } = await supabase
+            .from('expenses')
+            .update({ category_id: finalTargetId })
+            .eq('category_id', id)
+
+          if (reassignError) throw reassignError
+        }
+
+        return table.remove(id)
+      } catch (err) {
+        if (shouldQueueOffline(err)) {
+          enqueueOfflineOperation({
+            entity: 'categories',
+            action: 'delete',
+            recordId: id,
+          })
+
+          setData((prev) => {
+            const next = prev.filter((cat) => cat.id !== id)
+            // Reaplica a lógica de cache key idêntica à do useSupabaseTable
+            const cacheKey = user?.id ? `categories-all-${user.id}` : 'categories-all'
+            setCache(cacheKey, next).catch((e) => logger.error('Error setting categories cache:', e))
+            return next
+          })
+          return { error: null }
+        }
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar categoria'
+        return { error: errorMessage }
       }
-
-      const { error: deleteError } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id)
-
-      if (deleteError) throw deleteError
-
-      setCategories((prev) => prev.filter((cat) => cat.id !== id))
-      return { error: null }
-    } catch (err) {
-      if (shouldQueueOffline(err)) {
-        enqueueOfflineOperation({
-          entity: 'categories',
-          action: 'delete',
-          recordId: id,
-        })
-        setCategories((prev) => {
-          const next = prev.filter((cat) => cat.id !== id)
-          setCache(cacheKey, next).catch(err => logger.error('Error setting categories cache:', err))
-          return next
-        })
-        return { error: null }
-      }
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar categoria'
-      return { error: errorMessage }
-    }
-  }
+    },
+    [setData, table],
+  )
 
   return {
-    categories,
-    loading,
-    error,
+    categories: table.data,
+    loading: table.loading,
+    error: table.error,
     getCategoryUsageCount,
     createCategory,
     updateCategory,
     deleteCategory,
-    refreshCategories: loadCategories,
+    refreshCategories: table.refresh,
   }
 }
-
-
-
-
-

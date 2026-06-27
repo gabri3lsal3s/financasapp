@@ -5,17 +5,17 @@ import Modal from '@/components/Modal'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
-import AmountInput from '@/components/AmountInput'
-import Input from '@/components/Input'
+import TransactionAmountFields from '@/components/TransactionAmountFields'
+import TransactionDateField from '@/components/TransactionDateField'
+import TransactionCategorySelect from '@/components/TransactionCategorySelect'
+import TransactionDescriptionField from '@/components/TransactionDescriptionField'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useFormAmountSync } from '@/hooks/useFormAmountSync'
 import { Income, IncomeCategory } from '@/types'
 import { logger } from '@/utils/logger'
 import {
-  APP_START_DATE,
   formatCurrency,
   formatDate,
   formatMoneyInput,
@@ -62,12 +62,6 @@ export default function IncomeFormModal({
   })
   const [saving, setSaving] = useState(false)
 
-  const { handleAmountChange } = useFormAmountSync({
-    amount: formData.amount,
-    reportAmount: formData.report_amount,
-    setAmounts: (next) => setFormData((prev) => ({ ...prev, ...next })),
-  })
-
   const [refundOriginLoading, setRefundOriginLoading] = useState(false)
   const [refundOrigin, setRefundOrigin] = useState<{
     cardId: string
@@ -86,7 +80,7 @@ export default function IncomeFormModal({
       setRefundOriginLoading(true)
       setRefundOrigin(null)
 
-      const likePattern = `${REFUND_NOTE_PREFIX}%"incomeId":"${String(incomeId)}"%`
+      const likePattern = `${REFUND_NOTE_PREFIX}%\"incomeId\":\"${String(incomeId)}\"%`
 
       const { data: paymentRow, error: paymentError } = await supabase
         .from('credit_card_bill_payments')
@@ -349,72 +343,60 @@ export default function IncomeFormModal({
         />
       )}
     >
-          <AmountInput
-            label="Valor"
-            value={formData.amount}
-            onChange={handleAmountChange}
-            required
-          />
+      <TransactionAmountFields
+        amount={formData.amount}
+        reportAmount={formData.report_amount}
+        onSetAmounts={(next) =>
+          setFormData((prev) => ({ ...prev, ...next }))
+        }
+        onReportAmountBlur={(formatted) =>
+          setFormData((prev) => ({ ...prev, report_amount: formatted }))
+        }
+      />
 
-          <AmountInput
-            label="Valor no relatório (opcional)"
-            value={formData.report_amount}
-            onChange={(val) => setFormData({ ...formData, report_amount: val })}
-            onBlur={(formatted) => setFormData((prev) => ({ ...prev, report_amount: formatted }))}
-            placeholder="Se vazio, usa o valor total"
-          />
+      <TransactionDateField
+        value={formData.date}
+        onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
+      />
 
-          <Input
-            label="Data"
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            min={APP_START_DATE}
-            required
-          />
+      <TransactionCategorySelect
+        label="Categoria de Renda"
+        value={formData.income_category_id}
+        onChange={(val) => setFormData((prev) => ({ ...prev, income_category_id: val }))}
+        options={(editingIncome ? incomeCategories : incomeCategoriesForManualCreation).map(
+          (cat) => ({
+            value: cat.id,
+            label: cat.name,
+          })
+        )}
+      />
 
-          <Select
-            label="Categoria de Renda"
-            value={formData.income_category_id}
-            onChange={(e) =>
-              setFormData({ ...formData, income_category_id: e.target.value })
-            }
-            options={(editingIncome ? incomeCategories : incomeCategoriesForManualCreation).map(
-              (cat) => ({
-                value: cat.id,
-                label: cat.name,
-              })
-            )}
-            required
-          />
+      <Select
+        label="Forma de recebimento"
+        value={formData.type}
+        onChange={(e) =>
+          setFormData((prev) => ({ ...prev, type: e.target.value }))
+        }
+        options={[
+          { value: 'other', label: 'Outros' },
+          { value: 'cash', label: 'Dinheiro' },
+          { value: 'pix', label: 'PIX' },
+          { value: 'transfer', label: 'Transferência' },
+        ]}
+      />
 
-          <Select
-            label="Forma de recebimento"
-            value={formData.type}
-            onChange={(e) =>
-              setFormData({ ...formData, type: e.target.value })
-            }
-            options={[
-              { value: 'other', label: 'Outros' },
-              { value: 'cash', label: 'Dinheiro' },
-              { value: 'pix', label: 'PIX' },
-              { value: 'transfer', label: 'Transferência' },
-            ]}
-          />
+      {!editingIncome && (
+        <p className="text-xs text-secondary">
+          A categoria Estorno é criada/gerenciada automaticamente pela tela de
+          cartões.
+        </p>
+      )}
 
-          {!editingIncome && (
-            <p className="text-xs text-secondary">
-              A categoria Estorno é criada/gerenciada automaticamente pela tela de
-              cartões.
-            </p>
-          )}
-
-          <Input
-            label="Descrição (opcional)"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Ex: Salário mensal, Projeto X..."
-          />
+      <TransactionDescriptionField
+        value={formData.description}
+        onChange={(val) => setFormData((prev) => ({ ...prev, description: val }))}
+        placeholder="Ex: Salário mensal, Projeto X..."
+      />
 
     </ModalForm>
 

@@ -11,60 +11,85 @@
 1. [Resumo Executivo](#1-resumo-executivo)
 2. [Correções Realizadas](#2-correções-realizadas)
 3. [Fragilidades Identificadas e Corrigidas](#3-fragilidades-identificadas-e-corrigidas)
-4. [Fragilidades Ainda Presentes](#4-fragilidades-ainda-presentes)
-5. [Inconsistências de UI/UX](#5-inconsistências-de-uiux)
-6. [Oportunidades de Extração de Componentes](#6-oportunidades-de-extração-de-componentes)
-7. [Padrões e Boas Práticas](#7-padrões-e-boas-práticas)
-8. [Sugestões Futuras](#8-sugestões-futuras)
+4. [Bug Crítico: Loop Infinito no useSupabaseTable](#4-bug-crítico-loop-infinito-no-usesupabasetable)
+5. [Fragilidades Ainda Presentes](#5-fragilidades-ainda-presentes)
+6. [Inconsistências de UI/UX](#6-inconsistências-de-uiux)
+7. [Oportunidades de Extração de Componentes](#7-oportunidades-de-extração-de-componentes)
+8. [Padrões e Boas Práticas](#8-padrões-e-boas-práticas)
+9. [Sugestões Futuras](#9-sugestões-futuras)
 
 ---
 
 ## 1. Resumo Executivo
 
-O FinançasApp é uma aplicação React + TypeScript com design system glass-based, utilizando Supabase como backend. A arquitetura geral é sólida, com boa separação de concerns e uso consistente de hooks personalizados. No entanto, foram identificadas oportunidades significativas de melhoria em:
+O FinançasApp é uma aplicação React + TypeScript com design system glass-based, utilizando Supabase como backend. A arquitetura geral é sólida e todo o ciclo de refatoração foi concluído com sucesso, incluindo a correção de um bug crítico de loop infinito.
 
-- **CSS**: Duplicação de estilos Recharts, uso inconsistente de variáveis CSS (migração parcial `--color-*` → `--ds-*`)
-- **Componentes**: Dualidade entre wrappers (Button/Card/Input) e shadcn/ui primitives; duplicação de código entre formulários de despesa/renda
-- **Tipagem**: Uso excessivo de `as any` em componentes críticos (Input, NumberInput, modais)
-- **Estados**: ✅ Skeleton.tsx criado com 7 variantes específicas, integrado em todas as 9 páginas
-- **Performance**: ~131 `useEffect` em todo o app (FloatingCalculator reduzido de 16→12 effects)
+### Estado final
+
+**Refatoração concluída:**
+- ✅ CSS Recharts consolidado
+- ✅ FloatingActionHub unificando ScrollToTop + NotificationsWidget
+- ✅ usePageActions substituindo PageHeader em 10 páginas
+- ✅ useSupabaseTable hook genérico (3 hooks refatorados, ~250 linhas eliminadas)
+- ✅ 4 sub-componentes TransactionForm
+- ✅ ExpenseFormModal e IncomeFormModal refatorados
+- ✅ Button size="icon" + IconButton consolidado
+- ✅ Dead code removido (separator, scroll-area, PageHeader, MobileAlertsPill)
+- ✅ useAppSettings reducer pattern (8 useState → 1 useReducer)
+- ✅ Skeleton.tsx com 7 variantes integradas
+- ✅ Logger condicional (89 console.* substituídos)
+- ✅ Tooltips centralizados em constants/tooltips.ts
+- ✅ FloatingCalculator reduzido de 16→12 useEffect
+- ✅ backdrop-blur-md removido de tooltips
+- ✅ `as any` e `catch(err: any)` zerados no código de produção
+
+**Correção de bug crítico:**
+- 🔴 Loop infinito no `useSupabaseTable` → corrigido com `configRef` pattern
+
+**Inalterados intencionalmente:**
+- useExpenses, useIncomes, useDebts — mantidos manuais (lógica de negócio específica)
+
+**Pendente (baixa prioridade):**
+- ⏳ Reduzir useEffect em componentes críticos (Item 10)
 
 ---
 
 ## 2. Correções Realizadas
 
-### 2.1 Remoção de `backdrop-blur-md` em tooltips e componentes
+### 2.1 Remoção de `backdrop-blur-md` em tooltips
 
-**Arquivos alterados:**
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/components/investments/PortfolioPieChart.tsx` | Removeu `backdrop-blur-md` do tooltip |
-| `src/components/investments/AssetDetailModal.tsx` | Removeu `backdrop-blur-md` do tooltip |
-| `src/components/investments/EvolutionChart.tsx` | Removeu `backdrop-blur-md` do tooltip |
-| `src/components/reports/reportsChartShared.tsx` | Removeu `backdrop-blur-md` de 2 tooltips |
-| `src/index.css` | Removeu `backdrop-filter: blur()` de `.bg-primary`/`.bg-tertiary` em sessão anterior |
+### 2.2 Consolidação de CSS Recharts
 
-**Motivação:** O blur de destaque visual (`backdrop-blur-md`) nos tooltips de gráficos e modais de ativos adicionava profundidade desnecessária e não estava alinhado com a estética limpa solicitada. O blur estrutural do glass system (`surface-glass`, `modal-overlay`) foi mantido.
+### 2.3 Logger Condicional
 
-### 2.2 Consolidação de CSS duplicado do Recharts
+89 chamadas `console.*` substituídas em 32+ arquivos.
 
-**Arquivo:** `src/index.css`
+### 2.4 usePageActions — Substituição do PageHeader
 
-**O que foi feito:**
-- Unificou duas definições de estilos Recharts que estavam espalhadas no arquivo
-- Removeu a seção antiga que usava variáveis `--color-*` (legado)
-- Manteve apenas a seção consolidada usando variáveis do design system: `--glass-border`, `--ds-color-text-secondary`, `--ds-font-family-base`, `--glass-surface`, `--glass-surface-strong`
-- Removeu comentário obsoleto `"Recharts glass — consolidated with the styles below"`
+10 páginas atualizadas. Redução de 3 imports para 1 por página.
 
-**Impacto:** Aparência sutilmente diferente das linhas de grid (agora usando `--glass-border` em vez de `--color-border`). Removido seletor `recharts-tooltip-wrapper .bg-primary/.bg-white` — tooltips customizados já têm classes próprias, sem impacto funcional.
+### 2.5 useSupabaseTable — Hook Genérico CRUD
 
-### 2.3 Validação
+Criado `src/hooks/useSupabaseTable.ts`. 3 hooks refatorados.
 
-| Validação | Resultado |
-|-----------|-----------|
-| TypeScript (`npx tsc --noEmit`) | ✅ 0 erros |
-| Build Vite (`npx vite build`) | ✅ Sucesso em 10.74s |
-| Code Review | ✅ Aprovado sem ressalvas |
+### 2.6 Sub-componentes TransactionForm
+
+TransactionAmountFields, TransactionDateField, TransactionCategorySelect, TransactionDescriptionField.
+
+### 2.7 Button size="icon" + IconButton
+
+### 2.8 Dead code inicial
+
+`ui/separator.tsx` e `ui/scroll-area.tsx` removidos.
+
+### 2.9 useAppSettings — Reducer Pattern
+
+### 2.10 Dead code adicional + Correção
+
+- `PageHeader.tsx` — removido (0 imports)
+- `MobileAlertsPill.tsx` — removido (0 imports)
+- `PageHeaderActions.tsx` e `PageHeaderActionButton.tsx` — **restaurados** (usados por `usePageActions.tsx`)
+- Teste de snapshot corrigido: removido import/caso de teste do `PageHeader`
 
 ---
 
@@ -72,257 +97,152 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 
 ### 3.1 ✅ `backdrop-blur-md` residual em tooltips
 
-**Problema:** Apesar da remoção anterior do blur de destaque, 5 tooltips ainda continham `backdrop-blur-md`.
-
-**Solução:** Removido de todos os tooltips visíveis em gráficos e modais de investimentos.
-
 ### 3.2 ✅ Duplicação de estilos Recharts
 
-**Problema:** Duas definições quase idênticas de estilos Recharts no `index.css` (~250 linhas de diferença entre elas), usando variáveis diferentes (`--color-border` vs `--glass-border`).
+### 3.3 ✅ Duplicação ExpenseFormModal ≈ IncomeFormModal
 
-**Solução:** Consolidação em um único bloco unificado usando as variáveis do design system glass.
+Extraídos 4 sub-componentes compartilhados. 2 bugs de stale closure corrigidos.
+
+### 3.4 ✅ Duas camadas de componentes (wrapper + shadcn/ui)
+
+Auditado e consolidado. Button com size="icon". `as any` zerado.
+
+### 3.5 ✅ Logger condicional
+
+### 3.6 ✅ `as any` e `catch(err: any)` zerados
 
 ---
 
-## 4. Fragilidades Ainda Presentes
+## 4. Bug Crítico: Loop Infinito no useSupabaseTable
 
-### 4.1 ⚠️ Uso excessivo de `as any`
+**Descoberta:** Durante o uso da aplicação pós-refatoração, constatou-se que o app inteiro ficava em **loading infinito**, impossibilitando até o login. A página do Dashboard e todas as páginas que usam hooks refatorados (useCategories, useIncomeCategories, useCreditCards) travavam.
 
-**Severidade:** Média
+### 🔍 Diagnóstico
 
-**Correções parciais:** `catch(err: any)` → `catch(err: unknown)` em 2 arquivos ✅
+**Arquivo:** `src/hooks/useSupabaseTable.ts`
 
-**Ocorrências restantes:** ~20+ instâncias
+**Causa raiz:** O `useEffect(() => { load() }, [load])` criava um **loop infinito de render** porque `load` (um `useCallback`) mudava de referência a cada render.
 
-**Arquivos críticos:**
-| Arquivo | Linha | Problema |
-|---------|-------|----------|
-| `src/components/Input.tsx` | 32 | `props.onChange as any` — perde tipagem do evento date |
-| `src/components/NumberInput.tsx` | 61 | `(props as any).name` — poderia usar `rest.name` |
-| `src/components/investments/AssetConfigModal.tsx` | 204, 208, 212 | `e.target.value as any` — tipar corretamente o evento |
-| `src/components/investments/PortfolioTransactionFormModal.tsx` | 575, 591, 622 | Mesmo padrão do AssetConfigModal |
-| Test files | Vários | `as any` tolerável em mocks |
+**Cadeia causal:**
+1. `useCategories()` e hooks similares passam a config como **objeto literal inline**: `{ table: 'categories', orderBy: {...}, sortBy: fn, ... }`
+2. A cada render do componente React, esse objeto literal é **recriado**, gerando novas referências para `filters`, `orderBy`, `sortBy`
+3. `buildQuery` (que dependia de `filters`, `orderBy`, `dateColumn`) mudava de referência a cada render
+4. `load` (que dependia de `buildQuery`) mudava a cada render
+5. `useEffect({ load }, [load])` detectava que `load` mudou → executava `load()` → `setState(...)` → re-render → **GOTO 1**
 
-**Corrigido:** `AssetConfigModal.tsx` e `PortfolioTransactionFormModal.tsx` agora usam `catch(err: unknown)` com `err instanceof Error` type narrowing ✅
+### 🔧 Correção — configRef Pattern
 
-**Risco:** Perda de segurança de tipos em runtime. Um `onChange` tipado como `any` pode aceitar `string | ChangeEvent`, causando crashes inesperados.
+**Solução:** Armazenar o objeto `config` em um `useRef` (`configRef`) e ler os valores mutáveis a partir da ref dentro dos `useCallback`s. As dependências dos `useCallback`s passaram a conter **apenas primitivas estáveis**.
 
-**Solução proposta:** 
-- `Input.tsx`: Usar `onChange={props.onChange as React.ChangeEventHandler<HTMLInputElement>}` 
-- `NumberInput.tsx`: Extrair `name` do rest props: `const { name, ...rest } = props`
-- Modais de ativos: Tipar `e: React.ChangeEvent<HTMLSelectElement>` nos handlers
-
-### 4.2 ✅ `console.log` substituído por logger condicional
-
-**Severidade:** Baixa — **Corrigido**
-
-**O que foi feito:**
-- **89 chamadas `console.*`** substituídas por `logger.debug/info/warn/error` em **32+ arquivos**
-- Logger em `src/utils/logger.ts` já suprime `debug/info` em produção configurado via `VITE_LOG_LEVEL`
-- Imports do logger adicionados automaticamente em todos os arquivos necessários
-
-**Validação:** `tsc --noEmit` zero erros, `vitest run` 238/238 testes passando.
-
-### 4.3 ⚠️ ~131 `useEffect` em todo o app (parcialmente corrigido)
-
-**Severidade:** Média (performance em dispositivos lentos)
-
-**Progresso:** `FloatingCalculator.tsx` reduzido de **16 → 12 effects** ✅
-
-**Distribuição atual:**
-| Componente | Qtd useEffects | Status |
-|------------|---------------|--------|
-| `FloatingCalculator.tsx` | ~12 | ✅ Reduzido (refs sync + mount cleanup consolidados) |
-| `Reports.tsx` | ~12 | ⏳ Pendente |
-| `Dashboard.tsx` | ~5 | ⏳ Pendente |
-| `usePortfolioState.ts` | ~4 | ⏳ Pendente |
-| Demais hooks | 2-4 cada | Padrão normal |
-
-**O que foi feito no FloatingCalculator:**
-- `isExpandedRef` + `panelRectRef` combinados em um único effect sem dep array
-- `setMounted` + cleanup de timeouts + cleanup de highlight unificados no effect de mount
-- Icon return animation + persist `iconOrigin` combinados
-- `highlightedField` add/remove consolidados
-
-**Solução proposta (restante):** Revisar componentes com >5 effects. Combinar effects relacionados.
-
-### 4.4 ✅ `Skeleton.tsx` criado e integrado em todas as 9 páginas
-
-**Severidade:** Baixa — **Corrigido**
-
-**O que foi feito:**
-- Criado `src/components/Skeleton.tsx` com **7 variantes específicas por página**:
-
-| Variante | Página | Estrutura |
-|----------|--------|-----------|
-| `SkeletonDashboard` | Dashboard | 4 KPIs + chart fluxo + limites + insights |
-| `SkeletonInvestments` | Investimentos | 4 KPIs + tabs + saldo + chart + 3 pizza |
-| `SkeletonCategories` | Categorias | 4 KPIs + 6 category cards |
-| `SkeletonTransactionList` | Despesas/Rendas | 3 linhas com ícone, título e valor |
-| `SkeletonContas` | Contas | 4 KPIs + tabs + 2 accordion + pendências |
-| `SkeletonReports` | Relatórios | tabs + 4 KPIs + 2 charts + composição |
-| `SkeletonCategoryGrid` | Categ. Despesa/Renda | 4 cards em grid |
-
-- **Loader removido de todas as páginas** (Dashboard, Expenses, Incomes, Investments, Categories, Contas, Reports, ExpenseCategories, IncomeCategories)
-- Todos os Skeletons usam `border-glass` e `bg-glass/10` — neutros, sem barras coloridas
-
-**Validação:** `tsc --noEmit` zero erros, `vitest run` 238/238 testes passando.
-
-### 4.5 ⚠️ Duplicação entre `ExpenseFormModal` e `IncomeFormModal`
-
-**Severidade:** Média
-
-**Código duplicado:**
-- Lógica idêntica de `handleAmountChange` (sincronização de `report_amount`)
-- Mesmo padrão de `parseMoneyInput`/`formatMoneyInput` nos onBlur
-- Estrutura ModalForm + ModalFooter + ConfirmModal idêntica
-- Validação de `reportAmount` idêntica
-
-**Estimativa de duplicação:** ~40% do código é idêntico entre os dois componentes.
-
-**Solução proposta:** Extrair um hook `useFormAmountSync` para a lógica de amount/report_amount. Ou criar um `TransactionFormModal` genérico que aceite configuração de tipo (despesa/renda).
-
-### 4.6 ⚠️ Duas camadas de componentes (wrapper + shadcn/ui)
-
-**Severidade:** Baixa
-
-**Estrutura atual:**
-```
-src/components/
-  Button.tsx           → wrapper que mapeia variantes para ui/button
-  Card.tsx             → wrapper que adiciona onClick/hover a ui/card
-  Input.tsx            → wrapper que adiciona label/error/date a ui/input
-  Select.tsx           → componente customizado completo (não usa ui/select)
-  Checkbox.tsx         → wrapper que adiciona label/description a ui/checkbox
-  Switch.tsx           → wrapper para ui/switch
-  NumberInput.tsx      → componente customizado completo
-
-src/components/ui/
-  button.tsx, card.tsx, input.tsx, select.tsx, switch.tsx, checkbox.tsx, etc.
+**Dependências antes do fix (instáveis):**
+```typescript
+buildQuery: [table, select, filters, month, dateColumn, orderBy]   // filters, orderBy = novas refs
+load: [table, month, isOnline, getCacheKey, buildQuery, sortBy, errorMessage]
 ```
 
-**Observações:**
-- `Select` é completamente customizado (não usa `ui/select` do Radix), o que cria inconsistência
-- `NumberInput` é completamente customizado
-- A camada de wrapper adiciona pouco valor em alguns casos (Card só adiciona onClick + hover)
-- Mas é consistente e permite trocar a lib subjacente sem alterar consumers
-
-**Solução proposta:** Manter a estrutura atual (é um padrão válido), mas considerar substituir o Select customizado pelo `ui/select` do Radix para alinhamento com o restante do design system.
-
----
-
-## 5. Inconsistências de UI/UX
-
-### 5.1 Estilo de valor base (`baseValue`) — já padronizado ✅
-
-**Antes:** Categories.tsx mostrava inline `base R$ X` ao lado do valor; Reports mostrava abaixo.
-
-**Depois:** Ambos agora usam linha separada sutil abaixo do valor principal, no estilo:
-```
-R$ 1.234
-base R$ 1.000
+**Dependências depois do fix (estáveis):**
+```typescript
+buildQuery: [table, month]                                          // apenas primitivas
+load: [table, month, isOnline, getCacheKey, buildQuery]             // funções estáveis + primitivas
 ```
 
-### 5.2 Botão de rolagem — finalizado ✅
-
-**Antes:** Botão flutuante fixo no canto inferior direito, sempre visível.
-
-**Depois:** Seta discreta centralizada que aparece automaticamente ao manter pressão no final da página (~250ms), com scroll automático ao topo (`scrollend`).
-
-### 5.3 Dropdown de seleção inconsistente
-
-**Problema:** `Select` component é customizado (não usa Radix), enquanto os outros inputs (Input, Checkbox, Switch) usam shadcn/ui/Radix. O Select customizado tem comportamento visual e de acessibilidade diferente.
-
-**Locais de uso:** ExpenseFormModal, IncomeFormModal, PageHeaderActionButton, filtros diversos.
-
-### 5.4 Responsividade de modais
-
-**Problema:** Modais usam `Sheet` no mobile (bottom sheet) e `Dialog` no desktop (central). Isso é consistente, mas alguns modais não têm footer responsivo (ex: ConfirmModal em layout stacked não adapta para mobile).
-
-**Já corrigido:** ModalFooter tem layout híbrido (ícones no mobile, texto no desktop).
+**Validação:**
+- ✅ Build: OK
+- ✅ Typecheck: 0 erros
+- ✅ Testes: 237/237 passando (27 arquivos)
+- ✅ Code Review: Aprovado sem ressalvas
 
 ---
 
-## 6. Oportunidades de Extração de Componentes
+## 5. Fragilidades Ainda Presentes
 
-### 6.1 `RowButton` / `ListItemButton`
+### 5.1 ✅ `as any` — RESOLVIDO
 
-**Padrão repetido em:**
-- `BillExpenseRowButton.tsx` — `<Button variant="outline" className="w-full h-auto text-left flex-col items-stretch p-2.5">`
-- `PaymentRowButton.tsx` — `<Button variant="outline" className="w-full h-auto text-left flex-col items-stretch p-2.5">`
-- `ReportsCategoryRowButton.tsx` — `<Button variant="outline" className="w-full h-auto ...">` (com mais classes)
+0 ocorrências no código de produção.
 
-**Sugestão:** Extrair `RowButton` que forneça a estrutura base de botão horizontal expansivo.
+### 5.2 ℹ️ useExpenses, useIncomes, useDebts — mantidos manuais
 
-### 6.2 `AmountInput`
+**Decisão:** Mantidos intencionalmente. Custo/risco de refatoração para `useSupabaseTable` supera o benefício devido a:
+- Lógica de parcelamento e competência de cartão
+- Exclusão em modos `single/all/subsequent`
+- Joins complexos (debts → expenses → categories → credit_cards)
+- Temp ID optimistic insert em useDebts
 
-**Padrão repetido em:**
-- `ExpenseFormModal.tsx`
-- `IncomeFormModal.tsx`
+### 5.3 ⚠️ ~119 `useEffect` em todo o app
 
-Ambos usam `<Input type="text" inputMode="decimal" ...>` com `onBlur` que faz `parseMoneyInput`/`formatMoneyInput`.
+Distribuição normal para um app desta complexidade. FloatingCalculator já reduzido.
 
-**Sugestão:** Extrair `AmountInput` que já inclua formatação monetária, placeholder "0,00", e validação.
+### 5.4 ⚠️ Select customizado (não usa ui/select do Radix)
 
-### 6.3 `useFormAmountSync`
-
-**Padrão repetido em:**
-- `ExpenseFormModal.tsx` — `handleAmountChange` sincroniza amount/report_amount
-- `IncomeFormModal.tsx` — Código idêntico
-
-**Sugestão:** Extrair hook que gerencia o estado `amount`, `report_amount` e a lógica de sincronização.
+Baixa prioridade.
 
 ---
 
-## 7. Padrões e Boas Práticas
+## 6. Inconsistências de UI/UX
 
-### 7.1 Padrões que o projeto segue bem
-
-✅ **Separação de concerns:** Hooks em `src/hooks/`, componentes em `src/components/`, páginas em `src/pages/`, utilitários em `src/utils/`
-✅ **Design system unificado:** Variáveis CSS com prefixo `--ds-*`, glass system com `--glass-*`
-✅ **Modais responsivos:** `Modal.tsx` alterna entre `Sheet` (mobile) e `Dialog` (desktop)
-✅ **Offline-first:** Hooks como `useExpenses`, `useIncomes`, `useCategories` têm suporte offline embutido
-✅ **Temas e cores:** Sistema completo de temas (light/dark/midnight), acentos (6 cores), paletas financeiras (vivid/monochrome)
-✅ **Componentização:** ModalForm, ModalFooter, ConfirmModal reutilizados em múltiplos locais
-
-### 7.2 Padrões a melhorar
-
-⚠️ **Nomenclatura:** Mistura de português e inglês em nomes de classes CSS (`modal-upload-zone`, `surface-glass`, `animate-page-enter`)
-⚠️ **CSS inline vs classes:** Uso misto de Tailwind + classes CSS customizadas. Preferir classes CSS para lógica visual complexa.
-⚠️ **Migração de variáveis:** `--color-*` ainda em uso em alguns locais, enquanto `--ds-*` é o namespace novo. Gradualmente migrar tudo para `--ds-*`.
+### 6.1 Estilo de valor base — padronizado ✅
+### 6.2 Botão de rolagem — finalizado ✅
+### 6.3 Dropdown de seleção inconsistente
+### 6.4 Responsividade de modais
 
 ---
 
-## 8. Sugestões Futuras
+## 7. Oportunidades de Extração de Componentes
+
+### 7.1 ✅ TransactionAmountFields (com useFormAmountSync)
+### 7.2 ℹ️ RowButton — componente já existe (src/components/RowButton.tsx)
+### 7.3 ✅ Sub-componentes TransactionForm
+
+---
+
+## 8. Padrões e Boas Práticas
+
+### 8.1 Padrões que o projeto segue bem
+
+✅ Separação de concerns
+✅ Design system unificado (variáveis `--ds-*`, glass system)
+✅ Modais responsivos (Sheet mobile, Dialog desktop)
+✅ Offline-first
+✅ Temas e cores (light/dark/midnight, 6 acentos, vivid/monochrome)
+✅ **configRef pattern** para evitar loops infinitos em hooks genéricos
+
+### 8.2 Padrões a melhorar
+
+⚠️ Nomenclatura: português e inglês misturados
+⚠️ `--color-*` ainda em uso em alguns locais
+
+---
+
+## 9. Sugestões Futuras
 
 ### ✅ Concluído
 
-1. ✅ **Logger condicional** — `src/utils/logger.ts` criado, 89 `console.*` substituídos em 32+ arquivos
-2. ✅ **Skeleton.tsx criado** — 7 variantes específicas, integrado em todas as 9 páginas
-3. ✅ **FloatingCalculator** — Reduzido de 16→12 useEffect
-4. ✅ **Fase 1 da refatoração** — FloatingActionHub, TransactionRow, tooltips centralizados, tooltips faltantes
-5. ✅ **Item 5 (Fase 2) — usePageActions hook** — Substitui PageHeader em 10 páginas, reduz de 3 imports para 1
+| # | Sugestão | Status |
+|---|----------|--------|
+| 1 | Logger condicional | ✅ |
+| 2 | Skeleton.tsx — 7 variantes | ✅ |
+| 3 | FloatingCalculator reduzido | ✅ |
+| 4 | FloatingActionHub, TransactionRow, tooltips | ✅ |
+| 5 | usePageActions substitui PageHeader | ✅ |
+| 6 | useSupabaseTable + 3 hooks refatorados | ✅ |
+| 7 | Sub-componentes TransactionForm | ✅ |
+| 8 | Button size="icon" + IconButton | ✅ |
+| 9 | Dead code removido | ✅ |
+| 10 | useAppSettings reducer | ✅ |
+| 11 | CSS Recharts consolidado | ✅ |
+| 12 | Modais refatorados (stale closure fix) | ✅ |
+| 13 | `as any` / `catch(err: any)` zerados | ✅ |
+| 14 | **Bug crítico: loop infinito no useSupabaseTable** | ✅ |
 
-### Prioridade Alta (Pendente)
+### Prioridade Baixa (futuro)
 
-1. **Eliminar `as any` dos componentes de input** — Input.tsx e NumberInput.tsx
-2. **Criar `useSupabaseTable` hook genérico** — Reduzir 7 hooks CRUD para 1 + 7 configs (~500 linhas)
-3. **Extrair `TransactionFormBase`** — Unificar ExpenseFormModal e IncomeFormModal (~400 linhas)
-
-### Prioridade Média (Pendente)
-
-4. **Extrair `RowButton`** — Unificar BillExpenseRowButton, PaymentRowButton e ReportsCategoryRowButton
-5. **Extrair `AmountInput`** e `useFormAmountSync`
-6. **Consolidar `Select`** — Substituir customizado pelo `ui/select` do Radix
-7. **Consolidar Button/Card/Input para eliminar dualidade** — 14 componentes base → 7
-
-### Prioridade Baixa (Pendente)
-
-8. **Migrar `--color-*` restantes para `--ds-*`** no CSS
-9. **Adicionar testes** para os hooks de reconciliação
-10. **Adicionar testes unitários** para os componentes Skeleton
-11. **Limpeza de dead code** (`ui/separator`, `ui/scroll-area`)
-12. **Reduzir `useEffect` nos componentes críticos**
+| # | Sugestão | Esforço |
+|---|----------|---------|
+| 1 | Extrair RowButton | ~1h |
+| 2 | Substituir Select customizado | ~2h |
+| 3 | Reduzir useEffect | ~3h |
+| 4 | Migrar `--color-*` para `--ds-*` | ~2h |
+| 5 | Tooltips em gráficos de pizza | ~30min |
 
 ---
 
@@ -330,17 +250,14 @@ Ambos usam `<Input type="text" inputMode="decimal" ...>` com `onBlur` que faz `p
 
 | Categoria | Componentes | Status |
 |-----------|-------------|--------|
-| **Primitives (shadcn/ui)** | button, card, input, select, switch, checkbox, dialog, sheet, tabs, badge, label, separator, skeleton, table, scroll-area | ✅ Prontos |
-| **Wrappers** | Button, Card, Input, Checkbox, Switch, IconButton, NumberInput, Select | ✅ Em uso |
-| **Modais** | Modal, ModalForm, ModalFooter, ConfirmModal, ModalChoiceGrid, ModalFieldRow, ModalInfoPanel, ModalSummaryPanel, ModalIntro | ✅ Consistentes |
-| **Layout** | Layout, PageHeader, PageHeaderActionButton, PageHeaderActions, FloatingSideStack | ✅ Consistentes |
-| **Dashboard** | LimitsControl, FinancialInsights, KpiCard, DashboardKpis, DailyFlowChart, MonthlyOverviewChart, DailyBudgetAdvisor | ✅ Consistentes |
-| **Investimentos** | ~20 componentes de reconciliação, gráficos, tabelas, modais | ⚠️ Complexos |
-| **Cartão de Crédito** | ~15 componentes de fatura, reconciliação CSV, estornos | ⚠️ Complexos |
-| **UI Auxiliares** | Skeleton, SectionHeader, InfoTooltip, ViewModeToggle, CategoryBadge, CategoryColorBar, AnimatedListItem | ✅ Consistentes |
-| **Skeleton** | Skeleton.tsx (SkeletonDashboard, SkeletonInvestments, SkeletonCategories, SkeletonTransactionList, SkeletonContas, SkeletonReports, SkeletonCategoryGrid) | ✅ Integrado em 9 páginas |
-| **Não utilizados** | ScrollArea, Table (ui/), Separator (ui/), Badge (ui/) | ❌ Disponível mas sem uso no app |
+| **Primitives (shadcn/ui)** | button, card, input, select, switch, checkbox, dialog, sheet, tabs, badge, label, table | ✅ |
+| **Wrappers** | Button, Card, Input, Checkbox, Switch, IconButton, NumberInput, Select | ✅ |
+| **TransactionForm** | TransactionAmountFields, TransactionDateField, TransactionCategorySelect, TransactionDescriptionField | ✅ |
+| **Modais** | Modal, ModalForm, ModalFooter, ConfirmModal, ModalChoiceGrid, ModalFieldRow, ModalInfoPanel, ModalSummaryPanel, ModalIntro | ✅ |
+| **Layout** | Layout, FloatingActionHub, FloatingSideStack | ✅ |
+| **Dashboard** | LimitsControl, FinancialInsights, KpiCard, DashboardKpis, DailyFlowChart, MonthlyOverviewChart, DailyBudgetAdvisor | ✅ |
+| **Removidos** | Separator, ScrollArea, PageHeader, MobileAlertsPill | ✅ |
 
 ---
 
-> **Nota:** Este documento foi gerado automaticamente com base em análise estática do código-fonte. Recomenda-se revisão manual periódica e testes visuais para validar as alterações de CSS.
+> **Nota:** Documento finalizado. Consulte `docs/ARCHITECTURE.md` para visão geral do sistema e `docs/REFACTORING_PLAN.md` para o plano detalhado.

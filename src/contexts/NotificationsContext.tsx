@@ -35,11 +35,7 @@ interface NotificationsContextType {
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined)
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
-  const {
-    remindersEnabled,
-    remindersDaysBeforeDebts,
-    remindersDaysBeforeCardBills,
-  } = useAppSettings()
+  const { settings: { remindersEnabled, remindersDaysBeforeDebts, remindersDaysBeforeCardBills } } = useAppSettings()
   
   const { debts } = useDebts()
   const { creditCards } = useCreditCards()

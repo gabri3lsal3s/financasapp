@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
-type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits' | 'income_category_month_expectations' | 'debts'
+export type QueueEntity = 'expenses' | 'incomes' | 'investments' | 'credit_cards' | 'credit_card_bills' | 'user_settings' | 'categories' | 'income_categories' | 'expense_category_month_limits' | 'income_category_month_expectations' | 'debts'
 type QueueAction = 'create' | 'update' | 'delete'
 
-interface OfflineQueueItem {
+export interface OfflineQueueItem {
   id: string
   entity: QueueEntity
   action: QueueAction

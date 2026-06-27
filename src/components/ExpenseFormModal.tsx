@@ -4,15 +4,16 @@ import { ptBR } from 'date-fns/locale'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
-import AmountInput from '@/components/AmountInput'
+import TransactionAmountFields from '@/components/TransactionAmountFields'
+import TransactionDateField from '@/components/TransactionDateField'
+import TransactionCategorySelect from '@/components/TransactionCategorySelect'
+import TransactionDescriptionField from '@/components/TransactionDescriptionField'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
 import { useDebts } from '@/hooks/useDebts'
-import { useFormAmountSync } from '@/hooks/useFormAmountSync'
 import { Expense, Category, CreditCard } from '@/types'
 import {
-  APP_START_DATE,
   formatMoneyInput,
   parseMoneyInput,
   roundToDecimals,
@@ -69,14 +70,7 @@ export default function ExpenseFormModal({
   const [isDebtAmountEdited, setIsDebtAmountEdited] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const { handleAmountChange } = useFormAmountSync({
-    amount: formData.amount,
-    reportAmount: formData.report_amount,
-    setAmounts: (next) => setFormData((prev) => ({ ...prev, ...next })),
-  })
-
-  const handleExpenseAmountChange = (nextAmount: string) => {
-    handleAmountChange(nextAmount)
+  const handleExpenseAmountChanged = (nextAmount: string) => {
     if (!isDebtAmountEdited) {
       setLinkedDebtAmount(nextAmount)
     }
@@ -276,182 +270,169 @@ export default function ExpenseFormModal({
         />
       )}
     >
-        <AmountInput
-          label="Valor"
-          value={formData.amount}
-          onChange={handleExpenseAmountChange}
-          onBlur={() => {
-            if (!isDebtAmountEdited) setLinkedDebtAmount(formData.amount)
-          }}
-          required
-        />
+      <TransactionAmountFields
+        amount={formData.amount}
+        reportAmount={formData.report_amount}
+        onSetAmounts={(next) =>
+          setFormData((prev) => ({ ...prev, ...next }))
+        }
+        onAmountChanged={handleExpenseAmountChanged}
+        onReportAmountBlur={(formatted) =>
+          setFormData((prev) => ({ ...prev, report_amount: formatted }))
+        }
+      />
 
-        <AmountInput
-          label="Valor no relatório (opcional)"
-          value={formData.report_amount}
-          onChange={(val) => setFormData({ ...formData, report_amount: val })}
-          onBlur={(formatted) => setFormData((prev) => ({ ...prev, report_amount: formatted }))}
-          placeholder="Se vazio, usa o valor total"
-        />
+      <TransactionDateField
+        value={formData.date}
+        onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
+      />
 
-        <Input
-          label="Data"
-          type="date"
-          value={formData.date}
-          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-          min={APP_START_DATE}
-          required
-        />
+      <Select
+        label="Forma de pagamento"
+        value={formData.payment_method}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            payment_method: e.target.value,
+            credit_card_id: e.target.value === 'credit_card' ? prev.credit_card_id : '',
+          }))
+        }
+        options={[
+          { value: 'other', label: 'Outros' },
+          { value: 'cash', label: 'Dinheiro' },
+          { value: 'debit', label: 'Débito' },
+          { value: 'credit_card', label: 'Cartão de crédito' },
+          { value: 'pix', label: 'PIX' },
+          { value: 'transfer', label: 'Transferência' },
+        ]}
+      />
 
-        <Select
-          label="Forma de pagamento"
-          value={formData.payment_method}
-          onChange={(e) =>
-            setFormData({
-              ...formData,
-              payment_method: e.target.value,
-              credit_card_id: e.target.value === 'credit_card' ? formData.credit_card_id : '',
-            })
-          }
-          options={[
-            { value: 'other', label: 'Outros' },
-            { value: 'cash', label: 'Dinheiro' },
-            { value: 'debit', label: 'Débito' },
-            { value: 'credit_card', label: 'Cartão de crédito' },
-            { value: 'pix', label: 'PIX' },
-            { value: 'transfer', label: 'Transferência' },
-          ]}
-        />
-
-        {formData.payment_method === 'credit_card' && (
-          <>
-            <Select
-              label="Cartão"
-              value={formData.credit_card_id}
-              onChange={(e) =>
-                setFormData({ ...formData, credit_card_id: e.target.value })
-              }
-              options={[
-                { value: '', label: 'Selecionar cartão' },
-                ...creditCards
-                  .filter(
-                    (card) =>
-                      card.is_active !== false || card.id === formData.credit_card_id
-                  )
-                  .map((card) => ({ value: card.id, label: card.name })),
-              ]}
-              required
-            />
-
-            {formData.credit_card_id && (
-              <div className="space-y-2">
-                <Select
-                  label="Fatura (opcional)"
-                  value={formData.bill_competence}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bill_competence: e.target.value })
-                  }
-                  options={[
-                    { value: '', label: 'Cálculo automático' },
-                    ...(() => {
-                      const baseDate = formData.date
-                        ? new Date(formData.date + 'T12:00:00')
-                        : null
-                      const options = []
-
-                      if (baseDate && !isNaN(baseDate.getTime())) {
-                        for (let i = -1; i <= 1; i++) {
-                          const d = addMonths(baseDate, i)
-                          const competence = format(d, 'yyyy-MM')
-                          const monthName = format(d, 'MMMM', { locale: ptBR })
-                          const label = `${
-                            monthName.charAt(0).toUpperCase() + monthName.slice(1)
-                          } (${format(d, 'MM')})`
-                          options.push({ value: competence, label })
-                        }
-                      }
-                      return options
-                    })(),
-                  ]}
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        {!editingExpense && (
-          <Input
-            label="Parcelas"
-            type="number"
-            min="1"
-            max="60"
-            value={formData.installment_total}
+      {formData.payment_method === 'credit_card' && (
+        <>
+          <Select
+            label="Cartão"
+            value={formData.credit_card_id}
             onChange={(e) =>
-              setFormData({ ...formData, installment_total: e.target.value })
+              setFormData((prev) => ({ ...prev, credit_card_id: e.target.value }))
             }
-            placeholder="1"
+            options={[
+              { value: '', label: 'Selecionar cartão' },
+              ...creditCards
+                .filter(
+                  (card) =>
+                    card.is_active !== false || card.id === formData.credit_card_id
+                )
+                .map((card) => ({ value: card.id, label: card.name })),
+            ]}
+            required
           />
-        )}
 
-        <Select
-          label="Categoria"
-          value={formData.category_id}
-          onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-          options={categories.map((cat) => ({
-            value: cat.id,
-            label: cat.name,
-          }))}
-          required
-        />
-
-        <Input
-          label="Descrição (opcional)"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Ex: Almoço, Uber..."
-        />
-
-        {!editingExpense && (
-          <div className="pt-2 pb-2">
-            <Checkbox
-              label="Cadastrar cobrança?"
-              description="Cria uma cobrança a receber vinculada a esta despesa"
-              checked={createLinkedDebt}
-              onChange={(e) => setCreateLinkedDebt(e.target.checked)}
-            />
-          </div>
-        )}
-
-        {!editingExpense && createLinkedDebt && (
-          <div className="animate-surface-enter w-full pb-2">
-            <Input
-              label="Valor da cobrança (R$)"
-              type="text"
-              inputMode="decimal"
-              value={linkedDebtAmount}
-              onChange={(e) => {
-                setLinkedDebtAmount(e.target.value)
-                setIsDebtAmountEdited(true)
-              }}
-              onBlur={() => {
-                const parsed = parseMoneyInput(linkedDebtAmount)
-                if (!Number.isNaN(parsed) && parsed >= 0) {
-                  setLinkedDebtAmount(formatMoneyInput(parsed))
+          {formData.credit_card_id && (
+            <div className="space-y-2">
+              <Select
+                label="Fatura (opcional)"
+                value={formData.bill_competence}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, bill_competence: e.target.value }))
                 }
-              }}
-              placeholder="0,00"
-              required
-            />
-          </div>
-        )}
+                options={[
+                  { value: '', label: 'Cálculo automático' },
+                  ...(() => {
+                    const baseDate = formData.date
+                      ? new Date(formData.date + 'T12:00:00')
+                      : null
+                    const options = []
 
-        {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
-          <p className="modal-intro modal-panel-glass p-3">
-            Esta despesa pertence ao parcelamento{' '}
-            {editingExpense.installment_number || 1}/{editingExpense.installment_total}.
-            A edição afeta apenas esta parcela.
-          </p>
-        )}
+                    if (baseDate && !isNaN(baseDate.getTime())) {
+                      for (let i = -1; i <= 1; i++) {
+                        const d = addMonths(baseDate, i)
+                        const competence = format(d, 'yyyy-MM')
+                        const monthName = format(d, 'MMMM', { locale: ptBR })
+                        const label = `${
+                          monthName.charAt(0).toUpperCase() + monthName.slice(1)
+                        } (${format(d, 'MM')})`
+                        options.push({ value: competence, label })
+                      }
+                    }
+                    return options
+                  })(),
+                ]}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {!editingExpense && (
+        <Input
+          label="Parcelas"
+          type="number"
+          min="1"
+          max="60"
+          value={formData.installment_total}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, installment_total: e.target.value }))
+          }
+          placeholder="1"
+        />
+      )}
+
+      <TransactionCategorySelect
+        value={formData.category_id}
+        onChange={(val) => setFormData((prev) => ({ ...prev, category_id: val }))}
+        options={categories.map((cat) => ({
+          value: cat.id,
+          label: cat.name,
+        }))}
+      />
+
+      <TransactionDescriptionField
+        value={formData.description}
+        onChange={(val) => setFormData((prev) => ({ ...prev, description: val }))}
+        placeholder="Ex: Almoço, Uber..."
+      />
+
+      {!editingExpense && (
+        <div className="pt-2 pb-2">
+          <Checkbox
+            label="Cadastrar cobrança?"
+            description="Cria uma cobrança a receber vinculada a esta despesa"
+            checked={createLinkedDebt}
+            onChange={(e) => setCreateLinkedDebt(e.target.checked)}
+          />
+        </div>
+      )}
+
+      {!editingExpense && createLinkedDebt && (
+        <div className="animate-surface-enter w-full pb-2">
+          <Input
+            label="Valor da cobrança (R$)"
+            type="text"
+            inputMode="decimal"
+            value={linkedDebtAmount}
+            onChange={(e) => {
+              setLinkedDebtAmount(e.target.value)
+              setIsDebtAmountEdited(true)
+            }}
+            onBlur={() => {
+              const parsed = parseMoneyInput(linkedDebtAmount)
+              if (!Number.isNaN(parsed) && parsed >= 0) {
+                setLinkedDebtAmount(formatMoneyInput(parsed))
+              }
+            }}
+            placeholder="0,00"
+            required
+          />
+        </div>
+      )}
+
+      {editingExpense && Number(editingExpense.installment_total || 1) > 1 && (
+        <p className="modal-intro modal-panel-glass p-3">
+          Esta despesa pertence ao parcelamento{' '}
+          {editingExpense.installment_number || 1}/{editingExpense.installment_total}.
+          A edição afeta apenas esta parcela.
+        </p>
+      )}
 
     </ModalForm>
 

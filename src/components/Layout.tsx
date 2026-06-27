@@ -53,7 +53,7 @@ function OfflinePlaceholder() {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { floatingCalculatorEnabled } = useAppSettings()
+  const { settings: { floatingCalculatorEnabled } } = useAppSettings()
   const { signOut, profile } = useAuth()
   useBackgroundCache()
   const navigate = useNavigate()
