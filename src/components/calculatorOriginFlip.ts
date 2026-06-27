@@ -175,15 +175,14 @@ export function getCalculatorPanelOpenClass(side: 'left' | 'right'): string {
  * Aplica transição fluida para o movimento no eixo Y.
  */
 export function getCalculatorButtonWrapperClass(
-  side: 'left' | 'right',
+  _side: 'left' | 'right',
   isDragging: boolean,
   isReturning: boolean
 ): string {
   return cn(
-    'fixed pointer-events-auto z-[1300]',
+    'fixed pointer-events-none z-[1300]',
     'calculator-icon-wrapper-transition',
     isDragging && 'calculator-icon-wrapper-transition--no-transition',
-    isReturning && !isDragging && 'calculator-icon-wrapper-transition--returning',
-    side === 'left' ? 'left-2 sm:left-3' : 'right-2 sm:right-3'
+    isReturning && !isDragging && 'calculator-icon-wrapper-transition--returning'
   )
 }

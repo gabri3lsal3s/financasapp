@@ -5,6 +5,7 @@ const BIOMETRIC_LOCK_TIMEOUT_KEY = 'app.biometric.lockTimeoutMinutes'
 const REMINDERS_ENABLED_KEY = 'app.reminders.enabled'
 const REMINDERS_DAYS_DEBTS_KEY = 'app.reminders.daysDebts'
 const REMINDERS_DAYS_CARDS_KEY = 'app.reminders.daysCards'
+const FLOATING_CALCULATOR_ABSORBED_KEY = 'app.floatingCalculator.absorbed'
 const APP_SETTINGS_UPDATED_EVENT = 'app-settings-updated'
 
 let dashboardReportsWeightsEnabledMemory = false
@@ -15,6 +16,7 @@ export type BiometricLockTimeout = 0 | 1 | 5 | 15
 
 export type AppSettingsState = {
   floatingCalculatorEnabled: boolean
+  floatingCalculatorAbsorbed: boolean
   dashboardReportsWeightsEnabled: boolean
   creditCardsWeightsEnabled: boolean
   categoriesWeightsEnabled: boolean
@@ -54,6 +56,15 @@ const parseFloatingCalculatorEnabled = (value: string | null): boolean => {
 const readFloatingCalculatorEnabled = (): boolean => {
   if (!isStorageAvailable()) return true
   return parseFloatingCalculatorEnabled(window.localStorage.getItem(FLOATING_CALCULATOR_ENABLED_KEY))
+}
+
+const parseFloatingCalculatorAbsorbed = (value: string | null): boolean => {
+  return value === 'true'
+}
+
+const readFloatingCalculatorAbsorbed = (): boolean => {
+  if (!isStorageAvailable()) return false
+  return parseFloatingCalculatorAbsorbed(window.localStorage.getItem(FLOATING_CALCULATOR_ABSORBED_KEY))
 }
 
 const readDashboardReportsWeightsEnabled = (): boolean => {
@@ -113,6 +124,7 @@ const readRemindersDaysCards = (): number => {
 
 const readAllSettings = (): AppSettingsState => ({
   floatingCalculatorEnabled: readFloatingCalculatorEnabled(),
+  floatingCalculatorAbsorbed: readFloatingCalculatorAbsorbed(),
   dashboardReportsWeightsEnabled: readDashboardReportsWeightsEnabled(),
   creditCardsWeightsEnabled: readCreditCardsWeightsEnabled(),
   categoriesWeightsEnabled: readCategoriesWeightsEnabled(),
@@ -128,6 +140,7 @@ export function useAppSettings() {
   useEffect(() => {
     const syncFromStorage = () => {
       dispatch({ key: 'floatingCalculatorEnabled', value: readFloatingCalculatorEnabled() })
+      dispatch({ key: 'floatingCalculatorAbsorbed', value: readFloatingCalculatorAbsorbed() })
       dispatch({ key: 'dashboardReportsWeightsEnabled', value: readDashboardReportsWeightsEnabled() })
       dispatch({ key: 'creditCardsWeightsEnabled', value: readCreditCardsWeightsEnabled() })
       dispatch({ key: 'categoriesWeightsEnabled', value: readCategoriesWeightsEnabled() })
@@ -140,6 +153,7 @@ export function useAppSettings() {
     const onStorage = (event: StorageEvent) => {
       if (
         event.key === FLOATING_CALCULATOR_ENABLED_KEY
+        || event.key === FLOATING_CALCULATOR_ABSORBED_KEY
         || event.key === BIOMETRIC_LOCK_TIMEOUT_KEY
         || event.key === REMINDERS_ENABLED_KEY
         || event.key === REMINDERS_DAYS_DEBTS_KEY
@@ -166,6 +180,10 @@ export function useAppSettings() {
       case 'floatingCalculatorEnabled':
         if (!isStorageAvailable()) return
         window.localStorage.setItem(FLOATING_CALCULATOR_ENABLED_KEY, String(value))
+        break
+      case 'floatingCalculatorAbsorbed':
+        if (!isStorageAvailable()) return
+        window.localStorage.setItem(FLOATING_CALCULATOR_ABSORBED_KEY, String(value))
         break
       case 'biometricLockTimeout':
         if (!isStorageAvailable()) return

@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { formatNumberBR, roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useAppSettings } from '@/hooks/useAppSettings'
 import { Z_INDEX } from '@/constants/zIndex'
 import {
   CALCULATOR_SIDE_SLOT_ID,
   FLOATING_SIDE_BUTTON_NEUTRAL,
-  getFloatingSideTabButtonClassName,
+  FLOATING_SIDE_BUTTON_BASE,
+  FLOATING_SIDE_BUTTON_HEIGHT,
 } from '@/components/floatingSideLayout'
 import {
   type CalculatorPosition,
@@ -359,6 +362,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [location.pathname, mounted])
 
+  const { settings: { floatingCalculatorAbsorbed }, updateSetting } = useAppSettings()
   const [isExpanded, setIsExpanded] = useState(false)
   const [expression, setExpression] = useState(DEFAULT_STATE.expression)
   const [lastResult, setLastResult] = useState(DEFAULT_STATE.lastResult)
@@ -373,21 +377,50 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const [resizePreviewRect, setResizePreviewRect] = useState<PanelRect | null>(null)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [position, setPosition] = useState<CalculatorPosition>(() => readPersistedPosition(isDesktop))
+  const [isNearHub, setIsNearHub] = useState(false)
+  const [isDraggingFromHub, setIsDraggingFromHub] = useState(false)
+  const [isIconAbsorbing, setIsIconAbsorbing] = useState(false)
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 })
   const [isDraggingIcon, setIsDraggingIcon] = useState(false)
   const [isIconReturning, setIsIconReturning] = useState(false)
   const [dragPreviewY, setDragPreviewY] = useState<number | null>(null)
+  const [dragPreviewX, setDragPreviewX] = useState<number | null>(null)
   const iconDragMovedRef = useRef(false)
   const iconReturnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const iconDragWrapperRef = useRef<HTMLDivElement>(null)
   const currentPositionRef = useRef(position)
   currentPositionRef.current = position
 
-  // Atualiza o Y percentual conforme o drag termina
-  const commitPositionY = useCallback((newYPercent: number) => {
+  // Listen to open events from external components like PageActionButtonHub.tsx
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsExpanded(true)
+    }
+    window.addEventListener('open-floating-calculator', handleOpen)
+    return () => {
+      window.removeEventListener('open-floating-calculator', handleOpen)
+    }
+  }, [])
+
+  // Listen to start-drag-from-hub events from PageActionButtonHub.tsx
+  useEffect(() => {
+    const handleStartDragFromHub = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (!detail) return
+      setIsDraggingFromHub(true)
+      initiateIconDrag(detail.clientX, detail.clientY, detail.pointerId, detail.target)
+    }
+    window.addEventListener('start-drag-from-hub', handleStartDragFromHub)
+    return () => {
+      window.removeEventListener('start-drag-from-hub', handleStartDragFromHub)
+    }
+  }, [])
+
+  // Atualiza a posição (lado e Y percentual) conforme o drag termina
+  const commitPosition = useCallback((newSide: 'left' | 'right', newYPercent: number) => {
     const clamped = Math.max(0, Math.min(100, newYPercent))
     setPosition((prev) => {
-      const next: CalculatorPosition = { ...prev, yPercent: clamped }
+      const next: CalculatorPosition = { ...prev, side: newSide, yPercent: clamped }
       persistPosition(next, isDesktop)
       return next
     })
@@ -963,14 +996,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     })
   }
 
-  const startIconDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return
-    }
-
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-
+  const initiateIconDrag = (clientX: number, clientY: number, pointerId: number, targetForCapture?: Element) => {
     if (iconReturnTimeoutRef.current) {
       clearTimeout(iconReturnTimeoutRef.current)
     }
@@ -979,46 +1005,90 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     setIsDraggingIcon(true)
     iconDragMovedRef.current = false
 
-    const startY = event.clientY
-    const pointerId = event.pointerId
-    const startPosition = currentPositionRef.current
+    const startX = clientX
+    const startY = clientY
 
     const buttonHeight = 40
     const viewportHeight = window.innerHeight
+    const [safeMinY, safeMaxY] = getSafeYRange(viewportHeight, buttonHeight)
 
-    // Posição Y inicial em pixels (usa calculateYFromPercent com safe zones)
-    const startYPx = calculateYFromPercent(startPosition.yPercent, viewportHeight, buttonHeight)
+    const minTop = slotTop !== null ? Math.max(slotTop + 8, safeMinY) : safeMinY
+
+    const hubFab = document.querySelector('.page-action-hub-fab')
+    const initialY = startY - 20
+    const initialX = startX - 20
+
+    setDragPreviewY(initialY)
+    setDragPreviewX(initialX)
+
+    let latestYPx = initialY
+    let latestXPx = initialX
+    let latestDist = 9999
+    let lastNearSent = false
+
+    if (targetForCapture && 'setPointerCapture' in targetForCapture) {
+      try {
+        targetForCapture.setPointerCapture(pointerId)
+      } catch {
+        // ignore capture errors
+      }
+    }
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return
 
       const rawDeltaY = moveEvent.clientY - startY
+      const rawDeltaX = moveEvent.clientX - startX
 
-      if (!iconDragMovedRef.current && Math.abs(rawDeltaY) > 4) {
+      if (!iconDragMovedRef.current && (Math.abs(rawDeltaY) > 4 || Math.abs(rawDeltaX) > 4)) {
         iconDragMovedRef.current = true
       }
 
-      // Calcula a nova posição Y em pixels, clamped dentro das zonas seguras
-      const [safeMinY, safeMaxY] = getSafeYRange(viewportHeight, buttonHeight)
-      const newYPx = Math.max(safeMinY, Math.min(safeMaxY, startYPx + rawDeltaY))
+      // Calcula a nova posição Y em pixels, clamped dentro das zonas seguras respeitando o minTop
+      let newYPx = Math.max(minTop, Math.min(safeMaxY, initialY + rawDeltaY))
+      let newXPx = Math.max(0, Math.min(window.innerWidth - 40, initialX + rawDeltaX))
+      let dist = 9999
 
-      setDragPreviewY(newYPx)
-      setDragOffset({ x: 0, y: rawDeltaY })
+      if (hubFab) {
+        const hubRect = hubFab.getBoundingClientRect()
+        const hubCenterX = hubRect.left + hubRect.width / 2
+        const hubCenterY = hubRect.top + hubRect.height / 2
+        dist = Math.hypot(moveEvent.clientX - hubCenterX, moveEvent.clientY - hubCenterY)
 
-      // Toggle side se arrastar horizontalmente — apenas em mobile (desktop: fixo à direita)
-      const allowSideToggle = !isDesktop
-      if (allowSideToggle && Math.abs(moveEvent.clientX - event.clientX) > 60) {
-        const newSide = moveEvent.clientX < window.innerWidth / 2 ? 'left' : 'right'
-        setPosition((prev) => {
-          if (newSide === prev.side) return prev
-          const next: CalculatorPosition = { ...prev, side: newSide }
-          persistPosition(next, isDesktop)
-          return next
-        })
+        if (dist < 80) {
+          // Snap ratio: 1 when dist is 0, 0 when dist is 80
+          const snapRatio = Math.max(0, Math.min(1, (80 - dist) / 50))
+
+          // Interpolate Y
+          const targetYPx = hubCenterY - 20 // buttonHeight / 2 = 20
+          newYPx = newYPx * (1 - snapRatio) + targetYPx * snapRatio
+
+          // Interpolate X
+          const targetXPx = hubCenterX - 20
+          newXPx = newXPx * (1 - snapRatio) + targetXPx * snapRatio
+
+          // Notify near status
+          const isNear = snapRatio > 0.5
+          setIsNearHub(isNear)
+          if (isNear !== lastNearSent) {
+            lastNearSent = isNear
+            window.dispatchEvent(new CustomEvent('calculator-near-hub', { detail: { near: isNear } }))
+          }
+        } else {
+          setIsNearHub(false)
+          if (lastNearSent) {
+            lastNearSent = false
+            window.dispatchEvent(new CustomEvent('calculator-near-hub', { detail: { near: false } }))
+          }
+        }
       }
 
-      // Preview visual: atualiza a posição em tempo real
-      setDragOffset({ x: 0, y: rawDeltaY })
+      latestYPx = newYPx
+      latestXPx = newXPx
+      latestDist = dist
+      setDragPreviewY(newYPx)
+      setDragPreviewX(newXPx)
+      setDragOffset({ x: 0, y: 0 })
     }
 
     const onPointerUp = () => {
@@ -1027,31 +1097,115 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       document.removeEventListener('pointercancel', onPointerUp)
 
       setIsDraggingIcon(false)
+      setIsNearHub(false)
+      setIsDraggingFromHub(false)
+
+      if (lastNearSent) {
+        window.dispatchEvent(new CustomEvent('calculator-near-hub', { detail: { near: false } }))
+      }
+
+      if (floatingCalculatorAbsorbed) {
+        if (latestDist >= 80 && hubFab) {
+          // Detach/pull-out successful!
+          updateSetting('floatingCalculatorAbsorbed', false)
+          toast.success('Calculadora desanexada do botão de ações!')
+          try {
+            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+              navigator.vibrate([15, 30, 15])
+            }
+          } catch {
+            // ignore
+          }
+
+          // Salva a nova posição de soltura!
+          const finalSide = latestXPx < window.innerWidth / 2 ? 'left' : 'right'
+          const finalPercent = calculatePercentFromY(latestYPx, viewportHeight, buttonHeight)
+          commitPosition(finalSide, finalPercent)
+          setDragOffset({ x: 0, y: 0 })
+          setDragPreviewY(null)
+          setDragPreviewX(null)
+          return
+        } else {
+          // Snap back to hub: just clean drag offsets and keep absorbed setting
+          setIsIconReturning(true)
+          if (hubFab) {
+            const hubRect = hubFab.getBoundingClientRect()
+            const targetYPx = hubRect.top + hubRect.height / 2 - 20
+            const targetXPx = hubRect.left + hubRect.width / 2 - 20
+            setDragPreviewY(targetYPx)
+            setDragPreviewX(targetXPx)
+          }
+          iconReturnTimeoutRef.current = setTimeout(() => {
+            setIsIconReturning(false)
+            setDragOffset({ x: 0, y: 0 })
+            setDragPreviewY(null)
+            setDragPreviewX(null)
+          }, RETURN_ANIMATION_MS)
+          return
+        }
+      }
+
+      if (latestDist < 80 && hubFab) {
+        // Absorbed!
+        setIsIconAbsorbing(true)
+        updateSetting('floatingCalculatorAbsorbed', true)
+        toast.success('Calculadora integrada ao botão de ações!')
+        try {
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            navigator.vibrate([15, 30, 15])
+          }
+        } catch {
+          // ignore vibration fails
+        }
+        const hubRect = hubFab.getBoundingClientRect()
+        const targetYPx = hubRect.top + hubRect.height / 2 - 20
+        const targetXPx = hubRect.left + hubRect.width / 2 - 20
+        setDragPreviewY(targetYPx)
+        setDragPreviewX(targetXPx)
+        setTimeout(() => {
+          setIsIconAbsorbing(false)
+          setDragOffset({ x: 0, y: 0 })
+          setDragPreviewY(null)
+          setDragPreviewX(null)
+        }, 320)
+        return
+      }
 
       if (iconDragMovedRef.current) {
-        // Calcula a posição final em percentual
-        const finalYPx = dragPreviewY ?? startYPx
-        const finalPercent = calculatePercentFromY(finalYPx, viewportHeight, buttonHeight)
-        commitPositionY(finalPercent)
+        // Calcula a posição final em percentual usando o valor síncrono mais recente
+        const finalSide = latestXPx < window.innerWidth / 2 ? 'left' : 'right'
+        const finalPercent = calculatePercentFromY(latestYPx, viewportHeight, buttonHeight)
+        commitPosition(finalSide, finalPercent)
 
-        // Anima o retorno suave
+        // Anima o retorno suave (somente de escala, já que Y é atualizado sem offset)
         setIsIconReturning(true)
         setDragOffset({ x: 0, y: 0 })
         setDragPreviewY(null)
+        setDragPreviewX(null)
 
         iconReturnTimeoutRef.current = setTimeout(() => {
           setIsIconReturning(false)
-        }, RETURN_ANIMATION_MS)
+        }, 520)
       } else {
         // Se não moveu, é um clique — mantém posição
         setDragOffset({ x: 0, y: 0 })
         setDragPreviewY(null)
+        setDragPreviewX(null)
       }
     }
 
     document.addEventListener('pointermove', onPointerMove)
     document.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointercancel', onPointerUp)
+  }
+
+  const startIconDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return
+    }
+
+    event.preventDefault()
+    initiateIconDrag(event.clientX, event.clientY, event.pointerId, event.currentTarget)
   }
 
 
@@ -1077,8 +1231,22 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   const panelOpenClass = getCalculatorPanelOpenClass(position.side)
 
+  const isDetached = isDraggingIcon ||
+    (isIconReturning && floatingCalculatorAbsorbed) ||
+    isIconAbsorbing ||
+    isDraggingFromHub
+
   const sideTabButtonClassName = cn(
-    getFloatingSideTabButtonClassName(position.side),
+    FLOATING_SIDE_BUTTON_BASE,
+    FLOATING_SIDE_BUTTON_HEIGHT,
+    isDetached
+      ? 'rounded-[20px] border w-10 min-w-10 p-0 !justify-center'
+      : cn(
+          'border rounded-[16px]',
+          position.side === 'left'
+            ? 'pl-6 pr-4 min-w-10'
+            : 'pl-4 pr-6 min-w-10'
+        ),
     isDraggingIcon ? 'cursor-grabbing scale-[1.02] transition-none' : 'cursor-grab',
     FLOATING_SIDE_BUTTON_NEUTRAL,
     'calculator-origin-button',
@@ -1088,20 +1256,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   const iconDragTransform = buildIconDragTransform(dragOffset, isDraggingIcon)
 
-  const handleIconDragTransitionEnd = (event: React.TransitionEvent<HTMLDivElement>) => {
-    if (event.propertyName !== 'transform' || event.target !== iconDragWrapperRef.current) {
-      return
-    }
 
-    if (!isIconReturning) return
-
-    if (iconReturnTimeoutRef.current) {
-      clearTimeout(iconReturnTimeoutRef.current)
-      iconReturnTimeoutRef.current = null
-    }
-
-    setIsIconReturning(false)
-  }
 
   const renderCalculatorIconButton = () => (
     <button
@@ -1109,10 +1264,13 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       onPointerDown={startIconDrag}
       onClick={handleIconClick}
       aria-label="Abrir calculadora flutuante"
-      className={sideTabButtonClassName}
+      className={cn(
+        sideTabButtonClassName,
+        !isDetached && position.side === 'right' && 'flex-row-reverse'
+      )}
     >
       <Calculator size={isDesktop ? 18 : 16} className="shrink-0 text-primary calculator-icon" aria-hidden />
-      {!isDraggingIcon && !isIconReturning && (
+      {!isDetached && (
         <span className="glass-button-label whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
           Calculadora
         </span>
@@ -1122,6 +1280,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   const renderFloatingIcon = () => {
     if (isExpanded || isHidden) return null
+    if (floatingCalculatorAbsorbed && !isDraggingFromHub && !isIconReturning && !isIconAbsorbing) return null
 
     const iconContent = renderCalculatorIconButton()
     const viewportHeight = window.innerHeight
@@ -1140,21 +1299,51 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     const minTop = slotTop !== null ? Math.max(slotTop + 8, safeMinY) : safeMinY
     iconTopPx = Math.max(minTop, iconTopPx)
 
+    // Calculate left position dynamically to allow smooth transition between sides
+    const sideMargin = isDesktop ? 12 : 8
+    let leftPx = position.side === 'left'
+      ? (isDetached ? sideMargin : -16)
+      : (isDetached ? window.innerWidth - 40 - sideMargin : window.innerWidth - 240 + 16)
+
+    if (dragPreviewX !== null) {
+      leftPx = dragPreviewX
+    }
+
+    // Dynamically calculate scale based on proximity to hub and absorbing state
+    let currentScale = 1
+    if (isIconAbsorbing) {
+      currentScale = 0
+    } else if (isNearHub) {
+      currentScale = 0.68
+    }
+
+    // Dynamically calculate opacity style override
+    const opacityStyle = isIconAbsorbing || isNearHub
+      ? { opacity: isIconAbsorbing ? 0 : 0.48 }
+      : {}
+
     const wrapperStyle: React.CSSProperties = {
       top: `${iconTopPx}px`,
-      transform: iconDragTransform,
+      left: `${leftPx}px`,
+      transform: `${iconDragTransform} scale(${currentScale})`,
+      ...opacityStyle,
     }
 
     return (
       <div
         ref={iconDragWrapperRef}
-        className={getCalculatorButtonWrapperClass(
-          position.side,
-          isDraggingIcon,
-          isIconReturning
+        className={cn(
+          getCalculatorButtonWrapperClass(
+            position.side,
+            isDraggingIcon,
+            isIconReturning
+          ),
+          isNearHub && 'calculator-icon-wrapper--near-hub',
+          isIconAbsorbing && 'calculator-icon-wrapper--absorbing',
+          isDetached ? 'w-10 justify-center' : cn('w-[240px]', position.side === 'right' ? 'justify-end' : 'justify-start'),
+          'flex'
         )}
         style={wrapperStyle}
-        onTransitionEnd={handleIconDragTransitionEnd}
       >
         {iconContent}
       </div>

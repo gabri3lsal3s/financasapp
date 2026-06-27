@@ -1,10 +1,12 @@
-import { useState, useLayoutEffect, useEffect, useRef } from 'react'
+import { useState, useLayoutEffect, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Calculator } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useFloatingActions } from '@/hooks/useFloatingActions'
+import { useAppSettings } from '@/hooks/useAppSettings'
 import { cn } from '@/lib/utils'
+import { type RawPageAction } from '@/contexts/floatingActionsSharedContext'
 
 /**
  * PageActionButtonHub — pílula flutuante de ações de página.
@@ -68,11 +70,56 @@ const fabVariants = {
 
 function PageActionButtonHubPortalContent() {
   const { rawActions } = useFloatingActions()
+  const { settings: { floatingCalculatorEnabled, floatingCalculatorAbsorbed } } = useAppSettings()
   const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
+  const [isCalculatorNear, setIsCalculatorNear] = useState(false)
+  const [isReady, setIsReady] = useState(true)
+  const [lastPathname, setLastPathname] = useState(location.pathname)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const visibleActions = rawActions.filter((a) => a.show !== false)
+  if (location.pathname !== lastPathname) {
+    setLastPathname(location.pathname)
+    setIsReady(false)
+  }
+
+  useEffect(() => {
+    if (!isReady) {
+      const timer = setTimeout(() => {
+        setIsReady(true)
+      }, 120)
+      return () => clearTimeout(timer)
+    }
+  }, [isReady])
+
+  // Listen to visual absorption/proximity events from FloatingCalculator.tsx
+  useEffect(() => {
+    const handleNear = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setIsCalculatorNear(!!detail?.near)
+    }
+    window.addEventListener('calculator-near-hub', handleNear)
+    return () => {
+      window.removeEventListener('calculator-near-hub', handleNear)
+    }
+  }, [])
+
+  const calculatorAction = useMemo<RawPageAction>(() => ({
+    icon: Calculator,
+    label: 'Calculadora',
+    onClick: () => {
+      window.dispatchEvent(new CustomEvent('open-floating-calculator'))
+    },
+    intent: 'neutral' as const,
+  }), [])
+
+  const visibleActions = useMemo(() => {
+    const pageActions = rawActions.filter((a) => a.show !== false)
+    if (floatingCalculatorEnabled && floatingCalculatorAbsorbed) {
+      return [...pageActions, calculatorAction]
+    }
+    return pageActions
+  }, [rawActions, floatingCalculatorEnabled, floatingCalculatorAbsorbed, calculatorAction])
 
   // Cache the last seen non-empty actions to prevent flickering during page transitions
   const [cachedActions, setCachedActions] = useState<typeof visibleActions>([])
@@ -86,7 +133,7 @@ function PageActionButtonHubPortalContent() {
   const hasActions = visibleActions.length > 0 || !isSettingsPage
 
   const activeActions = visibleActions.length > 0 ? visibleActions : cachedActions
-  const hasSingleAction = activeActions.length === 1
+  const hasSingleAction = activeActions.length === 1 && isReady
   const hasMultipleActions = activeActions.length > 1
 
   // Fecha speed dial ao clicar fora
@@ -109,6 +156,39 @@ function PageActionButtonHubPortalContent() {
   useEffect(() => {
     setIsOpen(false)
   }, [rawActions])
+
+  const isDraggingCalculatorRef = useRef(false)
+
+  const handleCalculatorPointerDown = (e: React.PointerEvent) => {
+    isDraggingCalculatorRef.current = false
+    const startX = e.clientX
+    const startY = e.clientY
+
+    const onMove = (moveEv: PointerEvent) => {
+      if (Math.hypot(moveEv.clientX - startX, moveEv.clientY - startY) > 5) {
+        if (!isDraggingCalculatorRef.current) {
+          isDraggingCalculatorRef.current = true
+          setIsOpen(false)
+          window.dispatchEvent(new CustomEvent('start-drag-from-hub', {
+            detail: {
+              clientX: e.clientX,
+              clientY: e.clientY,
+              pointerId: e.pointerId,
+              target: e.currentTarget,
+            }
+          }))
+        }
+      }
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   const primaryAction = activeActions.find((a) => a.actionRole === 'launch') ?? activeActions[0]
   const PrimaryIcon = hasSingleAction
@@ -137,7 +217,7 @@ function PageActionButtonHubPortalContent() {
           key="page-action-hub"
           className="page-action-hub-root"
           variants={fabVariants}
-          initial="hidden"
+          initial="visible"
           animate="visible"
           exit={{
             opacity: 0,
@@ -183,7 +263,18 @@ function PageActionButtonHubPortalContent() {
 
                       <button
                         type="button"
-                        onClick={() => {
+                        onPointerDown={(e) => {
+                          if (action.label === 'Calculadora') {
+                            handleCalculatorPointerDown(e)
+                          }
+                        }}
+                        onClick={(e) => {
+                          if (isDraggingCalculatorRef.current) {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            isDraggingCalculatorRef.current = false
+                            return
+                          }
                           if (!action.disabled) {
                             action.onClick()
                             setIsOpen(false)
@@ -213,7 +304,20 @@ function PageActionButtonHubPortalContent() {
           {/* Botão FAB principal */}
           <motion.button
             type="button"
-            onClick={handleMainClick}
+            onPointerDown={(e) => {
+              if (hasSingleAction && primaryAction?.label === 'Calculadora') {
+                handleCalculatorPointerDown(e)
+              }
+            }}
+            onClick={(e) => {
+              if (isDraggingCalculatorRef.current) {
+                e.preventDefault()
+                e.stopPropagation()
+                isDraggingCalculatorRef.current = false
+                return
+              }
+              handleMainClick()
+            }}
             title={
               hasSingleAction && primaryAction
                 ? (primaryAction.title ?? primaryAction.label)
@@ -224,9 +328,13 @@ function PageActionButtonHubPortalContent() {
             className={cn(
               'page-action-hub-fab',
               hasSingleAction && primaryAction?.disabled && 'opacity-40 cursor-not-allowed',
+              isCalculatorNear && 'page-action-hub-fab--receiving'
             )}
             whileTap={{ scale: 0.93 }}
-            animate={{ rotate: hasMultipleActions && isOpen ? 45 : 0 }}
+            animate={{
+              rotate: hasMultipleActions && isOpen ? 45 : 0,
+              scale: isCalculatorNear ? 1.15 : 1,
+            }}
             transition={{ type: 'spring', stiffness: 380, damping: 26 }}
           >
             <PrimaryIcon

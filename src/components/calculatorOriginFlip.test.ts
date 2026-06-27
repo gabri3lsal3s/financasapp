@@ -32,13 +32,10 @@ describe('calculatorOriginFlip', () => {
 
   it('generates the button wrapper classes based on state', () => {
     const classLeft = getCalculatorButtonWrapperClass('left', false, false)
-    expect(classLeft).toContain('left-2')
-    expect(classLeft).not.toContain('right-2')
     expect(classLeft).toContain('calculator-icon-wrapper-transition')
 
     const classRight = getCalculatorButtonWrapperClass('right', false, false)
-    expect(classRight).toContain('right-2')
-    expect(classRight).not.toContain('left-2')
+    expect(classRight).toContain('calculator-icon-wrapper-transition')
 
     const classDragging = getCalculatorButtonWrapperClass('right', true, false)
     expect(classDragging).toContain('calculator-icon-wrapper-transition--no-transition')

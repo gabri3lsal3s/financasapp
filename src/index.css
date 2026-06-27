@@ -369,7 +369,8 @@
     overflow: hidden;
     opacity: 0;
     margin-left: 0;
-    transition: max-width 0.3s ease-in-out, opacity 0.3s ease-in-out, margin-left 0.3s ease-in-out;
+    margin-right: 0;
+    transition: max-width 0.3s ease-in-out, opacity 0.3s ease-in-out, margin-left 0.3s ease-in-out, margin-right 0.3s ease-in-out;
     white-space: nowrap;
   }
 
@@ -377,10 +378,18 @@
     transform: translate(0, 0) !important;
   }
 
-  .glass-button-side.glass-button-side-expanded .glass-button-label {
+  .glass-button-side.glass-button-side-expanded.flex-row-reverse .glass-button-label {
     max-width: 200px !important;
     opacity: 1 !important;
-    margin-left: 0.625rem !important; /* ml-2.5 */
+    margin-right: 0.625rem !important;
+    margin-left: 0 !important;
+  }
+
+  .glass-button-side.glass-button-side-expanded:not(.flex-row-reverse) .glass-button-label {
+    max-width: 200px !important;
+    opacity: 1 !important;
+    margin-left: 0.625rem !important;
+    margin-right: 0 !important;
   }
 
   @media (hover: hover) {
@@ -388,10 +397,18 @@
       transform: translate(0, 0) !important;
     }
 
-    .glass-button-side:hover .glass-button-label {
+    .glass-button-side:hover.flex-row-reverse .glass-button-label {
       max-width: 200px;
       opacity: 1;
-      margin-left: 0.625rem; /* ml-2.5 */
+      margin-right: 0.625rem;
+      margin-left: 0;
+    }
+
+    .glass-button-side:hover:not(.flex-row-reverse) .glass-button-label {
+      max-width: 200px;
+      opacity: 1;
+      margin-left: 0.625rem;
+      margin-right: 0;
     }
   }
 
@@ -1084,12 +1101,12 @@
     opacity: 0.65;
     will-change: transform, border-radius, min-width, width, opacity;
     transition:
-      border-radius 920ms cubic-bezier(0.16, 1, 0.3, 1),
-      padding-inline 920ms cubic-bezier(0.16, 1, 0.3, 1),
-      padding-block 920ms cubic-bezier(0.16, 1, 0.3, 1),
-      min-width 920ms cubic-bezier(0.16, 1, 0.3, 1),
-      width 920ms cubic-bezier(0.16, 1, 0.3, 1),
-      transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-radius 450ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      padding-inline 450ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      padding-block 450ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      min-width 450ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      width 450ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1),
       opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
       box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -1135,6 +1152,27 @@
     animation: calculator-fab-idle 3.2s var(--easing-standard) infinite;
   }
 
+  .calculator-icon-wrapper--near-hub {
+    transform: scale(0.68) !important;
+    opacity: 0.48;
+    filter: blur(0.5px);
+    transition: transform 180ms ease-out, opacity 180ms ease-out, filter 180ms ease-out !important;
+  }
+
+  .page-action-hub-fab--receiving {
+    animation: hub-fab-absorbing 1s infinite alternate ease-in-out !important;
+  }
+
+  @keyframes hub-fab-absorbing {
+    from {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-color-accent-primary) 20%, transparent), 0 0 8px 1px color-mix(in srgb, var(--ds-color-accent-primary) 20%, transparent);
+    }
+    to {
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--ds-color-accent-primary) 40%, transparent), 0 0 16px 4px color-mix(in srgb, var(--ds-color-accent-primary) 40%, transparent);
+      transform: scale(1.1);
+    }
+  }
+
   @keyframes calculator-entrance {
     from {
       opacity: 0;
@@ -1148,9 +1186,14 @@
 
   .calculator-icon-wrapper-transition {
     touch-action: none;
-    will-change: transform;
-    /* Usa a mesma duração/easing das transições de forma do botão para sincronizar */
-    transition: transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform, left, top, width, opacity, filter;
+    transition:
+      transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      left 480ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      top 480ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      width 480ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 280ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 280ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .calculator-icon-wrapper-transition--no-transition {
@@ -1158,7 +1201,13 @@
   }
 
   .calculator-icon-wrapper-transition--returning {
-    transition: transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition:
+      transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      left 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      top 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      width 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 320ms cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
   .calculator-icon-wrapper-transition--no-transition .calculator-fab-idle,

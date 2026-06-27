@@ -70,6 +70,7 @@ export default function Settings() {
 
   const { settings: {
     floatingCalculatorEnabled,
+    floatingCalculatorAbsorbed,
     biometricLockTimeout,
     remindersEnabled,
     remindersDaysBeforeDebts,
@@ -493,16 +494,33 @@ export default function Settings() {
           <AccentToneSwitcher />
 
           <Card>
-            <SettingRow
-              title="Calculadora flutuante"
-              description="Exibe uma calculadora flutuante acessível em qualquer página do app. Arraste o ícone para alternar entre o canto inferior e a lateral direita."
-            >
-              <Switch
-                checked={floatingCalculatorEnabled}
-                onChange={() => updateSetting('floatingCalculatorEnabled', !floatingCalculatorEnabled)}
-                title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
-              />
-            </SettingRow>
+            <div className="space-y-4">
+              <SettingRow
+                title="Calculadora flutuante"
+                description="Exibe uma calculadora flutuante acessível em qualquer página do app. Arraste o ícone para alternar entre o canto inferior e a lateral direita."
+              >
+                <Switch
+                  checked={floatingCalculatorEnabled}
+                  onChange={() => updateSetting('floatingCalculatorEnabled', !floatingCalculatorEnabled)}
+                  title={floatingCalculatorEnabled ? 'Desativar calculadora' : 'Ativar calculadora'}
+                />
+              </SettingRow>
+
+              {floatingCalculatorEnabled && (
+                <div className="mt-4 pt-4 border-t border-primary animate-in fade-in slide-in-from-top-2 duration-300">
+                  <SettingRow
+                    title="Integrar ao botão de ações"
+                    description="Posiciona a calculadora dentro do botão de ações unificado no canto inferior direito."
+                  >
+                    <Switch
+                      checked={floatingCalculatorAbsorbed}
+                      onChange={() => updateSetting('floatingCalculatorAbsorbed', !floatingCalculatorAbsorbed)}
+                      title={floatingCalculatorAbsorbed ? 'Desativar integração' : 'Ativar integração'}
+                    />
+                  </SettingRow>
+                </div>
+              )}
+            </div>
           </Card>
 
           <Card>
