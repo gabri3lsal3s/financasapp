@@ -1,4 +1,4 @@
-import Button from '@/components/Button'
+import RowButton from '@/components/RowButton'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 
 export interface ExpenseCategoryRowItem {
@@ -27,11 +27,9 @@ export default function ExpenseCategoryRowButton({
   const percentage = totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0
 
   return (
-    <Button
-      type="button"
-      variant="outline"
+    <RowButton
       onClick={() => onOpen(item.categoryId, item.name)}
-      className={`h-auto w-full flex-col items-stretch p-3 text-left md:p-4 ${staggerClass}`}
+      className={`p-3 md:p-4 ${staggerClass}`}
     >
       <div className="flex items-center justify-between gap-3 w-full">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -60,6 +58,6 @@ export default function ExpenseCategoryRowButton({
       <p className="text-xs text-secondary mt-2 text-center sm:text-left truncate w-full">
         Total: {formatCurrency(item.value)}
       </p>
-    </Button>
+    </RowButton>
   )
 }

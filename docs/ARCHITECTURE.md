@@ -122,7 +122,7 @@ Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModa
 
 | Componente | Função |
 |-----------|--------|
-| `FloatingCalculator` | Calculadora flutuante (drag, resize, animação) — ~12 useEffects |
+| `FloatingCalculator` | Calculadora flutuante (drag, resize, animação) — ~11 useEffects (MutationObserver, effects unificados) |
 | `FloatingSideStack` | Painel lateral direito para ações flutuantes |
 | `FloatingActionHub` | Hub unificado para ScrollToTop e NotificationsWidget |
 
@@ -458,13 +458,16 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | 7 | 4 sub-componentes TransactionForm + modais refatorados | Fase 2 | ✅ |
 | 8 | Button size="icon" + IconButton consolidado | Fase 2 | ✅ |
 | 9 | Dead code removido (separator, scroll-area) | Fase 3 | ✅ |
-| 10 | Reduzir useEffect em componentes críticos | Fase 3 | ⏳ Baixa prioridade |
+| 10 | Reduzir useEffect em componentes críticos | Fase 3 | ✅ |
 | 11 | useAppSettings reducer pattern | Fase 3 | ✅ |
 | 12 | CSS Recharts consolidado | Fase 3 | ✅ |
 | — | Dead code (PageHeader, MobileAlertsPill) + restauração (PageHeaderActions/PageHeaderActionButton) | Final | ✅ |
 | — | `as any` / `catch(err: any)` zerados no código de produção | Final | ✅ |
 | — | **Correção: loop infinito no useSupabaseTable** usando configRef | Correção | ✅ |
 | — | Teste de snapshot corrigido (PageHeader removido) | Correção | ✅ |
+| — | **RowButton — ExpenseCategoryRowButton refatorado + PaymentRowButton removido** | Melhoria | ✅ |
+| — | **Select custom → Radix UI (shadcn) — mantendo mesma API** | Melhoria | ✅ |
+| — | **useEffect reduzido (FloatingCalculator ~14→11, Reports 2→1)** | Melhoria | ✅ |
 | — | Documentação finalizada | Final | ✅ |
 
 ### Validação final
@@ -472,6 +475,12 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
 - ✅ Testes: 237/237 passando (27 arquivos)
+
+### Melhorias adicionais (pós-refatoração)
+
+- **RowButton extraído**: `ExpenseCategoryRowButton` refatorado para usar `RowButton` base. `PaymentRowButton` removido (wrapper vazio). `Contas.tsx` atualizado.
+- **Select → Radix UI**: `Select.tsx` refatorado internamente para usar `@radix-ui/react-select` (shadcn), mantendo a mesma API externa. 19 consumidores inalterados. 4 snapshots atualizados.
+- **useEffect reduzido**: FloatingCalculator ~14→11 effects (MutationObserver + resize unificado + localStorage unificado + keyboard com useRef). Reports.tsx: 2 effects de validação unificados.
 
 ---
 

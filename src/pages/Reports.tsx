@@ -428,25 +428,21 @@ export default function Reports() {
     [availableMonths, selectedYear]
   )
 
+  // WHY: efeito unificado para validar e corrigir selectedYear/selectedMonth
+  // quando os períodos disponíveis mudam ou o ano selecionado fica inválido
   useEffect(() => {
-    if (availableYears.length === 0) {
-      return
-    }
+    if (availableYears.length === 0) return
 
+    // 1. Se o ano selecionado não está mais disponível, resetar
     if (!availableYears.includes(selectedYear)) {
       setSelectedYear(availableYears[0])
-    }
-  }, [availableYears, selectedYear])
-
-  useEffect(() => {
-    if (availableYears.length === 0) {
       return
     }
 
+    // 2. Se o mês atual não existe no ano selecionado, encontrar fallback
     if (monthsForSelectedYear.length === 0) {
       const fallbackYear = availableYears[0]
-      const fallbackMonths = availableMonths.filter((month) => month.startsWith(`${fallbackYear}-`))
-
+      const fallbackMonths = availableMonths.filter((m) => m.startsWith(`${fallbackYear}-`))
       if (fallbackMonths.length > 0) {
         setSelectedYear(fallbackYear)
         if (selectedMonth !== fallbackMonths[0]) {
@@ -456,10 +452,11 @@ export default function Reports() {
       return
     }
 
+    // 3. Se o mês selecionado não pertence ao ano selecionado, corrigir
     if (!monthsForSelectedYear.includes(selectedMonth)) {
       setSelectedMonth(monthsForSelectedYear[0])
     }
-  }, [availableMonths, availableYears, monthsForSelectedYear, selectedMonth])
+  }, [availableMonths, availableYears, monthsForSelectedYear, selectedMonth, selectedYear])
 
   const { colorPalette } = usePaletteColors()
   const { categories } = useCategories()

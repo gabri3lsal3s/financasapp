@@ -328,46 +328,74 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const iconLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [hasAlertsFab, setHasAlertsFab] = useState(false)
 
+  // WHY: MutationObserver é mais eficiente que setInterval para detectar mudanças no DOM
   useEffect(() => {
     const checkAlertsFab = () => {
-      const exists = 
-        document.getElementById('alerts-fab') !== null || 
+      const exists =
+        document.getElementById('alerts-fab') !== null ||
         document.querySelector('.alerts-fab-trigger') !== null ||
         document.querySelector('.animate-bell-ring') !== null
       setHasAlertsFab(exists)
     }
 
     checkAlertsFab()
-    const interval = setInterval(checkAlertsFab, 500)
+
+    const observer = new MutationObserver(checkAlertsFab)
+    observer.observe(document.body, { childList: true, subtree: true })
 
     return () => {
-      clearInterval(interval)
+      observer.disconnect()
     }
   }, [location.pathname])
 
-
-
+  // WHY: efeito unificado para resize da viewport, posição do slot lateral e mobile toggle
   useEffect(() => {
     const slot = document.getElementById(CALCULATOR_SIDE_SLOT_ID)
     const stack = document.getElementById('floating-side-stack')
-    if (!slot || !stack) return
 
-    const update = () => {
+    const updateSlotTop = () => {
+      if (!slot) return
       const rect = slot.getBoundingClientRect()
       setSlotTop(rect.top)
     }
 
-    update()
+    const onResizeViewport = () => {
+      setIsMobile(isMobileViewport(window.innerWidth))
+      updateSlotTop()
+      setPanelRect((currentRect) => {
+        const minWidth = getPanelMinWidth(window.innerWidth)
+        const minHeight = getPanelMinHeight(window.innerWidth, window.innerHeight)
+        const maxWidthByViewport = Math.max(
+          minWidth,
+          Math.min(MAX_PANEL_WIDTH, window.innerWidth - PANEL_MARGIN * 2),
+        )
+        const maxHeightByViewport = getPanelResizeMaxHeight(window.innerWidth, window.innerHeight)
+        const { width, height } = getUniformPanelSize(
+          currentRect.height,
+          minWidth,
+          minHeight,
+          maxWidthByViewport,
+          maxHeightByViewport,
+        )
+        const left = clamp(currentRect.left, PANEL_MARGIN, window.innerWidth - width - PANEL_MARGIN)
+        const top = clamp(currentRect.top, PANEL_MARGIN, window.innerHeight - height - PANEL_MARGIN)
+        return { left, top, width, height }
+      })
+    }
 
-    const observer = new ResizeObserver(update)
-    observer.observe(stack)
+    updateSlotTop()
 
-    window.addEventListener('resize', update)
+    const resizeObserver = new ResizeObserver(updateSlotTop)
+    if (stack) resizeObserver.observe(stack)
+
+    window.addEventListener('resize', onResizeViewport)
+
     return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', update)
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', onResizeViewport)
     }
   }, [location.pathname, mounted])
+
   const [isExpanded, setIsExpanded] = useState(false)
   const [expression, setExpression] = useState(DEFAULT_STATE.expression)
   const [lastResult, setLastResult] = useState(DEFAULT_STATE.lastResult)
@@ -423,44 +451,13 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   }, [isIconReturning, iconOffset])
 
   useEffect(() => {
-    window.localStorage.setItem(CALCULATOR_UI_KEY, JSON.stringify({ iconOrigin }))
-  }, [iconOrigin])
-
-  useEffect(() => {
     setIsExpanded(false)
     setIsResizingPanel(false)
     setResizePreviewRect(null)
     setPanelRect(getDefaultPanelRect())
   }, [location.pathname])
 
-  useEffect(() => {
-    const onResizeViewport = () => {
-      setIsMobile(isMobileViewport(window.innerWidth))
-      setPanelRect((currentRect) => {
-        const minWidth = getPanelMinWidth(window.innerWidth)
-        const minHeight = getPanelMinHeight(window.innerWidth, window.innerHeight)
-        const maxWidthByViewport = Math.max(minWidth, Math.min(MAX_PANEL_WIDTH, window.innerWidth - PANEL_MARGIN * 2))
-        const maxHeightByViewport = getPanelResizeMaxHeight(window.innerWidth, window.innerHeight)
-        const { width, height } = getUniformPanelSize(
-          currentRect.height,
-          minWidth,
-          minHeight,
-          maxWidthByViewport,
-          maxHeightByViewport,
-        )
-        const left = clamp(currentRect.left, PANEL_MARGIN, window.innerWidth - width - PANEL_MARGIN)
-        const top = clamp(currentRect.top, PANEL_MARGIN, window.innerHeight - height - PANEL_MARGIN)
-
-        return { left, top, width, height }
-      })
-    }
-
-    window.addEventListener('resize', onResizeViewport)
-    return () => {
-      window.removeEventListener('resize', onResizeViewport)
-    }
-  }, [])
-
+  // WHY: restaura estado persistido da calculadora ao montar
   useEffect(() => {
     try {
       const persistedStateRaw = window.localStorage.getItem(CALCULATOR_STATE_KEY)
@@ -478,14 +475,15 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [])
 
+  // WHY: persiste estado da calculadora + posição do ícone no localStorage (unificado)
   useEffect(() => {
     const persistableState: PersistedCalculatorState = {
       expression,
       lastResult,
     }
-
     window.localStorage.setItem(CALCULATOR_STATE_KEY, JSON.stringify(persistableState))
-  }, [expression, lastResult])
+    window.localStorage.setItem(CALCULATOR_UI_KEY, JSON.stringify({ iconOrigin }))
+  }, [expression, lastResult, iconOrigin])
 
   useEffect(() => {
     const updateActiveNumericInput = (event: FocusEvent) => {
@@ -605,6 +603,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [])
 
+  // WHY: ref para evitar que o effect de keyboard recrie o listener a cada tecla
   const applyEvaluation = useCallback(() => {
     const result = evaluateExpression(expression)
     if (!result) {
@@ -626,6 +625,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
     const onKeyDown = (event: KeyboardEvent) => {
       const { key } = event
+      const handlers = keyboardHandlersRef.current
 
       const isNumericKey = /^[0-9]$/.test(key)
       const isOperatorKey = key === '+' || key === '-' || key === '*' || key === '/'
@@ -634,35 +634,35 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       if (isNumericKey || isOperatorKey || isParenthesisKey) {
         event.preventDefault()
         event.stopPropagation()
-        appendToExpression(key)
+        handlers.appendToExpression(key)
         return
       }
 
       if (key === '.' || key === ',') {
         event.preventDefault()
         event.stopPropagation()
-        appendToExpression('.')
+        handlers.appendToExpression('.')
         return
       }
 
       if (key === 'Enter' || key === '=') {
         event.preventDefault()
         event.stopPropagation()
-        applyEvaluation()
+        handlers.applyEvaluation()
         return
       }
 
       if (key === 'Backspace') {
         event.preventDefault()
         event.stopPropagation()
-        backspaceExpression()
+        handlers.backspaceExpression()
         return
       }
 
       if (key === 'Delete') {
         event.preventDefault()
         event.stopPropagation()
-        clearExpression()
+        handlers.clearExpression()
         return
       }
 
@@ -678,7 +678,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [isExpanded, expression, applyEvaluation])
+  }, [isExpanded])
 
   const keypadRows = useMemo(
     () => [
@@ -763,6 +763,21 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
       return previousValue.slice(0, -1)
     })
+  }
+
+  // WHY: ref estável para os handlers do keyboard, quebra cadeia de dependências
+  const keyboardHandlersRef = useRef({
+    appendToExpression: appendToExpression,
+    applyEvaluation: applyEvaluation,
+    backspaceExpression: backspaceExpression,
+    clearExpression: clearExpression,
+  })
+
+  keyboardHandlersRef.current = {
+    appendToExpression,
+    applyEvaluation,
+    backspaceExpression,
+    clearExpression,
   }
 
   const applyUnaryOperation = (operation: (value: number) => number | null) => {

@@ -73,10 +73,10 @@ exports[`UI primitives snapshots > ConfirmModal hybrid layout renders consistent
     style="pointer-events: auto;"
   />
   <div
-    aria-labelledby="radix-:r8:"
+    aria-labelledby="radix-:rb:"
     class="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-glass duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full"
     data-state="open"
-    id="radix-:r7:"
+    id="radix-:ra:"
     role="dialog"
     style="pointer-events: auto;"
     tabindex="-1"
@@ -86,7 +86,7 @@ exports[`UI primitives snapshots > ConfirmModal hybrid layout renders consistent
     >
       <h2
         class="text-lg font-semibold leading-none tracking-tight text-primary sr-only"
-        id="radix-:r8:"
+        id="radix-:rb:"
       >
         Excluir categoria
       </h2>
@@ -95,7 +95,7 @@ exports[`UI primitives snapshots > ConfirmModal hybrid layout renders consistent
       >
         <h2
           class="min-w-0 flex-1 text-base font-bold uppercase tracking-tight text-primary sm:text-lg"
-          id=":r6:"
+          id=":r9:"
         >
           Excluir categoria
         </h2>
@@ -275,10 +275,10 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
     style="pointer-events: auto;"
   />
   <div
-    aria-labelledby="radix-:r3:"
+    aria-labelledby="radix-:r6:"
     class="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-glass duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 modal-dialog-shell rounded-2xl max-h-[min(90vh,900px)] sm:mx-4 z-[1000] max-w-md modal-dialog-shell flex min-h-0 w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full"
     data-state="open"
-    id="radix-:r2:"
+    id="radix-:r5:"
     role="dialog"
     style="pointer-events: auto;"
     tabindex="-1"
@@ -288,7 +288,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
     >
       <h2
         class="text-lg font-semibold leading-none tracking-tight text-primary sr-only"
-        id="radix-:r3:"
+        id="radix-:r6:"
       >
         Editar lançamento
       </h2>
@@ -297,7 +297,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
       >
         <h2
           class="min-w-0 flex-1 text-base font-bold uppercase tracking-tight text-primary sm:text-lg"
-          id=":r1:"
+          id=":r4:"
         >
           Editar lançamento
         </h2>
@@ -542,13 +542,13 @@ exports[`UI primitives snapshots > ModalInfoPanel with Checkbox renders consiste
 >
   <label
     class="flex items-start gap-3 cursor-pointer group select-none"
-    for=":r5:"
+    for=":r8:"
   >
     <button
       aria-checked="true"
       class="peer h-4 w-4 shrink-0 rounded-sm border border-[var(--ds-color-accent-primary)] ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--ds-color-accent-primary)] data-[state=checked]:text-[var(--ds-color-button-text)]"
       data-state="checked"
-      id=":r5:"
+      id=":r8:"
       role="checkbox"
       type="button"
       value="on"
@@ -677,12 +677,14 @@ exports[`UI primitives snapshots > Select renders options and error state consis
     class="relative "
   >
     <button
-      class="
-              w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium surface-glass
-              border-glass hover:bg-tertiary/50 shadow-none
-              cursor-pointer
-              border-danger/50
-            "
+      aria-autocomplete="none"
+      aria-controls="radix-:r1:"
+      aria-expanded="false"
+      aria-label="Categoria"
+      class="w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all duration-300 text-sm font-medium surface-glass hover:bg-tertiary/50 shadow-none border-danger/50"
+      data-state="closed"
+      dir="ltr"
+      role="combobox"
       type="button"
     >
       <span
@@ -695,7 +697,8 @@ exports[`UI primitives snapshots > Select renders options and error state consis
         </span>
       </span>
       <svg
-        class="lucide lucide-chevron-down text-secondary transition-transform duration-300 "
+        aria-hidden="true"
+        class="lucide lucide-chevron-down text-secondary transition-transform duration-300"
         fill="none"
         height="18"
         stroke="currentColor"

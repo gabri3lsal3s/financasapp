@@ -49,8 +49,10 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 **Inalterados intencionalmente:**
 - useExpenses, useIncomes, useDebts — mantidos manuais (lógica de negócio específica)
 
-**Pendente (baixa prioridade):**
-- ⏳ Reduzir useEffect em componentes críticos (Item 10)
+**Melhorias adicionais concluídas:**
+- ✅ RowButton — ExpenseCategoryRowButton refatorado, PaymentRowButton removido
+- ✅ Select custom → Radix UI (shadcn) com mesma API externa
+- ✅ useEffect reduzido (FloatingCalculator ~14→11, Reports 2→1)
 
 ---
 
@@ -233,16 +235,17 @@ Baixa prioridade.
 | 12 | Modais refatorados (stale closure fix) | ✅ |
 | 13 | `as any` / `catch(err: any)` zerados | ✅ |
 | 14 | **Bug crítico: loop infinito no useSupabaseTable** | ✅ |
+| 15 | **RowButton extraído (ExpenseCategoryRowButton → RowButton, PaymentRowButton removido)** | ✅ |
+| 16 | **Select custom → Radix UI (shadcn) com mesma API** | ✅ |
+| 17 | **useEffect reduzido (FloatingCalculator ~14→11, Reports 2→1)** | ✅ |
 
 ### Prioridade Baixa (futuro)
 
 | # | Sugestão | Esforço |
 |---|----------|---------|
-| 1 | Extrair RowButton | ~1h |
-| 2 | Substituir Select customizado | ~2h |
-| 3 | Reduzir useEffect | ~3h |
-| 4 | Migrar `--color-*` para `--ds-*` | ~2h |
-| 5 | Tooltips em gráficos de pizza | ~30min |
+| 1 | Migrar `--color-*` para `--ds-*` | ~2h |
+| 2 | Tooltips em gráficos de pizza | ~30min |
+| 3 | Extrair componente de botão de pagamento em Reports.tsx | ~2h |
 
 ---
 

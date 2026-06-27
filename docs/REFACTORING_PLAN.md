@@ -204,7 +204,7 @@ Consolidado em `index.css`.
 | # | Tarefa | Status |
 |---|--------|--------|
 | 9 | Limpeza de dead code | ✅ |
-| 10 | Reduzir `useEffect` nos componentes críticos | ⏳ Baixa prioridade |
+| 10 | Reduzir `useEffect` nos componentes críticos | ✅ |
 | 11 | Refatorar `useAppSettings` para reducer pattern | ✅ |
 | 12 | Consolidar CSS Recharts em `index.css` | ✅ |
 
@@ -229,6 +229,11 @@ Consolidado em `index.css`.
 | Dead code | 6+ arquivos | Removidos |
 | `as any` / `catch(err: any)` | ~20 instâncias | 0 |
 | **Loop infinito (useSupabaseTable)** | 🔴 **App quebrado** | ✅ **Corrigido** |
+| ExpenseCategoryRowButton via Button | Button direto | ✅ RowButton base |
+| PaymentRowButton | Wrapper vazio | ✅ Removido (usa RowButton) |
+| Select | Custom state management | ✅ Radix UI (shadcn) |
+| FloatingCalculator useEffect | ~14 effects | ✅ ~11 effects |
+| Reports validation effects | 2 effects | ✅ 1 effect unificado |
 | Build | ✅ | ✅ |
 | Testes | 238 | ✅ 237/237 |
 | Typecheck | ✅ | ✅ 0 erros |

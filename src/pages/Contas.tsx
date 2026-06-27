@@ -23,7 +23,7 @@ import { supabase } from '@/lib/supabase'
 import type { CreditCard, Debt, Expense } from '@/types'
 import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals, formatMonth } from '@/utils/format'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
-import PaymentRowButton from '@/components/creditCards/PaymentRowButton'
+import RowButton from '@/components/RowButton'
 import {
   buildClosingDayResolver,
   filterBillExpensesForMonth,
@@ -1514,7 +1514,7 @@ export default function Contas() {
                                       {(paymentItemsByCard[card.id] || []).map((payment) => {
                                         const refundMeta = parseRefundNote(payment.note)
                                         return (
-                                          <PaymentRowButton
+                                          <RowButton
                                             key={payment.id}
                                             onClick={() => handleOpenPaymentItem(payment)}
                                           >
@@ -1532,7 +1532,7 @@ export default function Contas() {
                                               </div>
                                               <p className="text-xs font-bold text-income font-mono">{formatCurrency(payment.amount)}</p>
                                             </div>
-                                          </PaymentRowButton>
+                                          </RowButton>
                                         )
                                       })}
                                     </div>
