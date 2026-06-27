@@ -2724,13 +2724,11 @@ nav.glass-bottom-nav {
   }
 }
 
-/* Desktop: oculta hub quando há modal aberto */
-@media (min-width: 1024px) {
-  body:has(.modal-overlay) .page-action-hub-root {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms ease;
-  }
+/* Oculta hub quando há modal aberto (tanto desktop quanto mobile) */
+body:has(.modal-overlay) .page-action-hub-root {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
 }
 
 .no-transition {

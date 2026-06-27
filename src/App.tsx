@@ -55,7 +55,7 @@ function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: true }}>
           <NotificationsProvider>
             <SupabaseWarning />
             <NetworkStatusToast />

@@ -192,258 +192,255 @@ function LayoutInner({ children }: LayoutProps) {
       <FloatingSideStack />
       <div className="app-shell-glow" aria-hidden="true" />
       <div className={`relative ${Z_INDEX.CONTENT}`}>
-      <div className="lg:hidden">
-
-
-        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent
-            ref={mobileMenuContentRef}
-            side="bottom"
-            showCloseButton={false}
-            onPointerDownOutside={(e) => {
-              if (isCalculatorElement(e.target)) {
-                e.preventDefault()
-              }
-            }}
-            onInteractOutside={(e) => {
-              if (isCalculatorElement(e.target)) {
-                e.preventDefault()
-              }
-            }}
-            className="modal-sheet-bottom max-h-[85vh] rounded-t-3xl safe-area-bottom gap-0 p-0"
-          >
-            <div className="modal-drag-handle shrink-0" />
-            <SheetHeader className="modal-glass-header text-left">
-              <SheetTitle className="text-base font-bold uppercase tracking-wide text-primary">Mais Opções</SheetTitle>
-            </SheetHeader>
-            <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
-              <div className="grid grid-cols-2 gap-3">
-                <Link
-                  to="/investments"
-                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-                >
-                  <PiggyBank size={20} className="text-secondary mb-2" />
-                  <span className="text-xs font-bold text-primary">Investimentos</span>
-                </Link>
-                {!(!isOnline) && (
+        
+        {/* Elementos mobile fixos (Sheet e Nav) que não entram no fluxo de grid */}
+        <div className="lg:hidden">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetContent
+              ref={mobileMenuContentRef}
+              side="bottom"
+              showCloseButton={false}
+              onPointerDownOutside={(e) => {
+                if (isCalculatorElement(e.target)) {
+                  e.preventDefault()
+                }
+              }}
+              onInteractOutside={(e) => {
+                if (isCalculatorElement(e.target)) {
+                  e.preventDefault()
+                }
+              }}
+              className="modal-sheet-bottom max-h-[85vh] rounded-t-3xl safe-area-bottom gap-0 p-0"
+            >
+              <div className="modal-drag-handle shrink-0" />
+              <SheetHeader className="modal-glass-header text-left">
+                <SheetTitle className="text-base font-bold uppercase tracking-wide text-primary">Mais Opções</SheetTitle>
+              </SheetHeader>
+              <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
+                <div className="grid grid-cols-2 gap-3">
                   <Link
-                    to="/reports"
+                    to="/investments"
                     className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
                   >
-                    <BarChart3 size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Relatórios</span>
+                    <PiggyBank size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Investimentos</span>
                   </Link>
-                )}
-                {!(!isOnline) && (
+                  {!(!isOnline) && (
+                    <Link
+                      to="/reports"
+                      className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
+                    >
+                      <BarChart3 size={20} className="text-secondary mb-2" />
+                      <span className="text-xs font-bold text-primary">Relatórios</span>
+                    </Link>
+                  )}
+                  {!(!isOnline) && (
+                    <Link
+                      to="/categories"
+                      className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
+                    >
+                      <Tags size={20} className="text-secondary mb-2" />
+                      <span className="text-xs font-bold text-primary">Categorias</span>
+                    </Link>
+                  )}
                   <Link
-                    to="/categories"
+                    to="/settings"
                     className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
                   >
-                    <Tags size={20} className="text-secondary mb-2" />
-                    <span className="text-xs font-bold text-primary">Categorias</span>
+                    <Settings size={20} className="text-secondary mb-2" />
+                    <span className="text-xs font-bold text-primary">Ajustes</span>
                   </Link>
-                )}
-                <Link
-                  to="/settings"
-                  className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-                >
-                  <Settings size={20} className="text-secondary mb-2" />
-                  <span className="text-xs font-bold text-primary">Ajustes</span>
-                </Link>
 
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false)
-                    void handleLogout()
-                  }}
-                  className="col-span-2 mt-2 uppercase tracking-wider text-xs"
-                >
-                  <LogOut size={16} />
-                  Sair do App
-                </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      void handleLogout()
+                    }}
+                    className="col-span-2 mt-2 uppercase tracking-wider text-xs"
+                  >
+                    <LogOut size={16} />
+                    Sair do App
+                  </Button>
+                </div>
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
 
-        <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around shadow-lg px-2 ${hasPageActions ? 'has-page-actions' : ''} ${isSettingsPage ? 'no-transition' : ''}`}>
-          {/* Home Tab */}
-          <Link to="/" className={mobileTabClass(location.pathname === '/')}>
-            <Home size={18} aria-hidden />
-            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Início</span>
-          </Link>
+          <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around shadow-lg px-2 ${hasPageActions ? 'has-page-actions' : ''} ${isSettingsPage ? 'no-transition' : ''}`}>
+            {/* Home Tab */}
+            <Link to="/" className={mobileTabClass(location.pathname === '/')}>
+              <Home size={18} aria-hidden />
+              <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Início</span>
+            </Link>
 
-          {/* Expenses Tab */}
-          <Link to="/expenses" className={mobileTabClass(location.pathname === '/expenses')}>
-            <TrendingDown size={18} aria-hidden />
-            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Despesas</span>
-          </Link>
+            {/* Expenses Tab */}
+            <Link to="/expenses" className={mobileTabClass(location.pathname === '/expenses')}>
+              <TrendingDown size={18} aria-hidden />
+              <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Despesas</span>
+            </Link>
 
-          {/* Incomes Tab */}
-          <Link to="/incomes" className={mobileTabClass(location.pathname === '/incomes')}>
-            <TrendingUp size={18} aria-hidden />
-            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Rendas</span>
-          </Link>
+            {/* Incomes Tab */}
+            <Link to="/incomes" className={mobileTabClass(location.pathname === '/incomes')}>
+              <TrendingUp size={18} aria-hidden />
+              <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Rendas</span>
+            </Link>
 
-          {/* Contas Tab */}
-          <Link to="/contas" className={mobileTabClass(location.pathname === '/contas')}>
-            <Receipt size={18} aria-hidden />
-            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Contas</span>
-          </Link>
+            {/* Contas Tab */}
+            <Link to="/contas" className={mobileTabClass(location.pathname === '/contas')}>
+              <Receipt size={18} aria-hidden />
+              <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Contas</span>
+            </Link>
 
-          {/* "Mais" Menu Tab Button */}
-          <button
-            ref={mobileMenuButtonRef}
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            className={mobileTabClass(
-              isMobileMenuOpen || !['/', '/expenses', '/incomes', '/contas'].includes(location.pathname)
-            )}
-          >
-            <Menu size={18} aria-hidden />
-            <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Mais</span>
-          </button>
-        </nav>
-
-        {/* Main Content Area with Bottom Padding to avoid navigation overlay */}
-        <main className="relative pt-[calc(1rem+env(safe-area-inset-top))] glass-main-padding min-h-screen">
-          <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-0">
-            <section key={location.pathname} className="relative animate-page-enter">
-              {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
-            </section>
-          </div>
-        </main>
-      </div>
-
-      <div className="hidden lg:grid min-h-screen grid-cols-[auto_1fr] p-5 gap-5">
-        <aside
-          ref={desktopMenuRef}
-          className={`glass-sidebar sticky top-5 h-[calc(100vh-2.5rem)] overflow-y-auto motion-emphasis ${isDesktopMenuExpanded ? 'w-72' : 'w-20'
-            }`}
-        >
-          <div className={`px-3 py-4 border-b border-glass flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
-            {isDesktopMenuExpanded && (
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-widest text-secondary">Bem-vindo</p>
-                <h2 className="text-lg font-bold text-primary truncate">Finanças</h2>
-                {profile?.email && (
-                  <p className="text-xs text-secondary truncate">{profile.email}</p>
-                )}
-              </div>
-            )}
+            {/* "Mais" Menu Tab Button */}
             <button
-              ref={desktopMenuButtonRef}
+              ref={mobileMenuButtonRef}
               type="button"
-              onClick={() => setIsDesktopMenuExpanded((currentValue) => !currentValue)}
-              aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
-              className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
-            >
-              {isDesktopMenuExpanded ? <X size={20} className="nav-chrome-icon" /> : <Menu size={20} className="nav-chrome-icon" />}
-            </button>
-          </div>
-
-          <nav className="p-3">
-            <div className="space-y-2">
-              {isDesktopMenuExpanded && (
-                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Visão geral</p>
+              onClick={() => setIsMobileMenuOpen(true)}
+              className={mobileTabClass(
+                isMobileMenuOpen || !['/', '/expenses', '/incomes', '/contas'].includes(location.pathname)
               )}
-              {mainItemsList.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.path
-                const isConcealed = item.onlineOnly && !isOnline
-
-                return (
-                  <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
-                    <div className="transition-conceal-content">
-                      <Link
-                        to={item.path}
-                        title={item.label}
-                        className={`flex items-center rounded-xl motion-standard hover-lift-subtle ${isDesktopMenuExpanded
-                          ? 'justify-between px-4 py-3'
-                          : 'justify-center p-3'
-                          } ${isActive
-                            ? activeItemClasses
-                            : inactiveItemClasses
-                          }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Icon size={20} className="flex-shrink-0" />
-                          {isDesktopMenuExpanded && <span className="font-medium truncate">{item.label}</span>}
-                        </div>
-                        {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="my-4 border-t border-primary"></div>
-
-            <div className="space-y-2">
-              {isDesktopMenuExpanded && (
-                <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Outros</p>
-              )}
-              {settingsItemsList.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.path
-                const isConcealed = item.onlineOnly && !isOnline
-
-                return (
-                  <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
-                    <div className="transition-conceal-content">
-                      <Link
-                        to={item.path}
-                        title={item.label}
-                        className={`flex items-center rounded-xl motion-standard hover-lift-subtle ${isDesktopMenuExpanded
-                          ? 'justify-between px-4 py-3'
-                          : 'justify-center p-3'
-                          } ${isActive
-                            ? activeItemClasses
-                            : inactiveItemClasses
-                          }`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Icon size={20} className="flex-shrink-0" />
-                          {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">{item.label}</span>}
-                        </div>
-                        {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="my-4 border-t border-primary"></div>
-
-            <button
-              onClick={handleLogout}
-              title="Sair"
-              className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 ${isDesktopMenuExpanded
-                ? 'justify-start px-4 py-3'
-                : 'justify-center p-3'
-                }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <LogOut size={20} className="flex-shrink-0" />
-                {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">Sair</span>}
-              </div>
+              <Menu size={18} aria-hidden />
+              <span className="text-[9px] mt-0.5 tracking-tight truncate w-full text-center">Mais</span>
             </button>
           </nav>
-        </aside>
+        </div>
 
-        <main className="relative safe-area-bottom">
-          <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-[74px]">
-            <section key={location.pathname} className="relative animate-page-enter">
-              {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
-            </section>
-          </div>
-        </main>
-      </div>
+        {/* Layout Principal responsivo:
+            Mobile: layout vertical de 1 coluna
+            Desktop: grid de 2 colunas [auto_1fr] com gap-5 e p-5 */}
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] min-h-screen lg:p-5 lg:gap-5">
+          {/* Desktop Sidebar: ocultada no mobile */}
+          <aside
+            ref={desktopMenuRef}
+            className={`glass-sidebar sticky top-5 h-[calc(100vh-2.5rem)] overflow-y-auto motion-emphasis hidden lg:block ${
+              isDesktopMenuExpanded ? 'w-72' : 'w-20'
+            }`}
+          >
+            <div className={`px-3 py-4 border-b border-glass flex items-center ${isDesktopMenuExpanded ? 'justify-between' : 'justify-center'}`}>
+              {isDesktopMenuExpanded && (
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-secondary">Bem-vindo</p>
+                  <h2 className="text-lg font-bold text-primary truncate">Finanças</h2>
+                  {profile?.email && (
+                    <p className="text-xs text-secondary truncate">{profile.email}</p>
+                  )}
+                </div>
+              )}
+              <button
+                ref={desktopMenuButtonRef}
+                type="button"
+                onClick={() => setIsDesktopMenuExpanded((currentValue) => !currentValue)}
+                aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
+                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              >
+                {isDesktopMenuExpanded ? <X size={20} className="nav-chrome-icon" /> : <Menu size={20} className="nav-chrome-icon" />}
+              </button>
+            </div>
 
-      {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
+            <nav className="p-3">
+              <div className="space-y-2">
+                {isDesktopMenuExpanded && (
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Visão geral</p>
+                )}
+                {mainItemsList.map((item) => {
+                  const Icon = item.icon
+                  const isActive = location.pathname === item.path
+                  const isConcealed = item.onlineOnly && !isOnline
+
+                  return (
+                    <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
+                      <div className="transition-conceal-content">
+                        <Link
+                          to={item.path}
+                          title={item.label}
+                          className={`flex items-center rounded-xl motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                            ? 'justify-between px-4 py-3'
+                            : 'justify-center p-3'
+                            } ${isActive
+                              ? activeItemClasses
+                              : inactiveItemClasses
+                            }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Icon size={20} className="flex-shrink-0" />
+                            {isDesktopMenuExpanded && <span className="font-medium truncate">{item.label}</span>}
+                          </div>
+                          {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="my-4 border-t border-primary"></div>
+
+              <div className="space-y-2">
+                {isDesktopMenuExpanded && (
+                  <p className="px-4 text-xs font-semibold text-secondary uppercase tracking-wide">Outros</p>
+                )}
+                {settingsItemsList.map((item) => {
+                  const Icon = item.icon
+                  const isActive = location.pathname === item.path
+                  const isConcealed = item.onlineOnly && !isOnline
+
+                  return (
+                    <div key={item.path} className={`transition-conceal-container ${isConcealed ? 'is-concealed' : ''}`}>
+                      <div className="transition-conceal-content">
+                        <Link
+                          to={item.path}
+                          title={item.label}
+                          className={`flex items-center rounded-xl motion-standard hover-lift-subtle ${isDesktopMenuExpanded
+                            ? 'justify-between px-4 py-3'
+                            : 'justify-center p-3'
+                            } ${isActive
+                              ? activeItemClasses
+                              : inactiveItemClasses
+                            }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Icon size={20} className="flex-shrink-0" />
+                            {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">{item.label}</span>}
+                          </div>
+                          {isDesktopMenuExpanded && isActive && <ChevronRight size={16} className="flex-shrink-0" />}
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="my-4 border-t border-primary"></div>
+
+              <button
+                onClick={handleLogout}
+                title="Sair"
+                className={`w-full flex items-center rounded-lg motion-standard hover-lift-subtle text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 ${isDesktopMenuExpanded
+                  ? 'justify-start px-4 py-3'
+                  : 'justify-center p-3'
+                  }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <LogOut size={20} className="flex-shrink-0" />
+                  {isDesktopMenuExpanded && <span className="font-medium text-sm truncate">Sair</span>}
+                </div>
+              </button>
+            </nav>
+          </aside>
+
+          {/* Área de Conteúdo Principal (Única!) */}
+          <main className="relative pt-[calc(1rem+env(safe-area-inset-top))] glass-main-padding lg:pt-0 lg:safe-area-bottom min-h-screen">
+            <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-0 lg:px-6 lg:xl:px-8 lg:pb-[74px]">
+              <section key={location.pathname} className="relative animate-page-enter">
+                {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
+              </section>
+            </div>
+          </main>
+        </div>
+
+        {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
       </div>
     </div>
   )

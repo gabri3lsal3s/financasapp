@@ -26,6 +26,7 @@ const CSS_VAR_MAP: Record<keyof typeof Z_INDEX, number> = {
   STICKY: 30,
   NAVIGATION: 100,
   POPOVER: 150,
+  FAB_HUB: 200,
   OVERLAY: 900,
   MODAL: 1000,
   SIDE_STACK: 1100,

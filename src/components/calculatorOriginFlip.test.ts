@@ -3,8 +3,10 @@ import {
   buildFlipStartTransform,
   buildIconDragTransform,
   getCalculatorPanelOpenClass,
-  getSnapToFabThresholdY,
-  getSnapToSideThresholdY,
+  getCalculatorButtonWrapperClass,
+  getSafeYRange,
+  calculateYFromPercent,
+  calculatePercentFromY,
 } from '@/components/calculatorOriginFlip'
 
 describe('calculatorOriginFlip', () => {
@@ -23,33 +25,38 @@ describe('calculatorOriginFlip', () => {
     expect(buildIconDragTransform({ x: 0, y: 0 }, false)).toBe('translate3d(0px, 0px, 0)')
   })
 
-  it('maps panel open class by origin and side', () => {
-    expect(getCalculatorPanelOpenClass('bottom-right', 'right')).toBe('animate-calculator-open-fab')
-    expect(getCalculatorPanelOpenClass('top-right', 'left')).toBe('animate-calculator-open-side-left')
-    expect(getCalculatorPanelOpenClass('top-right', 'top')).toBe('animate-calculator-open-side-top')
-    expect(getCalculatorPanelOpenClass('top-right', 'right')).toBe('animate-calculator-open-side-right')
+  it('maps panel open class by side', () => {
+    expect(getCalculatorPanelOpenClass('left')).toBe('animate-calculator-open-side-left')
+    expect(getCalculatorPanelOpenClass('right')).toBe('animate-calculator-open-side-right')
   })
 
-  it('uses shorter drag distance for side repositioning', () => {
-    const viewportHeight = 900
-    const fabStartY = 740
+  it('generates the button wrapper classes based on state', () => {
+    const classLeft = getCalculatorButtonWrapperClass('left', false, false)
+    expect(classLeft).toContain('left-2')
+    expect(classLeft).not.toContain('right-2')
+    expect(classLeft).toContain('calculator-icon-wrapper-transition')
 
-    expect(
-      getSnapToSideThresholdY({
-        viewportHeight,
-        isMobile: false,
-        dragStartY: fabStartY,
-        sideAnchorY: 160,
-      })
-    ).toBe(Math.max(viewportHeight * 0.86, fabStartY - 64))
+    const classRight = getCalculatorButtonWrapperClass('right', false, false)
+    expect(classRight).toContain('right-2')
+    expect(classRight).not.toContain('left-2')
 
-    expect(
-      getSnapToFabThresholdY({
-        viewportHeight,
-        isMobile: false,
-        dragStartY: 300,
-        sideAnchorY: 220,
-      })
-    ).toBe(Math.min(viewportHeight * 0.58, 300))
+    const classDragging = getCalculatorButtonWrapperClass('right', true, false)
+    expect(classDragging).toContain('calculator-icon-wrapper-transition--no-transition')
+  })
+
+  it('calculates safe Y ranges and converts percent-pixel consistently', () => {
+    const viewportHeight = 800
+    const buttonHeight = 40
+    
+    const [minY, maxY] = getSafeYRange(viewportHeight, buttonHeight)
+    expect(minY).toBeGreaterThan(0)
+    expect(maxY).toBeLessThan(viewportHeight)
+    expect(minY).toBeLessThan(maxY)
+
+    // Verify conversions are symmetrical
+    const percent = 50
+    const yPx = calculateYFromPercent(percent, viewportHeight, buttonHeight)
+    const convertedBack = calculatePercentFromY(yPx, viewportHeight, buttonHeight)
+    expect(convertedBack).toBe(percent)
   })
 })

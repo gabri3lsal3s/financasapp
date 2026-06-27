@@ -410,6 +410,7 @@ html:not([data-color-palette]) {
   --z-sticky:        30;
   --z-popover:       150;
   --z-navigation:    100;
+  --z-fab-hub:       200;
   --z-overlay:       900;
   --z-modal:         1000;
   --z-side-stack:    1100;
