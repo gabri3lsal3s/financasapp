@@ -7,6 +7,11 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
 import { format } from 'date-fns'
 import { logger } from '@/utils/logger'
+import {
+  REALTIME_LISTEN_TYPES,
+  REALTIME_POSTGRES_CHANGES_LISTEN_EVENT,
+} from '@supabase/realtime-js'
+import type { RealtimePostgresChangesFilter } from '@supabase/realtime-js'
 
 export interface UseSupabaseTableConfig<T extends { id: string }> {
   /** Nome da tabela no Supabase */
@@ -134,14 +139,17 @@ export function useSupabaseTable<T extends { id: string }>(
   }, [table, userScoped, user?.id, month])
 
   // ── Build query base (estável: lê de configRef) ──
+  // O tipo de retorno é inferido pelo Supabase QueryBuilder — não explicitamos
+  // os genéricos porque o select(*) retorna um tipo específico do Supabase
+  // que não corresponde exatamente a T. O resultado é usado com cast em load().
   const buildQuery = useCallback(() => {
     const { select, filters, dateColumn, orderBy } = configRef.current
-    let query: any = supabase.from(table).select(select ?? '*')
+    const query = supabase.from(table).select(select ?? '*')
 
     // Filtros simples
     if (filters) {
       for (const [column, value] of Object.entries(filters)) {
-        query = query.eq(column, value)
+        query.eq(column, value)
       }
     }
 
@@ -152,13 +160,13 @@ export function useSupabaseTable<T extends { id: string }>(
 
       if ((dateColumn ?? 'date') === 'month') {
         // Tabelas com coluna 'month' (ex: expense_category_month_limits)
-        query = query.eq('month', monthStr)
+        query.eq('month', monthStr)
       } else {
         // Tabelas com coluna de data (ex: expenses.date)
         const startDate = new Date(year, monthNum - 1, 1)
         const endDate = new Date(year, monthNum, 0)
 
-        query = query
+        query
           .gte(dateColumn ?? 'date', format(startDate, 'yyyy-MM-dd'))
           .lte(dateColumn ?? 'date', format(endDate, 'yyyy-MM-dd'))
       }
@@ -166,10 +174,10 @@ export function useSupabaseTable<T extends { id: string }>(
 
     // Ordenação
     if (orderBy) {
-      query = query.order(orderBy.column, { ascending: orderBy.ascending ?? true })
+      query.order(orderBy.column, { ascending: orderBy.ascending ?? true })
     }
 
-    return query as any
+    return query
   }, [table, month])
 
   // ── Load function (estável: lê de configRef) ──
@@ -200,7 +208,7 @@ export function useSupabaseTable<T extends { id: string }>(
 
       if (fetchError) throw fetchError
 
-      const newData: T[] = (fetchedData || []) as T[]
+      const newData: T[] = (fetchedData || []) as unknown as T[]
       const sortedData = sortBy ? sortBy(newData) : newData
 
       setData(sortedData)
@@ -227,15 +235,17 @@ export function useSupabaseTable<T extends { id: string }>(
     if (!enableSubscribe || !isOnline) return
 
     const channel = subscribeChannel || `${table}-realtime-${month || 'all'}`
+    const realtimeFilter: RealtimePostgresChangesFilter<typeof REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL> = {
+      event: REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL,
+      schema: 'public',
+      table,
+    }
+
     const realtimeChannel = supabase
       .channel(channel)
-      .on(
-        'postgres_changes' as any,
-        { event: '*', schema: 'public', table } as any,
-        () => {
-          load()
-        },
-      )
+      .on(REALTIME_LISTEN_TYPES.POSTGRES_CHANGES, realtimeFilter, () => {
+        load()
+      })
       .subscribe()
 
     return () => {

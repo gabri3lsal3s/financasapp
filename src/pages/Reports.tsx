@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePageActions } from '@/hooks/usePageActions'
+import { usePageActions, type PageActionIntent } from '@/hooks/usePageActions'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import YearSelector from '@/components/YearSelector'
@@ -29,7 +29,7 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2, Scale } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -45,106 +45,22 @@ import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
 import { logger } from '@/utils/logger'
-
-type ViewMode = 'year' | 'month' | 'custom'
-type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
-
-type MonthlySummary = {
-  month: string
-  total_income: number
-  total_expenses: number
-  total_investments: number
-  balance: number
-}
-
-type ExpenseCategorySummary = {
-  category_id: string
-  category_name: string
-  total: number
-  color: string
-}
-
-type IncomeCategorySummary = {
-  income_category_id: string
-  category_name: string
-  total: number
-  color: string
-}
-
-type PieDatum = {
-  name: string
-  value: number
-  baseValue?: number
-  color: string
-  categoryId?: string
-  detailType?: DetailType
-  detailPeriod?: 'month' | 'year'
-  iconName?: string
-}
-
-type TrendSeriesMeta = {
-  key: string
-  name: string
-  color: string
-}
-
-type DetailModalState = {
-  isOpen: boolean
-  type: DetailType
-  categoryId: string
-  categoryName: string
-  period: 'month' | 'year'
-}
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  cash: 'Dinheiro',
-  debit: 'Débito',
-  credit_card: 'Cartão de Crédito',
-  pix: 'Pix',
-  transfer: 'Transferência',
-  other: 'Outros',
-}
-
-const PAYMENT_METHOD_COLORS: Record<string, string> = {
-  cash: 'var(--payment-method-cash)',
-  debit: 'var(--payment-method-debit)',
-  credit_card: 'var(--payment-method-credit-card)',
-  pix: 'var(--payment-method-pix)',
-  transfer: 'var(--payment-method-transfer)',
-  other: 'var(--payment-method-other)',
-}
-
-
-
-type DetailExpenseEntry = {
-  id: string
-  amount: number
-  report_weight?: number | null
-  category_id: string
-  date: string
-  description?: string | null
-  payment_method?: string | null
-  credit_card_id?: string | null
-  category?: {
-    id?: string | null
-    name?: string | null
-    color?: string | null
-  } | null
-}
-
-type DetailIncomeEntry = {
-  id: string
-  amount: number
-  report_weight?: number | null
-  income_category_id: string
-  date: string
-  description?: string | null
-  income_category?: {
-    id?: string | null
-    name?: string | null
-    color?: string | null
-  } | null
-}
+import type {
+  ViewMode,
+  DetailType,
+  ExpenseCategorySummary,
+  IncomeCategorySummary,
+  PieDatum,
+  TrendSeriesMeta,
+  DetailModalState,
+  DetailExpenseEntry,
+  DetailIncomeEntry,
+} from '@/types/reports'
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_METHOD_COLORS,
+} from '@/types/reports'
+import type { MonthlySummary } from '@/types'
 
 
 
@@ -159,6 +75,7 @@ export default function Reports() {
   const [loadingAvailablePeriods, setLoadingAvailablePeriods] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [compareWithPrevious, setCompareWithPrevious] = useState(false)
+  const [includeReportWeights, setIncludeReportWeights] = useState(true)
   const [detailModal, setDetailModal] = useState<DetailModalState>({
     isOpen: false,
     type: 'expense',
@@ -338,20 +255,28 @@ export default function Reports() {
     }
   }, [viewMode, loadCustomData])
 
-  usePageActions(
-    viewMode !== 'custom'
+  usePageActions([
+    ...(viewMode !== 'custom'
       ? [
           {
             icon: GitCompareArrows,
             label: 'Comparação Histórica',
-            intent: compareWithPrevious ? 'income' : 'neutral',
+            intent: (compareWithPrevious ? 'income' : 'neutral') as PageActionIntent,
             onClick: () => setCompareWithPrevious(!compareWithPrevious),
             title: compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica',
             compactOnMobile: true,
           },
         ]
-      : []
-  )
+      : []),
+    {
+      icon: Scale,
+      label: includeReportWeights ? 'Desconsiderar Pesos' : 'Considerar Pesos',
+      intent: (includeReportWeights ? 'balance' : 'neutral') as PageActionIntent,
+      onClick: () => setIncludeReportWeights(!includeReportWeights),
+      title: includeReportWeights ? 'Desconsiderar pesos nos relatórios' : 'Considerar pesos nos relatórios',
+      compactOnMobile: true,
+    },
+  ])
 
   // Swipe de mês — ativo quando no modo mês
   const monthSwipe = useSwipeMonth(selectedMonth, setSelectedMonth)
@@ -461,7 +386,6 @@ export default function Reports() {
   const { colorPalette } = usePaletteColors()
   const { categories } = useCategories()
   const { incomeCategories } = useIncomeCategories()
-  const includeReportWeights = true
   const previousMonth = useMemo(() => addMonths(selectedMonth, -1), [selectedMonth])
   const { monthlySummaries: originalMonthlySummaries, categoryExpenses, monthlyCategoryExpenses, annualExpenses, loading } = useReports(selectedYear, includeReportWeights)
   const { incomeByCategory, monthlyIncomeByCategory, loading: loadingIncomes } = useIncomeReports(selectedYear, includeReportWeights)
@@ -869,7 +793,12 @@ export default function Reports() {
           color: cat?.color ?? 'var(--category-fallback-neutral)',
         })
       }
-      expenseCategoryMap.get(catId)!.total += total
+      const category = expenseCategoryMap.get(catId)
+      if (category) {
+        category.total += total
+      } else {
+        logger.warn(`Categoria de despesa não encontrada para agregação: ${catId}`)
+      }
     })
     return Array.from(expenseCategoryMap.values())
   }, [customExpenses, getAmountByMode])
@@ -889,7 +818,12 @@ export default function Reports() {
           color: cat?.color ?? 'var(--category-fallback-neutral)',
         })
       }
-      incomeCategoryMap.get(catId)!.total += total
+      const incomeCategory = incomeCategoryMap.get(catId)
+      if (incomeCategory) {
+        incomeCategory.total += total
+      } else {
+        logger.warn(`Categoria de receita não encontrada para agregação: ${catId}`)
+      }
     })
     return Array.from(incomeCategoryMap.values())
   }, [customIncomes, getAmountByMode])
@@ -1050,7 +984,12 @@ export default function Reports() {
             color: cat?.color ?? 'var(--category-fallback-neutral)',
           })
         }
-        categoryMap.get(catId)!.total += total
+        const catEntry = categoryMap.get(catId)
+        if (catEntry) {
+          catEntry.total += total
+        } else {
+          logger.warn(`Categoria não encontrada para agregação mensal: ${catId}`)
+        }
       })
       map[monthStr] = Array.from(categoryMap.values())
     })
@@ -1078,7 +1017,12 @@ export default function Reports() {
             color: cat?.color ?? 'var(--category-fallback-neutral)',
           })
         }
-        categoryMap.get(catId)!.total += total
+        const catEntry = categoryMap.get(catId)
+        if (catEntry) {
+          catEntry.total += total
+        } else {
+          logger.warn(`Categoria não encontrada para agregação diária: ${catId}`)
+        }
       })
       map[dateStr] = Array.from(categoryMap.values())
     })
@@ -1108,7 +1052,12 @@ export default function Reports() {
             color: cat?.color ?? 'var(--category-fallback-neutral)',
           })
         }
-        categoryMap.get(catId)!.total += total
+        const catEntry = categoryMap.get(catId)
+        if (catEntry) {
+          catEntry.total += total
+        } else {
+          logger.warn(`Categoria de receita não encontrada para agregação mensal: ${catId}`)
+        }
       })
       map[monthStr] = Array.from(categoryMap.values())
     })
@@ -1136,7 +1085,12 @@ export default function Reports() {
             color: cat?.color ?? 'var(--category-fallback-neutral)',
           })
         }
-        categoryMap.get(catId)!.total += total
+        const catEntry = categoryMap.get(catId)
+        if (catEntry) {
+          catEntry.total += total
+        } else {
+          logger.warn(`Categoria de receita não encontrada para agregação diária: ${catId}`)
+        }
       })
       map[dateStr] = Array.from(categoryMap.values())
     })
@@ -2664,6 +2618,15 @@ export default function Reports() {
             </TabsList>
           </Tabs>
         </div>
+
+        {includeReportWeights && (
+          <div className="flex justify-center -mt-2 animate-fade-in">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-income/30 bg-income/5 text-income text-[10px] font-bold uppercase tracking-wider shadow-sm select-none">
+              <Scale size={12} className="animate-pulse" />
+              <span>Ajuste de impacto (pesos) ativo nos relatórios</span>
+            </div>
+          </div>
+        )}
 
         <MonthTransitionView month={viewMode === 'month' ? selectedMonth : (viewMode === 'year' ? String(selectedYear) : activePeriodLabel)}>
         {loadingState ? (

@@ -1081,18 +1081,38 @@
   }
 
   .calculator-origin-button {
+    opacity: 0.65;
+    will-change: transform, border-radius, min-width, width, opacity;
     transition:
-      border-radius 1150ms cubic-bezier(0.16, 1, 0.3, 1),
-      padding-inline 1150ms cubic-bezier(0.16, 1, 0.3, 1),
-      padding-block 1150ms cubic-bezier(0.16, 1, 0.3, 1),
-      min-width 1150ms cubic-bezier(0.16, 1, 0.3, 1),
-      width 1150ms cubic-bezier(0.16, 1, 0.3, 1),
-      transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius 920ms cubic-bezier(0.16, 1, 0.3, 1),
+      padding-inline 920ms cubic-bezier(0.16, 1, 0.3, 1),
+      padding-block 920ms cubic-bezier(0.16, 1, 0.3, 1),
+      min-width 920ms cubic-bezier(0.16, 1, 0.3, 1),
+      width 920ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .calculator-origin-button:hover {
+    opacity: 0.92;
+    border-color: color-mix(in srgb, var(--glass-border-strong) 65%, var(--glass-border)) !important;
   }
 
   .calculator-origin-button--dragging {
+    opacity: 0.9 !important;
     transition: none !important;
   }
+
+  .calculator-origin-button .calculator-icon {
+    transition: transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .calculator-origin-button:hover .calculator-icon {
+    transform: scale(1.08);
+  }
+
+  /* Removido — fundido no .calculator-origin-button acima */
 
   .animate-calculator-display {
     animation: calculator-display-pulse 0.22s var(--easing-standard);
@@ -1129,7 +1149,8 @@
   .calculator-icon-wrapper-transition {
     touch-action: none;
     will-change: transform;
-    transition: transform 1150ms cubic-bezier(0.16, 1, 0.3, 1);
+    /* Usa a mesma duração/easing das transições de forma do botão para sincronizar */
+    transition: transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .calculator-icon-wrapper-transition--no-transition {
@@ -1137,7 +1158,7 @@
   }
 
   .calculator-icon-wrapper-transition--returning {
-    transition: transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .calculator-icon-wrapper-transition--no-transition .calculator-fab-idle,
@@ -1597,6 +1618,8 @@ nav.glass-bottom-nav {
     0 2px 8px rgba(0, 0, 0, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
   padding-bottom: 0 !important;
+  /* Transição suave ao expandir/comprimir quando o hub FAB aparece ou desaparece */
+  transition: right 340ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
 .lg\:hidden main.glass-main-padding {
@@ -2537,3 +2560,179 @@ nav.glass-bottom-nav {
   box-shadow: var(--glass-shadow-elevated) !important;
 }
 
+
+/* ==========================================================================
+   PAGE ACTION BUTTON HUB — Pílula alinhada com nav + Speed Dial
+   ========================================================================== */
+
+/*
+ * Âncora raiz — alinhada exatamente com o menu de navegação mobile.
+ * - Mesma posição bottom que o nav pill (0.875rem + safe-area)
+ * - Mesma altura (60px)
+ * - Mesmo visual glass
+ * - z-index: 200 (acima do nav z-100, abaixo de modais z-900)
+ */
+.page-action-hub-root {
+  position: fixed;
+  bottom: calc(0.875rem + env(safe-area-inset-bottom));
+  right: 1rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  pointer-events: none;
+}
+
+/* Desktop: canto inferior direito padrão */
+@media (min-width: 1024px) {
+  .page-action-hub-root {
+    bottom: 1.5rem;
+    right: 1.75rem;
+  }
+}
+
+/* Botão FAB — pílula idêntica ao nav mobile */
+.page-action-hub-fab {
+  width: 60px;
+  height: 60px;
+  border-radius: 24px;
+  border: 1px solid var(--glass-border);
+  background-color: var(--glass-surface-strong);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  flex-shrink: 0;
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    transform 180ms ease;
+}
+
+@media (min-width: 1024px) {
+  .page-action-hub-fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+}
+
+.page-action-hub-fab:hover {
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.28),
+    0 4px 12px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  transform: scale(1.04);
+}
+
+.page-action-hub-fab:active {
+  transform: scale(0.95);
+}
+
+.page-action-hub-fab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Speed dial — aparece acima do FAB */
+.page-action-hub-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
+  pointer-events: none;
+}
+
+/* Item do speed dial */
+.page-action-hub-dial-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  pointer-events: auto;
+}
+
+/* Rótulo à esquerda do botão */
+.page-action-hub-dial-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-primary);
+  background-color: var(--glass-surface-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: 0.625rem;
+  padding: 0.3rem 0.65rem;
+  white-space: nowrap;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    0 1px 4px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Botão circular de item do speed dial */
+.page-action-hub-dial-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background-color: var(--glass-surface-strong);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.page-action-hub-dial-btn:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.24),
+    0 3px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.page-action-hub-dial-btn:active {
+  transform: scale(0.95);
+}
+
+/* Mobile: comprime a bottom nav para ceder espaço ao hub */
+@media (max-width: 1023px) {
+  nav.glass-bottom-nav.has-page-actions {
+    right: calc(1rem + 72px) !important;
+  }
+}
+
+/* Desktop: oculta hub quando há modal aberto */
+@media (min-width: 1024px) {
+  body:has(.modal-overlay) .page-action-hub-root {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+}
+
+.no-transition {
+  transition: none !important;
+}

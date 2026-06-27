@@ -4,6 +4,7 @@ import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, Chevron
 import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
 import FloatingActionHub from '@/components/FloatingActionHub'
+import PageActionButtonHub from '@/components/PageActionButtonHub'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
 import { isCalculatorElement } from '@/utils/calculator'
@@ -53,7 +54,7 @@ function OfflinePlaceholder() {
   )
 }
 
-export default function Layout({ children }: LayoutProps) {
+function LayoutInner({ children }: LayoutProps) {
   const { settings: { floatingCalculatorEnabled } } = useAppSettings()
   const { signOut, profile } = useAuth()
   useBackgroundCache()
@@ -68,6 +69,10 @@ export default function Layout({ children }: LayoutProps) {
   const desktopMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const activeItemClasses = 'nav-item-active'
   const inactiveItemClasses = 'text-secondary hover:bg-accent/50 border border-transparent hover:text-primary'
+
+  // Otimisticamente todas as páginas exceto Configurações possuem ações flutuantes
+  const hasPageActions = !isSettingsPage
+
   const mobileTabClass = (isActive: boolean) =>
     `relative flex flex-col items-center justify-center w-14 h-12 overflow-visible rounded-xl motion-standard ${
       isActive ? 'nav-item-active font-semibold' : 'font-medium text-secondary hover:text-primary'
@@ -176,7 +181,6 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   return (
-    <FloatingActionsProvider>
     <div
       className="min-h-screen bg-secondary relative app-layout-root"
       style={{
@@ -184,6 +188,7 @@ export default function Layout({ children }: LayoutProps) {
       } as React.CSSProperties}
     >
       <FloatingActionHub />
+      <PageActionButtonHub />
       <FloatingSideStack />
       <div className="app-shell-glow" aria-hidden="true" />
       <div className={`relative ${Z_INDEX.CONTENT}`}>
@@ -262,7 +267,7 @@ export default function Layout({ children }: LayoutProps) {
           </SheetContent>
         </Sheet>
 
-        <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around shadow-lg px-2`}>
+        <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around shadow-lg px-2 ${hasPageActions ? 'has-page-actions' : ''} ${isSettingsPage ? 'no-transition' : ''}`}>
           {/* Home Tab */}
           <Link to="/" className={mobileTabClass(location.pathname === '/')}>
             <Home size={18} aria-hidden />
@@ -441,6 +446,13 @@ export default function Layout({ children }: LayoutProps) {
       {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
       </div>
     </div>
+  )
+}
+
+export default function Layout({ children }: LayoutProps) {
+  return (
+    <FloatingActionsProvider>
+      <LayoutInner>{children}</LayoutInner>
     </FloatingActionsProvider>
   )
 }

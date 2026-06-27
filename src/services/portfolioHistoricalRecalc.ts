@@ -5,6 +5,22 @@ import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import { computeDailyShareHistory } from '@/utils/portfolioTwrEngine'
 import { logger } from '@/utils/logger'
 
+interface PriceApiResponse {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number
+      }
+      timestamp?: number[]
+      indicators?: {
+        quote?: Array<{
+          close?: (number | null)[]
+        }>
+      }
+    }>
+  }
+}
+
 async function fetchAllIndexRates(startDate: string, endDate: string): Promise<any[]> {
   let allRates: any[] = []
   let page = 0
@@ -134,7 +150,7 @@ export async function runClientSideHistoricalRecalculation(
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${period1}&period2=${period2}`
       const res = await fetchWithCorsProxy(url)
       if (res.ok) {
-        const data = await res.json() as any
+        const data = await res.json() as PriceApiResponse
         const result = data?.chart?.result?.[0]
         if (result) {
           const currentPrice = result.meta?.regularMarketPrice

@@ -5,6 +5,7 @@ import { format, startOfYear, endOfYear, endOfMonth, eachMonthOfInterval } from 
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { sumPortfolioTransactionsForMonth } from '@/utils/portfolioMonthlyFlow'
+import { logger } from '@/utils/logger'
 
 /** Gastos por categoria em um mês (yyyy-MM -> lista) */
 export type MonthlyCategoryExpenses = Record<string, CategoryExpense[]>
@@ -191,7 +192,12 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
               color: cat?.color ?? 'var(--category-fallback-neutral)',
             })
           }
-          categoryMap.get(catId)!.total += getWeightedAmount(exp)
+          const categoryRow = categoryMap.get(catId)
+          if (categoryRow) {
+            categoryRow.total += getWeightedAmount(exp)
+          } else {
+            logger.warn(`Categoria não encontrada na agregação mensal: ${catId}`)
+          }
         })
         byMonth[monthStr] = Array.from(categoryMap.values())
       })
@@ -211,7 +217,12 @@ export function useReports(year?: number, includeReportWeights = true): UseRepor
               color: cat?.color ?? 'var(--category-fallback-neutral)',
             })
           }
-          annualCategoryMap.get(catId)!.total += getWeightedAmount(exp)
+          const annualCat = annualCategoryMap.get(catId)
+          if (annualCat) {
+            annualCat.total += getWeightedAmount(exp)
+          } else {
+            logger.warn(`Categoria não encontrada na agregação anual: ${catId}`)
+          }
         })
       setCategoryExpenses(Array.from(annualCategoryMap.values()))
       setAnnualExpenses((expenses || []) as unknown as Expense[])

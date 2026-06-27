@@ -4,6 +4,13 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import DatePicker from '@/components/DatePicker'
 
+/** Evento sintético mínimo compatível com ChangeEvent<HTMLInputElement>.
+ * Usado como ponte entre DatePicker e o onChange padrão do Input,
+ * evitando 'as any'. */
+type SyntheticInputChange = {
+  target: { value: string; name?: string }
+}
+
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
@@ -31,9 +38,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             onChange={(e) => {
               if (props.onChange) {
                 // DatePicker emite { target: { value, name } } — compatível estruturalmente com
-                // ChangeEvent<HTMLInputElement>. Criamos um evento sintético mínimo para manter
-                // a tipagem correta sem recorrer a 'as any'.
-                const syntheticEvent = e as unknown as React.ChangeEvent<HTMLInputElement>
+                // ChangeEvent<HTMLInputElement>. Usamos um tipo intermediário para evitar 'as any'.
+                const syntheticEvent = e as SyntheticInputChange as React.ChangeEvent<HTMLInputElement>
                 props.onChange(syntheticEvent)
               }
             }}

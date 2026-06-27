@@ -1,10 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import InfoTooltip from '@/components/InfoTooltip'
-import TransactionRow from '@/components/TransactionRow'
-import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import Modal from '@/components/Modal'
+import TransactionRow from '@/components/TransactionRow'
 import Input from '@/components/Input'
 import Button from '@/components/Button'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
@@ -237,16 +235,6 @@ export default function CategoryDetailModal({
     [detailItems]
   )
 
-  const detailBaseTotal = useMemo(
-    () => detailItems.reduce((sum, item) => sum + item.originalAmount, 0),
-    [detailItems]
-  )
-
-  const hasWeightDifference = useMemo(
-    () => Math.abs(detailCurrentTotal - detailBaseTotal) > 0.009,
-    [detailCurrentTotal, detailBaseTotal]
-  )
-
   const filteredDetailItems = useMemo(() => {
     const search = detailSearch.trim().toLowerCase()
     if (!search) {
@@ -444,15 +432,6 @@ export default function CategoryDetailModal({
               <p className="text-lg font-bold text-primary font-mono mt-0.5">
                 {formatCurrency(detailCurrentTotal)}
               </p>
-              {hasWeightDifference && (
-                <p className="text-[9px] text-secondary/50 mt-0.5 flex items-center gap-1">
-                  <span>Valor base: {formatCurrency(detailBaseTotal)}</span>
-                  <InfoTooltip
-                    content={WEIGHT_TOOLTIPS.baseValueSummary}
-                    iconSize={8}
-                  />
-                </p>
-              )}
             </div>
 
             {/* Listagem Simplificada */}
@@ -557,15 +536,6 @@ export default function CategoryDetailModal({
                         <p className="text-lg font-bold text-primary font-mono leading-tight">
                           {formatCurrency(detailCurrentTotal)}
                         </p>
-                        {hasWeightDifference && (
-                          <p className="text-[9px] text-secondary/50 mt-0.5 flex items-center gap-1">
-                            <span>Valor base: {formatCurrency(detailBaseTotal)}</span>
-                            <InfoTooltip
-                              content={WEIGHT_TOOLTIPS.baseValueSummaryShared}
-                              iconSize={8}
-                            />
-                          </p>
-                        )}
                       </div>
                       {detailDifferencePct !== null && (
                         <span

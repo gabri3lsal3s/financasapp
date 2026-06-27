@@ -25,11 +25,13 @@ export const Z_INDEX = {
   NAVIGATION: 'z-[100]',
   /** Popovers, tooltips, scroll-to-top, FABs de notificação — acima da navegação (z-100) */
   POPOVER: 'z-[150]',
+  /** Hub de ações FAB — acima da navegação, abaixo de modais */
+  FAB_HUB: 'z-[200]',
   /** Overlays de modais e sheets */
   OVERLAY: 'z-[900]',
   /** Conteúdo de modais/sheets padrão */
   MODAL: 'z-[1000]',
-  /** Stack lateral flutuante (page actions, calculadora em modo aba) */
+  /** Stack lateral flutuante (calculadora em modo aba) */
   SIDE_STACK: 'z-[1100]',
   /** Modais elevados (sobrepoem outros modais) */
   ELEVATED: 'z-[1200]',
@@ -45,3 +47,6 @@ export type ZIndexKey = keyof typeof Z_INDEX
 
 /** Valor de z-index para modais elevados (usado em zIndexClass props). */
 export type ZIndexElevated = typeof Z_INDEX.ELEVATED
+
+/** Valor numérico do hub FAB para uso em style={{ zIndex: ... }}. */
+export const FAB_HUB_VALUE = 200

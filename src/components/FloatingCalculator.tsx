@@ -10,18 +10,22 @@ import { Z_INDEX } from '@/constants/zIndex'
 import {
   CALCULATOR_SIDE_SLOT_ID,
   FLOATING_SIDE_BUTTON_NEUTRAL,
-  FLOATING_SIDE_FAB_BASE,
   getFloatingSideTabButtonClassName,
-  type FloatingSidePosition,
 } from '@/components/floatingSideLayout'
 import {
-  buildIconDragTransform,
+  type CalculatorPosition,
+  readPersistedPosition,
+  persistPosition,
+  calculateYFromPercent,
+  calculatePercentFromY,
   getCalculatorPanelOpenClass,
+  getCalculatorButtonWrapperClass,
+  buildIconDragTransform,
+  getSafeYRange,
 } from '@/components/calculatorOriginFlip'
 
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
-const CALCULATOR_UI_KEY = 'floating-calculator-ui'
 const CALCULATOR_TARGET_CLASS = 'calculator-target-input'
 const PANEL_MARGIN = 8
 const MIN_PANEL_WIDTH = 320
@@ -39,7 +43,7 @@ const RESIZE_MAX_VIEWPORT_HEIGHT_RATIO = 1
 const PANEL_ASPECT_RATIO = DEFAULT_PANEL_WIDTH / DEFAULT_PANEL_HEIGHT
 const RESIZE_TAP_MAX_MS = 220
 const RESIZE_DRAG_START_DISTANCE = 6
-const ORIGIN_FLIP_DURATION_MS = 1150
+const RETURN_ANIMATION_MS = 600
 
 interface PersistedCalculatorState {
   expression: string
@@ -56,24 +60,6 @@ interface PanelRect {
 interface Point {
   x: number
   y: number
-}
-
-type IconOrigin = 'bottom-right' | 'top-right'
-
-function readPersistedIconOrigin(): IconOrigin {
-  try {
-    const persistedUiRaw = window.localStorage.getItem(CALCULATOR_UI_KEY)
-    if (!persistedUiRaw) return 'bottom-right'
-
-    const persistedUi = JSON.parse(persistedUiRaw) as { iconOrigin?: IconOrigin }
-    if (persistedUi.iconOrigin === 'top-right' || persistedUi.iconOrigin === 'bottom-right') {
-      return persistedUi.iconOrigin
-    }
-  } catch {
-    window.localStorage.removeItem(CALCULATOR_UI_KEY)
-  }
-
-  return 'bottom-right'
 }
 
 const DEFAULT_STATE: PersistedCalculatorState = {
@@ -320,34 +306,11 @@ interface FloatingCalculatorProps {
 
 export default function FloatingCalculator({ isHidden = false }: FloatingCalculatorProps) {
   const location = useLocation()
-  const [isMobile, setIsMobile] = useState(() => isMobileViewport(window.innerWidth))
   const [slotTop, setSlotTop] = useState<number | null>(null)
-  const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [mounted, setMounted] = useState(false)
 
   const [isIconLabelExpanded, setIsIconLabelExpanded] = useState(false)
   const iconLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [hasAlertsFab, setHasAlertsFab] = useState(false)
-
-  // WHY: MutationObserver é mais eficiente que setInterval para detectar mudanças no DOM
-  useEffect(() => {
-    const checkAlertsFab = () => {
-      const exists =
-        document.getElementById('alerts-fab') !== null ||
-        document.querySelector('.alerts-fab-trigger') !== null ||
-        document.querySelector('.animate-bell-ring') !== null
-      setHasAlertsFab(exists)
-    }
-
-    checkAlertsFab()
-
-    const observer = new MutationObserver(checkAlertsFab)
-    observer.observe(document.body, { childList: true, subtree: true })
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [location.pathname])
 
   // WHY: efeito unificado para resize da viewport, posição do slot lateral e mobile toggle
   useEffect(() => {
@@ -361,7 +324,6 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
 
     const onResizeViewport = () => {
-      setIsMobile(isMobileViewport(window.innerWidth))
       updateSlotTop()
       setPanelRect((currentRect) => {
         const minWidth = getPanelMinWidth(window.innerWidth)
@@ -409,20 +371,27 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const panelRectRef = useRef<PanelRect>(panelRect)
   const [isResizingPanel, setIsResizingPanel] = useState(false)
   const [resizePreviewRect, setResizePreviewRect] = useState<PanelRect | null>(null)
-  const [iconOffset, setIconOffset] = useState<Point>({ x: 0, y: 0 })
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const [position, setPosition] = useState<CalculatorPosition>(() => readPersistedPosition(isDesktop))
+  const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 })
   const [isDraggingIcon, setIsDraggingIcon] = useState(false)
   const [isIconReturning, setIsIconReturning] = useState(false)
-  const [iconOrigin, setIconOrigin] = useState<IconOrigin>(() => readPersistedIconOrigin())
+  const [dragPreviewY, setDragPreviewY] = useState<number | null>(null)
   const iconDragMovedRef = useRef(false)
-  const iconReturnTimeoutRef = useRef<number | null>(null)
+  const iconReturnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const iconDragWrapperRef = useRef<HTMLDivElement>(null)
+  const currentPositionRef = useRef(position)
+  currentPositionRef.current = position
 
-  const commitIconOrigin = useCallback((nextOrigin: IconOrigin, previousOrigin: IconOrigin) => {
-    if (nextOrigin === previousOrigin) {
-      return
-    }
-    setIconOrigin(nextOrigin)
-  }, [])
+  // Atualiza o Y percentual conforme o drag termina
+  const commitPositionY = useCallback((newYPercent: number) => {
+    const clamped = Math.max(0, Math.min(100, newYPercent))
+    setPosition((prev) => {
+      const next: CalculatorPosition = { ...prev, yPercent: clamped }
+      persistPosition(next, isDesktop)
+      return next
+    })
+  }, [isDesktop])
 
 
   useEffect(() => {
@@ -442,14 +411,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [])
 
-  useEffect(() => {
-    if (isIconReturning && (iconOffset.x !== 0 || iconOffset.y !== 0)) {
-      const rafId = requestAnimationFrame(() => {
-        setIconOffset({ x: 0, y: 0 })
-      })
-      return () => cancelAnimationFrame(rafId)
-    }
-  }, [isIconReturning, iconOffset])
+  // A transição de retorno do ícone é gerenciada pelo CSS (calculator-icon-wrapper-transition--returning)
 
   useEffect(() => {
     setIsExpanded(false)
@@ -476,15 +438,14 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [])
 
-  // WHY: persiste estado da calculadora + posição do ícone no localStorage (unificado)
+  // WHY: persiste estado da calculadora no localStorage
   useEffect(() => {
     const persistableState: PersistedCalculatorState = {
       expression,
       lastResult,
     }
     window.localStorage.setItem(CALCULATOR_STATE_KEY, JSON.stringify(persistableState))
-    window.localStorage.setItem(CALCULATOR_UI_KEY, JSON.stringify({ iconOrigin }))
-  }, [expression, lastResult, iconOrigin])
+  }, [expression, lastResult])
 
   useEffect(() => {
     const updateActiveNumericInput = (event: FocusEvent) => {
@@ -1011,115 +972,81 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     event.currentTarget.setPointerCapture(event.pointerId)
 
     if (iconReturnTimeoutRef.current) {
-      window.clearTimeout(iconReturnTimeoutRef.current)
+      clearTimeout(iconReturnTimeoutRef.current)
     }
 
     setIsIconReturning(false)
     setIsDraggingIcon(true)
     iconDragMovedRef.current = false
 
-    const startX = event.clientX
     const startY = event.clientY
     const pointerId = event.pointerId
+    const startPosition = currentPositionRef.current
 
-    let currentOrigin = iconOrigin
+    const buttonHeight = 40
+    const viewportHeight = window.innerHeight
+
+    // Posição Y inicial em pixels (usa calculateYFromPercent com safe zones)
+    const startYPx = calculateYFromPercent(startPosition.yPercent, viewportHeight, buttonHeight)
 
     const onPointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) {
-        return
-      }
+      if (moveEvent.pointerId !== pointerId) return
 
-      const deltaX = moveEvent.clientX - startX
       const rawDeltaY = moveEvent.clientY - startY
 
-      if (!iconDragMovedRef.current && Math.hypot(deltaX, rawDeltaY) > 4) {
+      if (!iconDragMovedRef.current && Math.abs(rawDeltaY) > 4) {
         iconDragMovedRef.current = true
       }
 
-      // Helper to clean up active drag tracking and trigger CSS transitions immediately
-      const terminateDrag = (nextOrigin: IconOrigin) => {
-        setIsDraggingIcon(false)
-        setIsIconReturning(true)
+      // Calcula a nova posição Y em pixels, clamped dentro das zonas seguras
+      const [safeMinY, safeMaxY] = getSafeYRange(viewportHeight, buttonHeight)
+      const newYPx = Math.max(safeMinY, Math.min(safeMaxY, startYPx + rawDeltaY))
 
-        // Calculate inverted offset for FLIP transition
-        const isMobileVal = window.innerWidth <= MOBILE_BREAKPOINT
-        const yFab = window.innerHeight - (isMobileVal ? 120 : 72)
-        const xFab = isMobileVal ? 16 : 32
-        const ySide = slotTop !== null ? slotTop : yFab
+      setDragPreviewY(newYPx)
+      setDragOffset({ x: 0, y: rawDeltaY })
 
-        let invertX = 0
-        let invertY = 0
-
-        if (currentOrigin === 'bottom-right' && nextOrigin === 'top-right') {
-          // FAB to Side
-          invertY = yFab - ySide + rawDeltaY
-          invertX = deltaX - xFab
-        } else if (currentOrigin === 'top-right' && nextOrigin === 'bottom-right') {
-          // Side to FAB
-          invertY = ySide - yFab + rawDeltaY
-          invertX = xFab + deltaX
-        }
-
-        setIconOffset({ x: invertX, y: invertY })
-
-        document.removeEventListener('pointermove', onPointerMove)
-        document.removeEventListener('pointerup', onPointerUp)
-        document.removeEventListener('pointercancel', onPointerUp)
-        
-        if (moveEvent.target instanceof Element) {
-          try {
-            moveEvent.target.releasePointerCapture(pointerId)
-          } catch {
-            // Ignorar erro se o elemento já tiver sido desmontado
-          }
-        }
-
-        iconReturnTimeoutRef.current = window.setTimeout(() => {
-          setIsIconReturning(false)
-        }, ORIGIN_FLIP_DURATION_MS)
+      // Toggle side se arrastar horizontalmente — apenas em mobile (desktop: fixo à direita)
+      const allowSideToggle = !isDesktop
+      if (allowSideToggle && Math.abs(moveEvent.clientX - event.clientX) > 60) {
+        const newSide = moveEvent.clientX < window.innerWidth / 2 ? 'left' : 'right'
+        setPosition((prev) => {
+          if (newSide === prev.side) return prev
+          const next: CalculatorPosition = { ...prev, side: newSide }
+          persistPosition(next, isDesktop)
+          return next
+        })
       }
 
-      // 1. If currently at bottom-right (on top of bottom nav bar / bottom corner)
-      if (currentOrigin === 'bottom-right') {
-        if (rawDeltaY < -16) {
-          commitIconOrigin('top-right', currentOrigin)
-          const next = 'top-right' as const
-          terminateDrag(next)
-          currentOrigin = next
-        } else {
-          setIconOffset({ x: deltaX, y: rawDeltaY })
-        }
-      } 
-      // 2. If currently at top-right (vertical sliding tab mode)
-      else if (currentOrigin === 'top-right') {
-        setIconOffset({ x: deltaX, y: rawDeltaY })
-
-        // If dragged down, snap back to bottom-right
-        if (rawDeltaY > 20) {
-          commitIconOrigin('bottom-right', currentOrigin)
-          const next = 'bottom-right' as const
-          terminateDrag(next)
-          currentOrigin = next
-        }
-      }
+      // Preview visual: atualiza a posição em tempo real
+      setDragOffset({ x: 0, y: rawDeltaY })
     }
 
-    const onPointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) {
-        return
-      }
-
+    const onPointerUp = () => {
       document.removeEventListener('pointermove', onPointerMove)
       document.removeEventListener('pointerup', onPointerUp)
       document.removeEventListener('pointercancel', onPointerUp)
 
       setIsDraggingIcon(false)
-      setIsIconReturning(true)
-      setIconOffset({ x: 0, y: 0 })
 
-      iconReturnTimeoutRef.current = window.setTimeout(() => {
-        setIsIconReturning(false)
-      }, ORIGIN_FLIP_DURATION_MS)
+      if (iconDragMovedRef.current) {
+        // Calcula a posição final em percentual
+        const finalYPx = dragPreviewY ?? startYPx
+        const finalPercent = calculatePercentFromY(finalYPx, viewportHeight, buttonHeight)
+        commitPositionY(finalPercent)
+
+        // Anima o retorno suave
+        setIsIconReturning(true)
+        setDragOffset({ x: 0, y: 0 })
+        setDragPreviewY(null)
+
+        iconReturnTimeoutRef.current = setTimeout(() => {
+          setIsIconReturning(false)
+        }, RETURN_ANIMATION_MS)
+      } else {
+        // Se não moveu, é um clique — mantém posição
+        setDragOffset({ x: 0, y: 0 })
+        setDragPreviewY(null)
+      }
     }
 
     document.addEventListener('pointermove', onPointerMove)
@@ -1148,11 +1075,10 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     openCalculator()
   }
 
-  const sidePosition: FloatingSidePosition = 'right'
-  const panelOpenClass = getCalculatorPanelOpenClass(iconOrigin, sidePosition)
+  const panelOpenClass = getCalculatorPanelOpenClass(position.side)
 
   const sideTabButtonClassName = cn(
-    getFloatingSideTabButtonClassName(sidePosition),
+    getFloatingSideTabButtonClassName(position.side),
     isDraggingIcon ? 'cursor-grabbing scale-[1.02] transition-none' : 'cursor-grab',
     FLOATING_SIDE_BUTTON_NEUTRAL,
     'calculator-origin-button',
@@ -1160,31 +1086,17 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     isIconLabelExpanded && 'glass-button-side-expanded'
   )
 
-  const fabButtonClassName = cn(
-    FLOATING_SIDE_FAB_BASE,
-    isDraggingIcon ? 'cursor-grabbing scale-[1.04]' : 'cursor-grab',
-    FLOATING_SIDE_BUTTON_NEUTRAL,
-    'calculator-origin-button',
-    isDraggingIcon && 'calculator-origin-button--dragging',
-    !isDraggingIcon && !isIconReturning && 'calculator-fab-idle',
-    isIconLabelExpanded && 'glass-button-side-expanded'
-  )
-
-  const iconDragTransform = buildIconDragTransform(iconOffset, isDraggingIcon)
-  const wrapperTransform = iconDragTransform
-
+  const iconDragTransform = buildIconDragTransform(dragOffset, isDraggingIcon)
 
   const handleIconDragTransitionEnd = (event: React.TransitionEvent<HTMLDivElement>) => {
     if (event.propertyName !== 'transform' || event.target !== iconDragWrapperRef.current) {
       return
     }
 
-    if (!isIconReturning) {
-      return
-    }
+    if (!isIconReturning) return
 
     if (iconReturnTimeoutRef.current) {
-      window.clearTimeout(iconReturnTimeoutRef.current)
+      clearTimeout(iconReturnTimeoutRef.current)
       iconReturnTimeoutRef.current = null
     }
 
@@ -1197,11 +1109,11 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       onPointerDown={startIconDrag}
       onClick={handleIconClick}
       aria-label="Abrir calculadora flutuante"
-      className={iconOrigin === 'top-right' ? sideTabButtonClassName : fabButtonClassName}
+      className={sideTabButtonClassName}
     >
-      <Calculator size={isDesktop ? 18 : 16} className={cn("shrink-0 text-primary", iconOrigin === 'bottom-right' && "mx-auto")} aria-hidden />
-      {iconOrigin === 'top-right' && !isDraggingIcon && !isIconReturning && (
-        <span className="glass-button-label transition-all duration-300 ease-in-out whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
+      <Calculator size={isDesktop ? 18 : 16} className="shrink-0 text-primary calculator-icon" aria-hidden />
+      {!isDraggingIcon && !isIconReturning && (
+        <span className="glass-button-label whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider">
           Calculadora
         </span>
       )}
@@ -1209,35 +1121,37 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   )
 
   const renderFloatingIcon = () => {
-    if (isExpanded || isHidden) {
-      return null
-    }
+    if (isExpanded || isHidden) return null
 
     const iconContent = renderCalculatorIconButton()
-
-    const isSide = iconOrigin === 'top-right'
-    const resolvedTop = isSide && slotTop !== null
-      ? slotTop
-      : window.innerHeight - (isMobile ? 120 : (hasAlertsFab ? 124 : 72))
-    const resolvedRight = isSide
-      ? 0
-      : (isMobile ? 16 : 32)
-
-    const wrapperStyle: React.CSSProperties = {
-      top: `${resolvedTop}px`,
-      right: `${resolvedRight}px`,
-      transform: wrapperTransform,
+    const viewportHeight = window.innerHeight
+    const buttonHeight = 40
+    const [safeMinY] = getSafeYRange(viewportHeight, buttonHeight)
+    // Posição Y em pixels baseada no percentual armazenado
+    let iconTopPx
+    if (dragPreviewY !== null) {
+      iconTopPx = dragPreviewY
+    } else {
+      iconTopPx = calculateYFromPercent(position.yPercent, viewportHeight, buttonHeight)
     }
 
-    const isNoTransition = isDraggingIcon || (isIconReturning && (iconOffset.x !== 0 || iconOffset.y !== 0))
+    // Ajuste fino: se o slot lateral estiver definido e for maior que a posição calculada,
+    // usa o slot como referência mínima (para não sobrepor o header)
+    const minTop = slotTop !== null ? Math.max(slotTop + 8, safeMinY) : safeMinY
+    iconTopPx = Math.max(minTop, iconTopPx)
+
+    const wrapperStyle: React.CSSProperties = {
+      top: `${iconTopPx}px`,
+      transform: iconDragTransform,
+    }
 
     return (
       <div
         ref={iconDragWrapperRef}
-        className={cn(
-          `fixed ${Z_INDEX.CALCULATOR} pointer-events-auto calculator-icon-wrapper-transition`,
-          isNoTransition && 'calculator-icon-wrapper-transition--no-transition',
-          isIconReturning && !isNoTransition && 'calculator-icon-wrapper-transition--returning'
+        className={getCalculatorButtonWrapperClass(
+          position.side,
+          isDraggingIcon,
+          isIconReturning
         )}
         style={wrapperStyle}
         onTransitionEnd={handleIconDragTransitionEnd}

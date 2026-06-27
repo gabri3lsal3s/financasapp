@@ -2,6 +2,7 @@ import { ReactNode, useContext, useLayoutEffect } from 'react'
 import {
   FloatingActionsStateContext,
   FloatingActionsDispatchContext,
+  type RawPageAction,
 } from '@/contexts/floatingActionsSharedContext'
 
 export function useFloatingActions() {
@@ -24,4 +25,19 @@ export function useRegisterFloatingActions(action: ReactNode | undefined): void 
       dispatch.setActions(null)
     }
   }, [action, dispatch])
+}
+
+/** Registra o array estruturado de ações da página atual; limpa ao desmontar. */
+export function useRegisterRawActions(actions: RawPageAction[]): void {
+  const dispatch = useContext(FloatingActionsDispatchContext)
+
+  useLayoutEffect(() => {
+    if (!dispatch) return
+
+    dispatch.setRawActions(actions)
+    return () => {
+      dispatch.setRawActions([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, JSON.stringify(actions.map((a) => ({ label: a.label, intent: a.intent, disabled: a.disabled, show: a.show })))])
 }
