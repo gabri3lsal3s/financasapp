@@ -468,13 +468,37 @@ function ScrollToTopButton() {
               opacity: Math.min(1, 0.45 + dragProgress * 0.55),
               scale: isActive ? 1.08 : 1 + dragProgress * 0.04,
               y: 0,
+              width: 40 + dragProgress * 150,
+              paddingLeft: overscrollOffset >= 15 ? 16 : 10,
+              paddingRight: overscrollOffset >= 15 ? 16 : 10,
+              paddingTop: 10,
+              paddingBottom: 10,
+              backgroundColor: isActive
+                ? 'hsl(var(--primary))'
+                : overscrollOffset > 0
+                ? 'var(--glass-surface)'
+                : 'rgba(255, 255, 255, 0)',
+              borderColor: isActive
+                ? 'rgba(0, 0, 0, 0)'
+                : overscrollOffset > 0
+                ? 'var(--glass-border)'
+                : 'rgba(255, 255, 255, 0)',
+              color: isActive
+                ? 'hsl(var(--primary-foreground))'
+                : 'var(--ds-color-text-secondary)',
+              boxShadow: isActive
+                ? 'var(--glass-shadow-elevated)'
+                : overscrollOffset > 0
+                ? 'var(--glass-shadow-panel)'
+                : 'none',
             }}
             exit={{ opacity: 0, scale: 0.8, y: 0, transition: { duration: 0.2 } }}
             transition={isInteracting
               ? {
-                  scale: { type: 'spring', stiffness: 200, damping: 20 },
-                  opacity: { type: 'tween', duration: 0.15 },
-                  layout: { type: 'spring', stiffness: 200, damping: 20 }
+                  type: 'spring',
+                  stiffness: 300,
+                  damping: 28,
+                  opacity: { type: 'tween', duration: 0.15 }
                 }
               : {
                   type: 'spring',
@@ -482,20 +506,23 @@ function ScrollToTopButton() {
                   damping: 25
                 }
             }
-            className={[
-              'pointer-events-auto',
-              'flex items-center justify-center select-none cursor-pointer',
-              'rounded-full transition-all duration-300',
-              isActive
-                ? 'bg-primary text-primary-foreground border border-transparent'
-                : 'surface-glass border border-glass text-secondary hover:text-primary hover:bg-glass/95 hover:border-glass-strong',
-            ].join(' ')}
+            whileHover={{
+              color: isActive
+                ? 'hsl(var(--primary-foreground))'
+                : 'hsl(var(--primary))',
+              backgroundColor: isActive
+                ? 'hsl(var(--primary))'
+                : overscrollOffset > 0
+                ? 'var(--glass-layer-interactive)'
+                : 'rgba(255, 255, 255, 0.05)',
+              borderColor: isActive
+                ? 'rgba(0, 0, 0, 0)'
+                : overscrollOffset > 0
+                ? 'var(--glass-border-strong)'
+                : 'rgba(255, 255, 255, 0.1)',
+            }}
+            className="pointer-events-auto flex items-center justify-center select-none cursor-pointer rounded-full border"
             style={{
-              boxShadow: isActive
-                ? 'var(--glass-shadow-elevated)'
-                : 'var(--glass-shadow-panel)',
-              padding: overscrollOffset >= 15 ? '10px 16px' : '10px',
-              width: `${40 + dragProgress * 150}px`,
               height: '40px',
               originX: 0.5,
             }}
@@ -523,19 +550,29 @@ function ScrollToTopButton() {
                 <ChevronUp size={18} className="shrink-0" />
               </motion.div>
 
-              <AnimatePresence>
-                {overscrollOffset >= 15 && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, width: 'auto', scale: 1 }}
-                    exit={{ opacity: 0, width: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    className="text-xs font-semibold whitespace-nowrap overflow-hidden"
-                  >
-                    {isActive ? 'Solte para subir!' : 'Deslize para subir'}
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <motion.span
+                animate={{
+                  opacity: overscrollOffset >= 15 ? 1 : 0,
+                  width: overscrollOffset >= 15 ? 'auto' : 0,
+                  scale: overscrollOffset >= 15 ? 1 : 0.95,
+                }}
+                transition={isInteracting
+                  ? {
+                      type: 'spring',
+                      stiffness: 300,
+                      damping: 28,
+                      opacity: { type: 'tween', duration: 0.15 }
+                    }
+                  : {
+                      type: 'spring',
+                      stiffness: 250,
+                      damping: 25
+                    }
+                }
+                className="text-xs font-semibold whitespace-nowrap overflow-hidden"
+              >
+                {isActive ? 'Solte para subir!' : 'Deslize para subir'}
+              </motion.span>
             </div>
           </motion.div>
         </div>
