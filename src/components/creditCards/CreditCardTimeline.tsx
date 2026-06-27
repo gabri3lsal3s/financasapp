@@ -4,6 +4,7 @@ import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import type { CreditCard } from '@/types'
 import { ensureHexColor } from '@/utils/colorValue'
 import { formatCurrency, formatDate } from '@/utils/format'
+import { Z_INDEX } from '@/constants/zIndex'
 
 export type MonthlyCycleRow = {
   id: string
@@ -241,11 +242,11 @@ export default function CreditCardTimeline({
             style={barStyle}
           />
           <div
-            className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 z-10"
+            className={`absolute top-1/2 -translate-y-1/2 left-0 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-card flex items-center justify-center transition-all duration-500 ${Z_INDEX.CONTENT}`}
             style={progressPct >= 0 ? nodeRingStyle : undefined}
           />
           <div
-            className={`absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
+            className={`absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 ${Z_INDEX.CONTENT} ${
               progressPct >= 50
                 ? 'border-card'
                 : 'border-glass bg-background'
@@ -253,7 +254,7 @@ export default function CreditCardTimeline({
             style={progressPct >= 50 ? nodeRingStyle : undefined}
           />
           <div
-            className={`absolute top-1/2 -translate-y-1/2 left-full -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 z-10 ${
+            className={`absolute top-1/2 -translate-y-1/2 left-full -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 ${Z_INDEX.CONTENT} ${
               progressPct >= 100
                 ? 'border-card'
                 : 'border-glass bg-background'
@@ -357,7 +358,7 @@ export default function CreditCardTimeline({
                   
                   {/* Dot */}
                   <div
-                    className="w-3.5 h-3.5 rounded-full border-2 border-card z-10 shrink-0 transition-all duration-500"
+                    className={`w-3.5 h-3.5 rounded-full border-2 border-card ${Z_INDEX.CONTENT} shrink-0 transition-all duration-500`}
                     style={item.isActive ? nodeRingStyle : { backgroundColor: 'var(--color-bg-primary)', borderColor: 'var(--color-border)' }}
                   />
 

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { Z_INDEX } from '@/constants/zIndex'
 
 export type DesktopPosition = 'right' | 'top'
 export type MobilePosition = 'right' | 'left'
@@ -66,23 +67,24 @@ export function getFloatingSideTabButtonClassName(
 }
 
 export function getFloatingSideStackClasses(activePosition: FloatingSidePosition): string {
+  const stackZ = `${Z_INDEX.SIDE_STACK}`
   if (activePosition === 'top') {
     return cn(
-      'fixed z-[1001] pointer-events-none flex flex-row items-start overflow-visible right-8 top-0',
+      `fixed ${stackZ} pointer-events-none flex flex-row items-start overflow-visible right-8 top-0`,
       FLOATING_SIDE_GAP
     )
   }
 
   if (activePosition === 'left') {
     return cn(
-      'fixed z-[1001] pointer-events-none flex flex-col items-start overflow-visible left-0',
+      `fixed ${stackZ} pointer-events-none flex flex-col items-start overflow-visible left-0`,
       FLOATING_SIDE_GAP,
       FLOATING_SIDE_TOP
     )
   }
 
   return cn(
-    'fixed z-[1001] pointer-events-none flex flex-col items-end overflow-visible right-0',
+    `fixed ${stackZ} pointer-events-none flex flex-col items-end overflow-visible right-0`,
     FLOATING_SIDE_GAP,
     FLOATING_SIDE_TOP
   )

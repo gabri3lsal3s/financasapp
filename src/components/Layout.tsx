@@ -7,6 +7,7 @@ import FloatingActionHub from '@/components/FloatingActionHub'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
 import { isCalculatorElement } from '@/utils/calculator'
+import { Z_INDEX } from '@/constants/zIndex'
 
 import {
   Sheet,
@@ -176,10 +177,16 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <FloatingActionsProvider>
-    <div className="min-h-screen bg-secondary relative">
+    <div
+      className="min-h-screen bg-secondary relative app-layout-root"
+      style={{
+        '--sidebar-offset': isDesktopMenuExpanded ? '328px' : '120px'
+      } as React.CSSProperties}
+    >
+      <FloatingActionHub />
       <FloatingSideStack />
       <div className="app-shell-glow" aria-hidden="true" />
-      <div className="relative z-10">
+      <div className={`relative ${Z_INDEX.CONTENT}`}>
       <div className="lg:hidden">
 
 
@@ -255,7 +262,7 @@ export default function Layout({ children }: LayoutProps) {
           </SheetContent>
         </Sheet>
 
-        <nav className="glass-bottom-nav fixed bottom-0 inset-x-0 z-[100] safe-area-bottom flex items-center justify-around shadow-lg px-2">
+        <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around shadow-lg px-2`}>
           {/* Home Tab */}
           <Link to="/" className={mobileTabClass(location.pathname === '/')}>
             <Home size={18} aria-hidden />
@@ -296,7 +303,7 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Main Content Area with Bottom Padding to avoid navigation overlay */}
         <main className="relative pt-[calc(1rem+env(safe-area-inset-top))] glass-main-padding min-h-screen">
-          <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-6">
+          <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-0">
             <section key={location.pathname} className="relative animate-page-enter">
               {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
@@ -423,7 +430,7 @@ export default function Layout({ children }: LayoutProps) {
         </aside>
 
         <main className="relative safe-area-bottom">
-          <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-8">
+          <div className="w-full max-w-7xl mx-auto px-6 xl:px-8 pb-[74px]">
             <section key={location.pathname} className="relative animate-page-enter">
               {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
             </section>
@@ -432,7 +439,6 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
-      <FloatingActionHub />
       </div>
     </div>
     </FloatingActionsProvider>

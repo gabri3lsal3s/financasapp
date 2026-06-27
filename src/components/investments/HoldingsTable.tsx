@@ -10,6 +10,7 @@ import {
 } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import { ChevronRight, Search } from 'lucide-react'
+import { Z_INDEX } from '@/constants/zIndex'
 
 interface HoldingsTableProps {
   positions: ValuedPosition[]
@@ -67,7 +68,7 @@ export default function HoldingsTable({
     <div className="space-y-4 animate-fade-in">
       {/* Barra de busca responsiva */}
       <div className="relative">
-        <span className="absolute inset-y-0 left-3 flex items-center text-secondary pointer-events-none z-10">
+        <span className={`absolute inset-y-0 left-3 flex items-center text-secondary pointer-events-none ${Z_INDEX.CONTENT}`}>
           <Search size={14} />
         </span>
         <Input

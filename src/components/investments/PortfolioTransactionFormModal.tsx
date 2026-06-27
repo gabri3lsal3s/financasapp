@@ -15,6 +15,7 @@ import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup
 import ConfirmModal from '@/components/ConfirmModal'
 import toast from 'react-hot-toast'
 import { logger } from '@/utils/logger'
+import type { ZIndexElevated } from '@/constants/zIndex'
 
 interface PortfolioTransactionFormModalProps {
   isOpen: boolean
@@ -22,7 +23,8 @@ interface PortfolioTransactionFormModalProps {
   portfolioId: string
   editingTransaction: PortfolioTransaction | null
   onSaved: () => void
-  zIndexClass?: string
+  /** Quando informado, passa o stack elevado ao ModalForm interno */
+  zIndexClass?: ZIndexElevated
 }
 
 export default function PortfolioTransactionFormModal({

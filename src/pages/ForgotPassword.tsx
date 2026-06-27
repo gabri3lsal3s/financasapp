@@ -6,6 +6,7 @@ import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
 import { getErrorMessage } from '@/utils/errorMessage';
+import { Z_INDEX } from '@/constants/zIndex';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -40,7 +41,7 @@ export default function ForgotPassword() {
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
       <div className="app-shell-glow" aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-md space-y-8">
+      <div className={`relative ${Z_INDEX.CONTENT} w-full max-w-md space-y-8`}>
         <div>
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary">
             <KeyRound className="h-6 w-6 text-primary" />

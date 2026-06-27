@@ -203,7 +203,7 @@ export default function Investments() {
                     className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-[0.08]"
                     style={{ backgroundColor: cashValue > 0 ? 'var(--color-income)' : 'var(--color-primary)' }}
                   />
-                  <div className="space-y-1.5 z-10">
+                  <div className="relative space-y-1.5">
                     <span className="text-[9px] font-black uppercase text-secondary tracking-wider">Saldo em Caixa</span>
                     <h4 className="text-2xl font-black text-primary font-mono">{formatCurrency(cashValue)}</h4>
                     <p className="text-[10px] text-secondary font-medium leading-relaxed">

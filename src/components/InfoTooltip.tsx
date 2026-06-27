@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Z_INDEX } from '@/constants/zIndex'
 
 interface InfoTooltipProps {
   content: string
@@ -59,7 +60,7 @@ export default function InfoTooltip({
       {visible && (
         <div
           className={cn(
-            'absolute bottom-full mb-2 w-64 p-3 surface-glass-strong border border-glass rounded-xl shadow-lg text-[10px] text-secondary font-medium leading-relaxed z-50 animate-in fade-in slide-in-from-bottom-1 duration-200 pointer-events-none',
+            `absolute bottom-full mb-2 w-64 p-3 surface-glass-strong border border-glass rounded-xl shadow-lg text-[10px] text-secondary font-medium leading-relaxed ${Z_INDEX.POPOVER} animate-in fade-in slide-in-from-bottom-1 duration-200 pointer-events-none`,
             placementClasses[placement]
           )}
           role="tooltip"

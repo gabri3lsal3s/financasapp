@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Junho de 2026 — Refatoração completa + Correção de bugs críticos.
+> **Última atualização:** Junho de 2026 — Refatoração completa + Sistema de z-index unificado.
 
 ---
 
@@ -481,6 +481,87 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - **RowButton extraído**: `ExpenseCategoryRowButton` refatorado para usar `RowButton` base. `PaymentRowButton` removido (wrapper vazio). `Contas.tsx` atualizado.
 - **Select → Radix UI**: `Select.tsx` refatorado internamente para usar `@radix-ui/react-select` (shadcn), mantendo a mesma API externa. 19 consumidores inalterados. 4 snapshots atualizados.
 - **useEffect reduzido**: FloatingCalculator ~14→11 effects (MutationObserver + resize unificado + localStorage unificado + keyboard com useRef). Reports.tsx: 2 effects de validação unificados.
+- **Sistema de z-index unificado**: Implementação de CSS Custom Properties e constantes TypeScript para hierarquia padronizada. Todos os componentes migrados de valores hardcoded. Teste de consistência automatizado (16 testes).
+
+---
+
+## 11. Sistema de Z-Index (Hierarquia de Camadas)
+
+O aplicativo utiliza um sistema centralizado e padronizado de `z-index` para evitar bugs de sobreposição e garantir consistência visual em todos os temas.
+
+### 11.1 Arquivos de Definição
+
+| Arquivo | Função |
+|---------|--------|
+| `src/constants/zIndex.ts` | Constantes TypeScript (`Z_INDEX`) — usadas em componentes `.tsx/.ts` |
+| `src/styles/theme-tokens.css` | CSS Custom Properties (`--z-*`) — usadas em `.css` |
+| `src/constants/zIndex.test.ts` | Teste de consistência entre as duas fontes |
+
+### 11.2 Tabela de Níveis
+
+| Nível | Constante | Classe CSS | Uso |
+|-------|-----------|------------|-----|
+| 0 | `Z_INDEX.BASE` | `z-0` | Camada base do app (`app-shell-glow`, grid backgrounds) |
+| 1 | `Z_INDEX.DECORATION` | `z-[1]` | Elementos decorativos (halo glow, barras de progresso) |
+| 10 | `Z_INDEX.CONTENT` | `z-10` | Conteúdo principal (containers de página, prefixos de input, timelines, scroll-to-top wrapper) |
+| 30 | `Z_INDEX.STICKY` | `z-30` | Elementos temporariamente elevados (trigger de select aberto) |
+| 100 | `Z_INDEX.NAVIGATION` | `z-[100]` | Barras de navegação (bottom nav, sidebar) |
+| 150 | `Z_INDEX.POPOVER` | `z-[150]` | Popovers, tooltips, scroll-to-top button, FABs de notificação |
+| 900 | `Z_INDEX.OVERLAY` | `z-[900]` | Overlays de modais e sheets (backdrop) |
+| 1000 | `Z_INDEX.MODAL` | `z-[1000]` | Conteúdo de modais/sheets padrão |
+| 1100 | `Z_INDEX.SIDE_STACK` | `z-[1100]` | Stack lateral flutuante (page actions, calculadora em modo aba, elevated modal overlay) |
+| 1200 | `Z_INDEX.ELEVATED` | `z-[1200]` | Modais elevados (sobrepoem outros modais) |
+| 1300 | `Z_INDEX.CALCULATOR` | `z-[1300]` | Calculadora flutuante (sempre acima de tudo, exceto toasts) |
+| 1400 | `Z_INDEX.TOAST` | `z-[1400]` | Toasts e notificações temporárias (sempre visíveis) |
+| 9999 | `Z_INDEX.PRINT` | `z-[9999]` | Camada de impressão |
+
+### 11.3 Diagrama de Hierarquia
+
+```
+       ▲  z-index
+       │
+  9999 │ PRINT
+       │
+  1400 │ TOAST
+  1300 │ CALCULATOR
+  1200 │ ELEVATED         ───── Modal elevado (content)
+  1100 │ SIDE_STACK       ───── Elevated overlay + Side stack
+  1000 │ MODAL            ───── Modal/sheet padrão (content)
+   900 │ OVERLAY          ───── Overlay de modal (backdrop)
+       │
+   150 │ POPOVER          ───── Tooltips, scroll-to-top btn, notification FAB
+   100 │ NAVIGATION       ───── Bottom nav bar, sidebar
+    30 │ STICKY           ───── Select trigger aberto
+    10 │ CONTENT          ───── Conteúdo de página
+     1 │ DECORATION       ───── Halo glow, barras de progresso
+     0 │ BASE             ───── App shell glow, grid
+```
+
+### 11.4 Type Safety
+
+O tipo `ZIndexElevated` (exportado de `src/constants/zIndex.ts`) é usado nos componentes `Modal`, `ModalForm` e `PortfolioTransactionFormModal` para garantir que apenas o valor `'z-[1200]'` (ELEVATED) seja passado como `zIndexClass`, eliminando valores arbitrários.
+
+```typescript
+import { Z_INDEX, type ZIndexElevated } from '@/constants/zIndex'
+
+interface ModalProps {
+  // ...
+  zIndexClass?: ZIndexElevated  // apenas 'z-[1200]' é aceito
+}
+```
+
+### 11.5 Migração para Novos Componentes
+
+1. Identifique o nível apropriado na tabela 11.2
+2. Use a constante `Z_INDEX.{NIVEL}` em componentes `.tsx/.ts`
+3. Use `var(--z-{nivel})` em arquivos `.css`
+4. Se precisar de um novo nível, adicione em **ambos** `zIndex.ts` e `theme-tokens.css`, e atualize o teste `zIndex.test.ts`
+5. Rode `npx vitest run src/constants/zIndex.test.ts` para validar a consistência
+
+### 11.6 Bugs Conhecidos (Corrigidos)
+
+- **Tooltips atrás da bottom nav**: `Z_INDEX.POPOVER` foi elevado de `z-50` para `z-[150]` (acima de `NAVIGATION` = `z-[100]`)
+- **Toasts atrás de modais elevados**: `NetworkStatusToast` e `PwaUpdatePrompt` migrados de `z-[1000]` (MODAL) para `z-[1400]` (TOAST), garantindo visibilidade sobre todos os modais
 
 ---
 

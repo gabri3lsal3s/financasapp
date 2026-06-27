@@ -15,6 +15,7 @@ import {
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { cn } from '@/lib/utils'
 import { isCalculatorElement } from '@/utils/calculator'
+import { Z_INDEX, type ZIndexElevated } from '@/constants/zIndex'
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
 
@@ -28,8 +29,8 @@ const MODAL_SIZE_CLASSES: Record<ModalSize, string> = {
 }
 
 const MODAL_STACK = {
-  default: { overlay: 'z-[999] modal-overlay', content: 'z-[1000]' },
-  elevated: { overlay: 'z-[1199] modal-overlay', content: 'z-[1200]' },
+  default: { overlay: `${Z_INDEX.OVERLAY} modal-overlay`, content: Z_INDEX.MODAL },
+  elevated: { overlay: `${Z_INDEX.SIDE_STACK} modal-overlay`, content: Z_INDEX.ELEVATED },
 } as const
 
 /** Padding horizontal/vertical padrão do corpo (sobrescreva com `bodyClassName`, ex. `modal-body-flush`). */
@@ -55,7 +56,8 @@ interface ModalProps {
   footer?: ReactNode
   bodyClassName?: string
   size?: ModalSize
-  zIndexClass?: string
+  /** Quando informado como Z_INDEX.ELEVATED, usa o stack elevado (z-[1200]) */
+  zIndexClass?: ZIndexElevated
 }
 
 function resolveWidthClass(size?: ModalSize): string {
@@ -64,7 +66,7 @@ function resolveWidthClass(size?: ModalSize): string {
 }
 
 function resolveStack(zIndexClass?: string) {
-  return zIndexClass === 'z-[1200]' ? MODAL_STACK.elevated : MODAL_STACK.default
+  return zIndexClass === Z_INDEX.ELEVATED ? MODAL_STACK.elevated : MODAL_STACK.default
 }
 
 function ModalCloseButton({ onClose }: { onClose: () => void }) {

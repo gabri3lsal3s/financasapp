@@ -5,6 +5,7 @@ import Button from '@/components/Button'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
 import { formatDate, formatCurrency } from '@/utils/format'
+import { Z_INDEX } from '@/constants/zIndex'
 
 interface AlertCardProps {
   alert: AlertItem
@@ -124,7 +125,7 @@ export default function NotificationsWidget() {
       </Modal>
 
       {/* Desktop Floating Notification Widget */}
-      <div className="hidden md:block fixed bottom-6 right-8 z-50">
+      <div className={`hidden md:block fixed bottom-6 right-8 ${Z_INDEX.POPOVER}`}>
         <div className="relative">
           {/* FAB Button */}
           <Button
@@ -143,7 +144,7 @@ export default function NotificationsWidget() {
 
           {/* Floating Card Content */}
           {isDesktopAlertsOpen && (
-            <div className="absolute bottom-16 right-0 w-80 surface-glass-strong border border-glass rounded-2xl shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-5 duration-300 z-50 animate-stagger-item">
+            <div className={`absolute bottom-16 right-0 w-80 surface-glass-strong border border-glass rounded-2xl shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-5 duration-300 ${Z_INDEX.POPOVER} animate-stagger-item`}>
               <div className="flex items-center justify-between border-b border-primary/10 pb-2 mb-3">
                 <h4 className="text-sm font-bold text-primary flex items-center gap-1.5">
                   <Bell size={16} className="text-expense shrink-0" />

@@ -35,13 +35,13 @@ export default function B3ReconciliationStepper({
       <div className="relative flex items-start justify-between w-full py-1">
         {/* Connector Line Background - Mathematically Centered */}
         <div 
-          className="absolute h-[2px] bg-border/20 -z-10 rounded-full top-[16px]"
+          className={`absolute h-[2px] bg-border/20 -z-[1] rounded-full top-[16px]`}
           style={{ left: `${offsetPercent}%`, right: `${offsetPercent}%` }}
         />
         
         {/* Connector Line Active Progress - Mathematically Centered */}
         <div 
-          className="absolute h-[2px] bg-gradient-to-r from-balance via-primary to-income -z-10 rounded-full transition-all duration-500 ease-out top-[16px]"
+          className={`absolute h-[2px] bg-gradient-to-r from-balance via-primary to-income -z-[1] rounded-full transition-all duration-500 ease-out top-[16px]`}
           style={{ 
             left: `${offsetPercent}%`, 
             width: `${activeWidth}%` 

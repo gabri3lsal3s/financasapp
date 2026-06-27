@@ -400,6 +400,23 @@ html:not([data-color-palette]) {
   --glass-shadow-nav: 0 8px 32px -10px var(--ambient-glow-secondary);
   --glass-shadow-tooltip: 0 12px 32px -5px var(--ambient-glow-primary);
   --glass-inset-highlight: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent);
+
+  /* ========================================
+     Z-INDEX SYSTEM — Hierarquia unificada
+     ======================================== */
+  --z-base:          0;
+  --z-decoration:    1;
+  --z-content:       10;
+  --z-sticky:        30;
+  --z-popover:       150;
+  --z-navigation:    100;
+  --z-overlay:       900;
+  --z-modal:         1000;
+  --z-side-stack:    1100;
+  --z-elevated:      1200;
+  --z-calculator:    1300;
+  --z-toast:         1400;
+  --z-print:         9999;
 }
 
 html.dark,

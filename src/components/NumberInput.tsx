@@ -2,6 +2,7 @@ import { InputHTMLAttributes, forwardRef, useId, useCallback } from 'react'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Minus, Plus } from 'lucide-react'
+import { Z_INDEX } from '@/constants/zIndex'
 
 interface NumberInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange'> {
   label?: string
@@ -73,7 +74,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
       return (
         <div className={cn('relative flex items-center', className)}>
           {prefix && (
-            <span className="absolute left-2.5 text-secondary font-bold text-[10px] pointer-events-none z-10">
+            <span className={`absolute left-2.5 text-secondary font-bold text-[10px] pointer-events-none ${Z_INDEX.CONTENT}`}>
               {prefix}
             </span>
           )}
@@ -84,7 +85,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
               disabled={disabled || !canDecrement}
               onClick={() => handleStep(-1)}
               className={cn(
-                'absolute left-1 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-all',
+                `absolute left-1 top-1/2 -translate-y-1/2 ${Z_INDEX.CONTENT} w-6 h-6 rounded-md flex items-center justify-center transition-all`,
                 disabled || !canDecrement
                   ? 'text-secondary/30 cursor-not-allowed'
                   : 'text-secondary hover:text-primary hover:bg-glass/10 active:scale-90 cursor-pointer'
@@ -126,7 +127,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
               disabled={disabled || !canIncrement}
               onClick={() => handleStep(1)}
               className={cn(
-                'absolute right-1 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-all',
+                `absolute right-1 top-1/2 -translate-y-1/2 ${Z_INDEX.CONTENT} w-6 h-6 rounded-md flex items-center justify-center transition-all`,
                 disabled || !canIncrement
                   ? 'text-secondary/30 cursor-not-allowed'
                   : 'text-secondary hover:text-primary hover:bg-glass/10 active:scale-90 cursor-pointer'
@@ -137,7 +138,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
             </button>
           )}
           {suffix && (
-            <span className="absolute right-2.5 text-secondary font-bold text-[10px] pointer-events-none z-10">
+            <span className={`absolute right-2.5 text-secondary font-bold text-[10px] pointer-events-none ${Z_INDEX.CONTENT}`}>
               {suffix}
             </span>
           )}
@@ -154,7 +155,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
         )}
         <div className="relative flex items-center">
           {prefix && (
-            <span className="absolute left-3 text-secondary font-bold text-[10px] pointer-events-none z-10">
+            <span className={`absolute left-3 text-secondary font-bold text-[10px] pointer-events-none ${Z_INDEX.CONTENT}`}>
               {prefix}
             </span>
           )}
@@ -165,7 +166,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
               disabled={disabled || !canDecrement}
               onClick={() => handleStep(-1)}
               className={cn(
-                'absolute left-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                `absolute left-1.5 top-1/2 -translate-y-1/2 ${Z_INDEX.CONTENT} w-7 h-7 rounded-lg flex items-center justify-center transition-all`,
                 disabled || !canDecrement
                   ? 'text-secondary/30 cursor-not-allowed'
                   : 'text-secondary hover:text-primary hover:bg-glass/10 active:scale-90 cursor-pointer'
@@ -207,7 +208,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
               disabled={disabled || !canIncrement}
               onClick={() => handleStep(1)}
               className={cn(
-                'absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                `absolute right-1.5 top-1/2 -translate-y-1/2 ${Z_INDEX.CONTENT} w-7 h-7 rounded-lg flex items-center justify-center transition-all`,
                 disabled || !canIncrement
                   ? 'text-secondary/30 cursor-not-allowed'
                   : 'text-secondary hover:text-primary hover:bg-glass/10 active:scale-90 cursor-pointer'
@@ -218,7 +219,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
             </button>
           )}
           {suffix && (
-            <span className="absolute right-3 text-secondary font-bold text-[10px] pointer-events-none z-10">
+            <span className={`absolute right-3 text-secondary font-bold text-[10px] pointer-events-none ${Z_INDEX.CONTENT}`}>
               {suffix}
             </span>
           )}

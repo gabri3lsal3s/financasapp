@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useId } from 'react'
 import Modal, { type ModalSize } from '@/components/Modal'
 import { cn } from '@/lib/utils'
+import type { ZIndexElevated } from '@/constants/zIndex'
 
 interface ModalFormProps {
   isOpen: boolean
@@ -13,7 +14,8 @@ interface ModalFormProps {
   formClassName?: string
   bodyClassName?: string
   size?: ModalSize
-  zIndexClass?: string
+  /** Quando informado, usa o stack elevado (z-[1200] / ELEVATED) */
+  zIndexClass?: ZIndexElevated
 }
 
 /** Modal com formulário rolável e rodapé fixo padronizado. */

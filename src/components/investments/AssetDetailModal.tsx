@@ -12,6 +12,7 @@ import {
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import type { PortfolioTransaction } from '@/types'
 import { Settings2, History } from 'lucide-react'
+import { Z_INDEX } from '@/constants/zIndex'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -213,7 +214,7 @@ export default function AssetDetailModal({
           <div className="w-full h-3 rounded-full bg-glass/20 overflow-hidden relative border border-glass/40">
             {position.target_percentage > 0 && (
               <div 
-                className="absolute top-0 bottom-0 w-0.5 bg-secondary-strong/60 z-10"
+                className={`absolute top-0 bottom-0 w-0.5 bg-secondary-strong/60 ${Z_INDEX.CONTENT}`}
                 style={{ left: `${Math.min(100, position.target_percentage)}%` }}
                 title="Alvo"
               />

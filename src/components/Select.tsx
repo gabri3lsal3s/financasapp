@@ -2,6 +2,7 @@ import { forwardRef, useState, useCallback, useRef } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Z_INDEX } from '@/constants/zIndex'
 
 interface SelectProps {
   label?: string
@@ -61,7 +62,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
           onOpenChange={handleOpenChange}
           disabled={disabled}
         >
-          <div className={`relative ${isOpen ? 'z-30' : ''}`} ref={ref}>
+          <div className={`relative ${isOpen ? Z_INDEX.STICKY : ''}`} ref={ref}>
             <SelectPrimitive.Trigger
               ref={triggerRef}
               onClick={handleTriggerClick}
@@ -110,7 +111,7 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
             <SelectPrimitive.Portal>
               <SelectPrimitive.Content
                 className={cn(
-                  'relative z-[1000] min-w-[var(--radix-select-trigger-width)] select-dropdown-solid rounded-2xl overflow-hidden',
+                  `relative ${Z_INDEX.MODAL} min-w-[var(--radix-select-trigger-width)] select-dropdown-solid rounded-2xl overflow-hidden`,
                   'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
                   openUpward ? 'bottom-full mb-2' : 'top-full mt-2',
                 )}

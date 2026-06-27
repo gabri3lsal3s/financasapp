@@ -12,6 +12,7 @@ import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 import { getErrorMessage } from '@/utils/errorMessage';
 import { logger } from '@/utils/logger'
+import { Z_INDEX } from '@/constants/zIndex';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -270,7 +271,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4">
         <div className="app-shell-glow" aria-hidden="true" />
-        <div className="relative z-10 w-full max-w-md space-y-8 text-center p-8 surface-glass-strong rounded-2xl border border-glass shadow-xl animate-page-enter">
+        <div className={`relative ${Z_INDEX.CONTENT} w-full max-w-md space-y-8 text-center p-8 surface-glass-strong rounded-2xl border border-glass shadow-xl animate-page-enter`}>
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-tertiary border-2 border-primary">
             <Fingerprint className="h-12 w-12 text-primary animate-pulse" />
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { registerSW } from 'virtual:pwa-register'
 import Button from '@/components/Button'
+import { Z_INDEX } from '@/constants/zIndex'
 
 export default function PwaUpdatePrompt() {
   const [needRefresh, setNeedRefresh] = useState(false)
@@ -27,7 +28,7 @@ export default function PwaUpdatePrompt() {
   if (!needRefresh) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[1000] w-[calc(100%-2rem)] max-w-sm rounded-xl border border-primary bg-primary shadow-lg p-4 animate-surface-enter">
+    <div className={`fixed bottom-4 right-4 ${Z_INDEX.TOAST} w-[calc(100%-2rem)] max-w-sm rounded-xl border border-primary bg-primary shadow-lg p-4 animate-surface-enter`}>
       <h3 className="text-sm font-semibold text-primary mb-1">
         Nova versão disponível
       </h3>

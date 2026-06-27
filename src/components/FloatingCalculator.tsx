@@ -6,6 +6,7 @@ import { formatNumberBR, roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { Z_INDEX } from '@/constants/zIndex'
 import {
   CALCULATOR_SIDE_SLOT_ID,
   FLOATING_SIDE_BUTTON_NEUTRAL,
@@ -1234,7 +1235,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       <div
         ref={iconDragWrapperRef}
         className={cn(
-          'fixed z-[1201] pointer-events-auto calculator-icon-wrapper-transition',
+          `fixed ${Z_INDEX.CALCULATOR} pointer-events-auto calculator-icon-wrapper-transition`,
           isNoTransition && 'calculator-icon-wrapper-transition--no-transition',
           isIconReturning && !isNoTransition && 'calculator-icon-wrapper-transition--returning'
         )}
@@ -1253,7 +1254,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     <>
       {isExpanded && isResizingPanel && resizePreviewRect && (
         <div
-          className="fixed z-[1200] pointer-events-none rounded-2xl border border-[var(--ds-color-accent-primary)]/60 bg-transparent calculator-resize-ghost"
+          className={`fixed ${Z_INDEX.SIDE_STACK} pointer-events-none rounded-2xl border border-[var(--ds-color-accent-primary)]/60 bg-transparent calculator-resize-ghost`}
           style={{
             left: resizePreviewRect.left,
             top: resizePreviewRect.top,
@@ -1266,7 +1267,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       {isExpanded && !isHidden && (
         <div
           className={cn(
-            'fixed z-[1201] rounded-2xl border border-glass surface-glass-strong p-3 shadow-2xl motion-emphasis overflow-hidden pointer-events-auto calculator-element',
+            `fixed ${Z_INDEX.CALCULATOR} rounded-2xl border border-glass surface-glass-strong p-3 shadow-2xl motion-emphasis overflow-hidden pointer-events-auto calculator-element`,
             panelOpenClass
           )}
           onPointerDown={startDrag}

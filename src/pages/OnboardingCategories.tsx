@@ -9,6 +9,7 @@ import Card from '@/components/Card'
 import { generateCategoryColor } from '@/utils/categoryColors'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import { Category, IncomeCategory } from '@/types'
+import { Z_INDEX } from '@/constants/zIndex'
 
 export default function OnboardingCategories() {
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ export default function OnboardingCategories() {
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
       <div className="app-shell-glow" aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-xl space-y-8">
+      <div className={`relative ${Z_INDEX.CONTENT} w-full max-w-xl space-y-8`}>
         <div>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-tertiary">
             <Tags className="h-8 w-8 text-primary" />

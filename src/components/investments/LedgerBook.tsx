@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
 import { logger } from '@/utils/logger'
+import { Z_INDEX } from '@/constants/zIndex'
 
 const PAGE_SIZE = 25
 
@@ -247,7 +248,7 @@ export default function LedgerBook({
           )}
           {/* Barra de pesquisa - flexível */}
           <div className="relative flex-1 min-w-0">
-            <span className="absolute inset-y-0 left-3 flex items-center text-secondary pointer-events-none z-10">
+            <span className={`absolute inset-y-0 left-3 flex items-center text-secondary pointer-events-none ${Z_INDEX.CONTENT}`}>
               <Search size={14} />
             </span>
             <Input

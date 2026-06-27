@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { WifiOff } from 'lucide-react'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { Z_INDEX } from '@/constants/zIndex'
 
 export default function NetworkStatusToast() {
     const { isOnline } = useNetworkStatus()
@@ -37,7 +38,7 @@ export default function NetworkStatusToast() {
     if (!isVisible) return null
 
     return (
-        <div className="fixed bottom-4 right-4 z-[1000] w-[calc(100%-2rem)] max-w-sm rounded-xl border border-orange-600/50 bg-[var(--color-bg-secondary)] shadow-lg p-4 animate-surface-enter flex items-center gap-3">
+        <div className={`fixed bottom-4 right-4 ${Z_INDEX.TOAST} w-[calc(100%-2rem)] max-w-sm rounded-xl border border-orange-600/50 bg-[var(--color-bg-secondary)] shadow-lg p-4 animate-surface-enter flex items-center gap-3`}>
             <div className="flex-shrink-0 text-orange-500 rounded-full bg-orange-50 dark:bg-orange-500/10 p-2">
                 <WifiOff size={20} />
             </div>
