@@ -1,5 +1,8 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react'
-import { FloatingActionsContext } from '@/contexts/floatingActionsSharedContext'
+import {
+  FloatingActionsStateContext,
+  FloatingActionsDispatchContext,
+} from '@/contexts/floatingActionsSharedContext'
 
 export function FloatingActionsProvider({ children }: { children: ReactNode }) {
   const [actions, setActionsState] = useState<ReactNode | null>(null)
@@ -13,19 +16,27 @@ export function FloatingActionsProvider({ children }: { children: ReactNode }) {
     setLaunchModalOpenState(open)
   }, [])
 
-  const value = useMemo(
+  const stateValue = useMemo(
     () => ({
       actions,
-      setActions,
       launchModalOpen,
+    }),
+    [actions, launchModalOpen]
+  )
+
+  const dispatchValue = useMemo(
+    () => ({
+      setActions,
       setLaunchModalOpen,
     }),
-    [actions, setActions, launchModalOpen, setLaunchModalOpen]
+    [setActions, setLaunchModalOpen]
   )
 
   return (
-    <FloatingActionsContext.Provider value={value}>
-      {children}
-    </FloatingActionsContext.Provider>
+    <FloatingActionsStateContext.Provider value={stateValue}>
+      <FloatingActionsDispatchContext.Provider value={dispatchValue}>
+        {children}
+      </FloatingActionsDispatchContext.Provider>
+    </FloatingActionsStateContext.Provider>
   )
 }

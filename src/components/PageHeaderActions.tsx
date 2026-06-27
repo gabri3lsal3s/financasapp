@@ -1,7 +1,7 @@
 import { Children, ReactNode, isValidElement, useContext, useLayoutEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { FLOATING_SIDE_GAP } from '@/components/floatingSideLayout'
-import { FloatingActionsContext } from '@/contexts/floatingActionsSharedContext'
+import { FloatingActionsDispatchContext } from '@/contexts/floatingActionsSharedContext'
 import type { PageHeaderActionRole } from '@/components/PageHeaderActionButton'
 
 interface PageHeaderActionsProps {
@@ -23,7 +23,7 @@ export function PageHeaderActions({
   className,
   launchModalOpen = false,
 }: PageHeaderActionsProps) {
-  const setLaunchModalOpen = useContext(FloatingActionsContext)?.setLaunchModalOpen
+  const setLaunchModalOpen = useContext(FloatingActionsDispatchContext)?.setLaunchModalOpen
 
   useLayoutEffect(() => {
     if (!setLaunchModalOpen) return

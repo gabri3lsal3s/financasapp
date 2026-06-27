@@ -1,10 +1,14 @@
 import { createContext, ReactNode } from 'react'
 
-export interface FloatingActionsContextValue {
+export interface FloatingActionsStateValue {
   actions: ReactNode | null
-  setActions: (actions: ReactNode | null) => void
   launchModalOpen: boolean
+}
+
+export interface FloatingActionsDispatchValue {
+  setActions: (actions: ReactNode | null) => void
   setLaunchModalOpen: (open: boolean) => void
 }
 
-export const FloatingActionsContext = createContext<FloatingActionsContextValue | null>(null)
+export const FloatingActionsStateContext = createContext<FloatingActionsStateValue | null>(null)
+export const FloatingActionsDispatchContext = createContext<FloatingActionsDispatchValue | null>(null)
