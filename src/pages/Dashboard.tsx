@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import { SkeletonDashboard } from '@/components/Skeleton'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useNavigate } from 'react-router-dom'
@@ -16,11 +14,9 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatDate, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { addMonths, formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
 import Button from '@/components/Button'
-import MobileAlertsPill from '@/components/MobileAlertsPill'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
@@ -43,7 +39,7 @@ import FinancialInsights from '@/components/reports/FinancialInsights'
 import DailyBudgetAdvisor from '@/components/dashboard/DailyBudgetAdvisor'
 import SmartLimitSuggestions from '@/components/dashboard/SmartLimitSuggestions'
 import LimitsControl from '@/components/dashboard/LimitsControl'
-import InfoTooltip from '@/components/InfoTooltip'
+import TransactionRow from '@/components/TransactionRow'
 import { logger } from '@/utils/logger'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
@@ -471,6 +467,23 @@ export default function Dashboard() {
     )
   }
 
+  const isAnyModalOpen = isSelectorOpen || isExpenseOpen || isIncomeOpen || isInvestmentOpen
+
+  usePageActions(
+    [
+      {
+        icon: Plus,
+        label: 'Lançamento',
+        intent: 'primary',
+        actionRole: 'launch',
+        compactOnMobile: false,
+        onClick: () => setIsSelectorOpen(true),
+        disabled: categories.length === 0 && incomeCategories.length === 0,
+      },
+    ],
+    isAnyModalOpen
+  )
+
   useEffect(() => {
     const onDataChanged = () => {
       if (isOnline) {
@@ -492,31 +505,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader
-        title={PAGE_HEADERS.dashboard.title}
-        subtitle={PAGE_HEADERS.dashboard.description}
-        action={
-          <PageHeaderActions
-            launchModalOpen={
-              isSelectorOpen || isExpenseOpen || isIncomeOpen || isInvestmentOpen
-            }
-          >
-            <PageHeaderActionButton
-              actionRole="launch"
-              intent="primary"
-              icon={Plus}
-              label="Lançamento"
-              compactOnMobile={false}
-              onClick={() => setIsSelectorOpen(true)}
-              disabled={categories.length === 0 && incomeCategories.length === 0}
-            />
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6 animate-page-enter relative">
-        <MobileAlertsPill />
-
         <MonthSelector value={currentMonth} onChange={setCurrentMonth} isOnline={isOnline} />
 
         <MonthTransitionView month={currentMonth}>
@@ -849,37 +838,15 @@ export default function Dashboard() {
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
               {selectedExpenseCategoryDetails.currentItems.map((item) => {
                 const reportAmount = expenseAmountForDashboard(item.amount, item.report_weight)
-                const showOriginal = Math.abs(reportAmount - item.amount) > 0.009
 
                 return (
-                  <div
+                  <TransactionRow
                     key={item.id}
-                    className="rounded-xl border border-glass surface-glass p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-primary truncate">{item.description || item.category?.name || 'Despesa'}</p>
-                        <p className="text-xs text-secondary mt-0.5">{formatDate(item.date)}</p>
-                      </div>
-                      <div className="text-right flex flex-col items-end gap-0.5">
-                        {showOriginal && (
-                          <p className="flex items-center gap-1">
-                            <span
-                              className="text-[10px] line-through"
-                              style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.6 }}
-                            >
-                              {formatCurrency(item.amount)}
-                            </span>
-                            <InfoTooltip
-                              content="Valor original do lançamento. O valor reportado pode ser diferente quando há ajuste de impacto (ex: despesa compartilhada)."
-                              iconSize={8}
-                            />
-                          </p>
-                        )}
-                        <p className="text-sm font-semibold text-primary">{formatCurrency(reportAmount)}</p>
-                      </div>
-                    </div>
-                  </div>
+                    description={item.description || item.category?.name || 'Despesa'}
+                    date={item.date}
+                    amount={reportAmount}
+                    originalAmount={item.amount}
+                  />
                 )
               })}
             </div>
@@ -889,7 +856,6 @@ export default function Dashboard() {
         </div>
       </Modal>
 
-      <ScrollToTop />
     </div>
     )
   }

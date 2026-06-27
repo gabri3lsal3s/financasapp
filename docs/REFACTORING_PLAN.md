@@ -367,45 +367,59 @@ const { settings, updateSetting } = useAppSettings()
 
 ## 7. Plano de Implementação por Prioridade
 
-### 🔴 FASE 1 — Alto Impacto, Baixo Risco (dias 1-3)
+### ✅ FASE 1 — COMPLETA
 
-| # | Tarefa | Arquivos | Economia |
-|---|--------|----------|----------|
-| 1 | Consolidar todos os elementos flutuantes em `FloatingActionHub` | `ScrollToTop.tsx`, `Layout.tsx`, `FloatingCalculator.tsx`, `NotificationsWidget.tsx`, `MobileAlertsPill.tsx` | -5 arquivos |
-| 2 | Extrair `TransactionRow` de `TransactionCard` e usar nos modais | `TransactionCard.tsx`, `CategoryDetailModal.tsx`, `Dashboard.tsx` | -50 linhas |
-| 3 | Centralizar textos de tooltips em constantes | `src/constants/tooltips.ts`, +5 arquivos | Padronização |
-| 4 | Adicionar tooltips faltantes (`ReportsCategoryRowButton`) | `ReportsCategoryRowButton.tsx` | Consistência |
+| # | Tarefa | Status |
+|---|--------|--------|
+| 1 | Consolidar elementos flutuantes em `FloatingActionHub` | ✅ Feito |
+| 2 | Extrair `TransactionRow` de `TransactionCard` | ✅ Feito |
+| 3 | Centralizar textos de tooltips em constantes | ✅ Feito |
+| 4 | Adicionar tooltips faltantes (`ReportsCategoryRowButton`) | ✅ Feito |
 
-### 🟡 FASE 2 — Refatoração Estrutural (dias 4-7)
+**Detalhes da Fase 1:**
+- `FloatingActionHub.tsx` criado — consolida `ScrollToTop` + `NotificationsWidget` em um portal único
+- `TransactionRow.tsx` criado — componente reutilizável usado em `CategoryDetailModal` e `Dashboard`
+- `src/constants/tooltips.ts` criado — textos centralizados com `WEIGHT_TOOLTIPS` e `INVESTMENT_TOOLTIPS`
+- `ReportsCategoryRowButton.tsx` — `InfoTooltip` adicionado no valor base
+- `ScrollToTop` removido de **10 páginas** (~14 imports eliminados)
+- `MobileAlertsPill` removido de **3 páginas** (Dashboard, Expenses, Incomes)
 
-| # | Tarefa | Arquivos | Economia |
-|---|--------|----------|----------|
-| 5 | Substituir `PageHeader` por `usePageActions` hook | `PageHeader.tsx`, todas as 9 páginas | -3 imports/página |
-| 6 | Criar `useSupabaseTable` hook genérico | `useExpenses.ts`, `useIncomes.ts`, +5 hooks | -500 linhas |
-| 7 | Extrair `TransactionFormBase` | `ExpenseFormModal.tsx`, `IncomeFormModal.tsx` | -400 linhas |
-| 8 | Consolidar Button/Card/Input para eliminar dualidade | `Button.tsx`, `Card.tsx`, `Input.tsx`, `ui/*` | -7 arquivos |
+### 🟡 FASE 2 — Em Andamento
 
-### 🟢 FASE 3 — Polish e Performance (dias 8-10)
+| # | Tarefa | Status |
+|---|--------|--------|
+| 5 | Substituir `PageHeader` por `usePageActions` hook | ✅ Feito |
+| 6 | Criar `useSupabaseTable` hook genérico | ⏳ Pendente |
+| 7 | Extrair `TransactionFormBase` | ⏳ Pendente |
+| 8 | Consolidar Button/Card/Input para eliminar dualidade | ⏳ Pendente |
 
-| # | Tarefa | Arquivos | Economia |
-|---|--------|----------|----------|
-| 9 | Mover `ScrollToTop` para Layout (remover de páginas) | `Layout.tsx`, 7 páginas | -7 imports |
-| 10 | Limpeza de dead code (`ui/separator`, `ui/scroll-area`) | `src/components/ui/` | -2 arquivos |
-| 11 | Reduzir `useEffect` nos componentes críticos | `FloatingCalculator.tsx` | -4 effects |
-| 12 | Refatorar `useAppSettings` para reducer pattern | `useAppSettings.ts` | Manutenibilidade |
-| 13 | Consolidar CSS Recharts em `index.css` | `index.css`, `theme-tokens.css` | Organização |
+**Detalhes do Item 5:**
+- `src/hooks/usePageActions.tsx` criado — hook que substitui `PageHeader`
+- **10 páginas** atualizadas para usar o hook (Dashboard, Expenses, Incomes, Investments, Categories, Contas, Reports, Settings, ExpenseCategories, IncomeCategories)
+- Reduz de 3 imports + JSX para 1 import + chamada de hook
+- `usePageActions` aceita `PageAction[]` + `launchModalOpen` opcional
+
+### 🟢 FASE 3 — Pendente
+
+| # | Tarefa | Status |
+|---|--------|--------|
+| 9 | Limpeza de dead code (`ui/separator`, `ui/scroll-area`) | ⏳ Pendente |
+| 10 | Reduzir `useEffect` nos componentes críticos | ⏳ Pendente |
+| 11 | Refatorar `useAppSettings` para reducer pattern | ⏳ Pendente |
+| 12 | Consolidar CSS Recharts em `index.css` | ⏳ Pendente |
 
 ### 📊 Métricas de Sucesso
 
-| Métrica | Antes | Depois (estimado) |
-|---------|-------|-------------------|
-| Elementos flutuantes na tela | 4-5 | 1 hub |
-| Imports de PageHeader por página | 3 | 1 |
-| Hooks CRUD | 7 | 1 + 7 configs |
-| Linhas em ExpenseForm + IncomeForm | ~700+ | ~300 + base |
-| Componentes base duais | 14 | 7 |
-| `useEffect` no app | ~131 | < 100 |
-| Arquivos de componente | ~100+ | ~85 |
+| Métrica | Antes | Depois |
+|---------|-------|--------|
+| Elementos flutuantes na tela | 4-5 | 1 hub (FloatingActionHub) |
+| Imports de PageHeader por página | 3 | 1 (usePageActions) |
+| Tooltips dispersos | 8+ arquivos com strings hardcoded | Centralizados em constants/tooltips.ts |
+| ScrollToTop por página | 10+ imports | 0 (centralizado no Layout via FloatingActionHub) |
+| ScrollToTop nas páginas | 10+ ocorrências | Removido de todas |
+| MobileAlertsPill | 3 páginas | Removido (consolidado em NotificationsWidget) |
+| Build | ✅ OK | ✅ OK (17.5s) |
+| Testes | 238 passando | ✅ 238/238 passando |
 
 ---
 

@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import ModalForm from '@/components/ModalForm'
@@ -13,13 +12,23 @@ import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import { getCategoryIcon } from '@/utils/categoryIcons'
 
 export default function ExpenseCategories() {
   const { categories, loading, createCategory, updateCategory, deleteCategory, getCategoryUsageCount } = useCategories()
+  usePageActions([
+    {
+      icon: Plus,
+      label: 'Adicionar',
+      intent: 'primary',
+      onClick: () => handleOpenModal(),
+      disabled: categories.length >= 15,
+      title: categories.length >= 15 ? 'Limite de 15 categorias atingido' : '',
+      compactOnMobile: true,
+    },
+  ])
   const { colorPalette } = usePaletteColors()
 
   // Edit/Add Modal states
@@ -109,22 +118,7 @@ export default function ExpenseCategories() {
 
   return (
     <div className="animate-page-enter">
-      <PageHeader
-        title={PAGE_HEADERS.expenseCategories.title}
-        subtitle={PAGE_HEADERS.expenseCategories.description}
-        action={
-          <PageHeaderActions>
-            <PageHeaderActionButton
-              intent="primary"
-              icon={Plus}
-              label="Adicionar"
-              onClick={() => handleOpenModal()}
-              disabled={categories.length >= 15}
-              title={categories.length >= 15 ? 'Limite de 15 categorias atingido' : ''}
-            />
-          </PageHeaderActions>
-        }
-      />
+
 
       <div className="p-4 lg:p-6">
         {loading && categories.length === 0 ? (
@@ -167,7 +161,7 @@ export default function ExpenseCategories() {
                     </div>
                   </Card>
                 )
-              })}      <ScrollToTop />
+              })}
     </div>
   </div>
 )

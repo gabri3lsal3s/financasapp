@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import InfoTooltip from '@/components/InfoTooltip'
+import TransactionRow from '@/components/TransactionRow'
+import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Button from '@/components/Button'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 import {
   formatCurrency,
-  formatDate,
   formatMonth,
   formatNumberWithTwoDecimalsBR,
 } from '@/utils/format'
@@ -447,7 +448,7 @@ export default function CategoryDetailModal({
                 <p className="text-[9px] text-secondary/50 mt-0.5 flex items-center gap-1">
                   <span>Valor base: {formatCurrency(detailBaseTotal)}</span>
                   <InfoTooltip
-                    content="Valor original dos lançamentos, sem ajustes. O valor exibido como total já considera os ajustes definidos."
+                    content={WEIGHT_TOOLTIPS.baseValueSummary}
                     iconSize={8}
                   />
                 </p>
@@ -478,7 +479,7 @@ export default function CategoryDetailModal({
                     {visibleDetailItems.map((item, index) => (
                       <div
                         key={item.id}
-                        className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
+                        className={`animate-stagger-item ${
                           index < 8
                             ? [
                                 'delay-50',
@@ -493,33 +494,12 @@ export default function CategoryDetailModal({
                             : ''
                         }`}
                       >
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-primary truncate font-sans">
-                            {item.description}
-                          </p>
-                          <p className="text-[9px] font-mono text-secondary mt-1">
-                            {formatDate(item.date)}
-                          </p>
-                        </div>
-                        <div className="text-right flex flex-col items-end gap-0.5">
-                          {Math.abs(item.amount - item.originalAmount) > 0.009 && (
-                            <p className="flex items-center gap-1">
-                              <span
-                                className="text-[9px] line-through"
-                                style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
-                              >
-                                {formatCurrency(item.originalAmount)}
-                              </span>
-                              <InfoTooltip
-                                content="Valor original do lançamento. O valor reportado pode ser diferente quando há ajuste de impacto."
-                                iconSize={7}
-                              />
-                            </p>
-                          )}
-                          <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
-                            {formatCurrency(item.amount)}
-                          </p>
-                        </div>
+                        <TransactionRow
+                          description={item.description}
+                          date={item.date}
+                          amount={item.amount}
+                          originalAmount={item.originalAmount}
+                        />
                       </div>
                     ))}
 
@@ -581,7 +561,7 @@ export default function CategoryDetailModal({
                           <p className="text-[9px] text-secondary/50 mt-0.5 flex items-center gap-1">
                             <span>Valor base: {formatCurrency(detailBaseTotal)}</span>
                             <InfoTooltip
-                              content="Valor original dos lançamentos, sem ajustes. O valor exibido como total já considera os ajustes definidos (útil para despesas/rendas compartilhadas)."
+                              content={WEIGHT_TOOLTIPS.baseValueSummaryShared}
                               iconSize={8}
                             />
                           </p>
@@ -738,7 +718,7 @@ export default function CategoryDetailModal({
                       {visibleDetailItems.map((item, index) => (
                         <div
                           key={item.id}
-                          className={`rounded-xl border border-glass surface-glass-strong p-3.5 transition-all flex items-center justify-between gap-3 hover:scale-[1.005] hover:border-glass-strong animate-stagger-item ${
+                          className={`animate-stagger-item ${
                             index < 8
                               ? [
                                   'delay-50',
@@ -753,17 +733,12 @@ export default function CategoryDetailModal({
                               : ''
                           }`}
                         >
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-primary truncate font-sans">
-                              {item.description}
-                            </p>
-                            <p className="text-[9px] font-mono text-secondary mt-1">
-                              {formatDate(item.date)}
-                            </p>
-                          </div>
-                          <p className="text-xs font-bold text-primary font-mono whitespace-nowrap">
-                            {formatCurrency(item.amount)}
-                          </p>
+                          <TransactionRow
+                            description={item.description}
+                            date={item.date}
+                            amount={item.amount}
+                            originalAmount={item.originalAmount}
+                          />
                         </div>
                       ))}
 

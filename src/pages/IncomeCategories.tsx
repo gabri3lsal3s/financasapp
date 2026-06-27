@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import ModalForm from '@/components/ModalForm'
@@ -13,12 +12,20 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { IncomeCategory } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, RefreshCw } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import { getCategoryIcon } from '@/utils/categoryIcons'
 
 export default function IncomeCategories() {
+  usePageActions([
+    {
+      icon: Plus,
+      label: 'Adicionar',
+      intent: 'income',
+      onClick: () => handleOpenModal(),
+      compactOnMobile: true,
+    },
+  ])
   const { incomeCategories, loading, createIncomeCategory, updateIncomeCategory, deleteIncomeCategory, getIncomeCategoryUsageCount } = useIncomeCategories()
   const { colorPalette } = usePaletteColors()
 
@@ -105,21 +112,6 @@ export default function IncomeCategories() {
 
   return (
     <div className="animate-page-enter">
-      <PageHeader
-        title={PAGE_HEADERS.incomeCategories.title}
-        subtitle={PAGE_HEADERS.incomeCategories.description}
-        action={
-          <PageHeaderActions>
-            <PageHeaderActionButton
-              intent="income"
-              icon={Plus}
-              label="Adicionar"
-              onClick={() => handleOpenModal()}
-            />
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6">
         {loading && incomeCategories.length === 0 ? (
           <SkeletonCategoryGrid />
@@ -222,7 +214,6 @@ export default function IncomeCategories() {
           </p>
         )}
       </ConfirmModal>
-      <ScrollToTop />
     </div>
   )
 }

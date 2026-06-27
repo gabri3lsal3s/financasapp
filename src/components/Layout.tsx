@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, LogOut, Receipt } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
-import NotificationsWidget from '@/components/NotificationsWidget'
+import FloatingActionHub from '@/components/FloatingActionHub'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
 import { isCalculatorElement } from '@/utils/calculator'
@@ -432,7 +432,7 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {floatingCalculatorEnabled && !isSettingsPage && <FloatingCalculator />}
-      <NotificationsWidget />
+      <FloatingActionHub />
       </div>
     </div>
     </FloatingActionsProvider>

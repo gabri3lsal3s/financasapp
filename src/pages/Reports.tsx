@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import YearSelector from '@/components/YearSelector'
@@ -11,7 +10,6 @@ import Button from '@/components/Button'
 import Input from '@/components/Input'
 import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { SkeletonReports } from '@/components/Skeleton'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
@@ -32,7 +30,6 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2 } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -340,6 +337,21 @@ export default function Reports() {
       window.removeEventListener('local-data-changed', onDataChanged)
     }
   }, [viewMode, loadCustomData])
+
+  usePageActions(
+    viewMode !== 'custom'
+      ? [
+          {
+            icon: GitCompareArrows,
+            label: 'Comparação Histórica',
+            intent: compareWithPrevious ? 'income' : 'neutral',
+            onClick: () => setCompareWithPrevious(!compareWithPrevious),
+            title: compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica',
+            compactOnMobile: true,
+          },
+        ]
+      : []
+  )
 
   // Swipe de mês — ativo quando no modo mês
   const monthSwipe = useSwipeMonth(selectedMonth, setSelectedMonth)
@@ -2556,10 +2568,6 @@ export default function Reports() {
   if (loadingState) {
     return (
       <div className="min-h-[calc(100vh-12rem)] flex flex-col">
-        <PageHeader
-          title={PAGE_HEADERS.reports.title}
-          subtitle={PAGE_HEADERS.reports.description}
-        />
         <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
           <SkeletonReports />
         </div>
@@ -2569,25 +2577,6 @@ export default function Reports() {
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader
-        title={PAGE_HEADERS.reports.title}
-        subtitle={PAGE_HEADERS.reports.description}
-        action={
-          <PageHeaderActions>
-            {/* Comparar: ícone fixo GitCompareArrows, cinza quando inativo, verde quando ativo (escondido no modo customizado) */}
-            {viewMode !== 'custom' && (
-              <PageHeaderActionButton
-                key="compare-previous-toggle"
-                intent={compareWithPrevious ? 'income' : 'neutral'}
-                icon={GitCompareArrows}
-                label="Comparação Histórica"
-                onClick={() => setCompareWithPrevious(!compareWithPrevious)}
-                title={compareWithPrevious ? 'Desativar comparação histórica' : 'Ativar comparação histórica'}
-              />
-            )}
-          </PageHeaderActions>
-        }
-      />
 
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
         {/* Seletor de período — mesmo padrão das páginas de despesas e rendimentos */}
@@ -3127,7 +3116,7 @@ export default function Reports() {
         previousMonth={previousMonth}
         isCustomPeriod={viewMode === 'custom'}
       />
-      <ScrollToTop />
+
     </div>
   )
 }

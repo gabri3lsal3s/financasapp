@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import PageHeader from '@/components/PageHeader'
+import { usePageActions } from '@/hooks/usePageActions'
 import SectionHeader from '@/components/SectionHeader'
 import Card from '@/components/Card'
-import { PAGE_HEADERS } from '@/constants/pages'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
 import { useAppSettings, type BiometricLockTimeout } from '@/hooks/useAppSettings'
@@ -20,7 +19,7 @@ import {
   removeBiometricCredential,
 } from '@/utils/biometric'
 import { ShieldCheck, Loader2, Users, RefreshCw, Fingerprint, Sparkles, AlertTriangle, Trash2, Crown } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import toast from 'react-hot-toast'
 import ConfirmModal from '@/components/ConfirmModal'
 import Input from '@/components/Input'
@@ -41,6 +40,7 @@ const parseSettingsView = (value: string | null, isAdmin: boolean): SettingsView
 }
 
 export default function Settings() {
+  usePageActions([])
   const [searchParams, setSearchParams] = useSearchParams()
   const { user, profile, isLoading } = useAuth()
 
@@ -303,7 +303,6 @@ export default function Settings() {
 
   return (
     <div>
-      <PageHeader title={PAGE_HEADERS.settings.title} subtitle={PAGE_HEADERS.settings.description} />
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 animate-page-enter">
 
         {/* Navigation */}
@@ -548,7 +547,7 @@ export default function Settings() {
                       onChange={(e) => setRemindersDaysBeforeCardBills(Number(e.target.value))}
                       options={Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} ${i === 0 ? 'dia' : 'dias'}` }))}
                     />      </div>
-      <ScrollToTop />
+
     </div>
   )
 }
@@ -658,7 +657,7 @@ export default function Settings() {
                         </Button>
                       </>
                     )}      </div>
-      <ScrollToTop />
+
     </div>
   )
 }

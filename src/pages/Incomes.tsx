@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import { SkeletonTransactionList } from '@/components/Skeleton'
@@ -15,14 +14,12 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
-import MobileAlertsPill from '@/components/MobileAlertsPill'
 import ConfirmModal from '@/components/ConfirmModal'
 
 const INCOME_TYPE_LABELS: Record<NonNullable<Income['type']>, string> = {
@@ -64,6 +61,19 @@ export default function Incomes() {
   })
 
   const [isModalOpen, setIsModalOpen] = useState(false)
+  usePageActions(
+    [
+      {
+        icon: Plus,
+        label: 'Adicionar',
+        intent: 'primary',
+        actionRole: 'launch',
+        onClick: () => handleOpenModal(),
+        compactOnMobile: true,
+      },
+    ],
+    isModalOpen
+  )
   const [editingIncome, setEditingIncome] = useState<Income | null>(null)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
     isOpen: boolean
@@ -126,24 +136,7 @@ export default function Incomes() {
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader
-        title={PAGE_HEADERS.incomes.title}
-        subtitle={PAGE_HEADERS.incomes.description}
-        action={
-          <PageHeaderActions launchModalOpen={isModalOpen}>
-            <PageHeaderActionButton
-              actionRole="launch"
-              intent="primary"
-              icon={Plus}
-              label="Adicionar"
-              onClick={() => handleOpenModal()}
-            />
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6 animate-page-enter">
-        <MobileAlertsPill />
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <MonthTransitionView month={currentMonth}>
           {loading && incomes.length === 0 ? (
@@ -216,7 +209,6 @@ export default function Incomes() {
         onDelete={deleteIncome}
       />
 
-      <ScrollToTop />
 
       <ConfirmModal
         isOpen={deleteConfirmState?.isOpen || false}

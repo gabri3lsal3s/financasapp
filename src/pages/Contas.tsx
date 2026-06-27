@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { endOfMonth, format, subMonths } from 'date-fns'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
 import Button from '@/components/Button'
@@ -39,7 +38,7 @@ import {
 } from '@/utils/creditCardBilling'
 import { hasExplicitCreditCardsDeepLink, shiftMonth } from '@/utils/creditCardMonthSelection'
 import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check, Trash2, TrendingUp, TrendingDown, Link2 } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -50,6 +49,7 @@ import ModalIntro from '@/components/ModalIntro'
 // Componentes refatorados de Cartão e Dívidas
 import CreditCardTimeline, { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
 import InfoTooltip from '@/components/InfoTooltip'
+import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import CardFormModal from '@/components/creditCards/CardFormModal'
 import BillPaymentModal from '@/components/creditCards/BillPaymentModal'
 import RefundModal from '@/components/creditCards/RefundModal'
@@ -82,6 +82,15 @@ const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
 
 
 export default function Contas() {
+  usePageActions([
+    {
+      icon: Plus,
+      label: 'Adicionar',
+      intent: 'primary',
+      onClick: () => setIsAddSelectorOpen(true),
+      compactOnMobile: true,
+    },
+  ])
   const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
@@ -1263,22 +1272,6 @@ export default function Contas() {
 
   return (
     <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader
-        title="Contas"
-        subtitle="Controle de cartões, faturas e pendências (a pagar e receber)"
-        action={
-          <PageHeaderActions>
-
-            <PageHeaderActionButton
-              intent="primary"
-              icon={Plus}
-              label="Adicionar"
-              onClick={() => setIsAddSelectorOpen(true)}
-            />
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6 space-y-6">
         {hasResolvedInitialMonth ? (
           <MonthSelector value={currentMonth} onChange={setCurrentMonth} />
@@ -1400,7 +1393,7 @@ export default function Contas() {
                                     Fatura Atual
                                     {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
                                       <InfoTooltip
-                                        content="Valor real da fatura, sem ajustes. O valor considerado nos relatórios pode ser diferente conforme os ajustes definidos em cada lançamento."
+                                        content={WEIGHT_TOOLTIPS.billActualValue}
                                         iconSize={10}
                                       />
                                     )}
@@ -1544,7 +1537,6 @@ export default function Contas() {
                                       })}
                                     </div>
                                   )}    </div>
-      <ScrollToTop />
   </div>
 )
 

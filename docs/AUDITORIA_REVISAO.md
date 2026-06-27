@@ -297,27 +297,32 @@ Ambos usam `<Input type="text" inputMode="decimal" ...>` com `onBlur` que faz `p
 
 ### ✅ Concluído
 
-2. ✅ **Logger condicional** — `src/utils/logger.ts` criado, 89 `console.*` substituídos em 32+ arquivos
-3. ✅ **Skeleton.tsx criado** — `src/components/Skeleton.tsx` com 7 variantes específicas, integrado em todas as 9 páginas
-7. ✅ **FloatingCalculator** — Reduzido de 16→12 useEffect (refs sync + mount cleanup consolidados)
-8. ✅ **Skeleton exportado** — `Skeleton.tsx` pronto com `SkeletonText`, `SkeletonCard`, `SkeletonKpi` e variantes por página
+1. ✅ **Logger condicional** — `src/utils/logger.ts` criado, 89 `console.*` substituídos em 32+ arquivos
+2. ✅ **Skeleton.tsx criado** — 7 variantes específicas, integrado em todas as 9 páginas
+3. ✅ **FloatingCalculator** — Reduzido de 16→12 useEffect
+4. ✅ **Fase 1 da refatoração** — FloatingActionHub, TransactionRow, tooltips centralizados, tooltips faltantes
+5. ✅ **Item 5 (Fase 2) — usePageActions hook** — Substitui PageHeader em 10 páginas, reduz de 3 imports para 1
 
 ### Prioridade Alta (Pendente)
 
-1. **Eliminar `as any` dos componentes de input** — Input.tsx e NumberInput.tsx devem ser prioridade por serem usados em todos os formulários
+1. **Eliminar `as any` dos componentes de input** — Input.tsx e NumberInput.tsx
+2. **Criar `useSupabaseTable` hook genérico** — Reduzir 7 hooks CRUD para 1 + 7 configs (~500 linhas)
+3. **Extrair `TransactionFormBase`** — Unificar ExpenseFormModal e IncomeFormModal (~400 linhas)
 
 ### Prioridade Média (Pendente)
 
 4. **Extrair `RowButton`** — Unificar BillExpenseRowButton, PaymentRowButton e ReportsCategoryRowButton
-5. **Extrair `AmountInput`** e `useFormAmountSync` — Reduzir duplicação entre ExpenseFormModal e IncomeFormModal
-6. **Consolidar `Select`** — Substituir Select customizado pelo `ui/select` do Radix para consistência
+5. **Extrair `AmountInput`** e `useFormAmountSync`
+6. **Consolidar `Select`** — Substituir customizado pelo `ui/select` do Radix
+7. **Consolidar Button/Card/Input para eliminar dualidade** — 14 componentes base → 7
 
 ### Prioridade Baixa (Pendente)
 
-9. **Migrar `--color-*` restantes para `--ds-*`** no CSS
-10. **Adicionar testes** para os hooks de reconciliação (useReconciliationDrafts, useReconciliationFiles, useReconciliationActions)
-11. **Adicionar testes unitários** para os componentes Skeleton
-12. **Revisar `PageHeader.tsx`** — Renderiza null, apenas registra ações flutuantes. Talvez renomear ou separar responsabilidades
+8. **Migrar `--color-*` restantes para `--ds-*`** no CSS
+9. **Adicionar testes** para os hooks de reconciliação
+10. **Adicionar testes unitários** para os componentes Skeleton
+11. **Limpeza de dead code** (`ui/separator`, `ui/scroll-area`)
+12. **Reduzir `useEffect` nos componentes críticos**
 
 ---
 

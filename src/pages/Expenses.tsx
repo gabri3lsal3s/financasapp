@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import { SkeletonTransactionList } from '@/components/Skeleton'
@@ -17,16 +16,14 @@ import { resolveExpenseBillCompetence } from '@/utils/creditCardBilling'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
-import MobileAlertsPill from '@/components/MobileAlertsPill'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -93,6 +90,19 @@ export default function Expenses() {
   })
 
   const [isModalOpen, setIsModalOpen] = useState(false)
+  usePageActions(
+    [
+      {
+        icon: Plus,
+        label: 'Adicionar',
+        intent: 'primary',
+        actionRole: 'launch',
+        onClick: () => handleOpenModal(),
+        compactOnMobile: true,
+      },
+    ],
+    isModalOpen
+  )
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean
@@ -244,24 +254,7 @@ export default function Expenses() {
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader
-        title={PAGE_HEADERS.expenses.title}
-        subtitle={PAGE_HEADERS.expenses.description}
-        action={
-          <PageHeaderActions launchModalOpen={isModalOpen}>
-            <PageHeaderActionButton
-              actionRole="launch"
-              intent="primary"
-              icon={Plus}
-              label="Adicionar"
-              onClick={() => handleOpenModal()}
-            />
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6 animate-page-enter space-y-4 lg:space-y-6">
-        <MobileAlertsPill />
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <MonthTransitionView month={currentMonth}>
           {loading && expenses.length === 0 ? (
@@ -428,7 +421,6 @@ export default function Expenses() {
         />
       )}
 
-      <ScrollToTop />
 
       <ConfirmModal
         isOpen={deleteConfirmState?.isOpen || false}

@@ -1,9 +1,7 @@
 import { useState, useMemo } from 'react'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import { SkeletonInvestments } from '@/components/Skeleton'
-import { PAGE_HEADERS } from '@/constants/pages'
 import { Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { formatCurrency } from '@/utils/format'
@@ -26,7 +24,7 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetDetailModal from '@/components/investments/AssetDetailModal'
-import ScrollToTop from '@/components/ScrollToTop'
+
 
 import GlassChoiceCard from '@/components/GlassChoiceCard'
 import Modal from '@/components/Modal'
@@ -68,6 +66,22 @@ export default function Investments() {
   // Modal de Detalhamento do Ativo
   const [selectedAssetPosition, setSelectedAssetPosition] = useState<ValuedPosition | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+
+  const isAnyInvestmentModalOpen = isSelectorOpen || isTxModalOpen || isReconciliationOpen || isConfigOpen || isDetailModalOpen
+
+  usePageActions(
+    [
+      {
+        icon: Plus,
+        label: 'Lançar transação',
+        intent: 'primary',
+        actionRole: 'launch',
+        compactOnMobile: false,
+        onClick: () => setIsSelectorOpen(true),
+      },
+    ],
+    isAnyInvestmentModalOpen
+  )
 
   // Dados para os gráficos pizza
   const nonCashPositions = useMemo(
@@ -139,23 +153,6 @@ export default function Investments() {
 
   return (
     <div>
-      <PageHeader
-        title={PAGE_HEADERS.investments.title}
-        subtitle={PAGE_HEADERS.investments.description}
-        action={
-          <PageHeaderActions launchModalOpen={isSelectorOpen || isTxModalOpen || isReconciliationOpen || isConfigOpen || isDetailModalOpen}>
-            <PageHeaderActionButton
-              actionRole="launch"
-              intent="primary"
-              icon={Plus}
-              label="Lançar transação"
-              compactOnMobile={false}
-              onClick={() => setIsSelectorOpen(true)}
-            />
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter" id="investments-page-top">
         {loading ? (
           <SkeletonInvestments />
@@ -379,8 +376,6 @@ export default function Investments() {
           />
         </>
       )}
-      {/* ScrollToTop */}
-      <ScrollToTop />
     </div>
   )
 }

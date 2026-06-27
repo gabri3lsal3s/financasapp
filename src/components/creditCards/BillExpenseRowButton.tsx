@@ -1,6 +1,7 @@
 import RowButton from '@/components/RowButton'
 import { Check } from 'lucide-react'
 import InfoTooltip from '@/components/InfoTooltip'
+import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
 import { formatCurrency, formatDate, roundToDecimals } from '@/utils/format'
 
@@ -52,7 +53,7 @@ export default function BillExpenseRowButton({
             <p className="text-[9px] sm:text-[10px] text-secondary flex items-center gap-1 justify-end">
               <span>Relatório: {formatCurrency(weightedAmount)}</span>
               <InfoTooltip
-                content="Valor que esta despesa representa nos relatórios mensais. Pode ser diferente do valor real quando o lançamento tem impacto parcial (ex: conta dividida com outra pessoa)."
+                content={WEIGHT_TOOLTIPS.billRowWeight}
                 iconSize={10}
               />
             </p>

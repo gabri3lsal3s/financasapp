@@ -1,5 +1,6 @@
 import { RefreshCw, Pencil, Trash2 } from 'lucide-react'
 import InfoTooltip from '@/components/InfoTooltip'
+import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import IconButton from '@/components/IconButton'
@@ -136,7 +137,7 @@ export default function TransactionCard({
                         {formatCurrency(originalAmount)}
                       </span>
                       <InfoTooltip
-                        content="Valor original do lançamento. O valor considerado nos relatórios pode ser diferente quando há ajuste de impacto (ex: despesa compartilhada)."
+                        content={WEIGHT_TOOLTIPS.transactionValue}
                         iconSize={8}
                       />
                     </p>
@@ -252,7 +253,7 @@ export default function TransactionCard({
                       {formatCurrency(originalAmount)}
                     </span>
                     <InfoTooltip
-                      content="Valor original do lançamento. O valor considerado nos relatórios pode ser diferente quando há ajuste de impacto (ex: despesa compartilhada)."
+                      content={WEIGHT_TOOLTIPS.transactionValue}
                       iconSize={8}
                     />
                   </p>

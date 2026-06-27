@@ -1,7 +1,9 @@
 import RowButton from '@/components/RowButton'
+import InfoTooltip from '@/components/InfoTooltip'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { AlertTriangle } from 'lucide-react'
 import { getCategoryIcon } from '@/utils/categoryIcons'
+import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 
 interface ReportsCategoryRowButtonProps {
   categoryId: string
@@ -65,8 +67,12 @@ export default function ReportsCategoryRowButton({
         <span className="text-xs font-bold text-primary font-mono shrink-0 flex flex-col items-end">
           <span>{formatCurrency(total)}</span>
           {totalBase !== undefined && totalBase !== total && (
-            <span className="text-[8px] text-secondary/50 font-normal leading-tight">
-              base {formatCurrency(totalBase)}
+            <span className="flex items-center gap-1 text-[8px] text-secondary/50 font-normal leading-tight">
+              <span>base {formatCurrency(totalBase)}</span>
+              <InfoTooltip
+                content={WEIGHT_TOOLTIPS.baseValueSummary}
+                iconSize={7}
+              />
             </span>
           )}
         </span>

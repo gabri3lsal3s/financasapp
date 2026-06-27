@@ -202,7 +202,98 @@ Todos os skeletons usam classes `border-glass` e `bg-glass/10` para um visual ne
 
 ---
 
-## 8. Logger Condicional
+## 8. Ações Flutuantes — usePageActions Hook
+
+O `usePageActions` hook (`src/hooks/usePageActions.tsx`) substitui o antigo `PageHeader` para registrar ações flutuantes no `FloatingSideStack`:
+
+```tsx
+// Antes: 3 imports + ~15 linhas de JSX
+import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
+import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+
+<PageHeader
+  title="..."
+  subtitle="..."
+  action={
+    <PageHeaderActions>
+      <PageHeaderActionButton
+        icon={Plus}
+        label="Adicionar"
+        intent="primary"
+        onClick={fn}
+      />
+    </PageHeaderActions>
+  }
+/>
+
+// Depois: 1 import + 1 chamada de hook
+import { usePageActions } from '@/hooks/usePageActions'
+
+usePageActions([
+  { icon: Plus, label: 'Adicionar', intent: 'primary', onClick: fn }
+])
+```
+
+**10 páginas** foram atualizadas para usar o hook.
+
+### PageAction Interface
+
+```typescript
+interface PageAction {
+  icon: LucideIcon
+  label: string
+  intent?: 'neutral' | 'primary' | 'income' | 'expense' | 'balance' | 'warning'
+  onClick: () => void
+  actionRole?: 'launch' | 'secondary'
+  disabled?: boolean
+  title?: string
+  className?: string
+  show?: boolean      // Controle condicional de exibição
+  compactOnMobile?: boolean
+}
+```
+
+---
+
+## 9. Elementos Flutuantes — FloatingActionHub
+
+O `FloatingActionHub` (`src/components/FloatingActionHub.tsx`) consolida todos os elementos flutuantes globais em um único portal:
+
+| Componente | Localização anterior | Agora |
+|-----------|---------------------|-------|
+| `ScrollToTop` | Importado em cada página (10+) | Dentro do FloatingActionHub |
+| `NotificationsWidget` | Diretamente no Layout | Dentro do FloatingActionHub |
+
+Renderizado via `createPortal` para `document.body` no `Layout.tsx`, eliminando ~14 imports de `ScrollToTop` das páginas.
+
+---
+
+## 10. Componentes Extraídos
+
+### TransactionRow (`src/components/TransactionRow.tsx`)
+
+Componente reutilizável de linha de transação extraído do `TransactionCard`. Usado em:
+- `CategoryDetailModal.tsx` — visão customizada + regular
+- `Dashboard.tsx` — modal de detalhamento de categoria
+
+### tooltips constantes (`src/constants/tooltips.ts`)
+
+Textos de tooltips centralizados para evitar repetição:
+
+```typescript
+export const WEIGHT_TOOLTIPS = {
+  reportValue: '...',
+  baseValue: '...',
+  baseValueDetail: '...',
+  // ...
+} as const
+```
+
+8 arquivos foram atualizados para importar das constantes.
+
+---
+
+## 11. Logger Condicional
 
 O `src/utils/logger.ts` padroniza o logging do app:
 

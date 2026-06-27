@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders } from 'lucide-react'
-import ScrollToTop from '@/components/ScrollToTop'
+
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import PageHeader, { PageHeaderActions } from '@/components/PageHeader'
-import PageHeaderActionButton from '@/components/PageHeaderActionButton'
+import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import { SkeletonCategories } from '@/components/Skeleton'
-import { PAGE_HEADERS } from '@/constants/pages'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -32,6 +30,7 @@ import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteCo
 import LimitSuggestionsModal from '@/components/categories/LimitSuggestionsModal'
 import { logger } from '@/utils/logger'
 import InfoTooltip from '@/components/InfoTooltip'
+import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -140,6 +139,39 @@ export default function Categories() {
   
   // Dashboard & UX Refactoring states
   const [activeTab, setActiveTab] = useState<'expenses' | 'incomes'>('expenses')
+
+  usePageActions([
+    {
+      icon: TrendingDown,
+      label: 'Orçamentos',
+      intent: activeTab === 'expenses' ? 'expense' : 'neutral',
+      className: 'hidden lg:flex',
+      onClick: () => {
+        setActiveTab('expenses')
+        setEditingCategoryId(null)
+      },
+      compactOnMobile: true,
+    },
+    {
+      icon: TrendingUp,
+      label: 'Metas',
+      intent: activeTab === 'incomes' ? 'income' : 'neutral',
+      className: 'hidden lg:flex',
+      onClick: () => {
+        setActiveTab('incomes')
+        setEditingCategoryId(null)
+      },
+      compactOnMobile: true,
+    },
+    {
+      icon: Sliders,
+      label: 'Ajustar Sugestões',
+      intent: 'neutral',
+      show: activeTab === 'expenses',
+      onClick: () => setIsSuggestionsModalOpen(true),
+      compactOnMobile: true,
+    },
+  ])
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
 
   const { 
@@ -653,44 +685,6 @@ export default function Categories() {
 
   return (
     <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
-      <PageHeader
-        title={PAGE_HEADERS.categories.title}
-        subtitle={PAGE_HEADERS.categories.description}
-        action={
-          <PageHeaderActions>
-            <PageHeaderActionButton
-              className="hidden lg:flex"
-              intent={activeTab === 'expenses' ? 'expense' : 'neutral'}
-              icon={TrendingDown}
-              label="Orçamentos"
-              onClick={() => {
-                setActiveTab('expenses')
-                setEditingCategoryId(null)
-              }}
-            />
-            <PageHeaderActionButton
-              className="hidden lg:flex"
-              intent={activeTab === 'incomes' ? 'income' : 'neutral'}
-              icon={TrendingUp}
-              label="Metas"
-              onClick={() => {
-                setActiveTab('incomes')
-                setEditingCategoryId(null)
-              }}
-            />
-
-            {activeTab === 'expenses' && (
-              <PageHeaderActionButton
-                intent="neutral"
-                icon={Sliders}
-                label="Ajustar Sugestões"
-                onClick={() => setIsSuggestionsModalOpen(true)}
-              />
-            )}
-          </PageHeaderActions>
-        }
-      />
-
       <div className="p-4 lg:p-6 space-y-5 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
 
@@ -865,7 +859,7 @@ export default function Categories() {
                                     <p className="text-[9px] text-secondary/50 flex items-center gap-1">
                                       <span>Valor base: {formatCurrency(base)}</span>
                                       <InfoTooltip
-                                        content="Valor original, sem ajustes. O valor considerado nos relatórios aplica o ajuste definido para cada lançamento — útil para despesas compartilhadas."
+                                        content={WEIGHT_TOOLTIPS.baseValueExpense}
                                         iconSize={8}
                                       />
                                     </p>
@@ -966,7 +960,7 @@ export default function Categories() {
                                   </Button>
                                 </>
                               )}      </div>
-      <ScrollToTop />
+
     </div>
   )
 })}
@@ -1131,7 +1125,7 @@ export default function Categories() {
                                     <p className="text-[9px] text-secondary/50 flex items-center gap-1">
                                       <span>Valor base: {formatCurrency(base)}</span>
                                       <InfoTooltip
-                                        content="Valor original, sem ajustes. O valor considerado nos relatórios aplica o ajuste definido para cada recebimento — útil para rendas compartilhadas."
+                                        content={WEIGHT_TOOLTIPS.baseValueIncome}
                                         iconSize={8}
                                       />
                                     </p>
@@ -1203,7 +1197,7 @@ export default function Categories() {
                                   </Button>
                                 </>
                               )}      </div>
-      <ScrollToTop />
+
     </div>
   )
 })}

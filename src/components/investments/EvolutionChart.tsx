@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
 import InfoTooltip from '@/components/InfoTooltip'
+import { INVESTMENT_TOOLTIPS } from '@/constants/tooltips'
 import ViewModeToggle from '@/components/ViewModeToggle'
 import { formatCurrency, formatNumberBR, formatChartYAxisCurrency } from '@/utils/format'
 import {
@@ -62,7 +63,7 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
           <div className="flex items-center gap-1.5">
             <h4 className="text-sm font-black text-primary uppercase tracking-wider">Evolução Histórica</h4>
             <InfoTooltip
-              content="A rentabilidade (cota) é calculada pelo método TWR (Time Weighted Return), medindo o retorno da carteira investida de forma isolada, desconsiderando entradas e saídas de saldo em caixa da corretora. O valor inicial da cota é base 1.00 (0.00%)."
+              content={INVESTMENT_TOOLTIPS.twrMethod}
               placement="left"
             />
           </div>
