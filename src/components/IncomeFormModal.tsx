@@ -80,7 +80,7 @@ export default function IncomeFormModal({
       setRefundOriginLoading(true)
       setRefundOrigin(null)
 
-      const likePattern = `${REFUND_NOTE_PREFIX}%\"incomeId\":\"${String(incomeId)}\"%`
+      const likePattern = `${REFUND_NOTE_PREFIX}%\\"incomeId\\":\\"${String(incomeId)}\\"%`
 
       const { data: paymentRow, error: paymentError } = await supabase
         .from('credit_card_bill_payments')

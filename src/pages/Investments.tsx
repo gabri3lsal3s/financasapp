@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import { SkeletonInvestments } from '@/components/Skeleton'
-import { Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine } from 'lucide-react'
+import { Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { formatCurrency } from '@/utils/format'
 
@@ -10,13 +10,14 @@ import { usePortfolioState } from '@/hooks/usePortfolioState'
 import PortfolioKpiBar from '@/components/investments/PortfolioKpiBar'
 import EvolutionChart from '@/components/investments/EvolutionChart'
 import HoldingsTable from '@/components/investments/HoldingsTable'
-import RebalancingView from '@/components/investments/RebalancingView'
+import SmartAporteSimulator from '@/components/investments/SmartAporteSimulator'
 import LedgerBook from '@/components/investments/LedgerBook'
 import AssetClassAllocationCard from '@/components/investments/AssetClassAllocationCard'
 import InvestmentsInsights from '@/components/investments/InvestmentsInsights'
 import PieChartsSection from '@/components/investments/PieChartsSection'
 import ClassPerformanceCard from '@/components/investments/ClassPerformanceCard'
 import ExposureLimitsEditor from '@/components/investments/ExposureLimitsEditor'
+import QuantPreferencesEditor from '@/components/investments/QuantPreferencesEditor'
 import MonthlySummaryCard from '@/components/investments/MonthlySummaryCard'
 
 import AssetConfigModal from '@/components/investments/AssetConfigModal'
@@ -45,11 +46,13 @@ export default function Investments() {
     investedValue,
     cashValue,
     groupTargets,
+    preferences,
     reload
   } = usePortfolioState()
 
   // Abas
   const [activeTab, setActiveTab] = useState<string>('overview')
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(false)
 
   // Filtro de ticker para o LedgerBook
   const [ledgerSearchTicker, setLedgerSearchTicker] = useState<string>('')
@@ -265,18 +268,53 @@ export default function Investments() {
                       onOpenAssetDetail={handleOpenAssetDetail}
                     />
                     {portfolioId && (
-                      <ExposureLimitsEditor
-                        portfolioId={portfolioId}
-                        positions={positions}
-                        totalValue={totalValue}
-                        groupTargets={groupTargets}
-                        onSaved={reload}
-                      />
+                      <div className="border border-glass bg-glass/5 rounded-3xl overflow-hidden transition-all duration-300">
+                        <button
+                          type="button"
+                          onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+                          className="w-full p-5 lg:p-6 flex justify-between items-center text-left hover:bg-glass/5 transition-colors focus:outline-none select-none"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                              <SlidersHorizontal size={14} />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-black text-primary uppercase tracking-wider">Ajustes de Parâmetros e Risco</h4>
+                              <p className="text-[10px] text-secondary font-medium">Defina suas metas de alocação macro, tiers de convicção e limites quantamentais</p>
+                            </div>
+                          </div>
+                          <div className="text-secondary">
+                            {isConfigExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </div>
+                        </button>
+
+                        {isConfigExpanded && (
+                          <div className="p-5 lg:p-6 border-t border-glass/40 bg-glass/5 animate-fade-in">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                              <ExposureLimitsEditor
+                                portfolioId={portfolioId}
+                                positions={positions}
+                                totalValue={totalValue}
+                                groupTargets={groupTargets}
+                                onSaved={reload}
+                              />
+                              <QuantPreferencesEditor
+                                portfolioId={portfolioId}
+                                preferences={preferences}
+                                onSaved={reload}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    <RebalancingView
-                      positions={positions}
-                      totalValue={totalValue}
-                    />
+                     <SmartAporteSimulator
+                       portfolioId={portfolioId}
+                       positions={positions}
+                       preferences={preferences}
+                       groupTargets={groupTargets}
+                       totalValue={totalValue}
+                     />
                 </div>
               </TabsContent>
 
@@ -362,8 +400,10 @@ export default function Investments() {
               setIsDetailModalOpen(false)
               setSelectedAssetPosition(null)
             }}
+            portfolioId={portfolioId}
             position={selectedAssetPosition}
             transactions={transactions}
+            preferences={preferences}
             onOpenAssetConfig={(ticker) => {
               setIsDetailModalOpen(false)
               handleOpenConfig(ticker)

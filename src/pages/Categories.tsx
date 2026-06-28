@@ -28,6 +28,7 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import CategoryFormModal from '@/components/categories/CategoryFormModal'
 import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteConfirmModal'
 import LimitSuggestionsModal from '@/components/categories/LimitSuggestionsModal'
+import { getStaggerClass } from '@/constants/animation'
 import { logger } from '@/utils/logger'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
@@ -797,7 +798,7 @@ export default function Categories() {
                               exceeded 
                                 ? 'border-expense/45 shadow-[0_0_12px_rgba(var(--color-expense-rgb),0.04)] bg-expense/5' 
                                 : 'border-glass surface-glass hover:border-glass-strong hover:scale-[1.005]'
-                            } ${index < 6 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300'][index] : ''}`}
+                            } ${getStaggerClass(index)}`}
                           >
                             <div className="space-y-3 flex-grow">
                               <div className="flex items-center justify-between gap-2">
@@ -1063,7 +1064,7 @@ export default function Categories() {
                               exceeded 
                                 ? 'border-income/45 shadow-[0_0_12px_rgba(var(--color-income-rgb),0.04)] bg-income/5' 
                                 : 'border-glass surface-glass hover:border-glass-strong hover:scale-[1.005]'
-                            } ${index < 6 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300'][index] : ''}`}
+                            } ${getStaggerClass(index)}`}
                           >
                             <div className="space-y-3 flex-grow">
                               <div className="flex items-center justify-between gap-2">

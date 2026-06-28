@@ -44,6 +44,7 @@ import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
 import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
+import { getStaggerClass } from '@/constants/animation'
 import { logger } from '@/utils/logger'
 import type {
   ViewMode,
@@ -2260,8 +2261,7 @@ export default function Reports() {
                 {activeData
                   .slice()
                   .sort((a, b) => b.value - a.value)
-                  .map((item, index) => {
-                    const staggerClass = index < 8 ? ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250', 'delay-300', 'delay-350', 'delay-400'][index] : ''
+                  .map((item, index) => {                      const staggerClass = getStaggerClass(index)
                     
                     if (activeType === 'payment') {
                       const pct = total > 0 ? (item.value / total) * 100 : 0

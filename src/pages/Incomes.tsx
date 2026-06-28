@@ -21,6 +21,7 @@ import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import ConfirmModal from '@/components/ConfirmModal'
+import { getStaggerClass } from '@/constants/animation'
 
 const INCOME_TYPE_LABELS: Record<NonNullable<Income['type']>, string> = {
   other: 'Outros',
@@ -161,8 +162,7 @@ export default function Incomes() {
                   ? getCategoryColorForPalette(category.color, colorPalette)
                   : 'var(--color-income)'
                 const [_, categoryIconName] = (category?.color || '').split('|')
-                const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-                const staggerClass = index < 5 ? staggerClasses[index] : ''
+                const staggerClass = getStaggerClass(index)
 
                 const isDefaultExpanded = false
                 const isExpanded = expandedIds[income.id] !== undefined ? expandedIds[income.id] : isDefaultExpanded

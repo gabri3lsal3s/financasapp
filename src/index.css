@@ -1702,6 +1702,26 @@ nav.glass-bottom-nav {
 .modal-glass-body {
   padding: 0;
   background-color: transparent;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+}
+
+.modal-glass-body::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.modal-glass-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-glass-body::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 9999px;
+}
+
+.modal-glass-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 
 .modal-body-padding {

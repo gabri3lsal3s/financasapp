@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Junho de 2026 — Refatoração completa + Sistema de z-index unificado.
+> **Última atualização:** Junho de 2026 — Refatoração completa + Sistema de z-index unificado + Motor Quantamental de Portfólio.
 
 ---
 
@@ -317,7 +317,15 @@ O hook genérico `useSupabaseTable` encapsula toda essa lógica automaticamente.
 │   │   ├── ui/                 # shadcn/ui primitives
 │   │   ├── debts/              # Componentes de dívidas
 │   │   ├── creditCards/        # Componentes de cartão de crédito
-│   │   ├── investments/        # Componentes de investimentos
+│   │   ├── investments/        # Componentes de investimentos e quantamental
+│   │   │   ├── AssetDetailModal.tsx         # Detalhamento: scores, checklist quantitativo, gráfico
+│   │   │   ├── AssetConfigModal.tsx         # Configuração: pricing mode, overrides manuais
+│   │   │   ├── ScuttlebuttEvaluationModal.tsx # Avaliação qualitativa: pilares e perguntas
+│   │   │   ├── SmartAporteSimulator.tsx     # Simulador de distribuição de aporte
+│   │   │   ├── ExposureLimitsEditor.tsx     # Editor de metas de alocação por classe
+│   │   │   ├── QuantPreferencesEditor.tsx   # Editor de tiers e thresholds
+│   │   │   ├── HoldingsTable.tsx            # Tabela de posições com badges quantamental
+│   │   │   └── ...                         # Demais componentes de investimentos
 │   │   ├── reports/            # Componentes de relatórios
 │   │   ├── dashboard/          # Componentes do dashboard
 │   │   ├── settings/           # Componentes de configurações
@@ -326,6 +334,7 @@ O hook genérico `useSupabaseTable` encapsula toda essa lógica automaticamente.
 │   │
 │   ├── hooks/                  # Hooks customizados
 │   │   ├── useSupabaseTable.ts  # Hook genérico CRUD (com configRef pattern)
+│   │   ├── usePortfolioState.ts # Estado da carteira: motor quantamental + enquadramento
 │   │   ├── usePageActions.tsx   # Ações flutuantes
 │   │   ├── useAppSettings.ts    # Settings com reducer
 │   │   ├── useFormAmountSync.ts # Sincronização amount/report_amount
@@ -336,9 +345,11 @@ O hook genérico `useSupabaseTable` encapsula toda essa lógica automaticamente.
 │   │
 │   ├── contexts/               # Provedores (Auth, Notifications, FloatingActions)
 │   ├── pages/                  # Páginas principais roteadas
-│   ├── services/               # Regras de negócio (motor de rentabilidade, etc.)
+│   ├── services/               # Regras de negócio (fundamentalsService, priceService, etc.)
 │   ├── types/                  # Contratos TypeScript de domínio
-│   └── utils/                  # Helpers e utilitários
+│   └── utils/                  # quantamentalEngine, assetClassifier, helpers
+│
+├── supabase/migrations/        # Migrations SQL (quantamental, scuttlebutt, etc.)
 │
 └── ... (config files: vite.config.ts, tailwind.config.js, etc.)
 ```
@@ -397,6 +408,58 @@ Orquestração em `src/services/returns/closePipeline.ts` (cálculo) e `src/serv
 
 - Botão **Atualizar fechamento** em `Investments.tsx` → `usePortfolioClose().runClose`
 - Futuro backend próprio deve importar as mesmas funções (`computeDailyClose` / `runDailyClose`) sem alterar contratos.
+
+---
+
+## 7.1 Motor Quantamental de Portfólio
+
+O sistema quantamental avalia cada ativo de forma híbrida (qualitativa + quantitativa) e determina enquadramento, tiers de convicção e limites de exposição. A engine é 100% cliente-side, testável sem browser.
+
+> Para detalhes completos da lógica de negócio, pontuação e algoritmo de roteamento, consulte o [blueprint-gestão-portifolio.md](../blueprint-gestão-portifolio.md).
+
+### Módulos do Motor (`src/utils/quantamentalEngine.ts`)
+
+| Função | Propósito |
+|--------|-----------|
+| `calculateScuttlebuttScore()` | Score qualitativo (0-100) com pilares ponderados e redistribuição de N/A |
+| `calculateQuantitativeScore()` | Score quantitativo (0-100) por classe (Ações: 4 critérios, FIIs: 3, ETFs: 2) |
+| `getQuantitativeScoreDetails()` | Retorna array detalhado de cada critério: nome, valor, pontos e status |
+| `determineTier()` | Score → Tier (S ≥ 85 / A ≥ 70 / B ≥ 50 / C < 50) |
+| `calculateAbsoluteLimit()` | `Target Classe × Limite Tier` → % máximo do ativo no portfólio |
+| `determineEnquadramentoState()` | Comparação de % atual vs limite → em_linha / limite_atingido / excesso / obsoleto |
+| `checkScuttlebuttDecay()` | Verifica expiração do timestamp da última avaliação qualitativa |
+| `simulateSmartAporte()` | Roteamento inteligente de capital: defasagem macro → filtro micro → ordenação por qualidade → distribuição proporcional → travas setoriais → fallback caixa |
+
+### Serviço de Fundamentos (`src/services/fundamentalsService.ts`)
+
+| Função | Propósito |
+|--------|-----------|
+| `getMergedFundamentals()` | Mescla dados do cache da API (Yahoo Finance) com overrides manuais (`manual_*`) do usuário |
+| `fetchAndCacheFundamentals()` | Busca indicadores atualizados via Yahoo Finance e persiste no `asset_fundamentals_cache` |
+
+### Classificador de Ativos (`src/utils/assetClassifier.ts`)
+
+Fonte única de verdade para classificação de tickers. Determina `asset_class`, `sector`, `currency` e `pricing_mode` a partir de heurísticas baseadas no código do ativo (B3, ETFs, BDRs, internacionais, renda fixa, cripto, caixa).
+
+### Hook Principal (`src/hooks/usePortfolioState.ts`)
+
+Orquestra toda a pipeline quantamental para cada ativo:
+1. Carrega pilares, perguntas e respostas Scuttlebutt do Supabase.
+2. Busca cache de fundamentos e definições com overrides.
+3. Calcula score qualitativo, quantitativo e híbrido.
+4. Determina tier, limite absoluto, estado de enquadramento e gaps.
+5. Retorna `ValuedPosition[]` enriquecido com dados quantamentais para a UI.
+
+### Tabelas do Supabase (Migrations)
+
+| Migration | Tabelas Criadas |
+|-----------|------------------|
+| `20260628144200_quantamental_portfolio_management.sql` | `portfolio_quant_preferences`, `scuttlebutt_pillars`, `scuttlebutt_questions`, `scuttlebutt_answers`, `asset_fundamentals_cache` + campos `manual_*` em `portfolio_asset_definitions` |
+| `20260628150300_extend_scuttlebutt_questions.sql` | Adiciona `portfolio_id` em `scuttlebutt_questions` para perguntas customizadas do usuário |
+
+### Testes
+
+- `quantamentalEngine.test.ts` — 4 testes: score Scuttlebutt (100%, redistribuição N/A), score quantitativo (ações excelentes) e simulação Smart Aporte (fallback caixa).
 
 ---
 
@@ -474,7 +537,7 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
-- ✅ Testes: 237/237 passando (27 arquivos)
+- ✅ Testes: 259/259 passando (29 arquivos)
 
 ### Melhorias adicionais (pós-refatoração)
 
@@ -482,6 +545,7 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - **Select → Radix UI**: `Select.tsx` refatorado internamente para usar `@radix-ui/react-select` (shadcn), mantendo a mesma API externa. 19 consumidores inalterados. 4 snapshots atualizados.
 - **useEffect reduzido**: FloatingCalculator ~14→11 effects (MutationObserver + resize unificado + localStorage unificado + keyboard com useRef). Reports.tsx: 2 effects de validação unificados.
 - **Sistema de z-index unificado**: Implementação de CSS Custom Properties e constantes TypeScript para hierarquia padronizada. Todos os componentes migrados de valores hardcoded. Teste de consistência automatizado (16 testes).
+- **Motor Quantamental**: Sistema completo de avaliação híbrida (Scuttlebutt + Fundamentos) com Tiers de convicção, enquadramento automático, Smart Aporte com log de roteamento, overrides manuais com alertas de contraste, decay trigger configurável, e checklist detalhado de critérios quantitativos por classe (Ações, FIIs, ETFs). Migrations SQL, 27 componentes de investimentos, 4 testes específicos do engine.
 
 ---
 

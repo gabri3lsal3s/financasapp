@@ -12,6 +12,8 @@ import {
   formatNumberWithTwoDecimalsBR,
 } from '@/utils/format'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
+import type { ExpenseCategoryMonthLimit, IncomeCategoryMonthExpectation, CreditCard } from '@/types'
+import { getStaggerClass } from '@/constants/animation'
 
 type DetailType = 'expense' | 'income' | 'payment_method' | 'credit_card'
 
@@ -63,16 +65,11 @@ interface CategoryDetailModalProps {
   yearIncomeItems: DetailIncomeEntry[]
   previousYearExpenseItems: DetailExpenseEntry[]
   previousYearIncomeItems: DetailIncomeEntry[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  monthExpenseLimits: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  previousMonthExpenseLimits: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  monthIncomeExpectations: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  previousMonthIncomeExpectations: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  creditCards: any[]
+  monthExpenseLimits: ExpenseCategoryMonthLimit[]
+  previousMonthExpenseLimits: ExpenseCategoryMonthLimit[]
+  monthIncomeExpectations: IncomeCategoryMonthExpectation[]
+  previousMonthIncomeExpectations: IncomeCategoryMonthExpectation[]
+  creditCards: CreditCard[]
   expenseCategoryIdToColor: Record<string, string>
   incomeCategoryIdToColor: Record<string, string>
   includeReportWeights: boolean
@@ -90,6 +87,7 @@ const PAYMENT_METHOD_COLORS: Record<string, string> = {
 }
 
 const DETAIL_ITEMS_STEP = 8
+
 
 export default function CategoryDetailModal({
   isOpen,
@@ -454,33 +452,19 @@ export default function CategoryDetailModal({
                     Nenhum lançamento encontrado para os filtros.
                   </p>
                 ) : (
-                  <>
-                    {visibleDetailItems.map((item, index) => (
-                      <div
-                        key={item.id}
-                        className={`animate-stagger-item ${
-                          index < 8
-                            ? [
-                                'delay-50',
-                                'delay-100',
-                                'delay-150',
-                                'delay-200',
-                                'delay-250',
-                                'delay-300',
-                                'delay-350',
-                                'delay-400',
-                              ][index]
-                            : ''
-                        }`}
-                      >
-                        <TransactionRow
-                          description={item.description}
-                          date={item.date}
-                          amount={item.amount}
-                          originalAmount={item.originalAmount}
-                        />
-                      </div>
-                    ))}
+                  <>                    {visibleDetailItems.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className={`animate-stagger-item ${getStaggerClass(index)}`}
+                        >
+                          <TransactionRow
+                            description={item.description}
+                            date={item.date}
+                            amount={item.amount}
+                            originalAmount={item.originalAmount}
+                          />
+                        </div>
+                      ))}
 
                     {hasMoreDetailItems && (
                       <div className="pt-2 text-center">
@@ -688,20 +672,7 @@ export default function CategoryDetailModal({
                       {visibleDetailItems.map((item, index) => (
                         <div
                           key={item.id}
-                          className={`animate-stagger-item ${
-                            index < 8
-                              ? [
-                                  'delay-50',
-                                  'delay-100',
-                                  'delay-150',
-                                  'delay-200',
-                                  'delay-250',
-                                  'delay-300',
-                                  'delay-350',
-                                  'delay-400',
-                                ][index]
-                              : ''
-                          }`}
+                          className={`animate-stagger-item ${getStaggerClass(index)}`}
                         >
                           <TransactionRow
                             description={item.description}

@@ -23,6 +23,30 @@ export interface ValuedPosition {
   accumulated_dividends: number
   currency: 'BRL' | 'USD'
   usd_rate: number
+  
+  // Enquadramento e Quantamental (opcionais)
+  quality_score?: number
+  scuttlebutt_score?: number
+  quantitative_score?: number
+  conviction_tier?: 'S' | 'A' | 'B' | 'C'
+  absolute_limit?: number
+  enquadramento_state?: 'em_linha' | 'limite_atingido' | 'desenquadrado_excesso' | 'desenquadrado_obsoleto'
+  is_decayed?: boolean
+  scuttlebutt_last_updated?: string
+  fundamentals?: {
+    roic: number
+    dividend_yield: number
+    pe_ratio: number | null
+    ev_ebitda: number | null
+    net_debt_ebitda: number | null
+    pe_5y_average: number | null
+    ev_ebitda_5y_average: number | null
+    net_debt_trend_up_2y: boolean
+    p_vp?: number | null
+    vacancy?: number | null
+    etf_fee?: number | null
+    etf_tracking_error?: number | null
+  } | null
 }
 
 // detectDefaultCurrency e getAssetMetadata agora vêm de assetClassifier.ts

@@ -15,6 +15,7 @@ import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categ
 import { Plus, RefreshCw } from 'lucide-react'
 
 import { getCategoryIcon } from '@/utils/categoryIcons'
+import { getStaggerClass } from '@/constants/animation'
 
 export default function IncomeCategories() {
   usePageActions([
@@ -123,8 +124,7 @@ export default function IncomeCategories() {
         ) : (
           <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
             {incomeCategories.map((category, index) => {
-              const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-              const staggerClass = index < 5 ? staggerClasses[index] : ''
+              const staggerClass = getStaggerClass(index)
               return (
                 <Card
                   key={category.id}

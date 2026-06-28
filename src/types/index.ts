@@ -250,6 +250,20 @@ export interface PortfolioAssetDefinition {
   updated_at: string
   currency?: 'BRL' | 'USD'
   valuation_mode?: PortfolioValuationMode
+  
+  // Overrides manuais quantitativos
+  manual_roic?: number | null
+  manual_dividend_yield?: number | null
+  manual_pe_ratio?: number | null
+  manual_ev_ebitda?: number | null
+  manual_net_debt_ebitda?: number | null
+  manual_pe_5y_average?: number | null
+  manual_ev_ebitda_5y_average?: number | null
+  manual_net_debt_trend_up_2y?: boolean | null
+  manual_p_vp?: number | null
+  manual_vacancy?: number | null
+  manual_etf_fee?: number | null
+  manual_etf_tracking_error?: number | null
 }
 
 export interface PortfolioShareDailyRow {
@@ -292,3 +306,57 @@ export interface PortfolioGroupTarget {
   target_percentage: number
   created_at: string
 }
+
+export interface PortfolioQuantPreferences {
+  portfolio_id: string
+  tier_s_limit: number
+  tier_a_limit: number
+  tier_b_limit: number
+  tier_c_limit: number
+  max_sector_acoes: number
+  max_sector_fiis: number
+  min_roic_excelente: number
+  max_divida_ebitda: number
+  scuttlebutt_decay_days: 90 | 180 | 365
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ScuttlebuttPillar {
+  id: string
+  portfolio_id: string | null // null = global template
+  name: string
+  weight_percentage: number
+  created_at?: string
+}
+
+export interface ScuttlebuttQuestion {
+  id: string
+  pillar_id: string
+  portfolio_id?: string | null
+  question_text: string
+  weight: number
+  created_at?: string
+}
+
+export interface ScuttlebuttAnswer {
+  portfolio_id: string
+  ticker: string
+  question_id: string
+  answer: 'yes' | 'no' | 'na'
+  updated_at?: string
+}
+
+export interface AssetFundamentalsCache {
+  ticker: string
+  roic: number | null
+  dividend_yield: number | null
+  pe_ratio: number | null
+  ev_ebitda: number | null
+  net_debt_ebitda: number | null
+  pe_5y_average: number | null
+  ev_ebitda_5y_average: number | null
+  net_debt_trend_up_2y: boolean
+  last_updated: string
+}
+

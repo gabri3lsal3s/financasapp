@@ -129,6 +129,8 @@ export default function HoldingsTable({
                         <th className="py-3 px-3 text-right font-bold">Pço Atual</th>
                         <th className="py-3 px-3 text-right font-bold">Total</th>
                         <th className="py-3 px-3 text-right font-bold">Rentabilidade</th>
+                        <th className="py-3 px-3 text-center font-bold">Qualidade</th>
+                        <th className="py-3 px-3 text-center font-bold">Status</th>
                         <th className="py-3 px-4 text-right font-bold">Alocação</th>
                       </tr>
                     </thead>
@@ -138,6 +140,11 @@ export default function HoldingsTable({
                         const costInBrl = pos.currency === 'USD' ? pos.cost_basis * pos.usd_rate : pos.cost_basis
                         const absoluteGain = valueInBrl - costInBrl
                         const isProfit = absoluteGain >= 0
+
+                        const isCashOrRf = pos.pricing_mode === 'cash' || 
+                                           pos.pricing_mode === 'fixed_income' || 
+                                           pos.asset_class === 'Renda Fixa' || 
+                                           pos.asset_class === 'Saldo em Caixa'
 
                         return (
                           <tr 
@@ -174,6 +181,55 @@ export default function HoldingsTable({
                             <td className={`py-3 px-3 text-right font-mono ${isProfit ? 'text-income' : 'text-expense'}`}>
                               {formatSignedPercentBR(pos.gross_yield_pct)}
                             </td>
+                            {/* Qualidade */}
+                            <td className="py-3 px-3 text-center font-mono">
+                              {!isCashOrRf ? (
+                                <div className="inline-flex items-center gap-1 justify-center">
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                    pos.conviction_tier === 'S' ? 'bg-[#ffaa00]/15 text-[#ffaa00]' :
+                                    pos.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]' :
+                                    pos.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]' :
+                                    'bg-secondary/15 text-secondary'
+                                  }`}>
+                                    Tier {pos.conviction_tier || 'S'}
+                                  </span>
+                                  <span className="text-[10px] text-primary font-bold">
+                                    {pos.quality_score != null ? pos.quality_score.toFixed(0) : '100'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-secondary text-[10px] font-bold">-</span>
+                              )}
+                            </td>
+                            {/* Status */}
+                            <td className="py-3 px-3 text-center font-mono">
+                              {!isCashOrRf ? (
+                                <div className="inline-flex items-center justify-center">
+                                  {pos.enquadramento_state === 'em_linha' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-income/10 text-income">
+                                      Em Linha
+                                    </span>
+                                  )}
+                                  {pos.enquadramento_state === 'limite_atingido' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-[#ffaa00]/10 text-[#ffaa00]">
+                                      Limite
+                                    </span>
+                                  )}
+                                  {pos.enquadramento_state === 'desenquadrado_excesso' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-expense/10 text-expense">
+                                      Excesso
+                                    </span>
+                                  )}
+                                  {pos.enquadramento_state === 'desenquadrado_obsoleto' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-expense/10 text-expense animate-pulse">
+                                      Obsoleto
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-secondary text-[10px] font-bold">-</span>
+                              )}
+                            </td>
                             {/* Alocação */}
                             <td className="py-3 px-4 text-right font-mono text-secondary font-bold">
                               {formatPercentBR(pos.current_percentage)}
@@ -196,6 +252,11 @@ export default function HoldingsTable({
                     const absoluteGain = valueInBrl - costInBrl
                     const isProfit = absoluteGain >= 0
 
+                    const isCashOrRf = pos.pricing_mode === 'cash' || 
+                                       pos.pricing_mode === 'fixed_income' || 
+                                       pos.asset_class === 'Renda Fixa' || 
+                                       pos.asset_class === 'Saldo em Caixa'
+
                     return (
                       <div 
                         key={pos.ticker} 
@@ -214,6 +275,40 @@ export default function HoldingsTable({
                               {formatQuantityBR(pos.quantity, 4)} un
                             </span>
                           </div>
+
+                          {/* Qualidade e Status no Mobile */}
+                          {!isCashOrRf && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                pos.conviction_tier === 'S' ? 'bg-[#ffaa00]/15 text-[#ffaa00]' :
+                                pos.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]' :
+                                pos.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]' :
+                                'bg-secondary/15 text-secondary'
+                              }`}>
+                                T{pos.conviction_tier || 'S'} ({pos.quality_score != null ? pos.quality_score.toFixed(0) : '100'})
+                              </span>
+                              {pos.enquadramento_state === 'em_linha' && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-income/10 text-income">
+                                  Em Linha
+                                </span>
+                              )}
+                              {pos.enquadramento_state === 'limite_atingido' && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-[#ffaa00]/10 text-[#ffaa00]">
+                                  Limite
+                                </span>
+                              )}
+                              {pos.enquadramento_state === 'desenquadrado_excesso' && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-expense/10 text-expense">
+                                  Excesso
+                                </span>
+                              )}
+                              {pos.enquadramento_state === 'desenquadrado_obsoleto' && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-expense/10 text-expense animate-pulse">
+                                  Obsoleto
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-semibold">

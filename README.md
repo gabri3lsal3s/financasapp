@@ -1,103 +1,131 @@
-# Minhas Finanças
+# Minhas Finanças 💰
 
-Aplicação web premium de controle financeiro pessoal, projetada com foco em simplicidade, operação offline-first contínua e consistência estética moderna.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-BaaS-3ECF8E)](https://supabase.com/)
+[![Tests](https://img.shields.io/badge/Tests-259_passing-brightgreen)]()
 
----
-
-## 🚀 O que o app oferece
-
-- **Dashboard Unificado**: Visão instantânea de KPIs de Rendas, Despesas, Investimentos e Saldo Geral.
-- **Componentes Padronizados**: Formulários de transações encapsulados em modais reutilizáveis (`ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`) e exibição unificada via `TransactionCard`.
-- **Planejamento de Categorias**: Interface centralizada em `/categories` para planejar metas de limites de despesa e expectativas de renda mensal.
-- **Skeleton Loading**: Componentes Skeleton específicos por página (`SkeletonDashboard`, `SkeletonInvestments`, `SkeletonReports`, etc.) para loading states contextuais.
-- **Logger Condicional**: Sistema de logging padronizado via `logger.ts` que suprime mensagens de debug em produção.
-- **Detalhamento de Cartões e Faturas**: Lógica avançada de competência de faturas de cartão de crédito e suporte a estornos vinculados como renda de forma automatizada.
-- **Relatórios Mensais e Anuais**: Gráficos analíticos interativos por categoria, com peso de relevância de lançamentos (`report_weight`).
-- **Arquitetura Offline-First**: PWA instalável com sincronização inteligente de ações offline organizadas em fila cronológica.
+Aplicação web premium de controle financeiro pessoal com **arquitetura Offline-First**, **motor quantamental de portfólio** e design system glass-based.
 
 ---
 
-## 🛠️ Stack Tecnológica
+## ✨ Funcionalidades Principais
 
-- **Core**: React 18 + TypeScript + Vite
-- **Estilização**: Tailwind CSS (integrado ao sistema de temas de cores HSL)
-- **Backend**: Supabase (Database, Auth)
-- **Gráficos**: Recharts
-- **Testes**: Vitest
-- **Logger**: Logger condicional com supressão em produção (`src/utils/logger.ts`)
-- **Skeleton**: Componentes de loading state específicos por página (`src/components/Skeleton.tsx`)
+- **Dashboard Unificado** — KPIs, gráfico de fluxo diário, insights financeiros e controle de orçamentos
+- **Gestão de Despesas e Rendas** — CRUD completo com parcelamento (até 60x), competência de cartão de crédito, estornos automáticos e sincronização offline
+- **Motor Quantamental de Portfólio** — Avaliação híbrida (Scuttlebutt qualitativo + fundamentos quantitativos), Tiers de convicção (S/A/B/C), Smart Aporte com roteamento inteligente, conciliação B3 via upload de extrato
+- **Cartões de Crédito** — Gestão completa de faturas, conciliação CSV, estornos vinculados, ciclos de fechamento customizáveis
+- **Contas a Pagar e Receber** — Dívidas com vínculo a despesas, controle de status
+- **Planejamento de Categorias** — Orçamentos com limites mensais, metas de renda com sugestão inteligente baseada em percentual da renda
+- **Relatórios Analíticos** — Gráficos interativos (pizza, evolução, fluxo, composição, dia da semana), modo mensal/anual/período customizado, comparação histórica, pesos de relevância
+- **PWA Instalável** — Funciona offline, sincronização inteligente em fila cronológica
+- **6 Temas + 2 Paletas** — Light/Dark/Midnight × 6 acentos (blue, emerald, violet, amber, rose, teal) × 2 paletas de categoria (vivid/monochrome)
 
 ---
 
-## 🔧 Configuração e Setup Rápido
+## 🛠️ Stack
 
-### 1. Instalar as Dependências
+| Camada | Tecnologias |
+|--------|------------|
+| **Core** | React 18, TypeScript 5.2, Vite 5 |
+| **Estilização** | Tailwind CSS 3, Radix UI (shadcn/ui), Framer Motion |
+| **Gráficos** | Recharts 2 |
+| **Backend** | Supabase (PostgreSQL, Auth, Realtime, Edge Functions) |
+| **Testes** | Vitest + Testing Library |
+| **PWA** | vite-plugin-pwa (Service Worker, cache 75 entradas) |
+
+---
+
+## 📁 Documentação
+
+| Documento | Conteúdo |
+|-----------|----------|
+| [`docs/COMPLETE_GUIDE.md`](docs/COMPLETE_GUIDE.md) | **Guia completo do sistema** — stack, estrutura, páginas, componentes, hooks, serviços, banco de dados, temas, setup |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitetura detalhada com diagramas Mermaid, hooks customizados, sistema de z-index, offline-first |
+| [`docs/AUDITORIA_REVISAO.md`](docs/AUDITORIA_REVISAO.md) | Auditoria técnica completa com fragilidades, correções e métricas |
+| [`docs/REFACTORING_PLAN.md`](docs/REFACTORING_PLAN.md) | Plano de refatoração (Fases 1-3 + correção de bugs) |
+| [`docs/IMPROVEMENT_PLAN.md`](docs/IMPROVEMENT_PLAN.md) | Plano de melhorias priorizadas e glossário de anti-padrões |
+| [`docs/REIMPORT_INVESTMENTS.md`](docs/REIMPORT_INVESTMENTS.md) | Guia de reimportação B3 (desdobro, grupamento, transferências) |
+| [`docs/ui/GOVERNANCA_UI.md`](docs/ui/GOVERNANCA_UI.md) | Manual de governança estética (HSL, glass system) |
+
+---
+
+## 🚀 Setup Rápido
 
 ```bash
+# 1. Instalar dependências
 npm install
+
+# 2. Configurar variáveis de ambiente
+cp .env.example .env
+# Edite .env com suas credenciais do Supabase
+
+# 3. Setup do banco
+# Execute database/database.sql e migrations em supabase/migrations/
+
+# 4. Desenvolvimento
+npm run dev
+
+# 5. Build produção
+npm run build
 ```
 
-### 2. Configurar Variáveis de Ambiente (`.env`)
-
-Crie um arquivo `.env` na raiz com as chaves do seu projeto Supabase:
+### Variáveis de Ambiente
 
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anonima-supabase
 ```
 
-### 3. Setup do Banco de Dados
+---
 
-Abra o painel do Supabase, acesse o **SQL Editor** e execute:
+## 📊 Métricas do Projeto
 
-1. O script de estrutura e tabelas base: [database/database.sql](database/database.sql)
-2. (Opcional) A evolução de dados de relatórios: [database/migrations/migration_v3_report_data.sql](database/migrations/migration_v3_report_data.sql)
+| Métrica | Valor |
+|---------|-------|
+| TypeScript errors | **0** |
+| Testes passando | **259/259** |
+| UI Guardrails | **0 violações** |
+| Componentes | **120+** |
+| Hooks | **30+** |
+| Migrations | **37** |
+| `as any` em produção | **0** |
+| `console.log` residual | **0** (via logger condicional) |
 
-### 4. Executar em Desenvolvimento
+---
+
+## 📋 Scripts Disponíveis
 
 ```bash
-npm run dev
+npm run dev                   # Desenvolvimento local
+npm run build                 # Typecheck + build produção
+npm run test:run              # Executar testes (Vitest)
+npm run guardrails:ui         # Validar consistência visual
+npm run lint                  # Guardrails + ESLint
 ```
 
 ---
 
-## 📖 Guias e Documentação Técnica
+## 🧪 Cobertura de Testes
 
-- **Guia de Arquitetura e Fluxo de Dados**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (Diagrama Mermaid, ciclo Offline-First e componentes modulares).
-- **Manual de Governança Estética (HSL)**: [docs/ui/GOVERNANCA_UI.md](docs/ui/GOVERNANCA_UI.md) (Detalhamento do sistema de cores e regras visuais).
-- **Lista de Ocorrências e Guardrails**: [docs/ui/guardrails-baseline.json](docs/ui/guardrails-baseline.json).
+**259 testes** em **29 arquivos**, cobrindo:
 
----
-
-## 📁 Estrutura do Projeto Organizada
-
-```text
-├── database/                   # Modelagem do Banco e Migrations
-│   ├── database.sql            # Estrutura base completa (Tabelas, Triggers, RLS)
-│   ├── schema.sql              # Apenas o schema DDL limpo
-│   ├── migrations/             # Migrations de evolução de banco
-│   └── samples/                # Dados e CSVs de amostra para testes
-│
-├── docs/                       # Guias e Governança Técnica
-│   ├── ui/                     # Manual de estilos visuais e Guardrails
-│   └── ARCHITECTURE.md         # Documentação completa da arquitetura do app
-│
-├── src/
-│   ├── components/             # Componentes modulares reutilizáveis (Kpis, Card, Modais, Skeleton)
-│   ├── constants/              # Constantes globais e chaves de cabeçalho
-│   ├── contexts/               # Provedores globais (Tema, Paleta de Cores e Auth)
-│   ├── hooks/                  # Chamadas de dados e integração (useExpenses, useIncomes)
-│   ├── pages/                  # Telas do app limpas e simplificadas
-│   ├── services/               # Regras de negócios (Integração AI, Conciliação)
-│   ├── types/                  # Definições de tipagem TypeScript
-│   └── utils/                  # Auxiliares de formatação matemática, moeda, datas e logging
-```
+- Utilitários financeiros (format, creditCard, cashBalance, installment)
+- Motor de portfolio (ledger, TWR, cálculos, fluxo mensal)
+- Motor quantamental (scuttlebutt, score quantitativo, smart aporte)
+- Serviços (priceService, historicalRecalc)
+- Hooks (reconciliation, debts)
+- Constantes (z-index consistency)
+- Snapshots de UI
 
 ---
 
-## 🧪 Scripts de Verificação
+## 📜 Licença
 
-- `npm run dev`: Ambiente de desenvolvimento local.
-- `npm run build`: Valida tipagem do TypeScript e compila o bundle para produção.
-- `npm run test:run`: Roda a suíte completa de testes unitários com o Vitest.
-- `npm run lint`: Executa simultaneamente a verificação de guardrails visuais de UI e o ESLint.
+Projeto privado — uso pessoal.
+
+---
+
+> **Documentação completa:** [`docs/COMPLETE_GUIDE.md`](docs/COMPLETE_GUIDE.md)

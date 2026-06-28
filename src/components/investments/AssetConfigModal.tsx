@@ -7,6 +7,7 @@ import Select from '@/components/Select'
 import Button from '@/components/Button'
 import toast from 'react-hot-toast'
 import { logger } from '@/utils/logger'
+import { getAssetMetadata } from '@/utils/assetClassifier'
 
 interface AssetConfigModalProps {
   isOpen: boolean
@@ -24,6 +25,7 @@ export default function AssetConfigModal({
   onSaved
 }: AssetConfigModalProps) {
   const [loading, setLoading] = useState(false)
+  const [apiCache, setApiCache] = useState<any>(null)
 
   // Campos do formulário
   const [pricingMode, setPricingMode] = useState<'market' | 'fixed_income' | 'manual_value' | 'cash'>('market')
@@ -39,6 +41,30 @@ export default function AssetConfigModal({
 
   // Valor Manual específicos
   const [manualCurrentValue, setManualCurrentValue] = useState<string>('0')
+
+  // Overrides manuais quantitativos
+  const [manualRoic, setManualRoic] = useState<string>('')
+  const [manualDividendYield, setManualDividendYield] = useState<string>('')
+  const [manualPeRatio, setManualPeRatio] = useState<string>('')
+  const [manualEvEbitda, setManualEvEbitda] = useState<string>('')
+  const [manualNetDebtEbitda, setManualNetDebtEbitda] = useState<string>('')
+  const [manualPe5yAverage, setManualPe5yAverage] = useState<string>('')
+  const [manualEvEbitda5yAverage, setManualEvEbitda5yAverage] = useState<string>('')
+  const [manualNetDebtTrendUp2y, setManualNetDebtTrendUp2y] = useState<boolean>(false)
+  const [manualPVp, setManualPVp] = useState<string>('')
+  const [manualVacancy, setManualVacancy] = useState<string>('')
+  const [manualEtfFee, setManualEtfFee] = useState<string>('')
+  const [manualEtfTrackingError, setManualEtfTrackingError] = useState<string>('')
+
+  const meta = getAssetMetadata(ticker)
+  const assetClass = meta.asset_class || ''
+  
+  const c = assetClass.trim().toUpperCase()
+  const isStock = c.includes('AÇÃO') || c.includes('ACOES') || c.includes('AÇÕES') || c.includes('EQUITY') || c.includes('STOCK')
+  const isFii = c.includes('FII') || c.includes('IMOBILIARIO') || c.includes('IMOBILIÁRIO') || c.includes('REAL ESTATE')
+  const isEtf = c.includes('ETF')
+  
+  const showFundamentalsOverride = (isStock || isFii || isEtf) && pricingMode === 'market'
 
   useEffect(() => {
     if (isOpen && ticker && portfolioId) {
@@ -69,6 +95,20 @@ export default function AssetConfigModal({
         setMaturityDate(def.maturity_date ?? '')
         setApplicationDate(def.application_date ?? '')
         setManualCurrentValue(String(def.manual_current_value ?? 0))
+        
+        // Overrides
+        setManualRoic(def.manual_roic != null ? String(def.manual_roic) : '')
+        setManualDividendYield(def.manual_dividend_yield != null ? String(def.manual_dividend_yield) : '')
+        setManualPeRatio(def.manual_pe_ratio != null ? String(def.manual_pe_ratio) : '')
+        setManualEvEbitda(def.manual_ev_ebitda != null ? String(def.manual_ev_ebitda) : '')
+        setManualNetDebtEbitda(def.manual_net_debt_ebitda != null ? String(def.manual_net_debt_ebitda) : '')
+        setManualPe5yAverage(def.manual_pe_5y_average != null ? String(def.manual_pe_5y_average) : '')
+        setManualEvEbitda5yAverage(def.manual_ev_ebitda_5y_average != null ? String(def.manual_ev_ebitda_5y_average) : '')
+        setManualNetDebtTrendUp2y(!!def.manual_net_debt_trend_up_2y)
+        setManualPVp(def.manual_p_vp != null ? String(def.manual_p_vp) : '')
+        setManualVacancy(def.manual_vacancy != null ? String(def.manual_vacancy) : '')
+        setManualEtfFee(def.manual_etf_fee != null ? String(def.manual_etf_fee) : '')
+        setManualEtfTrackingError(def.manual_etf_tracking_error != null ? String(def.manual_etf_tracking_error) : '')
       } else {
         // Resetar para valores padrão
         setPricingMode('market')
@@ -79,6 +119,20 @@ export default function AssetConfigModal({
         setMaturityDate('')
         setApplicationDate('')
         setManualCurrentValue('0')
+
+        // Overrides reset
+        setManualRoic('')
+        setManualDividendYield('')
+        setManualPeRatio('')
+        setManualEvEbitda('')
+        setManualNetDebtEbitda('')
+        setManualPe5yAverage('')
+        setManualEvEbitda5yAverage('')
+        setManualNetDebtTrendUp2y(false)
+        setManualPVp('')
+        setManualVacancy('')
+        setManualEtfFee('')
+        setManualEtfTrackingError('')
       }
 
       // 2. Carregar alocação alvo
@@ -97,12 +151,54 @@ export default function AssetConfigModal({
         setTargetPercentage('0')
       }
 
+      // 3. Carregar cache da API
+      const { data: cache } = await supabase
+        .from('asset_fundamentals_cache')
+        .select('*')
+        .eq('ticker', ticker.toUpperCase())
+        .maybeSingle()
+
+      setApiCache(cache)
+
     } catch (err) {
       logger.error('[AssetConfigModal] Erro ao carregar configurações:', err)
       toast.error('Erro ao carregar configurações do ativo.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const renderCompareWarning = (
+    manualVal: string,
+    apiVal: number | null | undefined,
+    onReset: () => void,
+    isPercentage = false
+  ) => {
+    if (!manualVal || apiVal == null) return null
+    
+    const numManual = parseFloat(manualVal)
+    if (isNaN(numManual)) return null
+    const numApi = apiVal
+    
+    if (Math.abs(numManual - numApi) > 0.01) {
+      return (
+        <div className="text-[8px] text-[#ffaa00] font-black mt-1 flex items-center justify-between bg-[#ffaa00]/10 p-1 px-1.5 rounded-lg border border-[#ffaa00]/20 animate-pulse">
+          <span>⚠️ Contrasta com a API ({apiVal.toFixed(2)}{isPercentage ? '%' : ''})</span>
+          <button 
+            type="button" 
+            onClick={onReset} 
+            className="text-brand hover:text-brand-strong font-black uppercase tracking-widest text-[8px]"
+          >
+            Usar API
+          </button>
+        </div>
+      )
+    }
+    return (
+      <div className="text-[8px] text-income font-black mt-1 block">
+        ✓ Alinhado com a API ({apiVal.toFixed(2)}{isPercentage ? '%' : ''})
+      </div>
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -125,6 +221,21 @@ export default function AssetConfigModal({
         application_date: pricingMode === 'fixed_income' && applicationDate ? applicationDate : null,
         manual_current_value: pricingMode === 'manual_value' ? parseFloat(manualCurrentValue) : null,
         manual_value_updated_at: pricingMode === 'manual_value' ? new Date().toISOString() : null,
+        
+        // Overrides
+        manual_roic: manualRoic ? parseFloat(manualRoic) : null,
+        manual_dividend_yield: manualDividendYield ? parseFloat(manualDividendYield) : null,
+        manual_pe_ratio: manualPeRatio ? parseFloat(manualPeRatio) : null,
+        manual_ev_ebitda: manualEvEbitda ? parseFloat(manualEvEbitda) : null,
+        manual_net_debt_ebitda: manualNetDebtEbitda ? parseFloat(manualNetDebtEbitda) : null,
+        manual_pe_5y_average: manualPe5yAverage ? parseFloat(manualPe5yAverage) : null,
+        manual_ev_ebitda_5y_average: manualEvEbitda5yAverage ? parseFloat(manualEvEbitda5yAverage) : null,
+        manual_net_debt_trend_up_2y: manualNetDebtTrendUp2y,
+        manual_p_vp: manualPVp ? parseFloat(manualPVp) : null,
+        manual_vacancy: manualVacancy ? parseFloat(manualVacancy) : null,
+        manual_etf_fee: manualEtfFee ? parseFloat(manualEtfFee) : null,
+        manual_etf_tracking_error: manualEtfTrackingError ? parseFloat(manualEtfTrackingError) : null,
+        
         updated_at: new Date().toISOString()
       }
 
@@ -315,16 +426,16 @@ export default function AssetConfigModal({
 
             <div className="space-y-1">
               <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
-            <NumberInput
-              step={0.0001}
-              min={0}
-              value={contractRate}
-              onChange={(e) => setContractRate(e.target.value)}
-              placeholder="Ex: 6.5"
-              required
-              suffix="% a.a."
-              hideSpinButtons
-            />
+              <NumberInput
+                step={0.0001}
+                min={0}
+                value={contractRate}
+                onChange={(e) => setContractRate(e.target.value)}
+                placeholder="Ex: 6.5"
+                required
+                suffix="% a.a."
+                hideSpinButtons
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -361,6 +472,158 @@ export default function AssetConfigModal({
               required
               hideSpinButtons
             />
+          </div>
+        )}
+
+        {/* Overrides de Fundamentos para Renda Variável */}
+        {showFundamentalsOverride && (
+          <div className="space-y-4 p-4 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
+            <h4 className="text-[10px] uppercase font-black tracking-wider text-secondary border-b border-glass/10 pb-1">
+              Overrides de Indicadores (Fundamentalistas)
+            </h4>
+            <div className="flex flex-col gap-1.5 bg-glass/2 p-2 rounded-xl">
+              <p className="text-[9px] text-muted leading-relaxed">
+                Use estes campos se desejar sobrescrever os dados vindos da API pública (Yahoo Finance) ou preencher dados não encontrados automaticamente.
+              </p>
+              {apiCache?.last_updated ? (
+                <div className="text-[8px] font-black text-income uppercase tracking-wider bg-income/10 px-2.5 py-1 rounded-lg w-fit">
+                  Sincronizado automaticamente via API em: {new Date(apiCache.last_updated).toLocaleString('pt-BR')}
+                </div>
+              ) : (
+                <div className="text-[8px] font-black text-[#ffaa00] uppercase tracking-wider bg-[#ffaa00]/10 px-2.5 py-1 rounded-lg w-fit">
+                  Sem dados automáticos da API. Recomenda-se preenchimento manual dos overrides abaixo.
+                </div>
+              )}
+            </div>
+            
+            {isStock && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>ROIC (%)</span>
+                      {manualRoic && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualRoic} onChange={(e) => setManualRoic(e.target.value)} placeholder="API" suffix="%" hideSpinButtons />
+                    {renderCompareWarning(manualRoic, apiCache?.roic, () => setManualRoic(''), true)}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Dividend Yield (%)</span>
+                      {manualDividendYield && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualDividendYield} onChange={(e) => setManualDividendYield(e.target.value)} placeholder="API" suffix="%" hideSpinButtons />
+                    {renderCompareWarning(manualDividendYield, apiCache?.dividend_yield, () => setManualDividendYield(''), true)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>P/L Atual</span>
+                      {manualPeRatio && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualPeRatio} onChange={(e) => setManualPeRatio(e.target.value)} placeholder="API" hideSpinButtons />
+                    {renderCompareWarning(manualPeRatio, apiCache?.pe_ratio, () => setManualPeRatio(''))}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>EV/EBITDA</span>
+                      {manualEvEbitda && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualEvEbitda} onChange={(e) => setManualEvEbitda(e.target.value)} placeholder="API" hideSpinButtons />
+                    {renderCompareWarning(manualEvEbitda, apiCache?.ev_ebitda, () => setManualEvEbitda(''))}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Dív. Líq / EBITDA</span>
+                      {manualNetDebtEbitda && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualNetDebtEbitda} onChange={(e) => setManualNetDebtEbitda(e.target.value)} placeholder="API" hideSpinButtons />
+                    {renderCompareWarning(manualNetDebtEbitda, apiCache?.net_debt_ebitda, () => setManualNetDebtEbitda(''))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Média P/L 5 anos</span>
+                      {manualPe5yAverage && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualPe5yAverage} onChange={(e) => setManualPe5yAverage(e.target.value)} placeholder="Ex: 12.5" hideSpinButtons />
+                    {renderCompareWarning(manualPe5yAverage, apiCache?.pe_5y_average, () => setManualPe5yAverage(''))}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Média EV/EBITDA 5a</span>
+                      {manualEvEbitda5yAverage && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualEvEbitda5yAverage} onChange={(e) => setManualEvEbitda5yAverage(e.target.value)} placeholder="Ex: 8.0" hideSpinButtons />
+                    {renderCompareWarning(manualEvEbitda5yAverage, apiCache?.ev_ebitda_5y_average, () => setManualEvEbitda5yAverage(''))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="net_debt_trend"
+                    checked={manualNetDebtTrendUp2y}
+                    onChange={(e) => setManualNetDebtTrendUp2y(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-brand rounded border-glass cursor-pointer"
+                  />
+                  <label htmlFor="net_debt_trend" className="text-[9px] font-bold text-secondary cursor-pointer select-none">
+                    Tendência de Endividamento Cresceu nos Últimos 2 anos?
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {isFii && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Dividend Yield (%)</span>
+                      {manualDividendYield && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualDividendYield} onChange={(e) => setManualDividendYield(e.target.value)} placeholder="API" suffix="%" hideSpinButtons />
+                    {renderCompareWarning(manualDividendYield, apiCache?.dividend_yield, () => setManualDividendYield(''), true)}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>P/VP</span>
+                      {manualPVp && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.01} value={manualPVp} onChange={(e) => setManualPVp(e.target.value)} placeholder="Ex: 1.00" hideSpinButtons />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Vacância Física (%)</span>
+                      {manualVacancy && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.1} value={manualVacancy} onChange={(e) => setManualVacancy(e.target.value)} placeholder="Ex: 5.0" suffix="%" hideSpinButtons />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isEtf && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Taxa Adm. (%)</span>
+                      {manualEtfFee && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.01} value={manualEtfFee} onChange={(e) => setManualEtfFee(e.target.value)} placeholder="Ex: 0.30" suffix="%" hideSpinButtons />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                      <span>Tracking Error (%)</span>
+                      {manualEtfTrackingError && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
+                    </label>
+                    <NumberInput step={0.01} value={manualEtfTrackingError} onChange={(e) => setManualEtfTrackingError(e.target.value)} placeholder="Ex: 1.50" suffix="%" hideSpinButtons />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

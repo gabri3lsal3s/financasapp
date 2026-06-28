@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Plus, X, Calculator } from 'lucide-react'

@@ -16,6 +16,7 @@ import { resolveExpenseBillCompetence } from '@/utils/creditCardBilling'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
+import { getStaggerClass } from '@/constants/animation'
 import { Plus } from 'lucide-react'
 
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -287,8 +288,7 @@ export default function Expenses() {
                       const [_, categoryIconName] = (category?.color || expense.category?.color || '').split('|')
                       const paymentLabel = getPaymentMethodLabel(expense)
                       const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
-                      const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-                      const staggerClass = index < 5 ? staggerClasses[index] : ''
+                      const staggerClass = getStaggerClass(index)
 
                       const isDefaultExpanded = false
                       const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
@@ -352,8 +352,7 @@ export default function Expenses() {
                       const [_, categoryIconName] = (category?.color || expense.category?.color || '').split('|')
                       const paymentLabel = getPaymentMethodLabel(expense)
                       const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
-                      const staggerClasses = ['delay-50', 'delay-100', 'delay-150', 'delay-200', 'delay-250']
-                      const staggerClass = index < 5 ? staggerClasses[index] : ''
+                      const staggerClass = getStaggerClass(index)
 
                       const isDefaultExpanded = false
                       const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded

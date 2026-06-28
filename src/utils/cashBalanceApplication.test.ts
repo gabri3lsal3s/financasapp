@@ -5,7 +5,6 @@ import {
   computeCashOffsetPreview,
   excludeCashOffsetSells,
   generateBatchCashOffsetTransactions,
-  type CashOffsetTransaction,
 } from '@/utils/cashBalanceApplication'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
 
