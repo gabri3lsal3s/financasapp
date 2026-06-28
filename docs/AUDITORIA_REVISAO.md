@@ -251,6 +251,17 @@ Baixa prioridade.
 | 23 | **`key={index}` → chaves estáveis** (name, cell.dateStr) | DatePicker.tsx | 🟡 React anti-pattern |
 | 24 | **Blank line extra entre imports removida** | Reports.tsx | 🟢 Formatação |
 
+### ✅ Concluído (Rodada 3 — Otimização Mobile)
+
+| # | Melhoria | Descrição | Impacto |
+|---|---------|-----------|---------|
+| 25 | **`touch-action: manipulation`** — elimina delay de 300ms em toques no iOS | `body` no CSS global | 🟢 Performance mobile |
+| 26 | **Touch targets mínimos de 44px** — WCAG 2.5.5 para bottom nav e botões | `nav.glass-bottom-nav a`, `nav.glass-bottom-nav button` | 🟢 Acessibilidade |
+| 27 | **Feedback tátil em dispositivos touch** — `@media (hover: none) and (pointer: coarse)` com scale down em active state | Botões, cards clicáveis, `.press-subtle` | 🟢 UX mobile |
+| 28 | **Padding extra com hub de ações visível** — `body:has(.page-action-hub-root)` adiciona 8rem de padding-bottom | `main.glass-main-padding` | 🟢 Layout mobile |
+| 29 | **Touch targets ampliados no TransactionCard** — botões no expanded view mobile: `size="sm"` + `min-h-[44px]`, ícones 16px | `TransactionCard.tsx` | 🟢 UX mobile |
+| 30 | **Botões de ação com min-height 44px** — no expanded view do TransactionCard em mobile | `min-h-[44px]` nos botões Excluir/Editar | 🟢 Acessibilidade |
+
 ### Prioridade Baixa (futuro)
 
 | # | Sugestão | Esforço |

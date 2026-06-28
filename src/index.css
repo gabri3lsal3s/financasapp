@@ -94,6 +94,8 @@
     -webkit-user-select: none;
     /* Remove highlight azul/cinza de toque em mobile (iOS/Android) */
     -webkit-tap-highlight-color: transparent;
+    /* Otimiza renderização de toque em mobile — evita delay de 300ms em navigator */
+    touch-action: manipulation;
   }
 
   .app-layout-root main {
@@ -904,12 +906,34 @@
   }
 
   .hover-lift-subtle {
-    transition: background-color var(--ds-motion-duration-fast) var(--ds-motion-easing-standard);
+    transition: background-color var(--ds-motion-duration-fast) var(--ds-motion-easing-standard), transform 0.08s ease, opacity 0.08s ease;
   }
 
   .press-subtle:active:not(:disabled) {
     transform: scale(0.97) translateY(0);
     transition: transform 0.1s ease;
+  }
+
+  /* Touch feedback adicional para mobile — feedback tátil sem escala exagerada */
+  @media (hover: none) and (pointer: coarse) {
+    .press-subtle:active:not(:disabled) {
+      transform: scale(0.96) translateY(0);
+      opacity: 0.85;
+      transition: transform 0.08s ease, opacity 0.08s ease;
+    }
+
+    /* Botões com feedback mais pronunciado em toque */
+    button:active:not(:disabled):not(.no-touch-scale) {
+      transform: scale(0.96);
+      transition: transform 0.08s ease;
+    }
+
+    /* Cards clicáveis: feedback sutil */
+    [role="button"]:active,
+    .cursor-pointer:active {
+      transform: scale(0.98);
+      transition: transform 0.08s ease;
+    }
   }
 
   .calculator-target-input {
@@ -1678,6 +1702,24 @@ nav.glass-bottom-nav {
 
   .app-layout-root {
     --sidebar-offset: 0px !important;
+  }
+
+  /* Quando o hub de ações está visível, a nav comprime — precisamos de padding extra */
+  body:has(.page-action-hub-root) main.glass-main-padding {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Garante que elementos interativos tenham touch target mínimo de 44px no mobile */
+  nav.glass-bottom-nav a,
+  nav.glass-bottom-nav button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Touch targets maiores para itens de speed dial no mobile */
+  .page-action-hub-dial-btn {
+    min-width: 48px;
+    min-height: 48px;
   }
 }
 
@@ -2658,6 +2700,13 @@ nav.glass-bottom-nav {
   .page-action-hub-root {
     bottom: 1.5rem;
     right: 1.75rem;
+  }
+}
+
+/* Mobile: move o hub mais para o centro para evitar conflito com a borda */
+@media (max-width: 1023px) {
+  .page-action-hub-root {
+    right: 0.75rem;
   }
 }
 

@@ -406,36 +406,36 @@ export default function TransactionCard({
                   )}
                 </div>
 
-                {/* Botões de ação */}
-                <div className="flex items-center gap-2 justify-end">
+                {/* Botões de ação — mobile com touch targets ampliados */}
+                <div className="flex items-center gap-3 justify-end">
                   {onDelete && (
                     <Button
                       type="button"
-                      size="xs"
+                      size="sm"
                       variant="expense"
                       onClick={(e) => {
                         e.stopPropagation()
                         onDelete()
                       }}
-                      className="gap-1.5 select-none"
+                      className="gap-1.5 select-none min-h-[44px]"
                     >
-                      <Trash2 size={12} aria-hidden />
-                      <span>Excluir</span>
+                      <Trash2 size={16} aria-hidden />
+                      <span className="text-xs font-bold">Excluir</span>
                     </Button>
                   )}
                   {onEdit && (
                     <Button
                       type="button"
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation()
                         onEdit()
                       }}
-                      className="gap-1.5 select-none"
+                      className="gap-1.5 select-none min-h-[44px]"
                     >
-                      <Pencil size={12} aria-hidden />
-                      <span>Editar</span>
+                      <Pencil size={16} aria-hidden />
+                      <span className="text-xs font-bold">Editar</span>
                     </Button>
                   )}
                 </div>
