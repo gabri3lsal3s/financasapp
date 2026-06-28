@@ -532,6 +532,13 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Select custom → Radix UI (shadcn) — mantendo mesma API** | Melhoria | ✅ |
 | — | **useEffect reduzido (FloatingCalculator ~14→11, Reports 2→1)** | Melhoria | ✅ |
 | — | Documentação finalizada | Final | ✅ |
+| — | **CSS class spacing bug (Settings.tsx) — `h - 2 w - 2` → `h-2 w-2 rounded-full`** | Bug Fix | ✅ |
+| — | **CSS class spacing bug (Settings.tsx) — `rounded - lg border p - 3` → `rounded-lg border p-3`** | Bug Fix | ✅ |
+| — | **ErrorBoundary inline style → `text-expense` class** | Melhoria | ✅ |
+| — | **`as any` eliminado em usePortfolioState.ts (mergedFundamentals)** | Melhoria | ✅ |
+| — | **`console.debug` → `logger.debug` em priceService.ts** | Consistência | ✅ |
+| — | **`key={index}` → chaves estáveis em DatePicker.tsx e CreditCardTimeline.tsx** | Correção | ✅ |
+| — | **Blank line extra entre imports em Reports.tsx removida** | Formatação | ✅ |
 
 ### Validação final
 
@@ -546,6 +553,11 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - **useEffect reduzido**: FloatingCalculator ~14→11 effects (MutationObserver + resize unificado + localStorage unificado + keyboard com useRef). Reports.tsx: 2 effects de validação unificados.
 - **Sistema de z-index unificado**: Implementação de CSS Custom Properties e constantes TypeScript para hierarquia padronizada. Todos os componentes migrados de valores hardcoded. Teste de consistência automatizado (16 testes).
 - **Motor Quantamental**: Sistema completo de avaliação híbrida (Scuttlebutt + Fundamentos) com Tiers de convicção, enquadramento automático, Smart Aporte com log de roteamento, overrides manuais com alertas de contraste, decay trigger configurável, e checklist detalhado de critérios quantitativos por classe (Ações, FIIs, ETFs). Migrations SQL, 27 componentes de investimentos, 4 testes específicos do engine.
+- **Bug Fix — CSS class spacing**: Settings.tsx — classes Tailwind com espaços entre hífens (`h - 2 w - 2`, `rounded - lg border p - 3`) corrompiam a renderização do indicador biométrico e do card de status.
+- **Bug Fix — `any` type eliminado**: `let mergedFundamentals: any = null` → `ValuedPosition['fundamentals']` em `usePortfolioState.ts`.
+- **Consistência — Logger**: `console.debug()` em `priceService.ts` substituído por `logger.debug()`.
+- **Bug Fix — React keys**: `key={index}` removido em `DatePicker.tsx` (months + days) e `CreditCardTimeline.tsx` — chaves estáveis únicas agora.
+- **Melhoria — Thema system**: `ErrorBoundary.tsx` — inline style substituído por classe `text-expense`.
 
 ---
 

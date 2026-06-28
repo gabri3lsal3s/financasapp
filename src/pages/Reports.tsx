@@ -35,7 +35,6 @@ import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
 import FinancialInsights from '@/components/reports/FinancialInsights'
 
-
 import AnnualFlowChart from '@/components/reports/AnnualFlowChart'
 import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
 import WeekdayExpenseChart from '@/components/reports/WeekdayExpenseChart'

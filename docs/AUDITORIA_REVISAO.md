@@ -239,6 +239,18 @@ Baixa prioridade.
 | 16 | **Select custom → Radix UI (shadcn) com mesma API** | ✅ |
 | 17 | **useEffect reduzido (FloatingCalculator ~14→11, Reports 2→1)** | ✅ |
 
+### ✅ Concluído (Rodada 2 — Análise de Fragilidades)
+
+| # | Correção | Arquivo | Severidade |
+|---|----------|---------|------------|
+| 18 | **CSS class spacing bug** — `h - 2 w - 2` → `h-2 w-2 rounded-full` | Settings.tsx | 🔴 Bug visual |
+| 19 | **CSS class spacing bug** — `rounded - lg border p - 3` → `rounded-lg border p-3` | Settings.tsx | 🔴 Bug visual |
+| 20 | **Inline style → theme class** — `style={{ color: 'var(--color-expense)' }}` → `text-expense` | ErrorBoundary.tsx | 🟡 Consistência |
+| 21 | **`any` type eliminado** — `ValuedPosition['fundamentals']` | usePortfolioState.ts | 🔴 Type safety |
+| 22 | **`console.debug` → `logger.debug`** — logging condicional | priceService.ts | 🟡 Consistência |
+| 23 | **`key={index}` → chaves estáveis** (name, cell.dateStr) | DatePicker.tsx | 🟡 React anti-pattern |
+| 24 | **Blank line extra entre imports removida** | Reports.tsx | 🟢 Formatação |
+
 ### Prioridade Baixa (futuro)
 
 | # | Sugestão | Esforço |

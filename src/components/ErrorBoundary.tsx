@@ -29,7 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen bg-primary flex items-center justify-center p-4">
           <div className="bg-secondary rounded-lg shadow-lg p-6 max-w-md w-full border border-secondary">
-            <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-expense)' }}>
+            <h1 className="text-2xl font-bold mb-4 text-expense">
               Erro ao carregar aplicativo
             </h1>
             <p className="text-primary mb-4">

@@ -216,6 +216,10 @@ Consolidado em `index.css`.
 | 2 | Remoção de dead code (PageHeader.tsx, MobileAlertsPill.tsx) | `src/components/` | 🟢 |
 | 3 | Restauração de PageHeaderActions/PageHeaderActionButton | `src/components/` | 🟢 |
 | 4 | Correção de teste de snapshot (PageHeader removido) | `src/components/uiPrimitivesSnapshot.test.ts` | 🟡 |
+| 5 | **CSS class spacing (Settings.tsx)** — `h - 2 w - 2` → `h-2 w-2` | `src/pages/Settings.tsx` | 🔴 |
+| 6 | **`any` type em usePortfolioState.ts** — `ValuedPosition['fundamentals']` | `src/hooks/usePortfolioState.ts` | 🔴 |
+| 7 | **`console.debug` → `logger.debug`** | `src/services/priceService.ts` | 🟢 |
+| 8 | **`key={index}` → chaves estáveis** | `src/components/DatePicker.tsx` | 🟡 |
 
 ### 📊 Métricas de Sucesso
 
@@ -235,8 +239,12 @@ Consolidado em `index.css`.
 | FloatingCalculator useEffect | ~14 effects | ✅ ~11 effects |
 | Reports validation effects | 2 effects | ✅ 1 effect unificado |
 | Build | ✅ | ✅ |
-| Testes | 238 | ✅ 237/237 |
+| Testes | 238 | ✅ 259/259 |
 | Typecheck | ✅ | ✅ 0 erros |
+| **CSS spacing bugs (Settings.tsx)** | 🔴 **Não renderizava corretamente** | ✅ **Corrigido** |
+| **`any` type (usePortfolioState.ts)** | 🔴 **Type safety escape** | ✅ **`ValuedPosition['fundamentals']`** |
+| **`console.debug` em priceService.ts** | 🟡 **Inconsistente** | ✅ **`logger.debug()`** |
+| **`key={index}` (DatePicker.tsx)** | 🟡 **Anti-pattern** | ✅ **Chaves estáveis** |
 
 ---
 

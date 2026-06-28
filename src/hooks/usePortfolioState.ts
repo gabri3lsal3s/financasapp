@@ -294,7 +294,7 @@ export function usePortfolioState() {
         let convictionTier: 'S' | 'A' | 'B' | 'C' = 'S'
         let absoluteLimit = 100.00
         let isDecayed = false
-        let mergedFundamentals: any = null
+        let mergedFundamentals: ValuedPosition['fundamentals'] = null
         let lastScuttlebuttUpdate: string | undefined = undefined
 
         const isCashOrRf = pos.pricing_mode === 'cash' || 

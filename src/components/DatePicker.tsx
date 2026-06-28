@@ -200,7 +200,7 @@ export default function DatePicker({
                 className="h-8 rounded-lg border border-glass bg-secondary/35 text-xs text-primary px-1.5 cursor-pointer font-bold focus:outline-none"
               >
                 {MONTH_NAMES.map((name, index) => (
-                  <option key={index} value={index} className="text-primary bg-card">
+                  <option key={name} value={index} className="text-primary bg-card">
                     {name}
                   </option>
                 ))}
@@ -246,13 +246,13 @@ export default function DatePicker({
 
             {/* Days grid */}
             <div className="grid grid-cols-7 gap-1 justify-items-center">
-              {cells.map((cell, index) => {
+              {cells.map((cell) => {
                 const isSelected = cell.dateStr === value
                 const isToday = cell.dateStr === todayStr
 
                 return (
                   <button
-                    key={index}
+                    key={cell.dateStr}
                     type="button"
                     onClick={() => selectDate(cell.dateStr)}
                     className={cn(

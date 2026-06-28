@@ -341,7 +341,7 @@ export default function CreditCardTimeline({
           {timelineItems.map((item, index) => {
             const isItemPaid = item.metricLabel === 'Pago'
             return (
-              <div key={index} className="grid grid-cols-[24px_1fr] gap-x-4">
+              <div key={item.title + '-' + item.date.toISOString()} className="grid grid-cols-[24px_1fr] gap-x-4">
                 {/* Left timeline line and dot */}
                 <div className="flex flex-col items-center">
                   {/* Top connector line */}

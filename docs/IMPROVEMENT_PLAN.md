@@ -24,9 +24,9 @@
 | Métrica | Valor | Classificação |
 |---------|-------|---------------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **253/253** (28 arquivos) | ✅ |
+| Testes passando | **259/259** (29 arquivos) | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
-| `as any` em produção | **5 ocorrências** | 🔴 3 em useSupabaseTable, 1 em Input.tsx, 1 em service |
+| `as any` em produção | **0** | ✅ |
 | Non-null assertions (`!`) | **20+** em produção | 🔴 Pode causar crash runtime |
 | `catch(err: any)` | **1** (Edge Function) | 🟢 Aceitável |
 | HTML nativo em pages | **0** | ✅ |
@@ -34,6 +34,18 @@
 | `@ts-ignore` / `@ts-expect-error` | **0** | ✅ |
 | Maior arquivo | **3.119 linhas** (Reports.tsx) | 🟡 |
 | `useEffect` médio por componente | ~5 | 🟡 |
+
+### 1.3 Últimas Correções Realizadas (Junho 2026)
+
+| # | Correção | Arquivo |
+|---|----------|---------|
+| 1 | **CSS spacing bug** — `h - 2 w - 2 rounded - full` → `h-2 w-2 rounded-full` | Settings.tsx |
+| 2 | **CSS spacing bug** — `rounded - lg border p - 3` → `rounded-lg border p-3` | Settings.tsx |
+| 3 | **Inline style → class** — `style={{ color: '...' }}` → `text-expense` | ErrorBoundary.tsx |
+| 4 | **`any` type eliminado** — `ValuedPosition['fundamentals']` | usePortfolioState.ts |
+| 5 | **`console.debug`** → `logger.debug` | priceService.ts |
+| 6 | **`key={index}`** → chaves estáveis | DatePicker.tsx |
+| 7 | **Blank line** extra removida | Reports.tsx |
 
 ### 1.2 Princípios da Arquitetura (Regras do Projeto)
 

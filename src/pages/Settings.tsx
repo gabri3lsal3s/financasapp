@@ -599,7 +599,7 @@ export default function Settings() {
               )}
 
               {biometricStatus && (
-                <div className={`rounded - lg border p - 3 ${biometricStatus.type === 'success'
+                <div className={`rounded-lg border p-3 ${biometricStatus.type === 'success'
                   ? 'border-[var(--color-success)] bg-[var(--color-success)]/10'
                   : 'border-[var(--color-danger)] bg-[var(--color-danger)]/10'
                   } `}>
@@ -610,7 +610,7 @@ export default function Settings() {
               {biometricAvailable && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className={`h - 2 w - 2 rounded - full ${biometricRegistered ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'} `} />
+                    <div className={`h-2 w-2 rounded-full ${biometricRegistered ? 'bg-[var(--color-success)]' : 'bg-[var(--color-text-secondary)]'} `} />
                     <p className="text-sm text-secondary">
                       {biometricRegistered
                         ? 'Biometria registrada neste dispositivo'
