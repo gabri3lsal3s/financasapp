@@ -69,9 +69,10 @@ const fabVariants = {
 }
 
 function PageActionButtonHubPortalContent() {
-  const { rawActions } = useFloatingActions()
+  const { rawActions, registeredPathname } = useFloatingActions()
   const { settings: { floatingCalculatorEnabled, floatingCalculatorAbsorbed } } = useAppSettings()
   const location = useLocation()
+  const isSettingsPage = location.pathname === '/settings'
   const [isOpen, setIsOpen] = useState(false)
   const [isCalculatorNear, setIsCalculatorNear] = useState(false)
   const [isReady, setIsReady] = useState(true)
@@ -115,11 +116,11 @@ function PageActionButtonHubPortalContent() {
 
   const visibleActions = useMemo(() => {
     const pageActions = rawActions.filter((a) => a.show !== false)
-    if (floatingCalculatorEnabled && floatingCalculatorAbsorbed) {
+    if (floatingCalculatorEnabled && floatingCalculatorAbsorbed && !isSettingsPage) {
       return [...pageActions, calculatorAction]
     }
     return pageActions
-  }, [rawActions, floatingCalculatorEnabled, floatingCalculatorAbsorbed, calculatorAction])
+  }, [rawActions, floatingCalculatorEnabled, floatingCalculatorAbsorbed, calculatorAction, isSettingsPage])
 
   // Cache the last seen non-empty actions to prevent flickering during page transitions
   const [cachedActions, setCachedActions] = useState<typeof visibleActions>([])
@@ -129,11 +130,11 @@ function PageActionButtonHubPortalContent() {
     }
   }, [visibleActions])
 
-  const isSettingsPage = location.pathname === '/settings'
-  const hasActions = visibleActions.length > 0 || !isSettingsPage
+  const isPageReady = registeredPathname === location.pathname
+  const hasActions = !isSettingsPage
 
   const activeActions = visibleActions.length > 0 ? visibleActions : cachedActions
-  const hasSingleAction = activeActions.length === 1 && isReady
+  const hasSingleAction = activeActions.length === 1 && isReady && isPageReady
   const hasMultipleActions = activeActions.length > 1
 
   // Fecha speed dial ao clicar fora
@@ -350,14 +351,6 @@ function PageActionButtonHubPortalContent() {
 }
 
 export default function PageActionButtonHub() {
-  // useLayoutEffect: monta na mesma passagem de pintura que o nav — sem delay visual
-  const [mounted, setMounted] = useState(false)
-
-  useLayoutEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
-
+  if (typeof document === 'undefined') return null
   return createPortal(<PageActionButtonHubPortalContent />, document.body)
 }

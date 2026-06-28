@@ -9,13 +9,15 @@ export function FloatingActionsProvider({ children }: { children: ReactNode }) {
   const [actions, setActionsState] = useState<ReactNode | null>(null)
   const [rawActions, setRawActionsState] = useState<RawPageAction[]>([])
   const [launchModalOpen, setLaunchModalOpenState] = useState(false)
+  const [registeredPathname, setRegisteredPathname] = useState<string | null>(null)
 
   const setActions = useCallback((node: ReactNode | null) => {
     setActionsState(node)
   }, [])
 
-  const setRawActions = useCallback((acts: RawPageAction[]) => {
+  const setRawActions = useCallback((acts: RawPageAction[], pathname: string | null) => {
     setRawActionsState(acts)
+    setRegisteredPathname(pathname)
   }, [])
 
   const setLaunchModalOpen = useCallback((open: boolean) => {
@@ -27,8 +29,9 @@ export function FloatingActionsProvider({ children }: { children: ReactNode }) {
       actions,
       rawActions,
       launchModalOpen,
+      registeredPathname,
     }),
-    [actions, rawActions, launchModalOpen]
+    [actions, rawActions, launchModalOpen, registeredPathname]
   )
 
   const dispatchValue = useMemo(

@@ -1,4 +1,5 @@
 import { ReactNode, useContext, useLayoutEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   FloatingActionsStateContext,
   FloatingActionsDispatchContext,
@@ -30,14 +31,15 @@ export function useRegisterFloatingActions(action: ReactNode | undefined): void 
 /** Registra o array estruturado de ações da página atual; limpa ao desmontar. */
 export function useRegisterRawActions(actions: RawPageAction[]): void {
   const dispatch = useContext(FloatingActionsDispatchContext)
+  const location = useLocation()
 
   useLayoutEffect(() => {
     if (!dispatch) return
 
-    dispatch.setRawActions(actions)
+    dispatch.setRawActions(actions, location.pathname)
     return () => {
-      dispatch.setRawActions([])
+      dispatch.setRawActions([], null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, JSON.stringify(actions.map((a) => ({ label: a.label, intent: a.intent, disabled: a.disabled, show: a.show })))])
+  }, [dispatch, location.pathname, JSON.stringify(actions.map((a) => ({ label: a.label, intent: a.intent, disabled: a.disabled, show: a.show })))])
 }

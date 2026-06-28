@@ -19,11 +19,12 @@ export interface FloatingActionsStateValue {
   actions: ReactNode | null
   rawActions: RawPageAction[]
   launchModalOpen: boolean
+  registeredPathname: string | null
 }
 
 export interface FloatingActionsDispatchValue {
   setActions: (actions: ReactNode | null) => void
-  setRawActions: (actions: RawPageAction[]) => void
+  setRawActions: (actions: RawPageAction[], pathname: string | null) => void
   setLaunchModalOpen: (open: boolean) => void
 }
 
