@@ -6,7 +6,7 @@ import { formatCurrency, formatPercentBR } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import { PortfolioQuantPreferences, PortfolioGroupTarget } from '@/types'
 import { simulateSmartAporte, SmartAporteSuggestion } from '@/utils/quantamentalEngine'
-import { ArrowUpCircle, Info, Sparkles, Terminal, ChevronDown, ChevronUp, ClipboardCheck } from 'lucide-react'
+import { ArrowUpCircle, Info, Sparkles, Terminal, ChevronDown, ChevronUp, ClipboardCheck, AlertTriangle, CheckCircle, PiggyBank, ArrowUpRight } from 'lucide-react'
 import ScuttlebuttEvaluationModal from '@/components/investments/ScuttlebuttEvaluationModal'
 
 interface SmartAporteSimulatorProps {
@@ -15,6 +15,7 @@ interface SmartAporteSimulatorProps {
   preferences: PortfolioQuantPreferences | null
   groupTargets: PortfolioGroupTarget[]
   totalValue: number
+  cashValue: number
 }
 
 export default function SmartAporteSimulator({
@@ -22,7 +23,8 @@ export default function SmartAporteSimulator({
   positions,
   preferences,
   groupTargets,
-  totalValue
+  totalValue,
+  cashValue
 }: SmartAporteSimulatorProps) {
   const [aporteInput, setAporteInput] = useState('')
   const [simulationResult, setSimulationResult] = useState<{
@@ -62,6 +64,78 @@ export default function SmartAporteSimulator({
     setSimulationResult(result)
   }
 
+  // Insights da carteira (fundido de InvestmentsInsights)
+  const insights = useMemo(() => {
+    const list: Array<{
+      id: string; title: string; description: string; type: 'success' | 'warning' | 'info'; icon: React.ReactNode
+    }> = []
+    
+    if (totalValue <= 0) return list
+
+    // Insight de caixa
+    const cashPct = (cashValue / totalValue) * 100
+    if (cashPct > 20) {
+      list.push({
+        id: 'cash_excess', title: 'Caixa Elevado',
+        description: `Seu saldo em caixa representa ${formatPercentBR(cashPct, 1)} da carteira. Considere alocar o excedente via simulador abaixo.`,
+        type: 'warning',
+        icon: <PiggyBank size={14} />
+      })
+    } else if (cashPct >= 5 && cashPct <= 20) {
+      list.push({
+        id: 'cash_healthy', title: 'Caixa Equilibrado',
+        description: `Você tem ${formatPercentBR(cashPct, 1)} da carteira em caixa — patamar saudável de liquidez.`,
+        type: 'success',
+        icon: <CheckCircle size={14} />
+      })
+    } else if (cashPct > 0) {
+      list.push({
+        id: 'cash_low', title: 'Caixa Baixo',
+        description: `Seu caixa representa apenas ${formatPercentBR(cashPct, 1)} da carteira. Pouca liquidez para novos aportes.`,
+        type: 'info',
+        icon: <Info size={14} />
+      })
+    }
+
+    // Insight de concentração
+    const nonCashPositions = positions.filter(p => 
+      !['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(p.ticker.toUpperCase())
+    )
+    const maxAsset = nonCashPositions.reduce((max, current) => 
+      (current.current_percentage > (max?.current_percentage || 0)) ? current : max
+    , null as ValuedPosition | null)
+
+    if (maxAsset && maxAsset.current_percentage > 35) {
+      list.push({
+        id: 'high_concentration', title: 'Concentração Elevada',
+        description: `${maxAsset.ticker} representa ${formatPercentBR(maxAsset.current_percentage, 1)} da carteira.`,
+        type: 'warning',
+        icon: <AlertTriangle size={14} />
+      })
+    }
+
+    // Insight de aporte prioritário
+    const belowTargetAssets = positions
+      .filter(p => p.gap_financial > 0.01)
+      .sort((a, b) => b.gap_financial - a.gap_financial)
+
+    if (belowTargetAssets.length > 0) {
+      const top1 = belowTargetAssets[0]
+      const top2 = belowTargetAssets[1]
+      const text = top2
+        ? `${top1.ticker} (${formatCurrency(top1.gap_financial)}) e ${top2.ticker} (${formatCurrency(top2.gap_financial)})`
+        : `${top1.ticker} (${formatCurrency(top1.gap_financial)})`
+      list.push({
+        id: 'priority_buys', title: 'Aportes Prioritários',
+        description: `Para aproximar dos alvos, priorize: ${text}.`,
+        type: 'info',
+        icon: <ArrowUpRight size={14} />
+      })
+    }
+    
+    return list
+  }, [positions, cashValue, totalValue])
+
   const hasTargets = useMemo(() => groupTargets.some(g => g.group_type === 'class'), [groupTargets])
 
   if (!hasTargets) {
@@ -94,6 +168,31 @@ export default function SmartAporteSimulator({
           </p>
         </div>
       </div>
+
+      {/* Insights compactos */}
+      {insights.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {insights.map((item) => {
+            const borderClass = item.type === 'success' 
+              ? 'border-income/20 bg-income/5' 
+              : item.type === 'warning' 
+                ? 'border-expense/20 bg-expense/5' 
+                : 'border-primary/20 bg-primary/5'
+            return (
+              <div
+                key={item.id}
+                className={`px-3 py-2 rounded-xl border flex items-center gap-2 text-[10px] leading-relaxed ${borderClass}`}
+              >
+                <span className="shrink-0">{item.icon}</span>
+                <div className="min-w-0">
+                  <span className="font-black text-primary uppercase tracking-wider text-[8px] block">{item.title}</span>
+                  <p className="text-secondary font-medium leading-tight">{item.description}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Input de Aporte */}
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-3 items-end">

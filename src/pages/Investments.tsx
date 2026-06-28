@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import { SkeletonInvestments } from '@/components/Skeleton'
-import { Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
+import { 
+  Plus, Briefcase, TrendingUp, FileSpreadsheet, PenLine
+} from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { formatCurrency } from '@/utils/format'
 
@@ -13,19 +15,15 @@ import HoldingsTable from '@/components/investments/HoldingsTable'
 import SmartAporteSimulator from '@/components/investments/SmartAporteSimulator'
 import LedgerBook from '@/components/investments/LedgerBook'
 import AssetClassAllocationCard from '@/components/investments/AssetClassAllocationCard'
-import InvestmentsInsights from '@/components/investments/InvestmentsInsights'
-import PieChartsSection from '@/components/investments/PieChartsSection'
 import ClassPerformanceCard from '@/components/investments/ClassPerformanceCard'
 import ExposureLimitsEditor from '@/components/investments/ExposureLimitsEditor'
 import QuantPreferencesEditor from '@/components/investments/QuantPreferencesEditor'
-import MonthlySummaryCard from '@/components/investments/MonthlySummaryCard'
+import MonthlyActivityCard from '@/components/investments/MonthlyActivityCard'
 
 import AssetConfigModal from '@/components/investments/AssetConfigModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
-
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetDetailModal from '@/components/investments/AssetDetailModal'
-
 
 import GlassChoiceCard from '@/components/GlassChoiceCard'
 import Modal from '@/components/Modal'
@@ -33,7 +31,10 @@ import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import type { PortfolioTransaction } from '@/types'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
-import { classPerformanceToPieSlices, sectorPerformanceToPieSlices, topAssetsToPieSlices, aggregateClassPerformance, aggregateSectorPerformance } from '@/utils/portfolioBenchmarks'
+import { 
+  classPerformanceToPieSlices, sectorPerformanceToPieSlices, 
+  topAssetsToPieSlices, aggregateClassPerformance, aggregateSectorPerformance 
+} from '@/utils/portfolioBenchmarks'
 
 export default function Investments() {
   const {
@@ -52,7 +53,23 @@ export default function Investments() {
 
   // Abas
   const [activeTab, setActiveTab] = useState<string>('overview')
-  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(false)
+
+  // Navegação mensal do resumo compacto
+  const [monthNavDate, setMonthNavDate] = useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  const addMonths = (delta: number) => {
+    const [y, m] = monthNavDate.split('-').map(Number)
+    const d = new Date(y, m - 1 + delta, 1)
+    setMonthNavDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const canNavNext = monthNavDate < (() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })()
 
   // Filtro de ticker para o LedgerBook
   const [ledgerSearchTicker, setLedgerSearchTicker] = useState<string>('')
@@ -118,16 +135,6 @@ export default function Investments() {
     }
   }
 
-  // Handler para clique em fatia do gráfico de classes
-  const handleClassSliceClick = () => {
-    setActiveTab('assets')
-  }
-
-  // Handler para clique em fatia do gráfico de setores
-  const handleSectorSliceClick = () => {
-    setActiveTab('assets')
-  }
-
   const handleOpenTxModal = (tx?: PortfolioTransaction) => {
     setEditingTransaction(tx ?? null)
     setIsTxModalOpen(true)
@@ -162,14 +169,6 @@ export default function Investments() {
         ) : (
           <div className="space-y-6 animate-fade-in">
             
-            {/* Barra superior de KPIs */}
-            <PortfolioKpiBar
-              totalValue={totalValue}
-              investedValue={investedValue}
-              shareHistory={shareHistory}
-              transactions={transactions}
-            />
-
             {/* Controle de Navegação em Abas */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex justify-center select-none pb-2">
@@ -200,63 +199,75 @@ export default function Investments() {
 
               {/* Aba 1: Visão Geral */}
               <TabsContent value="overview" className="mt-6 space-y-5 lg:space-y-6 w-full animate-fade-in">
-                {/* Topo: Saldo em Caixa (largura total) */}
-                <Card className="border border-glass bg-glass/5 rounded-3xl p-5 lg:p-6 flex flex-col justify-between text-left gap-4 relative overflow-hidden hover:border-glass-strong hover:shadow-md transition-all duration-300">
-                  <div
-                    className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-[0.08]"
-                    style={{ backgroundColor: cashValue > 0 ? 'var(--color-income)' : 'var(--color-primary)' }}
-                  />
-                  <div className="relative space-y-1.5">
-                    <span className="text-[9px] font-black uppercase text-secondary tracking-wider">Saldo em Caixa</span>
-                    <h4 className="text-2xl font-black text-primary font-mono">{formatCurrency(cashValue)}</h4>
-                    <p className="text-[10px] text-secondary font-medium leading-relaxed">
-                      Saldo líquido disponível na corretora para novas compras e rebalanceamento.
-                    </p>
-                  </div>
-                </Card>
-
-                {/* Card de Insights em largura total */}
-                <InvestmentsInsights
-                  positions={positions}
-                  cashValue={cashValue}
+                {/* KPIs */}
+                <PortfolioKpiBar
                   totalValue={totalValue}
-                />
-
-                {/* Resumo Mensal com navegação */}
-                <MonthlySummaryCard
-                  transactions={transactions}
+                  investedValue={investedValue}
                   shareHistory={shareHistory}
+                  transactions={transactions}
                 />
 
-                {/* Cards em largura total — empilhamento vertical */}
+                {/* Atividade Mensal Compacta + Saldo em Caixa */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
+                  {/* Card de Atividade Mensal (extraído em componente) */}
+                  <MonthlyActivityCard
+                    transactions={transactions}
+                    monthNavDate={monthNavDate}
+                    onPrevMonth={() => addMonths(-1)}
+                    onNextMonth={() => addMonths(1)}
+                    canNavNext={canNavNext}
+                  />
+
+                  {/* Saldo em Caixa (compacto) */}
+                  <Card className="border border-glass bg-glass/5 rounded-3xl p-4 lg:p-5 flex flex-col justify-between text-left gap-2 relative overflow-hidden">
+                    <div
+                      className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08]"
+                      style={{ backgroundColor: cashValue > 0 ? 'var(--color-income)' : 'var(--color-primary)' }}
+                    />
+                    <div className="relative space-y-1">
+                      <span className="text-[9px] font-black uppercase text-secondary tracking-wider">Saldo em Caixa</span>
+                      <h4 className="text-xl font-black text-primary font-mono">{formatCurrency(cashValue)}</h4>
+                      <p className="text-[8px] text-secondary font-medium leading-relaxed">
+                        Disponível para compras e rebalanceamento.
+                      </p>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Evolução Histórica */}
                 <EvolutionChart shareHistory={shareHistory} />
 
-                {/* Gráficos Pizza lado a lado */}
-                {(assetPieData.length > 0 || classPieData.length > 0 || sectorPieData.length > 0) && (
-                  <PieChartsSection
+                {/* Grid de 2 colunas: Distribuição + Performance */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                  <AssetClassAllocationCard
+                    positions={positions}
+                    cashValue={cashValue}
+                    totalValue={totalValue}
+                    groupTargets={groupTargets}
                     assetPieData={assetPieData}
                     classPieData={classPieData}
                     sectorPieData={sectorPieData}
-                    handleAssetSliceClick={handleAssetSliceClick}
-                    handleClassSliceClick={handleClassSliceClick}
-                    handleSectorSliceClick={handleSectorSliceClick}
+                    onAssetSliceClick={handleAssetSliceClick}
                   />
-                )}
 
-                <AssetClassAllocationCard
+                  {nonCashPositions.length > 0 && (
+                    <ClassPerformanceCard
+                      positions={nonCashPositions}
+                      totalValue={totalValue}
+                      transactions={transactions}
+                    />
+                  )}
+                </div>
+
+                {/* Smart Aporte (com insights fundidos) */}
+                <SmartAporteSimulator
+                  portfolioId={portfolioId}
                   positions={positions}
-                  cashValue={cashValue}
-                  totalValue={totalValue}
+                  preferences={preferences}
                   groupTargets={groupTargets}
+                  totalValue={totalValue}
+                  cashValue={cashValue}
                 />
-
-                {nonCashPositions.length > 0 && (
-                  <ClassPerformanceCard
-                    positions={nonCashPositions}
-                    totalValue={totalValue}
-                    transactions={transactions}
-                  />
-                )}
 
               </TabsContent>
 
@@ -268,53 +279,21 @@ export default function Investments() {
                       onOpenAssetDetail={handleOpenAssetDetail}
                     />
                     {portfolioId && (
-                      <div className="border border-glass bg-glass/5 rounded-3xl overflow-hidden transition-all duration-300">
-                        <button
-                          type="button"
-                          onClick={() => setIsConfigExpanded(!isConfigExpanded)}
-                          className="w-full p-5 lg:p-6 flex justify-between items-center text-left hover:bg-glass/5 transition-colors focus:outline-none select-none"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                              <SlidersHorizontal size={14} />
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-black text-primary uppercase tracking-wider">Ajustes de Parâmetros e Risco</h4>
-                              <p className="text-[10px] text-secondary font-medium">Defina suas metas de alocação macro, tiers de convicção e limites quantamentais</p>
-                            </div>
-                          </div>
-                          <div className="text-secondary">
-                            {isConfigExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                          </div>
-                        </button>
-
-                        {isConfigExpanded && (
-                          <div className="p-5 lg:p-6 border-t border-glass/40 bg-glass/5 animate-fade-in">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-                              <ExposureLimitsEditor
-                                portfolioId={portfolioId}
-                                positions={positions}
-                                totalValue={totalValue}
-                                groupTargets={groupTargets}
-                                onSaved={reload}
-                              />
-                              <QuantPreferencesEditor
-                                portfolioId={portfolioId}
-                                preferences={preferences}
-                                onSaved={reload}
-                              />
-                            </div>
-                          </div>
-                        )}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                        <ExposureLimitsEditor
+                          portfolioId={portfolioId}
+                          positions={positions}
+                          totalValue={totalValue}
+                          groupTargets={groupTargets}
+                          onSaved={reload}
+                        />
+                        <QuantPreferencesEditor
+                          portfolioId={portfolioId}
+                          preferences={preferences}
+                          onSaved={reload}
+                        />
                       </div>
                     )}
-                     <SmartAporteSimulator
-                       portfolioId={portfolioId}
-                       positions={positions}
-                       preferences={preferences}
-                       groupTargets={groupTargets}
-                       totalValue={totalValue}
-                     />
                 </div>
               </TabsContent>
 

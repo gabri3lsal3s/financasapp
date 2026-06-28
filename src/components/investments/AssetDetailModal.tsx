@@ -178,7 +178,10 @@ export default function AssetDetailModal({
             <Button
               type="button"
               variant="balance"
-              onClick={() => onOpenAssetConfig(position.ticker)}
+              onClick={() => {
+                onClose()
+                onOpenAssetConfig(position.ticker)
+              }}
               className="flex-1 rounded-xl h-10 text-xs font-black uppercase tracking-wider gap-1.5 flex items-center justify-center"
             >
               <Settings2 size={14} />
