@@ -401,15 +401,17 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
       }
     }
 
+    // Arredonda para 2 casas decimais para evitar overflow NUMERIC(15,2) no banco
+    const round2 = (v: number) => Math.round(v * 100) / 100
     dailyRows.push({
       portfolio_id: portfolioId,
       rate_date: dateStr,
       share_value: endShareValue,
-      gross_pl: grossPL,
-      net_pl: netPL,
+      gross_pl: round2(grossPL),
+      net_pl: round2(netPL),
       total_shares: totalShares,
-      cash_value: dayValuation.cashValue,
-      invested_cost: dayValuation.investedCostBasis
+      cash_value: round2(dayValuation.cashValue),
+      invested_cost: round2(dayValuation.investedCostBasis)
     })
 
     const [y, m] = dateStr.split('-').map(Number)

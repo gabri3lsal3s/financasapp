@@ -5,6 +5,8 @@ import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
+import FieldLabel from '@/components/FieldLabel'
+import SectionHeader from '@/components/SectionHeader'
 import toast from 'react-hot-toast'
 import { logger } from '@/utils/logger'
 import { getAssetMetadata } from '@/utils/assetClassifier'
@@ -349,7 +351,7 @@ export default function AssetConfigModal({
         
         {/* Método de Precificação */}
         <div className="space-y-1">
-          <label className="text-[9px] uppercase font-black text-secondary">Forma de Precificação</label>
+          <FieldLabel>Forma de Precificação</FieldLabel>
           <Select
             value={pricingMode}
             onChange={handlePricingChange}
@@ -365,7 +367,7 @@ export default function AssetConfigModal({
         {/* Moeda e Alvo */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[9px] uppercase font-black text-secondary">Moeda Padrão</label>
+            <FieldLabel>Moeda Padrão</FieldLabel>
             <Select
               value={currency}
               onChange={handleCurrencyChange}
@@ -376,7 +378,7 @@ export default function AssetConfigModal({
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] uppercase font-black text-secondary">Alvo na Carteira (%)</label>
+            <FieldLabel>Alvo na Carteira (%)</FieldLabel>
             <NumberInput
               step={0.01}
               min={0}
@@ -396,7 +398,7 @@ export default function AssetConfigModal({
           <div className="space-y-4 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Indexador</label>
+                <FieldLabel>Indexador</FieldLabel>
                 <Select
                   value={indexer}
                   onChange={handleIndexerChange}
@@ -409,7 +411,7 @@ export default function AssetConfigModal({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">% do Indexador</label>
+                <FieldLabel>% do Indexador</FieldLabel>
                 <NumberInput
                   step={0.1}
                   min={0}
@@ -425,7 +427,7 @@ export default function AssetConfigModal({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
+              <FieldLabel>Taxa Contratada a.a. (%)</FieldLabel>
               <NumberInput
                 step={0.0001}
                 min={0}
@@ -440,7 +442,7 @@ export default function AssetConfigModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Data de Aporte</label>
+                <FieldLabel>Data de Aporte</FieldLabel>
                 <Input
                   type="date"
                   value={applicationDate}
@@ -448,7 +450,7 @@ export default function AssetConfigModal({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Vencimento</label>
+                <FieldLabel>Vencimento</FieldLabel>
                 <Input
                   type="date"
                   value={maturityDate}
@@ -462,7 +464,7 @@ export default function AssetConfigModal({
         {/* Campos condicionais para Valor Manual */}
         {pricingMode === 'manual_value' && (
           <div className="space-y-1 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
-            <label className="text-[9px] uppercase font-black text-secondary">Valor Atual do Ativo (Moeda Local)</label>
+            <FieldLabel>Valor Atual do Ativo (Moeda Local)</FieldLabel>
             <NumberInput
               step={0.01}
               min={0}
@@ -478,9 +480,9 @@ export default function AssetConfigModal({
         {/* Overrides de Fundamentos para Renda Variável */}
         {showFundamentalsOverride && (
           <div className="space-y-4 p-4 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
-            <h4 className="text-[10px] uppercase font-black tracking-wider text-secondary border-b border-glass/10 pb-1">
+            <SectionHeader as="h4" bordered>
               Overrides de Indicadores (Fundamentalistas)
-            </h4>
+            </SectionHeader>
             <div className="flex flex-col gap-1.5 bg-glass/2 p-2 rounded-xl">
               <p className="text-[9px] text-muted leading-relaxed">
                 Use estes campos se desejar sobrescrever os dados vindos da API pública (Yahoo Finance) ou preencher dados não encontrados automaticamente.
@@ -500,62 +502,62 @@ export default function AssetConfigModal({
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>ROIC (%)</span>
                       {manualRoic && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualRoic} onChange={(e) => setManualRoic(e.target.value)} placeholder="API" suffix="%" hideSpinButtons />
                     {renderCompareWarning(manualRoic, apiCache?.roic, () => setManualRoic(''), true)}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Dividend Yield (%)</span>
                       {manualDividendYield && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualDividendYield} onChange={(e) => setManualDividendYield(e.target.value)} placeholder="API" suffix="%" hideSpinButtons />
                     {renderCompareWarning(manualDividendYield, apiCache?.dividend_yield, () => setManualDividendYield(''), true)}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>P/L Atual</span>
                       {manualPeRatio && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualPeRatio} onChange={(e) => setManualPeRatio(e.target.value)} placeholder="API" hideSpinButtons />
                     {renderCompareWarning(manualPeRatio, apiCache?.pe_ratio, () => setManualPeRatio(''))}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>EV/EBITDA</span>
                       {manualEvEbitda && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualEvEbitda} onChange={(e) => setManualEvEbitda(e.target.value)} placeholder="API" hideSpinButtons />
                     {renderCompareWarning(manualEvEbitda, apiCache?.ev_ebitda, () => setManualEvEbitda(''))}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Dív. Líq / EBITDA</span>
                       {manualNetDebtEbitda && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualNetDebtEbitda} onChange={(e) => setManualNetDebtEbitda(e.target.value)} placeholder="API" hideSpinButtons />
                     {renderCompareWarning(manualNetDebtEbitda, apiCache?.net_debt_ebitda, () => setManualNetDebtEbitda(''))}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Média P/L 5 anos</span>
                       {manualPe5yAverage && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualPe5yAverage} onChange={(e) => setManualPe5yAverage(e.target.value)} placeholder="Ex: 12.5" hideSpinButtons />
                     {renderCompareWarning(manualPe5yAverage, apiCache?.pe_5y_average, () => setManualPe5yAverage(''))}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Média EV/EBITDA 5a</span>
                       {manualEvEbitda5yAverage && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualEvEbitda5yAverage} onChange={(e) => setManualEvEbitda5yAverage(e.target.value)} placeholder="Ex: 8.0" hideSpinButtons />
                     {renderCompareWarning(manualEvEbitda5yAverage, apiCache?.ev_ebitda_5y_average, () => setManualEvEbitda5yAverage(''))}
                   </div>
@@ -579,25 +581,25 @@ export default function AssetConfigModal({
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Dividend Yield (%)</span>
                       {manualDividendYield && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualDividendYield} onChange={(e) => setManualDividendYield(e.target.value)} placeholder="API" suffix="%" hideSpinButtons />
                     {renderCompareWarning(manualDividendYield, apiCache?.dividend_yield, () => setManualDividendYield(''), true)}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>P/VP</span>
                       {manualPVp && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.01} value={manualPVp} onChange={(e) => setManualPVp(e.target.value)} placeholder="Ex: 1.00" hideSpinButtons />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Vacância Física (%)</span>
                       {manualVacancy && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.1} value={manualVacancy} onChange={(e) => setManualVacancy(e.target.value)} placeholder="Ex: 5.0" suffix="%" hideSpinButtons />
                   </div>
                 </div>
@@ -608,17 +610,17 @@ export default function AssetConfigModal({
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Taxa Adm. (%)</span>
                       {manualEtfFee && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.01} value={manualEtfFee} onChange={(e) => setManualEtfFee(e.target.value)} placeholder="Ex: 0.30" suffix="%" hideSpinButtons />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[8px] uppercase font-black text-secondary flex justify-between">
+                    <FieldLabel size="sm" className="flex justify-between">
                       <span>Tracking Error (%)</span>
                       {manualEtfTrackingError && <span className="text-brand font-black text-[7px] uppercase tracking-wider">Manual</span>}
-                    </label>
+                    </FieldLabel>
                     <NumberInput step={0.01} value={manualEtfTrackingError} onChange={(e) => setManualEtfTrackingError(e.target.value)} placeholder="Ex: 1.50" suffix="%" hideSpinButtons />
                   </div>
                 </div>

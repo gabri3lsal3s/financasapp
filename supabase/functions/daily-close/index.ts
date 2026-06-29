@@ -481,15 +481,16 @@ Deno.serve(async (req) => {
         }
 
         // Gravar no histórico de cota diária usando upsert seguro
+        const round2 = (v: number) => Math.round(v * 100) / 100
         await supabase.from('portfolio_share_daily').upsert({
           portfolio_id: portfolio.id,
           rate_date: dateStr,
           share_value: endShareValue,
-          gross_pl: grossPL,
-          net_pl: netPL,
+          gross_pl: round2(grossPL),
+          net_pl: round2(netPL),
           total_shares: totalShares,
-          cash_value: dayValuation.cashValue,
-          invested_cost: dayValuation.investedCostBasis
+          cash_value: round2(dayValuation.cashValue),
+          invested_cost: round2(dayValuation.investedCostBasis)
         }, { onConflict: 'portfolio_id,rate_date' })
 
         // Snapshot Mensal
@@ -555,17 +556,18 @@ Deno.serve(async (req) => {
       const finalGross = finalValuation.totalValue
       const finalCost = cumulativeExternalContribution
 
+      const round2 = (v: number) => Math.round(v * 100) / 100
       await supabase.from('portfolios').update({
         total_shares: totalShares,
         last_share_value: lastShareValue,
         last_close_date: todayStr,
-        last_gross_pl: finalGross,
-        last_net_pl: finalGross - finalCost
+        last_gross_pl: round2(finalGross),
+        last_net_pl: round2(finalGross - finalCost)
       }).eq('id', portfolio.id)
 
       // Atualizar cash_balance no portfólio de acordo com transações
       await supabase.from('portfolios').update({
-        cash_balance: finalValuation.cashValue
+        cash_balance: round2(finalValuation.cashValue)
       }).eq('id', portfolio.id)
 
       processedPortfolios.push({

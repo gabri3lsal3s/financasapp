@@ -296,10 +296,18 @@ export async function runClientSideHistoricalRecalculation(
     endDate: todayStr
   })
 
+  const round2 = (v: number) => Math.round(v * 100) / 100
+
   if (dailyRows.length > 0) {
     const CHUNK_SIZE = 100
     for (let i = 0; i < dailyRows.length; i += CHUNK_SIZE) {
-      const chunk = dailyRows.slice(i, i + CHUNK_SIZE)
+      const chunk = dailyRows.slice(i, i + CHUNK_SIZE).map(row => ({
+        ...row,
+        gross_pl: round2(row.gross_pl),
+        net_pl: round2(row.net_pl),
+        cash_value: round2(row.cash_value),
+        invested_cost: round2(row.invested_cost),
+      }))
       const { error } = await supabase.from('portfolio_share_daily').upsert(chunk, { onConflict: 'portfolio_id,rate_date' })
       if (error) throw error
     }
@@ -312,7 +320,7 @@ export async function runClientSideHistoricalRecalculation(
 
   const lastRow = dailyRows[dailyRows.length - 1]
   const finalGross = lastRow
-    ? lastRow.gross_pl + lastRow.cash_value
+    ? round2(lastRow.gross_pl + lastRow.cash_value)
     : 0
   const finalCost = cumulativeExternalContribution
 
@@ -323,8 +331,8 @@ export async function runClientSideHistoricalRecalculation(
       last_share_value: lastShareValue,
       last_close_date: todayStr,
       last_gross_pl: finalGross,
-      last_net_pl: finalGross - finalCost,
-      cash_balance: lastRow?.cash_value ?? 0
+      last_net_pl: round2(finalGross - finalCost),
+      cash_balance: round2(lastRow?.cash_value ?? 0)
     })
     .eq('id', portfolioId)
 

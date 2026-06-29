@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Card from '@/components/Card'
 import NumberInput from '@/components/NumberInput'
+import FieldLabel from '@/components/FieldLabel'
+import SectionHeader from '@/components/SectionHeader'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
 import toast from 'react-hot-toast'
@@ -104,27 +106,27 @@ export default function QuantPreferencesEditor({
       <div className="space-y-4">
         {/* Limites de Tiers */}
         <div className="space-y-2">
-          <label className="text-[10px] uppercase font-black tracking-wider text-primary border-b border-glass/10 pb-1 block">
+          <SectionHeader as="h4" bordered>
             Fator Limite por Tier de Convicção (% da Classe)
-          </label>
+          </SectionHeader>
           <p className="text-[9px] text-muted leading-relaxed">
             Fator máximo de alocação permitida para um único ativo do respectivo Tier, calculado como percentual da meta da classe macro.
           </p>
           <div className="grid grid-cols-4 gap-2 pt-1">
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Tier S (Ex: 20%)</label>
+              <FieldLabel size="sm">Tier S (Ex: 20%)</FieldLabel>
               <NumberInput min={0} max={100} step={1} value={tierS} onChange={(e) => setTierS(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Tier A (Ex: 10%)</label>
+              <FieldLabel size="sm">Tier A (Ex: 10%)</FieldLabel>
               <NumberInput min={0} max={100} step={1} value={tierA} onChange={(e) => setTierA(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Tier B (Ex: 5%)</label>
+              <FieldLabel size="sm">Tier B (Ex: 5%)</FieldLabel>
               <NumberInput min={0} max={100} step={1} value={tierB} onChange={(e) => setTierB(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Tier C (Ex: 0%)</label>
+              <FieldLabel size="sm">Tier C (Ex: 0%)</FieldLabel>
               <NumberInput min={0} max={100} step={1} value={tierC} onChange={(e) => setTierC(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
           </div>
@@ -132,16 +134,16 @@ export default function QuantPreferencesEditor({
 
         {/* Travas de Concentração Setorial */}
         <div className="space-y-2 pt-2">
-          <label className="text-[10px] uppercase font-black tracking-wider text-primary border-b border-glass/10 pb-1 block">
+          <SectionHeader as="h4" bordered>
             Travas de Concentração Setorial Máxima
-          </label>
+          </SectionHeader>
           <div className="grid grid-cols-2 gap-4 pt-1">
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Teto Setor Ações (%)</label>
+              <FieldLabel size="sm">Teto Setor Ações (%)</FieldLabel>
               <NumberInput min={0} max={100} step={1} value={maxSectorAcoes} onChange={(e) => setMaxSectorAcoes(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Teto Setor FIIs (%)</label>
+              <FieldLabel size="sm">Teto Setor FIIs (%)</FieldLabel>
               <NumberInput min={0} max={100} step={1} value={maxSectorFiis} onChange={(e) => setMaxSectorFiis(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
           </div>
@@ -149,20 +151,20 @@ export default function QuantPreferencesEditor({
 
         {/* Limiares Quantitativos & Obsolescência */}
         <div className="space-y-2 pt-2">
-          <label className="text-[10px] uppercase font-black tracking-wider text-primary border-b border-glass/10 pb-1 block">
+          <SectionHeader as="h4" bordered>
             Limiares de Indicadores & Obsolescência
-          </label>
+          </SectionHeader>
           <div className="grid grid-cols-3 gap-3 pt-1">
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">ROIC Excelente (%)</label>
+              <FieldLabel size="sm">ROIC Excelente (%)</FieldLabel>
               <NumberInput min={0} max={100} step={0.5} value={minRoic} onChange={(e) => setMinRoic(e.target.value)} suffix="%" compact hideSpinButtons />
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Max Dív. Líq/EBITDA</label>
+              <FieldLabel size="sm">Max Dív. Líq/EBITDA</FieldLabel>
               <NumberInput min={0} step={0.1} value={maxDivida} onChange={(e) => setMaxDivida(e.target.value)} compact hideSpinButtons />
             </div>
             <div className="space-y-1">
-              <label className="text-[8px] uppercase font-black text-secondary">Validade Scuttlebutt</label>
+              <FieldLabel size="sm">Validade Scuttlebutt</FieldLabel>
               <Select
                 value={decayDays}
                 onChange={(e) => setDecayDays(e.target.value as '90' | '180' | '365')}

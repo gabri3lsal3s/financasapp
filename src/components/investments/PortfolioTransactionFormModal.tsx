@@ -5,6 +5,7 @@ import ModalFooter from '@/components/ModalFooter'
 import ModalFieldRow from '@/components/ModalFieldRow'
 import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
+import FieldLabel from '@/components/FieldLabel'
 import Select from '@/components/Select'
 import { supabase } from '@/lib/supabase'
 import type { PortfolioTransaction, PortfolioOperationType, PortfolioPricingMode } from '@/types'
@@ -490,7 +491,7 @@ export default function PortfolioTransactionFormModal({
           {!isCashType && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Forma de Precificação</label>
+                <FieldLabel>Forma de Precificação</FieldLabel>
                 <Select
                   value={pricingMode}
                   onChange={handlePricingModeChange}
@@ -502,7 +503,7 @@ export default function PortfolioTransactionFormModal({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Moeda</label>
+                <FieldLabel>Moeda</FieldLabel>
                 <Select
                   value={currency}
                   onChange={handleCurrencyChange}
@@ -523,7 +524,7 @@ export default function PortfolioTransactionFormModal({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">Indexador</label>
+                  <FieldLabel>Indexador</FieldLabel>
                   <Select
                     value={indexer}
                     onChange={(e) => setIndexer(e.target.value as 'none' | 'cdi' | 'selic' | 'ipca')}
@@ -536,7 +537,7 @@ export default function PortfolioTransactionFormModal({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">% do Indexador</label>
+                  <FieldLabel>% do Indexador</FieldLabel>
                   <NumberInput
                     step={0.1}
                     min={0}
@@ -552,7 +553,7 @@ export default function PortfolioTransactionFormModal({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
+                <FieldLabel>Taxa Contratada a.a. (%)</FieldLabel>
                 <NumberInput
                   step={0.0001}
                   min={0}
@@ -567,7 +568,7 @@ export default function PortfolioTransactionFormModal({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">Data de Aporte</label>
+                  <FieldLabel>Data de Aporte</FieldLabel>
                   <Input
                     type="date"
                     value={applicationDate}
@@ -575,7 +576,7 @@ export default function PortfolioTransactionFormModal({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] uppercase font-black text-secondary">Vencimento</label>
+                  <FieldLabel>Vencimento</FieldLabel>
                   <Input
                     type="date"
                     value={maturityDate}

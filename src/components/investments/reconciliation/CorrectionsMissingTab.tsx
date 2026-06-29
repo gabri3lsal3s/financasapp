@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import Select from '@/components/Select'
 import B3ReconciliationGuidance from '@/components/investments/B3ReconciliationGuidance'
 import { PORTFOLIO_OPERATION_OPTIONS } from '@/utils/portfolioOperations'
@@ -168,12 +169,12 @@ export default function CorrectionsMissingTab({
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] font-black text-secondary/50 uppercase tracking-wider">Qtd</span>
                   <div className="w-16">
-                    <Input
-                      type="number"
+                    <NumberInput
                       step="any"
                       value={draft.quantity}
                       onChange={(e) => onUpdateMissingDraft(draft.id, 'quantity', e.target.value)}
                       className="h-7 text-[11px] font-mono font-bold text-right px-1.5 py-0.5"
+                      hideSpinButtons
                     />
                   </div>
                 </div>
@@ -181,12 +182,12 @@ export default function CorrectionsMissingTab({
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] font-black text-secondary/50 uppercase tracking-wider">Preço</span>
                   <div className="w-18">
-                    <Input
-                      type="number"
+                    <NumberInput
                       step="any"
                       value={draft.price}
                       onChange={(e) => onUpdateMissingDraft(draft.id, 'price', e.target.value)}
                       className="h-7 text-[11px] font-mono font-bold text-right px-1.5 py-0.5"
+                      hideSpinButtons
                     />
                   </div>
                 </div>

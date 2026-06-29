@@ -24,7 +24,7 @@
 | Métrica | Valor | Classificação |
 |---------|-------|---------------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **260/260** (29 arquivos) | ✅ |
+| Testes passando | **262/262** (29 arquivos) | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions (`!`) | **20+** em produção | 🔴 Pode causar crash runtime |
@@ -50,6 +50,9 @@
 | 9 | **Motor TWR e Snapshots** — Base de abertura mensal (`cota_abertura` do fechamento anterior), drawdown máximo mensal real e acúmulo de proventos/fluxos dia a dia | portfolioTwrEngine.ts & daily-close/index.ts |
 | 10 | **Correção de Cotação Flatline** — Correção no forward-fill do motor TWR para evitar inicializar lastPrice com o preço de hoje antes da primeira cotação do Yahoo | portfolioTwrEngine.ts & daily-close/index.ts |
 | 11 | **Bug Fix — Select.Item value="" no Radix UI** — Uso de sentinel value `__empty__` para evitar erro de runtime em opções com string vazia | Select.tsx |
+| 12 | **Componentes padronizados: FieldLabel + SectionHeader** — Criação e migração de ~50 labels em 5 arquivos | FieldLabel.tsx, SectionHeader.tsx, AssetConfigModal.tsx, PortfolioTransactionFormModal.tsx, QuantPreferencesEditor.tsx |
+| 13 | **NumberInput padronizado em 7 arquivos** — Migração de `Input type="number"` → `NumberInput` com spin buttons | ExpenseFormModal, CardFormModal, CycleConfigModal, LimitSuggestionsModal, DebtFormModal, BillPaymentModal, CorrectionsMissingTab |
+| 14 | **Overflow DECIMAL(15,2) no motor de rentabilidade** — Migration para DECIMAL(18,2) + arredondamento defensivo no código | portfolioTwrEngine.ts, portfolioHistoricalRecalc.ts, daily-close/index.ts, 20260629_fix_numeric_overflow.sql |
 
 ### 1.2 Princípios da Arquitetura (Regras do Projeto)
 

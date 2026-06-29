@@ -554,12 +554,15 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Interação robusta FloatingCalculator & ScrollToTop** | Arrastar no touch, gestos de roda de scroll e callbacks robustos | Melhoria | ✅ |
 | — | **Saneamento de types any em cache e reconciliação** | Substituição de explicit any por tipos fortemente tipados | Melhoria | ✅ |
 | — | **Bug Fix — Select.Item value="" no Radix UI** | Uso de sentinel value `__empty__` no Select.tsx para evitar que opções com `value=""` causem erro no Radix Select.Item que rejeita strings vazias | Bug Fix | ✅ |
+| — | **Componentes padronizados: FieldLabel e SectionHeader** | Criação de `FieldLabel.tsx` (uppercase, font-black, text-secondary) e `SectionHeader.tsx` (duas APIs: children+as+bordered e title+description+action). Migração de ~50 labels raw em 5 arquivos | Melhoria | ✅ |
+| — | **NumberInput padronizado em todo o app** | Migração de `Input type="number"` para `NumberInput` com spin buttons em 7 arquivos (ExpenseFormModal, CardFormModal, CycleConfigModal, LimitSuggestionsModal, DebtFormModal, BillPaymentModal, CorrectionsMissingTab) | Melhoria | ✅ |
+| — | **Overflow DECIMAL(15,2) no motor de rentabilidade** | Aumento de precisão de `DECIMAL(15,2)` para `DECIMAL(18,2)` em 12 colunas (migration). Adição de arredondamento defensivo (`round2`) antes do upsert em `portfolioTwrEngine.ts`, `portfolioHistoricalRecalc.ts` e `daily-close/index.ts` | Bug Fix | ✅ |
 
 ### Validação final
 
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
-- ✅ Testes: 259/259 passando (29 arquivos)
+- ✅ Testes: 262/262 passando (29 arquivos)
 
 ### Melhorias adicionais (pós-refatoração)
 
