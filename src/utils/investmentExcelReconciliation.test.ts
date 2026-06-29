@@ -589,27 +589,6 @@ describe('Integração: B3 → Reconciliação → Cash Offsets → TWR', () => 
     expect(missingIncome[0]?.total_value).toBe(25)
 
     // 4. Simular importação: gerar transações + offsets (como faz o modal)
-    const definitions: PortfolioAssetDefinition[] = [
-      {
-        id: 'def-caixa',
-        portfolio_id: 'p1',
-        ticker: 'CAIXA',
-        pricing_mode: 'cash',
-        is_b3_linked: false,
-        applied_amount: null,
-        contract_rate: null,
-        indexer: 'none',
-        indexer_percent: 100,
-        maturity_date: null,
-        manual_current_value: null,
-        manual_value_updated_at: null,
-        tax_exempt: false,
-        is_treasury: false,
-        application_date: null,
-        created_at: '',
-        updated_at: '',
-      },
-    ]
 
     // Build combined transaction list (as the modal would)
     let combinedTxs = [...existing]

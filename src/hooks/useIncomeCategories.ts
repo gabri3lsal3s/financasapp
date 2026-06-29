@@ -138,7 +138,7 @@ export function useIncomeCategories() {
         return { error: errorMessage }
       }
     },
-    [setData, table],
+    [setData, table, user?.id],
   )
 
   return {

@@ -3,6 +3,7 @@ import Modal from '@/components/Modal'
 import { useScuttlebutt } from '@/hooks/useScuttlebutt'
 import { calculateScuttlebuttScore } from '@/utils/quantamentalEngine'
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Pencil, Trash2, Plus } from 'lucide-react'
+import { formatNumberBR } from '@/utils/format'
 
 interface ScuttlebuttEvaluationModalProps {
   isOpen: boolean
@@ -75,7 +76,7 @@ export default function ScuttlebuttEvaluationModal({
           <div className="space-y-1">
             <h4 className="text-xs font-black text-secondary uppercase tracking-widest">Score Qualitativo Atual</h4>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-primary font-mono">{currentScore.toFixed(1)}</span>
+              <span className="text-3xl font-black text-primary font-mono">{formatNumberBR(currentScore, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
               <span className="text-xs text-secondary font-bold">/ 100</span>
             </div>
           </div>
@@ -210,7 +211,7 @@ export default function ScuttlebuttEvaluationModal({
                                 onClick={() => saveAnswer(question.id, 'yes')}
                                 className={`h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
                                   currentAnswer === 'yes'
-                                    ? 'bg-income text-[#0c2417] shadow-lg shadow-income/10 scale-105'
+                                    ? 'bg-income text-income-foreground shadow-lg shadow-income/10 scale-105'
                                     : 'bg-glass/10 text-secondary hover:bg-glass/20 hover:text-primary'
                                 }`}
                               >
@@ -224,7 +225,7 @@ export default function ScuttlebuttEvaluationModal({
                                 onClick={() => saveAnswer(question.id, 'no')}
                                 className={`h-7 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
                                   currentAnswer === 'no'
-                                    ? 'bg-expense text-[#3a0808] shadow-lg shadow-expense/10 scale-105'
+                                    ? 'bg-expense text-expense-foreground shadow-lg shadow-expense/10 scale-105'
                                     : 'bg-glass/10 text-secondary hover:bg-glass/20 hover:text-primary'
                                 }`}
                               >

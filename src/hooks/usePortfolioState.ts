@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
 import { getAssetPrices } from '@/services/priceService'
-import { loadIndexRatesFromDb } from '@/services/indexRatesFetcher'
+import { loadIndexRatesFromDb, loadVnaFromDb } from '@/services/indexRatesFetcher'
 import { computePositions, type ValuedPosition } from '@/utils/portfolioCalculations'
 import { calculateLedgerCashBalance } from '@/utils/cashBalanceApplication'
 import type {
@@ -242,15 +242,17 @@ export function usePortfolioState() {
       const startDate = finalTxs.map(t => t.date).sort()[0] || new Date().toISOString().slice(0, 10)
       const todayStr = new Date().toISOString().slice(0, 10)
       
-      const [cdiRates, selicRates] = await Promise.all([
+      const [cdiRates, selicRates, ipcaRates, vnaMap] = await Promise.all([
         loadIndexRatesFromDb('cdi', startDate, todayStr),
-        loadIndexRatesFromDb('selic', startDate, todayStr)
+        loadIndexRatesFromDb('selic', startDate, todayStr),
+        loadIndexRatesFromDb('ipca', startDate, todayStr),
+        loadVnaFromDb(startDate, todayStr)
       ])
 
       const indexRates = {
         cdi: cdiRates,
         selic: selicRates,
-        ipca: {}
+        ipca: ipcaRates
       }
 
       // 5. Calcular posições atuais locais de forma dinâmica
@@ -273,7 +275,7 @@ export function usePortfolioState() {
         prices,
         calculatedCash,
         indexRates,
-        {},
+        vnaMap,
         todayStr
       )
 
@@ -464,6 +466,7 @@ export function usePortfolioState() {
           priceMap: {},
           pricesToday: pricesTodayMap,
           indexRates,
+          vnaMap,
           startDate: firstTxDate,
           endDate: todayStr
         })

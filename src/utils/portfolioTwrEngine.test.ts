@@ -219,6 +219,20 @@ describe('calculateSnapshotValuation', () => {
     const result = calculateSnapshotValuation(txs, defs, priceMap, pricesToday, {}, {}, '2026-06-05')
     expect(result.investedValue).toBeCloseTo(400, 4) // 10 * 40 (uses June 1 price)
   })
+
+  it('falls back to average purchase price when date is before first quote', () => {
+    const txs = [
+      tx({ date: '2026-06-01', ticker: 'WEGE3', operation_type: 'buy', quantity: 10, price: 40 }),
+    ]
+    const defs = [def({ ticker: 'WEGE3', pricing_mode: 'market' })]
+    // First price quote starts on June 10th (45), but we ask for June 5th
+    const priceMap = { WEGE3: { '2026-06-10': 45 } }
+    const pricesToday = { WEGE3: 50 }
+
+    const result = calculateSnapshotValuation(txs, defs, priceMap, pricesToday, {}, {}, '2026-06-05')
+    // Should fall back to purchase price (40) because June 5 is before June 10 (first quote)
+    expect(result.investedValue).toBeCloseTo(400, 4) // 10 * 40
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -350,6 +364,59 @@ describe('computeDailyShareHistory', () => {
     for (const row of result.dailyRows) {
       expect(row.share_value).toBeCloseTo(1.0, 4)
     }
+  })
+
+  it('correctly uses the previous month\'s closing cota for cota_abertura, tracks max drawdown, and accumulates dividends', () => {
+    const txs = [
+      tx({ id: 'tx-1', date: '2026-06-01', ticker: 'CAIXA', operation_type: 'buy', quantity: 1, price: 1000 }),
+      tx({ id: 'tx-2', date: '2026-06-15', ticker: 'WEGE3', operation_type: 'buy', quantity: 10, price: 50 }),
+      tx({ id: 'tx-3', date: '2026-06-15', ticker: 'CAIXA', operation_type: 'sell', quantity: 0.5, price: 1000 }),
+      tx({ id: 'tx-div', date: '2026-07-15', ticker: 'WEGE3', operation_type: 'dividend', quantity: 10, price: 5 }), // $50 dividend
+    ]
+    const defs = [
+      def({ ticker: 'CAIXA', pricing_mode: 'cash' }),
+      def({ ticker: 'WEGE3', pricing_mode: 'market' }),
+    ]
+    const priceMap = {
+      WEGE3: {
+        '2026-06-01': 50,
+        '2026-06-15': 50,
+        '2026-06-30': 60,
+        '2026-07-01': 60,
+        '2026-07-20': 40,
+        '2026-07-31': 70,
+      }
+    }
+    const pricesToday = { WEGE3: 70 }
+
+    const result = computeDailyShareHistory({
+      portfolioId: 'port-1',
+      transactions: txs,
+      definitions: defs,
+      priceMap,
+      pricesToday,
+      indexRates: {},
+      startDate: '2026-06-01',
+      endDate: '2026-07-31',
+    })
+
+    expect(result.periodSnapshots).toHaveLength(2)
+    
+    const snapshotJune = result.periodSnapshots[0]
+    expect(snapshotJune.period_key).toBe('2026-06')
+    expect(snapshotJune.cota_abertura).toBe(1.0)
+    expect(snapshotJune.cota_fechamento).toBeCloseTo(1.1, 4)
+    expect(snapshotJune.period_return).toBeCloseTo(0.1, 4) // +10%
+
+    const snapshotJuly = result.periodSnapshots[1]
+    expect(snapshotJuly.period_key).toBe('2026-07')
+    expect(snapshotJuly.cota_abertura).toBeCloseTo(1.1, 4)
+    expect(snapshotJuly.cota_fechamento).toBeCloseTo(1.2, 4)
+    expect(snapshotJuly.period_return).toBeCloseTo((1.2 / 1.1) - 1, 4)
+
+    expect(snapshotJuly.drawdown_maximo).toBeCloseTo((1.1 - 0.9) / 1.1, 4)
+
+    expect(snapshotJuly.dividendos_recebidos).toBe(50)
   })
 })
 

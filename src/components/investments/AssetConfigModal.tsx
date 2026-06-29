@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/Modal'
 import NumberInput from '@/components/NumberInput'
@@ -8,6 +8,7 @@ import Button from '@/components/Button'
 import toast from 'react-hot-toast'
 import { logger } from '@/utils/logger'
 import { getAssetMetadata } from '@/utils/assetClassifier'
+import { formatNumberWithTwoDecimalsBR, formatDateTime } from '@/utils/format'
 
 interface AssetConfigModalProps {
   isOpen: boolean
@@ -66,14 +67,7 @@ export default function AssetConfigModal({
   
   const showFundamentalsOverride = (isStock || isFii || isEtf) && pricingMode === 'market'
 
-  useEffect(() => {
-    if (isOpen && ticker && portfolioId) {
-      void loadConfig()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, ticker, portfolioId])
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     setLoading(true)
     try {
       // 1. Carregar definição do ativo
@@ -166,7 +160,13 @@ export default function AssetConfigModal({
     } finally {
       setLoading(false)
     }
-  }
+  }, [portfolioId, ticker])
+
+  useEffect(() => {
+    if (isOpen && ticker && portfolioId) {
+      void loadConfig()
+    }
+  }, [isOpen, ticker, portfolioId, loadConfig])
 
   const renderCompareWarning = (
     manualVal: string,
@@ -182,8 +182,8 @@ export default function AssetConfigModal({
     
     if (Math.abs(numManual - numApi) > 0.01) {
       return (
-        <div className="text-[8px] text-[#ffaa00] font-black mt-1 flex items-center justify-between bg-[#ffaa00]/10 p-1 px-1.5 rounded-lg border border-[#ffaa00]/20 animate-pulse">
-          <span>⚠️ Contrasta com a API ({apiVal.toFixed(2)}{isPercentage ? '%' : ''})</span>
+        <div className="text-[8px] text-warning font-black mt-1 flex items-center justify-between bg-warning/10 p-1 px-1.5 rounded-lg border border-warning/20 animate-pulse">
+          <span>⚠️ Contrasta com a API ({formatNumberWithTwoDecimalsBR(apiVal)}{isPercentage ? '%' : ''})</span>
           <button 
             type="button" 
             onClick={onReset} 
@@ -196,7 +196,7 @@ export default function AssetConfigModal({
     }
     return (
       <div className="text-[8px] text-income font-black mt-1 block">
-        ✓ Alinhado com a API ({apiVal.toFixed(2)}{isPercentage ? '%' : ''})
+        ✓ Alinhado com a API ({formatNumberWithTwoDecimalsBR(apiVal)}{isPercentage ? '%' : ''})
       </div>
     )
   }
@@ -487,10 +487,10 @@ export default function AssetConfigModal({
               </p>
               {apiCache?.last_updated ? (
                 <div className="text-[8px] font-black text-income uppercase tracking-wider bg-income/10 px-2.5 py-1 rounded-lg w-fit">
-                  Sincronizado automaticamente via API em: {new Date(apiCache.last_updated).toLocaleString('pt-BR')}
+                  Sincronizado automaticamente via API em: {formatDateTime(apiCache.last_updated)}
                 </div>
               ) : (
-                <div className="text-[8px] font-black text-[#ffaa00] uppercase tracking-wider bg-[#ffaa00]/10 px-2.5 py-1 rounded-lg w-fit">
+                <div className="text-[8px] font-black text-warning uppercase tracking-wider bg-warning/10 px-2.5 py-1 rounded-lg w-fit">
                   Sem dados automáticos da API. Recomenda-se preenchimento manual dos overrides abaixo.
                 </div>
               )}

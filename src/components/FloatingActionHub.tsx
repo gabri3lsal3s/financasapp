@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -55,7 +55,7 @@ function ScrollToTopButton() {
     scrollToTop()
   }
 
-  const checkScroll = () => {
+  const checkScroll = useCallback(() => {
     if (isDraggingRef.current) return
 
     const scrollTop = window.scrollY || document.documentElement.scrollTop
@@ -75,9 +75,27 @@ function ScrollToTopButton() {
     }
     isAtBottomRef.current = finalAtBottom
     setIsAtBottom(finalAtBottom)
-  }
+  }, [])
 
-  const scrollToTop = () => {
+  const triggerHaptic = useCallback((type: 'start' | 'active' | 'cancel' | 'trigger') => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        if (type === 'start') {
+          navigator.vibrate(5)
+        } else if (type === 'active') {
+          navigator.vibrate(15)
+        } else if (type === 'cancel') {
+          navigator.vibrate([5, 30, 5])
+        } else if (type === 'trigger') {
+          navigator.vibrate([12, 20, 12])
+        }
+      }
+    } catch (err) {
+      // Ignora falhas da API de vibração
+    }
+  }, [])
+
+  const scrollToTop = useCallback(() => {
     if (isAnimatingRef.current) return
     isAnimatingRef.current = true
     triggerHaptic('trigger')
@@ -127,7 +145,7 @@ function ScrollToTopButton() {
     }
 
     requestAnimationFrame(animate)
-  }
+  }, [triggerHaptic])
 
   // Verifica se o usuário chegou no final da página
   useEffect(() => {
@@ -139,25 +157,7 @@ function ScrollToTopButton() {
       window.removeEventListener('scroll', checkScroll)
       window.removeEventListener('resize', checkScroll)
     }
-  }, [])
-
-  const triggerHaptic = (type: 'start' | 'active' | 'cancel' | 'trigger') => {
-    try {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        if (type === 'start') {
-          navigator.vibrate(5)
-        } else if (type === 'active') {
-          navigator.vibrate(15)
-        } else if (type === 'cancel') {
-          navigator.vibrate([5, 30, 5])
-        } else if (type === 'trigger') {
-          navigator.vibrate([12, 20, 12])
-        }
-      }
-    } catch (err) {
-      // Ignora falhas da API de vibração
-    }
-  }
+  }, [checkScroll])
 
   // Monitora as transições do pullStage para disparar haptics multiestágio
   useEffect(() => {
@@ -176,7 +176,7 @@ function ScrollToTopButton() {
       }
       wasStageRef.current = curr
     }
-  }, [pullStage])
+  }, [pullStage, triggerHaptic])
 
   // Reseta estados quando o usuário sai do rodapé
   useEffect(() => {
@@ -322,7 +322,7 @@ function ScrollToTopButton() {
       window.removeEventListener('touchend', handleTouchEnd)
       window.removeEventListener('touchcancel', handleTouchCancel)
     }
-  }, [])
+  }, [scrollToTop, checkScroll])
 
   // Gerencia eventos de wheel (desktop)
   useEffect(() => {
@@ -414,7 +414,7 @@ function ScrollToTopButton() {
         clearTimeout(wheelTimeoutRef.current)
       }
     }
-  }, [isAtBottom])
+  }, [isAtBottom, scrollToTop, checkScroll])
 
   // Sincroniza a propriedade CSS de overscroll e a classe de interação no layout raiz
   useEffect(() => {

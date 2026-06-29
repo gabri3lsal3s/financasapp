@@ -89,7 +89,7 @@ Para evitar redundância e garantir consistência estética extrema (em conformi
 
 | Componente | Propósito |
 |-----------|-----------|
-| `TransactionCard.tsx` | Unifica a exibição de despesas e rendas. Controla badges de categoria com cor dinâmica, representação de parcelamento (`1/12`), badges de faturas de cartão de crédito e indicador animado de carregamento para IDs `offline-`. |
+| `TransactionCard.tsx` | Unifica a exibição de despesas e rendas. Controla badges de categoria com cor dinâmica, representação de parcelamento (`1/12`), badges de faturas de cartão de crédito e indicador animado de carregamento para IDs `offline-`. **Otimização:** Usa `useMediaQuery` para renderizar apenas o layout ativo (mobile compacto ou desktop com colunas), eliminando a renderização duplicada de ambos os layouts no DOM. |
 | `TransactionRow.tsx` | Sub-componente reutilizável extraído de `TransactionCard`. Usado em `CategoryDetailModal` e `Dashboard` para linhas de transação consistentes. |
 
 ### 2.2 Sub-componentes de Formulário de Transação (Item 7)
@@ -133,16 +133,26 @@ Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModa
 | `Layout.tsx` | Layout responsivo: mobile bottom nav (5 tabs + sheet "Mais"), desktop sidebar colapsável |
 | `IconButton.tsx` | Botão de ícone padronizado — usa `@/components/Button` custom com `size="icon"` |
 
-### 2.7 Botões
+### 2.7 Componentes UI — Arquitetura de Camadas
 
-O sistema de botões segue um padrão **wrapper → shadcn/ui**, auditado e consolidado (Item 8):
+O sistema de componentes segue uma arquitetura de duas camadas:
 
-| Custom (`src/components/`) | shadcn/ui (`src/components/ui/`) | Padrão |
-|---------------------------|----------------------------------|--------|
-| `Button.tsx` | `ui/button.tsx` | Wrapper com `variantMap` + `sizeMap` (inclui `size="icon"`) |
-| `Card.tsx` | `ui/card.tsx` | Wrapper com glass + clickable states |
-| `Input.tsx` | `ui/input.tsx` | Wrapper com label + error + DatePicker (sem `as any`) |
-| `IconButton.tsx` | — | Usa `Button` custom com `size="icon"` diretamente |
+**Camada 1 — Primitivos (`src/components/ui/`)**: Componentes base do shadcn/ui, com funcionalidades estendidas:
+- `ui/button.tsx` — Aceita `fullWidth` prop para largura total
+- `ui/card.tsx` — Aceita `onClick` com suporte a teclado (Enter/Space) e acessibilidade (`role="button"`, `tabIndex`)
+- `ui/input.tsx` — Primitivo puro (apenas `<input>` estilizado)
+- `ui/skeleton.tsx` — Contém TODAS as variantes de skeleton (texto, card, accordion, KPI, página)
+
+**Camada 2 — Domínio (`src/components/`)**: Componentes de domínio que usam os primitivos:
+| Componente | Primitivo | Funcionalidades adicionadas |
+|-----------|-----------|------------------------------|
+| `Button.tsx` | `ui/button.tsx` | Mapeamento de variantes (`primary`→`default`, `danger`→`destructive`), `fullWidth` delegado |
+| `Card.tsx` | `ui/card.tsx` | Padding padrão `p-4`, transições `hover:border-glass-strong hover:shadow-md` |
+| `Input.tsx` | `ui/input.tsx` | Label + error + helperText + integração com `DatePicker` para `type="date"` |
+| `IconButton.tsx` | `Button` | `rounded-full` + mapeamento de variantes visuais (`neutral`, `danger`, `success`) |
+| `Skeleton.tsx` | — | Re-exports puro de `ui/skeleton.tsx` (compatibilidade retroativa) |
+
+**Regra:** Para novo código, prefira importar de `@/components/ui/` quando possível. Os wrappers em `@/components/` são mantidos para compatibilidade com código existente.
 
 ---
 
@@ -396,7 +406,7 @@ Orquestração em `src/services/returns/closePipeline.ts` (cálculo) e `src/serv
 | Mercado (RV) | `priceService.ts` | Yahoo + guard de spike 50% → Last Known Value |
 | RF / Tesouro na curva | `fixedIncomeValuation.ts` | Pré: 252 DU; IPCA+: fator VNA; lotes FIFO |
 | IR por lote | `taxProvision.ts` | Tabela regressiva / 15% mercado |
-| TWR mensal | `periodReturns.ts` | `Rm = cota_fech / cota_abertura - 1` |
+| TWR mensal | `portfolioTwrEngine.ts` | `Rm = (cota_fech / cota_abertura) - 1` (com `cota_abertura` obtida do fechamento do mês anterior) |
 
 ### Tabelas (migration `20260602140000_portfolio_returns_engine.sql`)
 
@@ -539,6 +549,11 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **`console.debug` → `logger.debug` em priceService.ts** | Consistência | ✅ |
 | — | **`key={index}` → chaves estáveis em DatePicker.tsx e CreditCardTimeline.tsx** | Correção | ✅ |
 | — | **Blank line extra entre imports em Reports.tsx removida** | Formatação | ✅ |
+| — | **Compatibilidade com "IMOBILIÁRIO"** | Suporte unificado de FIIs em acentos e classificação | Melhoria | ✅ |
+| — | **Saneamento total de hooks e dependências** | Correção de React Hook useCallback e useEffect deps no linter | Melhoria | ✅ |
+| — | **Interação robusta FloatingCalculator & ScrollToTop** | Arrastar no touch, gestos de roda de scroll e callbacks robustos | Melhoria | ✅ |
+| — | **Saneamento de types any em cache e reconciliação** | Substituição de explicit any por tipos fortemente tipados | Melhoria | ✅ |
+| — | **Bug Fix — Select.Item value="" no Radix UI** | Uso de sentinel value `__empty__` no Select.tsx para evitar que opções com `value=""` causem erro no Radix Select.Item que rejeita strings vazias | Bug Fix | ✅ |
 
 ### Validação final
 
@@ -558,6 +573,11 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - **Consistência — Logger**: `console.debug()` em `priceService.ts` substituído por `logger.debug()`.
 - **Bug Fix — React keys**: `key={index}` removido em `DatePicker.tsx` (months + days) e `CreditCardTimeline.tsx` — chaves estáveis únicas agora.
 - **Melhoria — Thema system**: `ErrorBoundary.tsx` — inline style substituído por classe `text-expense`.
+- **Compatibilidade Completa de FIIs ("IMOBILIÁRIO")**: Unificação de classificação e regras de negócios no `assetClassifier.ts` e no motor quantamental para suportar de forma robusta e transparente o termo com ou sem acento ("IMOBILIÁRIO" / "IMOBILIARIO").
+- **Saneamento Total do Linter**: Correção de todas as dependências ausentes/redundantes em hooks React, remoção de imports e variáveis redundantes em arquivos de testes e produção, e substituição de tipos `any` genéricos por tipos fortes nos serviços de investimentos (como `Omit<PortfolioTransaction, 'created_at'>[]` na inserção de lote), garantindo build 100% limpo com `--max-warnings 0`.
+- **Aprimoramento de Controles Fáceis na UI**:
+  - Correção no FloatingCalculator para arrastar em telas touch e impedir comportamentos inadequados de scroll do navegador.
+  - Implementação de um manipulador de interrupção de scroll no ScrollToTopButton sob gestos físicos (wheel, touchstart, mousedown, keydown, etc.) com interrupção instantânea para uma experiência fluida.
 
 ---
 

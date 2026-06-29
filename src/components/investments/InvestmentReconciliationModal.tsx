@@ -165,8 +165,7 @@ export default function InvestmentReconciliationModal({
     if (isOpen) {
       resetAllState()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+  }, [isOpen, resetAllState])
 
   // ── Render ──
 

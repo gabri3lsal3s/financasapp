@@ -228,7 +228,6 @@ export function useSupabaseTable<T extends { id: string }>(
   // NÃO causa loop infinito.
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load])
 
   useEffect(() => {

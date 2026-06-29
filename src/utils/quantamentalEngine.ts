@@ -307,7 +307,7 @@ export function getQuantitativeScoreDetails(
     let multPassed: 'yes' | 'no' = 'yes'
     let multPoints = 20
     let multValStr = 'Sem histórico (N/A)'
-    let multDesc = 'Alvo: Múltiplo atual (P/L ou EV/EBITDA) <= média de 5 anos'
+    const multDesc = 'Alvo: Múltiplo atual (P/L ou EV/EBITDA) <= média de 5 anos'
 
     if (pe !== null && peAvg !== null) {
       multValStr = `P/L: ${pe.toFixed(2)} (Média 5a: ${peAvg.toFixed(2)})`
@@ -548,8 +548,10 @@ export interface SmartAporteSuggestion {
 }
 
 export function simulateSmartAporte(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   positions: any[],
   preferences: PortfolioQuantPreferences,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   groupTargets: any[],
   totalValue: number,
   aporteAmount: number
@@ -664,7 +666,7 @@ export function simulateSmartAporte(
       const absoluteLimitPct = pos.absolute_limit || 100
       const currentValBrl = pos.currency === 'USD' ? pos.total_value * pos.usd_rate : pos.total_value
       const maxValBrlAfterAporte = (absoluteLimitPct / 100) * (totalValue + aporteAmount)
-      let roomBrl = maxValBrlAfterAporte - currentValBrl
+      const roomBrl = maxValBrlAfterAporte - currentValBrl
 
       if (roomBrl <= 0) {
         routingLog.push(`- ${ticker}: Sem margem financeira restante para o limite absoluto (${absoluteLimitPct.toFixed(2)}%).`)
@@ -690,7 +692,7 @@ export function simulateSmartAporte(
       }
 
       // O orçamento disponível para este ativo é o menor entre o aporte restante, roomBrl e sectorRoomBrl
-      let budgetBrl = Math.min(remainingAporte, roomBrl, sectorRoomBrl)
+      const budgetBrl = Math.min(remainingAporte, roomBrl, sectorRoomBrl)
 
       // Quantidade inteira de cotas/ações a comprar
       const quantity = Math.floor(budgetBrl / priceBrl)

@@ -179,3 +179,8 @@ export function formatMonthShort(month: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
+export function formatDateTime(date: string | Date): string {
+  const dateObj = typeof date === 'string' ? parseISO(date) : date
+  return dateFormat(dateObj, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+}
+

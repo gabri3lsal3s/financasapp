@@ -1,19 +1,42 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Quando fornecido, o card se comporta como botão (cursor pointer, keyboard accessible). */
+  onClick?: React.MouseEventHandler<HTMLDivElement> | (() => void)
+}
+
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      'rounded-2xl border border-glass surface-glass text-card-foreground shadow-sm motion-standard',
-      className
-    )}
-    {...props}
-  />
-))
+  CardProps
+>(({ className, onClick, onKeyDown, role, tabIndex, ...props }, ref) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onClick) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onClick(event as unknown as React.MouseEvent<HTMLDivElement>)
+    }
+    onKeyDown?.(event)
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        'rounded-2xl border border-glass surface-glass text-card-foreground shadow-sm motion-standard',
+        onClick
+          ? 'cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] hover:scale-[1.015]'
+          : '',
+        className
+      )}
+      onClick={onClick}
+      onKeyDown={onClick ? handleKeyDown : onKeyDown}
+      role={onClick ? (role ?? 'button') : role}
+      tabIndex={onClick ? (tabIndex ?? 0) : tabIndex}
+      {...props}
+    />
+  )
+})
 Card.displayName = 'Card'
 
 const CardHeader = React.forwardRef<

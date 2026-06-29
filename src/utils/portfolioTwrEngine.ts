@@ -237,7 +237,7 @@ export function calculateSnapshotValuation(
         dayPrice = tickerPrices[asOfDate]
       } else if (tickerPrices) {
         const priceDates = Object.keys(tickerPrices).sort()
-        let lastPrice = pricesToday[ticker] ?? 0
+        let lastPrice = 0
         for (const pd of priceDates) {
           if (pd > asOfDate) break
           lastPrice = tickerPrices[pd]
@@ -322,7 +322,9 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
   const dailyRows: DailyShareRow[] = []
   const periodSnapshots: PeriodSnapshotRow[] = []    // Track cumulative cash flow per month for period snapshots
   let monthlyCashFlow = 0
+  let monthlyDividends = 0
   let peakShareValue = 1.0
+  let monthlyMaxDrawdown = 0
 
   for (const dateStr of dateRange) {
     const dayTxs = transactions.filter(t => t.date === dateStr)
@@ -356,6 +358,14 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
     cumulativeExternalContribution += cashFlow
     monthlyCashFlow += cashFlow
 
+    let dayDividends = 0
+    for (const tx of dayTxs) {
+      if (['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type)) {
+        dayDividends += Number(tx.quantity) * Number(tx.price)
+      }
+    }
+    monthlyDividends += dayDividends
+
     const dayValuation = calculateSnapshotValuation(
       transactions,
       definitions,
@@ -384,6 +394,11 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
     // Track drawdown: update peak and calculate current drawdown
     if (endShareValue > peakShareValue) {
       peakShareValue = endShareValue
+    } else if (peakShareValue > 0) {
+      const currentDrawdown = (peakShareValue - endShareValue) / peakShareValue
+      if (currentDrawdown > monthlyMaxDrawdown) {
+        monthlyMaxDrawdown = currentDrawdown
+      }
     }
 
     dailyRows.push({
@@ -404,8 +419,12 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
     if (isLastDayOfMonth) {
       const periodKey = `${y}-${String(m).padStart(2, '0')}`
       const startMonthDate = `${y}-${String(m).padStart(2, '0')}-01`
-      const firstCota = dailyRows.find(row => row.rate_date >= startMonthDate)
-      const cotaAbertura = firstCota?.share_value ? Number(firstCota.share_value) : 1.0
+      
+      // Abertura do mês = cota de fechamento do mês anterior (ou 1.0 se for o primeiro mês)
+      const lastMonthRows = dailyRows.filter(row => row.rate_date < startMonthDate)
+      const cotaAbertura = lastMonthRows.length > 0 
+        ? Number(lastMonthRows[lastMonthRows.length - 1].share_value) 
+        : 1.0
       const periodReturn = cotaAbertura > 0 ? (endShareValue / cotaAbertura) - 1 : 0
 
       periodSnapshots.push({
@@ -416,16 +435,18 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
         cota_fechamento: endShareValue,
         somatorio_aportes: monthlyCashFlow > 0 ? monthlyCashFlow : 0,
         somatorio_resgates: monthlyCashFlow < 0 ? Math.abs(monthlyCashFlow) : 0,
-        dividendos_recebidos: 0,
-        drawdown_maximo: peakShareValue > 0 ? (peakShareValue - endShareValue) / peakShareValue : 0,
+        dividendos_recebidos: monthlyDividends,
+        drawdown_maximo: monthlyMaxDrawdown,
         period_return: periodReturn
       })
 
-      // Reset peak for next month
+      // Reset peak and max drawdown for next month
       peakShareValue = endShareValue
+      monthlyMaxDrawdown = 0
 
-      // Reset monthly accumulator for next month
+      // Reset monthly accumulators for next month
       monthlyCashFlow = 0
+      monthlyDividends = 0
     }
   }
 

@@ -142,7 +142,7 @@ export function useCategories() {
         return { error: errorMessage }
       }
     },
-    [setData, table],
+    [setData, table, user?.id],
   )
 
   return {

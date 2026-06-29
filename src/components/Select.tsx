@@ -1,8 +1,13 @@
-import { forwardRef, useState, useCallback, useRef } from 'react'
+import { forwardRef, useState, useCallback, useRef, useMemo } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Z_INDEX } from '@/constants/zIndex'
+
+// Valor sentinela para substituir strings vazias em Select.Item,
+// já que o Radix UI não permite value="" em Select.Item.
+// A conversão de/para string vazia é feita internamente.
+const EMPTY_SENTINEL = '__empty__'
 
 interface SelectProps {
   label?: string
@@ -24,6 +29,17 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
     const [openUpward, setOpenUpward] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const triggerRef = useRef<HTMLButtonElement>(null)
+
+    // Sanitiza as opções: transforma value="" em EMPTY_SENTINEL
+    // pois Radix UI rejeita value="" em Select.Item.
+    const sanitizedOptions = useMemo(
+      () =>
+        options.map((opt) => ({
+          ...opt,
+          value: opt.value === '' ? EMPTY_SENTINEL : opt.value,
+        })),
+      [options],
+    )
 
     const selectedOption = options.find((opt) => opt.value === value)
 
@@ -57,7 +73,11 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
 
         <SelectPrimitive.Root
           value={value}
-          onValueChange={(val) => onChange({ target: { value: val, name } })}
+          onValueChange={(val) => {
+            // Converte o sentinela de volta para string vazia
+            const actualValue = val === EMPTY_SENTINEL ? '' : val
+            onChange({ target: { value: actualValue, name } })
+          }}
           open={isOpen}
           onOpenChange={handleOpenChange}
           disabled={disabled}
@@ -126,8 +146,11 @@ const Select = forwardRef<HTMLDivElement, SelectProps>(
                       Nenhuma opção disponível
                     </div>
                   ) : (
-                    options.map((option) => {
-                      const isSelected = option.value === value
+                    sanitizedOptions.map((option) => {
+                      // Determina se é a opção selecionada comparando com o value original
+                      const originalValue = option.value === EMPTY_SENTINEL ? '' : option.value
+                      const isSelected = originalValue === value
+
                       return (
                         <SelectPrimitive.Item
                           key={option.value}

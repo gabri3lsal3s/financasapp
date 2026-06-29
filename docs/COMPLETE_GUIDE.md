@@ -754,7 +754,7 @@ npm run preview   # Preview do build
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **259/259** (29 arquivos) |
+| Testes passando | **260/260** (29 arquivos) |
 | UI Guardrails | **0 violações** |
 | `as any` em produção | **0** |
 | `catch(err: any)` | **0** |

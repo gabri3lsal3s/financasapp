@@ -99,7 +99,7 @@ export function calculateFixedIncomeValue(params: FixedIncomeParams): number {
         const rawRate = indexRates[dateStr] !== undefined ? indexRates[dateStr] : annualToDailyRate(10.75)
         const dailyIndexerRate = rawRate * (indexerPercent / 100)
         
-        factor *= (1 + dailyIndexerRate + spreadDaily)
+        factor *= (1 + dailyIndexerRate) * (1 + spreadDaily)
       }
       curDate.setDate(curDate.getDate() + 1)
     }
@@ -126,13 +126,14 @@ interface LotBasedParams {
   asOfDate: string
   indexRates: Record<string, number>
   vnaToday?: number
+  returnNet?: boolean
 }
 
 /**
  * Calcula o valor na curva de Renda Fixa agrupado por lotes/transações de aportes. Rastreia compras e vendas.
  */
 export function calculateLotBasedFixedIncomeValue(params: LotBasedParams): number {
-  const { transactions, ticker, definition, asOfDate, indexRates, vnaToday } = params
+  const { transactions, ticker, definition, asOfDate, indexRates, vnaToday, returnNet } = params
 
   const tickerTxs = transactions.filter(
     (t) => t.ticker.toUpperCase().trim() === ticker.toUpperCase().trim() && t.date <= asOfDate
@@ -181,6 +182,8 @@ export function calculateLotBasedFixedIncomeValue(params: LotBasedParams): numbe
   for (const lot of lots) {
     if (lot.principal <= 0) continue
 
+    let lotVal = 0
+
     // IPCA+ com VNA ANBIMA
     if (definition.indexer === 'ipca' && vnaToday && lot.vnaAtPurchase) {
       const vnaPurchase = lot.vnaAtPurchase
@@ -190,10 +193,10 @@ export function calculateLotBasedFixedIncomeValue(params: LotBasedParams): numbe
       const fixedDaily = annualToDailyRate(lot.contractRate)
       const fixedFactor = Math.pow(1 + fixedDaily, businessDays)
 
-      totalValue += lot.principal * vnaFactor * fixedFactor
+      lotVal = lot.principal * vnaFactor * fixedFactor
     } else {
       // Outros indexadores pós-fixados normais por lote
-      const lotVal = calculateFixedIncomeValue({
+      lotVal = calculateFixedIncomeValue({
         principal: lot.principal,
         contractRateAnnual: lot.contractRate,
         indexer: definition.indexer,
@@ -202,8 +205,21 @@ export function calculateLotBasedFixedIncomeValue(params: LotBasedParams): numbe
         asOfDate,
         indexRates
       })
-      totalValue += lotVal
     }
+
+    if (returnNet) {
+      const profit = lotVal - lot.principal
+      if (profit > 0) {
+        const days = (new Date(asOfDate).getTime() - new Date(lot.date).getTime()) / (1000 * 60 * 60 * 24)
+        let irRate = 0.15
+        if (days <= 180) irRate = 0.225
+        else if (days <= 360) irRate = 0.20
+        else if (days <= 720) irRate = 0.175
+        lotVal = lot.principal + profit * (1 - irRate)
+      }
+    }
+
+    totalValue += lotVal
   }
 
   return totalValue

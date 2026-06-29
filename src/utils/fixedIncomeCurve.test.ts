@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { countBusinessDays, annualToDailyRate, calculateFixedIncomeValue } from './fixedIncomeCurve'
+import { countBusinessDays, annualToDailyRate, calculateFixedIncomeValue, calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
 
 describe('countBusinessDays', () => {
   it('counts weekends correctly', () => {
@@ -63,5 +63,62 @@ describe('calculateFixedIncomeValue', () => {
     // 1000 * (1.0004)^5
     const expected = 1000 * Math.pow(1.0004, 5)
     expect(val).toBeCloseTo(expected, 4)
+  })
+})
+
+describe('calculateLotBasedFixedIncomeValue', () => {
+  it('calculates gross and net values with regressive IR per lot', () => {
+    const transactions = [
+      {
+        id: 'tx-1',
+        portfolio_id: 'port-1',
+        ticker: 'CDB-TESTE',
+        operation_type: 'buy' as const,
+        quantity: 1,
+        price: 1000,
+        date: '2026-01-01',
+      },
+      {
+        id: 'tx-2',
+        portfolio_id: 'port-1',
+        ticker: 'CDB-TESTE',
+        operation_type: 'buy' as const,
+        quantity: 1,
+        price: 1000,
+        date: '2026-06-01',
+      }
+    ]
+
+    const definition = {
+      id: 'def-1',
+      portfolio_id: 'port-1',
+      ticker: 'CDB-TESTE',
+      asset_class: 'Renda Fixa',
+      pricing_mode: 'fixed_income',
+      indexer: 'none',
+      contract_rate: 10,
+      indexer_percent: 100,
+    }
+
+    const grossVal = calculateLotBasedFixedIncomeValue({
+      transactions,
+      ticker: 'CDB-TESTE',
+      definition,
+      asOfDate: '2027-01-15',
+      indexRates: {}
+    })
+
+    const netVal = calculateLotBasedFixedIncomeValue({
+      transactions,
+      ticker: 'CDB-TESTE',
+      definition,
+      asOfDate: '2027-01-15',
+      indexRates: {},
+      returnNet: true
+    })
+
+    expect(grossVal).toBeGreaterThan(2000)
+    expect(netVal).toBeLessThan(grossVal)
+    expect(netVal).toBeGreaterThan(2000)
   })
 })

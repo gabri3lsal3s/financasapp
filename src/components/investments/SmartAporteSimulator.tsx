@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
 import NumberInput from '@/components/NumberInput'
 import Button from '@/components/Button'
-import { formatCurrency, formatPercentBR } from '@/utils/format'
+import { formatCurrency, formatPercentBR, formatNumberBR, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import { PortfolioQuantPreferences, PortfolioGroupTarget } from '@/types'
 import { simulateSmartAporte, SmartAporteSuggestion } from '@/utils/quantamentalEngine'
@@ -230,10 +230,10 @@ export default function SmartAporteSimulator({
 
           {/* Fallback de Caixa / Reserva Tática */}
           {simulationResult.fallbackAmount > 0 && (
-            <div className="p-3 bg-[#ffaa00]/10 border border-[#ffaa00]/25 rounded-2xl flex items-start gap-2.5">
-              <Info size={16} className="text-[#ffaa00] shrink-0 mt-0.5" />
+            <div className="p-3 bg-warning/10 border border-warning/25 rounded-2xl flex items-start gap-2.5">
+              <Info size={16} className="text-warning shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="text-[10px] font-black text-[#ffaa00] uppercase tracking-wider block">
+                <span className="text-[10px] font-black text-warning uppercase tracking-wider block">
                   Caixa / Reserva Tática
                 </span>
                 <p className="text-[10px] text-secondary font-medium leading-relaxed">
@@ -261,15 +261,15 @@ export default function SmartAporteSimulator({
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-black text-primary font-mono">{suggestion.ticker}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                          suggestion.convictionTier === 'S' ? 'bg-[#ffaa00]/15 text-[#ffaa00]' :
-                          suggestion.convictionTier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]' :
-                          suggestion.convictionTier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]' :
-                          'bg-secondary/15 text-secondary'
+                          suggestion.convictionTier === 'S' ? 'bg-tier-s/15 text-tier-s' :
+                          suggestion.convictionTier === 'A' ? 'bg-tier-a/15 text-tier-a' :
+                          suggestion.convictionTier === 'B' ? 'bg-tier-b/15 text-tier-b' :
+                          'bg-tier-c/15 text-tier-c'
                         }`}>
                           Tier {suggestion.convictionTier}
                         </span>
                         <span className="text-[9px] font-bold text-secondary font-mono">
-                          Score: {suggestion.qualityScore.toFixed(0)}
+                          Score: {formatNumberBR(suggestion.qualityScore, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </span>
                         <button
                           type="button"
@@ -316,7 +316,7 @@ export default function SmartAporteSimulator({
                           Comprar
                         </span>
                         <span className="text-xs font-black text-income font-mono block">
-                          {suggestion.quantity} un @ {suggestion.currency === 'USD' ? '$' : 'R$'}{suggestion.price.toFixed(2)}
+                          {suggestion.quantity} un @ {suggestion.currency === 'USD' ? '$' : 'R$'}{formatNumberWithTwoDecimalsBR(suggestion.price)}
                         </span>
                         <span className="text-[10px] text-secondary font-bold font-mono">
                           Total: {formatCurrency(suggestion.totalBrl)}

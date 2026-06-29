@@ -1,5 +1,5 @@
-import { CSSProperties, ReactNode } from 'react'
-import { Card as ShadcnCard } from '@/components/ui/card'
+import { Card as CardPrimitive } from '@/components/ui/card'
+import type { CSSProperties, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface CardProps {
@@ -9,31 +9,23 @@ interface CardProps {
   style?: CSSProperties
 }
 
+/**
+ * Card com padding padrão e transições de hover.
+ * A funcionalidade de onClick + keyboard accessibility vem diretamente de `ui/card`.
+ *
+ * Prefira usar `Card` de `@/components/ui/card` para novo código.
+ */
 export default function Card({ children, className = '', onClick, style }: CardProps) {
-  const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!onClick) return
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onClick()
-    }
-  }
-
   return (
-    <ShadcnCard
+    <CardPrimitive
       className={cn(
         'p-4 transition-all duration-300 hover:border-glass-strong hover:shadow-md',
-        onClick
-          ? 'cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] hover:scale-[1.015]'
-          : '',
         className
       )}
       style={style}
       onClick={onClick}
-      onKeyDown={handleCardKeyDown}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
     >
       {children}
-    </ShadcnCard>
+    </CardPrimitive>
   )
 }

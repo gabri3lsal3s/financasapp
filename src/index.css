@@ -89,9 +89,9 @@
     font-family: var(--ds-font-family-base);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Impede seleção de texto acidental em todo o app */
-    user-select: none;
-    -webkit-user-select: none;
+    /* Permite seleção de texto em todo o app para possibilitar a cópia de mensagens e dados */
+    user-select: text;
+    -webkit-user-select: text;
     /* Remove highlight azul/cinza de toque em mobile (iOS/Android) */
     -webkit-tap-highlight-color: transparent;
     /* Otimiza renderização de toque em mobile — evita delay de 300ms em navigator */

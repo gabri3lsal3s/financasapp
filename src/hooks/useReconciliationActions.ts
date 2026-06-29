@@ -81,7 +81,6 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
     reconciliation,
     conflictDrafts,
     missingDrafts,
-    manualYieldRequiredAssets,
     positionAdjustments,
     goToNextStepAfter,
   } = options
@@ -162,7 +161,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
       setLoading(false)
       setProgress(null)
     }
-  }, [conflictDrafts, portfolioId, scrollToTop, manualYieldRequiredAssets, onSaved, setConflictDrafts, goToNextStepAfter])
+  }, [conflictDrafts, portfolioId, scrollToTop, onSaved, setConflictDrafts, goToNextStepAfter])
 
   // ── Import selected missing ──
   const handleImportSelectedMissing = useCallback(async () => {
@@ -294,7 +293,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
       if (txError) throw txError
 
       setProgress({ current: activeMissing.length, total: activeMissing.length, label: 'Atualizando definições de ativos...' })
-      const { error: defError } = await supabase
+      const { error: defError = null } = await supabase
         .from('portfolio_asset_definitions')
         .upsert(Array.from(defsToUpsertMap.values()), { onConflict: 'portfolio_id,ticker' })
       if (defError) throw defError
@@ -322,7 +321,7 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
       setLoading(false)
       setProgress(null)
     }
-  }, [missingDrafts, portfolioId, scrollToTop, manualYieldRequiredAssets, goToNextStepAfter, onSaved, setImportedDrafts, setMissingDrafts])
+  }, [missingDrafts, portfolioId, scrollToTop, goToNextStepAfter, onSaved, setImportedDrafts, setMissingDrafts])
 
   // ── Save asset yield ──
   const handleSaveAssetYield = useCallback(

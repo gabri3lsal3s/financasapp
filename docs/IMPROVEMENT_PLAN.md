@@ -24,7 +24,7 @@
 | Métrica | Valor | Classificação |
 |---------|-------|---------------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **259/259** (29 arquivos) | ✅ |
+| Testes passando | **260/260** (29 arquivos) | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions (`!`) | **20+** em produção | 🔴 Pode causar crash runtime |
@@ -46,6 +46,10 @@
 | 5 | **`console.debug`** → `logger.debug` | priceService.ts |
 | 6 | **`key={index}`** → chaves estáveis | DatePicker.tsx |
 | 7 | **Blank line** extra removida | Reports.tsx |
+| 8 | **Renda Fixa: Fórmulas e Imposto de Renda** — CDI multiplicativo, IR regressivo por lote e paridade da Edge Function | fixedIncomeCurve.ts & portfolioCalculations.ts & daily-close/index.ts |
+| 9 | **Motor TWR e Snapshots** — Base de abertura mensal (`cota_abertura` do fechamento anterior), drawdown máximo mensal real e acúmulo de proventos/fluxos dia a dia | portfolioTwrEngine.ts & daily-close/index.ts |
+| 10 | **Correção de Cotação Flatline** — Correção no forward-fill do motor TWR para evitar inicializar lastPrice com o preço de hoje antes da primeira cotação do Yahoo | portfolioTwrEngine.ts & daily-close/index.ts |
+| 11 | **Bug Fix — Select.Item value="" no Radix UI** — Uso de sentinel value `__empty__` para evitar erro de runtime em opções com string vazia | Select.tsx |
 
 ### 1.2 Princípios da Arquitetura (Regras do Projeto)
 

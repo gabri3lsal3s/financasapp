@@ -402,19 +402,6 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     }
   }, [])
 
-  // Listen to start-drag-from-hub events from PageActionButtonHub.tsx
-  useEffect(() => {
-    const handleStartDragFromHub = (e: Event) => {
-      const detail = (e as CustomEvent).detail
-      if (!detail) return
-      setIsDraggingFromHub(true)
-      initiateIconDrag(detail.clientX, detail.clientY, detail.pointerId, detail.target)
-    }
-    window.addEventListener('start-drag-from-hub', handleStartDragFromHub)
-    return () => {
-      window.removeEventListener('start-drag-from-hub', handleStartDragFromHub)
-    }
-  }, [])
 
   // Atualiza a posição (lado e Y percentual) conforme o drag termina
   const commitPosition = useCallback((newSide: 'left' | 'right', newYPercent: number) => {
@@ -996,7 +983,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     })
   }
 
-  const initiateIconDrag = (clientX: number, clientY: number, pointerId: number, targetForCapture?: Element) => {
+  const initiateIconDrag = useCallback((clientX: number, clientY: number, pointerId: number, targetForCapture?: Element) => {
     if (iconReturnTimeoutRef.current) {
       clearTimeout(iconReturnTimeoutRef.current)
     }
@@ -1197,7 +1184,21 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     document.addEventListener('pointermove', onPointerMove)
     document.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointercancel', onPointerUp)
-  }
+  }, [slotTop, floatingCalculatorAbsorbed, updateSetting, commitPosition])
+
+  // Listen to start-drag-from-hub events from PageActionButtonHub.tsx
+  useEffect(() => {
+    const handleStartDragFromHub = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (!detail) return
+      setIsDraggingFromHub(true)
+      initiateIconDrag(detail.clientX, detail.clientY, detail.pointerId, detail.target)
+    }
+    window.addEventListener('start-drag-from-hub', handleStartDragFromHub)
+    return () => {
+      window.removeEventListener('start-drag-from-hub', handleStartDragFromHub)
+    }
+  }, [initiateIconDrag])
 
   const startIconDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) {

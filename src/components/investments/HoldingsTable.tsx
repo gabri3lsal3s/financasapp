@@ -4,6 +4,7 @@ import Input from '@/components/Input'
 import { 
   formatCurrency, 
   formatQuantityBR, 
+  formatNumberBR,
   formatNumberWithTwoDecimalsBR, 
   formatPercentBR, 
   formatSignedPercentBR 
@@ -186,15 +187,15 @@ export default function HoldingsTable({
                               {!isCashOrRf ? (
                                 <div className="inline-flex items-center gap-1 justify-center">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                    pos.conviction_tier === 'S' ? 'bg-[#ffaa00]/15 text-[#ffaa00]' :
-                                    pos.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]' :
-                                    pos.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]' :
-                                    'bg-secondary/15 text-secondary'
+                                    pos.conviction_tier === 'S' ? 'bg-tier-s/15 text-tier-s' :
+                                    pos.conviction_tier === 'A' ? 'bg-tier-a/15 text-tier-a' :
+                                    pos.conviction_tier === 'B' ? 'bg-tier-b/15 text-tier-b' :
+                                    'bg-tier-c/15 text-tier-c'
                                   }`}>
                                     Tier {pos.conviction_tier || 'S'}
                                   </span>
                                   <span className="text-[10px] text-primary font-bold">
-                                    {pos.quality_score != null ? pos.quality_score.toFixed(0) : '100'}
+                                    {pos.quality_score != null ? formatNumberBR(pos.quality_score, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '100'}
                                   </span>
                                 </div>
                               ) : (
@@ -211,7 +212,7 @@ export default function HoldingsTable({
                                     </span>
                                   )}
                                   {pos.enquadramento_state === 'limite_atingido' && (
-                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-[#ffaa00]/10 text-[#ffaa00]">
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-warning/10 text-warning">
                                       Limite
                                     </span>
                                   )}
@@ -280,12 +281,12 @@ export default function HoldingsTable({
                           {!isCashOrRf && (
                             <div className="flex items-center gap-1 shrink-0">
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                pos.conviction_tier === 'S' ? 'bg-[#ffaa00]/15 text-[#ffaa00]' :
-                                pos.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]' :
-                                pos.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]' :
-                                'bg-secondary/15 text-secondary'
+                                pos.conviction_tier === 'S' ? 'bg-tier-s/15 text-tier-s' :
+                                pos.conviction_tier === 'A' ? 'bg-tier-a/15 text-tier-a' :
+                                pos.conviction_tier === 'B' ? 'bg-tier-b/15 text-tier-b' :
+                                'bg-tier-c/15 text-tier-c'
                               }`}>
-                                T{pos.conviction_tier || 'S'} ({pos.quality_score != null ? pos.quality_score.toFixed(0) : '100'})
+                                T{pos.conviction_tier || 'S'} ({pos.quality_score != null ? formatNumberBR(pos.quality_score, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '100'})
                               </span>
                               {pos.enquadramento_state === 'em_linha' && (
                                 <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-income/10 text-income">
@@ -293,7 +294,7 @@ export default function HoldingsTable({
                                 </span>
                               )}
                               {pos.enquadramento_state === 'limite_atingido' && (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-[#ffaa00]/10 text-[#ffaa00]">
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-warning/10 text-warning">
                                   Limite
                                 </span>
                               )}

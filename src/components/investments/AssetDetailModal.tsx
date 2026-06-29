@@ -5,6 +5,7 @@ import ScuttlebuttEvaluationModal from '@/components/investments/ScuttlebuttEval
 import {
   formatCurrency,
   formatQuantityBR,
+  formatNumberBR,
   formatNumberWithTwoDecimalsBR,
   formatPercentBR,
   formatSignedPercentBR,
@@ -253,10 +254,10 @@ export default function AssetDetailModal({
                   <div className="flex items-center gap-2 mt-1">
                     {/* Badge de Tier de Convicção */}
                     <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                      position.conviction_tier === 'S' ? 'bg-[#ffaa00]/15 text-[#ffaa00]' :
-                      position.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]' :
-                      position.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]' :
-                      'bg-secondary/15 text-secondary'
+                      position.conviction_tier === 'S' ? 'bg-tier-s/15 text-tier-s' :
+                      position.conviction_tier === 'A' ? 'bg-tier-a/15 text-tier-a' :
+                      position.conviction_tier === 'B' ? 'bg-tier-b/15 text-tier-b' :
+                      'bg-tier-c/15 text-tier-c'
                     }`}>
                       Tier {position.conviction_tier}
                     </span>
@@ -268,7 +269,7 @@ export default function AssetDetailModal({
                       </span>
                     )}
                     {position.enquadramento_state === 'limite_atingido' && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-[#ffaa00]/10 text-[#ffaa00]">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-warning/10 text-warning">
                         Limite Atingido
                       </span>
                     )}
@@ -288,7 +289,7 @@ export default function AssetDetailModal({
                 <div className="text-right">
                   <span className="text-[9px] uppercase font-black text-secondary block">Score de Qualidade</span>
                   <span className="text-xl font-black text-primary font-mono">
-                    {position.quality_score != null ? position.quality_score.toFixed(1) : '100.0'}
+                    {position.quality_score != null ? formatNumberBR(position.quality_score, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '100,0'}
                   </span>
                 </div>
               </div>
@@ -298,13 +299,13 @@ export default function AssetDetailModal({
                   <div>
                     <span className="text-secondary font-bold block">Qualitativo (Scuttlebutt):</span>
                     <span className="text-primary font-black font-mono">
-                      {position.scuttlebutt_score != null ? position.scuttlebutt_score.toFixed(1) : '100.0'}/100
+                      {position.scuttlebutt_score != null ? formatNumberBR(position.scuttlebutt_score, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '100,0'}/100
                     </span>
                   </div>
                   <div>
                     <span className="text-secondary font-bold block">Quantitativo (Fundamentos):</span>
                     <span className="text-primary font-black font-mono">
-                      {position.quantitative_score != null ? position.quantitative_score.toFixed(1) : '100.0'}/100
+                      {position.quantitative_score != null ? formatNumberBR(position.quantitative_score, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '100,0'}/100
                     </span>
                   </div>
                 </div>
@@ -312,7 +313,7 @@ export default function AssetDetailModal({
                 <div className="border-t border-glass/10 pt-2 text-[10px]">
                   <span className="text-secondary font-bold block">Quantitativo (Taxa/Tracking Error):</span>
                   <span className="text-primary font-black font-mono">
-                    {position.quantitative_score != null ? position.quantitative_score.toFixed(1) : '100.0'}/100
+                    {position.quantitative_score != null ? formatNumberBR(position.quantitative_score, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '100,0'}/100
                   </span>
                 </div>
               )}
@@ -337,7 +338,7 @@ export default function AssetDetailModal({
                           <span className="font-mono text-primary font-black block">{detail.valueFormatted}</span>
                           <span className={`text-[8px] font-black uppercase ${
                             detail.passed === 'yes' ? 'text-income' :
-                            detail.passed === 'partial' ? 'text-[#ffaa00]' : 'text-expense'
+                            detail.passed === 'partial' ? 'text-warning' : 'text-expense'
                           }`}>
                             {detail.pointsEarned} / {detail.pointsPossible} pts ({detail.passed === 'yes' ? 'Passou' : detail.passed === 'partial' ? 'Parcial' : 'Rejeitado'})
                           </span>
@@ -364,7 +365,7 @@ export default function AssetDetailModal({
                 <div>
                   <span className="text-secondary font-bold">Limite Absoluto:</span>
                   <span className="text-primary font-black font-mono ml-1">
-                    {position.absolute_limit != null ? position.absolute_limit.toFixed(2) : '100.0'}% da Carteira
+                    {position.absolute_limit != null ? formatNumberWithTwoDecimalsBR(position.absolute_limit) : '100,00'}% da Carteira
                   </span>
                 </div>
                 {!isEtf && (

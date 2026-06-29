@@ -321,9 +321,16 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 4. Carregar taxas diárias CDI/SELIC
+      // 4. Carregar taxas diárias CDI/SELIC e VNA
       const startDateStr = transactions[0].date
-      const dbRates = await fetchAllIndexRates(supabase, startDateStr, todayStr)
+      const [dbRates, vnaRes] = await Promise.all([
+        fetchAllIndexRates(supabase, startDateStr, todayStr),
+        supabase
+          .from('vna_daily')
+          .select('reference_date, vna_value')
+          .gte('reference_date', startDateStr)
+          .lte('reference_date', todayStr)
+      ])
 
       const ratesMap: Record<string, Record<string, number>> = { cdi: {}, selic: {}, ipca: {} }
       if (dbRates) {
@@ -332,6 +339,13 @@ Deno.serve(async (req) => {
           if (ratesMap[idx]) {
             ratesMap[idx][r.rate_date] = Number(r.daily_rate)
           }
+        }
+      }
+
+      const vnaMap: Record<string, number> = {}
+      if (vnaRes && vnaRes.data) {
+        for (const v of vnaRes.data) {
+          vnaMap[v.reference_date] = Number(v.vna_value)
         }
       }
 
@@ -358,6 +372,10 @@ Deno.serve(async (req) => {
       let totalShares = 0
       let lastShareValue = 1.0
       let cumulativeExternalContribution = 0
+      let monthlyCashFlow = 0
+      let monthlyDividends = 0
+      let peakShareValue = 1.0
+      let monthlyMaxDrawdown = 0
 
       while (curDate <= endDate) {
         const dateStr = curDate.toISOString().slice(0, 10)
@@ -373,6 +391,7 @@ Deno.serve(async (req) => {
           priceMap,
           prices,
           ratesMap,
+          vnaMap,
           dateStr
         )
 
@@ -386,6 +405,7 @@ Deno.serve(async (req) => {
 
         // Aplicar transações do dia (aportes/resgates/proventos)
         let cashFlow = 0
+        let dayDividends = 0
         const legacyCashTickers = ['SALDO_INV', 'CAIXA', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA']
         for (const tx of dayTxs) {
           const tickerUpper = tx.ticker.trim().toUpperCase()
@@ -408,6 +428,8 @@ Deno.serve(async (req) => {
             cashFlow += q * p
           } else if (type === 'sell') {
             cashFlow -= q * p
+          } else if (['dividend', 'jcp', 'fii_yield'].includes(type)) {
+            dayDividends += q * p
           }
         }
 
@@ -418,6 +440,8 @@ Deno.serve(async (req) => {
         }
 
         cumulativeExternalContribution += cashFlow
+        monthlyCashFlow += cashFlow
+        monthlyDividends += dayDividends
 
         // Valoração final do dia (fim do dia, incluindo transações de hoje)
         const dayValuation = calculateSnapshotValuation(
@@ -426,6 +450,7 @@ Deno.serve(async (req) => {
           priceMap,
           prices,
           ratesMap,
+          vnaMap,
           dateStr
         )
 
@@ -444,6 +469,16 @@ Deno.serve(async (req) => {
           endShareValue = 1.0
         }
         lastShareValue = endShareValue
+
+        // Track drawdown: update peak and calculate current drawdown
+        if (endShareValue > peakShareValue) {
+          peakShareValue = endShareValue
+        } else if (peakShareValue > 0) {
+          const currentDrawdown = (peakShareValue - endShareValue) / peakShareValue
+          if (currentDrawdown > monthlyMaxDrawdown) {
+            monthlyMaxDrawdown = currentDrawdown
+          }
+        }
 
         // Gravar no histórico de cota diária usando upsert seguro
         await supabase.from('portfolio_share_daily').upsert({
@@ -467,19 +502,19 @@ Deno.serve(async (req) => {
         if (isLastDayOfMonth(curDate)) {
           const periodKey = `${curDate.getFullYear()}-${String(curDate.getMonth() + 1).padStart(2, '0')}`
           
-          // Abertura do mês = primeira cota do mês ou cota_fechamento do mês anterior
+          // Abertura do mês = cota de fechamento do mês anterior
           const startMonthDate = new Date(curDate.getFullYear(), curDate.getMonth(), 1).toISOString().slice(0, 10)
           
-          const { data: firstCota } = await supabase
+          const { data: prevCota } = await supabase
             .from('portfolio_share_daily')
             .select('share_value')
             .eq('portfolio_id', portfolio.id)
-            .gte('rate_date', startMonthDate)
-            .order('rate_date', { ascending: true })
+            .lt('rate_date', startMonthDate)
+            .order('rate_date', { descending: true })
             .limit(1)
             .maybeSingle()
 
-          const cotaAbertura = firstCota?.share_value ? Number(firstCota.share_value) : 1.0
+          const cotaAbertura = prevCota?.share_value ? Number(prevCota.share_value) : 1.0
           const periodReturn = cotaAbertura > 0 ? (endShareValue / cotaAbertura) - 1 : 0
 
           await supabase.from('portfolio_period_snapshots').upsert({
@@ -488,12 +523,20 @@ Deno.serve(async (req) => {
             period_key: periodKey,
             cota_abertura: cotaAbertura,
             cota_fechamento: endShareValue,
-            somatorio_aportes: cashFlow > 0 ? cashFlow : 0,
-            somatorio_resgates: cashFlow < 0 ? Math.abs(cashFlow) : 0,
-            dividendos_recebidos: 0,
-            drawdown_maximo: 0,
+            somatorio_aportes: monthlyCashFlow > 0 ? monthlyCashFlow : 0,
+            somatorio_resgates: monthlyCashFlow < 0 ? Math.abs(monthlyCashFlow) : 0,
+            dividendos_recebidos: monthlyDividends,
+            drawdown_maximo: monthlyMaxDrawdown,
             period_return: periodReturn
           }, { onConflict: 'portfolio_id,period_type,period_key' })
+
+          // Reset peak and max drawdown for next month
+          peakShareValue = endShareValue
+          monthlyMaxDrawdown = 0
+
+          // Reset monthly accumulators for next month
+          monthlyCashFlow = 0
+          monthlyDividends = 0
         }
 
         curDate.setDate(curDate.getDate() + 1)
@@ -505,6 +548,7 @@ Deno.serve(async (req) => {
         priceMap,
         prices,
         ratesMap,
+        vnaMap,
         todayStr
       )
 
@@ -625,6 +669,43 @@ function adjustTransactionsForSplits(txs: any[]): any[] {
   return sortTransactionsStably(adjustedAll)
 }
 
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function formatLocalDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function isBusinessDay(date: Date): boolean {
+  const day = date.getDay()
+  return day !== 0 && day !== 6
+}
+
+function countBusinessDays(start: string, end: string): number {
+  const dStart = parseLocalDate(start)
+  const dEnd = parseLocalDate(end)
+  if (dStart >= dEnd) return 0
+
+  let count = 0
+  const cur = new Date(dStart)
+  while (cur < dEnd) {
+    if (isBusinessDay(cur)) {
+      count++
+    }
+    cur.setDate(cur.getDate() + 1)
+  }
+  return count
+}
+
+function annualToDailyRate(annualRatePercent: number): number {
+  return Math.pow(1 + annualRatePercent / 100, 1 / 252) - 1
+}
+
 // Função local auxiliar para valoração de carteira de fechamento histórico no servidor
 function calculateSnapshotValuation(
   transactions: any[],
@@ -632,6 +713,7 @@ function calculateSnapshotValuation(
   priceMap: Record<string, Record<string, number>>,
   pricesToday: Record<string, number>,
   indexRates: Record<string, Record<string, number>>,
+  vnaMap: Record<string, number>,
   asOfDate: string
 ) {
   const txByTicker: Record<string, any[]> = {}
@@ -702,16 +784,22 @@ function calculateSnapshotValuation(
 
     if (pricingMode === 'fixed_income') {
       const idx = definition?.indexer ?? 'none'
+      const activeRates = indexRates[idx] ?? {}
       
       // Acumular lotes de renda fixa para a data de corte
-      const lots: { principal: number; date: string }[] = []
+      const lots: { principal: number; date: string; contractRate: number; vnaAtPurchase?: number }[] = []
       let totalQty = 0
       
       for (const tx of txs) {
         const q = Number(tx.quantity)
         const p = Number(tx.price)
         if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-          lots.push({ principal: q * p, date: tx.date })
+          lots.push({
+            principal: q * p,
+            date: tx.date,
+            contractRate: definition.contract_rate ?? tx.contract_rate ?? 0,
+            vnaAtPurchase: tx.vna_at_purchase ? Number(tx.vna_at_purchase) : undefined
+          })
           totalQty += q
         } else if (tx.operation_type === 'sell') {
           if (totalQty > 0) {
@@ -724,19 +812,58 @@ function calculateSnapshotValuation(
         }
       }
       
-      const rate = definition?.contract_rate ?? 0
-      let dailyRate = 0
-      if (idx === 'none') {
-        dailyRate = Math.pow(1 + rate / 100, 1 / 252) - 1
-      } else {
-        const avgIndexerDaily = idx === 'cdi' ? 0.000412 : 0.000411
-        const percent = definition?.indexer_percent ?? 100
-        dailyRate = avgIndexerDaily * (percent / 100)
-      }
-      
+      const vnaToday = idx === 'ipca' ? vnaMap[asOfDate] : undefined
+
       for (const lot of lots) {
-        const diffDays = Math.max(0, (new Date(asOfDate).getTime() - new Date(lot.date).getTime()) / (1000 * 60 * 60 * 24))
-        totalValue += lot.principal * Math.pow(1 + dailyRate, diffDays * 5 / 7)
+        if (lot.principal <= 0) continue
+
+        let lotVal = 0
+
+        // IPCA+ com VNA ANBIMA
+        if (idx === 'ipca' && vnaToday && lot.vnaAtPurchase) {
+          const vnaPurchase = lot.vnaAtPurchase
+          const vnaFactor = vnaPurchase > 0 ? vnaToday / vnaPurchase : 1.0
+          
+          const businessDays = countBusinessDays(lot.date, asOfDate)
+          const fixedDaily = annualToDailyRate(lot.contractRate)
+          const fixedFactor = Math.pow(1 + fixedDaily, businessDays)
+
+          lotVal = lot.principal * vnaFactor * fixedFactor
+        } else {
+          // Outros indexadores pós-fixados normais por lote
+          if (idx === 'none') {
+            const businessDays = countBusinessDays(lot.date, asOfDate)
+            const dailyRate = annualToDailyRate(lot.contractRate)
+            lotVal = lot.principal * Math.pow(1 + dailyRate, businessDays)
+          } else if (idx === 'cdi' || idx === 'selic') {
+            const curDate = parseLocalDate(lot.date)
+            const endDate = parseLocalDate(asOfDate)
+            const spreadDaily = lot.contractRate > 0 ? annualToDailyRate(lot.contractRate) : 0
+            let factor = 1.0
+
+            while (curDate < endDate) {
+              if (isBusinessDay(curDate)) {
+                const dateStr = formatLocalDate(curDate)
+                const rawRate = activeRates[dateStr] !== undefined ? activeRates[dateStr] : annualToDailyRate(10.75)
+                const percent = definition?.indexer_percent ?? 100
+                const dailyIndexerRate = rawRate * (percent / 100)
+                factor *= (1 + dailyIndexerRate) * (1 + spreadDaily)
+              }
+              curDate.setDate(curDate.getDate() + 1)
+            }
+            lotVal = lot.principal * factor
+          } else if (idx === 'ipca') {
+            // Fallback se não houver VNA
+            const businessDays = countBusinessDays(lot.date, asOfDate)
+            const dailySpreadRate = annualToDailyRate(lot.contractRate)
+            const fixedFactor = Math.pow(1 + dailySpreadRate, businessDays)
+            const ipcaDailyRate = annualToDailyRate(4.5)
+            const ipcaFactor = Math.pow(1 + ipcaDailyRate, businessDays)
+            lotVal = lot.principal * fixedFactor * ipcaFactor
+          }
+        }
+
+        totalValue += lotVal
       }
     } else if (pricingMode === 'manual_value') {
       totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0
@@ -751,7 +878,7 @@ function calculateSnapshotValuation(
         dayPrice = tickerPrices[asOfDate]
       } else if (tickerPrices) {
         const priceDates = Object.keys(tickerPrices).sort()
-        let lastPrice = pricesToday[ticker] ?? 0
+        let lastPrice = 0
         for (const pd of priceDates) {
           if (pd > asOfDate) break
           lastPrice = tickerPrices[pd]

@@ -5,7 +5,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-BaaS-3ECF8E)](https://supabase.com/)
-[![Tests](https://img.shields.io/badge/Tests-259_passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-260_passing-brightgreen)]()
 
 Aplicação web premium de controle financeiro pessoal com **arquitetura Offline-First**, **motor quantamental de portfólio** e design system glass-based.
 
@@ -86,7 +86,7 @@ VITE_SUPABASE_ANON_KEY=sua-chave-anonima-supabase
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **259/259** |
+| Testes passando | **260/260** |
 | UI Guardrails | **0 violações** |
 | Componentes | **120+** |
 | Hooks | **30+** |

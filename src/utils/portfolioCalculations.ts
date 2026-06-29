@@ -239,15 +239,31 @@ export function computePositions(
     const grossYield = totalValue - costBasis + accumulatedDividends
     const grossYieldPct = costBasis > 0 ? (grossYield / costBasis) * 100 : 0
 
-    // Provisionar IR básico usando função extraída
-    const appDateStr = definition?.application_date ?? (txs[0]?.date || asOfDate)
-    const netYield = provisionIncomeTax(
-      grossYield,
-      pricingMode,
-      assetClass,
-      asOfDate,
-      appDateStr
-    )
+    // Provisionar IR básico usando função extraída ou cálculo por lote para renda fixa
+    let netYield = grossYield
+    if (pricingMode === 'fixed_income') {
+      const idx = definition?.indexer ?? 'none'
+      const activeRates = indexRates[idx] ?? {}
+      const netVal = calculateLotBasedFixedIncomeValue({
+        transactions: txs,
+        ticker,
+        definition: definition!,
+        asOfDate,
+        indexRates: activeRates,
+        vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined,
+        returnNet: true
+      })
+      netYield = netVal - costBasis + accumulatedDividends
+    } else {
+      const appDateStr = definition?.application_date ?? (txs[0]?.date || asOfDate)
+      netYield = provisionIncomeTax(
+        grossYield,
+        pricingMode,
+        assetClass,
+        asOfDate,
+        appDateStr
+      )
+    }
     const netYieldPct = costBasis > 0 ? (netYield / costBasis) * 100 : 0
 
     const valueBrl = currency === 'USD' ? totalValue * usdRate : totalValue

@@ -383,7 +383,7 @@ export async function syncPortfolioCashAfterBatch(
  * Insere transações de offset de caixa em lote, se houver.
  */
 export async function insertOffsetsBatch(
-  offsetsToInsert: any[],
+  offsetsToInsert: Omit<PortfolioTransaction, 'created_at'>[],
 ): Promise<void> {
   if (offsetsToInsert.length === 0) return
 

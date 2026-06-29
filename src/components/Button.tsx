@@ -1,6 +1,5 @@
-import { ReactNode, ButtonHTMLAttributes } from 'react'
+import { type ReactNode, type ButtonHTMLAttributes } from 'react'
 import { Button as ShadcnButton, type ButtonProps as ShadcnButtonProps } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 export type ButtonVariant =
   | 'primary'
@@ -50,11 +49,17 @@ const sizeMap: Record<NonNullable<ButtonProps['size']>, NonNullable<ShadcnButton
   icon: 'icon',
 }
 
+/**
+ * Botão com nomes de variantes amigáveis (primary, danger, etc.).
+ * Mapeia para as variantes do Shadcn/ui.
+ *
+ * Prefira usar diretamente `Button` de `@/components/ui/button` para novo código.
+ */
 export default function Button({
   children,
   variant = 'primary',
   size = 'md',
-  fullWidth = false,
+  fullWidth,
   className = '',
   ...props
 }: ButtonProps) {
@@ -62,7 +67,8 @@ export default function Button({
     <ShadcnButton
       variant={variantMap[variant]}
       size={sizeMap[size]}
-      className={cn(fullWidth ? 'w-full' : '', className)}
+      fullWidth={fullWidth}
+      className={className}
       {...props}
     >
       {children}

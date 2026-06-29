@@ -238,7 +238,7 @@ export default function Contas() {
       totalReceber: roundToDecimals(totalReceber, 2),
       saldoLiquido: roundToDecimals(saldoLiquido, 2),
     }
-  }, [activeCards, expensesByCard, paymentsByCard, debts, currentMonth])
+  }, [activeCards, baseExpensesByCard, paymentsByCard, debts, currentMonth])
 
   const loading = loadingCards || loadingDebts
 

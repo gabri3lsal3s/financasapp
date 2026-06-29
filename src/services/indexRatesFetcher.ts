@@ -126,3 +126,28 @@ export async function loadIndexRatesFromDb(
 
   return rates
 }
+
+export async function loadVnaFromDb(
+  startDate: string,
+  endDate: string
+): Promise<Record<string, number>> {
+  const vnaMap: Record<string, number> = {}
+
+  try {
+    const { data, error } = await supabase
+      .from('vna_daily')
+      .select('reference_date, vna_value')
+      .gte('reference_date', startDate)
+      .lte('reference_date', endDate)
+
+    if (!error && data) {
+      for (const row of data) {
+        vnaMap[row.reference_date] = Number(row.vna_value)
+      }
+    }
+  } catch (err) {
+    logger.error('Erro ao ler VNA do banco:', err)
+  }
+
+  return vnaMap
+}

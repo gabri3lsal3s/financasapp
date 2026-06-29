@@ -1,0 +1,338 @@
+[
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 186,
+    "snippet": ".toFixed(2)}{isPercentage ? '%' : ''})</span> <button type=\"button\" "
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 199,
+    "snippet": ".toFixed(2)}{isPercentage ? '%' : ''}) </div> ) } const handleSubmit = async (e: Reac"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 490,
+    "snippet": ".toLocaleString('pt-BR')} </div> ) : ( <div className="
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 185,
+    "snippet": "#ffaa00] font-black mt-1 flex items-center justify-between bg-[#ffaa00]/10 p-1 px-1.5 rounded-lg bor"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 185,
+    "snippet": "#ffaa00]/10 p-1 px-1.5 rounded-lg border border-[#ffaa00]/20 animate-pulse\"> <span>⚠️ Cont"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 185,
+    "snippet": "#ffaa00]/20 animate-pulse\"> <span>⚠️ Contrasta com a API ({apiVal.toFixed(2)}{isPercentage"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 493,
+    "snippet": "#ffaa00] uppercase tracking-wider bg-[#ffaa00]/10 px-2.5 py-1 rounded-lg w-fit\"> S"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetConfigModal.tsx",
+    "line": 493,
+    "snippet": "#ffaa00]/10 px-2.5 py-1 rounded-lg w-fit\"> Sem dados automáticos da API. Recomenda"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 291,
+    "snippet": ".toFixed(1) : '100.0'} </span> </div> </div> "
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 301,
+    "snippet": ".toFixed(1) : '100.0'}/100 </span> </div> <d"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 307,
+    "snippet": ".toFixed(1) : '100.0'}/100 </span> </div> </di"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 315,
+    "snippet": ".toFixed(1) : '100.0'}/100 </span> </div> )} "
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 367,
+    "snippet": ".toFixed(2) : '100.0'}% da Carteira </span> </div> "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 256,
+    "snippet": "#ffaa00]/15 text-[#ffaa00]' : position.conviction_tier === 'A' ? 'bg-[#55aaff]"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 256,
+    "snippet": "#ffaa00]' : position.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55aaff]"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 257,
+    "snippet": "#55aaff]/15 text-[#55aaff]' : position.conviction_tier === 'B' ? 'bg-[#aa77ff]"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 257,
+    "snippet": "#55aaff]' : position.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa77ff]"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 258,
+    "snippet": "#aa77ff]/15 text-[#aa77ff]' : 'bg-secondary/15 text-secondary' "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 258,
+    "snippet": "#aa77ff]' : 'bg-secondary/15 text-secondary' }`}> "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 271,
+    "snippet": "#ffaa00]/10 text-[#ffaa00]\"> Limite Atingido </span> "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 271,
+    "snippet": "#ffaa00]\"> Limite Atingido </span> "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 340,
+    "snippet": "#ffaa00]' : 'text-expense' }`}> {detail.points"
+  },
+  {
+    "rule": "ui-no-inline-modal-panel-styles",
+    "file": "src/components/investments/AssetDetailModal.tsx",
+    "line": 259,
+    "snippet": "bg-secondary/15 text-secondary' }`}> Tier {position.convic"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 197,
+    "snippet": ".toFixed(0) : '100'} </span> </div"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 288,
+    "snippet": ".toFixed(0) : '100'}) </span> {pos.enqua"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 189,
+    "snippet": "#ffaa00]/15 text-[#ffaa00]' : pos.conviction_tier === 'A' ? 'bg-"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 189,
+    "snippet": "#ffaa00]' : pos.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 190,
+    "snippet": "#55aaff]/15 text-[#55aaff]' : pos.conviction_tier === 'B' ? 'bg-"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 190,
+    "snippet": "#55aaff]' : pos.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 191,
+    "snippet": "#aa77ff]/15 text-[#aa77ff]' : 'bg-secondary/15 text-secondary' "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 191,
+    "snippet": "#aa77ff]' : 'bg-secondary/15 text-secondary' "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 214,
+    "snippet": "#ffaa00]/10 text-[#ffaa00]\"> Limite "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 214,
+    "snippet": "#ffaa00]\"> Limite </span> "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 283,
+    "snippet": "#ffaa00]/15 text-[#ffaa00]' : pos.conviction_tier === 'A' ? 'bg-[#55"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 283,
+    "snippet": "#ffaa00]' : pos.conviction_tier === 'A' ? 'bg-[#55aaff]/15 text-[#55"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 284,
+    "snippet": "#55aaff]/15 text-[#55aaff]' : pos.conviction_tier === 'B' ? 'bg-[#aa"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 284,
+    "snippet": "#55aaff]' : pos.conviction_tier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 285,
+    "snippet": "#aa77ff]/15 text-[#aa77ff]' : 'bg-secondary/15 text-secondary' "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 285,
+    "snippet": "#aa77ff]' : 'bg-secondary/15 text-secondary' "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 296,
+    "snippet": "#ffaa00]/10 text-[#ffaa00]\"> Limite "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/HoldingsTable.tsx",
+    "line": 296,
+    "snippet": "#ffaa00]\"> Limite </span> "
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/ScuttlebuttEvaluationModal.tsx",
+    "line": 78,
+    "snippet": ".toFixed(1)}</span> <span className=\"text-xs text-secondary font-bold\">/ 100</span> "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/ScuttlebuttEvaluationModal.tsx",
+    "line": 213,
+    "snippet": "#0c2417] shadow-lg shadow-income/10 scale-105' : 'bg-glass/10 te"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/ScuttlebuttEvaluationModal.tsx",
+    "line": 227,
+    "snippet": "#3a0808] shadow-lg shadow-expense/10 scale-105' : 'bg-glass/10 t"
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 272,
+    "snippet": ".toFixed(0)} </span> <button "
+  },
+  {
+    "rule": "ui-no-direct-number-formatting",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 319,
+    "snippet": ".toFixed(2)} </span> <span className=\"text-[10px] te"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 233,
+    "snippet": "#ffaa00]/10 border border-[#ffaa00]/25 rounded-2xl flex items-start gap-2.5\"> <Info si"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 233,
+    "snippet": "#ffaa00]/25 rounded-2xl flex items-start gap-2.5\"> <Info size={16} className=\"text-[#f"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 234,
+    "snippet": "#ffaa00] shrink-0 mt-0.5\" /> <div className=\"space-y-0.5\"> <span class"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 236,
+    "snippet": "#ffaa00] uppercase tracking-wider block\"> Caixa / Reserva Tática <"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 264,
+    "snippet": "#ffaa00]/15 text-[#ffaa00]' : suggestion.convictionTier === 'A' ? 'bg-[#55"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 264,
+    "snippet": "#ffaa00]' : suggestion.convictionTier === 'A' ? 'bg-[#55aaff]/15 text-[#55"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 265,
+    "snippet": "#55aaff]/15 text-[#55aaff]' : suggestion.convictionTier === 'B' ? 'bg-[#aa"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 265,
+    "snippet": "#55aaff]' : suggestion.convictionTier === 'B' ? 'bg-[#aa77ff]/15 text-[#aa"
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 266,
+    "snippet": "#aa77ff]/15 text-[#aa77ff]' : 'bg-secondary/15 text-secondary' "
+  },
+  {
+    "rule": "ui-no-raw-hex-color",
+    "file": "src/components/investments/SmartAporteSimulator.tsx",
+    "line": 266,
+    "snippet": "#aa77ff]' : 'bg-secondary/15 text-secondary' }`}> "
+  }
+]

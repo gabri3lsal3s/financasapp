@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useReconciliationFiles } from '@/hooks/useReconciliationFiles'
-import type { PortfolioTransaction, PortfolioPricingMode, PortfolioAssetIndexer } from '@/types'
+import type { PortfolioTransaction } from '@/types'
 
 // ── Mocks ──
 

@@ -618,4 +618,10 @@ html[data-color-palette='monochrome'].midnight {
   --payment-method-pix: #06b6d4;
   --payment-method-transfer: #f59e0b;
   --payment-method-other: #6b7280;
+  --color-tier-s: #ffaa00;
+  --color-tier-a: #55aaff;
+  --color-tier-b: #aa77ff;
+  --color-tier-c: var(--ds-color-text-secondary);
+  --color-income-foreground: #0c2417;
+  --color-expense-foreground: #3a0808;
 }

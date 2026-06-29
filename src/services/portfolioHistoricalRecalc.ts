@@ -51,6 +51,36 @@ async function fetchAllIndexRates(startDate: string, endDate: string): Promise<a
   return allRates
 }
 
+async function fetchAllVna(startDate: string, endDate: string): Promise<any[]> {
+  let allVna: any[] = []
+  let page = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('vna_daily')
+      .select('reference_date, vna_value')
+      .gte('reference_date', startDate)
+      .lte('reference_date', endDate)
+      .range(page * pageSize, (page + 1) * pageSize - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      hasMore = false
+    } else {
+      allVna = [...allVna, ...data]
+      if (data.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+
+  return allVna
+}
+
 async function fetchAllAssetPrices(tickers: string[], startDate: string, endDate: string): Promise<any[]> {
   let allPrices: any[] = []
   let page = 0
@@ -193,7 +223,10 @@ export async function runClientSideHistoricalRecalculation(
   }
 
   onProgress?.('Carregando taxas de indexadores...', 3, 5)
-  const dbRates = await fetchAllIndexRates(startDateStr, todayStr)
+  const [dbRates, dbVna] = await Promise.all([
+    fetchAllIndexRates(startDateStr, todayStr),
+    fetchAllVna(startDateStr, todayStr)
+  ])
 
   const ratesMap: Record<string, Record<string, number>> = { cdi: {}, selic: {}, ipca: {} }
   if (dbRates) {
@@ -202,6 +235,13 @@ export async function runClientSideHistoricalRecalculation(
       if (ratesMap[idx]) {
         ratesMap[idx][r.rate_date] = Number(r.daily_rate)
       }
+    }
+  }
+
+  const vnaMap: Record<string, number> = {}
+  if (dbVna) {
+    for (const v of dbVna) {
+      vnaMap[v.reference_date] = Number(v.vna_value)
     }
   }
 
@@ -251,6 +291,7 @@ export async function runClientSideHistoricalRecalculation(
     priceMap,
     pricesToday,
     indexRates: ratesMap,
+    vnaMap,
     startDate: startDateStr,
     endDate: todayStr
   })
