@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 
@@ -68,74 +68,66 @@ export default function LimitSuggestionsModal({
         </p>
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
+          <NumberInput
             label="Moradia (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.moradia}
             onChange={(e) => handleValueChange('moradia', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Alimentação (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.alimentacao}
             onChange={(e) => handleValueChange('alimentacao', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Transporte (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.transporte}
             onChange={(e) => handleValueChange('transporte', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Saúde (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.saude}
             onChange={(e) => handleValueChange('saude', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Educação (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.educacao}
             onChange={(e) => handleValueChange('educacao', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Lazer (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.lazer}
             onChange={(e) => handleValueChange('lazer', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Compras (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.compras}
             onChange={(e) => handleValueChange('compras', e.target.value)}
             required
           />
-          <Input
+          <NumberInput
             label="Outros (%)"
-            type="number"
-            min="0"
-            max="100"
+            min={0}
+            max={100}
             value={suggestionsForm.outros}
             onChange={(e) => handleValueChange('outros', e.target.value)}
             required

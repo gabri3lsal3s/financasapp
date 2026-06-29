@@ -9,6 +9,7 @@ import TransactionDateField from '@/components/TransactionDateField'
 import TransactionCategorySelect from '@/components/TransactionCategorySelect'
 import TransactionDescriptionField from '@/components/TransactionDescriptionField'
 import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
 import { useDebts } from '@/hooks/useDebts'
@@ -364,11 +365,10 @@ export default function ExpenseFormModal({
       )}
 
       {!editingExpense && (
-        <Input
+        <NumberInput
           label="Parcelas"
-          type="number"
-          min="1"
-          max="60"
+          min={1}
+          max={60}
           value={formData.installment_total}
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, installment_total: e.target.value }))

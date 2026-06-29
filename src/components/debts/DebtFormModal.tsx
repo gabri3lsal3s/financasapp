@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import Select from '@/components/Select'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
@@ -136,17 +137,17 @@ export default function DebtFormModal({
         required
       />
 
-      <Input
+      <NumberInput
         label="Valor (R$)"
-        type="number"
-        min="0.01"
-        step="0.01"
+        min={0.01}
+        step={0.01}
         value={form.amount}
         onChange={(e) =>
           setForm((prev) => ({ ...prev, amount: e.target.value }))
         }
         placeholder="0,00"
         required
+        hideSpinButtons
       />
 
       <Input

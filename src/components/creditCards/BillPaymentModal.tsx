@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import type { BillPaymentDisplayItem } from '@/utils/creditCardBilling'
@@ -71,14 +72,14 @@ export default function BillPaymentModal({
         />
       )}
     >
-      <Input
+      <NumberInput
         label="Valor pago"
-        type="number"
-        min="0.01"
-        step="0.01"
+        min={0.01}
+        step={0.01}
         value={paymentAmount}
         onChange={(event) => setPaymentAmount(event.target.value)}
         required
+        hideSpinButtons
       />
 
       <Input

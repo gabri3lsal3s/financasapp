@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import Select from '@/components/Select'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
@@ -141,30 +142,28 @@ export default function CardFormModal({
         placeholder="Ex: Visa, Master"
       />
 
-      <Input
+      <NumberInput
         label="Limite total (opcional)"
-        type="number"
-        min="0"
-        step="0.01"
+        min={0}
+        step={0.01}
         value={form.limit_total}
         onChange={(event) => setForm((prev) => ({ ...prev, limit_total: event.target.value }))}
+        hideSpinButtons
       />
 
       <div className="modal-field-row">
-        <Input
+        <NumberInput
           label="Dia de fechamento"
-          type="number"
-          min="1"
-          max="31"
+          min={1}
+          max={31}
           value={form.closing_day}
           onChange={(event) => setForm((prev) => ({ ...prev, closing_day: event.target.value }))}
           required
         />
-        <Input
+        <NumberInput
           label="Dia de vencimento"
-          type="number"
-          min="1"
-          max="31"
+          min={1}
+          max={31}
           value={form.due_day}
           onChange={(event) => setForm((prev) => ({ ...prev, due_day: event.target.value }))}
           required

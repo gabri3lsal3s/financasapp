@@ -46,6 +46,13 @@ export default function PortfolioTransactionFormModal({
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false)
   const [cashBalance, setCashBalance] = useState<number>(0)
 
+  // Renda Fixa específicos
+  const [indexer, setIndexer] = useState<'none' | 'cdi' | 'selic' | 'ipca'>('none')
+  const [indexerPercent, setIndexerPercent] = useState<string>('100')
+  const [contractRate, setContractRate] = useState<string>('0')
+  const [maturityDate, setMaturityDate] = useState<string>('')
+  const [applicationDate, setApplicationDate] = useState<string>('')
+
   const isEditing = !!editingTransaction
   const isCashType = isCashTicker(ticker)
   const isIncomeType = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
@@ -83,6 +90,11 @@ export default function PortfolioTransactionFormModal({
       setQuantity('1')
       setPrice('')
       setDate(format(new Date(), 'yyyy-MM-dd'))
+      setIndexer('none')
+      setIndexerPercent('100')
+      setContractRate('0')
+      setMaturityDate('')
+      setApplicationDate('')
     }
   }, [isOpen, editingTransaction])
 
@@ -128,7 +140,7 @@ export default function PortfolioTransactionFormModal({
       try {
         const { data: def } = await supabase
           .from('portfolio_asset_definitions')
-          .select('pricing_mode, currency')
+          .select('pricing_mode, currency, indexer, indexer_percent, contract_rate, maturity_date, application_date')
           .eq('portfolio_id', portfolioId)
           .eq('ticker', tickerUpper)
           .maybeSingle()
@@ -138,11 +150,21 @@ export default function PortfolioTransactionFormModal({
         if (def) {
           setPricingMode(def.pricing_mode)
           setCurrency(def.currency || 'BRL')
+          setIndexer(def.indexer || 'none')
+          setIndexerPercent(String(def.indexer_percent ?? 100))
+          setContractRate(String(def.contract_rate ?? 0))
+          setMaturityDate(def.maturity_date ?? '')
+          setApplicationDate(def.application_date ?? '')
         } else {
           // Novo ativo: sugerir parâmetros
           const isFixed = ['CDI', 'SELIC', 'IPCA', 'TESOURO', 'CDB', 'LCI', 'LCA', 'DEBENTURE'].some(rf => tickerUpper.includes(rf))
           setPricingMode(isFixed ? 'fixed_income' : 'market')
           setCurrency(detectDefaultCurrency(tickerUpper))
+          setIndexer('none')
+          setIndexerPercent('100')
+          setContractRate('0')
+          setMaturityDate('')
+          setApplicationDate('')
         }
       } catch (err) {
         logger.error('Erro ao carregar definição do ativo:', err)
@@ -236,7 +258,7 @@ export default function PortfolioTransactionFormModal({
         txId = inserted.id
       }
 
-      // Salvar/Atualizar definição do ativo (pricing_mode + currency apenas)
+      // Salvar/Atualizar definição do ativo
       const finalPricingMode = isCashType ? 'cash' : pricingMode
       const finalCurrency = isCashType ? 'BRL' : currency
 
@@ -254,6 +276,11 @@ export default function PortfolioTransactionFormModal({
           pricing_mode: finalPricingMode,
           is_b3_linked: finalPricingMode === 'market',
           currency: finalCurrency,
+          indexer: finalPricingMode === 'fixed_income' ? indexer : 'none',
+          indexer_percent: finalPricingMode === 'fixed_income' ? parseFloat(indexerPercent) : 100,
+          contract_rate: finalPricingMode === 'fixed_income' ? parseFloat(contractRate) : 0,
+          maturity_date: finalPricingMode === 'fixed_income' && maturityDate ? maturityDate : null,
+          application_date: finalPricingMode === 'fixed_income' && applicationDate ? applicationDate : null,
           updated_at: new Date().toISOString(),
         }
 
@@ -484,6 +511,77 @@ export default function PortfolioTransactionFormModal({
                     { value: 'USD', label: 'USD ($)' }
                   ]}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Configuração de Renda Fixa (inline) */}
+          {!isCashType && pricingMode === 'fixed_income' && (
+            <div className="space-y-4 p-4 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in text-left">
+              <div className="text-[10px] uppercase font-black tracking-wider text-secondary border-b border-glass/10 pb-1">
+                Parâmetros de Renda Fixa
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black text-secondary">Indexador</label>
+                  <Select
+                    value={indexer}
+                    onChange={(e) => setIndexer(e.target.value as 'none' | 'cdi' | 'selic' | 'ipca')}
+                    options={[
+                      { value: 'none', label: 'Pré-fixado (Nenhum)' },
+                      { value: 'cdi', label: 'CDI' },
+                      { value: 'selic', label: 'SELIC' },
+                      { value: 'ipca', label: 'IPCA' }
+                    ]}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black text-secondary">% do Indexador</label>
+                  <NumberInput
+                    step={0.1}
+                    min={0}
+                    value={indexerPercent}
+                    onChange={(e) => setIndexerPercent(e.target.value)}
+                    placeholder="Ex: 100"
+                    disabled={indexer === 'none'}
+                    required
+                    suffix="%"
+                    hideSpinButtons
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] uppercase font-black text-secondary">Taxa Contratada a.a. (%)</label>
+                <NumberInput
+                  step={0.0001}
+                  min={0}
+                  value={contractRate}
+                  onChange={(e) => setContractRate(e.target.value)}
+                  placeholder="Ex: 6.5"
+                  required
+                  suffix="% a.a."
+                  hideSpinButtons
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black text-secondary">Data de Aporte</label>
+                  <Input
+                    type="date"
+                    value={applicationDate}
+                    onChange={(e) => setApplicationDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black text-secondary">Vencimento</label>
+                  <Input
+                    type="date"
+                    value={maturityDate}
+                    onChange={(e) => setMaturityDate(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import Input from '@/components/Input'
+import NumberInput from '@/components/NumberInput'
 import Button from '@/components/Button'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
@@ -69,20 +69,18 @@ export default function CycleConfigModal({
       )}
     >
       <div className="modal-field-row">
-        <Input
+        <NumberInput
           label="Fechamento do mês"
-          type="number"
-          min="1"
-          max="31"
+          min={1}
+          max={31}
           value={closingDay}
           onChange={(event) => setClosingDay(event.target.value)}
           required
         />
-        <Input
+        <NumberInput
           label="Vencimento do mês"
-          type="number"
-          min="1"
-          max="31"
+          min={1}
+          max={31}
           value={dueDay}
           onChange={(event) => setDueDay(event.target.value)}
           required
