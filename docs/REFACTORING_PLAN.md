@@ -167,7 +167,7 @@ Consolidado em `index.css`.
 
 **Problema:** ~119 `useEffect` no app.
 
-**Progresso:** FloatingCalculator reduzido de 16→12 effects. Demais componentes mantidos (risco de regressão > benefício).
+**Progresso:** FloatingCalculator reduzido de 16→10 effects (extração para 3 utils + 2 hooks). FloatingActionHub reduzido de 10→4 effects. Demais componentes mantidos (risco de regressão > benefício).
 
 ### 6.2 🟢 useAppSettings CRESCENTE
 
@@ -208,7 +208,7 @@ Consolidado em `index.css`.
 | 11 | Refatorar `useAppSettings` para reducer pattern | ✅ |
 | 12 | Consolidar CSS Recharts em `index.css` | ✅ |
 
-### ✅ CORREÇÃO DE BUGS — IMPLEMENTADA
+### ✅ CORREÇÃO DE BUGS — TODAS IMPLEMENTADAS
 
 | # | Tarefa | Arquivo | Severidade |
 |---|--------|---------|------------|
@@ -220,6 +220,9 @@ Consolidado em `index.css`.
 | 6 | **`any` type em usePortfolioState.ts** — `ValuedPosition['fundamentals']` | `src/hooks/usePortfolioState.ts` | 🔴 |
 | 7 | **`console.debug` → `logger.debug`** | `src/services/priceService.ts` | 🟢 |
 | 8 | **`key={index}` → chaves estáveis** | `src/components/DatePicker.tsx` | 🟡 |
+| 9 | **Non-null assertions zeradas** — 13 ocorrências em Contas.tsx + IncomeFormModal.tsx | `src/pages/Contas.tsx`, `src/components/IncomeFormModal.tsx` | 🔴 |
+| 10 | **`as any` zerado + genérico** — reportCustomData.ts `<T extends { total: number }>` | `src/utils/reportCustomData.ts` | 🔴 |
+| 11 | **FloatingActionHub extraído** — ~470 linhas para useScrollToTop.ts + haptics.ts | `src/components/FloatingActionHub.tsx` | 🟡 |
 
 ### 📊 Métricas de Sucesso
 
@@ -232,19 +235,25 @@ Consolidado em `index.css`.
 | Hooks CRUD manuais | 7 hooks | 3 hooks refatorados (4 mantidos manuais) |
 | Dead code | 6+ arquivos | Removidos |
 | `as any` / `catch(err: any)` | ~20 instâncias | 0 |
+| Non-null assertions em produção | ~20 | **0** |
 | **Loop infinito (useSupabaseTable)** | 🔴 **App quebrado** | ✅ **Corrigido** |
 | ExpenseCategoryRowButton via Button | Button direto | ✅ RowButton base |
 | PaymentRowButton | Wrapper vazio | ✅ Removido (usa RowButton) |
 | Select | Custom state management | ✅ Radix UI (shadcn) |
-| FloatingCalculator useEffect | ~14 effects | ✅ ~11 effects |
+| FloatingCalculator useEffect | ~14 effects | ✅ ~10 effects |
+| FloatingActionHub useEffect | ~10 effects | ✅ **4 effects** |
 | Reports validation effects | 2 effects | ✅ 1 effect unificado |
 | Build | ✅ | ✅ |
-| Testes | 238 | ✅ 259/259 |
+| Testes | 238 | ✅ **267/267** (30 arquivos) |
 | Typecheck | ✅ | ✅ 0 erros |
 | **CSS spacing bugs (Settings.tsx)** | 🔴 **Não renderizava corretamente** | ✅ **Corrigido** |
 | **`any` type (usePortfolioState.ts)** | 🔴 **Type safety escape** | ✅ **`ValuedPosition['fundamentals']`** |
 | **`console.debug` em priceService.ts** | 🟡 **Inconsistente** | ✅ **`logger.debug()`** |
 | **`key={index}` (DatePicker.tsx)** | 🟡 **Anti-pattern** | ✅ **Chaves estáveis** |
+| **Contas.tsx** | 2.039 linhas | ✅ **1.668 linhas** (-377, ~18%) |
+| **Reports.tsx** | 3.119 linhas | ✅ **2.276 linhas** (-843, ~27%) |
+| **FloatingCalculator.tsx** | 1.569 linhas | ✅ **1.107 linhas** (-462, ~29%) |
+| **FloatingActionHub.tsx** | ~520 linhas | ✅ **197 linhas** (-323, ~62%) |
 
 ---
 

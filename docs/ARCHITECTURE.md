@@ -122,9 +122,9 @@ Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModa
 
 | Componente | Função |
 |-----------|--------|
-| `FloatingCalculator` | Calculadora flutuante (drag, resize, animação) — ~11 useEffects (MutationObserver, effects unificados) |
+| `FloatingCalculator` | Calculadora flutuante (drag, resize, animação) — ~10 useEffects, com lógica extraída para 3 utils + 2 hooks |
 | `FloatingSideStack` | Painel lateral direito para ações flutuantes |
-| `FloatingActionHub` | Hub unificado para ScrollToTop e NotificationsWidget |
+| `FloatingActionHub` | Hub unificado para ScrollToTop e NotificationsWidget — ~50 linhas, 4 useEffects, com lógica extraída para `hooks/useScrollToTop.ts` + `utils/haptics.ts` |
 
 ### 2.6 Componentes de Layout
 
@@ -286,6 +286,11 @@ Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar
 | `useSwipeMonth` | Navegação por swipe entre meses |
 | `useBackgroundCache` | Cache em background para dados do dashboard |
 | `useNetworkStatus` | Monitor de conectividade |
+| `useContasBills` | Carregamento de faturas, despesas por cartão, pagamentos |
+| `useContasModals` | ~30 estados de modal + handlers de ação complexa |
+| `useCalculatorKeyboard` | Atalhos de teclado para calculadora flutuante |
+| `useCalculatorPanel` | Drag/resize do painel da calculadora |
+| `useScrollToTop` | Scroll-to-top com pull gesture e haptics |
 
 ---
 
@@ -537,6 +542,12 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | Dead code (PageHeader, MobileAlertsPill) + restauração (PageHeaderActions/PageHeaderActionButton) | Final | ✅ |
 | — | `as any` / `catch(err: any)` zerados no código de produção | Final | ✅ |
 | — | **Correção: loop infinito no useSupabaseTable** usando configRef | Correção | ✅ |
+| — | **FloatingCalculator extraído** — 3 utils + 2 hooks (~462 linhas removidas) | Refatoração | ✅ |
+| — | **Reports.tsx extraído** — 2 utils + 2 componentes (~633 linhas removidas) | Refatoração | ✅ |
+| — | **Contas.tsx extraído** — 2 hooks (~377 linhas removidas) | Refatoração | ✅ |
+| — | **FloatingActionHub extraído** — 1 hook + 1 util (~470 linhas removidas, ~90%) | Refatoração | ✅ |
+| — | **Non-null assertions zeradas** — 13 ocorrências em Contas.tsx + IncomeFormModal.tsx | Segurança | ✅ |
+| — | **`as any` zerado + genérico** — reportCustomData.ts com `<T extends { total: number }>` | Type Safety | ✅ |
 | — | Teste de snapshot corrigido (PageHeader removido) | Correção | ✅ |
 | — | **RowButton — ExpenseCategoryRowButton refatorado + PaymentRowButton removido** | Melhoria | ✅ |
 | — | **Select custom → Radix UI (shadcn) — mantendo mesma API** | Melhoria | ✅ |
@@ -562,7 +573,10 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
-- ✅ Testes: 262/262 passando (29 arquivos)
+- ✅ Testes: 267/267 passando (30 arquivos)
+- ✅ UI Guardrails: 0 violações
+- ✅ `as any` em produção: 0
+- ✅ Non-null assertions em produção: 0
 
 ### Melhorias adicionais (pós-refatoração)
 
@@ -605,7 +619,8 @@ O aplicativo utiliza um sistema centralizado e padronizado de `z-index` para evi
 | 10 | `Z_INDEX.CONTENT` | `z-10` | Conteúdo principal (containers de página, prefixos de input, timelines, scroll-to-top wrapper) |
 | 30 | `Z_INDEX.STICKY` | `z-30` | Elementos temporariamente elevados (trigger de select aberto) |
 | 100 | `Z_INDEX.NAVIGATION` | `z-[100]` | Barras de navegação (bottom nav, sidebar) |
-| 150 | `Z_INDEX.POPOVER` | `z-[150]` | Popovers, tooltips, scroll-to-top button, FABs de notificação |
+| 150 | `Z_INDEX.POPOVER` | `z-[150]` | Popovers, tooltips, FABs de notificação |
+| 200 | `Z_INDEX.FAB_HUB` | `z-[200]` | Hub de ações PageActionButtonHub |
 | 900 | `Z_INDEX.OVERLAY` | `z-[900]` | Overlays de modais e sheets (backdrop) |
 | 1000 | `Z_INDEX.MODAL` | `z-[1000]` | Conteúdo de modais/sheets padrão |
 | 1100 | `Z_INDEX.SIDE_STACK` | `z-[1100]` | Stack lateral flutuante (page actions, calculadora em modo aba, elevated modal overlay) |

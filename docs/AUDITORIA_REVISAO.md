@@ -52,7 +52,13 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 **Melhorias adicionais concluídas:**
 - ✅ RowButton — ExpenseCategoryRowButton refatorado, PaymentRowButton removido
 - ✅ Select custom → Radix UI (shadcn) com mesma API externa
-- ✅ useEffect reduzido (FloatingCalculator ~14→11, Reports 2→1)
+- ✅ useEffect reduzido (FloatingCalculator ~14→10, FloatingActionHub ~10→4, Reports 2→1)
+- ✅ **FloatingCalculator extraído** — 3 utils + 2 hooks (~462 linhas removidas)
+- ✅ **Reports.tsx extraído** — 2 utils (reportAggregation.ts + reportCustomData.ts) + 2 componentes (ReportPendingDebtsWidget + ReportUnifiedCompositionCard)
+- ✅ **Contas.tsx extraído** — 2 hooks (useContasBills.ts + useContasModals.ts, ~377 linhas removidas)
+- ✅ **FloatingActionHub extraído** — 1 hook (useScrollToTop.ts) + 1 util (haptics.ts, ~470 linhas removidas)
+- ✅ **Non-null assertions zeradas** — 13 ocorrências eliminadas (Contas.tsx + IncomeFormModal.tsx)
+- ✅ **`as any` zerado + genérico** — reportCustomData.ts com `<T extends { total: number }>`
 
 ---
 
@@ -160,7 +166,7 @@ load: [table, month, isOnline, getCacheKey, buildQuery]             // funções
 
 ### 5.1 ✅ `as any` — RESOLVIDO
 
-0 ocorrências no código de produção.
+0 ocorrências no código de produção e 0 em assinaturas de função.
 
 ### 5.2 ℹ️ useExpenses, useIncomes, useDebts — mantidos manuais
 
@@ -172,7 +178,7 @@ load: [table, month, isOnline, getCacheKey, buildQuery]             // funções
 
 ### 5.3 ⚠️ ~119 `useEffect` em todo o app
 
-Distribuição normal para um app desta complexidade. FloatingCalculator já reduzido.
+Distribuição normal para um app desta complexidade. FloatingCalculator reduzido (~10), FloatingActionHub reduzido (~4).
 
 ### 5.4 ⚠️ Select customizado (não usa ui/select do Radix)
 
@@ -262,13 +268,27 @@ Baixa prioridade.
 | 29 | **Touch targets ampliados no TransactionCard** — botões no expanded view mobile: `size="sm"` + `min-h-[44px]`, ícones 16px | `TransactionCard.tsx` | 🟢 UX mobile |
 | 30 | **Botões de ação com min-height 44px** — no expanded view do TransactionCard em mobile | `min-h-[44px]` nos botões Excluir/Editar | 🟢 Acessibilidade |
 
+### ✅ Concluído (Rodada 4 — Refatoração Final)
+
+| # | Melhoria | Arquivos | Impacto |
+|---|---------|----------|---------|
+| 31 | **FloatingCalculator extraído** — 3 utils + 2 hooks | `calculatorExpression.ts`, `calculatorGeometry.ts`, `calculatorDom.ts`, `useCalculatorKeyboard.ts`, `useCalculatorPanel.ts` | -462 linhas, -29% |
+| 32 | **Reports.tsx extração completa** — 2 utils + 2 componentes | `reportAggregation.ts`, `reportCustomData.ts`, `ReportPendingDebtsWidget.tsx`, `ReportUnifiedCompositionCard.tsx` | -843 linhas, -27% |
+| 33 | **Contas.tsx extração** — 2 hooks | `useContasBills.ts`, `useContasModals.ts` | -377 linhas, -18% |
+| 34 | **FloatingActionHub extraído** — 1 hook + 1 util | `useScrollToTop.ts`, `haptics.ts` | -470 linhas, -62% |
+| 35 | **Non-null assertions zeradas** — 13 ocorrências | `Contas.tsx`, `IncomeFormModal.tsx` | 🔴 Crash eliminado |
+| 36 | **`as any` zerado + genérico** | `reportCustomData.ts` | 🔴 Type safety |
+
 ### Prioridade Baixa (futuro)
 
 | # | Sugestão | Esforço |
 |---|----------|---------|
 | 1 | Migrar `--color-*` para `--ds-*` | ~2h |
 | 2 | Tooltips em gráficos de pizza | ~30min |
-| 3 | Extrair componente de botão de pagamento em Reports.tsx | ~2h |
+| 3 | Extrair lógica de parcelamento de `useExpenses.ts` | ~3h |
+| 4 | Fracionar `Categories.tsx` (1.252 linhas) | ~3h |
+| 5 | Fracionar `CreditCardCsvReconciliationPanel` (1.193 linhas) | ~3h |
+| 6 | Testes unitários para utilitários extraídos | ~3h |
 
 ---
 

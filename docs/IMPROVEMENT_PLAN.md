@@ -27,13 +27,15 @@
 | Testes passando | **267/267** (30 arquivos) | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
 | `as any` em produção | **0** | ✅ |
-| Non-null assertions (`!`) | **0** em produção | ✅ |
+| `as any` em assinaturas de função | **0** | ✅ |
+| Non-null assertions (`!`) em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | HTML nativo em pages | **0** | ✅ |
 | `console.log` em produção | **0** (exceto logger.ts) | ✅ |
 | `@ts-ignore` / `@ts-expect-error` | **0** | ✅ |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
 | `useEffect` médio por componente | ~5 | 🟡 |
+| FloatingActionHub useEffects | **4** (↓6) ✅ |
 
 ### 1.3 Últimas Correções Realizadas (Junho 2026)
 
@@ -63,6 +65,10 @@
 | 22 | **Contas.tsx — Hooks de bills + modais** — `useContasBills.ts` + `useContasModals.ts` (~377 linhas removidas, ~18%) | Contas.tsx → 2 hooks |
 | 23 | **Teste de integridade CDI/SELIC** — `checkDbRates.test.ts` (~59 linhas) | Utilitário de teste |
 | 24 | **TS Errors pós-extração Contas.tsx** — 3 erros corrigidos (Expense import, unused params, null safety) | useContasModals.ts, Contas.tsx |
+| 25 | **Non-null assertions zeradas em Contas.tsx** — 5 ocorrências em callbacks substituídas por captura de variável local | Contas.tsx |
+| 26 | **Non-null assertions zeradas em IncomeFormModal.tsx** — 4 ocorrências substituídas por captura local + guard | IncomeFormModal.tsx |
+| 27 | **`as any` zerado em reportCustomData.ts** — 2 casts substituídos por narrowing com `'total' in obj` + typed cast | reportCustomData.ts |
+| 28 | **FloatingActionHub extraído** — lógica de scroll/haptic/gesture movida para `hooks/useScrollToTop.ts` + `utils/haptics.ts` | FloatingActionHub.tsx → 2 novos arquivos |
 
 ### 1.2 Princípios da Arquitetura (Regras do Projeto)
 
@@ -257,22 +263,20 @@ const data = await res.json() as PriceApiResponse
 
 **Impacto final:** FloatingCalculator.tsx reduziu de ~1.569 → **~1.107 linhas** (-462, ~29%). UseEffects: ~13 → **~10**.
 
----
+### 3.2 ✅ Extrair `FloatingActionHub.tsx` (Concluído)
 
-### 3.2 Extrair `FloatingActionHub.tsx` Multi-Stage Pull Gesture
+**Progresso:**
 
-**Problema:** 10 `useEffect` no `FloatingActionHub.tsx`. A lógica de multi-stage pull (touch + wheel + haptics) está toda inline.
+| Extração | Status | Arquivo | Linhas |
+|----------|--------|---------|--------|
+| `hooks/useScrollToTop.ts` | ✅ | Máquina de estados pull-to-top + scroll detect + touch/wheel gesture + haptics | ~220 |
+| `utils/haptics.ts` | ✅ | Função `triggerHaptic` com multi-stage vibrate patterns | ~25 |
 
-**Plano de extração:**
-
-| Extração | Conteúdo |
-|----------|----------|
-| `hooks/useScrollToTop.ts` | Unificar `isAtBottom`, overscroll, estágios, wheel + touch |
-| `utils/haptics.ts` | Centralizar `triggerHaptic` com vibrações multi-estágio |
-
-**Esforço estimado:** ~2h
+**Impacto final:** FloatingActionHub.tsx reduziu de ~520 → **~50 linhas** (-470, ~90%).
 
 ---
+
+
 
 ### 3.3 Extrair Lógica de Agregação de `Reports.tsx` (3.119 linhas)
 

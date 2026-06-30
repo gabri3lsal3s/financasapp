@@ -308,11 +308,13 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 
 | Componente | Função |
 |------------|--------|
-| `FloatingActionHub` | Portal único unificando ScrollToTop + NotificationsWidget |
-| `FloatingCalculator` | Calculadora científica flutuante (drag, resize) |
+| `FloatingActionHub` | Portal único unificando ScrollToTop + NotificationsWidget (~50 linhas, 4 useEffects) |
+| `FloatingCalculator` | Calculadora científica flutuante (drag, resize) — lógica extraída (~1.107 linhas) |
 | `FloatingSideStack` | Painel lateral direito para ações |
 | `PageActionButtonHub` | Botão FAB de ações da página atual |
 | `PageHeaderActions` | Ações renderizadas pelo `usePageActions` |
+| `ReportPendingDebtsWidget` | Widget de projeção de pendências financeiras |
+| `ReportUnifiedCompositionCard` | Card de composição detalhada de relatórios |
 
 ### 5.6 Dashboard
 
@@ -388,6 +390,11 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `useTheme` | Tema atual (light/dark/midnight) |
 | `useNetworkStatus` | Estado de conectividade |
 | `useBackgroundCache(key, fetcher)` | Cache em background |
+| `useContasBills` | Carregamento de faturas e despesas por cartão |
+| `useContasModals` | Estado de modais da página Contas |
+| `useCalculatorKeyboard` | Atalhos de teclado da calculadora flutuante |
+| `useCalculatorPanel` | Drag/resize do painel da calculadora |
+| `useScrollToTop` | Scroll-to-top com pull gesture e haptics |
 
 ### 6.3 Hooks de Configuração
 
@@ -409,7 +416,13 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 |---------|---------|
 | `format.ts` | `formatCurrency`, `formatDate`, `formatMonth`, `formatMoneyInput`, `parseMoneyInput`, `addMonths`, etc. |
 | `calculator.ts` | `isCalculatorElement` |
+| `calculatorExpression.ts` | Avaliação de expressões matemáticas |
+| `calculatorGeometry.ts` | Geometria do painel da calculadora |
+| `calculatorDom.ts` | Utilitários DOM para calculadora |
 | `logger.ts` | Logger condicional (debug/info suprimidos em produção) |
+| `reportAggregation.ts` | Funções de agregação de relatórios |
+| `reportCustomData.ts` | Funções de período customizado de relatórios |
+| `haptics.ts` | Vibração haptic multi-stage |
 | `errorMessage.ts` | Mensagens de erro padronizadas |
 | `categoryColors.ts` | Sistema de paletas de cores (vivid/monochrome) |
 | `categoryIcons.tsx` | Ícones por nome de categoria |
@@ -754,15 +767,18 @@ npm run preview   # Preview do build
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **260/260** (29 arquivos) |
+| Testes passando | **267/267** (30 arquivos) |
 | UI Guardrails | **0 violações** |
 | `as any` em produção | **0** |
+| `as any` em assinaturas de função | **0** |
+| Non-null assertions em produção | **0** |
 | `catch(err: any)` | **0** |
 | `console.log` em produção | **0** (via logger condicional) |
-| Maior arquivo | **3.119 linhas** (Reports.tsx) |
-| Total componentes | **120+** |
-| Total hooks | **30+** |
+| Maior arquivo | **2.276 linhas** (Reports.tsx) |
+| Total componentes | **130+** |
+| Total hooks | **35+** |
 | Total migrations | **37** |
+| Novos arquivos (última sessão) | **14** |
 
 ---
 

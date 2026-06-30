@@ -123,6 +123,95 @@ supabase migration up
 | TS6133 (2x) | `useContasModals.ts` | `createIncome`/`resolveIncomeCategoryId` como parâmetros não usados em `handleToggleDebtStatus` | Removidos da assinatura |
 | TS18047 | `Contas.tsx` | `editingRefundPaymentItem` possivelmente nulo dentro de closure `onConfirm` | Capturado em variável local antes do callback |
 
+### 2.11 ✅ Non-null Assertions Zeradas em Produção
+
+**9 ocorrências eliminadas em 2 arquivos:**
+
+| Local | Ocorrências | Solução |
+|-------|-------------|---------|
+| `Contas.tsx` — `handleDeletePayment`, `handleDeleteExpense`, `DeleteInstallmentsModal`, refactored `handleDeleteRefundIncome` | 5 | Captura de variável local + guarda de null antes do callback |
+| `IncomeFormModal.tsx` — seção de visualização de estorno | 4 | Captura de `editingIncome` em variável local com guarda `showRefund && editingIncome` |
+
+### 2.12 ✅ `as any` Zerado em Produção + Tipagem Genérica
+
+**2 `as any` + assinatura `any[]` tipificados:**
+
+| Local | Ocorrências | Solução |
+|-------|-------------|---------|
+| `reportCustomData.ts` — `buildCustomTrendData` | 2x `as any` + 3x `any` em assinatura | Narrowing com `'total' in obj` → simplificado para `matchedItem?.total ?? 0` + assinatura genérica `<T extends { total: number }>` |
+
+### 2.13 ✅ FloatingActionHub Extraído
+
+**470+ linhas de lógica inline movidas para hooks + utils:**
+
+| Arquivo criado | Linhas | Propósito |
+|----------------|--------|-----------|
+| `src/hooks/useScrollToTop.ts` | ~220 | Máquina de estados pull-to-top: scroll detect, touch gesture, wheel gesture, haptics, animação scroll-to-top, sync CSS |
+| `src/utils/haptics.ts` | ~25 | Função `triggerHaptic` multi-stage vibrate patterns |
+
+**Impacto:** FloatingActionHub.tsx reduziu de ~520 → **~50 linhas** (-470, ~90%). UseEffects: ~10 → **4**. Lógica agora é testável sem DOM.
+
+---
+
+## ✅ Estado Atual Pós-Refatoração
+
+| Métrica | Valor | Status |
+|---------|-------|--------|
+| TypeScript errors | **0** | ✅ |
+| Testes passando | **267/267** (30 arquivos) | ✅ |
+| UI Guardrails | **0 violações** | ✅ |
+| `as any` em produção | **0** | ✅ |
+| `as any` em assinaturas de função | **0** | ✅ |
+| Non-null assertions em produção | **0** | ✅ |
+| `catch(err: any)` | **0** | ✅ |
+| `console.log` residual | **0** | ✅ |
+| Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
+| Contas.tsx | **1.662 linhas** (↓377) | 🟢 |
+| FloatingActionHub useEffects | **4** (↓6) | ✅ |
+
+---
+
+## 3. 🟡 Pendências Técnicas Priorizadas (Atualizado)
+
+### Prioridade Média (🟡)
+
+| # | Item | Arquivo | Esforço | Status |
+|---|------|---------|---------|--------|
+| 1 | Extrair lógica de parcelamento/deleção de `useExpenses.ts` (~497 linhas) | `useExpenses.ts` | ~3h | ⏳ |
+| 2 | Fracionar Categories.tsx (~1.252 linhas) em CategoryGrid, CategoryKPIs | `Categories.tsx` | ~3h | ⏳ |
+| 3 | Fracionar CreditCardCsvReconciliationPanel (~1.193 linhas) em CsvUploadZone, ComparisonRowCard, etc. | `CreditCardCsvReconciliationPanel.tsx` | ~3h | ⏳ |
+
+### Prioridade Baixa (🟢)
+
+| # | Item | Esforço | Status |
+|---|------|---------|--------|
+| 4 | Criar testes unitários para `calculatorExpression`, `calculatorGeometry`, `calculatorDom` | ~1h | ⏳ |
+| 5 | Criar testes unitários para `useCalculatorKeyboard`, `useCalculatorPanel`, `useScrollToTop` | ~1.5h | ⏳ |
+| 6 | Criar testes unitários para `reportAggregation` + `reportCustomData` | ~1h | ⏳ |
+| 7 | Migrar `--color-*` para `--ds-*` | ~2h | ⏳ |
+| 8 | Tooltips em gráficos de pizza | ~30min | ⏳ |
+
+---
+
+## 4. 📋 Novos Arquivos Criados
+
+| Arquivo | Linhas | Propósito |
+|---------|--------|-----------|
+| `src/utils/calculatorExpression.ts` | ~80 | Funções de expressão matemática |
+| `src/utils/calculatorGeometry.ts` | ~100 | Funções de geometria do painel |
+| `src/utils/calculatorDom.ts` | ~60 | Utilitários DOM |
+| `src/utils/reportAggregation.ts` | ~250 | Funções de agregação de relatórios |
+| `src/utils/reportCustomData.ts` | ~671 | Funções de período customizado |
+| `src/utils/checkDbRates.test.ts` | ~59 | Teste de taxas CDI/SELIC no banco |
+| `src/utils/haptics.ts` | ~25 | Função multi-stage de vibração haptic |
+| `src/components/reports/ReportPendingDebtsWidget.tsx` | ~60 | Widget de pendências |
+| `src/components/reports/ReportUnifiedCompositionCard.tsx` | ~120 | Card de composição detalhada |
+| `src/hooks/useCalculatorKeyboard.ts` | ~95 | Hook de atalhos de teclado |
+| `src/hooks/useCalculatorPanel.ts` | ~216 | Hook de drag/resize do painel |
+| `src/hooks/useContasBills.ts` | ~264 | Hook de faturas e despesas por cartão |
+| `src/hooks/useContasModals.ts` | ~551 | Hook de estado de modais Contas |
+| `src/hooks/useScrollToTop.ts` | ~220 | Hook de scroll-to-top com pull gesture |
+
 ---
 
 ## 3. 🟡 Pendências Técnicas Priorizadas
