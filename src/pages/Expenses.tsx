@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
-import Card from '@/components/Card'
-import Button from '@/components/Button'
 import { SkeletonTransactionList } from '@/components/Skeleton'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useCategories } from '@/hooks/useCategories'
@@ -17,7 +15,7 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
 import { getStaggerClass } from '@/constants/animation'
-import { Plus } from 'lucide-react'
+import { Plus, TrendingDown } from 'lucide-react'
 
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
@@ -25,6 +23,7 @@ import ExpenseFormModal from '@/components/ExpenseFormModal'
 import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+import EmptyState from '@/components/EmptyState'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -261,17 +260,16 @@ export default function Expenses() {
           {loading && expenses.length === 0 ? (
             <SkeletonTransactionList />
           ) : expenses.length === 0 ? (
-            <Card className="text-center py-10 space-y-3">
-              <p className="text-secondary">Nenhuma despesa no mês selecionado.</p>
-              <div className="flex justify-center">
-                <Button 
-                  onClick={() => handleOpenModal()}
-                  className="bg-expense border-expense hover:bg-expense/90 text-white font-bold"
-                >
-                  Adicionar despesa
-                </Button>
-              </div>
-            </Card>
+            <EmptyState
+              icon={<TrendingDown size={32} />}
+              title="Nenhuma despesa no mês selecionado"
+              description="Você ainda não registrou nenhuma despesa neste mês."
+              action={{
+                label: 'Adicionar despesa',
+                onClick: () => handleOpenModal(),
+                className: 'bg-expense border-expense hover:bg-expense/90 text-white font-bold',
+              }}
+            />
           ) : (
             <div className="space-y-6">
               {installmentExpenses.length > 0 && (

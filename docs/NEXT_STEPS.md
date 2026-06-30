@@ -276,6 +276,24 @@ npm run guardrails:ui      # 0 violações
 
 ---
 
+## 5. 📋 Plano de Refinamento Completo
+
+Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.md`, organizado em 7 fases:
+
+| Fase | Nome | Itens | Esforço |
+|------|------|-------|---------|
+| 1 | 🎨 Consistência Visual | Eliminar inline styles, `!important`, estados vazios | ~9h |
+| 2 | ♿ Acessibilidade | Focus ring, labels, ErrorBoundary | ~3h |
+| 3 | 📱 Mobile First | Conflito floating elements, touch targets | ~5.5h |
+| 4 | 🖥️ Desktop | Sidebar persistência, KPI spacing | ~1.75h |
+| 5 | ⚡ Performance | Theme transition, re-renders, deps | ~5.5h |
+| 6 | 🧩 Resiliência | Feedback de erro offline, EmptyState, skeletons | ~3h |
+| 7 | 🌗 Temas | Contraste midnight, transição otimizada | ~1h |
+
+**Esforço total estimado:** ~29h
+
+---
+
 ## 6. 📚 Documentação Relacionada
 
 | Documento | Link | Conteúdo |

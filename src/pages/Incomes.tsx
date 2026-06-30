@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
-import Card from '@/components/Card'
-import Button from '@/components/Button'
 import { SkeletonTransactionList } from '@/components/Skeleton'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useCategories } from '@/hooks/useCategories'
@@ -14,13 +12,14 @@ import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
-import { Plus } from 'lucide-react'
+import { Plus, TrendingUp } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import TransactionCard from '@/components/TransactionCard'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import ConfirmModal from '@/components/ConfirmModal'
+import EmptyState from '@/components/EmptyState'
 import { getStaggerClass } from '@/constants/animation'
 
 const INCOME_TYPE_LABELS: Record<NonNullable<Income['type']>, string> = {
@@ -143,17 +142,16 @@ export default function Incomes() {
           {loading && incomes.length === 0 ? (
             <SkeletonTransactionList />
           ) : incomes.length === 0 ? (
-            <Card className="text-center py-10 space-y-3">
-              <p className="text-secondary">Nenhuma renda no mês selecionado.</p>
-              <div className="flex justify-center">
-                <Button 
-                  onClick={() => handleOpenModal()}
-                  className="bg-income border-income hover:bg-income/90 text-white font-bold"
-                >
-                  Adicionar renda
-                </Button>
-              </div>
-            </Card>
+            <EmptyState
+              icon={<TrendingUp size={32} />}
+              title="Nenhuma renda no mês selecionado"
+              description="Você ainda não registrou nenhuma renda neste mês."
+              action={{
+                label: 'Adicionar renda',
+                onClick: () => handleOpenModal(),
+                className: 'bg-income border-income hover:bg-income/90 text-white font-bold',
+              }}
+            />
           ) : (
             <div className="flex flex-wrap gap-3 lg:gap-4">
               {incomes.map((income, index) => {

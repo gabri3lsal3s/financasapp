@@ -1,5 +1,7 @@
 import { Component, ReactNode } from 'react'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import Button from '@/components/Button'
 
 interface Props {
   children: ReactNode
@@ -28,31 +30,40 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-primary flex items-center justify-center p-4">
-          <div className="bg-secondary rounded-lg shadow-lg p-6 max-w-md w-full border border-secondary">
-            <h1 className="text-2xl font-bold mb-4 text-expense">
-              Erro ao carregar aplicativo
-            </h1>
-            <p className="text-primary mb-4">
-              Ocorreu um erro inesperado. Por favor, verifique o console do navegador para mais detalhes.
-            </p>
+          <div className="bg-secondary rounded-xl shadow-lg p-8 max-w-md w-full border border-glass surface-glass flex flex-col items-center gap-6">
+            <div className="w-14 h-14 rounded-full bg-expense/10 flex items-center justify-center">
+              <AlertTriangle size={28} className="text-expense" />
+            </div>
+            
+            <div className="text-center space-y-2">
+              <h1 className="text-lg font-bold text-primary">
+                Algo deu errado
+              </h1>
+              <p className="text-sm text-secondary leading-relaxed">
+                Ocorreu um erro inesperado. Tente recarregar a página ou verifique o console do navegador para mais detalhes.
+              </p>
+            </div>
+
             {this.state.error && (
-              <details className="mb-4">
-                <summary className="cursor-pointer text-sm text-secondary mb-2">
+              <details className="w-full">
+                <summary className="cursor-pointer text-xs font-bold text-secondary hover:text-primary transition-colors text-center uppercase tracking-wider">
                   Detalhes do erro
                 </summary>
-                <pre className="text-xs bg-secondary p-3 rounded overflow-auto border border-secondary text-primary">
+                <pre className="text-[10px] bg-tertiary p-3 rounded-xl overflow-auto border border-glass text-primary mt-2 max-h-40">
                   {this.state.error.toString()}
                   {this.state.error.stack}
                 </pre>
               </details>
             )}
-            <button
+
+            <Button
               type="button"
               onClick={() => window.location.reload()}
-              className="w-full py-2 px-4 rounded-lg border border-primary bg-secondary text-secondary hover:text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              className="font-bold flex items-center gap-2"
             >
+              <RefreshCw size={16} />
               Recarregar página
-            </button>
+            </Button>
           </div>
         </div>
       )
@@ -61,8 +72,3 @@ export default class ErrorBoundary extends Component<Props, State> {
     return this.props.children
   }
 }
-
-
-
-
-

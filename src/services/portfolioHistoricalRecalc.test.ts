@@ -256,7 +256,6 @@ describe('runClientSideHistoricalRecalculation', () => {
 
     await runClientSideHistoricalRecalculation('mock-portfolio-id')
 
-    console.log('--- UPSERTED DAILY ROWS IN TEST ---', upsertedRows)
     expect(upsertedRows.length).toBeGreaterThanOrEqual(1)
     const day = upsertedRows.find(r => r.rate_date === '2026-06-22')
     expect(day).toBeDefined()

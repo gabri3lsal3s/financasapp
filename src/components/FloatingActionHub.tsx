@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import NotificationsWidget from '@/components/NotificationsWidget'
 import { Z_INDEX } from '@/constants/zIndex'
-
-const SCROLL_DURATION_MS = 450
+import { useScrollToTop } from '@/hooks/useScrollToTop'
 
 /**
  * FloatingActionHub — hub unificado de elementos flutuantes.
@@ -18,426 +17,24 @@ const SCROLL_DURATION_MS = 450
  * permanecem independentes por questões de complexidade e UX mobile.
  */
 function ScrollToTopButton() {
-  const [isAtBottom, setIsAtBottom] = useState(false)
-  const [overscrollOffset, setOverscrollOffset] = useState(0)
-  const [pullStage, setPullStage] = useState<'collapsed' | 'first-stage' | 'second-stage'>('collapsed')
-  const [isInteracting, setIsInteracting] = useState(false)
+  const {
+    isAtBottom,
+    overscrollOffset,
+    pullStage,
+    isInteracting,
+    isActive,
+    handleClick,
+    setupScrollListener,
+    setupTouchListeners,
+    setupWheelListener,
+    scrollToTop,
+    setupOverscrollSync,
+  } = useScrollToTop()
 
-  const isActive = pullStage === 'second-stage'
-
-  const isAnimatingRef = useRef(false)
-  const touchStartRef = useRef<number | null>(null)
-  const isDraggingRef = useRef(false)
-  const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const wasStageRef = useRef<'collapsed' | 'first-stage' | 'second-stage'>('collapsed')
-  const interactionStartStageRef = useRef<'collapsed' | 'first-stage' | 'second-stage'>('collapsed')
-
-  const isInteractingRef = useRef(false)
-  const isAtBottomRef = useRef(false)
-  const arrivedAtBottomTimeRef = useRef(0)
-  const overscrollOffsetRef = useRef(0)
-  const baseOffsetRef = useRef(0)
-  const hasDraggedRef = useRef(false)
-  const gestureTypeRef = useRef<'none' | 'overscroll' | 'scroll'>('none')
-  const pullStageRef = useRef<'collapsed' | 'first-stage' | 'second-stage'>('collapsed')
-
-  // Sincroniza a ref com o estágio atual
-  useEffect(() => {
-    pullStageRef.current = pullStage
-  }, [pullStage])
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (hasDraggedRef.current) {
-      e.preventDefault()
-      e.stopPropagation()
-      return
-    }
-    scrollToTop()
-  }
-
-  const checkScroll = useCallback(() => {
-    if (isDraggingRef.current) return
-
-    const scrollTop = window.scrollY || document.documentElement.scrollTop
-    const windowHeight = window.innerHeight
-    const documentHeight = document.documentElement.scrollHeight
-
-    // Usuário está no final da página (tolerância de 15px)
-    const atBottom = scrollTop + windowHeight >= documentHeight - 15
-    // Somente mostra se a página for rolável (pelo menos 150px extras)
-    const isScrollable = documentHeight > windowHeight + 150
-
-    if (isInteractingRef.current) return
-
-    const finalAtBottom = atBottom && isScrollable
-    if (finalAtBottom && !isAtBottomRef.current) {
-      arrivedAtBottomTimeRef.current = performance.now()
-    }
-    isAtBottomRef.current = finalAtBottom
-    setIsAtBottom(finalAtBottom)
-  }, [])
-
-  const triggerHaptic = useCallback((type: 'start' | 'active' | 'cancel' | 'trigger') => {
-    try {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        if (type === 'start') {
-          navigator.vibrate(5)
-        } else if (type === 'active') {
-          navigator.vibrate(15)
-        } else if (type === 'cancel') {
-          navigator.vibrate([5, 30, 5])
-        } else if (type === 'trigger') {
-          navigator.vibrate([12, 20, 12])
-        }
-      }
-    } catch (err) {
-      // Ignora falhas da API de vibração
-    }
-  }, [])
-
-  const scrollToTop = useCallback(() => {
-    if (isAnimatingRef.current) return
-    isAnimatingRef.current = true
-    triggerHaptic('trigger')
-
-    const startPos = window.scrollY || document.documentElement.scrollTop
-    if (startPos <= 0) {
-      isAnimatingRef.current = false
-      return
-    }
-
-    const startTime = performance.now()
-    const cancelEvents = ['touchstart', 'mousedown', 'wheel', 'keydown']
-
-    const handleInterrupt = () => {
-      isAnimatingRef.current = false
-      cleanup()
-    }
-
-    const cleanup = () => {
-      cancelEvents.forEach((event) => {
-        window.removeEventListener(event, handleInterrupt)
-      })
-    }
-
-    cancelEvents.forEach((event) => {
-      window.addEventListener(event, handleInterrupt, { passive: true })
-    })
-
-    const animate = (now: number) => {
-      if (!isAnimatingRef.current) {
-        cleanup()
-        return
-      }
-
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / SCROLL_DURATION_MS, 1)
-      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
-
-      window.scrollTo(0, Math.max(0, startPos * (1 - easeOutCubic)))
-
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        isAnimatingRef.current = false
-        cleanup()
-      }
-    }
-
-    requestAnimationFrame(animate)
-  }, [triggerHaptic])
-
-  // Verifica se o usuário chegou no final da página
-  useEffect(() => {
-    window.addEventListener('scroll', checkScroll, { passive: true })
-    window.addEventListener('resize', checkScroll, { passive: true })
-    checkScroll()
-
-    return () => {
-      window.removeEventListener('scroll', checkScroll)
-      window.removeEventListener('resize', checkScroll)
-    }
-  }, [checkScroll])
-
-  // Monitora as transições do pullStage para disparar haptics multiestágio
-  useEffect(() => {
-    const prev = wasStageRef.current
-    const curr = pullStage
-
-    if (prev !== curr) {
-      if (prev === 'collapsed' && curr === 'first-stage') {
-        triggerHaptic('start')
-      } else if (prev === 'first-stage' && curr === 'second-stage') {
-        triggerHaptic('active')
-      } else if (prev === 'second-stage' && curr === 'first-stage') {
-        triggerHaptic('cancel')
-      } else if (prev === 'first-stage' && curr === 'collapsed') {
-        triggerHaptic('cancel')
-      }
-      wasStageRef.current = curr
-    }
-  }, [pullStage, triggerHaptic])
-
-  // Reseta estados quando o usuário sai do rodapé
-  useEffect(() => {
-    if (!isAtBottom) {
-      setOverscrollOffset(0)
-      setPullStage('collapsed')
-      isDraggingRef.current = false
-      isInteractingRef.current = false
-      setIsInteracting(false)
-      overscrollOffsetRef.current = 0
-      touchStartRef.current = null
-    }
-  }, [isAtBottom])
-
-  // Gerencia eventos de touch (mobile) de forma persistente com classificação de gestos
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      // O gesto de puxar só deve ser iniciado se a página já estava no rodapé
-      // no momento do toque inicial e respeita o tempo de acomodação contra inércia.
-      if (e.touches.length === 1 && isAtBottomRef.current) {
-        if (performance.now() - arrivedAtBottomTimeRef.current < 350) {
-          return
-        }
-        touchStartRef.current = e.touches[0].clientY
-        isDraggingRef.current = true
-        isInteractingRef.current = true
-        setIsInteracting(true)
-        hasDraggedRef.current = false
-        gestureTypeRef.current = 'none'
-        baseOffsetRef.current = overscrollOffsetRef.current
-        interactionStartStageRef.current = pullStageRef.current
-      }
-    }
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isDraggingRef.current || touchStartRef.current === null) return
-
-      const currentY = e.touches[0].clientY
-      const deltaY = (touchStartRef.current - currentY) * 0.35 // positivo ao arrastar para cima
-
-      if (deltaY > 5) {
-        hasDraggedRef.current = true
-      }
-
-      // Classifica o gesto no primeiro movimento significativo
-      if (gestureTypeRef.current === 'none') {
-        if (Math.abs(deltaY) > 2) {
-          gestureTypeRef.current = deltaY > 0 ? 'overscroll' : 'scroll'
-        }
-      }
-
-      // Se for um gesto de overscroll (puxar para cima)
-      if (gestureTypeRef.current === 'overscroll') {
-        // Evita comportamento padrão do browser (scroll elástico nativo)
-        // para impedir o cancelamento do toque
-        if (e.cancelable) {
-          e.preventDefault()
-        }
-
-        // Calcula o novo offset acumulado a partir do baseOffset
-        const newOffset = Math.max(0, Math.min(125, baseOffsetRef.current + deltaY))
-        overscrollOffsetRef.current = newOffset
-        setOverscrollOffset(newOffset)
-
-        const currentStage = pullStageRef.current
-
-        // Transições da máquina de estados baseadas no offset
-        if (currentStage === 'collapsed') {
-          if (newOffset >= 35) {
-            setPullStage('first-stage')
-          }
-        } else if (currentStage === 'first-stage') {
-          if (interactionStartStageRef.current === 'first-stage' && newOffset >= 90) {
-            setPullStage('second-stage')
-          } else if (newOffset <= 10) {
-            setPullStage('collapsed')
-          }
-        } else if (currentStage === 'second-stage') {
-          if (newOffset < 50) {
-            setPullStage('first-stage')
-          }
-        }
-      } else if (gestureTypeRef.current === 'scroll') {
-        // Se for rolagem para cima normal, reseta estados locais
-        overscrollOffsetRef.current = 0
-        setOverscrollOffset(0)
-        setPullStage('collapsed')
-      }
-    }
-
-    const handleTouchEnd = () => {
-      if (!isDraggingRef.current) return
-      isDraggingRef.current = false
-      isInteractingRef.current = false
-      setIsInteracting(false)
-
-      const finalStage = pullStageRef.current
-
-      if (finalStage === 'second-stage') {
-        scrollToTop()
-        setTimeout(() => {
-          overscrollOffsetRef.current = 0
-          setOverscrollOffset(0)
-          setPullStage('collapsed')
-        }, 300)
-      } else if (finalStage === 'first-stage') {
-        // Permanece travado no primeiro estágio ("Deslize para subir")
-        overscrollOffsetRef.current = 30
-        setOverscrollOffset(30)
-      } else {
-        // Retornou para collapsed
-        overscrollOffsetRef.current = 0
-        setOverscrollOffset(0)
-      }
-
-      touchStartRef.current = null
-      gestureTypeRef.current = 'none'
-
-      // Re-verifica se o scroll mudou após finalizar a interação
-      setTimeout(checkScroll, 50)
-    }
-
-    const handleTouchCancel = () => {
-      isDraggingRef.current = false
-      isInteractingRef.current = false
-      setIsInteracting(false)
-      overscrollOffsetRef.current = 0
-      setOverscrollOffset(0)
-      setPullStage('collapsed')
-      touchStartRef.current = null
-      gestureTypeRef.current = 'none'
-      setTimeout(checkScroll, 50)
-    }
-
-    window.addEventListener('touchstart', handleTouchStart, { passive: false })
-    window.addEventListener('touchmove', handleTouchMove, { passive: false })
-    window.addEventListener('touchend', handleTouchEnd)
-    window.addEventListener('touchcancel', handleTouchCancel)
-
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart)
-      window.removeEventListener('touchmove', handleTouchMove)
-      window.removeEventListener('touchend', handleTouchEnd)
-      window.removeEventListener('touchcancel', handleTouchCancel)
-    }
-  }, [scrollToTop, checkScroll])
-
-  // Gerencia eventos de wheel (desktop)
-  useEffect(() => {
-    if (!isAtBottom) {
-      setOverscrollOffset(0)
-      setPullStage('collapsed')
-      setIsInteracting(false)
-      isInteractingRef.current = false
-      return
-    }
-
-    const handleWheel = (e: WheelEvent) => {
-      if (isDraggingRef.current) return
-      
-      // Evita ativação imediata se acabou de chegar no rodapé por rolagem rápida (inércia)
-      if (performance.now() - arrivedAtBottomTimeRef.current < 350) {
-        return
-      }
-
-      const deltaY = e.deltaY
-
-      if (deltaY > 0) {
-        if (!isInteractingRef.current) {
-          isInteractingRef.current = true
-          setIsInteracting(true)
-          interactionStartStageRef.current = pullStageRef.current
-        }
-        setOverscrollOffset((prev) => {
-          const next = Math.min(125, prev + deltaY * 0.12)
-          
-          const currentStage = pullStageRef.current
-          if (currentStage === 'collapsed' && next >= 35) {
-            setPullStage('first-stage')
-          } else if (currentStage === 'first-stage' && interactionStartStageRef.current === 'first-stage' && next >= 90) {
-            setPullStage('second-stage')
-          }
-          
-          return next
-        })
-
-        if (wheelTimeoutRef.current) {
-          clearTimeout(wheelTimeoutRef.current)
-        }
-
-        wheelTimeoutRef.current = setTimeout(() => {
-          isInteractingRef.current = false
-          setIsInteracting(false)
-          
-          const finalStage = pullStageRef.current
-          if (finalStage === 'second-stage') {
-            scrollToTop()
-            setTimeout(() => {
-              setOverscrollOffset(0)
-              setPullStage('collapsed')
-            }, 300)
-          } else if (finalStage === 'first-stage') {
-            setOverscrollOffset(30)
-          } else {
-            setOverscrollOffset(0)
-          }
-          
-          setTimeout(checkScroll, 50)
-        }, 150)
-      } else if (deltaY < 0) {
-        setOverscrollOffset((prev) => {
-          const next = Math.max(0, prev + deltaY * 0.12)
-          
-          const currentStage = pullStageRef.current
-          if (currentStage === 'second-stage' && next < 50) {
-            setPullStage('first-stage')
-          } else if (currentStage === 'first-stage' && next <= 10) {
-            setPullStage('collapsed')
-          }
-          
-          if (next === 0) {
-            isInteractingRef.current = false
-            setIsInteracting(false)
-            setTimeout(checkScroll, 50)
-          }
-          return next
-        })
-      }
-    }
-
-    window.addEventListener('wheel', handleWheel, { passive: true })
-    return () => {
-      window.removeEventListener('wheel', handleWheel)
-      if (wheelTimeoutRef.current) {
-        clearTimeout(wheelTimeoutRef.current)
-      }
-    }
-  }, [isAtBottom, scrollToTop, checkScroll])
-
-  // Sincroniza a propriedade CSS de overscroll e a classe de interação no layout raiz
-  useEffect(() => {
-    document.documentElement.style.setProperty('--overscroll-offset', `${overscrollOffset}px`)
-    const root = document.querySelector('.app-layout-root')
-    if (root) {
-      if (isInteracting) {
-        root.classList.add('is-interacting')
-      } else {
-        root.classList.remove('is-interacting')
-      }
-    }
-  }, [overscrollOffset, isInteracting])
-
-  useEffect(() => {
-    return () => {
-      document.documentElement.style.removeProperty('--overscroll-offset')
-      const root = document.querySelector('.app-layout-root')
-      if (root) {
-        root.classList.remove('is-interacting')
-      }
-    }
-  }, [])
+  useEffect(setupScrollListener, [setupScrollListener])
+  useEffect(setupTouchListeners, [setupTouchListeners])
+  useEffect(setupWheelListener, [setupWheelListener])
+  useEffect(setupOverscrollSync, [setupOverscrollSync])
 
   const shouldBeVisible = isAtBottom || overscrollOffset > 0
   const dragProgress = pullStage !== 'collapsed' ? 1 : Math.min(1, overscrollOffset / 35)
@@ -477,12 +74,12 @@ function ScrollToTopButton() {
                 ? 'hsl(var(--primary))'
                 : overscrollOffset > 0
                 ? 'var(--glass-surface)'
-                : 'rgba(255, 255, 255, 0)',
+                : 'rgba(255,255,255,0)',
               borderColor: isActive
-                ? 'rgba(0, 0, 0, 0)'
+                ? 'rgba(0,0,0,0)'
                 : overscrollOffset > 0
                 ? 'var(--glass-border)'
-                : 'rgba(255, 255, 255, 0)',
+                : 'rgba(255,255,255,0)',
               color: isActive
                 ? 'hsl(var(--primary-foreground))'
                 : 'var(--ds-color-text-secondary)',

@@ -21,8 +21,7 @@ export default function DashboardKpis({
     <div className="grid grid-cols-2 gap-3 sm:gap-4 items-stretch xl:grid-cols-4">
       {/* Rendas KPI */}
       <Card 
-        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
-        style={{ borderLeftColor: 'var(--color-income)' }}
+        className="flex h-full flex-col justify-between border-l-[var(--color-income)] border-l-4 p-3 sm:p-5"
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
@@ -40,8 +39,7 @@ export default function DashboardKpis({
 
       {/* Despesas KPI */}
       <Card 
-        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
-        style={{ borderLeftColor: 'var(--color-expense)' }}
+        className="flex h-full flex-col justify-between border-l-[var(--color-expense)] border-l-4 p-3 sm:p-5"
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
@@ -59,8 +57,7 @@ export default function DashboardKpis({
 
       {/* Investimentos KPI */}
       <Card 
-        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
-        style={{ borderLeftColor: 'var(--color-balance)' }}
+        className="flex h-full flex-col justify-between border-l-[var(--color-balance)] border-l-4 p-3 sm:p-5"
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
@@ -78,10 +75,9 @@ export default function DashboardKpis({
 
       {/* Saldo KPI */}
       <Card
-        className="flex h-full flex-col justify-between border-l-4 p-3 sm:p-5"
-        style={{
-          borderLeftColor: isBalancePositive ? 'var(--color-income)' : 'var(--color-expense)',
-        }}
+        className={`flex h-full flex-col justify-between border-l-4 p-3 sm:p-5 ${
+          isBalancePositive ? 'border-l-[var(--color-income)]' : 'border-l-[var(--color-expense)]'
+        }`}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">

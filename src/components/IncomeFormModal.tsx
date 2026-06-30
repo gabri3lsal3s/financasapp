@@ -263,7 +263,8 @@ export default function IncomeFormModal({
 
   const showRefund = editingIncome && isRefundIncome(editingIncome)
 
-  if (showRefund) {
+  if (showRefund && editingIncome) {
+    const income = editingIncome
     return (
       <Modal
         isOpen={isOpen}
@@ -274,15 +275,15 @@ export default function IncomeFormModal({
           <div className="modal-panel-glass space-y-2 p-3">
             <p className="text-xs text-secondary">Valor</p>
             <p className="text-base font-semibold text-primary">
-              {formatCurrency(editingIncome!.amount)}
+              {formatCurrency(income.amount)}
             </p>
-            <p className="text-xs text-secondary">Data: {formatDate(editingIncome!.date)}</p>
+            <p className="text-xs text-secondary">Data: {formatDate(income.date)}</p>
             <p className="text-xs text-secondary">
               Categoria:{' '}
-              {editingIncome!.income_category?.name || REFUND_INCOME_CATEGORY_NAME}
+              {income.income_category?.name || REFUND_INCOME_CATEGORY_NAME}
             </p>
             <p className="text-xs text-secondary">
-              Descrição: {editingIncome!.description || 'Estorno de compra'}
+              Descrição: {income.description || 'Estorno de compra'}
             </p>
           </div>
 

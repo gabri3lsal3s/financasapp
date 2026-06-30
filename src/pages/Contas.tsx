@@ -509,7 +509,8 @@ export default function Contas() {
   }
 
   const handleDeletePayment = async () => {
-    if (!modals.editingPaymentItem) return
+    const paymentItem = modals.editingPaymentItem
+    if (!paymentItem) return
     modals.setDeleteConfirmState({
       isOpen: true,
       title: 'Excluir pagamento',
@@ -519,7 +520,7 @@ export default function Contas() {
         const { error } = await supabase
           .from('credit_card_bill_payments')
           .delete()
-          .eq('id', modals.editingPaymentItem!.id)
+          .eq('id', paymentItem.id)
 
         if (error) {
           alert(`Erro ao excluir pagamento: ${error.message}`)
@@ -624,15 +625,16 @@ export default function Contas() {
   }
 
   const handleDeleteExpense = async () => {
-    if (!modals.editingExpenseItem?.id) return
+    const expenseItem = modals.editingExpenseItem
+    if (!expenseItem?.id) return
 
-    if (Number(modals.editingExpenseItem.installment_total || 1) > 1) {
+    if (Number(expenseItem.installment_total || 1) > 1) {
       modals.setDeleteModalState({
         isOpen: true,
         type: 'expense',
-        id: modals.editingExpenseItem.id,
-        installmentNumber: modals.editingExpenseItem.installment_number || 1,
-        installmentTotal: modals.editingExpenseItem.installment_total || 1,
+        id: expenseItem.id,
+        installmentNumber: expenseItem.installment_number || 1,
+        installmentTotal: expenseItem.installment_total || 1,
       })
       modals.closeExpenseEditModal()
     } else {
@@ -642,7 +644,7 @@ export default function Contas() {
         message: 'Deseja excluir esta despesa?',
         checkboxLabel: 'Estou ciente de que esta despesa será excluída permanentemente.',
         onConfirm: async () => {
-          const { error } = await deleteExpense(modals.editingExpenseItem!.id)
+          const { error } = await deleteExpense(expenseItem.id)
           if (error) {
             alert(`Erro ao excluir despesa: ${error}`)
             return
@@ -1621,15 +1623,17 @@ export default function Contas() {
           isOpen={modals.deleteModalState.isOpen}
           onClose={() => modals.setDeleteModalState(null)}
           onConfirm={async (mode) => {
-            if (modals.deleteModalState!.type === 'expense') {
-              const { error } = await deleteExpense(modals.deleteModalState!.id, mode)
+            const state = modals.deleteModalState
+            if (!state) return
+            if (state.type === 'expense') {
+              const { error } = await deleteExpense(state.id, mode)
               if (error) {
                 alert(`Erro ao excluir despesa: ${error}`)
               } else {
                 await loadBillData(true)
               }
             } else {
-              const { error } = await deleteDebt(modals.deleteModalState!.id, mode)
+              const { error } = await deleteDebt(state.id, mode)
               if (error) {
                 alert(`Erro ao excluir cobrança: ${error}`)
               }

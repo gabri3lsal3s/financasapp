@@ -512,7 +512,6 @@ describe('computeDailyShareHistory', () => {
     })
 
     const finalRow = result.dailyRows[result.dailyRows.length - 1]
-    console.log('Final row details for 1 year SELIC:', finalRow)
     expect(finalRow.share_value).toBeLessThan(1000)
     expect(finalRow.gross_pl).toBeLessThan(100000)
   })

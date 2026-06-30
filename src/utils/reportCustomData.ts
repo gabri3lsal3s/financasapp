@@ -442,22 +442,22 @@ export function buildCustomCumulativeBalance(
 /**
  * Monta dados de tendência (expense/income) para o período customizado.
  */
-export function buildCustomTrendData(
+export function buildCustomTrendData<T extends { total: number }>(
   isSingleMonth: boolean,
   customDailySummaries: CustomDailySummary[],
   customMonthlySummaries: CustomMonthlySummary[],
-  categoryDataByDay: Record<string, any[]>,
-  categoryDataByMonth: Record<string, any[]>,
+  categoryDataByDay: Record<string, T[]>,
+  categoryDataByMonth: Record<string, T[]>,
   series: Array<{ key: string }>,
-  getId: (item: any) => string,
+  getId: (item: T) => string,
 ): Array<Record<string, string | number>> {
   if (isSingleMonth) {
     return customDailySummaries.map((summary) => {
       const row: Record<string, string | number> = { month: summary.label }
       const dayCategories = categoryDataByDay[summary.date] ?? []
       series.forEach((s) => {
-        const match = dayCategories.find((item) => getId(item) === s.key)
-        row[s.key] = (match as any)?.total ?? 0
+        const matchedItem = dayCategories.find((item) => getId(item) === s.key)
+        row[s.key] = matchedItem?.total ?? 0
       })
       return row
     })
@@ -467,8 +467,8 @@ export function buildCustomTrendData(
     const row: Record<string, string | number> = { month: formatMonthShort(summary.month) }
     const monthCategories = categoryDataByMonth[summary.month] ?? []
     series.forEach((s) => {
-      const match = monthCategories.find((item) => getId(item) === s.key)
-      row[s.key] = (match as any)?.total ?? 0
+      const matchedItem = monthCategories.find((item) => getId(item) === s.key)
+      row[s.key] = matchedItem?.total ?? 0
     })
     return row
   })

@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
               supabase.from('asset_price_daily').delete().eq('ticker', ticker),
               supabase.from('asset_prices').delete().eq('ticker', ticker)
             ])
-            console.log(`[daily-close] Deleted global prices and daily history for unused ticker: ${ticker}`)
+            // console.log removed for production
           }
         }
       }
