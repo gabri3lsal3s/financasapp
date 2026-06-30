@@ -756,7 +756,7 @@ npm run preview   # Preview do build
 |--------|---------|-----------|
 | Dev | `npm run dev` | Ambiente de desenvolvimento |
 | Build | `npm run build` | Typecheck + Vite build |
-| Test | `npm run test:run` | 259+ testes Vitest |
+| Test | `npm run test:run` | 267 testes Vitest |
 | UI Guardrails | `npm run guardrails:ui` | Validação de estilos |
 | Lint | `npm run lint` | Guardrails + ESLint |
 

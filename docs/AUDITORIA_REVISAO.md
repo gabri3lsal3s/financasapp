@@ -39,7 +39,7 @@ O FinançasApp é uma aplicação React + TypeScript com design system glass-bas
 - ✅ Skeleton.tsx com 7 variantes integradas
 - ✅ Logger condicional (89 console.* substituídos)
 - ✅ Tooltips centralizados em constants/tooltips.ts
-- ✅ FloatingCalculator reduzido de 16→12 useEffect
+- ✅ FloatingCalculator reduzido de ~14→10 useEffect (3 utils + 2 hooks extraídos)
 - ✅ backdrop-blur-md removido de tooltips
 - ✅ `as any` e `catch(err: any)` zerados no código de produção
 
