@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { endOfMonth, format, subMonths } from 'date-fns'
+import { format } from 'date-fns'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
@@ -19,24 +19,15 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useAppSettings } from '@/hooks/useAppSettings'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
+import { useContasBills } from '@/hooks/useContasBills'
+import { useContasModals } from '@/hooks/useContasModals'
 import { supabase } from '@/lib/supabase'
-import type { CreditCard, Debt, Expense } from '@/types'
+import type { Debt, Expense } from '@/types'
 import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals, formatMonth } from '@/utils/format'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import RowButton from '@/components/RowButton'
-import {
-  buildClosingDayResolver,
-  filterBillExpensesForMonth,
-  filterBillPaymentsForMonth,
-  groupPaymentsByCard,
-  prepareBillExpenseRows,
-  summarizeCreditCardBill,
-  type BillExpenseItem,
-  type BillExpenseRowInput,
-  type BillPaymentDisplayItem,
-  type BillPaymentRowInput,
-} from '@/utils/creditCardBilling'
-import { hasExplicitCreditCardsDeepLink, shiftMonth } from '@/utils/creditCardMonthSelection'
+import type { BillExpenseItem, BillPaymentDisplayItem } from '@/utils/creditCardBilling'
+import { hasExplicitCreditCardsDeepLink } from '@/utils/creditCardMonthSelection'
 import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check, Trash2, TrendingUp, TrendingDown, Link2 } from 'lucide-react'
 
 import { useSearchParams } from 'react-router-dom'
@@ -47,7 +38,7 @@ import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import ModalIntro from '@/components/ModalIntro'
 
 // Componentes refatorados de Cartão e Dívidas
-import CreditCardTimeline, { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
+import CreditCardTimeline from '@/components/creditCards/CreditCardTimeline'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import CardFormModal from '@/components/creditCards/CardFormModal'
@@ -68,26 +59,19 @@ import {
 
 type PaymentItem = BillPaymentDisplayItem
 
-type BillDataSnapshot = {
-  expensesByCard: Record<string, number>
-  paymentsByCard: Record<string, number>
-  baseExpensesByCard: Record<string, number>
-  billItemsByCard: Record<string, BillExpenseItem[]>
-  paymentItemsByCard: Record<string, PaymentItem[]>
-  monthlyCyclesByCard: Record<string, MonthlyCycleRow>
-}
-
 const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
 const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
 
 
 export default function Contas() {
+  const modals = useContasModals()
+
   usePageActions([
     {
       icon: Plus,
       label: 'Adicionar',
       intent: 'primary',
-      onClick: () => setIsAddSelectorOpen(true),
+      onClick: () => modals.setIsAddSelectorOpen(true),
       compactOnMobile: true,
     },
   ])
@@ -95,71 +79,6 @@ export default function Contas() {
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [hasResolvedInitialMonth, setHasResolvedInitialMonth] = useState(false)
-  const [loadingBills, setLoadingBills] = useState(true)
-  const [paymentCardId, setPaymentCardId] = useState<string>('')
-  
-  // Modais de Cartão
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false)
-  const [isPaymentEditModalOpen, setIsPaymentEditModalOpen] = useState(false)
-  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
-  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false)
-  const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
-  const [selectedCardIdForCycle, setSelectedCardIdForCycle] = useState<string>('')
-  const [editingPaymentItem, setEditingPaymentItem] = useState<PaymentItem | null>(null)
-  const [refundCardId, setRefundCardId] = useState<string>('')
-  const [isExpenseEditModalOpen, setIsExpenseEditModalOpen] = useState(false)
-  const [editingExpenseItem, setEditingExpenseItem] = useState<BillExpenseItem | null>(null)
-  const [isRefundIncomeEditModalOpen, setIsRefundIncomeEditModalOpen] = useState(false)
-  const [editingRefundPaymentItem, setEditingRefundPaymentItem] = useState<PaymentItem | null>(null)
-  const [editingRefundIncomeId, setEditingRefundIncomeId] = useState<string>('')
-  const [editingRefundIncomeInitialData, setEditingRefundIncomeInitialData] = useState<{
-    amount: string
-    report_amount: string
-    date: string
-    income_category_id: string
-    description: string
-  } | null>(null)
-  const [reconciliationCardId, setReconciliationCardId] = useState<string>('')
-  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  // Modais e Estados de Dívidas
-  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false)
-  const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
-  const [deleteModalState, setDeleteModalState] = useState<{
-    isOpen: boolean
-    type: 'expense' | 'debt'
-    id: string
-    installmentNumber: number
-    installmentTotal: number
-  } | null>(null)
-  const [deleteConfirmState, setDeleteConfirmState] = useState<{
-    isOpen: boolean
-    title: string
-    message: string
-    checkboxLabel?: string
-    onConfirm: () => Promise<void>
-  } | null>(null)
-
-  // Modais customizados para confirmação de recebimentos
-  const [isIncomeConfirmModalOpen, setIsIncomeConfirmModalOpen] = useState(false)
-  const [selectedDebtForIncome, setSelectedDebtForIncome] = useState<Debt | null>(null)
-
-  const [isIntegratedModalOpen, setIsIntegratedModalOpen] = useState(false)
-  const [selectedDebtForIntegrated, setSelectedDebtForIntegrated] = useState<Debt | null>(null)
-  const [linkedExpense, setLinkedExpense] = useState<Expense | null>(null)
-  const [integratedReportValueInput, setIntegratedReportValueInput] = useState('')
-
-  // Modal e estados para criação de despesa vinculada ao pagar uma dívida (payable)
-  const [isPayableConfirmModalOpen, setIsPayableConfirmModalOpen] = useState(false)
-  const [isPayableExpenseModalOpen, setIsPayableExpenseModalOpen] = useState(false)
-  const [selectedDebtForPayableExpense, setSelectedDebtForPayableExpense] = useState<Debt | null>(null)
-
-  // Selector modal
-  const [isAddSelectorOpen, setIsAddSelectorOpen] = useState(false)
-
-  // Accordion local state keys (creditCardIds, debtIds)
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
 
   const toggleExpand = (id: string) => {
@@ -168,13 +87,6 @@ export default function Contas() {
       [id]: !prev[id],
     }))
   }
-
-  const [expensesByCard, setExpensesByCard] = useState<Record<string, number>>({})
-  const [paymentsByCard, setPaymentsByCard] = useState<Record<string, number>>({})
-  const [baseExpensesByCard, setBaseExpensesByCard] = useState<Record<string, number>>({})
-  const [billItemsByCard, setBillItemsByCard] = useState<Record<string, BillExpenseItem[]>>({})
-  const [paymentItemsByCard, setPaymentItemsByCard] = useState<Record<string, PaymentItem[]>>({})
-  const [monthlyCyclesByCard, setMonthlyCyclesByCard] = useState<Record<string, MonthlyCycleRow>>({})
 
   const {
     creditCards,
@@ -198,6 +110,19 @@ export default function Contas() {
   const { createExpense, updateExpense, deleteExpense } = useExpenses()
   const { createIncome } = useIncomes()
   useAppSettings()
+
+  const billData = useContasBills(currentMonth, creditCards)
+  const {
+    expensesByCard,
+    paymentsByCard,
+    baseExpensesByCard,
+    billItemsByCard,
+    paymentItemsByCard,
+    monthlyCyclesByCard,
+    loadingBills,
+    fetchReconciliationCandidates,
+    loadBillData,
+  } = billData
 
   const activeCards = useMemo(
     () => creditCards.filter((card) => card.is_active !== false),
@@ -243,117 +168,48 @@ export default function Contas() {
   const loading = loadingCards || loadingDebts
 
   const cycleCard = useMemo(() => {
-    return creditCards.find(c => c.id === selectedCardIdForCycle) || null
-  }, [creditCards, selectedCardIdForCycle])
-
-  const openCreateCardModal = () => {
-    setEditingCard(null)
-    setIsCardModalOpen(true)
-  }
-
-  const openEditCardModal = (card: CreditCard) => {
-    setEditingCard(card)
-    setIsCardModalOpen(true)
-  }
-
-  const closeCardModal = () => {
-    setIsCardModalOpen(false)
-    setEditingCard(null)
-  }
-
-  // Modais de Dívidas
-  const openCreateDebtModal = () => {
-    setEditingDebt(null)
-    setIsDebtModalOpen(true)
-  }
-
-  const openEditDebtModal = (debt: Debt) => {
-    setEditingDebt(debt)
-    setIsDebtModalOpen(true)
-  }
-
-  const closeDebtModal = () => {
-    setIsDebtModalOpen(false)
-    setEditingDebt(null)
-  }
-
-  const handleStartDelete = () => {
-    setIsDeleteConfirmModalOpen(true)
-  }
-
-  const handleCancelDelete = () => {
-    setIsDeleteConfirmModalOpen(false)
-  }
+    return creditCards.find(c => c.id === modals.selectedCardIdForCycle) || null
+  }, [creditCards, modals.selectedCardIdForCycle])
 
   const handleConfirmDelete = async (migrationCardId: string | null) => {
-    if (!editingCard) return
+    if (!modals.editingCard) return
 
     try {
-      setIsDeleting(true)
+      modals.setDeleting(true)
 
       if (migrationCardId) {
         const { error: migrationError } = await supabase
           .from('expenses')
           .update({ credit_card_id: migrationCardId })
-          .eq('credit_card_id', editingCard.id)
+          .eq('credit_card_id', modals.editingCard.id)
 
         if (migrationError) throw migrationError
       } else {
         const { error: unbindError } = await supabase
           .from('expenses')
           .update({ credit_card_id: null, payment_method: 'other' })
-          .eq('credit_card_id', editingCard.id)
+          .eq('credit_card_id', modals.editingCard.id)
 
         if (unbindError) throw unbindError
       }
 
       await Promise.all([
-        supabase.from('credit_card_bill_payments').delete().eq('credit_card_id', editingCard.id),
-        supabase.from('credit_card_monthly_cycles').delete().eq('credit_card_id', editingCard.id),
+        supabase.from('credit_card_bill_payments').delete().eq('credit_card_id', modals.editingCard.id),
+        supabase.from('credit_card_monthly_cycles').delete().eq('credit_card_id', modals.editingCard.id),
       ])
 
-      const { error: deleteError } = await deleteCreditCard(editingCard.id)
+      const { error: deleteError } = await deleteCreditCard(modals.editingCard.id)
       if (deleteError) throw new Error(deleteError)
 
-      handleCancelDelete()
-      closeCardModal()
+      modals.handleCancelDelete()
+      modals.closeCardModal()
       await refreshCreditCards()
       await loadBillData(true)
     } catch (err) {
       alert(`Erro ao excluir cartão: ${err instanceof Error ? err.message : 'Ocorreu um erro inesperado'}`)
     } finally {
-      setIsDeleting(false)
+      modals.setDeleting(false)
     }
-  }
-
-  const openPaymentModal = (cardId: string) => {
-    setPaymentCardId(cardId)
-    setIsPaymentModalOpen(true)
-  }
-
-  const closePaymentModal = () => {
-    setIsPaymentModalOpen(false)
-    setPaymentCardId('')
-  }
-
-  const openRefundModal = (cardId: string) => {
-    setRefundCardId(cardId)
-    setIsRefundModalOpen(true)
-  }
-
-  const closeRefundModal = () => {
-    setIsRefundModalOpen(false)
-    setRefundCardId('')
-  }
-
-  const openPaymentEditModal = (item: PaymentItem) => {
-    setEditingPaymentItem(item)
-    setIsPaymentEditModalOpen(true)
-  }
-
-  const closePaymentEditModal = () => {
-    setIsPaymentEditModalOpen(false)
-    setEditingPaymentItem(null)
   }
 
   const getOrCreateRefundIncomeCategoryId = async () => {
@@ -389,16 +245,6 @@ export default function Contas() {
     return String(data.id)
   }
 
-  const openExpenseEditModal = (item: BillExpenseItem) => {
-    setEditingExpenseItem(item)
-    setIsExpenseEditModalOpen(true)
-  }
-
-  const closeExpenseEditModal = () => {
-    setIsExpenseEditModalOpen(false)
-    setEditingExpenseItem(null)
-  }
-
   const handleOpenPaymentItem = async (paymentItem: PaymentItem) => {
     const parsedRefund = parseRefundNote(paymentItem.note)
     if (parsedRefund.isRefund && parsedRefund.incomeId) {
@@ -416,9 +262,9 @@ export default function Contas() {
         alert('Este estorno não possui mais uma renda correspondente ativa no sistema.')
         return
       }
-      setEditingRefundPaymentItem(paymentItem)
-      setEditingRefundIncomeId(parsedRefund.incomeId)
-      setEditingRefundIncomeInitialData({
+      modals.setEditingRefundPaymentItem(paymentItem)
+      modals.setEditingRefundIncomeId(parsedRefund.incomeId)
+      modals.setEditingRefundIncomeInitialData({
         amount: formatMoneyInput(data.amount),
         report_amount: data.report_weight !== undefined && data.report_weight !== null
           ? formatMoneyInput(roundToDecimals(data.amount * data.report_weight, 2))
@@ -427,17 +273,10 @@ export default function Contas() {
         income_category_id: data.income_category_id,
         description: data.description || '',
       })
-      setIsRefundIncomeEditModalOpen(true)
+      modals.setIsRefundIncomeEditModalOpen(true)
     } else {
-      openPaymentEditModal(paymentItem)
+      modals.openPaymentEditModal(paymentItem)
     }
-  }
-
-  const closeRefundIncomeEditModal = () => {
-    setIsRefundIncomeEditModalOpen(false)
-    setEditingRefundPaymentItem(null)
-    setEditingRefundIncomeId('')
-    setEditingRefundIncomeInitialData(null)
   }
 
   const handleSubmitEditRefundIncome = async (payload: {
@@ -447,7 +286,7 @@ export default function Contas() {
     incomeCategoryId: string
     description: string
   }) => {
-    if (!editingRefundPaymentItem || !editingRefundIncomeId) return
+    if (!modals.editingRefundPaymentItem || !modals.editingRefundIncomeId) return
 
     const { amount, reportAmount, date, incomeCategoryId, description } = payload
     const reportWeight = amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1
@@ -462,11 +301,11 @@ export default function Contas() {
           income_category_id: incomeCategoryId,
           description: description || null,
         })
-        .eq('id', editingRefundIncomeId)
+        .eq('id', modals.editingRefundIncomeId)
 
       if (incomeUpdateError) throw incomeUpdateError
 
-      const refundNoteText = buildRefundNote(editingRefundIncomeId, description || '')
+      const refundNoteText = buildRefundNote(modals.editingRefundIncomeId, description || '')
       const { error: paymentUpdateError } = await supabase
         .from('credit_card_bill_payments')
         .update({
@@ -474,11 +313,11 @@ export default function Contas() {
           payment_date: date,
           note: refundNoteText,
         })
-        .eq('id', editingRefundPaymentItem.id)
+        .eq('id', modals.editingRefundPaymentItem.id)
 
       if (paymentUpdateError) throw paymentUpdateError
 
-      closeRefundIncomeEditModal()
+      modals.closeRefundIncomeEditModal()
       await loadBillData(true)
     } catch (err) {
       alert(`Erro ao atualizar estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
@@ -486,8 +325,10 @@ export default function Contas() {
   }
 
   const handleDeleteRefundIncome = async () => {
-    if (!editingRefundPaymentItem || !editingRefundIncomeId) return
-    setDeleteConfirmState({
+    const refundPaymentItem = modals.editingRefundPaymentItem
+    const refundIncomeId = modals.editingRefundIncomeId
+    if (!refundPaymentItem || !refundIncomeId) return
+    modals.setDeleteConfirmState({
       isOpen: true,
       title: 'Excluir estorno',
       message: 'Deseja realmente excluir este estorno?',
@@ -497,28 +338,28 @@ export default function Contas() {
           const { error: incomeDeleteError } = await supabase
             .from('incomes')
             .delete()
-            .eq('id', editingRefundIncomeId)
+            .eq('id', refundIncomeId)
 
           if (incomeDeleteError) throw incomeDeleteError
 
           const { error: paymentDeleteError } = await supabase
             .from('credit_card_bill_payments')
             .delete()
-            .eq('id', editingRefundPaymentItem.id)
+            .eq('id', refundPaymentItem.id)
 
           if (paymentDeleteError) throw paymentDeleteError
 
-          closeRefundIncomeEditModal()
+          modals.closeRefundIncomeEditModal()
           await loadBillData(true)
         } catch (err) {
           alert(`Erro ao excluir estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
         }
-      }
+      },
     })
   }
 
   const handleSubmitRefund = async (amount: number, date: string, description: string) => {
-    if (!refundCardId) return
+    if (!modals.refundCardId) return
 
     try {
       const estornoCategoryId = await getOrCreateRefundIncomeCategoryId()
@@ -543,7 +384,7 @@ export default function Contas() {
       const { error: paymentError } = await supabase
         .from('credit_card_bill_payments')
         .insert([{
-          credit_card_id: refundCardId,
+          credit_card_id: modals.refundCardId,
           bill_competence: currentMonth,
           amount: -amount,
           payment_date: date,
@@ -555,215 +396,10 @@ export default function Contas() {
         throw paymentError
       }
 
-      closeRefundModal()
+      modals.closeRefundModal()
       await loadBillData(true)
     } catch (err) {
       alert(`Erro ao registrar estorno: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
-    }
-  }
-
-  const openCycleModal = (card: CreditCard) => {
-    setSelectedCardIdForCycle(card.id)
-    setIsCycleModalOpen(true)
-  }
-
-  const closeCycleModal = () => {
-    setIsCycleModalOpen(false)
-    setSelectedCardIdForCycle('')
-  }
-
-  const getBillDataSnapshot = async (targetMonth: string): Promise<BillDataSnapshot> => {
-    const competenceReferenceDate = new Date(`${targetMonth}-01T12:00:00`)
-    const searchStartDate = format(subMonths(competenceReferenceDate, 2), 'yyyy-MM-01')
-    const nextMonthReference = new Date(`${shiftMonth(targetMonth, 1)}-01T12:00:00`)
-    const searchEndDate = format(endOfMonth(nextMonthReference), 'yyyy-MM-dd')
-
-    const previousMonth = shiftMonth(targetMonth, -1)
-    const cycleMonths = [
-      shiftMonth(targetMonth, -2),
-      previousMonth,
-      targetMonth,
-      shiftMonth(targetMonth, 1),
-    ]
-
-    const { data: monthlyCycleRows } = await supabase
-      .from('credit_card_monthly_cycles')
-      .select('id, credit_card_id, competence, closing_day, due_day')
-      .in('competence', cycleMonths)
-
-    const cycleClosingByCardAndMonth = (monthlyCycleRows || []).reduce<Record<string, number>>((accumulator, row) => {
-      const cardId = String(row.credit_card_id || '')
-      const competence = String(row.competence || '')
-      if (!cardId || !competence) return accumulator
-      accumulator[`${cardId}:${competence}`] = Number(row.closing_day)
-      return accumulator
-    }, {})
-
-    const currentMonthCycles = (monthlyCycleRows || []).reduce<Record<string, MonthlyCycleRow>>((accumulator, row) => {
-      if (String(row.competence || '') !== targetMonth) return accumulator
-      const cardId = String(row.credit_card_id || '')
-      if (!cardId) return accumulator
-      accumulator[cardId] = {
-        id: String(row.id),
-        credit_card_id: cardId,
-        competence: String(row.competence),
-        closing_day: Number(row.closing_day),
-        due_day: Number(row.due_day),
-      }
-      return accumulator
-    }, {})
-
-    const cardClosingDays = creditCards.reduce<Record<string, number>>((accumulator, card) => {
-      if (card.id && Number.isFinite(card.closing_day)) {
-        accumulator[card.id] = Number(card.closing_day)
-      }
-      return accumulator
-    }, {})
-
-    const { data: rawExpenseRows } = await supabase
-      .from('expenses')
-      .select('id, credit_card_id, amount, report_weight, payment_method, date, bill_competence, category_id, description, installment_number, installment_total, category:categories(name)')
-      .not('credit_card_id', 'is', null)
-      .or(`bill_competence.eq.${targetMonth},and(date.gte.${searchStartDate},date.lte.${searchEndDate})`)
-
-    const resolveClosingDay = buildClosingDayResolver(cycleClosingByCardAndMonth, cardClosingDays)
-    const filteredExpenses = filterBillExpensesForMonth(
-      (rawExpenseRows || []) as BillExpenseRowInput[],
-      targetMonth,
-      resolveClosingDay,
-    )
-    const expenseRows = prepareBillExpenseRows(filteredExpenses, true)
-
-    const { data: paymentRows } = await supabase
-      .from('credit_card_bill_payments')
-      .select('id, credit_card_id, amount, payment_date, bill_competence, note')
-      .not('credit_card_id', 'is', null)
-      .or(`bill_competence.eq.${targetMonth},and(amount.lt.0,payment_date.gte.${searchStartDate},payment_date.lte.${searchEndDate})`)
-
-    const paymentList = filterBillPaymentsForMonth(
-      (paymentRows || []) as BillPaymentRowInput[],
-      targetMonth,
-      searchStartDate,
-      searchEndDate,
-      resolveClosingDay,
-    )
-    const paymentsByCardItems = groupPaymentsByCard(paymentList)
-
-    Object.keys(paymentsByCardItems).forEach((cardId) => {
-      paymentsByCardItems[cardId] = paymentsByCardItems[cardId]
-        .sort((a, b) => b.payment_date.localeCompare(a.payment_date))
-    })
-
-    const summarizedBill = summarizeCreditCardBill(
-      expenseRows,
-      (paymentRows || []).map((row) => ({
-        credit_card_id: String(row.credit_card_id || ''),
-        amount: Number(row.amount || 0),
-      })),
-    )
-
-    const totalRefundByCard: Record<string, number> = {}
-    Object.entries(paymentsByCardItems).forEach(([cardId, items]) => {
-      let refundTotal = 0
-      items.forEach(item => {
-        const { isRefund } = parseRefundNote(item.note)
-        if (isRefund || item.amount < 0) {
-          refundTotal += Math.abs(item.amount)
-        }
-      })
-      totalRefundByCard[cardId] = roundToDecimals(refundTotal, 2)
-    })
-
-    const finalExpensesByCard: Record<string, number> = {}
-    const finalPaymentsByCard: Record<string, number> = {}
-    const finalBaseExpensesByCard: Record<string, number> = {}
-
-    Object.keys(summarizedBill.expensesByCard).forEach(cardId => {
-      const refundAmt = totalRefundByCard[cardId] || 0
-      finalExpensesByCard[cardId] = roundToDecimals(summarizedBill.expensesByCard[cardId] - refundAmt, 2)
-      finalPaymentsByCard[cardId] = roundToDecimals(summarizedBill.paymentsByCard[cardId] - refundAmt, 2)
-      const cardExpenses = summarizedBill.billItemsByCard[cardId] || []
-      const baseTotal = cardExpenses.reduce((sum, item) => sum + (item.base_amount || 0), 0)
-      finalBaseExpensesByCard[cardId] = roundToDecimals(baseTotal - refundAmt, 2)
-    })
-
-    return {
-      expensesByCard: finalExpensesByCard,
-      paymentsByCard: finalPaymentsByCard,
-      baseExpensesByCard: finalBaseExpensesByCard,
-      billItemsByCard: summarizedBill.billItemsByCard,
-      paymentItemsByCard: paymentsByCardItems,
-      monthlyCyclesByCard: currentMonthCycles,
-    }
-  }
-
-  const fetchReconciliationCandidates = async (cardId: string, baseMonth: string): Promise<BillExpenseItem[]> => {
-    const prevMonth = shiftMonth(baseMonth, -1)
-    const nextMonth = shiftMonth(baseMonth, 1)
-
-    const [prevSnapshot, currSnapshot, nextSnapshot] = await Promise.all([
-      getBillDataSnapshot(prevMonth),
-      getBillDataSnapshot(baseMonth),
-      getBillDataSnapshot(nextMonth),
-    ])
-
-    const allBillItems = [
-      ...(prevSnapshot.billItemsByCard[cardId] || []),
-      ...(currSnapshot.billItemsByCard[cardId] || []),
-      ...(nextSnapshot.billItemsByCard[cardId] || []),
-    ]
-
-    const refundItems = [
-      ...(prevSnapshot.paymentItemsByCard[cardId] || []),
-      ...(currSnapshot.paymentItemsByCard[cardId] || []),
-      ...(nextSnapshot.paymentItemsByCard[cardId] || []),
-    ]
-      .map((payment) => {
-        const note = String(payment.note || '')
-        if (!note.startsWith('[REFUND]')) return null
-        let refundDesc = 'Estorno registrado'
-        try {
-          const parsed = JSON.parse(note.slice('[REFUND]'.length))
-          if (parsed.description) refundDesc = parsed.description
-        } catch {
-          // ignore
-        }
-        const amt = -Math.abs(Number(payment.amount || 0))
-        return {
-          id: `refund-payment-${payment.id}`,
-          credit_card_id: cardId,
-          amount: amt,
-          base_amount: amt,
-          date: String(payment.payment_date || ''),
-          description: refundDesc,
-          category_name: 'Estorno',
-          category_id: '__refund_registered__',
-          installment_number: null,
-          installment_total: null,
-          bill_competence: String(payment.bill_competence || ''),
-        } as BillExpenseItem
-      })
-      .filter((item): item is BillExpenseItem => Boolean(item))
-
-    return [...allBillItems, ...refundItems]
-  }
-
-  const loadBillData = async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoadingBills(true)
-      }
-      const snapshot = await getBillDataSnapshot(currentMonth)
-      setExpensesByCard(snapshot.expensesByCard)
-      setPaymentsByCard(snapshot.paymentsByCard)
-      setBaseExpensesByCard(snapshot.baseExpensesByCard)
-      setBillItemsByCard(snapshot.billItemsByCard)
-      setPaymentItemsByCard(snapshot.paymentItemsByCard)
-      setMonthlyCyclesByCard(snapshot.monthlyCyclesByCard)
-    } finally {
-      if (!silent) {
-        setLoadingBills(false)
-      }
     }
   }
 
@@ -807,8 +443,8 @@ export default function Contas() {
     color: string | null
     is_active: boolean
   }) => {
-    if (editingCard) {
-      const { error } = await updateCreditCard(editingCard.id, payload)
+    if (modals.editingCard) {
+      const { error } = await updateCreditCard(modals.editingCard.id, payload)
       if (error) {
         alert(`Erro ao atualizar cartão: ${error}`)
         return
@@ -821,13 +457,13 @@ export default function Contas() {
       }
     }
 
-    closeCardModal()
+    modals.closeCardModal()
     await refreshCreditCards()
     await loadBillData(true)
   }
 
   const handleSubmitPayment = async (amount: number, date: string, note: string) => {
-    if (!paymentCardId) {
+    if (!modals.paymentCardId) {
       alert('Selecione um cartão válido.')
       return
     }
@@ -835,7 +471,7 @@ export default function Contas() {
     const { error } = await supabase
       .from('credit_card_bill_payments')
       .insert([{
-        credit_card_id: paymentCardId,
+        credit_card_id: modals.paymentCardId,
         bill_competence: currentMonth,
         amount: amount,
         payment_date: date,
@@ -847,12 +483,12 @@ export default function Contas() {
       return
     }
 
-    closePaymentModal()
+    modals.closePaymentModal()
     await loadBillData(true)
   }
 
   const handleSubmitEditPayment = async (amount: number, date: string, note: string) => {
-    if (!editingPaymentItem) return
+    if (!modals.editingPaymentItem) return
 
     const { error } = await supabase
       .from('credit_card_bill_payments')
@@ -861,20 +497,20 @@ export default function Contas() {
         payment_date: date,
         note: note.trim() || null,
       })
-      .eq('id', editingPaymentItem.id)
+      .eq('id', modals.editingPaymentItem.id)
 
     if (error) {
       alert(`Erro ao atualizar pagamento: ${error.message}`)
       return
     }
 
-    closePaymentEditModal()
+    modals.closePaymentEditModal()
     await loadBillData(true)
   }
 
   const handleDeletePayment = async () => {
-    if (!editingPaymentItem) return
-    setDeleteConfirmState({
+    if (!modals.editingPaymentItem) return
+    modals.setDeleteConfirmState({
       isOpen: true,
       title: 'Excluir pagamento',
       message: 'Deseja excluir este pagamento?',
@@ -883,23 +519,23 @@ export default function Contas() {
         const { error } = await supabase
           .from('credit_card_bill_payments')
           .delete()
-          .eq('id', editingPaymentItem.id)
+          .eq('id', modals.editingPaymentItem!.id)
 
         if (error) {
           alert(`Erro ao excluir pagamento: ${error.message}`)
           return
         }
 
-        closePaymentEditModal()
+        modals.closePaymentEditModal()
         await loadBillData(true)
-      }
+      },
     })
   }
 
   const handleSubmitCycle = async (closingDay: number, dueDay: number) => {
-    if (!selectedCardIdForCycle) return
+    if (!modals.selectedCardIdForCycle) return
 
-    const existingCycle = monthlyCyclesByCard[selectedCardIdForCycle]
+    const existingCycle = monthlyCyclesByCard[modals.selectedCardIdForCycle]
 
     if (existingCycle) {
       const { error } = await supabase
@@ -915,7 +551,7 @@ export default function Contas() {
       const { error } = await supabase
         .from('credit_card_monthly_cycles')
         .insert([{
-          credit_card_id: selectedCardIdForCycle,
+          credit_card_id: modals.selectedCardIdForCycle,
           competence: currentMonth,
           closing_day: closingDay,
           due_day: dueDay,
@@ -927,15 +563,15 @@ export default function Contas() {
       }
     }
 
-    closeCycleModal()
+    modals.closeCycleModal()
     await loadBillData(true)
   }
 
   const handleResetCycleToCardDefault = async () => {
-    if (!selectedCardIdForCycle) return
-    const existingCycle = monthlyCyclesByCard[selectedCardIdForCycle]
+    if (!modals.selectedCardIdForCycle) return
+    const existingCycle = monthlyCyclesByCard[modals.selectedCardIdForCycle]
     if (!existingCycle) {
-      closeCycleModal()
+      modals.closeCycleModal()
       return
     }
 
@@ -949,7 +585,7 @@ export default function Contas() {
       return
     }
 
-    closeCycleModal()
+    modals.closeCycleModal()
     await loadBillData(true)
   }
 
@@ -962,13 +598,13 @@ export default function Contas() {
     categoryId: string
     description: string
   }) => {
-    if (!editingExpenseItem) return
+    if (!modals.editingExpenseItem) return
 
-    const isRefund = Number(editingExpenseItem.base_amount ?? editingExpenseItem.amount ?? 0) < 0
+    const isRefund = Number(modals.editingExpenseItem.base_amount ?? modals.editingExpenseItem.amount ?? 0) < 0
     const signedAmount = isRefund ? -Math.abs(payload.amount) : payload.amount
     const reportWeight = payload.amount > 0 ? roundToDecimals(payload.reportAmount / payload.amount, 4) : 1
 
-    const { error } = await updateExpense(editingExpenseItem.id, {
+    const { error } = await updateExpense(modals.editingExpenseItem.id, {
       amount: signedAmount,
       report_weight: reportWeight,
       date: payload.date,
@@ -983,38 +619,38 @@ export default function Contas() {
       return
     }
 
-    closeExpenseEditModal()
+    modals.closeExpenseEditModal()
     await loadBillData(true)
   }
 
   const handleDeleteExpense = async () => {
-    if (!editingExpenseItem?.id) return
+    if (!modals.editingExpenseItem?.id) return
 
-    if (Number(editingExpenseItem.installment_total || 1) > 1) {
-      setDeleteModalState({
+    if (Number(modals.editingExpenseItem.installment_total || 1) > 1) {
+      modals.setDeleteModalState({
         isOpen: true,
         type: 'expense',
-        id: editingExpenseItem.id,
-        installmentNumber: editingExpenseItem.installment_number || 1,
-        installmentTotal: editingExpenseItem.installment_total || 1,
+        id: modals.editingExpenseItem.id,
+        installmentNumber: modals.editingExpenseItem.installment_number || 1,
+        installmentTotal: modals.editingExpenseItem.installment_total || 1,
       })
-      closeExpenseEditModal()
+      modals.closeExpenseEditModal()
     } else {
-      setDeleteConfirmState({
+      modals.setDeleteConfirmState({
         isOpen: true,
         title: 'Excluir despesa',
         message: 'Deseja excluir esta despesa?',
         checkboxLabel: 'Estou ciente de que esta despesa será excluída permanentemente.',
         onConfirm: async () => {
-          const { error } = await deleteExpense(editingExpenseItem.id)
+          const { error } = await deleteExpense(modals.editingExpenseItem!.id)
           if (error) {
             alert(`Erro ao excluir despesa: ${error}`)
             return
           }
 
-          closeExpenseEditModal()
+          modals.closeExpenseEditModal()
           await loadBillData(true)
-        }
+        },
       })
     }
   }
@@ -1027,8 +663,8 @@ export default function Contas() {
     description: string
     status: 'pending' | 'paid'
   }) => {
-    if (editingDebt) {
-      const { error } = await updateDebt(editingDebt.id, payload)
+    if (modals.editingDebt) {
+      const { error } = await updateDebt(modals.editingDebt.id, payload)
       if (error) {
         alert(`Erro ao atualizar: ${error}`)
         return
@@ -1041,13 +677,13 @@ export default function Contas() {
       }
     }
 
-    closeDebtModal()
+    modals.closeDebtModal()
   }
 
   const handleDeleteDebt = async (debtId: string) => {
     const debt = debts.find((d) => d.id === debtId)
     if (debt && debt.expense?.installment_group_id && Number(debt.expense?.installment_total || 1) > 1) {
-      setDeleteModalState({
+      modals.setDeleteModalState({
         isOpen: true,
         type: 'debt',
         id: debtId,
@@ -1055,7 +691,7 @@ export default function Contas() {
         installmentTotal: debt.expense.installment_total || 1,
       })
     } else {
-      setDeleteConfirmState({
+      modals.setDeleteConfirmState({
         isOpen: true,
         title: 'Excluir pendência',
         message: 'Deseja excluir este registro de pendência?',
@@ -1066,24 +702,20 @@ export default function Contas() {
             alert(`Erro ao excluir: ${error}`)
             return
           }
-        }
+        },
       })
     }
   }
 
   const resolveIncomeCategoryId = async () => {
-    // Try to find "Outros" first (case-insensitive)
     let cat = incomeCategories.find(c => (c.name || '').toLowerCase() === 'outros')
     if (cat) return cat.id
     
-    // Try to find "Sem categoria"
     cat = incomeCategories.find(c => (c.name || '').toLowerCase() === 'sem categoria')
     if (cat) return cat.id
 
-    // Take the first available category
     if (incomeCategories.length > 0) return incomeCategories[0].id
 
-    // If none exists, get or create "Sem categoria" category in database
     const { data } = await supabase
       .from('income_categories')
       .select('id')
@@ -1092,7 +724,6 @@ export default function Contas() {
 
     if (data?.id) return data.id
 
-    // Otherwise, insert it
     const { data: inserted, error: insertError } = await supabase
       .from('income_categories')
       .insert([{ name: 'Sem categoria', color: 'var(--category-fallback-muted)' }])
@@ -1106,13 +737,13 @@ export default function Contas() {
   }
 
   const handleConfirmWithIncome = async () => {
-    if (!selectedDebtForIncome) return
+    if (!modals.selectedDebtForIncome) return
     try {
       const categoryId = await resolveIncomeCategoryId()
       const { error: incomeError } = await createIncome({
-        amount: selectedDebtForIncome.amount,
-        description: selectedDebtForIncome.name,
-        date: selectedDebtForIncome.due_date || format(new Date(), 'yyyy-MM-dd'),
+        amount: modals.selectedDebtForIncome.amount,
+        description: modals.selectedDebtForIncome.name,
+        date: modals.selectedDebtForIncome.due_date || format(new Date(), 'yyyy-MM-dd'),
         income_category_id: categoryId,
         report_weight: 1.0,
         type: 'other',
@@ -1124,39 +755,39 @@ export default function Contas() {
       alert(`Erro ao criar receita: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
 
-    const { error } = await updateDebt(selectedDebtForIncome.id, { status: 'paid' })
+    const { error } = await updateDebt(modals.selectedDebtForIncome.id, { status: 'paid' })
     if (error) {
       alert(`Erro ao atualizar status do recebimento: ${error}`)
     }
 
-    setIsIncomeConfirmModalOpen(false)
-    setSelectedDebtForIncome(null)
+    modals.setIsIncomeConfirmModalOpen(false)
+    modals.setSelectedDebtForIncome(null)
   }
 
   const handleConfirmWithoutIncome = async () => {
-    if (!selectedDebtForIncome) return
-    const { error } = await updateDebt(selectedDebtForIncome.id, { status: 'paid' })
+    if (!modals.selectedDebtForIncome) return
+    const { error } = await updateDebt(modals.selectedDebtForIncome.id, { status: 'paid' })
     if (error) {
       alert(`Erro ao atualizar status do recebimento: ${error}`)
     }
 
-    setIsIncomeConfirmModalOpen(false)
-    setSelectedDebtForIncome(null)
+    modals.setIsIncomeConfirmModalOpen(false)
+    modals.setSelectedDebtForIncome(null)
   }
 
   const handleConfirmIntegrated = async () => {
-    if (!selectedDebtForIntegrated || !linkedExpense) return
+    if (!modals.selectedDebtForIntegrated || !modals.linkedExpense) return
 
-    const parsedVal = parseMoneyInput(integratedReportValueInput)
-    if (Number.isNaN(parsedVal) || parsedVal < 0 || parsedVal > linkedExpense.amount) {
-      alert(`Valor inválido. Deve ser entre 0 e ${formatCurrency(linkedExpense.amount)}.`)
+    const parsedVal = parseMoneyInput(modals.integratedReportValueInput)
+    if (Number.isNaN(parsedVal) || parsedVal < 0 || parsedVal > modals.linkedExpense.amount) {
+      alert(`Valor inválido. Deve ser entre 0 e ${formatCurrency(modals.linkedExpense.amount)}.`)
       return
     }
 
     try {
-      const reportWeight = linkedExpense.amount > 0 ? roundToDecimals(parsedVal / linkedExpense.amount, 4) : 1
-      const { error: updateExpenseError } = await updateExpense(linkedExpense.id, {
-        report_weight: reportWeight
+      const reportWeight = modals.linkedExpense.amount > 0 ? roundToDecimals(parsedVal / modals.linkedExpense.amount, 4) : 1
+      const { error: updateExpenseError } = await updateExpense(modals.linkedExpense.id, {
+        report_weight: reportWeight,
       })
 
       if (updateExpenseError) {
@@ -1164,9 +795,8 @@ export default function Contas() {
         return
       }
 
-      // Mark debt as paid (keep the debt amount as original)
-      const { error } = await updateDebt(selectedDebtForIntegrated.id, {
-        status: 'paid'
+      const { error } = await updateDebt(modals.selectedDebtForIntegrated.id, {
+        status: 'paid',
       })
       if (error) {
         alert(`Erro ao atualizar status do recebimento: ${error}`)
@@ -1175,13 +805,13 @@ export default function Contas() {
       alert(`Erro ao processar integração da cobrança: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
 
-    setIsIntegratedModalOpen(false)
-    setSelectedDebtForIntegrated(null)
-    setLinkedExpense(null)
+    modals.setIsIntegratedModalOpen(false)
+    modals.setSelectedDebtForIntegrated(null)
+    modals.setLinkedExpense(null)
   }
 
   const handleCreateExpenseForPayable = async (expenseData: Omit<Expense, 'id' | 'created_at' | 'category'>) => {
-    if (!selectedDebtForPayableExpense) return { data: null, error: 'Dívida não selecionada' }
+    if (!modals.selectedDebtForPayableExpense) return { data: null, error: 'Dívida não selecionada' }
 
     const { data: createdExpense, error } = await createExpense(expenseData)
 
@@ -1190,9 +820,9 @@ export default function Contas() {
     }
 
     if (createdExpense) {
-      const { error: updateDebtError } = await updateDebt(selectedDebtForPayableExpense.id, {
+      const { error: updateDebtError } = await updateDebt(modals.selectedDebtForPayableExpense.id, {
         status: 'paid',
-        expense_id: createdExpense.id
+        expense_id: createdExpense.id,
       })
 
       if (updateDebtError) {
@@ -1200,21 +830,21 @@ export default function Contas() {
       }
     }
 
-    setIsPayableExpenseModalOpen(false)
-    setSelectedDebtForPayableExpense(null)
+    modals.setIsPayableExpenseModalOpen(false)
+    modals.setSelectedDebtForPayableExpense(null)
 
     return { data: createdExpense, error: null }
   }
 
   const handleConfirmPayableWithoutExpenseDirect = async () => {
-    if (selectedDebtForPayableExpense) {
-      const { error } = await updateDebt(selectedDebtForPayableExpense.id, { status: 'paid' })
+    if (modals.selectedDebtForPayableExpense) {
+      const { error } = await updateDebt(modals.selectedDebtForPayableExpense.id, { status: 'paid' })
       if (error) {
         alert(`Erro ao marcar dívida como paga: ${error}`)
       }
     }
-    setIsPayableConfirmModalOpen(false)
-    setSelectedDebtForPayableExpense(null)
+    modals.setIsPayableConfirmModalOpen(false)
+    modals.setSelectedDebtForPayableExpense(null)
   }
 
   const handleToggleDebtStatus = async (debt: Debt) => {
@@ -1223,7 +853,6 @@ export default function Contas() {
     if (nextStatus === 'paid') {
       if (debt.type === 'receivable') {
         if (debt.expense_id) {
-          // Integrated cobrança! DO NOT suggest income, just show integrated confirmation modal
           try {
             const { data: expense, error: fetchExpenseError } = await supabase
               .from('expenses')
@@ -1235,30 +864,27 @@ export default function Contas() {
 
             if (expense) {
               const currentReportValue = roundToDecimals(expense.amount * (expense.report_weight ?? 1), 2)
-              // Automática diminuindo o valor no relatório da despesa pelo pagamento (debt.amount)
               const finalValue = Math.max(0, roundToDecimals(currentReportValue - debt.amount, 2))
 
-              setLinkedExpense(expense)
-              setSelectedDebtForIntegrated(debt)
-              setIntegratedReportValueInput(formatMoneyInput(finalValue))
-              setIsIntegratedModalOpen(true)
-              return // Will be handled inside handleConfirmIntegrated
+              modals.setLinkedExpense(expense)
+              modals.setSelectedDebtForIntegrated(debt)
+              modals.setIntegratedReportValueInput(formatMoneyInput(finalValue))
+              modals.setIsIntegratedModalOpen(true)
+              return
             }
           } catch (err) {
             alert(`Erro ao processar integração da cobrança: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
             return
           }
         } else {
-          // Non-integrated receivable! Open custom income confirmation modal
-          setSelectedDebtForIncome(debt)
-          setIsIncomeConfirmModalOpen(true)
-          return // Will be handled inside handleConfirmWithIncome or handleConfirmWithoutIncome
+          modals.setSelectedDebtForIncome(debt)
+          modals.setIsIncomeConfirmModalOpen(true)
+          return
         }
       } else if (debt.type === 'payable') {
-        // Confirming a payable debt! Open custom confirmation modal first
-        setSelectedDebtForPayableExpense(debt)
-        setIsPayableConfirmModalOpen(true)
-        return // Will open the custom modal to choose between paying only or paying + registering expense
+        modals.setSelectedDebtForPayableExpense(debt)
+        modals.setIsPayableConfirmModalOpen(true)
+        return
       }
     }
 
@@ -1352,7 +978,7 @@ export default function Contas() {
                     <Card className="text-center py-8 space-y-3">
                       <p className="text-secondary text-sm">Nenhum cartão cadastrado.</p>
                       <div className="flex justify-center">
-                        <Button size="sm" onClick={openCreateCardModal}>Cadastrar primeiro cartão</Button>
+                        <Button size="sm" onClick={modals.openCreateCardModal}>Cadastrar primeiro cartão</Button>
                       </div>
                     </Card>
                   ) : (
@@ -1437,35 +1063,35 @@ export default function Contas() {
                                     <IconButton
                                       size="sm"
                                       icon={<Pencil size={14} />}
-                                      onClick={() => openEditCardModal(card)}
+                                      onClick={() => modals.openEditCardModal(card)}
                                       label="Editar Cartão"
                                       title="Editar configurações do cartão"
                                     />
                                     <IconButton
                                       size="sm"
                                       icon={<Calendar size={14} />}
-                                      onClick={() => openCycleModal(card)}
+                                      onClick={() => modals.openCycleModal(card)}
                                       label="Ajustar Ciclo"
                                       title="Ajustar fechamento/vencimento do mês"
                                     />
                                     <IconButton
                                       size="sm"
                                       icon={<Undo2 size={14} />}
-                                      onClick={() => openRefundModal(card.id)}
+                                      onClick={() => modals.openRefundModal(card.id)}
                                       label="Estorno"
                                       title="Registrar estorno"
                                     />
                                     <IconButton
                                       size="sm"
                                       icon={<Wallet size={14} />}
-                                      onClick={() => openPaymentModal(card.id)}
+                                      onClick={() => modals.openPaymentModal(card.id)}
                                       label="Pagar Fatura"
                                       title="Registrar pagamento"
                                     />
                                     <IconButton
                                       size="sm"
                                       icon={<FileUp size={14} />}
-                                      onClick={() => setReconciliationCardId(card.id)}
+                                      onClick={() => modals.setReconciliationCardId(card.id)}
                                       label="CSV"
                                       title="Anexar CSV"
                                     />
@@ -1489,8 +1115,7 @@ export default function Contas() {
                                       {billItems.map((item) => (
                                         <BillExpenseRowButton
                                           key={item.id}
-                                          item={item}
-                                          onOpen={openExpenseEditModal}
+                                          item={item}                                           onOpen={modals.openExpenseEditModal}
                                         />
                                       ))}
                                     </div>
@@ -1567,7 +1192,7 @@ export default function Contas() {
                     <Card className="text-center py-6 space-y-3">
                       <p className="text-secondary text-sm">Nenhuma pendência ativa para este período.</p>
                       <div className="flex justify-center">
-                        <Button size="sm" onClick={openCreateDebtModal}>Nova Pendência</Button>
+                        <Button size="sm" onClick={modals.openCreateDebtModal}>Nova Pendência</Button>
                       </div>
                     </Card>
                   ) : (
@@ -1704,7 +1329,7 @@ export default function Contas() {
                                     <Button 
                                       size="sm" 
                                       variant="outline" 
-                                      onClick={() => openEditDebtModal(debt)}
+                                      onClick={() => modals.openEditDebtModal(debt)}
                                       className="w-full sm:w-auto flex items-center justify-center gap-1.5"
                                     >
                                       <Pencil size={13} />
@@ -1763,45 +1388,45 @@ export default function Contas() {
 
       {/* MODAL: CARTÃO DE CRÉDITO */}
       <CardFormModal
-        isOpen={isCardModalOpen}
-        onClose={closeCardModal}
+        isOpen={modals.isCardModalOpen}
+        onClose={modals.closeCardModal}
         onSubmit={handleSubmitCard}
-        editingCard={editingCard}
+        editingCard={modals.editingCard}
         loading={loadingCards}
-        onStartDelete={handleStartDelete}
+        onStartDelete={modals.handleStartDelete}
       />
 
       {/* CONFIRM MODAL: DELETAR CARTÃO */}
       <DeleteCardConfirmModal
-        isOpen={isDeleteConfirmModalOpen}
-        onClose={handleCancelDelete}
+        isOpen={modals.isDeleteConfirmModalOpen}
+        onClose={modals.handleCancelDelete}
         onConfirm={handleConfirmDelete}
-        editingCard={editingCard}
+        editingCard={modals.editingCard}
         creditCards={creditCards}
-        isDeleting={isDeleting}
+        isDeleting={modals.isDeleting}
         hasExpensesLinked={
-          editingCard
-            ? (billItemsByCard[editingCard.id] || []).length > 0
+          modals.editingCard
+            ? (billItemsByCard[modals.editingCard.id] || []).length > 0
             : false
         }
       />
 
       {/* MODAL: AJUSTAR CICLO */}
       <CycleConfigModal
-        isOpen={isCycleModalOpen}
-        onClose={closeCycleModal}
+        isOpen={modals.isCycleModalOpen}
+        onClose={modals.closeCycleModal}
         onSubmit={handleSubmitCycle}
         onReset={handleResetCycleToCardDefault}
         currentMonth={currentMonth}
         initialClosingDay={
           cycleCard
-            ? monthlyCyclesByCard[selectedCardIdForCycle]?.closing_day ||
+            ? monthlyCyclesByCard[modals.selectedCardIdForCycle]?.closing_day ||
               cycleCard.closing_day
             : 8
         }
         initialDueDay={
           cycleCard
-            ? monthlyCyclesByCard[selectedCardIdForCycle]?.due_day ||
+            ? monthlyCyclesByCard[modals.selectedCardIdForCycle]?.due_day ||
               cycleCard.due_day
             : 15
         }
@@ -1810,11 +1435,11 @@ export default function Contas() {
 
       {/* MODAL: EDITAR DESPESA DA FATURA */}
       <ExpenseEditModal
-        isOpen={isExpenseEditModalOpen}
-        onClose={closeExpenseEditModal}
+        isOpen={modals.isExpenseEditModalOpen}
+        onClose={modals.closeExpenseEditModal}
         onSubmit={handleSubmitEditExpense}
         onDelete={handleDeleteExpense}
-        expenseItem={editingExpenseItem}
+        expenseItem={modals.editingExpenseItem}
         categories={categories}
         creditCards={creditCards}
         loading={loading}
@@ -1822,30 +1447,30 @@ export default function Contas() {
 
       {/* MODAL: EDITAR PAGAMENTO INDIVIDUAL */}
       <BillPaymentModal
-        isOpen={isPaymentEditModalOpen}
-        onClose={closePaymentEditModal}
+        isOpen={modals.isPaymentEditModalOpen}
+        onClose={modals.closePaymentEditModal}
         onSubmit={handleSubmitEditPayment}
         onDelete={handleDeletePayment}
         currentMonth={currentMonth}
-        editingPayment={editingPaymentItem}
+        editingPayment={modals.editingPaymentItem}
         loading={loading}
       />
 
       {/* MODAL: EDITAR ESTORNO (RENDA) */}
       <RefundIncomeEditModal
-        isOpen={isRefundIncomeEditModalOpen}
-        onClose={closeRefundIncomeEditModal}
+        isOpen={modals.isRefundIncomeEditModalOpen}
+        onClose={modals.closeRefundIncomeEditModal}
         onSubmit={handleSubmitEditRefundIncome}
         onDelete={handleDeleteRefundIncome}
-        initialData={editingRefundIncomeInitialData}
+        initialData={modals.editingRefundIncomeInitialData}
         incomeCategories={incomeCategories}
         loading={loading}
       />
 
       {/* MODAL: ESTORNO NOVO */}
       <RefundModal
-        isOpen={isRefundModalOpen}
-        onClose={closeRefundModal}
+        isOpen={modals.isRefundModalOpen}
+        onClose={modals.closeRefundModal}
         onSubmit={handleSubmitRefund}
         currentMonth={currentMonth}
         loading={loading}
@@ -1853,8 +1478,8 @@ export default function Contas() {
 
       {/* MODAL: REGISTRAR PAGAMENTO FATURA */}
       <BillPaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={closePaymentModal}
+        isOpen={modals.isPaymentModalOpen}
+        onClose={modals.closePaymentModal}
         onSubmit={handleSubmitPayment}
         currentMonth={currentMonth}
         editingPayment={null}
@@ -1863,22 +1488,22 @@ export default function Contas() {
 
       {/* MODAL: NOVO/EDITAR LANÇAMENTO DE PENDÊNCIA */}
       <DebtFormModal
-        isOpen={isDebtModalOpen}
-        onClose={closeDebtModal}
+        isOpen={modals.isDebtModalOpen}
+        onClose={modals.closeDebtModal}
         onSubmit={handleSubmitDebt}
-        editingDebt={editingDebt}
+        editingDebt={modals.editingDebt}
         loading={loadingDebts}
       />
 
       {/* MODAL: CONCILIAÇÃO DE FATURA */}
       <Modal
-        isOpen={!!reconciliationCardId}
-        onClose={() => setReconciliationCardId('')}
+        isOpen={!!modals.reconciliationCardId}
+        onClose={() => modals.setReconciliationCardId('')}
         title={`Conciliação de Fatura (${currentMonth})`}
         size="2xl"
       >
-        {reconciliationCardId && (() => {
-          const card = creditCards.find((c) => c.id === reconciliationCardId)
+        {modals.reconciliationCardId && (() => {
+          const card = creditCards.find((c) => c.id === modals.reconciliationCardId)
           if (!card) return null
           return (
             <CreditCardCsvReconciliationPanel
@@ -1900,8 +1525,8 @@ export default function Contas() {
 
       {/* MODAL: SELETOR DE NOVO LANÇAMENTO */}
       <Modal
-        isOpen={isAddSelectorOpen}
-        onClose={() => setIsAddSelectorOpen(false)}
+        isOpen={modals.isAddSelectorOpen}
+        onClose={() => modals.setIsAddSelectorOpen(false)}
         title="Novo Registro"
       >
         <div className="modal-body-stack">
@@ -1912,8 +1537,8 @@ export default function Contas() {
               icon={<CreditCardIcon size={24} />}
               intent="balance"
               onClick={() => {
-                setIsAddSelectorOpen(false)
-                openCreateCardModal()
+                modals.setIsAddSelectorOpen(false)
+                modals.openCreateCardModal()
               }}
             />
             <GlassChoiceCard
@@ -1921,8 +1546,8 @@ export default function Contas() {
               icon={<Scale size={24} />}
               intent="neutral"
               onClick={() => {
-                setIsAddSelectorOpen(false)
-                openCreateDebtModal()
+                modals.setIsAddSelectorOpen(false)
+                modals.openCreateDebtModal()
               }}
             />
           </ModalChoiceGrid>
@@ -1931,52 +1556,52 @@ export default function Contas() {
 
       {/* MODAL: CONFIRMAR RECEBIMENTO (CRIAR RENDA) */}
       <IncomeConfirmModal
-        isOpen={isIncomeConfirmModalOpen}
+        isOpen={modals.isIncomeConfirmModalOpen}
         onClose={() => {
-          setIsIncomeConfirmModalOpen(false)
-          setSelectedDebtForIncome(null)
+          modals.setIsIncomeConfirmModalOpen(false)
+          modals.setSelectedDebtForIncome(null)
         }}
-        debt={selectedDebtForIncome}
+        debt={modals.selectedDebtForIncome}
         onConfirmWithIncome={handleConfirmWithIncome}
         onConfirmWithoutIncome={handleConfirmWithoutIncome}
       />
 
       {/* MODAL: CONFIRMAR RECEBIMENTO INTEGRADO (DESPESA VINCULADA) */}
       <IntegratedDebtModal
-        isOpen={isIntegratedModalOpen}
+        isOpen={modals.isIntegratedModalOpen}
         onClose={() => {
-          setIsIntegratedModalOpen(false)
-          setSelectedDebtForIntegrated(null)
-          setLinkedExpense(null)
+          modals.setIsIntegratedModalOpen(false)
+          modals.setSelectedDebtForIntegrated(null)
+          modals.setLinkedExpense(null)
         }}
-        debt={selectedDebtForIntegrated}
-        linkedExpense={linkedExpense}
-        reportValueInput={integratedReportValueInput}
-        onReportValueChange={setIntegratedReportValueInput}
+        debt={modals.selectedDebtForIntegrated}
+        linkedExpense={modals.linkedExpense}
+        reportValueInput={modals.integratedReportValueInput}
+        onReportValueChange={modals.setIntegratedReportValueInput}
         onConfirm={handleConfirmIntegrated}
       />
 
       {/* MODAL: CONFIRMAR PAGAMENTO DÍVIDA (CADASTRAR DESPESA?) */}
       <PayableConfirmModal
-        isOpen={isPayableConfirmModalOpen}
+        isOpen={modals.isPayableConfirmModalOpen}
         onClose={() => {
-          setIsPayableConfirmModalOpen(false)
-          setSelectedDebtForPayableExpense(null)
+          modals.setIsPayableConfirmModalOpen(false)
+          modals.setSelectedDebtForPayableExpense(null)
         }}
-        debt={selectedDebtForPayableExpense}
+        debt={modals.selectedDebtForPayableExpense}
         onConfirmWithExpense={() => {
-          setIsPayableConfirmModalOpen(false)
-          setIsPayableExpenseModalOpen(true)
+          modals.setIsPayableConfirmModalOpen(false)
+          modals.setIsPayableExpenseModalOpen(true)
         }}
         onConfirmWithoutExpense={handleConfirmPayableWithoutExpenseDirect}
       />
 
       {/* MODAL: CADASTRAR DESPESA VINCULADA AO PAGAR DÍVIDA */}
       <ExpenseFormModal
-        isOpen={isPayableExpenseModalOpen}
+        isOpen={modals.isPayableExpenseModalOpen}
         onClose={() => {
-          setIsPayableExpenseModalOpen(false)
-          setSelectedDebtForPayableExpense(null)
+          modals.setIsPayableExpenseModalOpen(false)
+          modals.setSelectedDebtForPayableExpense(null)
         }}
         editingExpense={null}
         categories={categories}
@@ -1984,54 +1609,54 @@ export default function Contas() {
         onCreate={handleCreateExpenseForPayable}
         onUpdate={async () => ({ data: null, error: 'Não implementado nesta ação' })}
         onDelete={async () => ({ error: 'Não implementado nesta ação' })}
-        defaultValues={selectedDebtForPayableExpense ? {
-          amount: selectedDebtForPayableExpense.amount,
-          description: selectedDebtForPayableExpense.name,
-          date: selectedDebtForPayableExpense.due_date || format(new Date(), 'yyyy-MM-dd')
+        defaultValues={modals.selectedDebtForPayableExpense ? {
+          amount: modals.selectedDebtForPayableExpense.amount,
+          description: modals.selectedDebtForPayableExpense.name,
+          date: modals.selectedDebtForPayableExpense.due_date || format(new Date(), 'yyyy-MM-dd'),
         } : undefined}
       />
 
-      {deleteModalState?.isOpen && (
+      {modals.deleteModalState?.isOpen && (
         <DeleteInstallmentsModal
-          isOpen={deleteModalState.isOpen}
-          onClose={() => setDeleteModalState(null)}
+          isOpen={modals.deleteModalState.isOpen}
+          onClose={() => modals.setDeleteModalState(null)}
           onConfirm={async (mode) => {
-            if (deleteModalState.type === 'expense') {
-              const { error } = await deleteExpense(deleteModalState.id, mode)
+            if (modals.deleteModalState!.type === 'expense') {
+              const { error } = await deleteExpense(modals.deleteModalState!.id, mode)
               if (error) {
                 alert(`Erro ao excluir despesa: ${error}`)
               } else {
                 await loadBillData(true)
               }
             } else {
-              const { error } = await deleteDebt(deleteModalState.id, mode)
+              const { error } = await deleteDebt(modals.deleteModalState!.id, mode)
               if (error) {
                 alert(`Erro ao excluir cobrança: ${error}`)
               }
             }
           }}
-          type={deleteModalState.type}
-          installmentNumber={deleteModalState.installmentNumber}
-          installmentTotal={deleteModalState.installmentTotal}
+          type={modals.deleteModalState.type}
+          installmentNumber={modals.deleteModalState.installmentNumber}
+          installmentTotal={modals.deleteModalState.installmentTotal}
         />
       )}
 
       <ConfirmModal
-        isOpen={deleteConfirmState?.isOpen || false}
-        onClose={() => setDeleteConfirmState(null)}
-        title={deleteConfirmState?.title || 'Confirmar exclusão'}
+        isOpen={modals.deleteConfirmState?.isOpen || false}
+        onClose={() => modals.setDeleteConfirmState(null)}
+        title={modals.deleteConfirmState?.title || 'Confirmar exclusão'}
         confirmLabel="Confirmar"
         confirmVariant="danger"
         requireCheckbox={true}
-        checkboxLabel={deleteConfirmState?.checkboxLabel}
+        checkboxLabel={modals.deleteConfirmState?.checkboxLabel}
         onConfirm={async () => {
-          if (deleteConfirmState?.onConfirm) {
-            await deleteConfirmState.onConfirm()
-            setDeleteConfirmState(null)
+          if (modals.deleteConfirmState?.onConfirm) {
+            await modals.deleteConfirmState.onConfirm()
+            modals.setDeleteConfirmState(null)
           }
         }}
       >
-        <p className="text-sm text-primary">{deleteConfirmState?.message}</p>
+        <p className="text-sm text-primary">{modals.deleteConfirmState?.message}</p>
       </ConfirmModal>
     </div>
   )

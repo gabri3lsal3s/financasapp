@@ -36,7 +36,7 @@ export async function syncIndexRates(
   startDate: string, // YYYY-MM-DD
   endDate: string // YYYY-MM-DD
 ): Promise<number> {
-  const seriesCode = indexer === 'cdi' ? 12 : 11 // CDI = 12 (a.a.), SELIC = 11 (a.d.)
+  const seriesCode = indexer === 'cdi' ? 12 : 11 // CDI = 12 (% a.d.), SELIC = 11 (% a.d.)
 
   // Formato da data para o BCB: dd/mm/yyyy
   const formatDateForBcb = (isoDate: string) => {
@@ -64,10 +64,8 @@ export async function syncIndexRates(
       const rateDate = parseSgsDate(item.data)
       const rawVal = parseFloat(item.valor)
       
-      // Converter para taxa diária decimal
-      const dailyRate = indexer === 'cdi'
-        ? annualPercentToDailyDecimal(rawVal) // CDI é divulgado anualizado
-        : dailyPercentToDailyDecimal(rawVal) // SELIC acumulada é divulgada diária
+      // Converter para taxa diária decimal (ambos CDI/SELIC diários são em % a.d. na API do BCB)
+      const dailyRate = dailyPercentToDailyDecimal(rawVal)
 
       return {
         rate_date: rateDate,

@@ -215,7 +215,7 @@ export function calculateSnapshotValuation(
     let totalValue = 0
 
     if (pricingMode === 'fixed_income') {
-      const idx = definition?.indexer ?? 'none'
+      const idx = (definition?.indexer ?? 'none').toLowerCase()
       const activeRates = indexRates[idx] ?? {}
       totalValue = calculateLotBasedFixedIncomeValue({
         transactions: txs,
@@ -340,11 +340,25 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
       dateStr
     )
 
-    if (totalShares > 0) {
+    const EPSILON = 1e-5
+
+    if (totalShares > EPSILON) {
       lastShareValue = valuationPrev.totalValue / totalShares
-    } else if (valuationPrev.totalValue > 0) {
-      totalShares = valuationPrev.totalValue
-      lastShareValue = 1.0
+      if (lastShareValue > 9e9 || lastShareValue < 0.01) {
+        if (valuationPrev.totalValue > 0.01) {
+          totalShares = Math.min(valuationPrev.totalValue, 9e11)
+          lastShareValue = 1.0
+        } else {
+          totalShares = 0
+          lastShareValue = 1.0
+        }
+      }
+    } else {
+      totalShares = 0
+      if (valuationPrev.totalValue > 0.01) {
+        totalShares = Math.min(valuationPrev.totalValue, 9e11)
+        lastShareValue = 1.0
+      }
     }
 
     const cashFlow = computeDayCashFlow(dayTxs, definitions, transactions)
@@ -353,6 +367,12 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
       const cota = lastShareValue > 0 ? lastShareValue : 1.0
       const sharesDiff = cashFlow / cota
       totalShares = Math.max(0, totalShares + sharesDiff)
+      if (totalShares < EPSILON) {
+        totalShares = 0
+      }
+      if (totalShares > 9e11) {
+        totalShares = 9e11
+      }
     }
 
     cumulativeExternalContribution += cashFlow
@@ -383,11 +403,18 @@ export function computeDailyShareHistory(input: TwrEngineInput): TwrEngineResult
     if (dayValuation.totalValue <= 0.01) {
       totalShares = 0
       endShareValue = 1.0
-    } else if (totalShares > 0) {
+    } else if (totalShares > EPSILON) {
       endShareValue = dayValuation.totalValue / totalShares
+      if (endShareValue > 9e9 || endShareValue < 0.01) {
+        totalShares = Math.min(dayValuation.totalValue, 9e11)
+        endShareValue = 1.0
+      }
     } else {
-      totalShares = dayValuation.totalValue
+      totalShares = Math.min(dayValuation.totalValue, 9e11)
       endShareValue = 1.0
+    }
+    if (totalShares > 9e11) {
+      totalShares = 9e11
     }
     lastShareValue = endShareValue
 

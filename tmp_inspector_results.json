@@ -1,0 +1,55 @@
+{
+  "signUpData": {
+    "user": {
+      "id": "18d39964-1581-48d0-b53e-932b64c1780e",
+      "aud": "authenticated",
+      "role": "authenticated",
+      "email": "gabriel_inspector_54376@gmail.com",
+      "phone": "",
+      "confirmation_sent_at": "2026-06-30T17:19:56.794405151Z",
+      "app_metadata": {
+        "provider": "email",
+        "providers": [
+          "email"
+        ]
+      },
+      "user_metadata": {
+        "email": "gabriel_inspector_54376@gmail.com",
+        "email_verified": false,
+        "phone_verified": false,
+        "sub": "18d39964-1581-48d0-b53e-932b64c1780e"
+      },
+      "identities": [
+        {
+          "identity_id": "5870f041-5e0d-49ef-bad7-00a4f144720c",
+          "id": "18d39964-1581-48d0-b53e-932b64c1780e",
+          "user_id": "18d39964-1581-48d0-b53e-932b64c1780e",
+          "identity_data": {
+            "email": "gabriel_inspector_54376@gmail.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "18d39964-1581-48d0-b53e-932b64c1780e"
+          },
+          "provider": "email",
+          "last_sign_in_at": "2026-06-30T17:19:56.783924684Z",
+          "created_at": "2026-06-30T17:19:56.783979Z",
+          "updated_at": "2026-06-30T17:19:56.783979Z",
+          "email": "gabriel_inspector_54376@gmail.com"
+        }
+      ],
+      "created_at": "2026-06-30T17:19:56.707763Z",
+      "updated_at": "2026-06-30T17:19:57.380886Z",
+      "is_anonymous": false
+    },
+    "session": null
+  },
+  "signUpError": null,
+  "indexRates": [],
+  "ratesError": null,
+  "vnaDaily": [],
+  "vnaError": null,
+  "assetPriceDaily": [],
+  "priceError": null,
+  "portfolios": [],
+  "portfoliosError": null
+}

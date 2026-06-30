@@ -785,7 +785,7 @@ function calculateSnapshotValuation(
     let totalValue = 0
 
     if (pricingMode === 'fixed_income') {
-      const idx = definition?.indexer ?? 'none'
+      const idx = (definition?.indexer ?? 'none').toLowerCase()
       const activeRates = indexRates[idx] ?? {}
       
       // Acumular lotes de renda fixa para a data de corte

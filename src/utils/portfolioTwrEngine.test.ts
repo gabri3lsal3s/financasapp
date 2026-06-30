@@ -418,6 +418,104 @@ describe('computeDailyShareHistory', () => {
 
     expect(snapshotJuly.dividendos_recebidos).toBe(50)
   })
+
+  it('handles near-zero totalShares without numeric overflow', () => {
+    const txs = [
+      tx({ id: 'tx-1', date: '2026-06-01', ticker: 'CAIXA', operation_type: 'buy', quantity: 1, price: 100 }),
+      tx({ id: 'tx-2', date: '2026-06-01', ticker: 'WEGE3', operation_type: 'buy', quantity: 1, price: 10 }),
+      tx({ id: 'tx-3', date: '2026-06-02', ticker: 'CAIXA', operation_type: 'sell', quantity: 1.0999999999999, price: 100 }),
+    ]
+    const defs = [
+      def({ ticker: 'CAIXA', pricing_mode: 'cash' }),
+      def({ ticker: 'WEGE3', pricing_mode: 'market' }),
+    ]
+    const priceMap = {
+      WEGE3: {
+        '2026-06-01': 10,
+        '2026-06-02': 10,
+        '2026-06-03': 10,
+      }
+    }
+    const pricesToday = { WEGE3: 10 }
+
+    const result = computeDailyShareHistory({
+      portfolioId: 'port-1',
+      transactions: txs,
+      definitions: defs,
+      priceMap,
+      pricesToday,
+      indexRates: {},
+      startDate: '2026-06-01',
+      endDate: '2026-06-03',
+    })
+
+    for (const row of result.dailyRows) {
+      expect(row.share_value).toBeLessThan(100000)
+    }
+
+    // Verify it reset to 1.0 cota and total_shares matched the remaining valuation of 10
+    const day2 = result.dailyRows[1]
+    expect(day2.share_value).toBe(1.0)
+    expect(day2.total_shares).toBe(10)
+  })
+
+  it('clamps totalShares to prevent numeric overflow on total_shares column', () => {
+    const txs = [
+      tx({ id: 'tx-1', date: '2026-06-01', ticker: 'CAIXA', operation_type: 'buy', quantity: 1, price: 1e13 }),
+    ]
+    const defs = [
+      def({ ticker: 'CAIXA', pricing_mode: 'cash' }),
+    ]
+
+    const result = computeDailyShareHistory({
+      portfolioId: 'port-1',
+      transactions: txs,
+      definitions: defs,
+      priceMap: {},
+      pricesToday: {},
+      indexRates: {},
+      startDate: '2026-06-01',
+      endDate: '2026-06-01',
+    })
+
+    expect(result.dailyRows[0].total_shares).toBeLessThanOrEqual(9e11)
+  })
+
+  it('simulates 1000 reais in SELIC for 1 year without overflow', () => {
+    const txs = [
+      tx({ id: 'tx-cash', date: '2025-06-30', ticker: 'CAIXA', operation_type: 'buy', quantity: 1, price: 1000 }),
+      tx({ id: 'tx-buy', date: '2025-06-30', ticker: 'SELIC', operation_type: 'buy', quantity: 1, price: 1000 }),
+      tx({ id: 'tx-cash-sell', date: '2025-06-30', ticker: 'CAIXA', operation_type: 'sell', quantity: 1, price: 1000 }),
+    ]
+    const defs = [
+      def({ ticker: 'CAIXA', pricing_mode: 'cash' }),
+      def({ ticker: 'SELIC', pricing_mode: 'fixed_income', indexer: 'selic', indexer_percent: 100 }),
+    ]
+
+    const indexRates: Record<string, Record<string, number>> = {
+      selic: {}
+    }
+    const dates = iterateDateRange('2025-06-30', '2026-06-30')
+    for (const d of dates) {
+      indexRates.selic[d] = 0.0004
+    }
+
+    const result = computeDailyShareHistory({
+      portfolioId: 'port-1',
+      transactions: txs,
+      definitions: defs,
+      priceMap: {},
+      pricesToday: {},
+      indexRates,
+      startDate: '2025-06-30',
+      endDate: '2026-06-30',
+    })
+
+    const finalRow = result.dailyRows[result.dailyRows.length - 1]
+    console.log('Final row details for 1 year SELIC:', finalRow)
+    expect(finalRow.share_value).toBeLessThan(1000)
+    expect(finalRow.gross_pl).toBeLessThan(100000)
+  })
 })
 
 // ---------------------------------------------------------------------------

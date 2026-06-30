@@ -122,3 +122,39 @@ describe('calculateLotBasedFixedIncomeValue', () => {
     expect(netVal).toBeGreaterThan(2000)
   })
 })
+
+describe('calculateFixedIncomeValue case-insensitivity', () => {
+  it('calculates value case-insensitively for indexers like CDI or SELIC', () => {
+    const indexRates = {
+      '2026-06-01': 0.0004,
+      '2026-06-02': 0.0004,
+      '2026-06-03': 0.0004,
+      '2026-06-04': 0.0004,
+      '2026-06-05': 0.0004,
+    }
+
+    const valUpper = calculateFixedIncomeValue({
+      principal: 1000,
+      contractRateAnnual: 0,
+      indexer: 'CDI',
+      indexerPercent: 100,
+      applicationDate: '2026-06-01',
+      asOfDate: '2026-06-08',
+      indexRates
+    })
+
+    const valLower = calculateFixedIncomeValue({
+      principal: 1000,
+      contractRateAnnual: 0,
+      indexer: 'cdi',
+      indexerPercent: 100,
+      applicationDate: '2026-06-01',
+      asOfDate: '2026-06-08',
+      indexRates
+    })
+
+    expect(valUpper).toBe(valLower)
+    expect(valUpper).toBeCloseTo(1000 * Math.pow(1.0004, 5), 4)
+  })
+})
+

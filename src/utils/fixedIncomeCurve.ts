@@ -80,11 +80,13 @@ export function calculateFixedIncomeValue(params: FixedIncomeParams): number {
 
   let factor = 1.0
 
-  if (indexer === 'none') {
+  const idx = (indexer || 'none').toLowerCase()
+
+  if (idx === 'none') {
     // Apenas taxa pré-fixada
     const dailyRate = annualToDailyRate(contractRateAnnual)
     factor = Math.pow(1 + dailyRate, businessDays)
-  } else if (indexer === 'cdi' || indexer === 'selic') {
+  } else if (idx === 'cdi' || idx === 'selic') {
     // Acumular CDI/SELIC dia a dia
     const curDate = parseLocalDate(applicationDate)
     const endDate = parseLocalDate(asOfDate)
@@ -103,7 +105,7 @@ export function calculateFixedIncomeValue(params: FixedIncomeParams): number {
       }
       curDate.setDate(curDate.getDate() + 1)
     }
-  } else if (indexer === 'ipca') {
+  } else if (idx === 'ipca') {
     // IPCA+ (Normalmente IPCA + Taxa Fixa Anual)
     // Usamos fallback caso não haja VNA disponível
     const dailySpreadRate = annualToDailyRate(contractRateAnnual)
@@ -184,8 +186,10 @@ export function calculateLotBasedFixedIncomeValue(params: LotBasedParams): numbe
 
     let lotVal = 0
 
+    const idx = (definition.indexer || 'none').toLowerCase()
+
     // IPCA+ com VNA ANBIMA
-    if (definition.indexer === 'ipca' && vnaToday && lot.vnaAtPurchase) {
+    if (idx === 'ipca' && vnaToday && lot.vnaAtPurchase) {
       const vnaPurchase = lot.vnaAtPurchase
       const vnaFactor = vnaPurchase > 0 ? vnaToday / vnaPurchase : 1.0
       

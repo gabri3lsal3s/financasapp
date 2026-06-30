@@ -54,8 +54,8 @@ export function useReconciliationDrafts() {
       if (!uniqueMap.has(tickerUpper)) {
         uniqueMap.set(tickerUpper, draft)
       } else {
-        const existing = uniqueMap.get(tickerUpper)!
-        if (existing.indexer === 'none' && draft.indexer !== 'none') {
+        const existing = uniqueMap.get(tickerUpper)
+        if (existing && existing.indexer === 'none' && draft.indexer !== 'none') {
           uniqueMap.set(tickerUpper, draft)
         }
       }

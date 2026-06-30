@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { ArrowRight, Calculator, ChevronDown, Delete } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { formatNumberBR, roundToDecimals } from '@/utils/format'
+import { roundToDecimals } from '@/utils/format'
 import IconButton from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -26,281 +26,48 @@ import {
   buildIconDragTransform,
   getSafeYRange,
 } from '@/components/calculatorOriginFlip'
+import {
+  evaluateExpression,
+  formatExpressionForDisplay,
+  formatCanonicalNumberToPtBr,
+  toCanonicalNumericString,
+} from '@/utils/calculatorExpression'
+import {
+  type Point,
+  clamp,
+  getPanelMinWidth,
+  getPanelMinHeight,
+  getPanelResizeMaxHeight,
+  getUniformPanelSize,
+  PANEL_MARGIN,
+  MAX_PANEL_WIDTH,
+  RETURN_ANIMATION_MS,
+} from '@/utils/calculatorGeometry'
+import { useCalculatorKeyboard } from '@/hooks/useCalculatorKeyboard'
+import { useCalculatorPanel } from '@/hooks/useCalculatorPanel'
+import {
+  isNumericField,
+  isVisibleElement,
+  getInputDisplayName,
+  getNumericInputs,
+  prefersValorField,
+  getTopDialog,
+  CALCULATOR_TARGET_CLASS,
+} from '@/utils/calculatorDom'
 
 
 const CALCULATOR_STATE_KEY = 'floating-calculator-state'
-const CALCULATOR_TARGET_CLASS = 'calculator-target-input'
-const PANEL_MARGIN = 8
-const MIN_PANEL_WIDTH = 320
-const MAX_PANEL_WIDTH = 620
-const MIN_PANEL_HEIGHT = 430
-const MOBILE_MIN_PANEL_HEIGHT = 120
-const MOBILE_MIN_PANEL_WIDTH = 200
-const MAX_PANEL_HEIGHT = 640
-const DEFAULT_PANEL_WIDTH = 352
-const DEFAULT_PANEL_HEIGHT = 470
-const MOBILE_BREAKPOINT = 768
-const MOBILE_MAX_HEIGHT_RATIO = 0.5
-const MOBILE_RESIZE_MIN_HEIGHT_RATIO = 0.45
-const RESIZE_MAX_VIEWPORT_HEIGHT_RATIO = 1
-const PANEL_ASPECT_RATIO = DEFAULT_PANEL_WIDTH / DEFAULT_PANEL_HEIGHT
-const RESIZE_TAP_MAX_MS = 220
-const RESIZE_DRAG_START_DISTANCE = 6
-const RETURN_ANIMATION_MS = 600
 
 interface PersistedCalculatorState {
   expression: string
   lastResult: string
 }
 
-interface PanelRect {
-  left: number
-  top: number
-  width: number
-  height: number
-}
 
-interface Point {
-  x: number
-  y: number
-}
 
 const DEFAULT_STATE: PersistedCalculatorState = {
   expression: '0',
   lastResult: '',
-}
-
-function isNumericField(element: Element | null): element is HTMLInputElement {
-  if (!(element instanceof HTMLInputElement)) {
-    return false
-  }
-
-  if (element.disabled || element.readOnly) {
-    return false
-  }
-
-  return element.type === 'number' || element.inputMode === 'decimal' || element.inputMode === 'numeric'
-}
-
-function normalizeInputValue(value: string): string {
-  return value.trim().replace(/,/g, '.')
-}
-
-function toCanonicalNumericString(value: string): string {
-  const compact = value.trim().replace(/\s/g, '')
-  if (!compact) return ''
-
-  // Replace all commas with dots for canonical representation
-  return compact.replace(/,/g, '.')
-}
-
-function formatCanonicalNumberToPtBr(value: string): string {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) {
-    return value
-  }
-
-  return formatNumberBR(parsed, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 8,
-  })
-}
-
-function formatExpressionForDisplay(expression: string): string {
-  let formatted = ''
-  let numericToken = ''
-
-  const flushNumericToken = () => {
-    if (!numericToken) {
-      return
-    }
-
-    const hasTrailingDot = numericToken.endsWith('.')
-    const [rawIntegerPart = '', rawDecimalPart = ''] = numericToken.split('.')
-    const integerPart = rawIntegerPart.replace(/\D/g, '') || '0'
-    const formattedIntegerPart = formatNumberBR(Number(integerPart), {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })
-
-    if (hasTrailingDot) {
-      formatted += `${formattedIntegerPart},`
-      numericToken = ''
-      return
-    }
-
-    if (numericToken.includes('.')) {
-      formatted += `${formattedIntegerPart},${rawDecimalPart}`
-      numericToken = ''
-      return
-    }
-
-    formatted += formattedIntegerPart
-    numericToken = ''
-  }
-
-  for (const char of expression) {
-    if (/\d|\./.test(char)) {
-      numericToken += char
-      continue
-    }
-
-    flushNumericToken()
-    formatted += char
-  }
-
-  flushNumericToken()
-
-  return formatted
-}
-
-function evaluateExpression(expression: string): string | null {
-  const normalizedExpression = normalizeInputValue(expression)
-
-  if (!normalizedExpression) {
-    return null
-  }
-
-  if (!/^[0-9+\-*/().\s%^]+$/.test(normalizedExpression)) {
-    return null
-  }
-
-  const executableExpression = normalizedExpression.replace(/\^/g, '**')
-
-  try {
-    const rawValue = Function(`"use strict"; return (${executableExpression})`)()
-    if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) {
-      return null
-    }
-
-    // Use standard JS rounding instead of localized formatNumberBR to avoid commas in intermediate result
-    const roundedValue = Math.round(rawValue * 100000000) / 100000000
-    return String(roundedValue)
-  } catch {
-    return null
-  }
-}
-
-function isVisibleElement(element: HTMLElement): boolean {
-  return element.getClientRects().length > 0
-}
-
-function getInputDisplayName(input: HTMLInputElement): string {
-  const ariaLabel = input.getAttribute('aria-label')?.trim()
-  if (ariaLabel) return ariaLabel
-
-  const inputName = input.getAttribute('name')?.trim()
-  if (inputName) return inputName
-
-  const inputId = input.getAttribute('id')?.trim()
-  if (inputId) {
-    const explicitLabel = document.querySelector(`label[for="${CSS.escape(inputId)}"]`)?.textContent?.trim()
-    if (explicitLabel) return explicitLabel
-  }
-
-  const wrapperLabel = input.closest('div')?.querySelector('label')?.textContent?.trim()
-  if (wrapperLabel) return wrapperLabel
-
-  const placeholder = input.getAttribute('placeholder')?.trim()
-  if (placeholder) return placeholder
-
-  return 'Campo numérico'
-}
-
-function getNumericInputs(root: ParentNode): HTMLInputElement[] {
-  return Array.from(root.querySelectorAll('input')).filter((input) => isNumericField(input) && isVisibleElement(input))
-}
-
-function prefersValorField(input: HTMLInputElement): boolean {
-  const label = getInputDisplayName(input).toLowerCase()
-  const name = (input.getAttribute('name') || '').toLowerCase()
-  const id = (input.getAttribute('id') || '').toLowerCase()
-  const placeholder = (input.getAttribute('placeholder') || '').toLowerCase()
-  const fullText = `${label} ${name} ${id} ${placeholder}`
-
-  return fullText.includes('valor')
-}
-
-function getTopDialog(): HTMLElement | null {
-  const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]')).filter(isVisibleElement)
-  return dialogs.length > 0 ? dialogs[dialogs.length - 1] : null
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
-function isMobileViewport(viewportWidth: number): boolean {
-  return viewportWidth <= MOBILE_BREAKPOINT
-}
-
-function getPanelMinWidth(viewportWidth: number): number {
-  return isMobileViewport(viewportWidth) ? MOBILE_MIN_PANEL_WIDTH : MIN_PANEL_WIDTH
-}
-
-function getPanelMinHeight(viewportWidth: number, viewportHeight: number): number {
-  if (!isMobileViewport(viewportWidth)) {
-    return MIN_PANEL_HEIGHT
-  }
-
-  const mobileRatioMinHeight = Math.floor(viewportHeight * MOBILE_RESIZE_MIN_HEIGHT_RATIO)
-  return Math.max(MOBILE_MIN_PANEL_HEIGHT, mobileRatioMinHeight)
-}
-
-function getPanelResizeMaxHeight(viewportWidth: number, viewportHeight: number): number {
-  const minHeight = getPanelMinHeight(viewportWidth, viewportHeight)
-  const viewportBoundMaxHeight = Math.min(
-    MAX_PANEL_HEIGHT,
-    Math.floor((viewportHeight - PANEL_MARGIN * 2) * RESIZE_MAX_VIEWPORT_HEIGHT_RATIO),
-  )
-
-  return Math.max(minHeight, viewportBoundMaxHeight)
-}
-
-function getPanelInitialMaxHeight(viewportWidth: number, viewportHeight: number): number {
-  const minHeight = getPanelMinHeight(viewportWidth, viewportHeight)
-  const resizeMaxHeight = getPanelResizeMaxHeight(viewportWidth, viewportHeight)
-
-  if (!isMobileViewport(viewportWidth)) {
-    return resizeMaxHeight
-  }
-
-  const mobileMaxHeight = Math.floor(viewportHeight * MOBILE_MAX_HEIGHT_RATIO)
-  return Math.max(minHeight, Math.min(resizeMaxHeight, mobileMaxHeight))
-}
-
-function getUniformPanelSize(
-  requestedHeight: number,
-  minWidth: number,
-  minHeight: number,
-  maxWidth: number,
-  maxHeight: number,
-): Pick<PanelRect, 'width' | 'height'> {
-  const minHeightByRatio = minWidth / PANEL_ASPECT_RATIO
-  const maxHeightByRatio = maxWidth / PANEL_ASPECT_RATIO
-  const effectiveMinHeight = Math.max(minHeight, minHeightByRatio)
-  const effectiveMaxHeight = Math.max(effectiveMinHeight, Math.min(maxHeight, maxHeightByRatio))
-  const height = clamp(requestedHeight, effectiveMinHeight, effectiveMaxHeight)
-  const width = clamp(Math.round(height * PANEL_ASPECT_RATIO), minWidth, maxWidth)
-
-  return { width, height }
-}
-
-function getDefaultPanelRect(): PanelRect {
-  const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
-  const minWidth = getPanelMinWidth(viewportWidth)
-  const minHeight = getPanelMinHeight(viewportWidth, viewportHeight)
-
-  const maxWidth = Math.max(minWidth, Math.min(MAX_PANEL_WIDTH, viewportWidth - PANEL_MARGIN * 2))
-  const maxHeight = getPanelInitialMaxHeight(viewportWidth, viewportHeight)
-  const { width, height } = getUniformPanelSize(DEFAULT_PANEL_HEIGHT, minWidth, minHeight, maxWidth, maxHeight)
-
-  const left = clamp(viewportWidth - width - 20, PANEL_MARGIN, viewportWidth - width - PANEL_MARGIN)
-  const bottomOffset = viewportWidth < 1024 ? (64 + 16) : PANEL_MARGIN
-  const top = clamp(viewportHeight - height - bottomOffset, PANEL_MARGIN, viewportHeight - height - PANEL_MARGIN)
-
-  return { left, top, width, height }
 }
 
 interface FloatingCalculatorProps {
@@ -371,10 +138,17 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   const activeNumericInputRef = useRef<HTMLInputElement | null>(null)
   const highlightedInputRef = useRef<HTMLInputElement | null>(null)
   const isExpandedRef = useRef(false)
-  const [panelRect, setPanelRect] = useState<PanelRect>(() => getDefaultPanelRect())
-  const panelRectRef = useRef<PanelRect>(panelRect)
-  const [isResizingPanel, setIsResizingPanel] = useState(false)
-  const [resizePreviewRect, setResizePreviewRect] = useState<PanelRect | null>(null)
+  const {
+    panelRect,
+    setPanelRect,
+    isResizingPanel,
+    setIsResizingPanel,
+    resizePreviewRect,
+    setResizePreviewRect,
+    startDrag,
+    startResize,
+    resetPanelRect,
+  } = useCalculatorPanel()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [position, setPosition] = useState<CalculatorPosition>(() => readPersistedPosition(isDesktop))
   const [isNearHub, setIsNearHub] = useState(false)
@@ -416,7 +190,6 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
   useEffect(() => {
     isExpandedRef.current = isExpanded
-    panelRectRef.current = panelRect
   })
 
   useEffect(() => {
@@ -437,8 +210,8 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     setIsExpanded(false)
     setIsResizingPanel(false)
     setResizePreviewRect(null)
-    setPanelRect(getDefaultPanelRect())
-  }, [location.pathname])
+    resetPanelRect()
+  }, [location.pathname, resetPanelRect])
 
   // WHY: restaura estado persistido da calculadora ao montar
   useEffect(() => {
@@ -497,10 +270,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
   }, [])
 
   const clearHighlightedField = () => {
-    if (!highlightedInputRef.current) {
-      return
-    }
-
+    if (!highlightedInputRef.current) return
     highlightedInputRef.current.classList.remove(CALCULATOR_TARGET_CLASS)
     highlightedInputRef.current = null
   }
@@ -599,68 +369,6 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
 
     return result
   }, [expression])
-
-  useEffect(() => {
-    if (!isExpanded) {
-      return
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const { key } = event
-      const handlers = keyboardHandlersRef.current
-
-      const isNumericKey = /^[0-9]$/.test(key)
-      const isOperatorKey = key === '+' || key === '-' || key === '*' || key === '/'
-      const isParenthesisKey = key === '(' || key === ')'
-
-      if (isNumericKey || isOperatorKey || isParenthesisKey) {
-        event.preventDefault()
-        event.stopPropagation()
-        handlers.appendToExpression(key)
-        return
-      }
-
-      if (key === '.' || key === ',') {
-        event.preventDefault()
-        event.stopPropagation()
-        handlers.appendToExpression('.')
-        return
-      }
-
-      if (key === 'Enter' || key === '=') {
-        event.preventDefault()
-        event.stopPropagation()
-        handlers.applyEvaluation()
-        return
-      }
-
-      if (key === 'Backspace') {
-        event.preventDefault()
-        event.stopPropagation()
-        handlers.backspaceExpression()
-        return
-      }
-
-      if (key === 'Delete') {
-        event.preventDefault()
-        event.stopPropagation()
-        handlers.clearExpression()
-        return
-      }
-
-      if (key === 'Escape') {
-        event.preventDefault()
-        event.stopPropagation()
-        setIsExpanded(false)
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown, true)
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true)
-    }
-  }, [isExpanded])
 
   const keypadRows = useMemo(
     () => [
@@ -762,6 +470,8 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     clearExpression,
   }
 
+  useCalculatorKeyboard(isExpanded, keyboardHandlersRef, () => setIsExpanded(false))
+
   const applyUnaryOperation = (operation: (value: number) => number | null) => {
     const result = evaluateExpression(expression)
     if (!result) {
@@ -811,178 +521,6 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
     setLastResult('')
     setIsExpanded(false)
   }
-
-  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return
-    }
-
-    const target = event.target as HTMLElement
-    if (target.closest('button')) {
-      return
-    }
-
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    const startX = event.clientX
-    const startY = event.clientY
-    const startRect = panelRectRef.current
-    const pointerId = event.pointerId
-
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) {
-        return
-      }
-
-      const deltaX = moveEvent.clientX - startX
-      const deltaY = moveEvent.clientY - startY
-
-      const nextLeft = clamp(startRect.left + deltaX, PANEL_MARGIN, window.innerWidth - startRect.width - PANEL_MARGIN)
-      const nextTop = clamp(startRect.top + deltaY, PANEL_MARGIN, window.innerHeight - startRect.height - PANEL_MARGIN)
-
-      setPanelRect((currentRect) => ({
-        ...currentRect,
-        left: nextLeft,
-        top: nextTop,
-      }))
-    }
-
-    const onPointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) {
-        return
-      }
-
-      document.removeEventListener('pointermove', onPointerMove)
-      document.removeEventListener('pointerup', onPointerUp)
-      document.removeEventListener('pointercancel', onPointerUp)
-    }
-
-    document.addEventListener('pointermove', onPointerMove)
-    document.addEventListener('pointerup', onPointerUp)
-    document.addEventListener('pointercancel', onPointerUp)
-  }
-
-  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return
-    }
-
-    event.preventDefault()
-    event.stopPropagation()
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    const startX = event.clientX
-    const startY = event.clientY
-    const startRect = panelRectRef.current
-    const pointerId = event.pointerId
-    const startTimestamp = performance.now()
-    let hasStartedDragResize = false
-    let latestPreviewRect: PanelRect | null = null
-
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId) {
-        return
-      }
-
-      const deltaX = moveEvent.clientX - startX
-      const deltaY = moveEvent.clientY - startY
-
-      if (!hasStartedDragResize && Math.hypot(deltaX, deltaY) < RESIZE_DRAG_START_DISTANCE) {
-        return
-      }
-
-      if (!hasStartedDragResize) {
-        setIsResizingPanel(true)
-        setResizePreviewRect(startRect)
-        latestPreviewRect = startRect
-      }
-
-      hasStartedDragResize = true
-
-      const minWidth = getPanelMinWidth(window.innerWidth)
-      const minHeight = getPanelMinHeight(window.innerWidth, window.innerHeight)
-      const maxWidthByViewport = Math.max(minWidth, Math.min(MAX_PANEL_WIDTH, window.innerWidth - startRect.left - PANEL_MARGIN))
-      const absoluteMaxHeight = getPanelResizeMaxHeight(window.innerWidth, window.innerHeight)
-      const maxHeightByViewport = Math.max(minHeight, Math.min(absoluteMaxHeight, window.innerHeight - startRect.top - PANEL_MARGIN))
-
-      const projectedHeightDeltaFromX = deltaX / PANEL_ASPECT_RATIO
-      const projectedHeightDeltaFromY = deltaY
-      const dominantHeightDelta = Math.abs(projectedHeightDeltaFromY) >= Math.abs(projectedHeightDeltaFromX)
-        ? projectedHeightDeltaFromY
-        : projectedHeightDeltaFromX
-
-      const uniformSize = getUniformPanelSize(
-        startRect.height + dominantHeightDelta,
-        minWidth,
-        minHeight,
-        maxWidthByViewport,
-        maxHeightByViewport,
-      )
-
-      const reachedMaxMobileWidth = isMobileViewport(window.innerWidth)
-        && (startRect.width >= maxWidthByViewport - 1 || uniformSize.width >= maxWidthByViewport - 1)
-
-      const nextWidth = reachedMaxMobileWidth
-        ? maxWidthByViewport
-        : uniformSize.width
-
-      const nextHeight = reachedMaxMobileWidth
-        ? clamp(startRect.height + deltaY, minHeight, maxHeightByViewport)
-        : uniformSize.height
-
-      const nextPreviewRect: PanelRect = {
-        left: startRect.left,
-        top: startRect.top,
-        width: nextWidth,
-        height: nextHeight,
-      }
-
-      latestPreviewRect = nextPreviewRect
-      setResizePreviewRect(nextPreviewRect)
-    }
-
-    const onPointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== pointerId) {
-        return
-      }
-
-      const elapsedMs = performance.now() - startTimestamp
-
-      if (!hasStartedDragResize && elapsedMs <= RESIZE_TAP_MAX_MS) {
-        resetPanelRect()
-      } else if (hasStartedDragResize && latestPreviewRect) {
-        setPanelRect({
-          left: latestPreviewRect.left,
-          top: latestPreviewRect.top,
-          width: latestPreviewRect.width,
-          height: latestPreviewRect.height,
-        })
-      }
-
-      setIsResizingPanel(false)
-      setResizePreviewRect(null)
-
-      document.removeEventListener('pointermove', onPointerMove)
-      document.removeEventListener('pointerup', onPointerUp)
-      document.removeEventListener('pointercancel', onPointerUp)
-    }
-
-    document.addEventListener('pointermove', onPointerMove)
-    document.addEventListener('pointerup', onPointerUp)
-    document.addEventListener('pointercancel', onPointerUp)
-  }
-
-  const resetPanelRect = () => {
-    const defaultRect = getDefaultPanelRect()
-    setPanelRect({
-      left: defaultRect.left,
-      top: defaultRect.top,
-      width: defaultRect.width,
-      height: defaultRect.height,
-    })
-  }
-
   const initiateIconDrag = useCallback((clientX: number, clientY: number, pointerId: number, targetForCapture?: Element) => {
     if (iconReturnTimeoutRef.current) {
       clearTimeout(iconReturnTimeoutRef.current)

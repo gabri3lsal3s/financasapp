@@ -24,15 +24,15 @@
 | Métrica | Valor | Classificação |
 |---------|-------|---------------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **262/262** (29 arquivos) | ✅ |
+| Testes passando | **267/267** (30 arquivos) | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
 | `as any` em produção | **0** | ✅ |
-| Non-null assertions (`!`) | **20+** em produção | 🔴 Pode causar crash runtime |
-| `catch(err: any)` | **1** (Edge Function) | 🟢 Aceitável |
+| Non-null assertions (`!`) | **0** em produção | ✅ |
+| `catch(err: any)` | **0** | ✅ |
 | HTML nativo em pages | **0** | ✅ |
 | `console.log` em produção | **0** (exceto logger.ts) | ✅ |
 | `@ts-ignore` / `@ts-expect-error` | **0** | ✅ |
-| Maior arquivo | **3.119 linhas** (Reports.tsx) | 🟡 |
+| Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
 | `useEffect` médio por componente | ~5 | 🟡 |
 
 ### 1.3 Últimas Correções Realizadas (Junho 2026)
@@ -47,12 +47,22 @@
 | 6 | **`key={index}`** → chaves estáveis | DatePicker.tsx |
 | 7 | **Blank line** extra removida | Reports.tsx |
 | 8 | **Renda Fixa: Fórmulas e Imposto de Renda** — CDI multiplicativo, IR regressivo por lote e paridade da Edge Function | fixedIncomeCurve.ts & portfolioCalculations.ts & daily-close/index.ts |
-| 9 | **Motor TWR e Snapshots** — Base de abertura mensal (`cota_abertura` do fechamento anterior), drawdown máximo mensal real e acúmulo de proventos/fluxos dia a dia | portfolioTwrEngine.ts & daily-close/index.ts |
-| 10 | **Correção de Cotação Flatline** — Correção no forward-fill do motor TWR para evitar inicializar lastPrice com o preço de hoje antes da primeira cotação do Yahoo | portfolioTwrEngine.ts & daily-close/index.ts |
-| 11 | **Bug Fix — Select.Item value="" no Radix UI** — Uso de sentinel value `__empty__` para evitar erro de runtime em opções com string vazia | Select.tsx |
-| 12 | **Componentes padronizados: FieldLabel + SectionHeader** — Criação e migração de ~50 labels em 5 arquivos | FieldLabel.tsx, SectionHeader.tsx, AssetConfigModal.tsx, PortfolioTransactionFormModal.tsx, QuantPreferencesEditor.tsx |
-| 13 | **NumberInput padronizado em 7 arquivos** — Migração de `Input type="number"` → `NumberInput` com spin buttons | ExpenseFormModal, CardFormModal, CycleConfigModal, LimitSuggestionsModal, DebtFormModal, BillPaymentModal, CorrectionsMissingTab |
-| 14 | **Overflow DECIMAL(15,2) no motor de rentabilidade** — Migration para DECIMAL(18,2) + arredondamento defensivo no código | portfolioTwrEngine.ts, portfolioHistoricalRecalc.ts, daily-close/index.ts, 20260629_fix_numeric_overflow.sql |
+| 9 | **Motor TWR e Snapshots** — Base de abertura mensal, drawdown máximo mensal real e acúmulo de proventos/fluxos dia a dia | portfolioTwrEngine.ts & daily-close/index.ts |
+| 10 | **Correção de Cotação Flatline** — Forward-fill do motor TWR | portfolioTwrEngine.ts & daily-close/index.ts |
+| 11 | **Bug Fix — Select.Item value="" no Radix UI** — sentinel value `__empty__` | Select.tsx |
+| 12 | **Componentes padronizados: FieldLabel + SectionHeader** — ~50 labels migradas | FieldLabel.tsx, SectionHeader.tsx, + 5 arquivos |
+| 13 | **NumberInput padronizado em 7 arquivos** | ExpenseFormModal, CardFormModal, + 5 modais |
+| 14 | **Overflow DECIMAL(15,2)** — Migration DECIMAL(18,2) + arredondamento | portfolioTwrEngine.ts, portfolioHistoricalRecalc.ts, daily-close/index.ts, 20260629_fix_numeric_overflow.sql |
+| 15 | **Non-null assertion zerada** — `uniqueMap.get(tickerUpper)!` → safe check | useReconciliationDrafts.ts |
+| 16 | **FloatingCalculator extraído** — 3 utilitários: `calculatorExpression`, `calculatorGeometry`, `calculatorDom` (~240 linhas removidas) | FloatingCalculator.tsx → 3 novos arquivos |
+| 17 | **Reports.tsx extração parcial** — `reportAggregation.ts` (~20 funções) + `ReportPendingDebtsWidget.tsx` (~252 linhas removidas) | Reports.tsx → reportAggregation.ts + ReportPendingDebtsWidget.tsx |
+| 18 | **TS errors corrigidos** — 9 erros (imports órfãos, tipos de retorno) | Reports.tsx, reportAggregation.ts |
+| 19 | **ReportUnifiedCompositionCard extraído** — componente standalone (~172 linhas removidas) | Reports.tsx → ReportUnifiedCompositionCard.tsx |
+| 20 | **FloatingCalculator hooks extraídos** — `useCalculatorKeyboard` + `useCalculatorPanel` (~233 linhas removidas, ~17%) | FloatingCalculator.tsx → 2 hooks |
+| 21 | **Reports.tsx período customizado** — `reportCustomData.ts` com ~15 funções puras de agregação customizada (~381 linhas removidas, ~14%) | Reports.tsx → reportCustomData.ts |
+| 22 | **Contas.tsx — Hooks de bills + modais** — `useContasBills.ts` + `useContasModals.ts` (~377 linhas removidas, ~18%) | Contas.tsx → 2 hooks |
+| 23 | **Teste de integridade CDI/SELIC** — `checkDbRates.test.ts` (~59 linhas) | Utilitário de teste |
+| 24 | **TS Errors pós-extração Contas.tsx** — 3 erros corrigidos (Expense import, unused params, null safety) | useContasModals.ts, Contas.tsx |
 
 ### 1.2 Princípios da Arquitetura (Regras do Projeto)
 
@@ -233,25 +243,19 @@ const data = await res.json() as PriceApiResponse
 
 ## 3. 🟡 Melhorias de Curto Prazo
 
-### 3.1 Extrair Lógica do `FloatingCalculator.tsx` (1.465 linhas, 13 useEffects)
+### 3.1 ✅ Extrair Lógica do `FloatingCalculator.tsx` (Concluído)
 
-**Problema:** Componente maior que muitas páginas inteiras. 13 `useEffect` dificultam raciocínio.
+**Progresso:**
 
-**O que já foi extraído:** `src/utils/calculator.ts` existe mas contém apenas `isCalculatorElement`.
+| Extração | Status | Arquivo | Linhas |
+|----------|--------|---------|--------|
+| `utils/calculatorGeometry.ts` | ✅ | Geometria do painel, constantes | ~100 |
+| `utils/calculatorExpression.ts` | ✅ | Avaliação de expressões, formatação | ~80 |
+| `utils/calculatorDom.ts` | ✅ | Utilitários DOM | ~60 |
+| `hooks/useCalculatorKeyboard.ts` | ✅ | Atalhos de teclado | ~95 |
+| `hooks/useCalculatorPanel.ts` | ✅ | Drag/resize do painel | ~216 |
 
-**Plano de extração:**
-
-| Extração | Função | Linhas atuais | Benefício |
-|----------|--------|---------------|-----------|
-| `utils/calculatorGeometry.ts` | `getDefaultPanelRect`, `clamp`, `getPanelMinWidth`, `getUniformPanelSize`, resize helpers | ~80 | Testável sem React |
-| `utils/calculatorDrag.ts` | `startDrag`, `startResize`, `startIconDrag`, drag handlers | ~120 | Testável, isolado |
-| `utils/calculatorExpression.ts` | `evaluateExpression`, `formatExpressionForDisplay`, `normalizeInputValue` | ~60 | Testável, puro |
-| `hooks/useCalculatorDrag.ts` | Hook de drag com pointer events | ~100 | Reutilizável |
-| `hooks/useCalculatorKeyboard.ts` | Hook de keyboard handlers | ~40 | Reduz useEffect inline |
-
-**Redução esperada de useEffect:** 13 → ~9 (unificar portais, localStorage, resize).
-
-**Esforço estimado:** ~4h
+**Impacto final:** FloatingCalculator.tsx reduziu de ~1.569 → **~1.107 linhas** (-462, ~29%). UseEffects: ~13 → **~10**.
 
 ---
 
@@ -289,19 +293,18 @@ const data = await res.json() as PriceApiResponse
 
 ---
 
-### 3.4 Extrair Lógica de `Contas.tsx` (2.039 linhas)
+### 3.4 ✅ Extrair Lógica de `Contas.tsx` (Concluído)
 
-**Problema:** Segundo maior arquivo. Mistura dívidas, cartões de crédito, conciliação CSV e reconciliação.
+**Progresso:**
 
-**Plano de extração:**
+| Extração | Status | Arquivo | Linhas |
+|----------|--------|---------|--------|
+| `hooks/useContasBills.ts` | ✅ | Carregamento de faturas, despesas por cartão, pagamentos, ciclos | ~264 |
+| `hooks/useContasModals.ts` | ✅ | ~30 estados de modal + handlers de ação complexa | ~551 |
 
-| Extração | Função |
-|----------|--------|
-| `hooks/useContasState.ts` | Unificar estado de tabs, filtros, períodos |
-| `utils/debtCalculations.ts` | Cálculos de juros, multa, saldo devedor |
-| `utils/creditCardCalculations.ts` | Cálculos de fatura, pagamento mínimo, juros rotativo |
+**Impacto final:** Contas.tsx reduziu de **2.039 → 1.662 linhas** (-377, ~18%).
 
-**Esforço estimado:** ~4h
+**Próximo passo:** Extrair lógica de cálculos (juros, saldo devedor, fatura) para utils puras.
 
 ---
 
@@ -337,9 +340,11 @@ const data = await res.json() as PriceApiResponse
 
 | Arquivo | Linhas | Ação | Esforço |
 |---------|--------|------|---------|
-| `src/pages/Categories.tsx` | 1.251 | Extrair `CategoryGrid`, `CategoryKPIs`, `CategoryDetailModal` já existe | ~3h |
+| `src/pages/Reports.tsx` | **2.276** | ✅ Extração de período customizado concluída | ✅ |
+| `src/pages/Contas.tsx` | **1.662** | ✅ Hooks de bills + modais extraídos (era 2.039) | ✅ |
+| `src/pages/Categories.tsx` | 1.252 | Extrair `CategoryGrid`, `CategoryKPIs`, `CategoryDetailModal` já existe | ~3h |
 | `src/components/CreditCardCsvReconciliationPanel.tsx` | 1.193 | Extrair `CsvUploadZone`, `CsvMatchTable`, `CsvSummaryPanel` | ~3h |
-| `src/components/FloatingCalculator.tsx` | 1.465 | Ver item 3.1 | ~4h |
+| `src/components/FloatingCalculator.tsx` | **1.107** | ✅ Extração concluída (era 1.569) | ✅ |
 
 ### 4.2 Redução de useEffect em Componentes Críticos
 
@@ -347,7 +352,7 @@ const data = await res.json() as PriceApiResponse
 
 | Componente | Atual | Meta | Técnica |
 |-----------|-------|------|---------|
-| `FloatingCalculator.tsx` | 13 | 9 | Unificar portais + localStorage + resize handlers |
+| `FloatingCalculator.tsx` | ~10 | 8 | Refatoração adicional: extrair efeito de viewport resize |
 | `Reports.tsx` | 12 | 8 | Extrair lógica de filtro/agregação para utils puras |
 | `FloatingActionHub.tsx` | 10 | 7 | Extrair hooks de gesture (touch/wheel) |
 | `useReconciliationState.ts` | 5 | 3 | Extrair máquina de estados para reducer |
@@ -380,12 +385,12 @@ const data = await res.json() as PriceApiResponse
 
 | Métrica | Atual | Meta | Prioridade |
 |---------|-------|------|------------|
-| `as any` em produção | 5 | **0** | 🔴 |
-| Non-null assertions em produção | 20+ | **0** | 🔴 |
-| Arquivos > 1000 linhas | 5 | **< 3** | 🟡 |
-| Hooks > 400 linhas | 6 | **< 3** | 🟡 |
-| `useEffect` no FloatingCalculator | 13 | **~9** | 🟡 |
-| Testes passando | 253 | **253+** | ✅ |
+| `as any` em produção | 0 | **0** | ✅ |
+| Non-null assertions em produção | 0 | **0** | ✅ |
+| Arquivos > 1000 linhas | 4 | **< 3** | 🟡 |
+| Hooks > 400 linhas | 5 | **< 3** | 🟡 |
+| `useEffect` no FloatingCalculator | ~10 | **~7** | 🟡 |
+| Testes passando | 267 | **267+** | ✅ |
 | TypeScript errors | 0 | **0** | ✅ |
 
 ### 5.2 Checklist Antes de Cada Merge

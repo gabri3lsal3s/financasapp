@@ -8,7 +8,6 @@ import { useSwipeYear } from '@/hooks/useSwipeYear'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
-import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowButton'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { SkeletonReports } from '@/components/Skeleton'
 import { useReports } from '@/hooks/useReports'
@@ -28,8 +27,7 @@ import { portfolioInvestmentByDay, transactionInvestmentAmount } from '@/utils/p
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
-import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, CreditCard, Coins, ArrowLeftRight, QrCode, Landmark, Loader2, Scale } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, Loader2, Scale } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -38,29 +36,52 @@ import FinancialInsights from '@/components/reports/FinancialInsights'
 import AnnualFlowChart from '@/components/reports/AnnualFlowChart'
 import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
 import WeekdayExpenseChart from '@/components/reports/WeekdayExpenseChart'
-import CategoryPieChart from '@/components/reports/CategoryPieChart'
 import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
 import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
-import { getStaggerClass } from '@/constants/animation'
 import { logger } from '@/utils/logger'
 import type {
   ViewMode,
   DetailType,
   ExpenseCategorySummary,
   IncomeCategorySummary,
-  PieDatum,
   TrendSeriesMeta,
   DetailModalState,
   DetailExpenseEntry,
   DetailIncomeEntry,
 } from '@/types/reports'
 import {
-  PAYMENT_METHOD_LABELS,
-  PAYMENT_METHOD_COLORS,
-} from '@/types/reports'
-import type { MonthlySummary } from '@/types'
+  generateMonthsRange,
+  generateDaysRange,
+  mergeSummariesWithDebts,
+  buildMonthlyFlowData,
+  buildCumulativeBalanceData,
+  computeAnnualTotals,
+  buildPaymentMethodsBreakdown,
+  buildExpenseCategoryColorMap,
+  buildIncomeCategoryColorMap,
+  computePeriodPending,
+  computePeriodPendingInRange,
+} from '@/utils/reportAggregation'
+import {
+  buildCustomCategoryExpenses,
+  buildCustomCategoryIncomes,
+  buildCustomMonthlySummaries,
+  buildCustomDailySummaries,
+  buildCustomMonthlyCategoryExpenses,
+  buildCustomDailyCategoryExpenses,
+  buildCustomMonthlyIncomeByCategory,
+  buildCustomDailyIncomeByCategory,
+  buildCustomCumulativeBalance,
+  buildCustomTrendData,
+  buildCustomConsolidatedSummary,
+  buildCustomDailyConsolidated,
+  buildCustomWeekdayData,
+  buildBaseTotalsMap,
+} from '@/utils/reportCustomData'
+import ReportPendingDebtsWidget from '@/components/reports/ReportPendingDebtsWidget'
+import ReportUnifiedCompositionCard from '@/components/reports/ReportUnifiedCompositionCard'
 
 
 
@@ -398,55 +419,15 @@ export default function Reports() {
 
   const { debts } = useDebts()
 
-  const monthlySummaries = useMemo(() => {
-    return originalMonthlySummaries.map((s) => {
-      const monthDebts = debts.filter((d) => d.due_date.startsWith(s.month))
-      
-      const paidReceivables = monthDebts
-        .filter((d) => d.type === 'receivable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-        
-      const paidPayables = monthDebts
-        .filter((d) => d.type === 'payable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
+  const monthlySummaries = useMemo(
+    () => mergeSummariesWithDebts(originalMonthlySummaries, debts),
+    [originalMonthlySummaries, debts],
+  )
 
-      const total_income = s.total_income + paidReceivables
-      const total_expenses = s.total_expenses + paidPayables
-      const balance = total_income - total_expenses - s.total_investments
-
-      return {
-        ...s,
-        total_income,
-        total_expenses,
-        balance,
-      }
-    })
-  }, [originalMonthlySummaries, debts])
-
-  const prevMonthlySummaries = useMemo(() => {
-    return originalPrevMonthlySummaries.map((s) => {
-      const monthDebts = debts.filter((d) => d.due_date.startsWith(s.month))
-      
-      const paidReceivables = monthDebts
-        .filter((d) => d.type === 'receivable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-        
-      const paidPayables = monthDebts
-        .filter((d) => d.type === 'payable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-
-      const total_income = s.total_income + paidReceivables
-      const total_expenses = s.total_expenses + paidPayables
-      const balance = total_income - total_expenses - s.total_investments
-
-      return {
-        ...s,
-        total_income,
-        total_expenses,
-        balance,
-      }
-    })
-  }, [originalPrevMonthlySummaries, debts])
+  const prevMonthlySummaries = useMemo(
+    () => mergeSummariesWithDebts(originalPrevMonthlySummaries, debts),
+    [originalPrevMonthlySummaries, debts],
+  )
 
   const { expenses: monthExpenses, loading: loadingMonthExpenses } = useExpenses(selectedMonth)
   const { creditCards } = useCreditCards()
@@ -562,23 +543,15 @@ export default function Reports() {
   const { expectations: monthIncomeExpectations } = useIncomeCategoryExpectations(selectedMonth)
   const { expectations: previousMonthIncomeExpectations } = useIncomeCategoryExpectations(previousMonth)
 
-  const expenseCategoryIdToColor = useMemo(() => {
-    const assigned = assignUniquePaletteColors(categories, colorPalette)
-    const map: Record<string, string> = {}
-    categories.forEach((c, i) => {
-      if (c?.id) map[c.id] = assigned[i] ?? getCategoryColorForPalette(c.color, colorPalette)
-    })
-    return map
-  }, [categories, colorPalette])
+  const expenseCategoryIdToColor = useMemo(
+    () => buildExpenseCategoryColorMap(categories, colorPalette),
+    [categories, colorPalette],
+  )
 
-  const incomeCategoryIdToColor = useMemo(() => {
-    const assigned = assignUniquePaletteColors(incomeCategories, colorPalette)
-    const map: Record<string, string> = {}
-    incomeCategories.forEach((c, i) => {
-      if (c?.id) map[c.id] = assigned[i] ?? getCategoryColorForPalette(c.color, colorPalette)
-    })
-    return map
-  }, [incomeCategories, colorPalette])
+  const incomeCategoryIdToColor = useMemo(
+    () => buildIncomeCategoryColorMap(incomeCategories, colorPalette),
+    [incomeCategories, colorPalette],
+  )
 
   const getExpenseColor = useCallback(
     (categoryId: string, fallback: string) => expenseCategoryIdToColor[categoryId] ?? fallback,
@@ -598,23 +571,8 @@ export default function Reports() {
   )
 
   const monthlyData = useMemo(
-    () =>
-      monthlySummaries.map((s: MonthlySummary, idx) => {
-        const prev = prevMonthlySummaries[idx]
-        return {
-          month: formatMonthShort(s.month),
-          Rendas: s.total_income,
-          Despesas: s.total_expenses,
-          Investimentos: s.total_investments,
-          Saldo: s.balance,
-          ...(compareWithPrevious && prev ? {
-            'Rendas (Ano Ant.)': prev.total_income,
-            'Despesas (Ano Ant.)': prev.total_expenses,
-            'Investimentos (Ano Ant.)': prev.total_investments,
-          } : {})
-        }
-      }),
-    [monthlySummaries, prevMonthlySummaries, compareWithPrevious]
+    () => buildMonthlyFlowData(monthlySummaries, prevMonthlySummaries, compareWithPrevious),
+    [monthlySummaries, prevMonthlySummaries, compareWithPrevious],
   )
 
   const yearBaseExpenseTotalsMap = useMemo(() => {
@@ -671,92 +629,19 @@ export default function Reports() {
     [incomeByCategory, incomeCategories, getIncomeColor, yearBaseIncomeTotalsMap]
   )
 
-  const annualPiePaymentMethods = useMemo(() => {
-    const methodsMap = new Map<string, number>()
-    const cardsMap = new Map<string, number>()
+  const annualPiePaymentMethods = useMemo(
+    () => buildPaymentMethodsBreakdown(annualExpenses, creditCards, getAmountByMode),
+    [annualExpenses, creditCards, getAmountByMode],
+  )
 
-    annualExpenses.forEach((exp) => {
-      const amount = getAmountByMode(exp)
-      if (exp.payment_method === 'credit_card' && exp.credit_card_id) {
-        cardsMap.set(exp.credit_card_id, (cardsMap.get(exp.credit_card_id) || 0) + amount)
-      } else {
-        const method = exp.payment_method || 'other'
-        methodsMap.set(method, (methodsMap.get(method) || 0) + amount)
-      }
-    })
+  const cumulativeBalanceData = useMemo(
+    () => buildCumulativeBalanceData(monthlySummaries, prevMonthlySummaries, compareWithPrevious),
+    [monthlySummaries, prevMonthlySummaries, compareWithPrevious],
+  )
 
-    const results: PieDatum[] = []
+  const annualTotals = useMemo(() => computeAnnualTotals(monthlySummaries), [monthlySummaries])
 
-    Array.from(methodsMap.entries())
-      .filter(([method]) => method !== 'credit_card')
-      .forEach(([method, total]) => {
-        results.push({
-          name: PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other,
-          value: total,
-          color: PAYMENT_METHOD_COLORS[method] || PAYMENT_METHOD_COLORS.other,
-          categoryId: method,
-          detailType: 'payment_method' as const,
-          detailPeriod: 'year' as const,
-        })
-      })
-
-    Array.from(cardsMap.entries()).forEach(([cardId, total]) => {
-      const card = creditCards.find((c) => c.id === cardId)
-      results.push({
-        name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
-        value: total,
-        color: card?.color || 'var(--payment-method-credit-card)',
-        categoryId: cardId,
-        detailType: 'credit_card' as const,
-        detailPeriod: 'year' as const,
-      })
-    })
-
-    return results
-  }, [annualExpenses, creditCards, getAmountByMode])
-
-  const cumulativeBalanceData = useMemo(() => {
-    let cumulative = 0
-    let prevCumulative = 0
-    return monthlySummaries.map((item: MonthlySummary, idx) => {
-      cumulative += item.balance
-      const prevItem = prevMonthlySummaries[idx]
-      if (prevItem) {
-        prevCumulative += prevItem.balance
-      }
-      return {
-        month: formatMonthShort(item.month),
-        SaldoAcumulado: cumulative,
-        ...(compareWithPrevious && prevItem ? {
-          'Saldo Acumulado (Ano Ant.)': prevCumulative,
-        } : {})
-      }
-    })
-  }, [monthlySummaries, prevMonthlySummaries, compareWithPrevious])
-
-  const annualTotals = useMemo(() => {
-    return monthlySummaries.reduce(
-      (acc: { income: number; expenses: number; investments: number; balance: number }, month: MonthlySummary) => ({
-        income: acc.income + month.total_income,
-        expenses: acc.expenses + month.total_expenses,
-        investments: acc.investments + month.total_investments,
-        balance: acc.balance + month.balance,
-      }),
-      { income: 0, expenses: 0, investments: 0, balance: 0 }
-    )
-  }, [monthlySummaries])
-
-  const previousYearTotals = useMemo(() => {
-    return prevMonthlySummaries.reduce(
-      (acc: { income: number; expenses: number; investments: number; balance: number }, month: MonthlySummary) => ({
-        income: acc.income + month.total_income,
-        expenses: acc.expenses + month.total_expenses,
-        investments: acc.investments + month.total_investments,
-        balance: acc.balance + month.balance,
-      }),
-      { income: 0, expenses: 0, investments: 0, balance: 0 }
-    )
-  }, [prevMonthlySummaries])
+  const previousYearTotals = useMemo(() => computeAnnualTotals(prevMonthlySummaries), [prevMonthlySummaries])
 
   const annualExpenseTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
     return [...categoryExpenses]
@@ -779,344 +664,101 @@ export default function Reports() {
   }, [incomeByCategory, getIncomeColor])
 
   // Mapeamento de despesas por categoria no período customizado
-  const customCategoryExpenses = useMemo(() => {
-    const expenseCategoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
-    customExpenses.forEach((exp) => {
-      const catId = exp.category_id
-      const cat = exp.category as { id?: string; name?: string; color?: string } | null
-      const total = getAmountByMode(exp)
-      if (!expenseCategoryMap.has(catId)) {
-        expenseCategoryMap.set(catId, {
-          category_id: catId,
-          category_name: cat?.name ?? 'Sem categoria',
-          total: 0,
-          color: cat?.color ?? 'var(--category-fallback-neutral)',
-        })
-      }
-      const category = expenseCategoryMap.get(catId)
-      if (category) {
-        category.total += total
-      } else {
-        logger.warn(`Categoria de despesa não encontrada para agregação: ${catId}`)
-      }
-    })
-    return Array.from(expenseCategoryMap.values())
-  }, [customExpenses, getAmountByMode])
+  const customCategoryExpenses = useMemo(
+    () => buildCustomCategoryExpenses(customExpenses, getAmountByMode),
+    [customExpenses, getAmountByMode],
+  )
 
   // Mapeamento de receitas por categoria no período customizado
-  const customCategoryIncomes = useMemo(() => {
-    const incomeCategoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
-    customIncomes.forEach((inc) => {
-      const catId = inc.income_category_id
-      const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
-      const total = getAmountByMode(inc)
-      if (!incomeCategoryMap.has(catId)) {
-        incomeCategoryMap.set(catId, {
-          income_category_id: catId,
-          category_name: cat?.name ?? 'Sem categoria',
-          total: 0,
-          color: cat?.color ?? 'var(--category-fallback-neutral)',
-        })
-      }
-      const incomeCategory = incomeCategoryMap.get(catId)
-      if (incomeCategory) {
-        incomeCategory.total += total
-      } else {
-        logger.warn(`Categoria de receita não encontrada para agregação: ${catId}`)
-      }
-    })
-    return Array.from(incomeCategoryMap.values())
-  }, [customIncomes, getAmountByMode])
+  const customCategoryIncomes = useMemo(
+    () => buildCustomCategoryIncomes(customIncomes, getAmountByMode),
+    [customIncomes, getAmountByMode],
+  )
 
   // Lista de meses no intervalo do período customizado
-  const customMonths = useMemo(() => {
-    if (!customStartDate || !customEndDate) return []
-    const startYear = parseInt(customStartDate.slice(0, 4))
-    const startMonth = parseInt(customStartDate.slice(5, 7))
-    const endYear = parseInt(customEndDate.slice(0, 4))
-    const endMonth = parseInt(customEndDate.slice(5, 7))
-
-    const monthsList: string[] = []
-    let currYear = startYear
-    let currMonth = startMonth
-
-    while (currYear < endYear || (currYear === endYear && currMonth <= endMonth)) {
-      const monthStr = `${currYear}-${String(currMonth).padStart(2, '0')}`
-      monthsList.push(monthStr)
-      currMonth++
-      if (currMonth > 12) {
-        currMonth = 1
-        currYear++
-      }
-    }
-    return monthsList
-  }, [customStartDate, customEndDate])
+  const customMonths = useMemo(
+    () => generateMonthsRange(customStartDate, customEndDate),
+    [customStartDate, customEndDate],
+  )
 
   const isSingleMonth = useMemo(() => customMonths.length <= 1, [customMonths])
 
   // Lista de dias no intervalo do período customizado
-  const customDays = useMemo(() => {
-    if (!customStartDate || !customEndDate) return []
-    const start = new Date(`${customStartDate}T00:00:00`)
-    const end = new Date(`${customEndDate}T00:00:00`)
-    
-    const diffTime = Math.abs(end.getTime() - start.getTime())
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    if (diffDays > 366) return [] // Safety limit
-
-    const daysList: string[] = []
-    const current = new Date(start)
-    while (current <= end) {
-      const yyyy = current.getFullYear()
-      const mm = String(current.getMonth() + 1).padStart(2, '0')
-      const dd = String(current.getDate()).padStart(2, '0')
-      daysList.push(`${yyyy}-${mm}-${dd}`)
-      current.setDate(current.getDate() + 1)
-    }
-    return daysList
-  }, [customStartDate, customEndDate])
+  const customDays = useMemo(
+    () => generateDaysRange(customStartDate, customEndDate),
+    [customStartDate, customEndDate],
+  )
 
   // Resumo mensal do período customizado (quando período > 1 mês)
-  const customMonthlySummaries = useMemo(() => {
-    if (viewMode !== 'custom' || customMonths.length === 0) return []
-
-    return customMonths.map((monthStr) => {
-      const monthExpenses = customExpenses.filter((exp) => {
-        return exp.date.startsWith(monthStr) && exp.date >= customStartDate && exp.date <= customEndDate
-      })
-
-      const monthIncomes = customIncomes.filter((inc) => {
-        return inc.date.startsWith(monthStr) && inc.date >= customStartDate && inc.date <= customEndDate
-      })
-
-      const monthTxs = customPortfolioTransactions.filter((tx) => {
-        return tx.date.startsWith(monthStr) && tx.date >= customStartDate && tx.date <= customEndDate
-      })
-
-      const monthDebts = debts.filter((d) => {
-        return d.due_date.startsWith(monthStr) && d.due_date >= customStartDate && d.due_date <= customEndDate
-      })
-
-      const paidReceivables = monthDebts
-        .filter((d) => d.type === 'receivable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-        
-      const paidPayables = monthDebts
-        .filter((d) => d.type === 'payable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-
-      const totalExpenses = monthExpenses.reduce((sum, exp) => sum + getAmountByMode(exp), 0) + paidPayables
-      const totalIncomes = monthIncomes.reduce((sum, inc) => sum + getAmountByMode(inc), 0) + paidReceivables
-      
-      const totalInvestments = monthTxs.reduce((sum, tx) => {
-        return sum + transactionInvestmentAmount(tx.operation_type, Number(tx.quantity), Number(tx.price))
-      }, 0)
-
-      return {
-        month: monthStr,
-        total_income: totalIncomes,
-        total_expenses: totalExpenses,
-        total_investments: totalInvestments,
-        balance: totalIncomes - totalExpenses - totalInvestments,
-      }
-    })
-  }, [viewMode, customMonths, customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode])
+  const customMonthlySummaries = useMemo(
+    () =>
+      buildCustomMonthlySummaries(
+        customMonths,
+        customExpenses,
+        customIncomes,
+        customPortfolioTransactions,
+        debts,
+        customStartDate,
+        customEndDate,
+        getAmountByMode,
+      ),
+    [
+      customMonths,
+      customExpenses,
+      customIncomes,
+      customPortfolioTransactions,
+      debts,
+      customStartDate,
+      customEndDate,
+      getAmountByMode,
+    ],
+  )
 
   // Resumo diário do período customizado (quando período <= 1 mês)
-  const customDailySummaries = useMemo(() => {
-    if (viewMode !== 'custom' || !isSingleMonth || customDays.length === 0) return []
-
-    return customDays.map((dateStr) => {
-      const dd = dateStr.slice(8, 10)
-      const mm = dateStr.slice(5, 7)
-      const label = `${dd}/${mm}`
-
-      const dayExpenses = customExpenses.filter((exp) => exp.date === dateStr)
-      const dayIncomes = customIncomes.filter((inc) => inc.date === dateStr)
-      const dayTxs = customPortfolioTransactions.filter((tx) => tx.date === dateStr)
-      
-      const dayDebts = debts.filter((d) => d.due_date === dateStr)
-      const paidReceivables = dayDebts
-        .filter((d) => d.type === 'receivable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-      const paidPayables = dayDebts
-        .filter((d) => d.type === 'payable' && d.status === 'paid')
-        .reduce((sum, d) => sum + d.amount, 0)
-
-      const totalExpenses = dayExpenses.reduce((sum, exp) => sum + getAmountByMode(exp), 0) + paidPayables
-      const totalIncomes = dayIncomes.reduce((sum, inc) => sum + getAmountByMode(inc), 0) + paidReceivables
-
-      const totalInvestments = dayTxs.reduce((sum, tx) => {
-        return sum + transactionInvestmentAmount(tx.operation_type, Number(tx.quantity), Number(tx.price))
-      }, 0)
-
-      return {
-        date: dateStr,
-        label,
-        total_income: totalIncomes,
-        total_expenses: totalExpenses,
-        total_investments: totalInvestments,
-        balance: totalIncomes - totalExpenses - totalInvestments,
-      }
-    })
-  }, [viewMode, isSingleMonth, customDays, customExpenses, customIncomes, customPortfolioTransactions, debts, getAmountByMode])
+  const customDailySummaries = useMemo(
+    () =>
+      buildCustomDailySummaries(
+        customDays,
+        customExpenses,
+        customIncomes,
+        customPortfolioTransactions,
+        debts,
+        getAmountByMode,
+      ),
+    [customDays, customExpenses, customIncomes, customPortfolioTransactions, debts, getAmountByMode],
+  )
 
   // Despesas de categoria por mês no período customizado (quando período > 1 mês)
-  const customMonthlyCategoryExpenses = useMemo(() => {
-    const map: Record<string, ExpenseCategorySummary[]> = {}
-    if (viewMode !== 'custom') return map
-
-    customMonths.forEach((monthStr) => {
-      const monthExpenses = customExpenses.filter((exp) => {
-        return exp.date.startsWith(monthStr) && exp.date >= customStartDate && exp.date <= customEndDate
-      })
-
-      const categoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
-      monthExpenses.forEach((exp) => {
-        const catId = exp.category_id
-        const cat = exp.category as { id?: string; name?: string; color?: string } | null
-        const total = getAmountByMode(exp)
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, {
-            category_id: catId,
-            category_name: cat?.name ?? 'Sem categoria',
-            total: 0,
-            color: cat?.color ?? 'var(--category-fallback-neutral)',
-          })
-        }
-        const catEntry = categoryMap.get(catId)
-        if (catEntry) {
-          catEntry.total += total
-        } else {
-          logger.warn(`Categoria não encontrada para agregação mensal: ${catId}`)
-        }
-      })
-      map[monthStr] = Array.from(categoryMap.values())
-    })
-    return map
-  }, [viewMode, customMonths, customExpenses, customStartDate, customEndDate, getAmountByMode])
+  const customMonthlyCategoryExpenses = useMemo(
+    () =>
+      buildCustomMonthlyCategoryExpenses(customMonths, customExpenses, customStartDate, customEndDate, getAmountByMode),
+    [customMonths, customExpenses, customStartDate, customEndDate, getAmountByMode],
+  )
 
   // Despesas de categoria por dia no período customizado (quando período <= 1 mês)
-  const customDailyCategoryExpenses = useMemo(() => {
-    const map: Record<string, ExpenseCategorySummary[]> = {}
-    if (viewMode !== 'custom' || !isSingleMonth) return map
-
-    customDays.forEach((dateStr) => {
-      const dayExpenses = customExpenses.filter((exp) => exp.date === dateStr)
-      const categoryMap = new Map<string, { category_id: string; category_name: string; total: number; color: string }>()
-      
-      dayExpenses.forEach((exp) => {
-        const catId = exp.category_id
-        const cat = exp.category as { id?: string; name?: string; color?: string } | null
-        const total = getAmountByMode(exp)
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, {
-            category_id: catId,
-            category_name: cat?.name ?? 'Sem categoria',
-            total: 0,
-            color: cat?.color ?? 'var(--category-fallback-neutral)',
-          })
-        }
-        const catEntry = categoryMap.get(catId)
-        if (catEntry) {
-          catEntry.total += total
-        } else {
-          logger.warn(`Categoria não encontrada para agregação diária: ${catId}`)
-        }
-      })
-      map[dateStr] = Array.from(categoryMap.values())
-    })
-    return map
-  }, [viewMode, isSingleMonth, customDays, customExpenses, getAmountByMode])
+  const customDailyCategoryExpenses = useMemo(
+    () => buildCustomDailyCategoryExpenses(customDays, customExpenses, getAmountByMode),
+    [customDays, customExpenses, getAmountByMode],
+  )
 
   // Receitas de categoria por mês no período customizado (quando período > 1 mês)
-  const customMonthlyIncomeByCategory = useMemo(() => {
-    const map: Record<string, IncomeCategorySummary[]> = {}
-    if (viewMode !== 'custom') return map
-
-    customMonths.forEach((monthStr) => {
-      const monthIncomes = customIncomes.filter((inc) => {
-        return inc.date.startsWith(monthStr) && inc.date >= customStartDate && inc.date <= customEndDate
-      })
-
-      const categoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
-      monthIncomes.forEach((inc) => {
-        const catId = inc.income_category_id
-        const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
-        const total = getAmountByMode(inc)
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, {
-            income_category_id: catId,
-            category_name: cat?.name ?? 'Sem categoria',
-            total: 0,
-            color: cat?.color ?? 'var(--category-fallback-neutral)',
-          })
-        }
-        const catEntry = categoryMap.get(catId)
-        if (catEntry) {
-          catEntry.total += total
-        } else {
-          logger.warn(`Categoria de receita não encontrada para agregação mensal: ${catId}`)
-        }
-      })
-      map[monthStr] = Array.from(categoryMap.values())
-    })
-    return map
-  }, [viewMode, customMonths, customIncomes, customStartDate, customEndDate, getAmountByMode])
+  const customMonthlyIncomeByCategory = useMemo(
+    () =>
+      buildCustomMonthlyIncomeByCategory(customMonths, customIncomes, customStartDate, customEndDate, getAmountByMode),
+    [customMonths, customIncomes, customStartDate, customEndDate, getAmountByMode],
+  )
 
   // Receitas de categoria por dia no período customizado (quando período <= 1 mês)
-  const customDailyIncomeByCategory = useMemo(() => {
-    const map: Record<string, IncomeCategorySummary[]> = {}
-    if (viewMode !== 'custom' || !isSingleMonth) return map
-
-    customDays.forEach((dateStr) => {
-      const dayIncomes = customIncomes.filter((inc) => inc.date === dateStr)
-      const categoryMap = new Map<string, { income_category_id: string; category_name: string; total: number; color: string }>()
-
-      dayIncomes.forEach((inc) => {
-        const catId = inc.income_category_id
-        const cat = inc.income_category as { id?: string; name?: string; color?: string } | null
-        const total = getAmountByMode(inc)
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, {
-            income_category_id: catId,
-            category_name: cat?.name ?? 'Sem categoria',
-            total: 0,
-            color: cat?.color ?? 'var(--category-fallback-neutral)',
-          })
-        }
-        const catEntry = categoryMap.get(catId)
-        if (catEntry) {
-          catEntry.total += total
-        } else {
-          logger.warn(`Categoria de receita não encontrada para agregação diária: ${catId}`)
-        }
-      })
-      map[dateStr] = Array.from(categoryMap.values())
-    })
-    return map
-  }, [viewMode, isSingleMonth, customDays, customIncomes, getAmountByMode])
+  const customDailyIncomeByCategory = useMemo(
+    () => buildCustomDailyIncomeByCategory(customDays, customIncomes, getAmountByMode),
+    [customDays, customIncomes, getAmountByMode],
+  )
 
   // Saldo acumulado do período customizado
-  const customCumulativeBalanceData = useMemo(() => {
-    let cumulative = 0
-    if (isSingleMonth) {
-      return customDailySummaries.map((item) => {
-        cumulative += item.balance
-        return {
-          month: item.label,
-          SaldoAcumulado: cumulative,
-        }
-      })
-    }
-    return customMonthlySummaries.map((item) => {
-      cumulative += item.balance
-      return {
-        month: formatMonthShort(item.month),
-        SaldoAcumulado: cumulative,
-      }
-    })
-  }, [isSingleMonth, customDailySummaries, customMonthlySummaries])
+  const customCumulativeBalanceData = useMemo(
+    () => buildCustomCumulativeBalance(isSingleMonth, customDailySummaries, customMonthlySummaries),
+    [isSingleMonth, customDailySummaries, customMonthlySummaries],
+  )
 
   // Evolução de despesas do período customizado
   const customExpenseTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
@@ -1129,37 +771,26 @@ export default function Reports() {
       }))
   }, [customCategoryExpenses, getExpenseColor])
 
-  const customExpenseTrendData = useMemo(() => {
-    if (isSingleMonth) {
-      return customDailySummaries.map((summary) => {
-        const row: Record<string, string | number> = {
-          month: summary.label,
-        }
-
-        const dayCategories = customDailyCategoryExpenses[summary.date] ?? []
-        customExpenseTrendSeries.forEach((series) => {
-          const match = dayCategories.find((item) => item.category_id === series.key)
-          row[series.key] = match?.total ?? 0
-        })
-
-        return row
-      })
-    }
-
-    return customMonthlySummaries.map((summary) => {
-      const row: Record<string, string | number> = {
-        month: formatMonthShort(summary.month),
-      }
-
-      const monthCategories = customMonthlyCategoryExpenses[summary.month] ?? []
-      customExpenseTrendSeries.forEach((series) => {
-        const match = monthCategories.find((item) => item.category_id === series.key)
-        row[series.key] = match?.total ?? 0
-      })
-
-      return row
-    })
-  }, [isSingleMonth, customDailySummaries, customMonthlySummaries, customDailyCategoryExpenses, customMonthlyCategoryExpenses, customExpenseTrendSeries])
+  const customExpenseTrendData = useMemo(
+    () =>
+      buildCustomTrendData(
+        isSingleMonth,
+        customDailySummaries,
+        customMonthlySummaries,
+        customDailyCategoryExpenses,
+        customMonthlyCategoryExpenses,
+        customExpenseTrendSeries,
+        (item) => item.category_id,
+      ),
+    [
+      isSingleMonth,
+      customDailySummaries,
+      customMonthlySummaries,
+      customDailyCategoryExpenses,
+      customMonthlyCategoryExpenses,
+      customExpenseTrendSeries,
+    ],
+  )
 
   const customExpenseTrendVisibleData = useMemo(() => {
     if (customExpenseTrendSeries.length === 0) {
@@ -1182,37 +813,26 @@ export default function Reports() {
       }))
   }, [customCategoryIncomes, getIncomeColor])
 
-  const customIncomeTrendData = useMemo(() => {
-    if (isSingleMonth) {
-      return customDailySummaries.map((summary) => {
-        const row: Record<string, string | number> = {
-          month: summary.label,
-        }
-
-        const dayCategories = customDailyIncomeByCategory[summary.date] ?? []
-        customIncomeTrendSeries.forEach((series) => {
-          const match = dayCategories.find((item) => item.income_category_id === series.key)
-          row[series.key] = match?.total ?? 0
-        })
-
-        return row
-      })
-    }
-
-    return customMonthlySummaries.map((summary) => {
-      const row: Record<string, string | number> = {
-        month: formatMonthShort(summary.month),
-      }
-
-      const monthCategories = customMonthlyIncomeByCategory[summary.month] ?? []
-      customIncomeTrendSeries.forEach((series) => {
-        const match = monthCategories.find((item) => item.income_category_id === series.key)
-        row[series.key] = match?.total ?? 0
-      })
-
-      return row
-    })
-  }, [isSingleMonth, customDailySummaries, customMonthlySummaries, customDailyIncomeByCategory, customMonthlyIncomeByCategory, customIncomeTrendSeries])
+  const customIncomeTrendData = useMemo(
+    () =>
+      buildCustomTrendData(
+        isSingleMonth,
+        customDailySummaries,
+        customMonthlySummaries,
+        customDailyIncomeByCategory,
+        customMonthlyIncomeByCategory,
+        customIncomeTrendSeries,
+        (item) => item.income_category_id,
+      ),
+    [
+      isSingleMonth,
+      customDailySummaries,
+      customMonthlySummaries,
+      customDailyIncomeByCategory,
+      customMonthlyIncomeByCategory,
+      customIncomeTrendSeries,
+    ],
+  )
 
   const customIncomeTrendVisibleData = useMemo(() => {
     if (customIncomeTrendSeries.length === 0) {
@@ -1354,49 +974,10 @@ export default function Reports() {
     })
   }, [monthIncomeCategories, incomeCategories, getIncomeColor, baseIncomeTotalsMap])
 
-  const monthPiePaymentMethods = useMemo(() => {
-    const methodsMap = new Map<string, number>()
-    const cardsMap = new Map<string, number>()
-
-    monthExpenses.forEach((exp) => {
-      const amount = getAmountByMode(exp)
-      if (exp.payment_method === 'credit_card' && exp.credit_card_id) {
-        cardsMap.set(exp.credit_card_id, (cardsMap.get(exp.credit_card_id) || 0) + amount)
-      } else {
-        const method = exp.payment_method || 'other'
-        methodsMap.set(method, (methodsMap.get(method) || 0) + amount)
-      }
-    })
-
-    const results: PieDatum[] = []
-
-    Array.from(methodsMap.entries())
-      .filter(([method]) => method !== 'credit_card')
-      .forEach(([method, total]) => {
-        results.push({
-          name: PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other,
-          value: total,
-          color: PAYMENT_METHOD_COLORS[method] || PAYMENT_METHOD_COLORS.other,
-          categoryId: method,
-          detailType: 'payment_method' as const,
-          detailPeriod: 'month' as const,
-        })
-      })
-
-    Array.from(cardsMap.entries()).forEach(([cardId, total]) => {
-      const card = creditCards.find((c) => c.id === cardId)
-      results.push({
-        name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
-        value: total,
-        color: card?.color || 'var(--payment-method-credit-card)',
-        categoryId: cardId,
-        detailType: 'credit_card' as const,
-        detailPeriod: 'month' as const,
-      })
-    })
-
-    return results
-  }, [monthExpenses, creditCards, getAmountByMode])
+  const monthPiePaymentMethods = useMemo(
+    () => buildPaymentMethodsBreakdown(monthExpenses, creditCards, getAmountByMode),
+    [monthExpenses, creditCards, getAmountByMode],
+  )
 
   const previousMonthIncomeTotal = useMemo(() => {
     const originalIncomesTotal = previousMonthIncomes.reduce((sum, item) => sum + getAmountByMode(item), 0)
@@ -1474,21 +1055,15 @@ export default function Reports() {
 
 
 
-  const customBaseExpenseTotals = useMemo(() => {
-    const map = new Map<string, number>()
-    customExpenses.forEach((exp) => {
-      map.set(exp.category_id, (map.get(exp.category_id) || 0) + exp.amount)
-    })
-    return map
-  }, [customExpenses])
+  const customBaseExpenseTotals = useMemo(
+    () => buildBaseTotalsMap(customExpenses, (e) => e.category_id),
+    [customExpenses],
+  )
 
-  const customBaseIncomeTotals = useMemo(() => {
-    const map = new Map<string, number>()
-    customIncomes.forEach((inc) => {
-      map.set(inc.income_category_id, (map.get(inc.income_category_id) || 0) + inc.amount)
-    })
-    return map
-  }, [customIncomes])
+  const customBaseIncomeTotals = useMemo(
+    () => buildBaseTotalsMap(customIncomes, (i) => i.income_category_id),
+    [customIncomes],
+  )
 
   // Gráfico de Pizza: despesas customizadas
   const customPieExpenses = useMemo(() => {
@@ -1527,213 +1102,46 @@ export default function Reports() {
   }, [customCategoryIncomes, incomeCategories, getIncomeColor, customBaseIncomeTotals])
 
   // Gráfico de Pizza: meios de pagamento customizados
-  const customPiePaymentMethods = useMemo(() => {
-    const methodsMap = new Map<string, number>()
-    const cardsMap = new Map<string, number>()
-
-    customExpenses.forEach((exp) => {
-      const amount = getAmountByMode(exp)
-      if (exp.payment_method === 'credit_card' && exp.credit_card_id) {
-        cardsMap.set(exp.credit_card_id, (cardsMap.get(exp.credit_card_id) || 0) + amount)
-      } else {
-        const method = exp.payment_method || 'other'
-        methodsMap.set(method, (methodsMap.get(method) || 0) + amount)
-      }
-    })
-
-    const results: PieDatum[] = []
-
-    Array.from(methodsMap.entries())
-      .filter(([method]) => method !== 'credit_card')
-      .forEach(([method, total]) => {
-        results.push({
-          name: PAYMENT_METHOD_LABELS[method] || PAYMENT_METHOD_LABELS.other,
-          value: total,
-          color: PAYMENT_METHOD_COLORS[method] || PAYMENT_METHOD_COLORS.other,
-          categoryId: method,
-          detailType: 'payment_method' as const,
-          detailPeriod: 'month' as const,
-        })
-      })
-
-    Array.from(cardsMap.entries()).forEach(([cardId, total]) => {
-      const card = creditCards.find((c) => c.id === cardId)
-      results.push({
-        name: card?.name ? `Cartão ${card.name}` : 'Cartão Desconhecido',
-        value: total,
-        color: card?.color || 'var(--payment-method-credit-card)',
-        categoryId: cardId,
-        detailType: 'credit_card' as const,
-        detailPeriod: 'month' as const,
-      })
-    })
-
-    return results
-  }, [customExpenses, creditCards, getAmountByMode])
+  const customPiePaymentMethods = useMemo(
+    () => buildPaymentMethodsBreakdown(customExpenses, creditCards, getAmountByMode),
+    [customExpenses, creditCards, getAmountByMode],
+  )
 
   // Distribuição semanal de despesas, rendas e investimentos customizados
-  const customWeekdayExpenseData = useMemo(() => {
-    const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
-    const totals = labels.map((label) => ({
-      dia: label,
-      Despesas: 0,
-      Rendas: 0,
-      Investimentos: 0,
-    }))
-
-    customExpenses.forEach((expense) => {
-      const localDate = new Date(`${expense.date}T00:00:00`)
-      if (Number.isNaN(localDate.getTime())) return
-      const dayOfWeek = localDate.getDay()
-      const mondayFirstIndex = (dayOfWeek + 6) % 7
-      totals[mondayFirstIndex].Despesas += getAmountByMode(expense)
-    })
-
-    customIncomes.forEach((income) => {
-      const localDate = new Date(`${income.date}T00:00:00`)
-      if (Number.isNaN(localDate.getTime())) return
-      const dayOfWeek = localDate.getDay()
-      const mondayFirstIndex = (dayOfWeek + 6) % 7
-      totals[mondayFirstIndex].Rendas += getAmountByMode(income)
-    })
-
-    customPortfolioTransactions.forEach((tx) => {
-      const localDate = new Date(`${tx.date}T00:00:00`)
-      if (Number.isNaN(localDate.getTime())) return
-      const dayOfWeek = localDate.getDay()
-      const mondayFirstIndex = (dayOfWeek + 6) % 7
-      totals[mondayFirstIndex].Investimentos += transactionInvestmentAmount(
-        tx.operation_type,
-        Number(tx.quantity),
-        Number(tx.price)
-      )
-    })
-
-    return totals
-  }, [customExpenses, customIncomes, customPortfolioTransactions, getAmountByMode])
+  const customWeekdayExpenseData = useMemo(
+    () => buildCustomWeekdayData(customExpenses, customIncomes, customPortfolioTransactions, getAmountByMode),
+    [customExpenses, customIncomes, customPortfolioTransactions, getAmountByMode],
+  )
 
   // Valores consolidados customizados
-  const customSummary = useMemo(() => {
-    const rawExpenses = customExpenses.reduce((sum, exp) => sum + getAmountByMode(exp), 0)
-    const paidPayables = debts
-      .filter((d) => d.due_date >= customStartDate && d.due_date <= customEndDate && d.type === 'payable' && d.status === 'paid')
-      .reduce((sum, d) => sum + d.amount, 0)
-    const total_expenses = rawExpenses + paidPayables
-
-    const rawIncomes = customIncomes.reduce((sum, inc) => sum + getAmountByMode(inc), 0)
-    const paidReceivables = debts
-      .filter((d) => d.due_date >= customStartDate && d.due_date <= customEndDate && d.type === 'receivable' && d.status === 'paid')
-      .reduce((sum, d) => sum + d.amount, 0)
-    const total_income = rawIncomes + paidReceivables
-
-    const total_investments = customPortfolioTransactions.reduce((sum, tx) => {
-      return (
-        sum +
-        transactionInvestmentAmount(
-          tx.operation_type,
-          Number(tx.quantity),
-          Number(tx.price)
-        )
-      )
-    }, 0)
-
-    const balance = total_income - total_expenses - total_investments
-
-    return {
-      total_income,
-      total_expenses,
-      total_investments,
-      balance,
-    }
-  }, [customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode])
+  const customSummary = useMemo(
+    () =>
+      buildCustomConsolidatedSummary(
+        customExpenses,
+        customIncomes,
+        customPortfolioTransactions,
+        debts,
+        customStartDate,
+        customEndDate,
+        getAmountByMode,
+      ),
+    [customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode],
+  )
 
   // Fluxo diário consolidado customizado
-  const customDailyConsolidatedData = useMemo(() => {
-    if (!customStartDate || !customEndDate) {
-      return []
-    }
-
-    const start = new Date(`${customStartDate}T00:00:00`)
-    const end = new Date(`${customEndDate}T00:00:00`)
-    
-    // Proteção de loop infinito para ranges gigantes
-    const diffTime = Math.abs(end.getTime() - start.getTime())
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    if (diffDays > 366) {
-      end.setTime(start.getTime() + 366 * 24 * 60 * 60 * 1000)
-    }
-
-    const totalsByDay: Array<{
-      day: string | number
-      date?: string
-      label: string
-      Rendas: number
-      Despesas: number
-      Investimentos: number
-      'Rendas (Mês Ant.)'?: number
-      'Despesas (Mês Ant.)'?: number
-      'Investimentos (Mês Ant.)'?: number
-    }> = []
-
-    const current = new Date(start)
-    while (current <= end) {
-      const yyyy = current.getFullYear()
-      const mm = String(current.getMonth() + 1).padStart(2, '0')
-      const dd = String(current.getDate()).padStart(2, '0')
-      const dateStr = `${yyyy}-${mm}-${dd}`
-      const label = `${dd}/${mm}`
-      totalsByDay.push({
-        day: dateStr,
-        date: dateStr,
-        label,
-        Rendas: 0,
-        Despesas: 0,
-        Investimentos: 0,
-      })
-      current.setDate(current.getDate() + 1)
-    }
-
-    customExpenses.forEach((expense) => {
-      const match = totalsByDay.find((d) => d.date === expense.date)
-      if (match) {
-        match.Despesas += getAmountByMode(expense)
-      }
-    })
-
-    customIncomes.forEach((income) => {
-      const match = totalsByDay.find((d) => d.date === income.date)
-      if (match) {
-        match.Rendas += getAmountByMode(income)
-      }
-    })
-
-    const customRangeDebts = debts.filter((d) => d.due_date >= customStartDate && d.due_date <= customEndDate)
-    customRangeDebts.forEach((debt) => {
-      if (debt.status !== 'paid') return
-      const match = totalsByDay.find((d) => d.date === debt.due_date)
-      if (match) {
-        if (debt.type === 'payable') {
-          match.Despesas += debt.amount
-        } else {
-          match.Rendas += debt.amount
-        }
-      }
-    })
-
-    customPortfolioTransactions.forEach((tx) => {
-      const match = totalsByDay.find((d) => d.date === tx.date)
-      if (match) {
-        const amount = transactionInvestmentAmount(
-          tx.operation_type,
-          Number(tx.quantity),
-          Number(tx.price)
-        )
-        match.Investimentos += amount
-      }
-    })
-
-    return totalsByDay
-  }, [customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode])
+  const customDailyConsolidatedData = useMemo(
+    () =>
+      buildCustomDailyConsolidated(
+        customStartDate,
+        customEndDate,
+        customExpenses,
+        customIncomes,
+        customPortfolioTransactions,
+        debts,
+        getAmountByMode,
+      ),
+    [customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode],
+  )
 
   // Composição de saldo customizada
   const customQuickData = useMemo(() => {
@@ -2171,187 +1579,9 @@ export default function Reports() {
 
 
 
-  const getPaymentMethodIcon = (categoryId: string) => {
-    const norm = categoryId.toLowerCase()
-    if (norm.includes('cash') || norm.includes('dinheiro')) return <Coins size={12} />
-    if (norm.includes('credit') || norm.includes('cartao') || norm.includes('card')) return <CreditCard size={12} />
-    if (norm.includes('pix')) return <QrCode size={12} />
-    if (norm.includes('debit') || norm.includes('debito')) return <CreditCard size={12} />
-    if (norm.includes('transfer') || norm.includes('transferencia')) return <ArrowLeftRight size={12} />
-    return <Landmark size={12} />
-  }
-
-  const renderUnifiedCompositionCard = (
-    activeType: 'expense' | 'income' | 'payment',
-    setActiveType: (val: 'expense' | 'income' | 'payment') => void,
-    periodLabel: string,
-    expensesData: PieDatum[],
-    incomesData: PieDatum[],
-    paymentsData: PieDatum[],
-    isYear: boolean = false
-  ) => {
-    const activeData = {
-      expense: expensesData,
-      income: incomesData,
-      payment: paymentsData,
-    }[activeType]
-
-    const total = activeData.reduce((sum, current) => sum + current.value, 0)
-
-    return (
-      <Card className="border border-glass surface-glass shadow-sm transition-all duration-300 p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 border-b border-glass/40 pb-4">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              Composição detalhada
-            </h3>
-            <p className="text-[10px] text-secondary mt-0.5">
-              Visualização de progresso e limites em {periodLabel}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 shrink-0 self-start sm:self-auto">
-            <div className="flex items-center gap-1 bg-secondary/10 p-0.5 rounded-lg border border-glass">
-              <ReportsTabButton
-                active={activeType === 'expense'}
-                onClick={() => setActiveType('expense')}
-              >
-                Despesas
-              </ReportsTabButton>
-              <ReportsTabButton
-                active={activeType === 'income'}
-                onClick={() => setActiveType('income')}
-              >
-                Rendas
-              </ReportsTabButton>
-              <ReportsTabButton
-                active={activeType === 'payment'}
-                onClick={() => setActiveType('payment')}
-              >
-                Meios
-              </ReportsTabButton>
-            </div>
-          </div>
-        </div>
-
-        {activeData.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-sm text-secondary italic">Sem dados detalhados para exibir nesta visão.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Lado Esquerdo: Gráfico de Pizza (1/3 da largura no desktop) */}
-            <div className="lg:col-span-1 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-glass/40 pb-6 lg:pb-0 lg:pr-6 min-h-[260px]">
-              <CategoryPieChart
-                data={activeData}
-                onClick={(entry: PieDatum) => {
-                  if (entry.categoryId && entry.detailType) {
-                    openDetailModal(entry.detailType, entry.categoryId, entry.name, entry.detailPeriod || 'month')
-                  }
-                }}
-                outerRadius={80}
-                innerRadius={58}
-              />
-            </div>
-
-            {/* Lado Direito: Listagem Detalhada (2/3 da largura no desktop) */}
-            <div className="lg:col-span-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                {activeData
-                  .slice()
-                  .sort((a, b) => b.value - a.value)
-                  .map((item, index) => {                      const staggerClass = getStaggerClass(index)
-                    
-                    if (activeType === 'payment') {
-                      const pct = total > 0 ? (item.value / total) * 100 : 0
-                      const pmIcon = getPaymentMethodIcon(item.categoryId || '')
-                      return (
-                        <Button
-                          key={item.name}
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            if (item.categoryId && item.detailType) {
-                              openDetailModal(item.detailType, item.categoryId, item.name, item.detailPeriod || 'month')
-                            }
-                          }}
-                          className={`w-full h-auto text-left flex-col items-stretch p-2.5 animate-stagger-item transition-all hover:scale-[1.005] hover:border-glass-strong surface-glass ${staggerClass}`}
-                        >
-                          <div className="flex items-center justify-between gap-3 w-full">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span 
-                                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" 
-                                style={{ backgroundColor: `${item.color}15`, color: item.color }}
-                              >
-                                {pmIcon}
-                              </span>
-                              <span className="text-xs font-semibold text-primary truncate">{item.name}</span>
-                            </div>
-                            <span className="text-xs font-bold text-primary font-mono shrink-0">
-                              {formatCurrency(item.value)}
-                            </span>
-                          </div>
-                          
-                          <div className="text-[9px] text-secondary font-medium mt-1 truncate">
-                            {formatNumberWithTwoDecimalsBR(pct)}% do total
-                          </div>
-                          
-                          <div className="w-full h-1 rounded-full bg-secondary/20 mt-1.5 overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: item.color }} />
-                          </div>
-                        </Button>
-                      )
-                    }
-
-                    const id = item.categoryId || ''
-                    const isExpense = activeType === 'expense'
-                    const target = isYear ? null : (
-                      isExpense 
-                        ? monthExpenseLimitMap.get(id) 
-                        : monthIncomeExpectationMap.get(id)
-                    )
-
-                    return (
-                      <ReportsCategoryRowButton
-                        key={id}
-                        categoryId={id}
-                        categoryName={item.name}
-                        total={item.value}
-                        totalBase={item.baseValue}
-                        totalGrand={total}
-                        color={item.color}
-                        targetAmount={target}
-                        isExpense={isExpense}
-                        staggerClass={staggerClass}
-                        iconName={item.iconName}
-                        onOpen={(catId, catName) =>
-                          openDetailModal(isExpense ? 'expense' : 'income', catId, catName, isYear ? 'year' : 'month')
-                        }
-                      />
-                    )
-                  })}
-              </div>
-            </div>
-          </div>
-        )}
-      </Card>
-    )
-  }
-
   const selectedPeriodPending = useMemo(() => {
     const period = viewMode === 'month' ? selectedMonth : String(selectedYear)
-    const filtered = debts.filter((d) => d.due_date.startsWith(period) && d.status === 'pending')
-    
-    const payables = filtered.filter((d) => d.type === 'payable').reduce((sum, d) => sum + d.amount, 0)
-    const receivables = filtered.filter((d) => d.type === 'receivable').reduce((sum, d) => sum + d.amount, 0)
-    const balanceProj = receivables - payables
-
-    return {
-      payables,
-      receivables,
-      balanceProj,
-      count: filtered.length,
-    }
+    return computePeriodPending(debts, period)
   }, [debts, viewMode, selectedMonth, selectedYear])
 
   // Seletores ativos para alternar dinamicamente entre visualização mensal e customizada
@@ -2422,16 +1652,7 @@ export default function Reports() {
 
   const activePeriodPending = useMemo(() => {
     if (viewMode === 'custom') {
-      const filtered = debts.filter((d) => d.due_date >= customStartDate && d.due_date <= customEndDate && d.status === 'pending')
-      const payables = filtered.filter((d) => d.type === 'payable').reduce((sum, d) => sum + d.amount, 0)
-      const receivables = filtered.filter((d) => d.type === 'receivable').reduce((sum, d) => sum + d.amount, 0)
-      const balanceProj = receivables - payables
-      return {
-        payables,
-        receivables,
-        balanceProj,
-        count: filtered.length,
-      }
+      return computePeriodPendingInRange(debts, customStartDate, customEndDate)
     }
     return selectedPeriodPending
   }, [viewMode, debts, customStartDate, customEndDate, selectedPeriodPending])
@@ -2472,46 +1693,16 @@ export default function Reports() {
   const renderPendingDebtsWidget = () => {
     if (activePeriodPending.count === 0) return null
 
+    const periodLabel = viewMode === 'month' ? formatMonth(selectedMonth) : (viewMode === 'year' ? String(selectedYear) : activePeriodLabel)
+
     return (
-      <Card className="border border-glass surface-glass shadow-sm transition-all duration-300 p-4 sm:p-5">
-        <div className="flex items-center gap-3 border-b border-glass/40 pb-3 mb-4">
-          <Landmark className="text-secondary" size={20} />
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              Projeção de Pendências (A Pagar & Receber)
-            </h3>
-            <p className="text-[10px] text-secondary mt-0.5">
-              Valores em aberto com vencimento em {viewMode === 'month' ? formatMonth(selectedMonth) : (viewMode === 'year' ? selectedYear : activePeriodLabel)}
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex flex-col p-3 rounded-xl bg-expense/5 border border-expense/10">
-            <span className="text-[10px] uppercase font-bold text-expense/80 tracking-wider">A Pagar Pendente</span>
-            <span className="text-lg font-extrabold text-expense font-mono mt-1">
-              {formatCurrency(activePeriodPending.payables)}
-            </span>
-          </div>
-          <div className="flex flex-col p-3 rounded-xl bg-income/5 border border-income/10">
-            <span className="text-[10px] uppercase font-bold text-income/80 tracking-wider">A Receber Pendente</span>
-            <span className="text-lg font-extrabold text-income font-mono mt-1">
-              {formatCurrency(activePeriodPending.receivables)}
-            </span>
-          </div>
-          <div className={`flex flex-col p-3 rounded-xl border ${
-            activePeriodPending.balanceProj >= 0 
-              ? 'bg-income/5 border-income/10' 
-              : 'bg-expense/5 border-expense/10'
-          }`}>
-            <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Impacto Projetado no Saldo</span>
-            <span className={`text-lg font-extrabold font-mono mt-1 ${
-              activePeriodPending.balanceProj >= 0 ? 'text-income' : 'text-expense'
-            }`}>
-              {activePeriodPending.balanceProj >= 0 ? '+' : ''}{formatCurrency(activePeriodPending.balanceProj)}
-            </span>
-          </div>
-        </div>
-      </Card>
+      <ReportPendingDebtsWidget
+        payables={activePeriodPending.payables}
+        receivables={activePeriodPending.receivables}
+        balanceProj={activePeriodPending.balanceProj}
+        count={activePeriodPending.count}
+        periodLabel={periodLabel}
+      />
     )
   }
 
@@ -2805,16 +1996,18 @@ export default function Reports() {
                     </div>
                   </Card>
 
-                  {/* Painel Unificado de Composição & Detalhamento */}
-                  {renderUnifiedCompositionCard(
-                    annualCompositionPieType,
-                    setAnnualCompositionPieType,
-                    String(selectedYear),
-                    annualPieExpenses,
-                    annualPieIncomes,
-                    annualPiePaymentMethods,
-                    true
-                  )}
+                  {/* Painel Unificado de Composição & Detalhamento */}<ReportUnifiedCompositionCard
+  activeType={annualCompositionPieType}
+  onActiveTypeChange={setAnnualCompositionPieType}
+  periodLabel={String(selectedYear)}
+  expensesData={annualPieExpenses}
+  incomesData={annualPieIncomes}
+  paymentsData={annualPiePaymentMethods}
+  isYear={true}
+  onOpenDetail={openDetailModal}
+  expenseLimitMap={monthExpenseLimitMap}
+  incomeExpectationMap={monthIncomeExpectationMap}
+/>
                 </div>
               </div>
             ) : activeSummary ? (
@@ -3023,15 +2216,17 @@ export default function Reports() {
                   </Card>
 
                   {/* Painel Unificado de Composição & Detalhamento */}
-                  {renderUnifiedCompositionCard(
-                    compositionPieType,
-                    setCompositionPieType,
-                    activePeriodLabel,
-                    activePieExpenses,
-                    activePieIncomes,
-                    activePiePaymentMethods,
-                    false
-                  )}
+                  <ReportUnifiedCompositionCard
+                    activeType={compositionPieType}
+                    onActiveTypeChange={setCompositionPieType}
+                    periodLabel={activePeriodLabel}
+                    expensesData={activePieExpenses}
+                    incomesData={activePieIncomes}
+                    paymentsData={activePiePaymentMethods}
+                    onOpenDetail={openDetailModal}
+                    expenseLimitMap={monthExpenseLimitMap}
+                    incomeExpectationMap={monthIncomeExpectationMap}
+                  />
                 </div>
               </div>
             ) : (
