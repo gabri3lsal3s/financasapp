@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-22T07:10:23.685Z",
+  "generatedAt": "2026-07-01T04:07:55.906Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -23,5 +23,97 @@
       "description": "Evitar painéis ad hoc em modais; preferir modal-info-panel, modal-summary-panel ou modal-panel-glass."
     }
   ],
-  "violations": []
+  "violations": [
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|163|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 163,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|164|.toFixed(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 164,
+      "match": ".toFixed("
+    },
+    {
+      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|619|.toLocaleString(",
+      "ruleId": "ui-no-direct-number-formatting",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 619,
+      "match": ".toLocaleString("
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1367|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1367,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1377|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1377,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1401|<input",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1401,
+      "match": "<input"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1408|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1408,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1423|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1423,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1567|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1567,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1595|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1595,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1631|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1631,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1642|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1642,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1651|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1651,
+      "match": "<button"
+    }
+  ]
 }

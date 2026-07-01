@@ -58,7 +58,7 @@ export default function TopBar() {
   }
 
   return (
-    <div className="flex items-center justify-between px-3 sm:px-6 py-3 gap-2 sm:gap-3">
+    <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-3">
       {/* Left spacer to balance the bell on desktop */}
       <div className="w-[52px] hidden lg:block shrink-0" />
 
@@ -67,15 +67,9 @@ export default function TopBar() {
         <div className="w-full max-w-full sm:max-w-sm md:max-w-md lg:max-w-5xl">
         <div
           className={cn(
-            'flex items-center gap-2 rounded-3xl sm:rounded-2xl border motion-standard hover-lift-subtle surface-glass-strong h-[60px] sm:h-[52px]',
-            isSearchFocused
-              ? ''
-              : 'border-glass hover:border-glass-strong hover:shadow-sm hover:bg-accent/30'
+            'flex items-center gap-2 rounded-3xl sm:rounded-2xl border motion-standard hover-lift-subtle topbar-search-bar h-[60px] sm:h-[52px]',
+            isSearchFocused ? 'topbar-search-bar--focused' : ''
           )}
-          style={isSearchFocused ? {
-            borderColor: 'color-mix(in srgb, var(--ds-color-accent-primary) 30%, var(--glass-border))',
-            boxShadow: '0 0 0 2px color-mix(in srgb, var(--ds-color-accent-primary) 15%, transparent)',
-          } : undefined}
         >
           <Search size={15} className="ml-3 sm:ml-3.5 text-secondary shrink-0" />
           <input
@@ -150,11 +144,12 @@ export default function TopBar() {
             } else {
               setIsDesktopAlertsOpen(!isDesktopAlertsOpen)
             }
-          }}            className={cn(
-            'relative flex h-[60px] w-[60px] sm:h-[52px] sm:w-[52px] items-center justify-center rounded-xl border motion-standard hover-lift-subtle',
+          }}
+          className={cn(
+            'relative flex h-[60px] w-[60px] sm:h-[52px] sm:w-[52px] items-center justify-center rounded-3xl sm:rounded-2xl border motion-standard hover-lift-subtle topbar-notification-btn',
             (isDesktopAlertsOpen || isMobileAlertsOpen)
-              ? 'border-primary/30 text-primary shadow-primary/5 surface-glass-strong'
-              : 'border-glass surface-glass-strong text-secondary hover:text-primary hover:bg-accent/50 shadow-sm'
+              ? 'topbar-notification-btn--active text-primary'
+              : 'text-secondary hover:text-primary'
           )}
           title="Notificações"
           aria-label="Notificações"

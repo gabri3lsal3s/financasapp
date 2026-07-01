@@ -2860,3 +2860,70 @@ body:has(.modal-overlay) .page-action-hub-root {
 .no-transition {
   transition: none !important;
 }
+
+/* Barra de pesquisa da barra superior - padronizada com o FAB e bottom nav */
+.topbar-search-bar {
+  border: 1px solid var(--glass-border);
+  background-color: var(--glass-surface-strong);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-inset-highlight);
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.topbar-search-bar:hover {
+  background-color: color-mix(in srgb, var(--glass-surface-strong) 85%, var(--ds-color-accent-primary) 6%);
+  border-color: color-mix(in srgb, var(--glass-border) 60%, var(--ds-color-accent-primary));
+}
+
+.topbar-search-bar--focused {
+  border-color: color-mix(in srgb, var(--ds-color-accent-primary) 30%, var(--glass-border)) !important;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--ds-color-accent-primary) 15%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-inset-highlight) !important;
+  background-color: var(--glass-surface-strong) !important;
+}
+
+/* Botão de notificação da barra superior - padronizado com o FAB */
+.topbar-notification-btn {
+  border: 1px solid var(--glass-border);
+  background-color: var(--glass-surface-strong);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-inset-highlight);
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease,
+    transform 180ms ease;
+}
+
+.topbar-notification-btn:hover {
+  background-color: color-mix(in srgb, var(--glass-surface-strong) 85%, var(--ds-color-accent-primary) 6%);
+  border-color: color-mix(in srgb, var(--glass-border) 60%, var(--ds-color-accent-primary));
+}
+
+.topbar-notification-btn:active {
+  transform: scale(0.95);
+}
+
+.topbar-notification-btn--active {
+  border-color: color-mix(in srgb, var(--ds-color-accent-primary) 40%, var(--glass-border)) !important;
+  background-color: color-mix(in srgb, var(--glass-surface-strong) 92%, var(--ds-color-accent-primary) 8%) !important;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--ds-color-accent-primary) 15%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-inset-highlight) !important;
+}
