@@ -230,11 +230,13 @@ export default function SmartLimitSuggestions({
 
   return (
     <Card className="h-full relative overflow-hidden flex flex-col p-5 border border-glass surface-glass transition-all hover:border-glass-strong hover:shadow-md">
-      <div className="flex items-center gap-2 mb-4">
-        <Sparkles className="text-primary" size={20} />
-        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-          Sugestões de Limites
-        </h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="text-primary" size={20} />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
+            Sugestões de Limites
+          </h3>
+        </div>
       </div>
 
       {!hasSuggestions ? (

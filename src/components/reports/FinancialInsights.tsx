@@ -164,9 +164,11 @@ export default function FinancialInsights({
       {/* Detalhe luminoso no fundo */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none transition-all group-hover:bg-primary/10" />
 
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Insights Financeiros do Período</h3>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Insights Financeiros do Período</h3>
+        </div>
       </div>
 
       <div className={`grid grid-cols-1 ${isSidebar ? '' : 'md:grid-cols-3'} gap-3.5 mt-2`}>

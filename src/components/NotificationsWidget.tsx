@@ -82,7 +82,7 @@ export default function NotificationsWidget() {
     todayStr,
   } = useNotifications()
 
-  if (!remindersEnabled || combinedAlerts.length === 0) {
+  if (!remindersEnabled) {
     return null
   }
 
@@ -124,73 +124,59 @@ export default function NotificationsWidget() {
         </div>
       </Modal>
 
-      {/* Desktop Floating Notification Widget */}
-      <div className={`hidden md:block fixed bottom-6 right-8 ${Z_INDEX.POPOVER}`}>
-        <div className="relative">
-          {/* FAB Button */}
-          <Button
-            type="button"
-            id="alerts-fab"
-            onClick={() => setIsDesktopAlertsOpen(!isDesktopAlertsOpen)}
-            variant="outline"
-            className="alerts-fab-trigger flex h-10 w-10 min-h-10 items-center justify-center rounded-full border border-glass surface-glass shadow-lg hover:bg-accent/40 active:scale-95 transition-all duration-300 relative p-0"
-            title="Lembretes de Vencimento"
-          >
-            <Bell size={18} className="animate-bell-ring text-primary" />
-            <span className="absolute -top-1 -right-1 flex h-[16px] w-[16px] items-center justify-center rounded-full bg-expense text-[8px] font-black text-white border border-secondary shadow-sm">
-              {combinedAlerts.length}
-            </span>
-          </Button>
-
-          {/* Floating Card Content */}
-          {isDesktopAlertsOpen && (
-            <div className={`absolute bottom-16 right-0 w-80 surface-glass-strong border border-glass rounded-2xl shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-5 duration-300 ${Z_INDEX.POPOVER} animate-stagger-item`}>
-              <div className="flex items-center justify-between border-b border-primary/10 pb-2 mb-3">
-                <h4 className="text-sm font-bold text-primary flex items-center gap-1.5">
-                  <Bell size={16} className="text-expense shrink-0" />
-                  Lembretes de Vencimento
-                </h4>
-                <Button
-                  type="button"
-                  onClick={() => setIsDesktopAlertsOpen(false)}
-                  variant="ghost"
-                  size="xs"
-                  className="text-secondary hover:text-primary transition-colors text-xs font-semibold h-auto py-1 px-2"
-                >
-                  Fechar
-                </Button>
-              </div>
-
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                {combinedAlerts.map((alert) => (
-                  <AlertCard
-                    key={alert.id}
-                    alert={alert}
-                    todayStr={todayStr}
-                    snoozeAlert={snoozeAlert}
-                  />
-                ))}
-              </div>
-              <div className="mt-4 pt-2 border-t border-primary/10 flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setIsDesktopAlertsOpen(false)
-                    navigate('/contas')
-                  }}
-                  className="w-full text-xs gap-1"
-                >
-                  Gerenciar Contas
-                  <ChevronRight size={12} />
-                </Button>
-              </div>
+      {/* Desktop Notification Dropdown */}
+      {isDesktopAlertsOpen && (
+        <div className={`hidden lg:block fixed top-0 right-0 left-0 bottom-0 ${Z_INDEX.POPOVER}`}>
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/10"
+            onClick={() => setIsDesktopAlertsOpen(false)}
+          />
+          {/* Floating Card — positioned below the bell */}
+          <div className="absolute top-[calc(5rem+env(safe-area-inset-top))] right-4 w-[28rem] surface-glass-strong border border-glass rounded-2xl shadow-2xl p-5 animate-in fade-in slide-in-from-top-3 duration-200">
+            <div className="flex items-center justify-between border-b border-primary/10 pb-3 mb-4">
+              <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                <Bell size={16} className="text-expense shrink-0" />
+                Lembretes de Vencimento
+              </h4>
+              <Button
+                type="button"
+                onClick={() => setIsDesktopAlertsOpen(false)}
+                variant="ghost"
+                size="xs"
+                className="text-secondary hover:text-primary transition-colors text-xs font-semibold h-auto py-1 px-2"
+              >
+                Fechar
+              </Button>
             </div>
-          )}
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+              {combinedAlerts.map((alert) => (
+                <AlertCard
+                  key={alert.id}
+                  alert={alert}
+                  todayStr={todayStr}
+                  snoozeAlert={snoozeAlert}
+                />
+              ))}
+            </div>
+            <div className="mt-5 pt-3 border-t border-primary/10 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsDesktopAlertsOpen(false)
+                  navigate('/contas')
+                }}
+                className="w-full text-xs gap-1"
+              >
+                Gerenciar Contas
+                <ChevronRight size={12} />
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </>
   )
 }
-
-

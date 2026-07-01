@@ -1,6 +1,6 @@
 # Minhas Finanças — Guia Completo do Sistema
 
-> **Versão:** 1.0.0 | **Última atualização:** Junho de 2026
+> **Versão:** 1.1.0 | **Última atualização:** Julho de 2026
 > **Stack:** React 18 + TypeScript + Vite + Tailwind CSS + Supabase
 
 ---
@@ -38,7 +38,7 @@ O **Minhas Finanças** é uma aplicação web **PWA (Progressive Web App)** de c
 
 | Área | Funcionalidades |
 |------|----------------|
-| **Dashboard** | KPIs de rendas, despesas, investimentos e saldo; gráfico de fluxo diário; insights financeiros; limites de gastos |
+| **Dashboard** | KPIs de rendas, despesas, investimentos e saldo; gráfico de fluxo diário; **Copiloto de IA** com sugestões inteligentes não-LLM, análise LLM via Gemini, gráficos interativos e análises fixadas; limites de gastos |
 | **Despesas** | CRUD completo com parcelamento, competência de cartão de crédito, sincronização offline |
 | **Rendas** | CRUD completo com suporte a estornos automáticos de cartões |
 | **Investimentos** | Portfólio completo com motor quantamental (Scuttlebutt + Fundamentos), TWR, ledger, conciliação B3, Smart Aporte |
@@ -182,9 +182,15 @@ O **Minhas Finanças** é uma aplicação web **PWA (Progressive Web App)** de c
 
 ### 4.2 Dashboard (`/`)
 
-- **KPIs**: Rendas, Despesas, Investimentos, Saldo com glow dinâmico
+- **KPIs**: Rendas, Despesas, Investimentos, Saldo com glow dinâmico e sparklines
+- **Copiloto de IA**:
+  - Campo de pergunta para IA com suporte a lançamentos via linguagem natural
+  - **Sugestões inteligentes não-LLM**: 7 tipos de insights baseados em dados reais (limites estourados, taxa de poupança, variação de despesas, categoria de maior custo, pico semanal, taxa de investimento, taxa de consumo) com priorização por criticidade
+  - Cards clicáveis de detalhamento dos insights que enviam consultas específicas à IA
+  - Análise fixada (pinned) com persistência no Supabase e botão de atualização
+  - Gráfico interativo gerado pela IA (barras, rosca, comparativo)
+  - Bloco integrado de **Gasto Disponível** (mensal + diário) e **Ajustes e Otimizações** (remanejamento de limites)
 - **Gráfico fluxo diário**: Barras empilhadas (rendas/despesas/investimentos por dia)
-- **Gráfico mensal**: Evolução mensal do ano selecionado
 - **Insights financeiros**: Cards com dicas e alertas
 - **Limites/Orçamentos**: Cards de progresso por categoria
 - **Ações flutuantes**: Navegação rápida para despesas, rendas, investimentos
@@ -329,6 +335,8 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `DailyBudgetAdvisor` | Orçamento diário sugerido |
 | `LimitsControl` | Controle de limites por categoria |
 | `FinancialInsights` | Cards de insights mensais |
+| `BeautifulMarkdown` | Renderização de markdown com destaque para valores monetários |
+| `InteractiveAIChart` | Gráfico interativo gerado pela IA (barras, rosca, comparativo) |
 
 ### 5.7 Investimentos
 

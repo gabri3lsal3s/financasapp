@@ -1,10 +1,11 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, LogOut, Receipt } from 'lucide-react'
+import { Home, TrendingDown, TrendingUp, BarChart3, PiggyBank, Settings, ChevronRight, Menu, X, Tags, LogOut, Receipt, WifiOff, ArrowLeft } from 'lucide-react'
 import FloatingCalculator from '@/components/FloatingCalculator'
 import FloatingSideStack from '@/components/FloatingSideStack'
 import FloatingActionHub from '@/components/FloatingActionHub'
 import PageActionButtonHub from '@/components/PageActionButtonHub'
+import TopBar from '@/components/TopBar'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
 import { isCalculatorElement } from '@/utils/calculator'
@@ -23,7 +24,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useBackgroundCache } from '@/hooks/useBackgroundCache'
 import { useNavigate } from 'react-router-dom'
 
-import { WifiOff, ArrowLeft } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 interface LayoutProps {
@@ -443,7 +443,9 @@ function LayoutInner({ children }: LayoutProps) {
           </aside>
 
           {/* Área de Conteúdo Principal (Única!) */}
-          <main className="relative pt-[calc(1rem+env(safe-area-inset-top))] glass-main-padding lg:pt-0 lg:safe-area-bottom min-h-screen">
+          <main className="relative pt-[calc(0.5rem+env(safe-area-inset-top))] glass-main-padding lg:pt-0 lg:safe-area-bottom min-h-screen">
+            {/* TopBar — apenas no Dashboard */}
+            {location.pathname === '/' && <TopBar />}
             <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 pb-0 lg:px-6 lg:xl:px-8 lg:pb-[74px]">
               <section key={location.pathname} className="relative animate-page-enter">
                 {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}

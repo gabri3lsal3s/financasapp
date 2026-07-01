@@ -2670,6 +2670,15 @@ nav.glass-bottom-nav {
   animation: loader-spin-slow 1.2s linear infinite;
 }
 
+/* ==========================================================================
+   PLACEHOLDER — cor de texto secundária com opacidade sutil
+   ========================================================================== */
+
+.placeholder-muted::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
 /* Dropdowns e popovers de seleção sem transparência */
 .select-dropdown-solid {
   background-color: var(--color-bg-secondary);
@@ -2730,7 +2739,7 @@ nav.glass-bottom-nav {
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.22),
     0 2px 8px rgba(0, 0, 0, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    var(--glass-inset-highlight);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2751,7 +2760,8 @@ nav.glass-bottom-nav {
     border-radius: 16px;
   }
 }  .page-action-hub-fab:hover {
-    background-color: color-mix(in srgb, var(--glass-surface-strong) 75%, var(--ds-color-interaction-hover));
+    background-color: color-mix(in srgb, var(--glass-surface-strong) 85%, var(--ds-color-accent-primary) 6%);
+    border-color: color-mix(in srgb, var(--glass-border) 60%, var(--ds-color-accent-primary));
   }
 
 .page-action-hub-fab:active {
@@ -2796,9 +2806,7 @@ nav.glass-bottom-nav {
   border-radius: 0.625rem;
   padding: 0.3rem 0.65rem;
   white-space: nowrap;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.16),
-    0 1px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--glass-shadow-panel);
   pointer-events: none;
   user-select: none;
 }
@@ -2813,9 +2821,9 @@ nav.glass-bottom-nav {
   backdrop-filter: blur(var(--glass-blur-strong));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   box-shadow:
-    0 6px 24px rgba(0, 0, 0, 0.18),
-    0 2px 6px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    0 1px 4px rgba(0, 0, 0, 0.1),
+    var(--glass-inset-highlight);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2824,9 +2832,11 @@ nav.glass-bottom-nav {
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
-    background-color 180ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease;
 }  .page-action-hub-dial-btn:hover {
-    background-color: color-mix(in srgb, var(--glass-surface-strong) 75%, var(--ds-color-interaction-hover));
+    background-color: color-mix(in srgb, var(--glass-surface-strong) 85%, var(--ds-color-accent-primary) 6%);
+    border-color: color-mix(in srgb, var(--glass-border) 60%, var(--ds-color-accent-primary));
   }
 
 .page-action-hub-dial-btn:active {

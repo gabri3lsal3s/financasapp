@@ -17,7 +17,7 @@
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
-| `style={{ }}` em produção | **~62 ocorrências** (↓30) | 🟡 |
+| `style={{ }}` em produção | **~55 ocorrências** (↓37) | 🟡 |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
 | Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
 
@@ -177,6 +177,7 @@ supabase migration up
 | 6 | Criar testes unitários para `reportAggregation` + `reportCustomData` | ~1h | ⏳ |
 | 7 | Migrar `--color-*` para `--ds-*` | ~2h | ⏳ |
 | 8 | Tooltips em gráficos de pizza | ~30min | ⏳ |
+| 9 | Adicionar testes para `dynamicAiSuggestions` e `spendingPace` | ~1h | ⏳ |
 
 ---
 
