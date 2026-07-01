@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
+import EmptyState from '@/components/EmptyState'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -12,7 +12,7 @@ import { useCategories } from '@/hooks/useCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { Category } from '@/types'
 import { getCategoryColorForPalette, generateCategoryColor } from '@/utils/categoryColors'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw, TrendingDown } from 'lucide-react'
 
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import { getStaggerClass } from '@/constants/animation'
@@ -125,10 +125,15 @@ export default function ExpenseCategories() {
         {loading && categories.length === 0 ? (
           <SkeletonCategoryGrid />
         ) : categories.length === 0 ? (
-          <Card className="text-center py-10 space-y-3">
-            <p className="text-secondary">Nenhuma categoria cadastrada.</p>
-            <Button onClick={() => handleOpenModal()}>Adicionar categoria</Button>
-          </Card>
+          <EmptyState
+            icon={<TrendingDown size={32} />}
+            title="Nenhuma categoria cadastrada"
+            description="Crie sua primeira categoria de despesa para começar a organizar seus gastos."
+            action={{
+              label: 'Adicionar categoria',
+              onClick: () => handleOpenModal(),
+            }}
+          />
         ) : (
           <div className="space-y-3">
             {categories.length >= 15 && (

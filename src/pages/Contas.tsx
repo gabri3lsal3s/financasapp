@@ -4,6 +4,7 @@ import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
 import Button from '@/components/Button'
+import EmptyState from '@/components/EmptyState'
 import IconButton from '@/components/IconButton'
 import Modal from '@/components/Modal'
 import MonthSelector from '@/components/MonthSelector'
@@ -977,12 +978,16 @@ export default function Contas() {
                   </div>
 
                   {activeCards.length === 0 ? (
-                    <Card className="text-center py-8 space-y-3">
-                      <p className="text-secondary text-sm">Nenhum cartão cadastrado.</p>
-                      <div className="flex justify-center">
-                        <Button size="sm" onClick={modals.openCreateCardModal}>Cadastrar primeiro cartão</Button>
-                      </div>
-                    </Card>
+                    <EmptyState
+                      icon={<CreditCardIcon size={28} />}
+                      title="Nenhum cartão cadastrado"
+                      description="Cadastre seu primeiro cartão de crédito para começar a gerenciar suas faturas."
+                      action={{
+                        label: 'Cadastrar primeiro cartão',
+                        onClick: modals.openCreateCardModal,
+                        variant: 'primary',
+                      }}
+                    />
                   ) : (
                     <div className="space-y-3">
                       {activeCards.map((card) => {
@@ -1191,12 +1196,16 @@ export default function Contas() {
                   </div>
 
                   {pendingDebts.length === 0 ? (
-                    <Card className="text-center py-6 space-y-3">
-                      <p className="text-secondary text-sm">Nenhuma pendência ativa para este período.</p>
-                      <div className="flex justify-center">
-                        <Button size="sm" onClick={modals.openCreateDebtModal}>Nova Pendência</Button>
-                      </div>
-                    </Card>
+                    <EmptyState
+                      icon={<Scale size={28} />}
+                      title="Nenhuma pendência ativa"
+                      description="Você não possui dívidas ou contas a receber pendentes para este período."
+                      action={{
+                        label: 'Nova Pendência',
+                        onClick: modals.openCreateDebtModal,
+                        variant: 'primary',
+                      }}
+                    />
                   ) : (
                     <div className="space-y-3">
                       {pendingDebts.map((debt) => {

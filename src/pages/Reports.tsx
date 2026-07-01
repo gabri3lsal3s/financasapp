@@ -8,6 +8,7 @@ import { useSwipeYear } from '@/hooks/useSwipeYear'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
+import EmptyState from '@/components/EmptyState'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { SkeletonReports } from '@/components/Skeleton'
 import { useReports } from '@/hooks/useReports'
@@ -27,7 +28,7 @@ import { portfolioInvestmentByDay, transactionInvestmentAmount } from '@/utils/p
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, Loader2, Scale } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, Loader2, Scale, BarChart3 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -2230,9 +2231,12 @@ export default function Reports() {
                 </div>
               </div>
             ) : (
-              <Card className="border border-glass surface-glass text-center py-10">
-                <p className="text-secondary">Sem dados consolidados para o período selecionado.</p>
-              </Card>
+              <EmptyState
+                icon={<BarChart3 size={32} />}
+                title="Sem dados consolidados"
+                description="Nenhuma receita, despesa ou investimento encontrado para o período selecionado."
+                className="border border-glass surface-glass"
+              />
             )}
           </>
         )}

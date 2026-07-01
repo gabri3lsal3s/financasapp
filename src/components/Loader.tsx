@@ -12,8 +12,7 @@ export default function Loader({ size = 24, className = '', text }: LoaderProps)
         <div className={`flex flex-col items-center justify-center gap-3 animate-page-fade ${hasPadding ? 'p-8' : ''} ${className}`}>
             <Loader2
                 size={size}
-                className={`text-primary animate-spin ${className}`}
-                style={{ animationDuration: '1.2s' }}
+                className={`text-primary animate-spin ${className} animate-loader-slow`}
             />
             {text && (
                 <div className="text-secondary text-sm animate-pulse">
