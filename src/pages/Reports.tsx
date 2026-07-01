@@ -6,8 +6,6 @@ import YearSelector from '@/components/YearSelector'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useSwipeYear } from '@/hooks/useSwipeYear'
 import Card from '@/components/Card'
-import Button from '@/components/Button'
-import Input from '@/components/Input'
 import EmptyState from '@/components/EmptyState'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { SkeletonReports } from '@/components/Skeleton'
@@ -28,7 +26,7 @@ import { portfolioInvestmentByDay, transactionInvestmentAmount } from '@/utils/p
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, Loader2, Scale, BarChart3 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, Scale, BarChart3 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 import KpiCard from '@/components/KpiCard'
@@ -83,6 +81,9 @@ import {
 } from '@/utils/reportCustomData'
 import ReportPendingDebtsWidget from '@/components/reports/ReportPendingDebtsWidget'
 import ReportUnifiedCompositionCard from '@/components/reports/ReportUnifiedCompositionCard'
+import ReportCustomDateFilter from '@/components/reports/ReportCustomDateFilter'
+import AnnualReportView from '@/components/reports/AnnualReportView'
+import MonthlyReportView from '@/components/reports/MonthlyReportView'
 
 
 
@@ -1691,21 +1692,19 @@ export default function Reports() {
     return monthQuickData
   }, [viewMode, customQuickData, monthQuickData])
 
-  const renderPendingDebtsWidget = () => {
+  const activePendingInfo = useMemo(() => {
     if (activePeriodPending.count === 0) return null
-
     const periodLabel = viewMode === 'month' ? formatMonth(selectedMonth) : (viewMode === 'year' ? String(selectedYear) : activePeriodLabel)
+    return {
+      payables: activePeriodPending.payables,
+      receivables: activePeriodPending.receivables,
+      balanceProj: activePeriodPending.balanceProj,
+      count: activePeriodPending.count,
+      periodLabel,
+    }
+  }, [activePeriodPending, viewMode, selectedMonth, selectedYear, activePeriodLabel])
 
-    return (
-      <ReportPendingDebtsWidget
-        payables={activePeriodPending.payables}
-        receivables={activePeriodPending.receivables}
-        balanceProj={activePeriodPending.balanceProj}
-        count={activePeriodPending.count}
-        periodLabel={periodLabel}
-      />
-    )
-  }
+  // renderPendingDebtsWidget removed — now handled inside AnnualReportView and MonthlyReportView
 
   if (loadingState) {
     return (
@@ -1744,50 +1743,14 @@ export default function Reports() {
             availableYears={availableYears}
           />
         ) : (
-          <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-end gap-4">
-              <div className="flex-1">
-                <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5 font-sans">
-                  Data de Início
-                </label>
-                <Input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full bg-secondary/5 border-glass text-primary"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5 font-sans">
-                  Data de Fim
-                </label>
-                <Input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full bg-secondary/5 border-glass text-primary"
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={loadCustomData}
-                disabled={customLoading}
-                className="shrink-0 font-bold px-6 py-2.5 h-10 flex items-center justify-center gap-2"
-              >
-                {customLoading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Carregando...
-                  </>
-                ) : (
-                  <>
-                    <CalendarDays size={16} />
-                    Recalcular
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
+          <ReportCustomDateFilter
+            startDate={customStartDate}
+            endDate={customEndDate}
+            loading={customLoading}
+            onStartDateChange={setCustomStartDate}
+            onEndDateChange={setCustomEndDate}
+            onRecalculate={loadCustomData}
+          />
         )}
 
         {/* View mode selector for all screen sizes (replaces binary header toggle) */}
@@ -1823,416 +1786,87 @@ export default function Reports() {
         {loadingState ? (
           <SkeletonReports />
         ) : (
-          <>
-            {viewMode === 'year' ? (
-              <div className="flex flex-col gap-6 animate-stagger">
-                {/* KPIs Anuais */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <KpiCard
-                    title="Rendas no ano"
-                    value={formatCurrency(annualTotals.income)}
-                    subtext={`Total acumulado em ${selectedYear}`}
-                    icon={<TrendingUp size={16} />}
-                    glowColor="var(--color-income)"
-                    showGlow={true}
-                    sparklineData={monthlySummaries.map((s) => s.total_income)}
-                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.total_income) : undefined}
-                    trendPercent={previousYearTotals.income > 0 
-                      ? ((annualTotals.income - previousYearTotals.income) / previousYearTotals.income) * 100 
-                      : null}
-                    index={1}
-                  />
-                  <KpiCard
-                    title="Despesas no ano"
-                    value={formatCurrency(annualTotals.expenses)}
-                    subtext={`Total acumulado em ${selectedYear}`}
-                    icon={<TrendingDown size={16} />}
-                    glowColor="var(--color-expense)"
-                    showGlow={true}
-                    isDespesa={true}
-                    sparklineData={monthlySummaries.map((s) => s.total_expenses)}
-                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.total_expenses) : undefined}
-                    trendPercent={previousYearTotals.expenses > 0 
-                      ? ((annualTotals.expenses - previousYearTotals.expenses) / previousYearTotals.expenses) * 100 
-                      : null}
-                    index={2}
-                  />
-                  <KpiCard
-                    title="Investimentos no ano"
-                    value={formatCurrency(annualTotals.investments)}
-                    subtext={`Total acumulado em ${selectedYear}`}
-                    icon={<Wallet size={16} />}
-                    glowColor="var(--color-balance)"
-                    showGlow={false}
-                    sparklineData={monthlySummaries.map((s) => s.total_investments)}
-                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.total_investments) : undefined}
-                    trendPercent={previousYearTotals.investments > 0 
-                      ? ((annualTotals.investments - previousYearTotals.investments) / previousYearTotals.investments) * 100 
-                      : null}
-                    index={3}
-                  />
-                  <KpiCard
-                    title="Saldo anual"
-                    value={formatCurrency(annualTotals.balance)}
-                    subtext="Balanço final consolidado"
-                    icon={<Percent size={16} />}
-                    glowColor={annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
-                    showGlow={annualTotals.balance < 0}
-                    sparklineData={monthlySummaries.map((s) => s.balance)}
-                    compareSparklineData={compareWithPrevious ? prevMonthlySummaries.map((s) => s.balance) : undefined}
-                    trendPercent={previousYearTotals.balance !== 0
-                      ? ((annualTotals.balance - previousYearTotals.balance) / Math.abs(previousYearTotals.balance)) * 100
-                      : null}
-                    index={4}
-                  />
-                </div>
-
-                {/* Pendências de Dívidas */}
-                {renderPendingDebtsWidget()}
-
-                {/* Insights Anuais */}
-                <div className="order-last lg:order-none">
-                  <FinancialInsights
-                    viewMode="year"
-                    periodLabel={String(selectedYear)}
-                    incomeTotal={annualTotals.income}
-                    expenseTotal={annualTotals.expenses}
-                    savingsRate={annualTotals.income > 0 ? (annualTotals.balance / annualTotals.income) * 100 : 0}
-                    categoryExpenses={categoryExpenses}
-                    previousExpenseTotal={previousYearTotals.expenses}
-                  />
-                </div>
-
-                <div className="space-y-6">
-                  {/* Gráficos de Fluxo/Evolução (Full Width) */}
-                  <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
-                      <div>
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-                          {
-                            annualChartType === 'flow' ? 'Fluxo Mensal' :
-                            annualChartType === 'balance' ? 'Saldo Acumulado' :
-                            `Evolução por Categoria`
-                          }
-                        </h3>
-                        <p className="text-[10px] text-secondary mt-0.5">
-                          {
-                            annualChartType === 'flow' ? `Entradas, saídas e investimentos mensais em ${selectedYear}` :
-                            annualChartType === 'balance' ? `Evolução do patrimônio líquido acumulado em ${selectedYear}` :
-                            `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} em ${selectedYear}`
-                          }
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto shrink-0">
-                        {/* Sub-seletor condicional para Despesas/Rendas na Evolução */}
-                        {annualChartType === 'trend' && (
-                          <div className="flex items-center gap-1 mr-2 border-r border-glass/40 pr-2">
-                            <ReportsTabButton
-                              active={evolutionType === 'expense'}
-                              onClick={() => setEvolutionType('expense')}
-                            >
-                              Despesas
-                            </ReportsTabButton>
-                            <ReportsTabButton
-                              active={evolutionType === 'income'}
-                              onClick={() => setEvolutionType('income')}
-                            >
-                              Rendas
-                            </ReportsTabButton>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-1 bg-secondary/10 p-0.5 rounded-lg border border-glass">
-                          <ReportsTabButton
-                            active={annualChartType === 'flow'}
-                            onClick={() => setAnnualChartType('flow')}
-                          >
-                            Fluxo
-                          </ReportsTabButton>
-                          <ReportsTabButton
-                            active={annualChartType === 'balance'}
-                            onClick={() => setAnnualChartType('balance')}
-                          >
-                            Saldo
-                          </ReportsTabButton>
-                          <ReportsTabButton
-                            active={annualChartType === 'trend'}
-                            onClick={() => setAnnualChartType('trend')}
-                          >
-                            Evolução
-                          </ReportsTabButton>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-full mt-2">
-                      {annualChartType === 'flow' && (
-                        <AnnualFlowChart
-                          data={monthlyData}
-                          hiddenSeries={hiddenAnnualFlowSeries}
-                          onToggleSeries={toggleAnnualFlowSeries}
-                        />
-                      )}
-                      {annualChartType === 'balance' && (
-                        <CumulativeBalanceChart data={cumulativeBalanceData} />
-                      )}
-                      {annualChartType === 'trend' && (
-                        <>
-                          {((evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries).length === 0 || 
-                            (evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData).length === 0) ? (
-                            <p className="text-sm text-secondary py-12 text-center italic">
-                              Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no ano selecionado.
-                            </p>
-                          ) : (
-                            <CategoryTrendChart
-                              data={evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData}
-                              series={evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries}
-                              hiddenSeries={evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries}
-                              onToggleSeries={evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries}
-                            />
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </Card>
-
-                  {/* Painel Unificado de Composição & Detalhamento */}<ReportUnifiedCompositionCard
-  activeType={annualCompositionPieType}
-  onActiveTypeChange={setAnnualCompositionPieType}
-  periodLabel={String(selectedYear)}
-  expensesData={annualPieExpenses}
-  incomesData={annualPieIncomes}
-  paymentsData={annualPiePaymentMethods}
-  isYear={true}
-  onOpenDetail={openDetailModal}
-  expenseLimitMap={monthExpenseLimitMap}
-  incomeExpectationMap={monthIncomeExpectationMap}
-/>
-                </div>
-              </div>
+          <>            {viewMode === 'year' ? (
+              <AnnualReportView
+                selectedYear={selectedYear}
+                compareWithPrevious={compareWithPrevious}
+                monthlySummaries={monthlySummaries}
+                prevMonthlySummaries={prevMonthlySummaries}
+                annualTotals={annualTotals}
+                previousYearTotals={previousYearTotals}
+                categoryExpenses={categoryExpenses}
+                annualChartType={annualChartType}
+                onAnnualChartTypeChange={setAnnualChartType}
+                evolutionType={evolutionType}
+                onEvolutionTypeChange={setEvolutionType}
+                annualExpenseTrendSeries={annualExpenseTrendSeries}
+                annualIncomeTrendSeries={annualIncomeTrendSeries}
+                annualExpenseTrendVisibleData={annualExpenseTrendVisibleData}
+                annualIncomeTrendVisibleData={annualIncomeTrendVisibleData}
+                hiddenExpenseSeries={hiddenExpenseSeries}
+                hiddenIncomeSeries={hiddenIncomeSeries}
+                hiddenAnnualFlowSeries={hiddenAnnualFlowSeries}
+                onToggleExpenseSeries={toggleExpenseSeries}
+                onToggleIncomeSeries={toggleIncomeSeries}
+                onToggleAnnualFlowSeries={toggleAnnualFlowSeries}
+                monthlyData={monthlyData}
+                cumulativeBalanceData={cumulativeBalanceData}
+                annualPieExpenses={annualPieExpenses}
+                annualPieIncomes={annualPieIncomes}
+                annualPiePaymentMethods={annualPiePaymentMethods}
+                annualCompositionPieType={annualCompositionPieType}
+                onAnnualCompositionPieTypeChange={setAnnualCompositionPieType}
+                onOpenDetail={openDetailModal}
+                monthExpenseLimitMap={monthExpenseLimitMap}
+                monthIncomeExpectationMap={monthIncomeExpectationMap}
+                pendingInfo={activePendingInfo}
+              />
             ) : activeSummary ? (
-              <div className="flex flex-col gap-6 animate-stagger">
-                {/* KPIs Mensais */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <KpiCard
-                    title={viewMode === 'custom' ? "Rendas no período" : "Rendas do mês"}
-                    value={formatCurrency(activeSummary.total_income)}
-                    subtext="Receitas consolidadas"
-                    icon={<TrendingUp size={16} />}
-                    glowColor="var(--color-income)"
-                    showGlow={true}
-                    sparklineData={activeDailyConsolidatedData.map((d) => d.Rendas)}
-                    compareSparklineData={compareWithPrevious ? activeDailyConsolidatedData.map((d) => d['Rendas (Mês Ant.)'] ?? 0) : undefined}
-                    trendPercent={viewMode === 'custom' ? null : (previousMonthIncomeTotal > 0 
-                      ? ((activeSummary.total_income - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100 
-                      : null)}
-                    index={1}
-                  />
-                  <KpiCard
-                    title={viewMode === 'custom' ? "Despesas no período" : "Despesas do mês"}
-                    value={formatCurrency(activeSummary.total_expenses)}
-                    subtext="Despesas consolidadas"
-                    icon={<TrendingDown size={16} />}
-                    glowColor="var(--color-expense)"
-                    showGlow={true}
-                    isDespesa={true}
-                    sparklineData={activeDailyConsolidatedData.map((d) => d.Despesas)}
-                    compareSparklineData={compareWithPrevious ? activeDailyConsolidatedData.map((d) => d['Despesas (Mês Ant.)'] ?? 0) : undefined}
-                    trendPercent={viewMode === 'custom' ? null : (previousMonthExpenseTotal > 0 
-                      ? ((activeSummary.total_expenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100 
-                      : null)}
-                    index={2}
-                  />
-                  <KpiCard
-                    title={viewMode === 'custom' ? "Investimentos no período" : "Investimentos do mês"}
-                    value={formatCurrency(activeSummary.total_investments)}
-                    subtext="Investimentos em ativos"
-                    icon={<Wallet size={16} />}
-                    glowColor="var(--color-balance)"
-                    showGlow={false}
-                    sparklineData={activeDailyConsolidatedData.map((d) => d.Investimentos)}
-                    compareSparklineData={compareWithPrevious ? activeDailyConsolidatedData.map((d) => d['Investimentos (Mês Ant.)'] ?? 0) : undefined}
-                    trendPercent={viewMode === 'custom' ? null : (previousMonthInvestmentTotal > 0 
-                      ? ((activeSummary.total_investments - previousMonthInvestmentTotal) / previousMonthInvestmentTotal) * 100 
-                      : null)}
-                    index={3}
-                  />
-                  <KpiCard
-                    title="Taxa de saldo"
-                    value={`${formatNumberWithTwoDecimalsBR(activeSavingsRate)}%`}
-                    subtext={`Saldo líquido: ${formatCurrency(activeSummary.balance)}`}
-                    icon={<Percent size={16} />}
-                    glowColor={activeSavingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
-                    showGlow={activeSavingsRate < 0}
-                    sparklineData={activeDailyConsolidatedData.map((d) => d.Rendas - d.Despesas - d.Investimentos)}
-                    compareSparklineData={compareWithPrevious ? activeDailyConsolidatedData.map((d) => (d['Rendas (Mês Ant.)'] ?? 0) - (d['Despesas (Mês Ant.)'] ?? 0) - (d['Investimentos (Mês Ant.)'] ?? 0)) : undefined}
-                    trendPercent={viewMode === 'custom' ? null : (previousMonthIncomeTotal > 0 
-                      ? activeSavingsRate - previousMonthSavingsRate 
-                      : null)}
-                    trendSuffix=" pp"
-                    index={4}
-                  />
-                </div>
-
-                {/* Pendências de Dívidas */}
-                {renderPendingDebtsWidget()}
-
-                {/* Insights Mensais */}
-                <div className="order-last lg:order-none">
-                  <FinancialInsights
-                    viewMode={viewMode === 'custom' ? 'month' : viewMode}
-                    periodLabel={activePeriodLabel}
-                    incomeTotal={activeSummary.total_income}
-                    expenseTotal={activeSummary.total_expenses}
-                    savingsRate={activeSavingsRate}
-                    categoryExpenses={activeExpenseCategories}
-                    previousExpenseTotal={viewMode === 'custom' ? 0 : previousMonthExpenseTotal}
-                    weekdayExpenses={activeWeekdayExpenseData}
-                    limitsExceededCount={activeLimitsExceededCount}
-                  />
-                </div>
-
-                <div className="space-y-6">
-                  {/* Estação de Gráficos (Full Width) */}
-                  <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
-                      <div>
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-                          {monthChartTab === 'daily' ? 'Fluxo Diário Consolidado' :
-                           monthChartTab === 'weekly' ? 'Fluxo por Dia da Semana' :
-                           monthChartTab === 'composition' ? 'Composição de Saldo' :
-                           monthChartTab === 'balance' ? 'Saldo Acumulado' :
-                           'Evolução por Categoria'}
-                        </h3>
-                         <p className="text-[10px] text-secondary mt-0.5">
-                           {monthChartTab === 'daily' ? `Rendas, despesas e investimentos por dia em ${activePeriodLabel}` :
-                            monthChartTab === 'weekly' ? (topWeekdayExpense && topWeekdayExpense.Despesas > 0
-                              ? `Maior gasto: ${topWeekdayExpense.dia} (${formatCurrency(topWeekdayExpense.Despesas)})`
-                              : `Distribuição semanal — despesas, rendas e investimentos em ${activePeriodLabel}`) :
-                            monthChartTab === 'composition' ? `Proporções e saldos consolidados no período` :
-                            monthChartTab === 'balance' ? `Evolução do patrimônio líquido acumulado no período` :
-                            `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} no período`}
-                         </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto shrink-0">
-                        {/* Sub-seletor condicional para Despesas/Rendas na Evolução do Período */}
-                        {viewMode === 'custom' && monthChartTab === 'trend' && (
-                          <div className="flex items-center gap-1 mr-2 border-r border-glass/40 pr-2">
-                            <ReportsTabButton
-                              active={evolutionType === 'expense'}
-                              onClick={() => setEvolutionType('expense')}
-                            >
-                              Despesas
-                            </ReportsTabButton>
-                            <ReportsTabButton
-                              active={evolutionType === 'income'}
-                              onClick={() => setEvolutionType('income')}
-                            >
-                              Rendas
-                            </ReportsTabButton>
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-1 bg-secondary/10 p-0.5 rounded-lg border border-glass">
-                          <ReportsTabButton
-                            active={monthChartTab === 'daily'}
-                            onClick={() => setMonthChartTab('daily')}
-                          >
-                            Fluxo Diário
-                          </ReportsTabButton>
-                          <ReportsTabButton
-                            active={monthChartTab === 'weekly'}
-                            onClick={() => setMonthChartTab('weekly')}
-                          >
-                            Semana
-                          </ReportsTabButton>
-                          <ReportsTabButton
-                            active={monthChartTab === 'composition'}
-                            onClick={() => setMonthChartTab('composition')}
-                          >
-                            Composição
-                          </ReportsTabButton>
-                          {viewMode === 'custom' && (
-                            <>
-                              <ReportsTabButton
-                                active={monthChartTab === 'balance'}
-                                onClick={() => setMonthChartTab('balance')}
-                              >
-                                Saldo
-                              </ReportsTabButton>
-                              <ReportsTabButton
-                                active={monthChartTab === 'trend'}
-                                onClick={() => setMonthChartTab('trend')}
-                              >
-                                Evolução
-                              </ReportsTabButton>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-full mt-2">
-                      {monthChartTab === 'daily' && (
-                        <DailyFlowChart
-                          data={activeDailyConsolidatedData}
-                          hiddenSeries={hiddenDailyConsolidatedSeries}
-                          onToggleSeries={toggleDailyConsolidatedSeries}
-                          xAxisKey="label"
-                        />
-                      )}
-                      {monthChartTab === 'weekly' && (
-                        <WeekdayExpenseChart data={activeWeekdayExpenseData} />
-                      )}
-                      {monthChartTab === 'composition' && (
-                        <MonthCompositionChart
-                          data={activeQuickData}
-                          hiddenSeries={hiddenMonthCompositionSeries}
-                          onToggleSeries={toggleMonthCompositionSeries}
-                        />
-                      )}
-                      {viewMode === 'custom' && monthChartTab === 'balance' && (
-                        <CumulativeBalanceChart data={customCumulativeBalanceData} />
-                      )}
-                      {viewMode === 'custom' && monthChartTab === 'trend' && (
-                        <>
-                          {((evolutionType === 'expense' ? customExpenseTrendSeries : customIncomeTrendSeries).length === 0 || 
-                            (evolutionType === 'expense' ? customExpenseTrendVisibleData : customIncomeTrendVisibleData).length === 0) ? (
-                            <p className="text-sm text-secondary py-12 text-center italic">
-                              Sem {evolutionType === 'expense' ? 'despesas' : 'rendas'} no período selecionado.
-                            </p>
-                          ) : (
-                            <CategoryTrendChart
-                              data={evolutionType === 'expense' ? customExpenseTrendVisibleData : customIncomeTrendVisibleData}
-                              series={evolutionType === 'expense' ? customExpenseTrendSeries : customIncomeTrendSeries}
-                              hiddenSeries={evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries}
-                              onToggleSeries={evolutionType === 'expense' ? toggleExpenseSeries : toggleIncomeSeries}
-                            />
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </Card>
-
-                  {/* Painel Unificado de Composição & Detalhamento */}
-                  <ReportUnifiedCompositionCard
-                    activeType={compositionPieType}
-                    onActiveTypeChange={setCompositionPieType}
-                    periodLabel={activePeriodLabel}
-                    expensesData={activePieExpenses}
-                    incomesData={activePieIncomes}
-                    paymentsData={activePiePaymentMethods}
-                    onOpenDetail={openDetailModal}
-                    expenseLimitMap={monthExpenseLimitMap}
-                    incomeExpectationMap={monthIncomeExpectationMap}
-                  />
-                </div>
-              </div>
+              <MonthlyReportView
+                viewMode={viewMode}
+                activeSummary={activeSummary}
+                activePeriodLabel={activePeriodLabel}
+                activeSavingsRate={activeSavingsRate}
+                activeDailyConsolidatedData={activeDailyConsolidatedData}
+                activeExpenseCategories={activeExpenseCategories}
+                activeWeekdayExpenseData={activeWeekdayExpenseData}
+                activeLimitsExceededCount={activeLimitsExceededCount}
+                activeQuickData={activeQuickData}
+                activePieExpenses={activePieExpenses}
+                activePieIncomes={activePieIncomes}
+                activePiePaymentMethods={activePiePaymentMethods}
+                compareWithPrevious={compareWithPrevious}
+                previousMonthIncomeTotal={previousMonthIncomeTotal}
+                previousMonthExpenseTotal={previousMonthExpenseTotal}
+                previousMonthInvestmentTotal={previousMonthInvestmentTotal}
+                previousMonthSavingsRate={previousMonthSavingsRate}
+                monthChartTab={monthChartTab}
+                onMonthChartTabChange={setMonthChartTab}
+                topWeekdayExpense={topWeekdayExpense}
+                evolutionType={evolutionType}
+                onEvolutionTypeChange={setEvolutionType}
+                customExpenseTrendSeries={customExpenseTrendSeries}
+                customIncomeTrendSeries={customIncomeTrendSeries}
+                customExpenseTrendVisibleData={customExpenseTrendVisibleData}
+                customIncomeTrendVisibleData={customIncomeTrendVisibleData}
+                customCumulativeBalanceData={customCumulativeBalanceData}
+                hiddenExpenseSeries={hiddenExpenseSeries}
+                hiddenIncomeSeries={hiddenIncomeSeries}
+                hiddenDailyConsolidatedSeries={hiddenDailyConsolidatedSeries}
+                hiddenMonthCompositionSeries={hiddenMonthCompositionSeries}
+                onToggleExpenseSeries={toggleExpenseSeries}
+                onToggleIncomeSeries={toggleIncomeSeries}
+                onToggleDailyConsolidatedSeries={toggleDailyConsolidatedSeries}
+                onToggleMonthCompositionSeries={toggleMonthCompositionSeries}
+                compositionPieType={compositionPieType}
+                onCompositionPieTypeChange={setCompositionPieType}
+                onOpenDetail={openDetailModal}
+                monthExpenseLimitMap={monthExpenseLimitMap}
+                monthIncomeExpectationMap={monthIncomeExpectationMap}
+                pendingInfo={activePendingInfo}
+              />
             ) : (
               <EmptyState
-                icon={<BarChart3 size={32} />}
                 title="Sem dados consolidados"
                 description="Nenhuma receita, despesa ou investimento encontrado para o período selecionado."
                 className="border border-glass surface-glass"

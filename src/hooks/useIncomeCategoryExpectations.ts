@@ -5,6 +5,8 @@ import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
+import { logger } from '@/utils/logger'
+import toast from 'react-hot-toast'
 
 const EXPECTATION_SELECT =
   'id, income_category_id, month, expectation_amount, user_id, created_at'
@@ -80,7 +82,10 @@ export function useIncomeCategoryExpectations(month: string) {
           const next = prev.filter(
             (item) => !(item.income_category_id === incomeCategoryId && item.month === month),
           )
-          setCache(getCacheKey(), next).catch(() => undefined)
+          setCache(getCacheKey(), next).catch(() => {
+            logger.error('Erro ao salvar cache de expectativas (delete)')
+            toast.error('Erro ao salvar dados localmente. Tente novamente.')
+          })
           return next
         })
         window.dispatchEvent(new Event('local-data-changed'))
@@ -107,7 +112,10 @@ export function useIncomeCategoryExpectations(month: string) {
           (item) => !(item.income_category_id === incomeCategoryId && item.month === month),
         )
         const next = [...filtered, data]
-        setCache(getCacheKey(), next).catch(() => undefined)
+        setCache(getCacheKey(), next).catch(() => {
+          logger.error('Erro ao salvar cache de expectativas (upsert)')
+          toast.error('Erro ao salvar dados localmente. Tente novamente.')
+        })
         return next
       })
       window.dispatchEvent(new Event('local-data-changed'))
@@ -126,7 +134,10 @@ export function useIncomeCategoryExpectations(month: string) {
             const next = prev.filter(
               (item) => !(item.income_category_id === incomeCategoryId && item.month === month),
             )
-            setCache(getCacheKey(), next).catch(() => undefined)
+            setCache(getCacheKey(), next).catch(() => {
+              logger.error('Erro ao salvar cache de expectativas (offline delete)')
+              toast.error('Erro ao salvar dados localmente. Tente novamente.')
+            })
             return next
           })
           window.dispatchEvent(new Event('local-data-changed'))
@@ -158,7 +169,10 @@ export function useIncomeCategoryExpectations(month: string) {
             (item) => !(item.income_category_id === incomeCategoryId && item.month === month),
           )
           const next = [...filtered, itemData]
-          setCache(getCacheKey(), next).catch(() => undefined)
+          setCache(getCacheKey(), next).catch(() => {
+            logger.error('Erro ao salvar cache de expectativas (offline update)')
+            toast.error('Erro ao salvar dados localmente. Tente novamente.')
+          })
           return next
         })
         window.dispatchEvent(new Event('local-data-changed'))

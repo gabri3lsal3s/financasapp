@@ -53,10 +53,7 @@ export default function TransactionRow({
       <div className="text-right flex flex-col items-end gap-0.5">
         {showOriginalAmount && (
           <p className="flex items-center gap-1">
-            <span
-              className="text-[9px] line-through"
-              style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
-            >
+            <span className="text-[9px] line-through text-secondary/65">
               {formatCurrency(originalAmount)}
             </span>
             <InfoTooltip

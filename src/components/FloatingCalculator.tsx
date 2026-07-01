@@ -1112,8 +1112,7 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
                       resetPanelRect()
                     }
                   }}
-                  style={{ touchAction: 'none' }}
-                  className="mx-auto mt-1 h-1.5 w-16 rounded-full border border-primary/40 bg-tertiary/90 opacity-95 cursor-ns-resize focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] calculator-handle-idle"
+                  className="mx-auto mt-1 h-1.5 w-16 rounded-full border border-primary/40 bg-tertiary/90 opacity-95 cursor-ns-resize focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] calculator-handle-idle touch-none"
                 />
               </div>
             </div>

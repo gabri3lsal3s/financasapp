@@ -83,7 +83,7 @@ function MobileLayout({
                   </span>
                   {isOffline && (
                     <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                      <RefreshCw size={12} style={{ color: 'var(--ds-color-accent-primary)' }} className="animate-spin" />
+                      <RefreshCw size={12} className="animate-spin text-[var(--ds-color-accent-primary)]" />
                     </span>
                   )}
                 </p>
@@ -190,7 +190,7 @@ function MobileLayout({
                       >
                         Fatura Competência
                       </span>
-                      <span className="font-semibold font-mono block text-[12px]" style={{ color: 'var(--ds-color-accent-primary)' }}>
+                      <span className="font-semibold font-mono block text-[12px] text-[var(--ds-color-accent-primary)]">
                         {billCompetenceLabel}
                       </span>
                     </div>
@@ -271,7 +271,7 @@ function DesktopLayout({
                   </span>
                   {isOffline && (
                     <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                      <RefreshCw size={12} style={{ color: 'var(--ds-color-accent-primary)' }} className="animate-spin" />
+                      <RefreshCw size={12} className="animate-spin text-[var(--ds-color-accent-primary)]" />
                     </span>
                   )}
                 </p>

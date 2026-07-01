@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TrendingDown, TrendingUp, Check, Pencil, X, Plus, Trash2, Sliders } from 'lucide-react'
+import { TrendingDown, TrendingUp, Sliders } from 'lucide-react'
 
-import { getCategoryIcon } from '@/utils/categoryIcons'
 import { usePageActions } from '@/hooks/usePageActions'
-import Card from '@/components/Card'
-import Button from '@/components/Button'
-import Input from '@/components/Input'
 import { SkeletonCategories } from '@/components/Skeleton'
 import MonthSelector from '@/components/MonthSelector'
 import MonthTransitionView from '@/components/MonthTransitionView'
@@ -20,19 +16,18 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { assignUniquePaletteColors, getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
+import { addMonths, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Category, IncomeCategory } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
+import ExpenseCategoryGrid from '@/components/categories/ExpenseCategoryGrid'
+import IncomeCategoryGrid from '@/components/categories/IncomeCategoryGrid'
 import CategoryFormModal from '@/components/categories/CategoryFormModal'
 import CategoryDeleteConfirmModal from '@/components/categories/CategoryDeleteConfirmModal'
 import LimitSuggestionsModal from '@/components/categories/LimitSuggestionsModal'
-import { getStaggerClass } from '@/constants/animation'
 import { logger } from '@/utils/logger'
-import InfoTooltip from '@/components/InfoTooltip'
-import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 
 function detectSuggestionRuleFromName(name: string): string {
   const normalized = name.toLowerCase().trim()
@@ -526,82 +521,7 @@ export default function Categories() {
     return { expectationSum, receivedSum, remaining, percentage }
   }, [incomeCategories, incomeExpectationMap, incomeByCategory])
 
-  const sortedCategories = useMemo(() => {
-    return [...categories].sort((a, b) => {
-      const limitA = expenseLimitMap.get(a.id)
-      const limitB = expenseLimitMap.get(b.id)
-      const spentA = expenseSpentByCategory.get(a.id) || 0
-      const spentB = expenseSpentByCategory.get(b.id) || 0
-
-      const hasLimitA = limitA !== null && limitA !== undefined
-      const hasLimitB = limitB !== null && limitB !== undefined
-
-      const exceededA = hasLimitA && spentA > (limitA || 0)
-      const exceededB = hasLimitB && spentB > (limitB || 0)
-
-      const exceededAmtA = exceededA ? spentA - (limitA || 0) : 0
-      const exceededAmtB = exceededB ? spentB - (limitB || 0) : 0
-
-      // 1. Exceeded categories first (by absolute exceeded amount descending)
-      if (exceededA && !exceededB) return -1
-      if (!exceededA && exceededB) return 1
-      if (exceededA && exceededB) {
-        return exceededAmtB - exceededAmtA
-      }
-
-      // 2. Categories with limits next (by percentage spent descending)
-      if (hasLimitA && !hasLimitB) return -1
-      if (!hasLimitA && hasLimitB) return 1
-      if (hasLimitA && hasLimitB) {
-        const pctA = (limitA || 0) > 0 ? (spentA / (limitA || 1)) * 100 : 0
-        const pctB = (limitB || 0) > 0 ? (spentB / (limitB || 1)) * 100 : 0
-        
-        if (Math.abs(pctA - pctB) > 0.01) {
-          return pctB - pctA
-        }
-        // If percentages are similar, sort by limit amount descending
-        return (limitB || 0) - (limitA || 0)
-      }
-
-      // 3. Categories without limits last (by spent amount descending)
-      return spentB - spentA
-    })
-  }, [categories, expenseLimitMap, expenseSpentByCategory])
-
-  const sortedIncomeCategories = useMemo(() => {
-    return [...incomeCategories].sort((a, b) => {
-      const expectationA = incomeExpectationMap.get(a.id)
-      const expectationB = incomeExpectationMap.get(b.id)
-      const receivedA = incomeByCategory.get(a.id) || 0
-      const receivedB = incomeByCategory.get(b.id) || 0
-
-      const hasExpectationA = expectationA !== null && expectationA !== undefined
-      const hasExpectationB = expectationB !== null && expectationB !== undefined
-
-      const reachedA = hasExpectationA && receivedA >= (expectationA || 0)
-      const reachedB = hasExpectationB && receivedB >= (expectationB || 0)
-
-      const deficitA = hasExpectationA && !reachedA ? (expectationA || 0) - receivedA : 0
-      const deficitB = hasExpectationB && !reachedB ? (expectationB || 0) - receivedB : 0
-
-      // 1. Unreached expectations first (furthest to reach descending by deficit amount: expectation - received)
-      if (deficitA > 0 && deficitB === 0) return -1
-      if (deficitA === 0 && deficitB > 0) return 1
-      if (deficitA > 0 && deficitB > 0) {
-        return deficitB - deficitA
-      }
-
-      // 2. Reached or with expectations next (by expectation amount descending)
-      if (hasExpectationA && !hasExpectationB) return -1
-      if (!hasExpectationA && hasExpectationB) return 1
-      if (hasExpectationA && hasExpectationB) {
-        return (expectationB || 0) - (expectationA || 0)
-      }
-
-      // 3. Without expectations last (by received amount descending)
-      return receivedB - receivedA
-    })
-  }, [incomeCategories, incomeExpectationMap, incomeByCategory])
+  // sortedCategories and sortedIncomeCategories removed — now handled inside ExpenseCategoryGrid and IncomeCategoryGrid components
 
   useEffect(() => {
     const nextInputs: Record<string, string> = {}
@@ -715,513 +635,63 @@ export default function Categories() {
         ) : (
           <MonthTransitionView month={currentMonth} className="space-y-4 lg:space-y-6 animate-fade-in">
             {activeTab === 'expenses' ? (
-              <div className="space-y-4 lg:space-y-6">
-                {/* KPIs de Despesas */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Limite Definido</span>
-                    <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-                      {formatCurrency(expensesKpis.limitSum)}
-                    </span>
-                  </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Gasto</span>
-                    <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-                      {formatCurrency(expensesKpis.spentSum)}
-                    </span>
-                  </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Disponível</span>
-                    <span className={`text-base sm:text-lg font-extrabold font-mono mt-2 ${expensesKpis.remaining >= 0 ? 'text-income' : 'text-expense'}`}>
-                      {formatCurrency(expensesKpis.remaining)}
-                    </span>
-                  </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Uso Geral</span>
-                      <span className="text-xs font-bold text-primary font-mono">{Math.round(expensesKpis.percentage)}%</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-secondary/15 mt-3 overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all duration-500" 
-                        style={{ 
-                          width: `${Math.min(100, expensesKpis.percentage)}%`, 
-                          backgroundColor: expensesKpis.percentage > 100 ? 'var(--color-expense)' : expensesKpis.percentage >= 80 ? 'var(--color-warning)' : 'var(--color-income)' 
-                        }} 
-                      />
-                    </div>
-                  </Card>
-                </div>
-
-                {/* Lista de Categorias de Despesa */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-base font-bold text-primary">Orçamentos e Progresso</h3>
-                    <span className="text-xs text-secondary">{categories.length} categorias</span>
-                  </div>
-
-                  {categories.length === 0 ? (
-                    <Card className="p-6 text-center text-secondary border border-glass surface-glass">
-                      Nenhuma categoria de despesa cadastrada.
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                      {sortedCategories.map((category, index) => {
-                        const spent = expenseSpentByCategory.get(category.id) || 0
-                        const limitAmount = expenseLimitMap.get(category.id)
-                        const [colorPart, iconPart] = category.color ? category.color.split('|') : []
-                        const categoryColor = expenseCategoryColorMap[category.id] || colorPart || category.color
-                        const categoryIconName = iconPart || undefined
-                        const hasLimit = limitAmount !== null && limitAmount !== undefined
-                        const exceeded = hasLimit && spent > (limitAmount || 0)
-                        const isSaving = savingExpenseLimitIds.includes(category.id)
-                        const isEditing = editingCategoryId === category.id
-
-                        const spentPct = hasLimit && limitAmount > 0 ? (spent / limitAmount) * 100 : 0
-                        
-                        let statusText = 'Sem limite'
-                        let badgeClass = 'text-secondary bg-secondary/10 border-glass'
-                        
-                        if (hasLimit) {
-                          if (exceeded) {
-                            statusText = 'Excedido'
-                            badgeClass = 'text-expense bg-expense/10 border-expense/25 font-bold'
-                          } else if (spentPct >= 80) {
-                            statusText = 'Atenção'
-                            badgeClass = 'text-warning bg-warning/10 border-warning/25 font-semibold'
-                          } else {
-                            statusText = 'Sob controle'
-                            badgeClass = 'text-income bg-income/10 border-income/25'
-                          }
-                        }
-
-                        return (
-                          <div
-                            key={category.id}
-                            id={`item-${category.id}`}
-                            className={`group rounded-xl border p-4 bg-primary transition-all duration-300 flex flex-col justify-between gap-4 h-full animate-stagger-item ${
-                              exceeded 
-                                ? 'border-expense/45 shadow-[0_0_12px_rgba(var(--color-expense-rgb),0.04)] bg-expense/5' 
-                                : 'border-glass surface-glass hover:border-glass-strong hover:scale-[1.005]'
-                            } ${getStaggerClass(index)}`}
-                          >
-                            <div className="space-y-3 flex-grow">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span 
-                                    style={{ color: categoryColor }}
-                                    className="flex items-center justify-center flex-shrink-0"
-                                  >
-                                    {getCategoryIcon(category.name, 16, categoryIconName)}
-                                  </span>
-                                  <p className="font-bold text-primary truncate text-sm">{category.name}</p>
-                                  {category.name !== 'Sem categoria' && (
-                                    <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity ml-1.5 flex-shrink-0">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="xs"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleOpenCategoryModal(category)
-                                        }}
-                                        className="p-1 h-auto w-auto text-secondary hover:text-primary transition-colors rounded hover:bg-secondary/10"
-                                        title="Editar nome"
-                                      >
-                                        <Pencil size={11} />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="xs"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteCategoryClick(category)
-                                        }}
-                                        className="p-1 h-auto w-auto text-secondary hover:text-expense transition-colors rounded hover:bg-secondary/10"
-                                        title="Excluir categoria"
-                                      >
-                                        <Trash2 size={11} />
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${badgeClass} flex-shrink-0`}>
-                                  {statusText}
-                                </span>
-                              </div>
-
-                              <div className="space-y-2 pt-1">
-                                <div className="flex justify-between items-end text-xs text-secondary">
-                                  <span>Gasto: <strong className="text-primary">{formatCurrency(spent)}</strong></span>
-                                  {hasLimit && (
-                                    <span className="font-mono text-[10px]">{Math.round(spentPct)}%</span>
-                                  )}
-                                </div>
-                                {(() => {
-                                  const base = expenseBaseByCategory.get(category.id) || 0
-                                  if (base === spent) return null
-                                  return (
-                                    <p className="text-[9px] text-secondary/50 flex items-center gap-1">
-                                      <span>Valor base: {formatCurrency(base)}</span>
-                                      <InfoTooltip
-                                        content={WEIGHT_TOOLTIPS.baseValueExpense}
-                                        iconSize={8}
-                                      />
-                                    </p>
-                                  )
-                                })()}
-                              </div>
-                            </div>
-
-                            <div className={`pt-3 border-t border-glass/30 flex ${isEditing ? 'flex-col items-stretch' : 'items-center justify-between'} gap-2 min-h-9 flex-shrink-0`}>
-                              {isEditing ? (
-                                <div className="space-y-1.5 w-full">
-                                  <div className="flex items-center gap-1.5 w-full">
-                                    <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={expenseLimitInputs[category.id] || ''}
-                                      onChange={(event) =>
-                                        setExpenseLimitInputs((prev) => ({
-                                          ...prev,
-                                          [category.id]: event.target.value,
-                                        }))
-                                      }
-                                      placeholder="Limite (ex: 500)"
-                                      className="w-full h-8 text-xs py-1"
-                                      autoFocus
-                                    />
-                                    <Button
-                                      type="button"
-                                      size="xs"
-                                      variant="ghost-success"
-                                      onClick={async () => {
-                                        await saveExpenseLimit(category.id)
-                                        setEditingCategoryId(null)
-                                      }}
-                                      disabled={isSaving}
-                                      className="h-8 w-8 p-0 flex items-center justify-center flex-shrink-0"
-                                    >
-                                      <Check size={14} />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="xs"
-                                      variant="ghost"
-                                      onClick={() => setEditingCategoryId(null)}
-                                      className="h-8 w-8 p-0 flex items-center justify-center flex-shrink-0 text-secondary"
-                                    >
-                                      <X size={14} />
-                                    </Button>
-                                  </div>
-                                  {averageIncome > 0 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="xs"
-                                      onClick={() => {
-                                        const pct = getCategoryPercentageSuggestion(category)
-                                        const calculated = Math.round((averageIncome * pct) / 1000) * 10 // round to nearest 10
-                                        setExpenseLimitInputs((prev) => ({
-                                          ...prev,
-                                          [category.id]: formatMoneyInput(calculated),
-                                        }))
-                                      }}
-                                      className="h-auto p-0 text-[10px] text-left text-secondary hover:text-primary transition-colors flex items-center gap-1 mt-0.5 font-normal hover:bg-transparent"
-                                    >
-                                      <span>Sugerido:</span>
-                                      <span className="font-bold underline">
-                                        {formatCurrency(Math.round((averageIncome * getCategoryPercentageSuggestion(category)) / 1000) * 10)}
-                                      </span>
-                                      <span>({getCategoryPercentageSuggestion(category)}% da renda)</span>
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="text-xs text-secondary truncate">
-                                    Limite: <span className="text-primary font-bold">{hasLimit ? formatCurrency(limitAmount) : 'Não definido'}</span>
-                                    {!hasLimit && averageIncome > 0 && (
-                                      <span className="text-[10px] text-secondary/70 block mt-0.5">
-                                        Sugestão: {formatCurrency(Math.round((averageIncome * getCategoryPercentageSuggestion(category)) / 1000) * 10)}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setEditingCategoryId(category.id)
-                                      setExpenseLimitInputs(prev => ({
-                                        ...prev,
-                                        [category.id]: hasLimit ? formatMoneyInput(limitAmount) : ''
-                                      }))
-                                    }}
-                                    className="h-7 px-2.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
-                                  >
-                                    <Pencil size={10} />
-                                    <span>Definir</span>
-                                  </Button>
-                                </>
-                              )}      </div>
-
-    </div>
-  )
-})}
-
-                      {categories.length < 15 && (
-                        <div 
-                          onClick={() => handleOpenCategoryModal()}
-                          className="cursor-pointer flex flex-col items-center justify-center gap-2 p-4 bg-secondary/5 border border-dashed border-glass hover:border-glass-strong hover:bg-secondary/10 rounded-xl transition-all select-none animate-stagger-item h-full min-h-[140px] text-secondary hover:text-primary hover:scale-[1.002]"
-                        >
-                          <Plus size={20} className="text-secondary" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Novo Orçamento</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ExpenseCategoryGrid
+                categories={categories}
+                expenseSpentByCategory={expenseSpentByCategory}
+                expenseBaseByCategory={expenseBaseByCategory}
+                expenseCategoryColorMap={expenseCategoryColorMap}
+                expenseLimitMap={expenseLimitMap}
+                expensesKpis={expensesKpis}
+                savingExpenseLimitIds={savingExpenseLimitIds}
+                editingCategoryId={editingCategoryId}
+                expenseLimitInputs={expenseLimitInputs}
+                averageIncome={averageIncome}
+                getCategoryPercentageSuggestion={getCategoryPercentageSuggestion}
+                onEditCategory={handleOpenCategoryModal}
+                onDeleteCategory={handleDeleteCategoryClick}
+                onEditLimit={(id) => {
+                  setEditingCategoryId(id)
+                  const limitAmount = expenseLimitMap.get(id)
+                  setExpenseLimitInputs(prev => ({
+                    ...prev,
+                    [id]: limitAmount !== null && limitAmount !== undefined ? formatMoneyInput(limitAmount) : ''
+                  }))
+                }}
+                onSaveLimit={saveExpenseLimit}
+                onCancelEditLimit={() => setEditingCategoryId(null)}
+                onSetLimitInput={(id, value) =>
+                  setExpenseLimitInputs((prev) => ({ ...prev, [id]: value }))
+                }
+                onAddCategory={() => handleOpenCategoryModal()}
+              />
             ) : (
-              <div className="space-y-4 lg:space-y-6">
-                {/* KPIs de Rendas */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Expectativa Total</span>
-                    <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-                      {formatCurrency(incomesKpis.expectationSum)}
-                    </span>
-                  </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Recebido</span>
-                    <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-                      {formatCurrency(incomesKpis.receivedSum)}
-                    </span>
-                  </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Restante</span>
-                    <span className={`text-base sm:text-lg font-extrabold font-mono mt-2 ${incomesKpis.remaining <= 0 ? 'text-income' : 'text-warning'}`}>
-                      {formatCurrency(Math.max(0, incomesKpis.remaining))}
-                    </span>
-                  </Card>
-                  <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Atingida</span>
-                      <span className="text-xs font-bold text-primary font-mono">{Math.round(incomesKpis.percentage)}%</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-secondary/15 mt-3 overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all duration-500 animate-pulse-slow" 
-                        style={{ 
-                          width: `${Math.min(100, incomesKpis.percentage)}%`, 
-                          backgroundColor: 'var(--color-income)' 
-                        }} 
-                      />
-                    </div>
-                  </Card>
-                </div>
-
-                {/* Lista de Categorias de Renda */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-base font-bold text-primary">Metas e Progresso</h3>
-                    <span className="text-xs text-secondary">{incomeCategories.length} categorias</span>
-                  </div>
-
-                  {incomeCategories.length === 0 ? (
-                    <Card className="p-6 text-center text-secondary border border-glass surface-glass">
-                      Nenhuma categoria de renda cadastrada.
-                    </Card>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                      {sortedIncomeCategories.map((category, index) => {
-                        const received = incomeByCategory.get(category.id) || 0
-                        const expectationAmount = incomeExpectationMap.get(category.id)
-                        const [colorPart, iconPart] = category.color ? category.color.split('|') : []
-                        const categoryColor = incomeCategoryColorMap[category.id] || colorPart || category.color
-                        const categoryIconName = iconPart || undefined
-                        const hasExpectation = expectationAmount !== null && expectationAmount !== undefined
-                        const exceeded = hasExpectation && received >= (expectationAmount || 0)
-                        const isSaving = savingIncomeExpectationIds.includes(category.id)
-                        const isEditing = editingCategoryId === category.id
-
-                        const receivedPct = hasExpectation && expectationAmount > 0 ? (received / expectationAmount) * 100 : 0
-                        
-                        let statusText = 'Sem expectativa'
-                        let badgeClass = 'text-secondary bg-secondary/10 border-glass'
-                        
-                        if (hasExpectation) {
-                          if (exceeded) {
-                            statusText = 'Alcançada'
-                            badgeClass = 'text-income bg-income/10 border-income/25 font-bold'
-                          } else {
-                            statusText = 'Em progresso'
-                            badgeClass = 'text-secondary bg-secondary/10 border-glass font-medium'
-                          }
-                        }
-
-                        return (
-                          <div
-                            key={category.id}
-                            id={`item-${category.id}`}
-                            className={`group rounded-xl border p-4 bg-primary transition-all duration-300 flex flex-col justify-between gap-4 h-full animate-stagger-item ${
-                              exceeded 
-                                ? 'border-income/45 shadow-[0_0_12px_rgba(var(--color-income-rgb),0.04)] bg-income/5' 
-                                : 'border-glass surface-glass hover:border-glass-strong hover:scale-[1.005]'
-                            } ${getStaggerClass(index)}`}
-                          >
-                            <div className="space-y-3 flex-grow">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span 
-                                    style={{ color: categoryColor }}
-                                    className="flex items-center justify-center flex-shrink-0"
-                                  >
-                                    {getCategoryIcon(category.name, 16, categoryIconName)}
-                                  </span>
-                                  <p className="font-bold text-primary truncate text-sm">{category.name}</p>
-                                  {category.name !== 'Sem categoria' && (
-                                    <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity ml-1.5 flex-shrink-0">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="xs"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleOpenCategoryModal(category)
-                                        }}
-                                        className="p-1 h-auto w-auto text-secondary hover:text-primary transition-colors rounded hover:bg-secondary/10"
-                                        title="Editar nome"
-                                      >
-                                        <Pencil size={11} />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="xs"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteCategoryClick(category)
-                                        }}
-                                        className="p-1 h-auto w-auto text-secondary hover:text-expense transition-colors rounded hover:bg-secondary/10"
-                                        title="Excluir categoria"
-                                      >
-                                        <Trash2 size={11} />
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${badgeClass} flex-shrink-0`}>
-                                  {statusText}
-                                </span>
-                              </div>
-
-                              <div className="space-y-2 pt-1">
-                                <div className="flex justify-between items-end text-xs text-secondary">
-                                  <span>Recebido: <strong className="text-primary">{formatCurrency(received)}</strong></span>
-                                  {hasExpectation && (
-                                    <span className="font-mono text-[10px]">{Math.round(receivedPct)}%</span>
-                                  )}
-                                </div>
-                                {(() => {
-                                  const base = incomeBaseByCategory.get(category.id) || 0
-                                  if (base === received) return null
-                                  return (
-                                    <p className="text-[9px] text-secondary/50 flex items-center gap-1">
-                                      <span>Valor base: {formatCurrency(base)}</span>
-                                      <InfoTooltip
-                                        content={WEIGHT_TOOLTIPS.baseValueIncome}
-                                        iconSize={8}
-                                      />
-                                    </p>
-                                  )
-                                })()}
-                              </div>
-                            </div>
-
-                            <div className="pt-3 border-t border-glass/30 flex items-center justify-between gap-2 h-9 flex-shrink-0">
-                              {isEditing ? (
-                                <div className="flex items-center gap-1.5 w-full">
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={incomeExpectationInputs[category.id] || ''}
-                                    onChange={(event) =>
-                                      setIncomeExpectationInputs((prev) => ({
-                                        ...prev,
-                                        [category.id]: event.target.value,
-                                      }))
-                                    }
-                                    placeholder="Meta (ex: 2000)"
-                                    className="w-full h-8 text-xs py-1"
-                                    autoFocus
-                                  />
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost-success"
-                                    onClick={async () => {
-                                      await saveIncomeExpectation(category.id)
-                                      setEditingCategoryId(null)
-                                    }}
-                                    disabled={isSaving}
-                                    className="h-8 w-8 p-0 flex items-center justify-center flex-shrink-0"
-                                  >
-                                    <Check size={14} />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    onClick={() => setEditingCategoryId(null)}
-                                    className="h-8 w-8 p-0 flex items-center justify-center flex-shrink-0 text-secondary"
-                                  >
-                                    <X size={14} />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="text-xs text-secondary truncate">
-                                    Expectativa: <span className="text-primary font-bold">{hasExpectation ? formatCurrency(expectationAmount) : 'Não definida'}</span>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setEditingCategoryId(category.id)
-                                      setIncomeExpectationInputs(prev => ({
-                                        ...prev,
-                                        [category.id]: hasExpectation ? formatMoneyInput(expectationAmount) : ''
-                                      }))
-                                    }}
-                                    className="h-7 px-2.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
-                                  >
-                                    <Pencil size={10} />
-                                    <span>Definir</span>
-                                  </Button>
-                                </>
-                              )}      </div>
-
-    </div>
-  )
-})}
-
-                      {incomeCategories.length < 15 && (
-                        <div 
-                          onClick={() => handleOpenCategoryModal()}
-                          className="cursor-pointer flex flex-col items-center justify-center gap-2 p-4 bg-secondary/5 border border-dashed border-glass hover:border-glass-strong hover:bg-secondary/10 rounded-xl transition-all select-none animate-stagger-item h-full min-h-[140px] text-secondary hover:text-primary hover:scale-[1.002]"
-                        >
-                          <Plus size={20} className="text-secondary" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Nova Meta</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <IncomeCategoryGrid
+                incomeCategories={incomeCategories}
+                incomeByCategory={incomeByCategory}
+                incomeBaseByCategory={incomeBaseByCategory}
+                incomeCategoryColorMap={incomeCategoryColorMap}
+                incomeExpectationMap={incomeExpectationMap}
+                incomesKpis={incomesKpis}
+                savingIncomeExpectationIds={savingIncomeExpectationIds}
+                editingCategoryId={editingCategoryId}
+                incomeExpectationInputs={incomeExpectationInputs}
+                onEditCategory={handleOpenCategoryModal}
+                onDeleteCategory={handleDeleteCategoryClick}
+                onEditExpectation={(id) => {
+                  setEditingCategoryId(id)
+                  const expectationAmount = incomeExpectationMap.get(id)
+                  setIncomeExpectationInputs(prev => ({
+                    ...prev,
+                    [id]: expectationAmount !== null && expectationAmount !== undefined ? formatMoneyInput(expectationAmount) : ''
+                  }))
+                }}
+                onSaveExpectation={saveIncomeExpectation}
+                onCancelEditExpectation={() => setEditingCategoryId(null)}
+                onSetExpectationInput={(id, value) =>
+                  setIncomeExpectationInputs((prev) => ({ ...prev, [id]: value }))
+                }
+                onAddCategory={() => handleOpenCategoryModal()}
+              />
             )}
           </MonthTransitionView>
         )}

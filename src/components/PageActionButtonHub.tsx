@@ -283,17 +283,16 @@ function PageActionButtonHubPortalContent() {
                         }}
                         disabled={action.disabled}
                         title={action.title ?? action.label}
-                        style={{ pointerEvents: 'auto' }}
                         className={cn(
-                          'page-action-hub-dial-btn',
+                          'page-action-hub-dial-btn pointer-events-auto',
                           action.disabled && 'opacity-40 cursor-not-allowed',
                         )}
-                      >
-                        <Icon
-                          size={18}
-                          style={{ color: itemIconColor, flexShrink: 0 }}
-                          aria-hidden
-                        />
+                      >                          <Icon
+                            size={18}
+                            className="shrink-0"
+                            style={{ color: itemIconColor }}
+                            aria-hidden
+                          />
                       </button>
                     </motion.div>
                   )
@@ -325,9 +324,8 @@ function PageActionButtonHubPortalContent() {
                 : isOpen ? 'Fechar' : 'Ações'
             }
             disabled={hasSingleAction && primaryAction?.disabled}
-            style={{ pointerEvents: 'auto' }}
             className={cn(
-              'page-action-hub-fab',
+              'page-action-hub-fab pointer-events-auto',
               hasSingleAction && primaryAction?.disabled && 'opacity-40 cursor-not-allowed',
               isCalculatorNear && 'page-action-hub-fab--receiving'
             )}
@@ -340,7 +338,8 @@ function PageActionButtonHubPortalContent() {
           >
             <PrimaryIcon
               size={22}
-              style={{ flexShrink: 0, color: fabIconColor, transition: 'color 200ms ease' }}
+              className="shrink-0"
+              style={{ color: fabIconColor, transition: 'color 200ms ease' }}
               aria-hidden
             />
           </motion.button>

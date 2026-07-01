@@ -7,6 +7,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
 import { format } from 'date-fns'
 import { logger } from '@/utils/logger'
+import toast from 'react-hot-toast'
 import {
   REALTIME_LISTEN_TYPES,
   REALTIME_POSTGRES_CHANGES_LISTEN_EVENT,
@@ -325,7 +326,10 @@ export function useSupabaseTable<T extends { id: string }>(
 
           setData((prev) => {
             const next = sortBy ? sortBy([...prev, offlineRecord]) : [...prev, offlineRecord]
-            setCache(getCacheKey(), next).catch((e) => logger.error(e))
+            setCache(getCacheKey(), next).catch((e) => {
+              logger.error(e)
+              toast.error('Erro ao salvar dados localmente. Tente novamente.')
+            })
             return next
           })
           window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: table } }))
@@ -383,7 +387,10 @@ export function useSupabaseTable<T extends { id: string }>(
             const next = sortBy
               ? sortBy(prev.map((item) => (item.id === id ? { ...item, ...updates } : item)))
               : prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-            setCache(getCacheKey(), next).catch((e) => logger.error(e))
+            setCache(getCacheKey(), next).catch((e) => {
+              logger.error(e)
+              toast.error('Erro ao salvar dados localmente. Tente novamente.')
+            })
             return next
           })
           window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: table } }))
@@ -430,7 +437,10 @@ export function useSupabaseTable<T extends { id: string }>(
 
           setData((prev) => {
             const next = prev.filter((item) => item.id !== id)
-            setCache(getCacheKey(), next).catch((e) => logger.error(e))
+            setCache(getCacheKey(), next).catch((e) => {
+              logger.error(e)
+              toast.error('Erro ao salvar dados localmente. Tente novamente.')
+            })
             return next
           })
           window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: table } }))

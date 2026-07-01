@@ -6,6 +6,7 @@ import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueu
 import { setCache } from '@/services/offlineCache'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import toast from 'react-hot-toast'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
 const DEFAULT_CATEGORY_COLOR = 'var(--category-fallback-muted)'
@@ -133,7 +134,10 @@ export function useCategories() {
             const next = prev.filter((cat) => cat.id !== id)
             // Reaplica a lógica de cache key idêntica à do useSupabaseTable
             const cacheKey = user?.id ? `categories-all-${user.id}` : 'categories-all'
-            setCache(cacheKey, next).catch((e) => logger.error('Error setting categories cache:', e))
+            setCache(cacheKey, next).catch((e) => {
+              logger.error('Error setting categories cache:', e)
+              toast.error('Erro ao salvar categorias localmente. Tente novamente.')
+            })
             return next
           })
           return { error: null }

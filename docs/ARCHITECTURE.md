@@ -679,4 +679,4 @@ interface ModalProps {
 
 ---
 
-> Este documento é um guia vivo. Consulte `docs/REFACTORING_PLAN.md` para o plano detalhado e `docs/AUDITORIA_REVISAO.md` para o diagnóstico técnico completo.
+> Este documento é um guia vivo. Consulte [`docs/REFINEMENT_MASTER_PLAN.md`](./REFINEMENT_MASTER_PLAN.md) para o plano consolidado de refatoração com todas as fases concluídas e pendentes.

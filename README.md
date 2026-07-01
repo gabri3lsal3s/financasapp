@@ -42,11 +42,9 @@ Aplicação web premium de controle financeiro pessoal com **arquitetura Offline
 
 | Documento | Conteúdo |
 |-----------|----------|
+| [`docs/REFINEMENT_MASTER_PLAN.md`](docs/REFINEMENT_MASTER_PLAN.md) | **Plano mestre consolidado** — fases concluídas, pendências, roadmap, bugs corrigidos |
 | [`docs/COMPLETE_GUIDE.md`](docs/COMPLETE_GUIDE.md) | **Guia completo do sistema** — stack, estrutura, páginas, componentes, hooks, serviços, banco de dados, temas, setup |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitetura detalhada com diagramas Mermaid, hooks customizados, sistema de z-index, offline-first |
-| [`docs/AUDITORIA_REVISAO.md`](docs/AUDITORIA_REVISAO.md) | Auditoria técnica completa com fragilidades, correções e métricas |
-| [`docs/REFACTORING_PLAN.md`](docs/REFACTORING_PLAN.md) | Plano de refatoração (Fases 1-3 + correção de bugs) |
-| [`docs/IMPROVEMENT_PLAN.md`](docs/IMPROVEMENT_PLAN.md) | Plano de melhorias priorizadas e glossário de anti-padrões |
 | [`docs/REIMPORT_INVESTMENTS.md`](docs/REIMPORT_INVESTMENTS.md) | Guia de reimportação B3 (desdobro, grupamento, transferências) |
 | [`docs/ui/GOVERNANCA_UI.md`](docs/ui/GOVERNANCA_UI.md) | Manual de governança estética (HSL, glass system) |
 

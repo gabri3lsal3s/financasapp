@@ -6,6 +6,7 @@ import { shouldQueueOffline, enqueueOfflineOperation } from '@/utils/offlineQueu
 import { setCache } from '@/services/offlineCache'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import toast from 'react-hot-toast'
 
 const DEFAULT_CATEGORY_NAME = 'Sem categoria'
 const DEFAULT_CATEGORY_COLOR = 'var(--category-fallback-muted)'
@@ -129,7 +130,10 @@ export function useIncomeCategories() {
           setData((prev) => {
             const next = prev.filter((cat) => cat.id !== id)
             const cacheKey = user?.id ? `income_categories-all-${user.id}` : 'income_categories-all'
-            setCache(cacheKey, next).catch((e) => logger.error('Error setting income categories cache:', e))
+            setCache(cacheKey, next).catch((e) => {
+              logger.error('Error setting income categories cache:', e)
+              toast.error('Erro ao salvar categorias de renda localmente. Tente novamente.')
+            })
             return next
           })
           return { error: null }

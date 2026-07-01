@@ -330,8 +330,8 @@ export default function AppTopBar() {
 
   return (
     <>
-      <header className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-6 lg:xl:px-8 mb-5">
-        <div className="flex items-center justify-between py-3 gap-3 rounded-2xl border border-glass bg-[var(--glass-surface-strong)] backdrop-blur-[var(--glass-blur-strong)]"
+      <header className="w-full lg:max-w-7xl lg:mx-auto px-4 lg:px-6 mb-4 lg:mb-6">
+        <div className="flex items-center justify-between py-2.5 sm:py-3 gap-3 rounded-2xl border border-glass bg-[var(--glass-surface-strong)] backdrop-blur-[var(--glass-blur-strong)]"
           style={{ boxShadow: 'var(--glass-shadow-panel), var(--glass-inset-highlight)' }}>
           {/* ── Esquerda: Saudação / Nome do App + Título da Página ── */}
           <div className="flex items-center gap-2.5 min-w-0 shrink-0">

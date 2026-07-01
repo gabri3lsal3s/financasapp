@@ -792,4 +792,4 @@ npm run preview   # Preview do build
 
 ---
 
-> **Documentos relacionados:** [`ARCHITECTURE.md`](./ARCHITECTURE.md) — [`REFACTORING_PLAN.md`](./REFACTORING_PLAN.md) — [`IMPROVEMENT_PLAN.md`](./IMPROVEMENT_PLAN.md) — [`AUDITORIA_REVISAO.md`](./AUDITORIA_REVISAO.md)
+> **Documentos relacionados:** [`REFINEMENT_MASTER_PLAN.md`](./REFINEMENT_MASTER_PLAN.md) — [`ARCHITECTURE.md`](./ARCHITECTURE.md) — [`REIMPORT_INVESTMENTS.md`](./REIMPORT_INVESTMENTS.md)

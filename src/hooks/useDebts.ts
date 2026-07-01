@@ -5,6 +5,7 @@ import { getCache, setCache } from '@/services/offlineCache'
 import { shouldQueueOffline, enqueueOfflineOperation, removeOfflineCreateOperation } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { logger } from '@/utils/logger'
+import toast from 'react-hot-toast'
 
 export function useDebts() {
   const { isOnline } = useNetworkStatus()
@@ -118,7 +119,10 @@ export function useDebts() {
           const next = previous
             .map((debt) => (debt.id === tempId ? offlineDebt : debt))
             .sort((a, b) => a.due_date.localeCompare(b.due_date))
-          setCache('debts-all', next).catch(err => logger.error(err))
+          setCache('debts-all', next).catch(err => {
+            logger.error(err)
+            toast.error('Erro ao salvar dívidas localmente. Tente novamente.')
+          })
           return next
         })
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
@@ -165,7 +169,10 @@ export function useDebts() {
           payload: updates as Record<string, unknown>,
         })
         setDebts((previous) => {
-          setCache('debts-all', previous).catch(err => logger.error(err))
+          setCache('debts-all', previous).catch(err => {
+            logger.error(err)
+            toast.error('Erro ao salvar dívidas localmente. Tente novamente.')
+          })
           return previous
         })
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
@@ -239,7 +246,10 @@ export function useDebts() {
           }
         }
         const nextDebts = debts.filter((d) => !idsToDelete.includes(d.id))
-        await setCache('debts-all', nextDebts).catch(err => logger.error(err))
+        await setCache('debts-all', nextDebts).catch(err => {
+          logger.error(err)
+          toast.error('Erro ao salvar dívidas localmente. Tente novamente.')
+        })
         window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
         return { error: null }
       }
