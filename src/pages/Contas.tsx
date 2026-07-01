@@ -24,6 +24,7 @@ import { useContasBills } from '@/hooks/useContasBills'
 import { useContasModals } from '@/hooks/useContasModals'
 import { supabase } from '@/lib/supabase'
 import type { Debt, Expense } from '@/types'
+import { useSearchHighlight } from '@/utils/pageTitles'
 import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals, formatMonth } from '@/utils/format'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import RowButton from '@/components/RowButton'
@@ -65,6 +66,7 @@ const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
 
 
 export default function Contas() {
+  useSearchHighlight()
   const modals = useContasModals()
 
   usePageActions([
@@ -1214,7 +1216,7 @@ export default function Contas() {
                         const isPaid = debt.status === 'paid'
 
                         return (
-                          <Card key={debt.id} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
+                          <Card key={debt.id} id={`item-${debt.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
                             {/* Color bar indicator for type */}
                             <div 
                               className={`absolute left-0 top-0 bottom-0 w-1 ${
@@ -1378,6 +1380,7 @@ export default function Contas() {
                         {confirmedDebts.map((debt) => (
                           <div 
                             key={debt.id}
+                            id={`item-${debt.id}`}
                             className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-income/5 border border-income/10 text-xs hover:bg-income/10 hover:border-income/20 transition-all select-none cursor-pointer"
                             title="Clique para reabrir esta pendência"
                             onClick={() => handleToggleDebtStatus(debt)}

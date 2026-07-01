@@ -510,13 +510,14 @@ useEffect(() => {
 | Métrica | Estado Atual | Meta |
 |---------|-------------|------|
 | Resultados por busca | 0 (só páginas) | ≥ 5 resultados reais |
-| Tipos de entidade pesquisáveis | 0 | 6 (despesa, renda, dívida, investimento, cartão, categoria) |
-| Tempo de resposta | Instantâneo (só filtro local) | < 50ms (filtro local em arrays de até 500 itens) |
+| Tipos de entidade pesquisáveis | 0 | 6 (despesa, renda, dívida, cartão, categoria, categoria_renda) |
+| Tempo de resposta | Instantâneo (só filtro local) | < 50ms (filtro local em arrays de até 2000 itens) |
 | Highlight do termo | ❌ | ✅ Termo destacado nos resultados |
-| Navegação contextual | ❌ | ✅ Cada resultado leva ao local correto |
-| Suporte a teclado | ❌ | ✅ Seta ↑↓ + Enter |
+| Navegação contextual | ❌ | ✅ Cada resultado leva ao local correto com highlight visual |
+| Pontuação por recência | ❌ | ✅ Decaimento logarítmico (25/20/15/10/5 pontos por mês) |
+| Pesquisa histórica completa | ❌ | ✅ Todos os registros do usuário (até 2000 por tipo) |
 | Seccionamento | Sem seções | ✅ Agrupado por tipo de entidade |
-| Testes do motor de busca | 0 | ≥ 10 testes |
+| Testes do motor de busca | 0 | ≥ 23 testes |
 
 ---
 

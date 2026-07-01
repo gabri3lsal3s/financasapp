@@ -15,6 +15,7 @@ import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
+import { useSearchHighlight } from '@/utils/pageTitles'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
@@ -110,6 +111,7 @@ function detectSuggestionRuleFromName(name: string): string {
 }
 
 export default function Categories() {
+  useSearchHighlight()
   const [searchParams, setSearchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const { isOnline } = useNetworkStatus()
@@ -192,6 +194,8 @@ export default function Categories() {
     deleteIncomeCategory, 
     getIncomeCategoryUsageCount 
   } = useIncomeCategories()
+
+  // IDs para highlight de busca global
 
   const { user } = useAuth()
 
@@ -794,6 +798,7 @@ export default function Categories() {
                         return (
                           <div
                             key={category.id}
+                            id={`item-${category.id}`}
                             className={`group rounded-xl border p-4 bg-primary transition-all duration-300 flex flex-col justify-between gap-4 h-full animate-stagger-item ${
                               exceeded 
                                 ? 'border-expense/45 shadow-[0_0_12px_rgba(var(--color-expense-rgb),0.04)] bg-expense/5' 
@@ -1060,6 +1065,7 @@ export default function Categories() {
                         return (
                           <div
                             key={category.id}
+                            id={`item-${category.id}`}
                             className={`group rounded-xl border p-4 bg-primary transition-all duration-300 flex flex-col justify-between gap-4 h-full animate-stagger-item ${
                               exceeded 
                                 ? 'border-income/45 shadow-[0_0_12px_rgba(var(--color-income-rgb),0.04)] bg-income/5' 

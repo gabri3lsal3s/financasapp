@@ -8,6 +8,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Expense } from '@/types'
+import { useSearchHighlight } from '@/utils/pageTitles'
 import { clampMonthToAppStart, getCurrentMonthString } from '@/utils/format'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
 import { resolveExpenseBillCompetence } from '@/utils/creditCardBilling'
@@ -65,6 +66,7 @@ const getPaymentMethodColor = (expense: Expense) => {
 }
 
 export default function Expenses() {
+  useSearchHighlight()
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
@@ -292,42 +294,43 @@ export default function Expenses() {
                       const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
 
                       return (
-                        <TransactionCard
-                          key={expense.id}
-                          title={expense.description || expense.category?.name || 'Despesa'}
-                          subtitle={expense.category?.name || 'Sem categoria'}
-                          amount={getWeightedReportAmount(expense.amount, expense.report_weight)}
-                          originalAmount={expense.amount}
-                          dateLabel={dateLabel}
-                          categoryColor={categoryColor}
-                          categoryIconName={categoryIconName}
-                          isOffline={expense.id.startsWith('offline-')}
-                          onClick={() => handleOpenModal(expense)}
-                          staggerClass={staggerClass}
-                          installmentInfo={`${expense.installment_number || 1}/${expense.installment_total}`}
-                          paymentLabel={paymentLabel}
-                          paymentColor={getPaymentMethodColor(expense)}
-                          billCompetenceLabel={billCompetenceLabel}
-                          isExpanded={isExpanded}
-                          onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
-                          onEdit={() => handleOpenModal(expense)}
-                          onDelete={async () => {
-                            if (Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
-                              setDeleteModalState({
-                                isOpen: true,
-                                type: 'expense',
-                                id: expense.id,
-                                installmentNumber: expense.installment_number || 1,
-                                installmentTotal: expense.installment_total || 1,
-                              })
-                            } else {
-                              setDeleteConfirmState({
-                                isOpen: true,
-                                id: expense.id,
-                              })
-                            }
-                          }}
-                        />
+                        <div key={expense.id} id={`item-${expense.id}`}>
+                          <TransactionCard
+                            title={expense.description || expense.category?.name || 'Despesa'}
+                            subtitle={expense.category?.name || 'Sem categoria'}
+                            amount={getWeightedReportAmount(expense.amount, expense.report_weight)}
+                            originalAmount={expense.amount}
+                            dateLabel={dateLabel}
+                            categoryColor={categoryColor}
+                            categoryIconName={categoryIconName}
+                            isOffline={expense.id.startsWith('offline-')}
+                            onClick={() => handleOpenModal(expense)}
+                            staggerClass={staggerClass}
+                            installmentInfo={`${expense.installment_number || 1}/${expense.installment_total}`}
+                            paymentLabel={paymentLabel}
+                            paymentColor={getPaymentMethodColor(expense)}
+                            billCompetenceLabel={billCompetenceLabel}
+                            isExpanded={isExpanded}
+                            onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
+                            onEdit={() => handleOpenModal(expense)}
+                            onDelete={async () => {
+                              if (Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
+                                setDeleteModalState({
+                                  isOpen: true,
+                                  type: 'expense',
+                                  id: expense.id,
+                                  installmentNumber: expense.installment_number || 1,
+                                  installmentTotal: expense.installment_total || 1,
+                                })
+                              } else {
+                                setDeleteConfirmState({
+                                  isOpen: true,
+                                  id: expense.id,
+                                })
+                              }
+                            }}
+                          />
+                        </div>
                       )
                     })}
                   </div>
@@ -356,31 +359,32 @@ export default function Expenses() {
                       const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
 
                       return (
-                        <TransactionCard
-                          key={expense.id}
-                          title={expense.description || expense.category?.name || 'Despesa'}
-                          subtitle={expense.category?.name || 'Sem categoria'}
-                          amount={getWeightedReportAmount(expense.amount, expense.report_weight)}
-                          originalAmount={expense.amount}
-                          dateLabel={dateLabel}
-                          categoryColor={categoryColor}
-                          categoryIconName={categoryIconName}
-                          isOffline={expense.id.startsWith('offline-')}
-                          onClick={() => handleOpenModal(expense)}
-                          staggerClass={staggerClass}
-                          paymentLabel={paymentLabel}
-                          paymentColor={getPaymentMethodColor(expense)}
-                          billCompetenceLabel={billCompetenceLabel}
-                          isExpanded={isExpanded}
-                          onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
-                          onEdit={() => handleOpenModal(expense)}
-                          onDelete={async () => {
-                            setDeleteConfirmState({
-                              isOpen: true,
-                              id: expense.id,
-                            })
-                          }}
-                        />
+                        <div key={expense.id} id={`item-${expense.id}`}>
+                          <TransactionCard
+                            title={expense.description || expense.category?.name || 'Despesa'}
+                            subtitle={expense.category?.name || 'Sem categoria'}
+                            amount={getWeightedReportAmount(expense.amount, expense.report_weight)}
+                            originalAmount={expense.amount}
+                            dateLabel={dateLabel}
+                            categoryColor={categoryColor}
+                            categoryIconName={categoryIconName}
+                            isOffline={expense.id.startsWith('offline-')}
+                            onClick={() => handleOpenModal(expense)}
+                            staggerClass={staggerClass}
+                            paymentLabel={paymentLabel}
+                            paymentColor={getPaymentMethodColor(expense)}
+                            billCompetenceLabel={billCompetenceLabel}
+                            isExpanded={isExpanded}
+                            onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
+                            onEdit={() => handleOpenModal(expense)}
+                            onDelete={async () => {
+                              setDeleteConfirmState({
+                                isOpen: true,
+                                id: expense.id,
+                              })
+                            }}
+                          />
+                        </div>
                       )
                     })}
                   </div>

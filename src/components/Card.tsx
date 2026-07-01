@@ -7,6 +7,7 @@ interface CardProps {
   className?: string
   onClick?: () => void
   style?: CSSProperties
+  id?: string
 }
 
 /**
@@ -15,9 +16,10 @@ interface CardProps {
  *
  * Prefira usar `Card` de `@/components/ui/card` para novo código.
  */
-export default function Card({ children, className = '', onClick, style }: CardProps) {
+export default function Card({ children, className = '', onClick, style, id }: CardProps) {
   return (
     <CardPrimitive
+      id={id}
       className={cn(
         'p-4 transition-all duration-300 hover:border-glass-strong hover:shadow-md',
         className

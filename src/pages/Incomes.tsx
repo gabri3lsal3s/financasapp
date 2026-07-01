@@ -7,6 +7,7 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Income } from '@/types'
+import { useSearchHighlight } from '@/utils/pageTitles'
 import { clampMonthToAppStart, formatDate, getCurrentMonthString } from '@/utils/format'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { getCategoryColorForPalette, assignUniquePaletteColors } from '@/utils/categoryColors'
@@ -37,6 +38,7 @@ const INCOME_TYPE_COLORS: Record<NonNullable<Income['type']>, string> = {
 }
 
 export default function Incomes() {
+  useSearchHighlight()
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
@@ -166,30 +168,31 @@ export default function Incomes() {
                 const isExpanded = expandedIds[income.id] !== undefined ? expandedIds[income.id] : isDefaultExpanded
 
                 return (
-                  <TransactionCard
-                    key={income.id}
-                    title={income.description || category?.name || 'Renda'}
-                    subtitle={category?.name || 'Sem categoria'}
-                    amount={getWeightedReportAmount(income.amount, income.report_weight)}
-                    originalAmount={income.amount}
-                    dateLabel={formatDate(income.date).substring(0, 5)}
-                    categoryColor={categoryColor}
-                    categoryIconName={categoryIconName}
-                    isOffline={income.id.startsWith('offline-')}
-                    onClick={() => handleOpenModal(income)}
-                    staggerClass={staggerClass}
-                    isExpanded={isExpanded}
-                    onToggleExpand={() => toggleExpand(income.id, isDefaultExpanded)}
-                    onEdit={() => handleOpenModal(income)}
-                    onDelete={async () => {
-                      setDeleteConfirmState({
-                        isOpen: true,
-                        id: income.id,
-                      })
-                    }}
-                    paymentLabel={INCOME_TYPE_LABELS[income.type || 'other']}
-                    paymentColor={INCOME_TYPE_COLORS[income.type || 'other']}
-                  />
+                  <div key={income.id} id={`item-${income.id}`}>
+                    <TransactionCard
+                      title={income.description || category?.name || 'Renda'}
+                      subtitle={category?.name || 'Sem categoria'}
+                      amount={getWeightedReportAmount(income.amount, income.report_weight)}
+                      originalAmount={income.amount}
+                      dateLabel={formatDate(income.date).substring(0, 5)}
+                      categoryColor={categoryColor}
+                      categoryIconName={categoryIconName}
+                      isOffline={income.id.startsWith('offline-')}
+                      onClick={() => handleOpenModal(income)}
+                      staggerClass={staggerClass}
+                      isExpanded={isExpanded}
+                      onToggleExpand={() => toggleExpand(income.id, isDefaultExpanded)}
+                      onEdit={() => handleOpenModal(income)}
+                      onDelete={async () => {
+                        setDeleteConfirmState({
+                          isOpen: true,
+                          id: income.id,
+                        })
+                      }}
+                      paymentLabel={INCOME_TYPE_LABELS[income.type || 'other']}
+                      paymentColor={INCOME_TYPE_COLORS[income.type || 'other']}
+                    />
+                  </div>
                 )
               })}
             </div>
