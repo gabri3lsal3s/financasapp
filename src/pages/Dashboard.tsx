@@ -1266,9 +1266,10 @@ export default function Dashboard() {
   }, [currentMonthExpenseLimits])
 
   const limitUsedPercentage = useMemo(() => {
-    if (totalLimits <= 0) return 0
-    return Math.min(100, (totalExpenses / totalLimits) * 100)
-  }, [totalExpenses, totalLimits])
+    const effectiveLimit = totalLimits > 0 ? totalLimits : totalIncomes
+    if (effectiveLimit <= 0) return 0
+    return Math.min(100, (totalExpenses / effectiveLimit) * 100)
+  }, [totalExpenses, totalLimits, totalIncomes])
 
   const progressColor = useMemo(() => {
     if (limitUsedPercentage >= 85) return 'bg-expense'
@@ -1390,6 +1391,10 @@ export default function Dashboard() {
                         {totalLimits > 0 ? (
                           <span>
                             Você utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> do seu limite global de <strong className="text-primary">{formatCurrency(totalLimits)}</strong>.
+                          </span>
+                        ) : totalIncomes > 0 ? (
+                          <span>
+                            Você utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> da sua receita total de <strong className="text-primary">{formatCurrency(totalIncomes)}</strong>.
                           </span>
                         ) : (
                           <span>

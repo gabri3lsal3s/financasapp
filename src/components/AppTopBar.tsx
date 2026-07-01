@@ -11,8 +11,6 @@ import { getPageTitle } from '@/utils/pageTitles'
 import type { SearchResult } from '@/utils/searchEngine'
 import TopBarSearchResults from '@/components/TopBarSearchResults'
 import { createPortal } from 'react-dom'
-import { useAuth } from '@/contexts/AuthContext'
-import { resolveProfileDisplayName } from '@/utils/profileDisplayName'
 
 /* ------------------------------------------------------------------ */
 /*  Search Overlay (Global)                                           */
@@ -300,33 +298,7 @@ export default function AppTopBar() {
   }
 
   const pageTitle = getPageTitle(location.pathname)
-
-  // Contexto de saudação
-  const { profile } = useAuth()
-  const userName = profile ? resolveProfileDisplayName(profile) : ''
-  
-  const greetingName = useMemo(() => {
-    if (!userName) return 'Usuário'
-    const namePart = userName.includes('@') ? userName.split('@')[0] : userName
-    const cleanName = namePart.replace(/[._-]/g, ' ').trim()
-    return cleanName.split(' ')[0]
-  }, [userName])
-
   const isDashboard = location.pathname === '/'
-
-  // Cálculo temporal
-  const temporalMessage = useMemo(() => {
-    const today = new Date()
-    const currentYear = today.getFullYear()
-    const currentMonthNum = today.getMonth() + 1
-    const daysInMonth = new Date(currentYear, currentMonthNum, 0).getDate()
-    const remainingDays = daysInMonth - today.getDate() + 1
-
-    if (remainingDays === 1) {
-      return 'Hoje é o último dia do mês! Hora de fechar as contas. 📊'
-    }
-    return `Faltam ${remainingDays} dias para o fim do mês.`
-  }, [])
 
   return (
     <>
