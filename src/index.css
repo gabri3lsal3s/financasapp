@@ -2740,6 +2740,7 @@ nav.glass-bottom-nav {
   transition:
     box-shadow 200ms ease,
     border-color 200ms ease,
+    background-color 200ms ease,
     transform 180ms ease;
 }
 
@@ -2749,15 +2750,9 @@ nav.glass-bottom-nav {
     height: 52px;
     border-radius: 16px;
   }
-}
-
-.page-action-hub-fab:hover {
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.28),
-    0 4px 12px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  transform: scale(1.04);
-}
+}  .page-action-hub-fab:hover {
+    background-color: color-mix(in srgb, var(--glass-surface-strong) 75%, var(--ds-color-interaction-hover));
+  }
 
 .page-action-hub-fab:active {
   transform: scale(0.95);
@@ -2828,16 +2823,11 @@ nav.glass-bottom-nav {
   flex-shrink: 0;
   transition:
     transform 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.page-action-hub-dial-btn:hover {
-  transform: scale(1.08);
-  box-shadow:
-    0 10px 32px rgba(0, 0, 0, 0.24),
-    0 3px 8px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}  .page-action-hub-dial-btn:hover {
+    background-color: color-mix(in srgb, var(--glass-surface-strong) 75%, var(--ds-color-interaction-hover));
+  }
 
 .page-action-hub-dial-btn:active {
   transform: scale(0.95);
