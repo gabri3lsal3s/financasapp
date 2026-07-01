@@ -112,6 +112,8 @@ O **Minhas Finanças** é uma aplicação web **PWA (Progressive Web App)** de c
 │   ├── COMPLETE_GUIDE.md            # Este guia
 │   ├── IMPROVEMENT_PLAN.md          # Plano de melhorias
 │   ├── REFACTORING_PLAN.md          # Plano de refatoração
+│   ├── REFINEMENT_PLAN.md           # Plano de refinamento UI/UX
+│   ├── NEXT_STEPS.md                # Próximos passos e pendências
 │   ├── REIMPORT_INVESTMENTS.md      # Reimportação B3
 │   └── ui/                          # Governança visual
 │       ├── GOVERNANCA_UI.md
@@ -777,7 +779,7 @@ npm run preview   # Preview do build
 | Maior arquivo | **2.276 linhas** (Reports.tsx) |
 | Total componentes | **130+** |
 | Total hooks | **35+** |
-| Total migrations | **37** |
+| Total migrations | **43** |
 | Novos arquivos (última sessão) | **14** |
 
 ---

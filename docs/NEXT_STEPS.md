@@ -11,13 +11,14 @@
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
 | Testes passando | **267/267** (30 arquivos) | ✅ |
+| Build | **OK** | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
-| Contas.tsx | **1.662 linhas** (↓377) | 🟢 |
+| Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
 
 ---
 
@@ -50,7 +51,7 @@ supabase migration up
 
 ---
 
-## 2. ✅ Refatorações Concluídas (Sessão Atual)
+## 2. ✅ Refatorações Concluídas
 
 ### 2.1 ✅ FloatingCalculator — Extração de Utilitários
 
@@ -59,97 +60,80 @@ supabase migration up
 - `src/utils/calculatorGeometry.ts` — `clamp`, `getDefaultPanelRect`, `getUniformPanelSize`, `getPanelMinWidth/Height`, `isMobileViewport`, constantes + tipos `PanelRect`/`Point` (~100 linhas)
 - `src/utils/calculatorDom.ts` — `isNumericField`, `getInputDisplayName`, `getNumericInputs`, `prefersValorField`, `getTopDialog`, `isVisibleElement` (~60 linhas)
 
-**Impacto:** FloatingCalculator.tsx reduziu de ~1.569 → **~1.340 linhas** (-229 linhas). Funções agora são testáveis sem browser.
+**Impacto:** FloatingCalculator.tsx reduziu de ~1.569 → **~1.107 linhas** (-462, ~29%). Funções agora são testáveis sem browser.
 
 ### 2.2 ✅ Non-null Assertions Zeradas
 
 - `useReconciliationDrafts.ts:57` — única ocorrência corrigida: `uniqueMap.get(tickerUpper)!` → `uniqueMap.get(tickerUpper)` com `if (existing && ...)`
-
-**Total:** **0** non-null assertions em produção.
+- **5 ocorrências em Contas.tsx** — callbacks com captura de variável local
+- **4 ocorrências em IncomeFormModal.tsx** — captura local + guard
+- **Total:** **0** non-null assertions em produção.
 
 ### 2.3 ✅ Reports.tsx — Extração de Funções de Agregação
 
-**Arquivo criado:**
-- `src/utils/reportAggregation.ts` — ~20 funções puras de agregação: `mergeSummariesWithDebts`, `buildMonthlyFlowData`, `buildCumulativeBalanceData`, `computeAnnualTotals`, `buildPaymentMethodsBreakdown`, `buildExpenseCategoryColorMap`, `buildIncomeCategoryColorMap`, `computePeriodPending`, `generateMonthsRange`, `generateDaysRange`, `computeConsolidatedSummary`, `buildWeekdayTotals`, `toExpensePieDatum`, `toIncomePieDatum`, etc. (~250 linhas)
-- `src/components/reports/ReportPendingDebtsWidget.tsx` — Widget de projeção de pendências extraído (~60 linhas)
-
-**Impacto inicial:** Reports.tsx reduziu de 3.081 → ~2.829 linhas.
-
-### 2.4 ✅ TS Errors Corrigidos no Reports.tsx
-
-**9 erros corrigidos:**
-
-| Erro | Causa | Solução |
-|------|-------|---------|
-| TS6192 (3x) | Imports órfãos `getCategoryColorForPalette`, `assignUniquePaletteColors`, `PAYMENT_METHOD_LABELS`, `PAYMENT_METHOD_COLORS` | Removidos |
-| TS6133 (1x) | `MonthlySummary` type import não usado | Removido |
-| TS2322 (2x) | `buildMonthlyFlowData`/`buildCumulativeBalanceData` retornavam `Record` genérico | Tipos de retorno específicos adicionados |
-| TS6133 (9x) | Imports órfãos pós-extração do componente | Removidos (ícones, CategoryPieChart, etc.) |
-
-### 2.6 ✅ FloatingCalculator — Hooks de Keyboard e Panel Extraídos
-
 **Arquivos criados:**
-- `src/hooks/useCalculatorKeyboard.ts` — Hook de atalhos de teclado: 0-9, operadores, Enter/Backspace/Escape (~95 linhas)
-- `src/hooks/useCalculatorPanel.ts` — Hook de drag/resize do painel com pointer events (~216 linhas)
+- `src/utils/reportAggregation.ts` — ~20 funções puras de agregação (~250 linhas)
+- `src/utils/reportCustomData.ts` — ~15 funções puras de período customizado (~671 linhas)
+- `src/components/reports/ReportPendingDebtsWidget.tsx` — Widget de projeção de pendências (~60 linhas)
+- `src/components/reports/ReportUnifiedCompositionCard.tsx` — Card de composição detalhada (~120 linhas)
 
-**Impacto:** FloatingCalculator.tsx reduziu de ~1.340 → **~1.107 linhas** (-233 linhas, ~17%). useEffects reduzidos de ~11 → **~10**.
-### 2.7 ✅ Reports.tsx — Extração de Lógica de Período Customizado
+**Impacto:** Reports.tsx reduziu de **3.119 → 2.276 linhas** (-843, ~27%).
 
-**Arquivo criado:**
-- `src/utils/reportCustomData.ts` — ~15 funções puras de agregação de período customizado: `buildCustomCategoryExpenses`, `buildCustomCategoryIncomes`, `buildCustomMonthlySummaries`, `buildCustomDailySummaries`, `buildCustomMonthlyCategoryExpenses`, `buildCustomDailyCategoryExpenses`, `buildCustomMonthlyIncomeByCategory`, `buildCustomDailyIncomeByCategory`, `buildCustomCumulativeBalance`, `buildCustomTrendData`, `buildCustomConsolidatedSummary`, `buildCustomDailyConsolidated`, `buildCustomWeekdayData`, `buildBaseTotalsMap` (~671 linhas)
+### 2.4 ✅ TS Errors Corrigidos
 
-**Impacto:** Reports.tsx reduziu de **2.657 → 2.276 linhas** (-381 linhas, ~14%). Funções agora são testáveis e os `useMemo` inline substituídos por chamadas a funções puras.
-
-### 2.8 ✅ Contas.tsx — Extração de Hooks de Bills e Modais
-
-**Arquivos criados:**
-- `src/hooks/useContasBills.ts` — Hook de carregamento de faturas, despesas por cartão, pagamentos, ciclos mensais (~264 linhas)
-- `src/hooks/useContasModals.ts` — Hook de estado de modais (cartão, dívida, estorno, confirmações) com ~30 estados + handlers de ação complexa (~551 linhas)
-
-**Impacto:** Contas.tsx reduziu de **2.039 → 1.662 linhas** (-377 linhas, ~18%). O componente agora chama hooks puros em vez de gerenciar todo o estado inline.
-
-### 2.9 ✅ Teste de Taxas CDI/SELIC no Banco
-
-**Arquivo criado:**
-- `src/utils/checkDbRates.test.ts` — Teste unitário que verifica integridade das taxas CDI e SELIC armazenadas no banco (~59 linhas)
-
-### 2.10 ✅ TS Errors Corrigidos na Extração do Contas.tsx
-
-**3 erros pós-extração corrigidos:**
+**12 erros corrigidos no total — Reports.tsx (9) + Contas.tsx (3):**
 
 | Erro | Local | Causa | Solução |
 |------|-------|-------|---------|
-| TS2304 (7x) | `useContasModals.ts` | Tipo `Expense` não importado | Adicionado `Expense` ao import de `@/types` |
-| TS6133 (2x) | `useContasModals.ts` | `createIncome`/`resolveIncomeCategoryId` como parâmetros não usados em `handleToggleDebtStatus` | Removidos da assinatura |
-| TS18047 | `Contas.tsx` | `editingRefundPaymentItem` possivelmente nulo dentro de closure `onConfirm` | Capturado em variável local antes do callback |
+| TS6192 (3x) | Reports.tsx | Imports órfãos | Removidos |
+| TS6133 (1x) | Reports.tsx | Type import não usado | Removido |
+| TS2322 (2x) | Reports.tsx | Tipos de retorno genéricos | Tipos específicos adicionados |
+| TS6133 (9x) | Reports.tsx | Imports órfãos pós-extração | Removidos |
+| TS2304 (7x) | useContasModals.ts | Tipo `Expense` não importado | Adicionado ao import |
+| TS6133 (2x) | useContasModals.ts | Parâmetros não usados | Removidos da assinatura |
+| TS18047 | Contas.tsx | Null possível em closure | Captura em variável local |
 
-### 2.11 ✅ Non-null Assertions Zeradas em Produção
+### 2.5 ✅ FloatingCalculator — Hooks de Keyboard e Panel Extraídos
 
-**9 ocorrências eliminadas em 2 arquivos:**
+**Arquivos criados:**
+- `src/hooks/useCalculatorKeyboard.ts` — Atalhos de teclado (~95 linhas)
+- `src/hooks/useCalculatorPanel.ts` — Drag/resize do painel (~216 linhas)
 
-| Local | Ocorrências | Solução |
-|-------|-------------|---------|
-| `Contas.tsx` — `handleDeletePayment`, `handleDeleteExpense`, `DeleteInstallmentsModal`, refactored `handleDeleteRefundIncome` | 5 | Captura de variável local + guarda de null antes do callback |
-| `IncomeFormModal.tsx` — seção de visualização de estorno | 4 | Captura de `editingIncome` em variável local com guarda `showRefund && editingIncome` |
+**Impacto:** FloatingCalculator.tsx reduziu de ~1.340 → **~1.107 linhas** (-233, ~17%). UseEffects: ~11 → **~10**.
 
-### 2.12 ✅ `as any` Zerado em Produção + Tipagem Genérica
+### 2.6 ✅ Contas.tsx — Extração de Hooks de Bills e Modais
 
-**2 `as any` + assinatura `any[]` tipificados:**
+**Arquivos criados:**
+- `src/hooks/useContasBills.ts` — Faturas, despesas por cartão, pagamentos (~264 linhas)
+- `src/hooks/useContasModals.ts` — ~30 estados de modal + handlers (~551 linhas)
 
-| Local | Ocorrências | Solução |
-|-------|-------------|---------|
-| `reportCustomData.ts` — `buildCustomTrendData` | 2x `as any` + 3x `any` em assinatura | Narrowing com `'total' in obj` → simplificado para `matchedItem?.total ?? 0` + assinatura genérica `<T extends { total: number }>` |
+**Impacto:** Contas.tsx reduziu de **2.039 → 1.668 linhas** (-371, ~18%).
 
-### 2.13 ✅ FloatingActionHub Extraído
+### 2.7 ✅ FloatingActionHub Extraído
 
-**470+ linhas de lógica inline movidas para hooks + utils:**
+**Arquivos criados:**
+- `src/hooks/useScrollToTop.ts` — Máquina de estados pull-to-top (~220 linhas)
+- `src/utils/haptics.ts` — Função `triggerHaptic` multi-stage (~25 linhas)
 
-| Arquivo criado | Linhas | Propósito |
-|----------------|--------|-----------|
-| `src/hooks/useScrollToTop.ts` | ~220 | Máquina de estados pull-to-top: scroll detect, touch gesture, wheel gesture, haptics, animação scroll-to-top, sync CSS |
-| `src/utils/haptics.ts` | ~25 | Função `triggerHaptic` multi-stage vibrate patterns |
+**Impacto:** FloatingActionHub.tsx reduziu de ~520 → **~50 linhas** (-470, ~90%). UseEffects: ~10 → **4**.
 
-**Impacto:** FloatingActionHub.tsx reduziu de ~520 → **~50 linhas** (-470, ~90%). UseEffects: ~10 → **4**. Lógica agora é testável sem DOM.
+### 2.8 ✅ Testes e Qualidade
+
+- `src/utils/checkDbRates.test.ts` — Teste de integridade das taxas CDI/SELIC (~59 linhas)
+- `as any` zerado — 2 casts em `reportCustomData.ts` substituídos por narrowing genérico `<T extends { total: number }>`
+- `console.*` → `logger.*` — 89 chamadas substituídas em 32+ arquivos
+- `key={index}` → chaves estáveis em DatePicker.tsx e CreditCardTimeline.tsx
+
+### 2.9 ✅ Correções de Bugs
+
+| # | Correção | Arquivo | Severidade |
+|---|----------|---------|------------|
+| 1 | **Loop infinito no useSupabaseTable** — configRef pattern | `useSupabaseTable.ts` | 🔴 Crítica |
+| 2 | **CSS spacing bug** — `h - 2 w - 2` → `h-2 w-2 rounded-full` | Settings.tsx | 🔴 Visual |
+| 3 | **CSS spacing bug** — `rounded - lg border p - 3` → `rounded-lg border p-3` | Settings.tsx | 🔴 Visual |
+| 4 | **Overflow DECIMAL(15,2)** — Migration DECIMAL(18,2) + arredondamento | Vários | 🔴 Crash |
+| 5 | **Select.Item value="" no Radix UI** — sentinel value `__empty__` | Select.tsx | 🔴 Erro |
+| 6 | **`any` type** — `ValuedPosition['fundamentals']` | usePortfolioState.ts | 🟡 Type safety |
 
 ---
 
@@ -159,19 +143,18 @@ supabase migration up
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
 | Testes passando | **267/267** (30 arquivos) | ✅ |
+| Build | **OK** | ✅ |
 | UI Guardrails | **0 violações** | ✅ |
 | `as any` em produção | **0** | ✅ |
-| `as any` em assinaturas de função | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
-| `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
-| Contas.tsx | **1.662 linhas** (↓377) | 🟢 |
+| Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
 | FloatingActionHub useEffects | **4** (↓6) | ✅ |
 
 ---
 
-## 3. 🟡 Pendências Técnicas Priorizadas (Atualizado)
+## 3. 🟡 Pendências Técnicas Priorizadas
 
 ### Prioridade Média (🟡)
 
@@ -179,7 +162,7 @@ supabase migration up
 |---|------|---------|---------|--------|
 | 1 | Extrair lógica de parcelamento/deleção de `useExpenses.ts` (~497 linhas) | `useExpenses.ts` | ~3h | ⏳ |
 | 2 | Fracionar Categories.tsx (~1.252 linhas) em CategoryGrid, CategoryKPIs | `Categories.tsx` | ~3h | ⏳ |
-| 3 | Fracionar CreditCardCsvReconciliationPanel (~1.193 linhas) em CsvUploadZone, ComparisonRowCard, etc. | `CreditCardCsvReconciliationPanel.tsx` | ~3h | ⏳ |
+| 3 | Fracionar CreditCardCsvReconciliationPanel (~1.193 linhas) em CsvUploadZone, ComparisonRowCard | `CreditCardCsvReconciliationPanel.tsx` | ~3h | ⏳ |
 
 ### Prioridade Baixa (🟢)
 
@@ -193,7 +176,23 @@ supabase migration up
 
 ---
 
-## 4. 📋 Novos Arquivos Criados
+## 4. 📋 Plano de Refinamento Completo
+
+Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.md`, organizado em 7 fases (~29h estimadas):
+
+| Fase | Nome | Itens | Esforço |
+|------|------|-------|---------|
+| 1 | 🎨 Consistência Visual | Eliminar inline styles, `!important`, estados vazios | ~9h |
+| 2 | ♿ Acessibilidade | Focus ring, labels, ErrorBoundary | ~3h |
+| 3 | 📱 Mobile First | Conflito floating elements, touch targets | ~5.5h |
+| 4 | 🖥️ Desktop | Sidebar persistência, KPI spacing | ~1.75h |
+| 5 | ⚡ Performance | Theme transition, re-renders, deps | ~5.5h |
+| 6 | 🧩 Resiliência | Feedback de erro offline, EmptyState, skeletons | ~3h |
+| 7 | 🌗 Temas | Contraste midnight, transição otimizada | ~1h |
+
+---
+
+## 5. 📋 Novos Arquivos Criados
 
 | Arquivo | Linhas | Propósito |
 |---------|--------|-----------|
@@ -214,57 +213,7 @@ supabase migration up
 
 ---
 
-## 3. 🟡 Pendências Técnicas Priorizadas
-
-### Prioridade Alta (🔴)
-
-| # | Item | Arquivo | Esforço | Status |
-|---|------|---------|---------|--------|
-| 1 | ✅ Reports.tsx — Extração de período customizado concluída (2.657 → 2.276) | `Reports.tsx` | ✅ | ✅ |
-| 2 | ✅ Contas.tsx — Hooks de bills + modais extraídos (2.039 → 1.662) | `Contas.tsx` | ✅ | ✅ |
-
-### Prioridade Média (🟡)
-
-| # | Item | Arquivo | Esforço | Status |
-|---|------|---------|---------|--------|
-| 3 | Extrair lógica de agregação de `useExpenses.ts` (~497 linhas) | `useExpenses.ts` | ~3h | ⏳ |
-| 4 | Tipar `buildQuery` no `useSupabaseTable.ts` (eliminar `as any`) | `useSupabaseTable.ts` | ~30min | ⏳ |
-| 5 | Extrair `FloatingActionHub.tsx` multi-stage pull gesture | `FloatingActionHub.tsx` | ~2h | ⏳ |
-| 6 | Fracionar Categories.tsx (~1.252 linhas) | `Categories.tsx` | ~3h | ⏳ |
-| 7 | Fracionar CreditCardCsvReconciliationPanel (~1.193 linhas) | `CreditCardCsvReconciliationPanel.tsx` | ~3h | ⏳ |
-
-### Prioridade Baixa (🟢)
-
-| # | Item | Esforço | Status |
-|---|------|---------|--------|
-| 8 | Criar testes unitários para `calculatorExpression`, `calculatorGeometry`, `calculatorDom` | ~1h | ⏳ |
-| 9 | Criar testes unitários para `useCalculatorKeyboard`, `useCalculatorPanel` | ~1h | ⏳ |
-| 10 | Criar testes unitários para `reportAggregation` + `reportCustomData` | ~1h | ⏳ |
-| 11 | Migrar `--color-*` para `--ds-*` | ~2h | ⏳ |
-| 12 | Tooltips em gráficos de pizza | ~30min | ⏳ |
-
----
-
-## 4. 📋 Novos Arquivos Criados (Sessão Atual — Sessões Anteriores)
-
-| Arquivo | Linhas | Propósito |
-|---------|--------|-----------|
-| `src/utils/calculatorExpression.ts` | ~80 | Funções de expressão matemática |
-| `src/utils/calculatorGeometry.ts` | ~100 | Funções de geometria do painel |
-| `src/utils/calculatorDom.ts` | ~60 | Utilitários DOM |
-| `src/utils/reportAggregation.ts` | ~250 | Funções de agregação de relatórios |
-| `src/utils/reportCustomData.ts` | ~671 | Funções de período customizado |
-| `src/utils/checkDbRates.test.ts` | ~59 | Teste de taxas CDI/SELIC no banco |
-| `src/components/reports/ReportPendingDebtsWidget.tsx` | ~60 | Widget de pendências |
-| `src/components/reports/ReportUnifiedCompositionCard.tsx` | ~120 | Card de composição detalhada |
-| `src/hooks/useCalculatorKeyboard.ts` | ~95 | Hook de atalhos de teclado |
-| `src/hooks/useCalculatorPanel.ts` | ~216 | Hook de drag/resize do painel |
-| `src/hooks/useContasBills.ts` | ~264 | Hook de faturas e despesas por cartão |
-| `src/hooks/useContasModals.ts` | ~551 | Hook de estado de modais Contas |
-
----
-
-## 5. 🔍 Monitoramento Contínuo
+## 6. 🔍 Monitoramento Contínuo
 
 ### Pré-commit checklist
 
@@ -272,29 +221,12 @@ supabase migration up
 npx tsc --noEmit           # 0 erros
 npx vitest run             # 267 testes passando
 npm run guardrails:ui      # 0 violações
+npm run build              # Build OK
 ```
 
 ---
 
-## 5. 📋 Plano de Refinamento Completo
-
-Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.md`, organizado em 7 fases:
-
-| Fase | Nome | Itens | Esforço |
-|------|------|-------|---------|
-| 1 | 🎨 Consistência Visual | Eliminar inline styles, `!important`, estados vazios | ~9h |
-| 2 | ♿ Acessibilidade | Focus ring, labels, ErrorBoundary | ~3h |
-| 3 | 📱 Mobile First | Conflito floating elements, touch targets | ~5.5h |
-| 4 | 🖥️ Desktop | Sidebar persistência, KPI spacing | ~1.75h |
-| 5 | ⚡ Performance | Theme transition, re-renders, deps | ~5.5h |
-| 6 | 🧩 Resiliência | Feedback de erro offline, EmptyState, skeletons | ~3h |
-| 7 | 🌗 Temas | Contraste midnight, transição otimizada | ~1h |
-
-**Esforço total estimado:** ~29h
-
----
-
-## 6. 📚 Documentação Relacionada
+## 7. 📚 Documentação Relacionada
 
 | Documento | Link | Conteúdo |
 |-----------|------|----------|
@@ -303,6 +235,7 @@ Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.m
 | Guia Completo | `docs/COMPLETE_GUIDE.md` | Stack, páginas, setup |
 | Auditoria | `docs/AUDITORIA_REVISAO.md` | Diagnóstico técnico completo |
 | Refatoração | `docs/REFACTORING_PLAN.md` | Plano de refatoração anterior |
+| Refinamento UI/UX | `docs/REFINEMENT_PLAN.md` | Plano de refinamento visual e acessibilidade |
 | Importação B3 | `docs/REIMPORT_INVESTMENTS.md` | Guia de reimportação de extrato |
 
 ---
