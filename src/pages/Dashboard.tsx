@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
-import KpiCard from '@/components/KpiCard'
 import { SkeletonDashboard } from '@/components/Skeleton'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -13,7 +12,17 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { addMonths, formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent, Sparkles, Send, Pin, RefreshCw, Bot, Calendar, AlertTriangle, Wallet, Check, CheckCircle2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent, Sparkles, Send, Pin, RefreshCw, Bot, Calendar, AlertTriangle, Check, CheckCircle2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import {
+  CARD_PADDING,
+  CARD_PADDING_LARGE,
+  CARD_PADDING_XL,
+  CARD_BASE,
+  ACTION_GRID,
+  PAGE_ENTER_ANIMATION,
+  CONTENT_PADDING,
+} from '@/constants/layout'
 import { motion, AnimatePresence } from 'framer-motion'
 import { askGemini } from '@/services/geminiService'
 import { BeautifulMarkdown } from '@/components/dashboard/BeautifulMarkdown'
@@ -39,6 +48,7 @@ import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChar
 import LimitsControl from '@/components/dashboard/LimitsControl'
 import TransactionRow from '@/components/TransactionRow'
 import { logger } from '@/utils/logger'
+import { useBalanceGlow } from '@/hooks/useBalanceGlow'
 
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
@@ -102,7 +112,6 @@ export default function Dashboard() {
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
-  const { incomes: previousMonthIncomes } = useIncomes(previousMonth)
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading, setCategoryLimit, refreshLimits } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
 
@@ -126,6 +135,7 @@ export default function Dashboard() {
 
   const balance = totalIncomes - totalExpenses - totalInvestments
   const savingsRate = totalIncomes > 0 ? (balance / totalIncomes) * 100 : 0
+  useBalanceGlow(balance)
 
   const hasMonthlyData =
     expenses.length > 0 ||
@@ -142,11 +152,6 @@ export default function Dashboard() {
     () => previousMonthExpenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0),
     [previousMonthExpenses]
   )
-  const previousMonthIncomeTotal = useMemo(
-    () => previousMonthIncomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0),
-    [previousMonthIncomes]
-  )
-
   const navigate = useNavigate()
 
   // AI Copilot States
@@ -242,40 +247,6 @@ export default function Dashboard() {
     })
     return map
   }, [expenses])
-
-  const prevSpentMap = useMemo(() => {
-    const map = new Map<string, number>()
-    previousMonthExpenses.forEach((e) => {
-      const weight = e.report_weight ?? 1
-      map.set(e.category_id, (map.get(e.category_id) || 0) + e.amount * weight)
-    })
-    return map
-  }, [previousMonthExpenses])
-
-  const categoriesWithoutLimits = useMemo(() => {
-    return categories
-      .filter((cat) => !currentLimitsMap.has(cat.id))
-      .map((cat) => {
-        const prevSpent = prevSpentMap.get(cat.id) || 0
-        const currentSpent = spentMap.get(cat.id) || 0
-
-        let defaultPercent = 10
-        if (previousMonthIncomeTotal > 0) {
-          if (prevSpent > 0) {
-            defaultPercent = Math.max(1, Math.round((prevSpent / previousMonthIncomeTotal) * 100))
-          } else {
-            defaultPercent = Math.max(1, Math.round(100 / (categories.length || 1)))
-          }
-        }
-
-        return {
-          ...cat,
-          prevSpent,
-          currentSpent,
-          defaultPercent,
-        }
-      })
-  }, [categories, currentLimitsMap, prevSpentMap, spentMap, previousMonthIncomeTotal])
 
   const reallocationRecommendation = useMemo(() => {
     const exceededList: Array<{ id: string; name: string; exceeded: number; limit: number }> = []
@@ -1251,9 +1222,24 @@ export default function Dashboard() {
   }, [isOnline, loadPortfolioTransactions])
 
 
+  const totalLimits = useMemo(() => {
+    return currentMonthExpenseLimits.reduce((sum, limit) => sum + (limit.limit_amount || 0), 0)
+  }, [currentMonthExpenseLimits])
+
+  const limitUsedPercentage = useMemo(() => {
+    if (totalLimits <= 0) return 0
+    return Math.min(100, (totalExpenses / totalLimits) * 100)
+  }, [totalExpenses, totalLimits])
+
+  const progressColor = useMemo(() => {
+    if (limitUsedPercentage >= 85) return 'bg-expense'
+    if (limitUsedPercentage >= 70) return 'bg-warning'
+    return 'bg-income'
+  }, [limitUsedPercentage])
+
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col">
-      <div className="p-4 lg:p-6 animate-page-enter relative">
+      <div className={cn(CONTENT_PADDING, PAGE_ENTER_ANIMATION)}>
           <div>
 
             {loading ? (
@@ -1265,7 +1251,7 @@ export default function Dashboard() {
                 {/* O banner de alertas estático foi removido para usar o modo flutuante/discreto */}
                 {null}
                 {!hasMonthlyData ? (
-              <Card className="border border-glass surface-glass relative overflow-hidden p-8 sm:p-12 text-center flex flex-col items-center max-w-lg mx-auto transition-all duration-300 hover:border-glass-strong shadow-lg">
+              <Card className={cn(CARD_BASE, CARD_PADDING_XL, "text-center flex flex-col items-center max-w-lg mx-auto transition-all duration-300 hover:border-glass-strong")}>
                 <div className="absolute -top-12 -left-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
                 <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
                 
@@ -1281,7 +1267,7 @@ export default function Dashboard() {
                 <Button 
                   variant="primary" 
                   size="md" 
-                  className="mt-6 flex items-center gap-2"
+                  className="mt-6 flex items-center gap-2 cursor-pointer"
                   onClick={() => setIsSelectorOpen(true)}
                 >
                   <Plus size={16} />
@@ -1291,64 +1277,166 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-5 animate-stagger">
 
-                {/* ── KPIs com sparkline e badge de tendência ── */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                  <KpiCard
-                    title="Rendas do mês"
-                    value={formatCurrency(totalIncomes)}
-                    subtext="vs. mês anterior"
-                    icon={<TrendingUp size={16} />}
-                    glowColor="var(--color-income)"
-                    showGlow={true}
-                    sparklineData={dailyFlowData.map(d => d.Rendas)}
-                    trendPercent={previousMonthIncomeTotal > 0
-                      ? ((totalIncomes - previousMonthIncomeTotal) / previousMonthIncomeTotal) * 100
-                      : null}
-                    index={1}
-                  />
-                  <KpiCard
-                    title="Despesas do mês"
-                    value={formatCurrency(totalExpenses)}
-                    subtext="vs. mês anterior"
-                    icon={<TrendingDown size={16} />}
-                    glowColor="var(--color-expense)"
-                    showGlow={true}
-                    isDespesa={true}
-                    sparklineData={dailyFlowData.map(d => d.Despesas)}
-                    trendPercent={previousMonthExpenseTotal > 0
-                      ? ((totalExpenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100
-                      : null}
-                    index={2}
-                  />
-                  <KpiCard
-                    title="Investimentos"
-                    value={formatCurrency(Math.max(totalInvestments, 0))}
-                    subtext="aportado este mês"
-                    icon={<PiggyBank size={16} />}
-                    glowColor="var(--color-balance)"
-                    showGlow={false}
-                    sparklineData={dailyFlowData.map(d => d.Investimentos)}
-                    trendPercent={null}
-                    index={3}
-                  />
-                  <KpiCard
-                    title="Taxa de saldo"
-                    value={`${formatNumberWithTwoDecimalsBR(savingsRate)}%`}
-                    subtext={`Saldo líquido: ${formatCurrency(balance)}`}
-                    icon={<Percent size={16} />}
-                    glowColor={savingsRate >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
-                    showGlow={savingsRate < 0} // Only glow warning red if savings rate is negative
-                    sparklineData={dailyFlowData.map(d => d.Rendas - d.Despesas - d.Investimentos)}
-                    trendPercent={null}
-                    index={4}
-                  />
-                </div>
+                {/* ── SEÇÃO 2: Card Herói - Gasto Disponível ── */}
+                <Card className={cn(
+                  CARD_BASE,
+                  CARD_PADDING_LARGE,
+                  "relative overflow-hidden transition-all duration-300",
+                  spendingCalcs.monthlyAvailable < 0 && "border-expense/30 bg-expense/[0.04]"
+                )}>
+                  <div className={cn(
+                    "absolute -top-12 -left-12 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-20",
+                    spendingCalcs.monthlyAvailable < 0 ? "bg-expense" : "bg-primary"
+                  )} />
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">
+                        Diário Sugerido
+                      </span>
+                      <h2 className={cn(
+                        "text-3xl font-extrabold font-mono tracking-tight leading-none mt-1",
+                        spendingCalcs.monthlyAvailable < 0 ? "text-expense" : "text-primary"
+                      )}>
+                        {formatCurrency(spendingCalcs.dailyAvailable)}
+                        <span className="text-xs font-normal text-secondary ml-1">/ dia</span>
+                      </h2>
+                    </div>
+
+                    <div className="flex items-center gap-6 sm:border-l border-glass/30 sm:pl-6">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
+                          Mensal Livre
+                        </span>
+                        <p className={cn(
+                          "text-lg font-bold font-mono leading-none",
+                          spendingCalcs.monthlyAvailable < 0 ? "text-expense animate-pulse" : "text-income"
+                        )}>
+                          {formatCurrency(spendingCalcs.monthlyAvailable)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
+                          Status
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {spendingCalcs.monthlyAvailable < 0 ? (
+                            <span className="text-[10px] font-bold text-expense bg-expense/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <AlertTriangle size={10} />
+                              Orçamento ultrapassado
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-income bg-income/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Check size={10} />
+                              Sob controle
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* ── SEÇÃO 3: Resumo do Mês (Termômetro) ── */}
+                <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "relative overflow-hidden")}>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-glass/40 pb-3.5 mb-4">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                        Resumo do Mês
+                      </h3>
+                      <p className="text-[10px] text-secondary mt-0.5">
+                        Acompanhamento de despesas contra a receita total e o limite de orçamento
+                      </p>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-4 text-[11px] font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-income shrink-0" />
+                        <span className="text-secondary font-sans">Receita:</span>
+                        <strong className="text-primary font-mono">{formatCurrency(totalIncomes)}</strong>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-expense shrink-0" />
+                        <span className="text-secondary font-sans">Despesa:</span>
+                        <strong className="text-primary font-mono">{formatCurrency(totalExpenses)}</strong>
+                      </div>
+                      {totalLimits > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-secondary/30 shrink-0" />
+                          <span className="text-secondary font-sans">Limite:</span>
+                          <strong className="text-primary font-mono">{formatCurrency(totalLimits)}</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Barra de progresso grossa */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-secondary">
+                        <span id="budget-usage-label">Uso do Orçamento</span>
+                        <span className={cn(
+                          "font-mono font-bold",
+                          limitUsedPercentage >= 85 ? "text-expense" : limitUsedPercentage >= 70 ? "text-warning" : "text-income"
+                        )}>
+                          {formatNumberWithTwoDecimalsBR(limitUsedPercentage)}%
+                        </span>
+                      </div>
+                      
+                      <div
+                        role="progressbar"
+                        aria-valuenow={Math.round(limitUsedPercentage)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuetext={`${formatNumberWithTwoDecimalsBR(limitUsedPercentage)}% do orçamento utilizado`}
+                        aria-labelledby="budget-usage-label"
+                        className="w-full h-4 rounded-full bg-secondary/10 overflow-hidden relative border border-glass/25"
+                      >
+                        <div 
+                          className={cn("h-full transition-all duration-500 rounded-full", progressColor)}
+                          style={{ width: `${limitUsedPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Mensagem descritiva e reajuste rápido */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 text-[10px] text-secondary font-medium">
+                      <div>
+                        {totalLimits > 0 ? (
+                          <span>
+                            Você utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> do seu limite global de <strong className="text-primary">{formatCurrency(totalLimits)}</strong>.
+                          </span>
+                        ) : (
+                          <span>
+                            Defina limites por categoria para acompanhar o uso do seu orçamento mensal.
+                          </span>
+                        )}
+                      </div>
+
+                      {reallocationRecommendation && (
+                        <div className="flex items-center gap-2 border border-glass surface-glass-strong px-2.5 py-1 rounded-xl text-[10px]">
+                          <span className="truncate max-w-[220px]">
+                            Sugestão: Ajustar limite de <strong className="text-primary">{reallocationRecommendation.fromName}</strong> para cobrir <strong className="text-primary">{reallocationRecommendation.toName}</strong>.
+                          </span>
+                          <button
+                            onClick={handleReallocate}
+                            disabled={isReallocating}
+                            className="text-primary font-bold hover:underline cursor-pointer uppercase tracking-wider text-[9px] border-l border-glass/30 pl-2 shrink-0 bg-transparent"
+                          >
+                            {isReallocating ? 'Remanejando...' : 'Aplicar'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
 
                 {/* Layout Principal: Coluna Única com Copiloto Integrado (Largura Total) */}
                 <div className="space-y-5">
                   
-                  {/* Copiloto de IA Unificado */}
-                  <Card className="border border-glass surface-glass p-5 sm:p-6 space-y-4 relative overflow-hidden shadow-sm">
+                  {/* ── SEÇÃO 4: Copiloto de IA com Carrossel de Insights ── */}
+                  <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "space-y-4 relative overflow-hidden")}>
                     <div className="absolute -top-12 -left-12 w-24 h-24 bg-primary/5 rounded-full blur-xl pointer-events-none" />
                     <div className="absolute -bottom-12 -right-12 w-24 h-24 bg-primary/5 rounded-full blur-xl pointer-events-none" />
                     
@@ -1392,6 +1480,49 @@ export default function Dashboard() {
                       )}
                     </div>
 
+                    {/* Carrossel de Insights Proativos */}
+                    {dynamicAiSuggestions.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 pt-0.5">
+                          {dynamicAiSuggestions.map((suggestion) => (
+                            <div 
+                              key={suggestion.id} 
+                              className="shrink-0 w-64 border border-glass surface-glass-strong p-3.5 rounded-xl flex flex-col justify-between transition-all hover:border-glass-strong"
+                            >
+                              <div>
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <div className="p-1 rounded-lg bg-secondary/10 text-primary">
+                                    {suggestion.icon}
+                                  </div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-secondary">
+                                    Insight
+                                  </span>
+                                </div>
+                                <h4 className="text-xs font-bold text-primary leading-snug mb-1">
+                                  {suggestion.text}
+                                </h4>
+                                <p className="text-[10px] text-secondary leading-normal">
+                                  {suggestion.tip}
+                                </p>
+                              </div>
+                              <div className="mt-3 flex items-center justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="xs"
+                                  onClick={() => handleSendChat(undefined, suggestion.query)}
+                                  disabled={isAiTyping}
+                                  className="text-[9px] font-bold px-2 py-0.5 flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Sparkles size={10} />
+                                  Analisar
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Caixa de Entrada Integrada */}
                     <form 
                       onSubmit={(e) => handleSendChat(e)}
@@ -1402,48 +1533,22 @@ export default function Dashboard() {
                         type="text"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Pergunte à IA ou digite um lançamento..."
-                        className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none min-w-0 font-medium"
+                        placeholder="Pergunte ao Copiloto ou digite uma despesa/receita..."
+                        className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none min-w-0 font-medium font-sans"
                       />
                       <button
                         type="submit"
                         disabled={isAiTyping}
                         className="h-8 px-3 rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1.5 shrink-0 active:scale-95 hover:bg-primary-hover disabled:opacity-50 transition-all cursor-pointer text-xs font-bold uppercase tracking-wider"
                       >
-                        <span>Enviar</span>
+                        <span>Perguntar</span>
                         <Send className="w-2.5 h-2.5" />
                       </button>
                     </form>
 
-                    {/* Sugestões Inteligentes — análise não-IA */}
-                    {dynamicAiSuggestions.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                          {dynamicAiSuggestions.map((suggestion) => (
-                            <button
-                              key={suggestion.id}
-                              onClick={() => handleSendChat(undefined, suggestion.query)}
-                              disabled={isAiTyping}
-                              className={`shrink-0 border text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap active:scale-95 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 ${
-                                activeQueryText === suggestion.query
-                                  ? 'bg-primary/10 text-primary border-primary/35 shadow-sm' 
-                                  : 'surface-glass border-glass text-secondary hover:bg-accent/40 hover:text-primary hover:border-glass-strong'
-                              }`}
-                            >
-                              {suggestion.icon}
-                              <span className="truncate max-w-[200px]">{suggestion.text}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <p className="text-[9px] text-secondary/60 font-medium tracking-wide pl-0.5">
-                          Toque em um insight para analisar com IA
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Workspace de Conversação */}
+                    {/* Workspace de Conversação (Resposta da IA) */}
                     {activeQueryText && (
-                      <div className="pt-2 border-t border-glass/40">
+                      <div className="pt-3 border-t border-glass/40">
                         <AnimatePresence mode="wait">
                           {isAiTyping ? (
                             <motion.div
@@ -1455,7 +1560,7 @@ export default function Dashboard() {
                             >
                               <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
                                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-                                <span>IA analisando lançamentos e gerando insights...</span>
+                                <span>Analisando lançamentos com IA...</span>
                               </div>
                               <div className="h-2.5 bg-secondary/15 rounded w-full" />
                               <div className="h-2.5 bg-secondary/15 rounded w-11/12" />
@@ -1486,139 +1591,61 @@ export default function Dashboard() {
                         </AnimatePresence>
                       </div>
                     )}
-
-                    {/* Resumo do Período & Ajustes Integrados */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-glass/35 pt-4">
-                      
-                      {/* Sub-painel: Gasto Disponível */}
-                      <div className="flex flex-col justify-between space-y-2 surface-glass border border-glass/30 rounded-2xl p-3.5">
-                        <div className="flex items-center gap-2 text-primary">
-                          <Wallet className="w-3.5 h-3.5 text-primary" />
-                          <span className="text-xs font-medium uppercase tracking-wide text-secondary">
-                            {spendingCalcs.title}
-                          </span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <div className="rounded-xl border border-glass/20 p-2.5 bg-secondary/5">
-                            <span className="text-[10px] text-secondary font-semibold uppercase tracking-wider">Mensal Livre</span>
-                            <p className={`text-sm font-bold font-mono mt-0.5 ${spendingCalcs.monthlyAvailable < 0 ? 'text-expense' : 'text-income'}`}>
-                              {formatCurrency(spendingCalcs.monthlyAvailable)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl border border-glass/20 p-2.5 bg-secondary/5">
-                            <span className="text-[10px] text-secondary font-semibold uppercase tracking-wider">Diário Sugerido</span>
-                            <p className={`text-sm font-bold font-mono mt-0.5 ${spendingCalcs.monthlyAvailable < 0 ? 'text-expense' : 'text-primary'}`}>
-                              {formatCurrency(spendingCalcs.dailyAvailable)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Status Message */}
-                        <div className="text-[10px] leading-relaxed text-secondary font-medium">
-                          {spendingCalcs.mode === 'past' ? (
-                            spendingCalcs.monthlyAvailable >= 0 ? (
-                              <span className="text-income">✓ Fechou com saldo positivo</span>
-                            ) : (
-                              <span className="text-expense">⚠ Fechou com saldo negativo</span>
-                            )
-                          ) : spendingCalcs.mode === 'future' ? (
-                            <span>Limite projetado para o mês</span>
-                          ) : spendingCalcs.monthlyAvailable <= 0 ? (
-                            <span className="text-expense font-semibold">⚠ Saldo livre esgotado</span>
-                          ) : (
-                            <span className="text-income">✓ Orçamento sob controle ({spendingCalcs.remainingDays}d restantes)</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Sub-painel: Sugestões de Limites */}
-                      <div className="flex flex-col justify-between space-y-2 surface-glass border border-glass/30 rounded-2xl p-3.5">
-                        <div className="flex items-center gap-2 text-primary">
-                          <Sparkles className="w-3.5 h-3.5 text-primary" />
-                          <span className="text-xs font-medium uppercase tracking-wide text-secondary">
-                            Ajustes e Otimizações
-                          </span>
-                        </div>
-
-                        <div className="flex-1 flex flex-col justify-center">
-                          {reallocationRecommendation ? (
-                            <div className="space-y-1.5">
-                              <p className="text-[10px] text-secondary leading-normal font-medium">
-                                Mova <span className="font-bold text-primary font-mono">{formatCurrency(reallocationRecommendation.transferAmount)}</span> de <span className="font-semibold text-primary">{reallocationRecommendation.fromName}</span> para cobrir estouro em <span className="font-semibold text-primary">{reallocationRecommendation.toName}</span>.
-                              </p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                className="w-full text-[10px] py-1 font-bold uppercase tracking-wider"
-                                onClick={handleReallocate}
-                                disabled={isReallocating}
-                              >
-                                {isReallocating ? 'Remanejando...' : 'Aplicar Ajuste'}
-                              </Button>
-                            </div>
-                          ) : categoriesWithoutLimits.length > 0 ? (
-                            <div className="space-y-1">
-                              <p className="text-[10px] text-secondary leading-normal font-medium">
-                                Há categorias sem limite definido (ex: <span className="font-bold text-primary">{categoriesWithoutLimits[0].name}</span>).
-                              </p>
-                              <button
-                                onClick={() => navigate('/categorias')}
-                                className="text-[10px] text-primary hover:underline font-bold text-left"
-                              >
-                                Definir limites em Categorias →
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-center py-1">
-                              <p className="text-[10px] font-semibold text-income flex items-center justify-center gap-1">
-                                <Check size={11} className="text-income" />
-                                Limites e orçamentos equilibrados!
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-
-                    {/* Detalhamento dos Insights — mostra cards completos com dicas */}
-                    {dynamicAiSuggestions.length > 0 && (
-                      <div className="space-y-2 pt-4 border-t border-glass/40">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">
-                          Detalhamento dos Insights:
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {dynamicAiSuggestions.slice(0, 4).map((suggestion) => (
-                            <button
-                              key={suggestion.id}
-                              onClick={() => handleSendChat(undefined, suggestion.query)}
-                              disabled={isAiTyping}
-                              className="flex items-start gap-2.5 p-2.5 rounded-xl border border-glass surface-glass transition-all text-left hover:bg-accent/25 hover:border-glass-strong active:scale-[0.98] cursor-pointer disabled:opacity-50"
-                            >
-                              <div className="p-1.5 rounded-lg bg-secondary/10 flex-shrink-0 mt-0.5">
-                                {suggestion.icon}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold leading-normal text-primary">
-                                  {suggestion.text}
-                                </p>
-                                <p className="text-[10px] text-secondary leading-normal font-medium mt-0.5">
-                                  {suggestion.tip}
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </Card>
+
+                  {/* ── SEÇÃO 5: Ações de Otimização Financeira ── */}
+                  <div className={cn(ACTION_GRID)}>
+                    <button
+                      onClick={() => handleSendChat(undefined, "Quais são as minhas assinaturas e despesas recorrentes identificadas neste mês e como posso economizá-las?")}
+                      disabled={isAiTyping}
+                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-glass surface-glass text-center hover:border-glass-strong hover:bg-secondary/5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-2">
+                        <RefreshCw size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-primary leading-tight">
+                        Revisar Assinaturas
+                      </span>
+                      <span className="text-[8px] text-secondary mt-0.5">
+                        Recorrências
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSendChat(undefined, "Me sugira 3 desafios práticos de economia baseados no meu histórico de gastos recente.")}
+                      disabled={isAiTyping}
+                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-glass surface-glass text-center hover:border-glass-strong hover:bg-secondary/5 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-income/10 flex items-center justify-center text-income mb-2">
+                        <PiggyBank size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-primary leading-tight">
+                        Desafios de Economia
+                      </span>
+                      <span className="text-[8px] text-secondary mt-0.5">
+                        Metas Ativas
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => navigate('/categorias')}
+                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-glass surface-glass text-center hover:border-glass-strong hover:bg-secondary/5 transition-all active:scale-[0.98] cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning mb-2">
+                        <Percent size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-primary leading-tight">
+                        Limites por Categoria
+                      </span>
+                      <span className="text-[8px] text-secondary mt-0.5">
+                        Definir Metas
+                      </span>
+                    </button>
+                  </div>
 
                   {/* Pinned AI Analysis (Dashed border) shown separately when not active query */}
                   {pinnedAnalysis && pinnedAnalysis.queryText !== activeQueryText && (
-                    <Card className="border border-glass surface-glass p-5 rounded-3xl space-y-4 relative overflow-hidden transition-all hover:border-glass-strong border-dashed shadow-sm">
+                    <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "space-y-4 relative overflow-hidden transition-all hover:border-glass-strong border-dashed")}>
                       <div className="flex items-center justify-between border-b border-glass/40 pb-2">
                         <div className="flex items-center gap-1.5">
                           <Pin className="w-3 h-3 text-primary fill-primary/10 rotate-45" />
@@ -1675,7 +1702,7 @@ export default function Dashboard() {
                   )}
 
                   {/* Gráfico de Fluxo Diário */}
-                  <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+                  <Card className={cn(CARD_BASE, CARD_PADDING, "transition-all duration-300")}>
                     <div className="mb-4 border-b border-glass/40 pb-3 flex justify-between items-center">
                       <div>
                         <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
