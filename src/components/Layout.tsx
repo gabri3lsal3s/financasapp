@@ -61,7 +61,11 @@ function LayoutInner({ children }: LayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(false)
+  const [isDesktopMenuExpanded, setIsDesktopMenuExpanded] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const stored = localStorage.getItem('sidebar-expanded')
+    return stored === 'true'
+  })
   const isSettingsPage = location.pathname === '/settings'
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const mobileMenuContentRef = useRef<HTMLDivElement | null>(null)
@@ -129,6 +133,7 @@ function LayoutInner({ children }: LayoutProps) {
       if (event.key === 'Escape') {
         setIsMobileMenuOpen(false)
         setIsDesktopMenuExpanded(false)
+        localStorage.setItem('sidebar-expanded', 'false')
       }
     }
 
@@ -161,6 +166,7 @@ function LayoutInner({ children }: LayoutProps) {
         const clickedDesktopToggle = desktopMenuButtonRef.current?.contains(target)
         if (!clickedDesktopMenu && !clickedDesktopToggle) {
           setIsDesktopMenuExpanded(false)
+          localStorage.setItem('sidebar-expanded', 'false')
         }
       }
     }
@@ -331,7 +337,13 @@ function LayoutInner({ children }: LayoutProps) {
               <button
                 ref={desktopMenuButtonRef}
                 type="button"
-                onClick={() => setIsDesktopMenuExpanded((currentValue) => !currentValue)}
+                onClick={() => {
+                  setIsDesktopMenuExpanded((currentValue) => {
+                    const next = !currentValue
+                    localStorage.setItem('sidebar-expanded', String(next))
+                    return next
+                  })
+                }}
                 aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
                 className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
               >

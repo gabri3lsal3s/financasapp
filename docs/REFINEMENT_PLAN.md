@@ -449,7 +449,10 @@ Estes usam valores estáticos que podem ser classes Tailwind:
 | # | Correção | Descrição | Arquivo |
 |---|----------|-----------|---------|
 | 1 | **Bug: teclado nativo no mobile ao usar calculadora** | Ao abrir a calculadora flutuante em mobile, o input numeric era mantido em foco, ativando o teclado nativo. Corrigido com `setTimeout(0)` para dar blur no input após o evento de focus. | `FloatingCalculator.tsx` |
-| 2 | **Bug: valor enviado pela calculadora não persistia ao sair do campo** | O `sendResultToActiveInput()` definia o valor no DOM e disparava `input`/`change`, mas ao fechar a calculadora imediatamente, o React não tinha processado a atualização de estado. Quando o `onBlur` do campo disparava, ele usava o estado antigo (stale closure) e revertia o valor. Corrigido com `queueMicrotask`: primeiro React processa o evento `input` e atualiza o estado, depois o `blur` é disparado com o closure correto. | `FloatingCalculator.tsx` |
+| 2 | **Bug: valor enviado pela calculadora não persistia ao sair do campo** | Corrigido com `queueMicrotask`: React processa o `input` antes do `blur`. | `FloatingCalculator.tsx` |
+| 3 | **Fase 1.2: Reduzir !important** | ~15 ocorrências de `!important` removidas do CSS (scrollbar, glass-button-side, calculator, select-dropdown, etc). Mantidos apenas os necessários (recharts, print, reduced-transparency). | `index.css` |
+| 4 | **Fase 2: ConfirmModal acessível** | Adicionado `aria-label` no checkbox de confirmação. | `ConfirmModal.tsx` |
+| 5 | **Fase 4: Sidebar persistence** | Estado de expansão da sidebar persiste em `localStorage`. Fecha também com Escape e clique fora. | `Layout.tsx` |
 
 **Esforço total estimado:** ~29h distribuídas em 7 fases.
 

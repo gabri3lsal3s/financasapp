@@ -54,6 +54,7 @@ export default function ConfirmModal({
         checked={isChecked}
         onChange={(e) => setIsChecked(e.target.checked)}
         className="mt-0.5 rounded border-glass bg-glass text-expense focus:ring-offset-0 focus:ring-expense shrink-0 cursor-pointer"
+        aria-label={checkboxLabel || 'Confirmo que estou ciente desta ação'}
       />
       <span className="text-secondary font-medium leading-relaxed">
         {checkboxLabel || 'Estou ciente de que esta ação é permanente e não poderá ser desfeita.'}
