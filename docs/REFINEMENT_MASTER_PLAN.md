@@ -219,13 +219,13 @@ supabase migration up
 | 1 | Extrair lógica de `useExpenses.ts` (~497 linhas) | ~3h | `utils/expenseInstallments.ts`, `utils/expenseDeletion.ts`, `utils/creditCardCompetence.ts` | Parcelamento, competência cartão, exclusão single/all/subsequent |
 | 2 | Extrair `dynamicAiSuggestions` + `handleSendChat` do Dashboard | ~3h | `services/aiSuggestions.ts`, `hooks/useDashboardAI.ts` | Lógica de insights + NL parser do Copiloto IA |
 | 3 | Padronizar espaçamento entre cards em todas as páginas | ~1h | Todas as pages | Unificar `space-y-4/5/6` para valor consistente |
-| 4 | Limpar imports não usados (TS6133) no Reports.tsx + MonthlyReportView.tsx | ~30min | `Reports.tsx`, `MonthlyReportView.tsx` | Após extração da Fase 4 |
+| 4 | ✅ Limpar imports não usados (TS6133) no Reports.tsx + MonthlyReportView.tsx | ~30min | `Reports.tsx`, `MonthlyReportView.tsx` | Após extração da Fase 4 | ✅ Fixado |
 
 ### Prioridade Média 🟡
 
 | # | Item | Esforço | Descrição |
 |---|------|---------|-----------|
-| 5 | Unificar card fixado no Copiloto IA | ~2h | Pinned analysis vira modo dentro do card, não card separado |
+| 5 | Unificar card fixado no Copiloto IA | ~2h | Remover a funcionalidade de Pinned |
 | 6 | Redesenhar carrossel de insights | ~1.5h | Max 3 insights, chips menores, empty state |
 | 7 | Padronizar input do Copiloto com topbar | ~30min | Usar `topbar-search-bar` / `surface-glass-strong` |
 | 8 | Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | Reduzir Dashboard.tsx em ~200 linhas |

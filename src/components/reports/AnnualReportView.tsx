@@ -249,13 +249,13 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
           <div className="w-full mt-2">
             {annualChartType === 'flow' && (
               <AnnualFlowChart
-                data={monthlyData}
+                data={monthlyData as any}
                 hiddenSeries={hiddenAnnualFlowSeries}
                 onToggleSeries={onToggleAnnualFlowSeries}
               />
             )}
             {annualChartType === 'balance' && (
-              <CumulativeBalanceChart data={cumulativeBalanceData} />
+              <CumulativeBalanceChart data={cumulativeBalanceData as any} />
             )}
             {annualChartType === 'trend' && (
               <>

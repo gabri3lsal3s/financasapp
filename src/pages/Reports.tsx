@@ -5,9 +5,7 @@ import MonthTransitionView from '@/components/MonthTransitionView'
 import YearSelector from '@/components/YearSelector'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useSwipeYear } from '@/hooks/useSwipeYear'
-import Card from '@/components/Card'
 import EmptyState from '@/components/EmptyState'
-import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import { SkeletonReports } from '@/components/Skeleton'
 import { useReports } from '@/hooks/useReports'
 import { useIncomeReports } from '@/hooks/useIncomeReports'
@@ -25,19 +23,11 @@ import type { PortfolioTransaction } from '@/types'
 import { portfolioInvestmentByDay, transactionInvestmentAmount } from '@/utils/portfolioMonthlyFlow'
 import { getWeightedReportAmount } from '@/utils/reportWeight'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { addMonths, clampMonthToAppStart, formatCurrency, formatMonth, formatMonthShort, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, Wallet, Percent, Calendar, CalendarDays, GitCompareArrows, Scale, BarChart3 } from 'lucide-react'
+import { addMonths, clampMonthToAppStart, formatMonth, formatMonthShort, getCurrentMonthString } from '@/utils/format'
+import { Calendar, CalendarDays, GitCompareArrows, Scale } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
-import KpiCard from '@/components/KpiCard'
-import FinancialInsights from '@/components/reports/FinancialInsights'
 
-import AnnualFlowChart from '@/components/reports/AnnualFlowChart'
-import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
-import WeekdayExpenseChart from '@/components/reports/WeekdayExpenseChart'
-import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
-import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
-import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
 import { logger } from '@/utils/logger'
 import type {
@@ -79,8 +69,7 @@ import {
   buildCustomWeekdayData,
   buildBaseTotalsMap,
 } from '@/utils/reportCustomData'
-import ReportPendingDebtsWidget from '@/components/reports/ReportPendingDebtsWidget'
-import ReportUnifiedCompositionCard from '@/components/reports/ReportUnifiedCompositionCard'
+
 import ReportCustomDateFilter from '@/components/reports/ReportCustomDateFilter'
 import AnnualReportView from '@/components/reports/AnnualReportView'
 import MonthlyReportView from '@/components/reports/MonthlyReportView'
@@ -604,7 +593,7 @@ export default function Reports() {
           baseValue: yearBaseExpenseTotalsMap.get(cat.category_id) ?? cat.total,
           color: getExpenseColor(cat.category_id, cat.color),
           categoryId: cat.category_id,
-          detailType: 'expense' as DetailType,
+          detailType: 'expense' as const,
           detailPeriod: 'year' as const,
           iconName,
         }
@@ -623,7 +612,7 @@ export default function Reports() {
           baseValue: yearBaseIncomeTotalsMap.get(cat.income_category_id) ?? cat.total,
           color: getIncomeColor(cat.income_category_id, cat.color),
           categoryId: cat.income_category_id,
-          detailType: 'income' as DetailType,
+          detailType: 'income' as const,
           detailPeriod: 'year' as const,
           iconName,
         }
@@ -951,7 +940,7 @@ export default function Reports() {
         name: cat.category_name,
         value: cat.total,
         baseValue: baseExpenseTotalsMap.get(cat.category_id) ?? cat.total,
-        detailType: 'expense' as DetailType,
+        detailType: 'expense' as const,
         detailPeriod: 'month' as const,
         color: getExpenseColor(cat.category_id, cat.color),
         iconName,
@@ -968,7 +957,7 @@ export default function Reports() {
         name: cat.category_name,
         value: cat.total,
         baseValue: baseIncomeTotalsMap.get(cat.income_category_id) ?? cat.total,
-        detailType: 'income' as DetailType,
+        detailType: 'income' as const,
         detailPeriod: 'month' as const,
         color: getIncomeColor(cat.income_category_id, cat.color),
         iconName,
@@ -1077,7 +1066,7 @@ export default function Reports() {
         name: cat.category_name,
         value: cat.total,
         baseValue: customBaseExpenseTotals.get(cat.category_id) ?? cat.total,
-        detailType: 'expense' as DetailType,
+        detailType: 'expense' as const,
         detailPeriod: 'month' as const,
         color: getExpenseColor(cat.category_id, cat.color),
         iconName,
@@ -1095,7 +1084,7 @@ export default function Reports() {
         name: cat.category_name,
         value: cat.total,
         baseValue: customBaseIncomeTotals.get(cat.income_category_id) ?? cat.total,
-        detailType: 'income' as DetailType,
+        detailType: 'income' as const,
         detailPeriod: 'month' as const,
         color: getIncomeColor(cat.income_category_id, cat.color),
         iconName,

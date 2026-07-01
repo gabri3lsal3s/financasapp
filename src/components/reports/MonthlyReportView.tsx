@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { TrendingUp, TrendingDown, Wallet, Percent } from 'lucide-react'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
@@ -117,8 +116,6 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
   const trendVisibleData = evolutionType === 'expense' ? customExpenseTrendVisibleData : customIncomeTrendVisibleData
   const trendHiddenSeries = evolutionType === 'expense' ? hiddenExpenseSeries : hiddenIncomeSeries
   const trendToggle = evolutionType === 'expense' ? onToggleExpenseSeries : onToggleIncomeSeries
-
-  const showCustomTabs = viewMode === 'custom' && monthChartTab !== 'daily'
 
   return (
     <div className="flex flex-col gap-6 animate-stagger">
@@ -298,7 +295,7 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
           <div className="w-full mt-2">
             {monthChartTab === 'daily' && (
               <DailyFlowChart
-                data={activeDailyConsolidatedData as Array<Record<string, string | number>>}
+                data={activeDailyConsolidatedData as any}
                 hiddenSeries={hiddenDailyConsolidatedSeries}
                 onToggleSeries={onToggleDailyConsolidatedSeries}
                 xAxisKey="label"
@@ -309,13 +306,13 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
             )}
             {monthChartTab === 'composition' && (
               <MonthCompositionChart
-                data={activeQuickData}
+                data={activeQuickData as any}
                 hiddenSeries={hiddenMonthCompositionSeries}
                 onToggleSeries={onToggleMonthCompositionSeries}
               />
             )}
             {viewMode === 'custom' && monthChartTab === 'balance' && (
-              <CumulativeBalanceChart data={customCumulativeBalanceData} />
+              <CumulativeBalanceChart data={customCumulativeBalanceData as any} />
             )}
             {viewMode === 'custom' && monthChartTab === 'trend' && (
               <>
