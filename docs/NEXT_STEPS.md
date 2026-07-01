@@ -17,6 +17,7 @@
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
+| `style={{ }}` em produção | **~62 ocorrências** (↓30) | 🟡 |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
 | Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
 
@@ -135,6 +136,8 @@ supabase migration up
 | 5 | **Select.Item value="" no Radix UI** — sentinel value `__empty__` | Select.tsx | 🔴 Erro |
 | 6 | **`any` type** — `ValuedPosition['fundamentals']` | usePortfolioState.ts | 🟡 Type safety |
 | 7 | **InfoTooltip z-index/overflow clipping** — tooltips cortados por cards pais. Reescrevido com `createPortal` + `position: fixed` + posição calculada via `getBoundingClientRect` | `InfoTooltip.tsx` | 🔴 Visual |
+| 8 | **PageActionButtonHub hover** — hover com scale/sombra substituído por background-color (padronizado com nav sidebar) | `index.css` | 🔴 Visual |
+| 9 | **Inline styles estáticos → classes Tailwind** — ~30 inline styles migrados em ReportCharts.tsx (+26) e TransactionCard.tsx (~25). Mantidos apenas dinâmicos (categoryColor, paymentColor, mask). | `ReportCharts.tsx`, `TransactionCard.tsx` | 🟡 Manutenção |
 
 ---
 

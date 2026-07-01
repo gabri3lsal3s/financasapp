@@ -70,8 +70,7 @@ function MobileLayout({
             <div className="flex items-center justify-between gap-3 w-full">
               <div className="flex-1 min-w-0">
                 <p
-                  className="text-sm font-semibold leading-snug flex items-center gap-2 w-full min-w-0"
-                  style={{ color: 'var(--ds-color-text-primary)' }}
+                  className="text-sm font-semibold leading-snug flex items-center gap-2 w-full min-w-0 text-primary"
                 >
                   <span
                     className="overflow-hidden whitespace-nowrap flex-grow"
@@ -89,8 +88,7 @@ function MobileLayout({
                   )}
                 </p>
                 <div
-                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] leading-tight"
-                  style={{ color: 'var(--ds-color-text-secondary)' }}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] leading-tight text-secondary"
                 >
                   <div className="flex items-center gap-1.5 font-medium">
                     <span
@@ -108,8 +106,7 @@ function MobileLayout({
                   {showOriginalAmount && (
                     <p className="flex items-center gap-1 justify-end mb-0.5">
                       <span
-                        className="text-[10px] line-through"
-                        style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}
+                        className="text-[10px] line-through text-secondary opacity-60"
                       >
                         {formatCurrency(originalAmount)}
                       </span>
@@ -118,15 +115,13 @@ function MobileLayout({
                   )}
                   <div className="flex items-center gap-2">
                     <p
-                      className="text-base font-bold leading-tight font-mono"
-                      style={{ color: 'var(--ds-color-text-primary)' }}
+                      className="text-base font-bold leading-tight font-mono text-primary"
                     >
                       {formatCurrency(amount)}
                     </p>
                   </div>
                   <div
-                    className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-0.5 text-[10px] font-medium tracking-tight"
-                    style={{ color: 'var(--ds-color-text-secondary)' }}
+                    className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-0.5 text-[10px] font-medium tracking-tight text-secondary"
                   >
                     <span className="opacity-75 whitespace-nowrap">{dateLabel}</span>
                   </div>
@@ -138,28 +133,22 @@ function MobileLayout({
 
         {/* Expanded area for mobile */}
         <AnimatePresence initial={false}>
-          {isExpanded && onToggleExpand && (
-            <motion.div
+          {isExpanded && onToggleExpand && (              <motion.div
               key="expanded"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: 'hidden' }}
+              className="overflow-hidden"
             >
-              <div className="mx-3.5 border-t" style={{ borderColor: 'var(--glass-border)' }} />
+              <div className="mx-3.5 border-t border-glass" />
               <div className="px-3.5 pt-2.5 pb-3.5 space-y-2.5">
                 <div
-                  className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px] leading-relaxed p-3 rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--glass-surface)',
-                    border: '1px solid var(--glass-border)',
-                  }}
+                  className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px] leading-relaxed p-3 rounded-xl surface-glass border border-glass"
                 >
                   <div>
                     <span
-                      className="text-[9px] uppercase font-bold tracking-widest block mb-0.5"
-                      style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.7 }}
+                      className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
                     >
                       Método
                     </span>
@@ -172,36 +161,32 @@ function MobileLayout({
                   </div>
                   <div>
                     <span
-                      className="text-[9px] uppercase font-bold tracking-widest block mb-0.5"
-                      style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.7 }}
+                      className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
                     >
                       Data Completa
                     </span>
                     <span
-                      className="font-semibold font-mono block text-[12px]"
-                      style={{ color: 'var(--ds-color-text-primary)' }}
+                      className="font-semibold font-mono block text-[12px] text-primary"
                     >
                       {dateLabel}
                     </span>
                   </div>
                   {installmentInfo && (
-                    <div className="col-span-2 pt-2 border-t" style={{ borderColor: 'var(--glass-border)' }}>
+                    <div className="col-span-2 pt-2 border-t border-glass">
                       <span
-                        className="text-[9px] uppercase font-bold tracking-widest block mb-0.5"
-                        style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.7 }}
+                        className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
                       >
                         Parcelamento
                       </span>
-                      <span className="font-semibold font-mono block text-[12px]" style={{ color: 'var(--ds-color-text-primary)' }}>
+                      <span className="font-semibold font-mono block text-[12px] text-primary">
                         {installmentInfo}
                       </span>
                     </div>
                   )}
                   {billCompetenceLabel && (
-                    <div className="col-span-2 pt-2 border-t" style={{ borderColor: 'var(--glass-border)' }}>
+                    <div className="col-span-2 pt-2 border-t border-glass">
                       <span
-                        className="text-[9px] uppercase font-bold tracking-widest block mb-0.5"
-                        style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.7 }}
+                        className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
                       >
                         Fatura Competência
                       </span>
@@ -265,16 +250,16 @@ function DesktopLayout({
           <div className="flex-1 px-3.5 py-3 flex flex-col justify-center min-w-0">
             <div className="flex items-center justify-between w-full gap-4 lg:gap-6">
               {/* Date block */}
-              <div className="flex flex-col items-center justify-center px-3 py-1.5 bg-[var(--glass-surface)] border border-[var(--glass-border)] rounded-xl text-center flex-shrink-0 min-w-[56px] h-13 shadow-sm select-none">
-                <span className="text-sm font-extrabold text-[var(--ds-color-text-primary)] leading-none">{day}</span>
-                <span className="text-[9px] text-[var(--ds-color-text-secondary)] font-extrabold uppercase tracking-wider mt-1 leading-none">
+              <div className="flex flex-col items-center justify-center px-3 py-1.5 surface-glass border border-glass rounded-xl text-center flex-shrink-0 min-w-[56px] h-13 shadow-sm select-none">
+                <span className="text-sm font-extrabold text-primary leading-none">{day}</span>
+                <span className="text-[9px] text-secondary font-extrabold uppercase tracking-wider mt-1 leading-none">
                   {month ? getMonthAbbreviation(month) : ''}
                 </span>
               </div>
 
               {/* Title and Category */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold leading-normal flex items-center gap-2 w-full min-w-0" style={{ color: 'var(--ds-color-text-primary)' }}>
+                <p className="text-sm font-bold leading-normal flex items-center gap-2 w-full min-w-0 text-primary">
                   <span
                     className="overflow-hidden whitespace-nowrap flex-grow"
                     style={{
@@ -290,7 +275,7 @@ function DesktopLayout({
                     </span>
                   )}
                 </p>
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold opacity-70 mt-0.5 animate-fade-in" style={{ color: 'var(--ds-color-text-secondary)' }}>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold mt-0.5 animate-fade-in text-secondary/70">
                   <span style={{ color: categoryColor }} className="flex items-center justify-center flex-shrink-0">
                     {getCategoryIcon(subtitle, 12, categoryIconName)}
                   </span>
@@ -300,7 +285,7 @@ function DesktopLayout({
 
               {/* Payment Method */}
               <div className="flex flex-col justify-center min-w-[120px] max-w-[160px] flex-shrink-0">
-                <span className="text-[9px] uppercase font-bold tracking-wider opacity-50 text-[var(--ds-color-text-secondary)] mb-0.5">Pagamento</span>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-secondary/50 mb-0.5">Pagamento</span>
                 <span className="text-xs font-semibold truncate" style={paymentColor ? { color: paymentColor } : undefined}>
                   {paymentLabel || <span className="opacity-40">-</span>}
                 </span>
@@ -308,15 +293,14 @@ function DesktopLayout({
 
               {/* Competence and Installments */}
               <div className="flex flex-col justify-center min-w-[130px] flex-shrink-0">
-                <span className="text-[9px] uppercase font-bold tracking-wider opacity-50 text-[var(--ds-color-text-secondary)] mb-0.5">Competência / Parcelas</span>
+                <span className="text-[9px] uppercase font-bold tracking-wider text-secondary/50 mb-0.5">Competência / Parcelas</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
+                  <span className="text-xs font-semibold text-primary">
                     {billCompetenceLabel || 'Mês Atual'}
                   </span>
                   {installmentInfo && (
                     <span
-                      className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md tracking-tighter whitespace-nowrap border"
-                      style={{ color: 'var(--ds-color-text-secondary)', backgroundColor: 'var(--glass-surface)', borderColor: 'var(--glass-border)' }}
+                      className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md tracking-tighter whitespace-nowrap border text-secondary surface-glass border-glass"
                     >
                       {installmentInfo}
                     </span>
@@ -328,24 +312,24 @@ function DesktopLayout({
               <div className="flex flex-col items-end justify-center min-w-[110px] text-right flex-shrink-0 ml-auto">
                 {showOriginalAmount && (
                   <p className="flex items-center gap-1 justify-end mb-0.5">
-                    <span className="text-[10px] line-through" style={{ color: 'var(--ds-color-text-secondary)', opacity: 0.65 }}>
+                    <span className="text-[10px] line-through text-secondary opacity-60">
                       {formatCurrency(originalAmount)}
                     </span>
                     <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
                   </p>
                 )}
-                <p className="text-base font-extrabold leading-tight font-mono" style={{ color: 'var(--ds-color-text-primary)' }}>
+                <p className="text-base font-extrabold leading-tight font-mono text-primary">
                   {formatCurrency(amount)}
                 </p>
               </div>
 
               {/* Quick Actions */}
-              <div className="flex items-center gap-1.5 pl-3 border-l border-[var(--glass-border)] ml-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 pl-3 border-l border-glass ml-1 flex-shrink-0">
                 {onEdit && (
                   <IconButton
                     icon={<Pencil size={13} />} size="sm" variant="ghost" label="Editar"
                     onClick={(e) => { e.stopPropagation(); onEdit() }}
-                    className="opacity-60 hover:opacity-100 hover:scale-105 transition-all text-[var(--ds-color-text-primary)]"
+                    className="opacity-60 hover:opacity-100 hover:scale-105 transition-all text-primary"
                   />
                 )}
                 {onDelete && (

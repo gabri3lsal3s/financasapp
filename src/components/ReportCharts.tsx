@@ -35,7 +35,6 @@ interface Props {
 }
 
 const RADIAN = Math.PI / 180;
-const SECTION_SPACING = 24; 
 
 export default function ReportCharts({ assets, macroSectors, sectors, historyReports, totalBalance, compositionDescription }: Props) {
   const { colorPalette } = useTheme();
@@ -127,24 +126,14 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
     );
   };
 
-  const TITLE_STYLE: React.CSSProperties = { 
-    fontSize: '11px', 
-    fontWeight: '800', 
-    color: 'var(--color-text-primary)', 
-    textTransform: 'uppercase', 
-    letterSpacing: '0.05em', 
-    marginBottom: 16,
-    borderBottom: '1px solid var(--color-border)',
-    paddingBottom: '6px',
-    display: 'block'
-  };
+
 
   return (
     <div className="space-y-6 font-sans">
       {/* Chart 1: Composição Atual vs Alvo */}
       {macroComposition.length > 0 && (
-        <div style={{ marginBottom: SECTION_SPACING }} className="w-full">
-          <p style={TITLE_STYLE}>COMPOSIÇÃO ATUAL VS. ALVO (%)</p>
+        <div className="w-full mb-6">
+          <p className="text-[11px] font-extrabold text-primary uppercase tracking-wider mb-4 border-b border-primary pb-1.5 block">COMPOSIÇÃO ATUAL VS. ALVO (%)</p>
           <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={macroComposition} barCategoryGap="25%" margin={{ top: 10, bottom: 20, left: -25, right: 0 }}>
@@ -178,10 +167,10 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
 
       {/* Charts 2 & 3: Donuts side by side */}
       {(macroDist.length > 0 || sectorDist.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full" style={{ marginBottom: SECTION_SPACING }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-6">
           {macroDist.length > 0 && (
             <div className="w-full">
-              <p style={TITLE_STYLE}>DISTRIBUIÇÃO POR CLASSE</p>
+              <p className="text-[11px] font-extrabold text-primary uppercase tracking-wider mb-4 border-b border-primary pb-1.5 block">DISTRIBUIÇÃO POR CLASSE</p>
               <div className="h-56 sm:h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -209,7 +198,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
           )}
           {sectorDist.length > 0 && (
             <div className="w-full">
-              <p style={TITLE_STYLE}>DISTRIBUIÇÃO POR SETOR</p>
+              <p className="text-[11px] font-extrabold text-primary uppercase tracking-wider mb-4 border-b border-primary pb-1.5 block">DISTRIBUIÇÃO POR SETOR</p>
               <div className="h-56 sm:h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -240,8 +229,8 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
 
       {/* Chart 4: Evolução Patrimonial */}
       {evolutionData.length > 1 && (
-        <div style={{ marginBottom: SECTION_SPACING }} className="w-full">
-          <p style={TITLE_STYLE}>EVOLUÇÃO PATRIMONIAL</p>
+        <div className="w-full mb-6">
+          <p className="text-[11px] font-extrabold text-primary uppercase tracking-wider mb-4 border-b border-primary pb-1.5 block">EVOLUÇÃO PATRIMONIAL</p>
           <div className="h-56 sm:h-64 w-full">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={evolutionData} margin={{ top: 10, bottom: 10, left: -10, right: 10 }}>
@@ -265,7 +254,7 @@ export default function ReportCharts({ assets, macroSectors, sectors, historyRep
       {/* Chart 5: Concentração por Setor (horizontal bars) */}
       {sectorDist.length > 1 && (
         <div className="w-full">
-          <p style={TITLE_STYLE}>CONCENTRAÇÃO POR SETOR</p>
+          <p className="text-[11px] font-extrabold text-primary uppercase tracking-wider mb-4 border-b border-primary pb-1.5 block">CONCENTRAÇÃO POR SETOR</p>
           <div className="h-56 sm:h-64 w-full">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={sectorDist.slice(0, 6)} layout="vertical" barCategoryGap="20%" margin={{ top: 10, bottom: 10, left: 10, right: 20 }}>
