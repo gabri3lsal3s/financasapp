@@ -337,12 +337,12 @@ export default function AppTopBar() {
           <div className="flex items-center gap-2.5 min-w-0 shrink-0">
             {isDashboard ? (
               <div className="flex flex-col leading-tight min-w-0">
-                <h1 className="text-sm font-bold text-primary truncate">
-                  Olá, {greetingName} 👋
-                </h1>
-                <span className="text-[10px] font-medium text-secondary mt-0.5">
-                  {temporalMessage}
+                <span className="text-[10px] font-black uppercase tracking-widest text-secondary/60">
+                  Finanças
                 </span>
+                <h1 className="text-sm font-bold text-primary truncate">
+                  Visão Geral
+                </h1>
               </div>
             ) : (
               <div className="flex flex-col leading-tight min-w-0">
