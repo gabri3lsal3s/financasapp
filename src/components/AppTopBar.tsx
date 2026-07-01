@@ -3,14 +3,13 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, X, Bell, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNotifications } from '@/contexts/NotificationsContext'
+import { AlertCard } from '@/components/NotificationsWidget'
 import { cn } from '@/lib/utils'
 import { searchAll } from '@/utils/searchEngine'
 import { useSearchData } from '@/hooks/useSearchData'
 import { getPageTitle } from '@/utils/pageTitles'
 import type { SearchResult } from '@/utils/searchEngine'
 import TopBarSearchResults from '@/components/TopBarSearchResults'
-import { formatCurrency } from '@/utils/format'
-import { Z_INDEX } from '@/constants/zIndex'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { resolveProfileDisplayName } from '@/utils/profileDisplayName'
@@ -162,86 +161,98 @@ function SearchOverlay({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Desktop Notification Dropdown (top-to-bottom)                     */
+/*  Notifications Overlay (unificado — como o SearchOverlay)          */
 /* ------------------------------------------------------------------ */
 
-function NotificationDropdown() {
+function NotificationsOverlay({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean
+  onClose: () => void
+}) {
   const {
     combinedAlerts,
-    isDesktopAlertsOpen,
-    setIsDesktopAlertsOpen,
+    snoozeAlert,
+    todayStr,
   } = useNotifications()
   const navigate = useNavigate()
 
-  if (!isDesktopAlertsOpen) return null
+  if (!isOpen) return null
 
   return createPortal(
-    <div className={`hidden lg:block fixed inset-0 ${Z_INDEX.POPOVER}`}>
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[200] flex justify-center p-3 sm:p-6 md:p-10 pointer-events-none animate-fade-in">
+      {/* Backdrop com blur */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/10"
-        onClick={() => setIsDesktopAlertsOpen(false)}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
+        onClick={onClose}
       />
-      {/* Card — animado do topo */}
+
+      {/* Container — animado do topo, centralizado, max-w-xl */}
       <motion.div
-        initial={{ opacity: 0, y: -12, scale: 0.96 }}
+        initial={{ opacity: 0, y: -20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -12, scale: 0.96 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-        className="absolute top-[calc(4.5rem+env(safe-area-inset-top))] right-4 w-[28rem] surface-glass-strong border border-glass rounded-2xl shadow-2xl p-5"
+        exit={{ opacity: 0, y: -20, scale: 0.96 }}
+        transition={{
+          type: 'spring',
+          stiffness: 380,
+          damping: 28,
+        }}
+        className="relative w-full max-w-xl pointer-events-auto z-10"
       >
-        <div className="flex items-center justify-between border-b border-primary/10 pb-3 mb-4">
-          <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-            <Bell size={16} className="text-expense shrink-0" />
-            Lembretes de Vencimento
-          </h4>
-          <button
-            onClick={() => setIsDesktopAlertsOpen(false)}
-            className="text-secondary hover:text-primary transition-colors text-xs font-semibold cursor-pointer"
-          >
-            Fechar
-          </button>
-        </div>
-        <div className="space-y-2.5 max-h-80 overflow-y-auto">
-          {combinedAlerts.map((alert) => (
-            <div
-              key={alert.id}
-              className={`p-3.5 rounded-xl border transition-all duration-200 ${
-                alert.isOverdue
-                  ? 'border-expense/20 bg-expense/5'
-                  : 'border-warning/20 bg-warning/5'
-              }`}
+        <div className="p-3">
+          {/* Header */}
+          <div className="relative flex items-center gap-2 mb-3">
+            <button
+              onClick={onClose}
+              className="p-2 -ml-1 text-secondary hover:text-primary transition-colors cursor-pointer"
+              aria-label="Fechar notificações"
             >
-              <div className="flex items-start justify-between gap-2.5">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-primary truncate">{alert.title}</p>
-                  <p className="text-[10px] text-secondary mt-0.5">
-                    {alert.isOverdue ? 'Venceu em' : 'Vence em'}{' '}
-                    <strong className="font-mono">{alert.dueDate}</strong>
-                  </p>
-                </div>
-                <p className={`text-xs font-black font-mono ${
-                  alert.debtType === 'receivable' ? 'text-income' : 'text-expense'
-                }`}>
-                  {formatCurrency(alert.amount)}
-                </p>
-              </div>
+              <ArrowLeft size={20} />
+            </button>
+
+            <div className="flex-1 flex items-center gap-2 rounded-2xl border surface-glass-strong h-[52px] px-3.5">
+              <Bell size={15} className="text-expense shrink-0" />
+              <span className="text-xs sm:text-[13px] font-bold text-primary">
+                Lembretes de Vencimento
+              </span>
             </div>
-          ))}
-        </div>
-        <div className="mt-4 pt-3 border-t border-primary/10">
-          <button
-            onClick={() => {
-              setIsDesktopAlertsOpen(false)
-              navigate('/contas')
-            }}
-            className="w-full text-xs font-bold text-center py-2 rounded-xl border border-glass hover:bg-secondary/10 transition-colors cursor-pointer"
-          >
-            Gerenciar Contas
-          </button>
+          </div>
+
+          {/* Lista de alertas */}
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+            {combinedAlerts.length === 0 ? (
+              <p className="text-secondary text-xs text-center py-8">
+                Nenhum lembrete pendente.
+              </p>
+            ) : (
+              combinedAlerts.map((alert) => (
+                <AlertCard
+                  key={alert.id}
+                  alert={alert}
+                  todayStr={todayStr}
+                  snoozeAlert={snoozeAlert}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-4 pt-3 border-t border-primary/10">
+            <button
+              onClick={() => {
+                onClose()
+                navigate('/contas')
+              }}
+              className="w-full text-xs font-bold text-center py-2 rounded-xl border border-glass hover:bg-secondary/10 transition-colors cursor-pointer"
+            >
+              Gerenciar Contas
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>,
@@ -259,13 +270,10 @@ export default function AppTopBar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
 
   const {
     combinedAlerts,
-    isDesktopAlertsOpen,
-    setIsDesktopAlertsOpen,
-    isMobileAlertsOpen,
-    setIsMobileAlertsOpen,
   } = useNotifications()
 
   const hasNotifications = combinedAlerts.length > 0
@@ -322,8 +330,8 @@ export default function AppTopBar() {
 
   return (
     <>
-      <header className="w-full max-w-7xl mx-auto mb-4">
-        <div className="flex items-center justify-between px-3 sm:px-6 lg:px-6 lg:xl:px-8 py-3 gap-3 rounded-[24px] border border-glass bg-[var(--glass-surface-strong)] backdrop-blur-[var(--glass-blur-strong)]"
+      <header className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-6 lg:xl:px-8 mb-5">
+        <div className="flex items-center justify-between py-3 gap-3 rounded-2xl border border-glass bg-[var(--glass-surface-strong)] backdrop-blur-[var(--glass-blur-strong)]"
           style={{ boxShadow: 'var(--glass-shadow-panel), var(--glass-inset-highlight)' }}>
           {/* ── Esquerda: Saudação / Nome do App + Título da Página ── */}
           <div className="flex items-center gap-2.5 min-w-0 shrink-0">
@@ -363,21 +371,13 @@ export default function AppTopBar() {
               <Search size={18} />
             </button>
 
-            {/* Botão de notificação */}
+            {/* Botão de notificação unificado para mobile e desktop */}
             <button
-              onClick={() => {
-                if (window.innerWidth < 1024) {
-                  setIsMobileAlertsOpen(!isMobileAlertsOpen)
-                } else {
-                  setIsDesktopAlertsOpen(!isDesktopAlertsOpen)
-                }
-              }}
+              onClick={() => setIsNotificationsOpen(true)}
               className={cn(
                 'relative flex h-[44px] w-[44px] items-center justify-center rounded-xl cursor-pointer',
                 'transition-all',
-                isDesktopAlertsOpen || isMobileAlertsOpen
-                  ? 'text-primary bg-secondary/10'
-                  : 'text-secondary hover:text-primary hover:bg-secondary/10',
+                'text-secondary hover:text-primary hover:bg-secondary/10',
               )}
               title="Notificações"
               aria-label="Notificações"
@@ -407,8 +407,11 @@ export default function AppTopBar() {
         }}
       />
 
-      {/* Desktop Notification Dropdown */}
-      <NotificationDropdown />
+      {/* Notifications Overlay (unificado — mobile e desktop) */}
+      <NotificationsOverlay
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
     </>
   )
 }

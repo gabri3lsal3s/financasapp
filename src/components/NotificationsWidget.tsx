@@ -1,11 +1,6 @@
-import { useNavigate } from 'react-router-dom'
-import { Bell, ChevronRight } from 'lucide-react'
-import { useNotifications, type AlertItem } from '@/contexts/NotificationsContext'
+import { type AlertItem } from '@/contexts/NotificationsContext'
 import Button from '@/components/Button'
-import Modal from '@/components/Modal'
-import ModalIntro from '@/components/ModalIntro'
 import { formatDate, formatCurrency } from '@/utils/format'
-import { Z_INDEX } from '@/constants/zIndex'
 
 interface AlertCardProps {
   alert: AlertItem
@@ -69,114 +64,17 @@ function AlertCard({ alert, todayStr, snoozeAlert }: AlertCardProps) {
   )
 }
 
+/**
+ * This component previously rendered both a mobile Modal and a desktop
+ * notification dropdown. As of the unified overlay refactor, the
+ * notifications UI is rendered directly in AppTopBar's NotificationsOverlay.
+ *
+ * AlertCard is kept here for reuse and exported for use by the overlay.
+ */
+export { AlertCard }
+export type { AlertCardProps }
+
 export default function NotificationsWidget() {
-  const navigate = useNavigate()
-  const {
-    combinedAlerts,
-    remindersEnabled,
-    isMobileAlertsOpen,
-    setIsMobileAlertsOpen,
-    isDesktopAlertsOpen,
-    setIsDesktopAlertsOpen,
-    snoozeAlert,
-    todayStr,
-  } = useNotifications()
-
-  if (!remindersEnabled) {
-    return null
-  }
-
-  return (
-    <>
-      {/* Mobile Alerts Detail Sheet/Modal */}
-      <Modal
-        isOpen={isMobileAlertsOpen}
-        onClose={() => setIsMobileAlertsOpen(false)}
-        title="Lembretes de Vencimento"
-      >
-        <div className="modal-body-stack">
-          <ModalIntro align="start">
-            Acompanhe faturas e cobranças vencidas ou próximas do vencimento:
-          </ModalIntro>
-
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-            {combinedAlerts.map((alert) => (
-              <AlertCard
-                key={alert.id}
-                alert={alert}
-                todayStr={todayStr}
-                snoozeAlert={snoozeAlert}
-              />
-            ))}
-          </div>
-          <div className="modal-button-footer mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsMobileAlertsOpen(false)
-                navigate('/contas')
-              }}
-              className="w-full text-xs"
-            >
-              Gerenciar Contas
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Desktop Notification Dropdown */}
-      {isDesktopAlertsOpen && (
-        <div className={`hidden lg:block fixed top-0 right-0 left-0 bottom-0 ${Z_INDEX.POPOVER}`}>
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/10"
-            onClick={() => setIsDesktopAlertsOpen(false)}
-          />
-          {/* Floating Card — positioned below the bell */}
-          <div className="absolute top-[calc(5rem+env(safe-area-inset-top))] right-4 w-[28rem] surface-glass-strong border border-glass rounded-2xl shadow-2xl p-5 animate-in fade-in slide-in-from-top-3 duration-200">
-            <div className="flex items-center justify-between border-b border-primary/10 pb-3 mb-4">
-              <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                <Bell size={16} className="text-expense shrink-0" />
-                Lembretes de Vencimento
-              </h4>
-              <Button
-                type="button"
-                onClick={() => setIsDesktopAlertsOpen(false)}
-                variant="ghost"
-                size="xs"
-                className="text-secondary hover:text-primary transition-colors text-xs font-semibold h-auto py-1 px-2"
-              >
-                Fechar
-              </Button>
-            </div>
-
-            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-              {combinedAlerts.map((alert) => (
-                <AlertCard
-                  key={alert.id}
-                  alert={alert}
-                  todayStr={todayStr}
-                  snoozeAlert={snoozeAlert}
-                />
-              ))}
-            </div>
-            <div className="mt-5 pt-3 border-t border-primary/10 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsDesktopAlertsOpen(false)
-                  navigate('/contas')
-                }}
-                className="w-full text-xs gap-1"
-              >
-                Gerenciar Contas
-                <ChevronRight size={12} />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  )
+  // Notifications UI moved to AppTopBar's unified NotificationsOverlay
+  return null
 }

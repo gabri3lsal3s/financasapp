@@ -189,11 +189,7 @@ export default function LimitsControl({
                   {getCategoryIcon(item.name, 14, item.iconName)}
                 </span>
                 <span className="text-primary whitespace-nowrap select-none">{item.name}</span>
-                {item.baseValue !== item.value && (
-                  <span className="text-[8px] text-secondary/50 font-normal ml-auto">
-                    base {formatCurrency(item.baseValue)}
-                  </span>
-                )}
+
               </div>
             ))}
           </div>

@@ -1,7 +1,7 @@
-# Próximos Passos — Manutenção e Refatoração
+# Próximos Passos — Manutenção, Refatoração e Melhorias do Copiloto IA
 
-> **Data:** Junho de 2026
-> **Propósito:** Guia de ações necessárias para manter o app saudável e continuar as refatorações em andamento.
+> **Data:** Julho de 2026
+> **Propósito:** Guia de ações necessárias para manter o app saudável, continuar refatorações e melhorar o card de análise IA.
 
 ---
 
@@ -12,216 +12,179 @@
 | TypeScript errors | **0** | ✅ |
 | Testes passando | **290/290** (31 arquivos) | ✅ |
 | Build | **OK** | ✅ |
-| UI Guardrails | **21 na baseline** (Dashboard + searchEngine test) | 🟡 |
+| UI Guardrails | **21 na baseline** | 🟡 |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
 | `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
-| Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
-| Dashboard flutuante | **Pill arredondada** (rounded-[24px]) | ✅ |
-| Glow/blur removidos | **app-shell-glow, useBalanceGlow, blur decorativo** | ✅ |
-| Top Bar fixo | **Bloco normal** (sticky removido, sem seguir rolagem) | ✅ |
-| Sombras padronizadas | **var(--glass-shadow-panel)** em 6 elementos (top bar, FAB, dial, search, notificação) | ✅ |
+| Dashboard.tsx | **~1.900+ linhas** | 🟡 |
+| Notificações | **Unificadas** em NotificationsOverlay (app-top-bar) | ✅ |
+| Top Bar alinhado | **Padronizado** com wrapper de Layout (px-3 sm:px-6 lg:px-6) | ✅ |
+| SmartLimitSuggestions | **Dead code** — nunca importado, mantido para referência | 🟤 |
+| 3 botões de ação removidos | Revisar Assinaturas, Desafios de Economia, Limites por Categoria | ✅ |
+| Label "base" removido | LimitsControl.tsx — não aparece mais nas pills | ✅ |
 
 ---
 
 ## 1. 🔴 Aplicar Migration no Supabase
 
-A correção do overflow requer alteração no schema. A migration está em `supabase/migrations/20260629_fix_numeric_overflow.sql`.
-
-### Opção A — Supabase CLI
+A correção do overflow requer alteração no schema. Migration em `supabase/migrations/20260629_fix_numeric_overflow.sql`.
 
 ```bash
 supabase migration up
+# Ou via SQL Editor do Supabase
 ```
-
-### Opção B — SQL Editor Manual
-
-1. Abra o [Supabase Dashboard](https://supabase.com/dashboard)
-2. Selecione o projeto
-3. Vá em **SQL Editor**
-4. Copie e cole o conteúdo de `supabase/migrations/20260629_fix_numeric_overflow.sql`
-5. Execute
 
 ### O que a migration faz:
 
-| Tabela | Colunas Alteradas | Tipo Antigo | Tipo Novo |
-|--------|-------------------|-------------|-----------|
-| `portfolio_share_daily` | `gross_pl`, `net_pl`, `cash_value`, `invested_cost` | `DECIMAL(15,2)` | `DECIMAL(18,2)` |
-| `portfolios` | `cash_balance`, `last_gross_pl`, `last_net_pl` | `DECIMAL(15,2)` | `DECIMAL(18,2)` |
-| `portfolio_period_snapshots` | `somatorio_aportes`, `somatorio_resgates`, `dividendos_recebidos` | `DECIMAL(15,2)` | `DECIMAL(18,2)` |
-| `portfolio_asset_definitions` | `applied_amount`, `manual_current_value` | `DECIMAL(15,2)` | `DECIMAL(18,2)` |
+| Tabela | Colunas | Tipo Antigo → Novo |
+|--------|---------|-------------------|
+| `portfolio_share_daily` | `gross_pl`, `net_pl`, `cash_value`, `invested_cost` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| `portfolios` | `cash_balance`, `last_gross_pl`, `last_net_pl` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| `portfolio_period_snapshots` | `somatorio_aportes`, `somatorio_resgates`, `dividendos_recebidos` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| `portfolio_asset_definitions` | `applied_amount`, `manual_current_value` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
 
 ---
 
-## 2. ✅ Refatorações Concluídas
+## 2. 🟡 Novo — Card de IA (Copiloto): Diagnóstico e Melhorias
 
-### 2.1 ✅ FloatingCalculator — Extração de Utilitários
+### 2.1 Diagnóstico — 6 Problemas Identificados
 
-**Arquivos criados:**
-- `src/utils/calculatorExpression.ts` — `evaluateExpression`, `formatExpressionForDisplay`, `formatCanonicalNumberToPtBr`, `toCanonicalNumericString` (~80 linhas)
-- `src/utils/calculatorGeometry.ts` — `clamp`, `getDefaultPanelRect`, `getUniformPanelSize`, `getPanelMinWidth/Height`, `isMobileViewport`, constantes + tipos `PanelRect`/`Point` (~100 linhas)
-- `src/utils/calculatorDom.ts` — `isNumericField`, `getInputDisplayName`, `getNumericInputs`, `prefersValorField`, `getTopDialog`, `isVisibleElement` (~60 linhas)
+| # | Problema | Impacto | Local |
+|---|----------|---------|-------|
+| 1 | **Card fixado duplicado** — Análise pinned renderizada em Card separado, com header + workspace duplicados | 🔴 UX: redundância visual | `Dashboard.tsx` ~1500-1560 |
+| 2 | **Carrossel inchado** — 6 insights em cards `w-64` com glass completo; some sem empty state | 🟡 Espaço vertical | `Dashboard.tsx` ~1420-1450 |
+| 3 | **Input inconsistente** — Usa `bg-secondary/5` em vez de `surface-glass-strong` da topbar | 🟡 Visual | `Dashboard.tsx` ~1455-1470 |
+| 4 | **BeautifulMarkdown limitado** — Só `**bold**`, `# header`, `• bullets`; sem links, listas, code | 🟡 Funcionalidade | `BeautifulMarkdown.tsx` |
+| 5 | **InteractiveAIChart frágil** — Auto-detecção com `string.includes()` hardcoded | 🟡 Confiabilidade | `InteractiveAIChart.tsx` |
+| 6 | **Lógica inchada** — `dynamicAiSuggestions` (+200 linhas) e `handleSendChat` (+150 linhas) inline | 🟡 Manutenibilidade | `Dashboard.tsx` |
+| 7 | **Fallback mockado no geminiService** — `simulateAssistantResponseClient` com dados hardcoded | 🟡 Confiabilidade | `geminiService.ts` |
 
-**Impacto:** FloatingCalculator.tsx reduziu de ~1.569 → **~1.107 linhas** (-462, ~29%). Funções agora são testáveis sem browser.
+### 2.2 Plano de Melhorias
 
-### 2.2 ✅ Non-null Assertions Zeradas
-
-- `useReconciliationDrafts.ts:57` — única ocorrência corrigida: `uniqueMap.get(tickerUpper)!` → `uniqueMap.get(tickerUpper)` com `if (existing && ...)`
-- **5 ocorrências em Contas.tsx** — callbacks com captura de variável local
-- **4 ocorrências em IncomeFormModal.tsx** — captura local + guard
-- **Total:** **0** non-null assertions em produção.
-
-### 2.3 ✅ Reports.tsx — Extração de Funções de Agregação
-
-**Arquivos criados:**
-- `src/utils/reportAggregation.ts` — ~20 funções puras de agregação (~250 linhas)
-- `src/utils/reportCustomData.ts` — ~15 funções puras de período customizado (~671 linhas)
-- `src/components/reports/ReportPendingDebtsWidget.tsx` — Widget de projeção de pendências (~60 linhas)
-- `src/components/reports/ReportUnifiedCompositionCard.tsx` — Card de composição detalhada (~120 linhas)
-
-**Impacto:** Reports.tsx reduziu de **3.119 → 2.276 linhas** (-843, ~27%).
-
-### 2.4 ✅ TS Errors Corrigidos
-
-**12 erros corrigidos no total — Reports.tsx (9) + Contas.tsx (3):**
-
-| Erro | Local | Causa | Solução |
-|------|-------|-------|---------|
-| TS6192 (3x) | Reports.tsx | Imports órfãos | Removidos |
-| TS6133 (1x) | Reports.tsx | Type import não usado | Removido |
-| TS2322 (2x) | Reports.tsx | Tipos de retorno genéricos | Tipos específicos adicionados |
-| TS6133 (9x) | Reports.tsx | Imports órfãos pós-extração | Removidos |
-| TS2304 (7x) | useContasModals.ts | Tipo `Expense` não importado | Adicionado ao import |
-| TS6133 (2x) | useContasModals.ts | Parâmetros não usados | Removidos da assinatura |
-| TS18047 | Contas.tsx | Null possível em closure | Captura em variável local |
-
-### 2.5 ✅ FloatingCalculator — Hooks de Keyboard e Panel Extraídos
-
-**Arquivos criados:**
-- `src/hooks/useCalculatorKeyboard.ts` — Atalhos de teclado (~95 linhas)
-- `src/hooks/useCalculatorPanel.ts` — Drag/resize do painel (~216 linhas)
-
-**Impacto:** FloatingCalculator.tsx reduziu de ~1.340 → **~1.107 linhas** (-233, ~17%). UseEffects: ~11 → **~10**.
-
-### 2.6 ✅ Contas.tsx — Extração de Hooks de Bills e Modais
-
-**Arquivos criados:**
-- `src/hooks/useContasBills.ts` — Faturas, despesas por cartão, pagamentos (~264 linhas)
-- `src/hooks/useContasModals.ts` — ~30 estados de modal + handlers (~551 linhas)
-
-**Impacto:** Contas.tsx reduziu de **2.039 → 1.668 linhas** (-371, ~18%).
-
-### 2.7 ✅ FloatingActionHub Extraído
-
-**Arquivos criados:**
-- `src/hooks/useScrollToTop.ts` — Máquina de estados pull-to-top (~220 linhas)
-- `src/utils/haptics.ts` — Função `triggerHaptic` multi-stage (~25 linhas)
-
-**Impacto:** FloatingActionHub.tsx reduziu de ~520 → **~50 linhas** (-470, ~90%). UseEffects: ~10 → **4**.
-
-### 2.8 ✅ Testes e Qualidade
-
-- `src/utils/checkDbRates.test.ts` — Teste de integridade das taxas CDI/SELIC (~59 linhas)
-- `as any` zerado — 2 casts em `reportCustomData.ts` substituídos por narrowing genérico `<T extends { total: number }>`
-- `console.*` → `logger.*` — 89 chamadas substituídas em 32+ arquivos
-- `key={index}` → chaves estáveis em DatePicker.tsx e CreditCardTimeline.tsx
-
-### 2.9 ✅ Correções de Bugs
-
-| # | Correção | Arquivo | Severidade |
+| # | Melhoria | Esforço | Prioridade |
 |---|----------|---------|------------|
-| 1 | **Loop infinito no useSupabaseTable** — configRef pattern | `useSupabaseTable.ts` | 🔴 Crítica |
-| 2 | **CSS spacing bug** — `h - 2 w - 2` → `h-2 w-2 rounded-full` | Settings.tsx | 🔴 Visual |
-| 3 | **CSS spacing bug** — `rounded - lg border p - 3` → `rounded-lg border p-3` | Settings.tsx | 🔴 Visual |
-| 4 | **Overflow DECIMAL(15,2)** — Migration DECIMAL(18,2) + arredondamento | Vários | 🔴 Crash |
-| 5 | **Select.Item value="" no Radix UI** — sentinel value `__empty__` | Select.tsx | 🔴 Erro |
-| 6 | **`any` type** — `ValuedPosition['fundamentals']` | usePortfolioState.ts | 🟡 Type safety |
-| 7 | **InfoTooltip z-index/overflow clipping** — tooltips cortados por cards pais. Reescrevido com `createPortal` + `position: fixed` + posição calculada via `getBoundingClientRect` | `InfoTooltip.tsx` | 🔴 Visual |
-| 8 | **PageActionButtonHub hover** — hover com scale/sombra substituído por background-color (padronizado com nav sidebar) | `index.css` | 🔴 Visual |
-| 9 | **Inline styles estáticos → classes Tailwind** — ~30 inline styles migrados em ReportCharts.tsx (+26) e TransactionCard.tsx (~25). Mantidos apenas dinâmicos (categoryColor, paymentColor, mask). | `ReportCharts.tsx`, `TransactionCard.tsx` | 🟡 Manutenção |
+| 1 | **Unificar card fixado no principal** — Pinned analysis vira modo dentro do card, não card separado | ~2h | 🔴 Alta |
+| 2 | **Redesenhar carrossel** — Max 3 insights, chips menores, empty state, "Ver mais" opcional | ~1.5h | 🔴 Alta |
+| 3 | **Padronizar input com topbar** — Usar `topbar-search-bar` / `surface-glass-strong` | ~30min | 🟡 Média |
+| 4 | **Extrair lógica do Dashboard** — `dynamicAiSuggestions` → service, `handleSendChat` → split NL parser | ~3h | 🟡 Média |
+| 5 | **Melhorar BeautifulMarkdown** — Suporte a links, listas, código inline; remover tamanhos fixos | ~1h | 🟢 Baixa |
+| 6 | **Remover fallback mockado** — Mostrar erro amigável em vez de dados fictícios | ~30min | 🟢 Baixa |
+
+**Total estimado:** ~8.5h
 
 ---
 
-## ✅ Estado Atual Pós-Refatoração
+## 3. 🟡 Pendências Técnicas
 
-| Métrica | Valor | Status |
-|---------|-------|--------|
-| TypeScript errors | **0** | ✅ |
-| Testes passando | **290/290** (31 arquivos) | ✅ |
-| Build | **OK** | ✅ |
-| UI Guardrails | **21 na baseline** (Dashboard native buttons + search test hex) | 🟡 |
-| `as any` em produção | **0** | ✅ |
-| Non-null assertions em produção | **0** | ✅ |
-| `console.log` residual | **0** | ✅ |
-| Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
-| Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
-| FloatingActionHub useEffects | **4** (↓6) | ✅ |
-| Header transformado | **Pill fixa** (sticky removido, rounded-[24px], glass-nav) | ✅ |
-| Glow/blur removidos | **app-shell-glow, useBalanceGlow, decorativo** | ✅ |
-| Sombras padronizadas | **var(--glass-shadow-panel)** em top bar, FAB, dial, search bar e notificação | ✅ |
-
----
-
-## 3. 🟡 Pendências Técnicas Priorizadas
-
-### Prioridade Média (🟡)
+### Prioridade Média
 
 | # | Item | Arquivo | Esforço | Status |
 |---|------|---------|---------|--------|
 | 1 | Extrair lógica de parcelamento/deleção de `useExpenses.ts` (~497 linhas) | `useExpenses.ts` | ~3h | ⏳ |
-| 2 | Fracionar Categories.tsx (~1.252 linhas) em CategoryGrid, CategoryKPIs | `Categories.tsx` | ~3h | ⏳ |
-| 3 | Fracionar CreditCardCsvReconciliationPanel (~1.193 linhas) em CsvUploadZone, ComparisonRowCard | `CreditCardCsvReconciliationPanel.tsx` | ~3h | ⏳ |
+| 2 | Extrair `dynamicAiSuggestions` + `handleSendChat` do Dashboard | `Dashboard.tsx` | ~3h | ⏳ |
+| 3 | Fracionar Categories.tsx (~1.252 linhas) | `Categories.tsx` | ~3h | ⏳ |
 
-### Prioridade Baixa (🟢)
+### Prioridade Baixa
 
 | # | Item | Esforço | Status |
 |---|------|---------|--------|
-| 4 | Criar testes unitários para `calculatorExpression`, `calculatorGeometry`, `calculatorDom` | ~1h | ⏳ |
-| 5 | Criar testes unitários para `useCalculatorKeyboard`, `useCalculatorPanel`, `useScrollToTop` | ~1.5h | ⏳ |
-| 6 | Criar testes unitários para `reportAggregation` + `reportCustomData` | ~1h | ⏳ |
+| 4 | Testes unitários para `calculatorExpression`, `calculatorGeometry`, `calculatorDom` | ~1h | ⏳ |
+| 5 | Testes para `useCalculatorKeyboard`, `useCalculatorPanel`, `useScrollToTop` | ~1.5h | ⏳ |
+| 6 | Testes para `reportAggregation` + `reportCustomData` | ~1h | ⏳ |
 | 7 | Migrar `--color-*` para `--ds-*` | ~2h | ⏳ |
 | 8 | Tooltips em gráficos de pizza | ~30min | ⏳ |
-| 9 | Adicionar testes para `dynamicAiSuggestions` e `spendingPace` | ~1h | ⏳ |
 
 ---
 
-## 4. 📋 Plano de Refinamento Completo
+## 4. ✅ Refatorações Concluídas
 
-Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.md`, organizado em 7 fases (~29h estimadas):
+### 4.1 ✅ TopBar alinhado com wrapper de Layout
 
-| Fase | Nome | Itens | Esforço |
-|------|------|-------|---------|
-| 1 | 🎨 Consistência Visual | Eliminar inline styles, `!important`, estados vazios | ~9h |
-| 2 | ♿ Acessibilidade | Focus ring, labels, ErrorBoundary | ~3h |
-| 3 | 📱 Mobile First | Conflito floating elements, touch targets | ~5.5h |
-| 4 | 🖥️ Desktop | Sidebar persistência, KPI spacing | ~1.75h |
-| 5 | ⚡ Performance | Theme transition, re-renders, deps | ~5.5h |
-| 6 | 🧩 Resiliência | Feedback de erro offline, EmptyState, skeletons | ~3h |
-| 7 | 🌗 Temas | Contraste midnight, transição otimizada | ~1h |
+- Padding horizontal: `px-3 sm:px-6 lg:px-6 lg:xl:px-8` (mesmo do content wrapper em Layout.tsx)
+- Gap após TopBar: `mb-5` (match `space-y-5` dos cards)
+- Cantos arredondados: `rounded-2xl` (16px, igual cards)
+- **Corrigido:** Antes usava `px-[1.75rem] sm:px-10 lg:px-12` (soma incorreta com padding interno das páginas)
+
+### 4.2 ✅ Notificações unificadas
+
+- `NotificationsOverlay` substitui 3 UIs diferentes (mobile modal, desktop dropdown, desktop card)
+- Mesmo padrão do SearchOverlay: backdrop blur + `max-w-xl` centrado + animação spring do topo
+- Bell button com estado local unificado (sem distinção mobile/desktop)
+
+### 4.3 ✅ 3 botões de ação removidos do Dashboard
+
+- **Removidos:** "Revisar Assinaturas", "Desafios de Economia", "Limites por Categoria"
+- Substituídos por placeholder para cards contextuais
+- Imports `Percent` e `ACTION_GRID` limpos
+
+### 4.4 ✅ Label "base" removido do LimitsControl
+
+- O texto "base {valor}" não aparece mais nos pills de categorias
+- O valor base continua visível apenas no modal de detalhamento
+
+### 4.5 ✅ FloatingCalculator — Extração (3 utils + 2 hooks)
+
+- `calculatorExpression.ts`, `calculatorGeometry.ts`, `calculatorDom.ts`
+- `useCalculatorKeyboard.ts`, `useCalculatorPanel.ts`
+- **Impacto:** -462 linhas no FloatingCalculator.tsx
+
+### 4.6 ✅ Reports.tsx — Extração (-843 linhas)
+
+- `reportAggregation.ts`, `reportCustomData.ts`
+- `ReportPendingDebtsWidget.tsx`, `ReportUnifiedCompositionCard.tsx`
+
+### 4.7 ✅ Contas.tsx — Extração (-377 linhas)
+
+- `useContasBills.ts`, `useContasModals.ts`
+
+### 4.8 ✅ FloatingActionHub Extraído (-470 linhas)
+
+- `useScrollToTop.ts`, `haptics.ts`
+
+### 4.9 ✅ Correções de Bugs
+
+| # | Correção | Severidade |
+|---|----------|------------|
+| 1 | **Loop infinito no useSupabaseTable** — configRef pattern | 🔴 Crítica |
+| 2 | **CSS spacing bug** — `h - 2 w - 2` em Settings.tsx | 🔴 Visual |
+| 3 | **CSS spacing bug** — `rounded - lg border p - 3` em Settings.tsx | 🔴 Visual |
+| 4 | **Overflow DECIMAL(15,2)** — Migration DECIMAL(18,2) | 🔴 Crash |
+| 5 | **Select.Item value=""** — sentinel value `__empty__` | 🔴 Erro |
+| 6 | **InfoTooltip z-index/overflow clipping** — Reescrevido com portal | 🔴 Visual |
+| 7 | **PageActionButtonHub hover** — Padronizado com nav sidebar | 🔴 Visual |
+| 8 | **Inline styles → classes** — ~30 migrados em ReportCharts + TransactionCard | 🟡 |
 
 ---
 
 ## 5. 📋 Novos Arquivos Criados
 
+### Sessão atual (Julho 2026)
+
 | Arquivo | Linhas | Propósito |
 |---------|--------|-----------|
-| `src/utils/calculatorExpression.ts` | ~80 | Funções de expressão matemática |
-| `src/utils/calculatorGeometry.ts` | ~100 | Funções de geometria do painel |
-| `src/utils/calculatorDom.ts` | ~60 | Utilitários DOM |
-| `src/utils/reportAggregation.ts` | ~250 | Funções de agregação de relatórios |
-| `src/utils/reportCustomData.ts` | ~671 | Funções de período customizado |
-| `src/utils/checkDbRates.test.ts` | ~59 | Teste de taxas CDI/SELIC no banco |
-| `src/utils/haptics.ts` | ~25 | Função multi-stage de vibração haptic |
-| `src/components/reports/ReportPendingDebtsWidget.tsx` | ~60 | Widget de pendências |
-| `src/components/reports/ReportUnifiedCompositionCard.tsx` | ~120 | Card de composição detalhada |
-| `src/hooks/useCalculatorKeyboard.ts` | ~95 | Hook de atalhos de teclado |
-| `src/hooks/useCalculatorPanel.ts` | ~216 | Hook de drag/resize do painel |
-| `src/hooks/useContasBills.ts` | ~264 | Hook de faturas e despesas por cartão |
-| `src/hooks/useContasModals.ts` | ~551 | Hook de estado de modais Contas |
-| `src/hooks/useScrollToTop.ts` | ~220 | Hook de scroll-to-top com pull gesture |
+| `src/utils/expenseDeletion.ts` | ~90 | Lógica de exclusão de despesas |
+| `src/utils/creditCardCompetence.ts` | ~70 | Competência de fatura de cartão |
+| `src/hooks/useDashboardPortfolio.ts` | ~55 | Hook de carregamento de portfólio |
+| `src/hooks/useDashboardData.ts` | ~290 | Hook de agregação de dados + tipos |
+| `src/hooks/useDashboardAI.tsx` | ~530 | Hook do Copiloto de IA |
+| `src/components/dashboard/BudgetHeroCard.tsx` | ~65 | Card herói de gasto disponível |
+| `src/components/dashboard/ProjectionCard.tsx` | ~105 | Card de projeção de fim do mês |
+
+### Sessão anterior (Junho 2026)
+
+| Arquivo | Linhas | Propósito |
+|---------|--------|-----------|
+| `calculatorExpression.ts`, `calculatorGeometry.ts`, `calculatorDom.ts` | ~240 | Utilitários da calculadora |
+| `reportAggregation.ts`, `reportCustomData.ts` | ~921 | Utilitários de relatórios |
+| `checkDbRates.test.ts` | ~59 | Teste de taxas |
+| `haptics.ts` | ~25 | Vibração haptic |
+| `ReportPendingDebtsWidget.tsx`, `ReportUnifiedCompositionCard.tsx` | ~180 | Componentes de relatórios |
+| `useCalculatorKeyboard.ts`, `useCalculatorPanel.ts` | ~311 | Hooks da calculadora |
+| `useContasBills.ts`, `useContasModals.ts` | ~815 | Hooks de contas |
+| `useScrollToTop.ts` | ~220 | Hook de scroll-to-top |
 
 ---
 
@@ -231,7 +194,7 @@ Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.m
 
 ```bash
 npx tsc --noEmit           # 0 erros
-npx vitest run             # 290 testes passando
+npx vitest run             # 290+ testes passando
 npm run guardrails:ui      # 0 violações (ou baseline atualizada)
 npm run build              # Build OK
 ```
@@ -247,7 +210,7 @@ npm run build              # Build OK
 | Guia Completo | `docs/COMPLETE_GUIDE.md` | Stack, páginas, setup |
 | Auditoria | `docs/AUDITORIA_REVISAO.md` | Diagnóstico técnico completo |
 | Refatoração | `docs/REFACTORING_PLAN.md` | Plano de refatoração anterior |
-| Refinamento UI/UX | `docs/REFINEMENT_PLAN.md` | Plano de refinamento visual e acessibilidade |
+| Refinamento UI/UX | `docs/REFINEMENT_PLAN.md` | Plano de refinamento visual |
 | Importação B3 | `docs/REIMPORT_INVESTMENTS.md` | Guia de reimportação de extrato |
 
 ---

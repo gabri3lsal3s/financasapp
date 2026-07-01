@@ -2,24 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import { SkeletonDashboard } from '@/components/Skeleton'
-import { useExpenses } from '@/hooks/useExpenses'
-import { useIncomes } from '@/hooks/useIncomes'
 import { useNavigate } from 'react-router-dom'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
-import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Percent, Sparkles, Send, Pin, RefreshCw, Bot, Calendar, AlertTriangle, Check, CheckCircle2 } from 'lucide-react'
+import { formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles, Send, Pin, RefreshCw, Bot, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   CARD_PADDING,
   CARD_PADDING_LARGE,
   CARD_PADDING_XL,
   CARD_BASE,
-  ACTION_GRID,
   PAGE_ENTER_ANIMATION,
   CONTENT_PADDING,
 } from '@/constants/layout'
@@ -28,18 +24,16 @@ import { askGemini } from '@/services/geminiService'
 import { BeautifulMarkdown } from '@/components/dashboard/BeautifulMarkdown'
 import { InteractiveAIChart } from '@/components/dashboard/InteractiveAIChart'
 import Button from '@/components/Button'
+import BudgetHeroCard from '@/components/dashboard/BudgetHeroCard'
+import ProjectionCard from '@/components/dashboard/ProjectionCard'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { supabase } from '@/lib/supabase'
-import type { PortfolioTransaction } from '@/types'
-import {
-  portfolioInvestmentByDay,
-  sumPortfolioTransactionsForMonth,
-} from '@/utils/portfolioMonthlyFlow'
-import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
+import { portfolioInvestmentByDay, sumPortfolioTransactionsForMonth } from '@/utils/portfolioMonthlyFlow'
+import { useDashboardPortfolio } from '@/hooks/useDashboardPortfolio'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
@@ -47,6 +41,10 @@ import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 import LimitsControl from '@/components/dashboard/LimitsControl'
 import TransactionRow from '@/components/TransactionRow'
+import { useExpenses } from '@/hooks/useExpenses'
+import { useIncomes } from '@/hooks/useIncomes'
+import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
+import { addMonths } from '@/utils/format'
 import { logger } from '@/utils/logger'
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
@@ -60,45 +58,12 @@ export default function Dashboard() {
   const [hiddenDailyFlowSeries, setHiddenDailyFlowSeries] = useState<string[]>([])
   const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<{ id: string; name: string } | null>(null)
 
-  // Alerts and notifications are handled globally via NotificationsContext
-
-  const [portfolioId, setPortfolioId] = useState('')
-  const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([])
-
-  const loadPortfolioTransactions = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      let { data: portfolio } = await supabase
-        .from('portfolios')
-        .select('id')
-        .eq('client_id', user.id)
-        .maybeSingle()
-
-      if (!portfolio) {
-        const { data: newPort, error: createError } = await supabase
-          .from('portfolios')
-          .insert({ client_id: user.id, cash_balance: 0 })
-          .select('id')
-          .single()
-
-        if (createError) throw createError
-        portfolio = newPort
-      }
-
-      setPortfolioId(portfolio.id)
-
-      const transactions = await fetchAllPortfolioTransactions(portfolio.id, {
-        select: 'id, portfolio_id, ticker, operation_type, quantity, price, date, created_at'
-      })
-      setPortfolioTransactions(transactions)
-    } catch (err) {
-      logger.error('Erro ao carregar livro-razão no dashboard:', err)
-      setPortfolioId('')
-      setPortfolioTransactions([])
-    }
-  }, [])
+  // Portfolio data via extracted hook
+  const {
+    portfolioId,
+    portfolioTransactions,
+    loadPortfolioTransactions,
+  } = useDashboardPortfolio()
 
 
 
@@ -1289,9 +1254,6 @@ export default function Dashboard() {
 
     if (isOnline) {
       void loadPortfolioTransactions()
-    } else {
-      setPortfolioId('')
-      setPortfolioTransactions([])
     }
 
     window.addEventListener('local-data-changed', onDataChanged)
@@ -1353,160 +1315,11 @@ export default function Dashboard() {
               <div className="space-y-5">
 
                 {/* ── SEÇÃO 2: Card Herói - Gasto Disponível ── */}
-                <Card className={cn(
-                  CARD_BASE,
-                  CARD_PADDING_LARGE,                    "relative overflow-hidden transition-all duration-300",
-                    spendingCalcs.monthlyAvailable < 0 && "border-expense/30 bg-expense/[0.04]"
-                  )}>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">
-                        Diário Sugerido
-                      </span>
-                      <h2 className={cn(
-                        "text-3xl font-extrabold font-mono tracking-tight leading-none mt-1",
-                        spendingCalcs.monthlyAvailable < 0 ? "text-expense" : "text-primary"
-                      )}>
-                        {formatCurrency(spendingCalcs.dailyAvailable)}
-                        <span className="text-xs font-normal text-secondary ml-1">/ dia</span>
-                      </h2>
-                    </div>
-
-                    <div className="flex items-center gap-6 sm:border-l border-glass/30 sm:pl-6">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
-                          Mensal Livre
-                        </span>
-                        <p className={cn(
-                          "text-lg font-bold font-mono leading-none",
-                          spendingCalcs.monthlyAvailable < 0 ? "text-expense" : "text-income"
-                        )}>
-                          {formatCurrency(spendingCalcs.monthlyAvailable)}
-                        </p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">
-                          Status
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {spendingCalcs.monthlyAvailable < 0 ? (
-                            <span className="text-[10px] font-bold text-expense bg-expense/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <AlertTriangle size={10} />
-                              Orçamento ultrapassado
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-income bg-income/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Check size={10} />
-                              Sob controle
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <BudgetHeroCard spendingCalcs={spendingCalcs} />
 
                 {/* ── SEÇÃO: Projeção de Fim do Mês ── */}
                 {spendingProjection && (
-                  <Card className={cn(
-                    CARD_BASE,
-                    CARD_PADDING_LARGE,
-                    "relative overflow-hidden transition-all duration-300",
-                    !spendingProjection.onTrack && "border-expense/20 bg-expense/[0.02]"
-                  )}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-secondary flex items-center gap-1.5">
-                          <Calendar size={12} />
-                          Projeção para o Fim do Mês
-                        </span>
-                        <h2 className={cn(
-                          "text-2xl font-extrabold font-mono tracking-tight leading-none mt-1.5",
-                          spendingProjection.onTrack ? "text-income" : "text-expense"
-                        )}>
-                          {formatCurrency(spendingProjection.projectedSurplus)}
-                          <span className="text-xs font-normal text-secondary ml-1.5">
-                            {spendingProjection.onTrack ? 'de superávit' : 'de déficit'}
-                          </span>
-                        </h2>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-4 sm:border-l border-glass/30 sm:pl-6">
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-semibold uppercase tracking-wider text-secondary">
-                            Ritmo Diário
-                          </span>
-                          <p className="text-sm font-bold font-mono leading-none text-primary">
-                            {formatCurrency(spendingProjection.dailyBurnRate)}<span className="text-[9px] font-normal text-secondary ml-0.5">/dia</span>
-                          </p>
-                        </div>
-
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-semibold uppercase tracking-wider text-secondary">
-                            Projetado
-                          </span>
-                          <p className="text-sm font-bold font-mono leading-none text-primary">
-                            {formatCurrency(spendingProjection.projectedEndOfMonthExpenses)}
-                          </p>
-                        </div>
-
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-semibold uppercase tracking-wider text-secondary">
-                            Dia
-                          </span>
-                          <p className="text-sm font-bold font-mono leading-none text-primary">
-                            {spendingProjection.currentDay}<span className="text-[9px] font-normal text-secondary ml-0.5">/{spendingProjection.daysInMonth}</span>
-                          </p>
-                        </div>
-
-                        <div>
-                          {spendingProjection.onTrack ? (
-                            <span className="text-[9px] font-bold text-income bg-income/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Check size={10} />
-                              No rumo
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-expense bg-expense/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <AlertTriangle size={10} />
-                              Atenção
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mini termômetro projetivo */}
-                    {totalIncomes > 0 && (
-                      <div className="mt-4 pt-3 border-t border-glass/30">
-                        <div className="flex items-center justify-between text-[9px] font-medium text-secondary mb-1.5">
-                          <span>Orçamento utilizado (projetado)</span>
-                          <span className={cn(
-                            "font-bold font-mono",
-                            (spendingProjection.projectedEndOfMonthExpenses / totalIncomes) * 100 >= 85 ? "text-expense" : "text-primary"
-                          )}>
-                            {formatNumberWithTwoDecimalsBR((spendingProjection.projectedEndOfMonthExpenses / totalIncomes) * 100)}%
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full bg-secondary/10 overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all duration-500",
-                              (spendingProjection.projectedEndOfMonthExpenses / totalIncomes) * 100 >= 85 ? "bg-expense" :
-                              (spendingProjection.projectedEndOfMonthExpenses / totalIncomes) * 100 >= 70 ? "bg-warning" : "bg-income"
-                            )}
-                            style={{ width: `${Math.min(100, (spendingProjection.projectedEndOfMonthExpenses / totalIncomes) * 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-[9px] text-secondary mt-1.5 leading-relaxed">
-                          {spendingProjection.onTrack
-                            ? `Se mantiver o ritmo atual de ${formatCurrency(spendingProjection.dailyBurnRate)}/dia, você terminará o mês com saldo positivo de ${formatCurrency(spendingProjection.projectedSurplus)}.`
-                            : `No ritmo atual de ${formatCurrency(spendingProjection.dailyBurnRate)}/dia, você pode terminar o mês com déficit de ${formatCurrency(Math.abs(spendingProjection.projectedSurplus))}. Reveja os gastos nas categorias com maior peso.`
-                          }
-                        </p>
-                      </div>
-                    )}
-                  </Card>
+                  <ProjectionCard projection={spendingProjection} totalIncomes={totalIncomes} />
                 )}
 
                 {/* ── SEÇÃO 3: Resumo do Mês (Termômetro) ── */}
@@ -1780,55 +1593,9 @@ export default function Dashboard() {
                     )}
                   </Card>
 
-                  {/* ── SEÇÃO: Ações de Otimização Financeira ── */}
-                  <div className={cn(ACTION_GRID)}>
-                    <button
-                      onClick={() => handleSendChat(undefined, "Quais são as minhas assinaturas e despesas recorrentes identificadas neste mês e como posso economizá-las?")}
-                      disabled={isAiTyping}
-                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-glass surface-glass text-center hover:border-glass-strong hover:bg-secondary/5 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-2">
-                        <RefreshCw size={16} />
-                      </div>
-                      <span className="text-[10px] font-bold text-primary leading-tight">
-                        Revisar Assinaturas
-                      </span>
-                      <span className="text-[8px] text-secondary mt-0.5">
-                        Recorrências
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => handleSendChat(undefined, "Me sugira 3 desafios práticos de economia baseados no meu histórico de gastos recente.")}
-                      disabled={isAiTyping}
-                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-glass surface-glass text-center hover:border-glass-strong hover:bg-secondary/5 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-income/10 flex items-center justify-center text-income mb-2">
-                        <PiggyBank size={16} />
-                      </div>
-                      <span className="text-[10px] font-bold text-primary leading-tight">
-                        Desafios de Economia
-                      </span>
-                      <span className="text-[8px] text-secondary mt-0.5">
-                        Metas Ativas
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => navigate('/categorias')}
-                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-glass surface-glass text-center hover:border-glass-strong hover:bg-secondary/5 transition-all cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning mb-2">
-                        <Percent size={16} />
-                      </div>
-                      <span className="text-[10px] font-bold text-primary leading-tight">
-                        Limites por Categoria
-                      </span>
-                      <span className="text-[8px] text-secondary mt-0.5">
-                        Definir Metas
-                      </span>
-                    </button>
-                  </div>
+                  {/* ── SEÇÃO: SmartLimitSuggestions (cards contextuais) ── */}
+                  {/* Placeholder para novos cards contextuais que aparecem conforme o mês avança */}
+                  {/* Sugestões detalhadas na documentação docs/NEXT_STEPS.md */}
 
                   {/* Pinned AI Analysis (Dashed border) shown separately when not active query */}
                   {pinnedAnalysis && pinnedAnalysis.queryText !== activeQueryText && (

@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Junho de 2026 — Refatoração completa + Sistema de z-index unificado + Motor Quantamental de Portfólio.
+> **Última atualização:** Julho de 2026 — TopBar padronizado, notificações unificadas, cards de ação removidos, labels de 'base' limpos.
 
 ---
 

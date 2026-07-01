@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import NotificationsWidget from '@/components/NotificationsWidget'
 import { Z_INDEX } from '@/constants/zIndex'
 import { useScrollToTop } from '@/hooks/useScrollToTop'
 
@@ -11,10 +10,9 @@ import { useScrollToTop } from '@/hooks/useScrollToTop'
  *
  * Centraliza em um único componente:
  * - ScrollToTop: botão de voltar ao topo (antes importado em cada página)
- * - NotificationsWidget: sino de notificações desktop
  *
- * A calculadora flutuante (FloatingCalculator) e o MobileAlertsPill
- * permanecem independentes por questões de complexidade e UX mobile.
+ * O gerenciamento de notificações foi migrado para o NotificationsOverlay
+ * dentro do AppTopBar, com comportamento unificado mobile + desktop.
  */
 function ScrollToTopButton() {
   const {
@@ -190,7 +188,6 @@ export default function FloatingActionHub() {
   return createPortal(
     <>
       <ScrollToTopButton />
-      <NotificationsWidget />
     </>,
     document.body
   )

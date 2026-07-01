@@ -272,7 +272,7 @@ function LayoutInner({ children }: LayoutProps) {
             </SheetContent>
           </Sheet>
 
-          <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around shadow-lg px-2 ${hasPageActions ? 'has-page-actions' : ''} ${isSettingsPage ? 'no-transition' : ''}`}>
+          <nav className={`glass-bottom-nav fixed bottom-0 inset-x-0 ${Z_INDEX.NAVIGATION} safe-area-bottom flex items-center justify-around px-2 ${hasPageActions ? 'has-page-actions' : ''} ${isSettingsPage ? 'no-transition' : ''}`}>
             {/* Home Tab */}
             <Link to="/" className={mobileTabClass(location.pathname === '/')}>
               <Home size={18} aria-hidden />

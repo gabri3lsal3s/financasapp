@@ -1,11 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Expense, Category, CreditCard, Debt } from '@/types'
+import { Expense, Category, CreditCard } from '@/types'
 import { format } from 'date-fns'
-import { buildInstallmentDates, fetchCardClosingDayContext, generateInstallmentPayloads } from '@/utils/expenseInstallments'
+import { buildInstallmentDates, generateInstallmentPayloads } from '@/utils/expenseInstallments'
+import { fetchClosingDayForCard } from '@/utils/creditCardCompetence'
+import {
+  resolveExpenseIdsToDelete,
+  fetchGroupExpenseIdsFromDb,
+  deletePendingDebtsForExpenses,
+  enqueueOfflineExpenseDeletion,
+  handleDeleteError,
+} from '@/utils/expenseDeletion'
 import { resolveBillCompetence } from '@/utils/creditCardBilling'
 import { getCache, setCache, clearCacheByKeyPrefix } from '@/services/offlineCache'
-import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload, removeOfflineCreateOperation } from '@/utils/offlineQueue'
+import { shouldQueueOffline, enqueueOfflineOperation, updateOfflineCreatePayload } from '@/utils/offlineQueue'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_START_DATE } from '@/utils/format'
@@ -164,7 +172,7 @@ export function useExpenses(month?: string) {
         const startDate = expense.date || format(new Date(), 'yyyy-MM-dd')
         const installmentDates = buildInstallmentDates(startDate, installments)
         const competences = installmentDates.map((dateValue) => dateValue.substring(0, 7))
-        const closingDayContext = await fetchCardClosingDayContext(expense.credit_card_id, competences)
+        const closingDayContext = await fetchClosingDayForCard(expense.credit_card_id, competences)
 
         resolveClosingDayForDate = (expenseDate: string) => {
           const competence = expenseDate.substring(0, 7)
@@ -290,13 +298,11 @@ export function useExpenses(month?: string) {
           : existingExpense?.credit_card_id) || null
 
       if (effectivePaymentMethod === 'credit_card' && effectiveCreditCardId && effectiveDate) {
-        // Se a competência for fornecida explicitamente (update manual), preserva ela.
-        // Caso contrário, recalcula apenas se a data ou cartão mudarem e não houver bill_competence explícita no payload.
         let finalCompetence = updatePayload.bill_competence
 
         if (finalCompetence === undefined) {
           const competence = effectiveDate.substring(0, 7)
-          const closingDayContext = await fetchCardClosingDayContext(effectiveCreditCardId, [competence])
+          const closingDayContext = await fetchClosingDayForCard(effectiveCreditCardId, [competence])
           finalCompetence = resolveBillCompetence(effectiveDate, (c) => closingDayContext.closingDayByCompetence[c] || closingDayContext.defaultClosingDay)
         }
 
@@ -359,29 +365,15 @@ export function useExpenses(month?: string) {
     const targetGroupId = target?.installment_group_id
     const targetInstallmentNumber = target?.installment_number
 
-    let idsToDelete: string[] = []
-
     try {
       if (!isOnline) {
         throw new Error('Offline (bypass)')
       }
 
+      let idsToDelete: string[] = []
+
       if (mode !== 'single' && targetGroupId) {
-        let query = supabase
-          .from('expenses')
-          .select('id, installment_number, installment_group_id')
-          .eq('installment_group_id', targetGroupId)
-
-        if (mode === 'subsequent' && targetInstallmentNumber !== null && targetInstallmentNumber !== undefined) {
-          query = query.gte('installment_number', targetInstallmentNumber)
-        }
-
-        const { data: dbExpenses, error: dbError } = await query
-        if (dbError) throw dbError
-
-        if (dbExpenses && dbExpenses.length > 0) {
-          idsToDelete = dbExpenses.map((exp) => exp.id)
-        }
+        idsToDelete = await fetchGroupExpenseIdsFromDb(targetGroupId, mode, targetInstallmentNumber)
       } else if (target) {
         idsToDelete = [target.id]
       }
@@ -395,20 +387,8 @@ export function useExpenses(month?: string) {
         throw new Error('Offline ID (bypass supabase)')
       }
 
-      // Delete associated pending debts in Supabase
-      await supabase
-        .from('debts')
-        .delete()
-        .in('expense_id', idsToDelete)
-        .eq('status', 'pending')
-
-      // Update local debts cache
-      const debtsCache = await getCache<Debt[]>('debts-all')
-      if (debtsCache) {
-        const nextDebts = debtsCache.filter((d) => !(d.expense_id && idsToDelete.includes(d.expense_id) && d.status === 'pending'))
-        await setCache('debts-all', nextDebts)
-        window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
-      }
+      // Delete associated pending debts
+      await deletePendingDebtsForExpenses(idsToDelete)
 
       const { error: deleteError } = await supabase
         .from('expenses')
@@ -425,52 +405,13 @@ export function useExpenses(month?: string) {
       return { error: null }
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        let toDeleteOffline: Expense[] = []
-        if (mode === 'all' && targetGroupId) {
-          toDeleteOffline = expenses.filter((exp) => exp.installment_group_id === targetGroupId)
-        } else if (mode === 'subsequent' && targetGroupId && targetInstallmentNumber !== null && targetInstallmentNumber !== undefined) {
-          toDeleteOffline = expenses.filter((exp) => exp.installment_group_id === targetGroupId && (exp.installment_number ?? 1) >= targetInstallmentNumber)
-        } else if (target) {
-          toDeleteOffline = [target]
-        }
+        const offlineIdsToDelete = resolveExpenseIdsToDelete(expenses, id, mode)
 
-        if (toDeleteOffline.length === 0) {
+        if (offlineIdsToDelete.length === 0) {
           return { error: null }
         }
 
-        const offlineIdsToDelete = toDeleteOffline.map((exp) => exp.id)
-
-        for (const exp of toDeleteOffline) {
-          if (exp.id.startsWith('offline-')) {
-            removeOfflineCreateOperation(exp.id)
-          } else {
-            enqueueOfflineOperation({
-              entity: 'expenses',
-              action: 'delete',
-              recordId: exp.id,
-            })
-          }
-        }
-
-        // Enqueue delete operation for associated pending debts offline
-        const debtsCache = await getCache<Debt[]>('debts-all')
-        if (debtsCache) {
-          const linkedPendingDebts = debtsCache.filter((d) => d.expense_id && offlineIdsToDelete.includes(d.expense_id) && d.status === 'pending')
-          for (const debt of linkedPendingDebts) {
-            if (!debt.id.startsWith('offline-')) {
-              enqueueOfflineOperation({
-                entity: 'debts',
-                action: 'delete',
-                recordId: debt.id,
-              })
-            } else {
-              removeOfflineCreateOperation(debt.id)
-            }
-          }
-          const nextDebts = debtsCache.filter((d) => !(d.expense_id && offlineIdsToDelete.includes(d.expense_id) && d.status === 'pending'))
-          await setCache('debts-all', nextDebts)
-          window.dispatchEvent(new CustomEvent('local-data-changed', { detail: { entity: 'debts' } }))
-        }
+        await enqueueOfflineExpenseDeletion(expenses, offlineIdsToDelete)
 
         const nextState = expenses.filter((exp) => !offlineIdsToDelete.includes(exp.id))
         setExpenses(nextState)
@@ -479,8 +420,7 @@ export function useExpenses(month?: string) {
         return { error: null }
       }
 
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar despesa'
-      return { error: errorMessage }
+      return { error: handleDeleteError(err) }
     }
   }
 

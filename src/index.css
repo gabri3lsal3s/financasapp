@@ -1685,11 +1685,9 @@ nav.glass-bottom-nav {
   background-color: var(--glass-surface-strong) !important;
   backdrop-filter: blur(var(--glass-blur-strong)) !important;
   -webkit-backdrop-filter: blur(var(--glass-blur-strong)) !important;
-  /* sombra difusa + highlight interno de glass */
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    var(--glass-shadow-panel),
+    var(--glass-inset-highlight) !important;
   padding-bottom: 0 !important;
   /* Transição suave ao expandir/comprimir quando o hub FAB aparece ou desaparece */
   transition: right 340ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
