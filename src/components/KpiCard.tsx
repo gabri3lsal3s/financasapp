@@ -40,7 +40,6 @@ export default function KpiCard({
   subtext,
   icon,
   glowColor = 'var(--color-primary)',
-  showGlow = false,
   sparklineData,
   compareSparklineData,
   trendPercent,
@@ -65,21 +64,13 @@ export default function KpiCard({
   return (
     <Card
       className={cn(
-        'h-full relative overflow-hidden flex flex-col !p-3 sm:!p-5 border border-glass surface-glass transition-all hover:scale-[1.015] hover:border-glass-strong hover:shadow-md group animate-stagger-item',
+        'h-full relative overflow-hidden flex flex-col !p-3 sm:!p-5 border border-glass surface-glass transition-all hover:border-glass-strong hover:shadow-md',
         delayClass,
         className
       )}
       style={style}
       onClick={onClick}
     >
-      {/* Glow halo (Only visible when showGlow is true) */}
-      {showGlow && (
-        <div
-          className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08] group-hover:opacity-[0.14] transition-opacity duration-300"
-          style={{ backgroundColor: glowColor }}
-        />
-      )}
-
       <div className="flex items-start justify-between gap-3 w-full">
         <div className="min-w-0 flex-1 pr-8 sm:pr-0 text-left">
           <p className="text-[9px] xs:text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight whitespace-normal sm:truncate">
@@ -100,11 +91,10 @@ export default function KpiCard({
         </div>
 
         <span
-          className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+          className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{
             backgroundColor: `${glowColor}15`,
             color: glowColor,
-            boxShadow: `0 0 8px ${glowColor}0a`
           }}
         >
           {icon}

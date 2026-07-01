@@ -25,7 +25,7 @@ const Card = React.forwardRef<
       className={cn(
         'rounded-2xl border border-glass surface-glass text-card-foreground shadow-sm motion-standard',
         onClick
-          ? 'cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] hover:scale-[1.015]'
+          ? 'cursor-pointer motion-standard press-subtle focus:outline-none hover:scale-[1.015]'
           : '',
         className
       )}

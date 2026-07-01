@@ -196,7 +196,6 @@ function LayoutInner({ children }: LayoutProps) {
       <FloatingActionHub />
       <PageActionButtonHub />
       <FloatingSideStack />
-      <div className="app-shell-glow" aria-hidden="true" />
       <div className={`relative ${Z_INDEX.CONTENT}`}>
         
         {/* Elementos mobile fixos (Sheet e Nav) que não entram no fluxo de grid */}
@@ -345,7 +344,7 @@ function LayoutInner({ children }: LayoutProps) {
                   })
                 }}
                 aria-label={isDesktopMenuExpanded ? 'Recolher menu lateral' : 'Expandir menu lateral'}
-                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+                className="p-2 rounded-lg text-primary hover:bg-tertiary motion-standard hover-lift-subtle press-subtle focus:outline-none"
               >
                 {isDesktopMenuExpanded ? <X size={20} className="nav-chrome-icon" /> : <Menu size={20} className="nav-chrome-icon" />}
               </button>

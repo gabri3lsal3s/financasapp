@@ -155,7 +155,7 @@ export default function Incomes() {
               }}
             />
           ) : (
-            <div className="flex flex-wrap gap-3 lg:gap-4">
+            <div className="flex flex-col gap-3 lg:gap-4">
               {incomes.map((income, index) => {
                  const category = incomeCategories.find((c) => c.id === income.income_category_id)
                 const categoryColor = category?.color

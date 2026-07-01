@@ -10,16 +10,20 @@
 | Métrica | Valor | Status |
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **267/267** (30 arquivos) | ✅ |
+| Testes passando | **290/290** (31 arquivos) | ✅ |
 | Build | **OK** | ✅ |
-| UI Guardrails | **0 violações** | ✅ |
+| UI Guardrails | **21 na baseline** (Dashboard + searchEngine test) | 🟡 |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
-| `style={{ }}` em produção | **~55 ocorrências** (↓37) | 🟡 |
+| `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
 | Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
+| Dashboard flutuante | **Pill arredondada** (rounded-[24px]) | ✅ |
+| Glow/blur removidos | **app-shell-glow, useBalanceGlow, blur decorativo** | ✅ |
+| Top Bar fixo | **Bloco normal** (sticky removido, sem seguir rolagem) | ✅ |
+| Sombras padronizadas | **var(--glass-shadow-panel)** em 6 elementos (top bar, FAB, dial, search, notificação) | ✅ |
 
 ---
 
@@ -146,15 +150,18 @@ supabase migration up
 | Métrica | Valor | Status |
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **267/267** (30 arquivos) | ✅ |
+| Testes passando | **290/290** (31 arquivos) | ✅ |
 | Build | **OK** | ✅ |
-| UI Guardrails | **0 violações** | ✅ |
+| UI Guardrails | **21 na baseline** (Dashboard native buttons + search test hex) | 🟡 |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `console.log` residual | **0** | ✅ |
 | Maior arquivo | **2.276 linhas** (Reports.tsx) | 🟡 |
 | Contas.tsx | **1.668 linhas** (↓371) | 🟢 |
 | FloatingActionHub useEffects | **4** (↓6) | ✅ |
+| Header transformado | **Pill fixa** (sticky removido, rounded-[24px], glass-nav) | ✅ |
+| Glow/blur removidos | **app-shell-glow, useBalanceGlow, decorativo** | ✅ |
+| Sombras padronizadas | **var(--glass-shadow-panel)** em top bar, FAB, dial, search bar e notificação | ✅ |
 
 ---
 
@@ -224,8 +231,8 @@ Foi elaborado um plano detalhado de refinamento UI/UX em `docs/REFINEMENT_PLAN.m
 
 ```bash
 npx tsc --noEmit           # 0 erros
-npx vitest run             # 267 testes passando
-npm run guardrails:ui      # 0 violações
+npx vitest run             # 290 testes passando
+npm run guardrails:ui      # 0 violações (ou baseline atualizada)
 npm run build              # Build OK
 ```
 

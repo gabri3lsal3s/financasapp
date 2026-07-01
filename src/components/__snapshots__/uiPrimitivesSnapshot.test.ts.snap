@@ -5,32 +5,32 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
   class="space-y-2"
 >
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] hover:opacity-90 h-10 px-4 py-2 min-h-10"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-[var(--ds-color-accent-primary)]/25 bg-[var(--ds-color-accent-primary)] text-[var(--ds-color-button-text)] hover:opacity-90 h-10 px-4 py-2 min-h-10"
   >
     Primário
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-primary hover:bg-accent hover:text-primary h-10 px-4 py-2 min-h-10"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-primary hover:bg-accent hover:text-primary h-10 px-4 py-2 min-h-10"
   >
     Outline
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-destructive/25 bg-destructive text-destructive-foreground hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
     Danger
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-income hover:bg-income/10 hover:text-income h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-income hover:bg-income/10 hover:text-income h-9 rounded-lg px-3 min-h-9"
   >
     Renda
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-glass bg-transparent text-expense hover:bg-expense/10 hover:text-expense h-9 rounded-lg px-3 min-h-9"
   >
     Despesa
   </button>
   <button
-    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-income/25 bg-income text-[var(--color-success-foreground)] hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
+    class="inline-flex items-center justify-center gap-2 whitespace-nowrap border text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border-income/25 bg-income text-[var(--color-success-foreground)] hover:opacity-90 h-9 rounded-lg px-3 min-h-9"
   >
     Sucesso
   </button>
@@ -39,7 +39,7 @@ exports[`UI primitives snapshots > Button variants render consistently 1`] = `
 
 exports[`UI primitives snapshots > Card renders clickable state consistently 1`] = `
 <div
-  class="rounded-2xl border border-glass surface-glass text-card-foreground shadow-sm motion-standard cursor-pointer motion-standard press-subtle focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)] hover:scale-[1.015] p-4 transition-all duration-300 hover:border-glass-strong hover:shadow-md"
+  class="rounded-2xl border border-glass surface-glass text-card-foreground shadow-sm motion-standard cursor-pointer motion-standard press-subtle focus:outline-none hover:scale-[1.015] p-4 transition-all duration-300 hover:border-glass-strong hover:shadow-md"
   role="button"
   tabindex="0"
 >
@@ -101,7 +101,7 @@ exports[`UI primitives snapshots > ConfirmModal hybrid layout renders consistent
         </h2>
         <button
           aria-label="Fechar"
-          class="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+          class="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none"
           type="button"
         >
           <svg
@@ -153,7 +153,7 @@ exports[`UI primitives snapshots > ConfirmModal hybrid layout renders consistent
         >
           <button
             aria-label="Confirmar exclusão"
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 py-2 min-h-10 px-3 flex-shrink-0"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 py-2 min-h-10 px-3 flex-shrink-0"
             title="Confirmar exclusão"
             type="button"
           >
@@ -238,7 +238,7 @@ exports[`UI primitives snapshots > Input renders label and error state consisten
     class="relative"
   >
     <input
-      class="flex h-10 w-full rounded-xl border glass-input px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all motion-standard border-destructive"
+      class="flex h-10 w-full rounded-xl border glass-input px-3 py-2 text-sm text-primary ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 transition-all motion-standard border-destructive"
       id=":r0:"
       value="1.000,00"
     />
@@ -303,7 +303,7 @@ exports[`UI primitives snapshots > Modal open state renders consistently 1`] = `
         </h2>
         <button
           aria-label="Fechar"
-          class="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+          class="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none"
           type="button"
         >
           <svg
@@ -469,7 +469,7 @@ exports[`UI primitives snapshots > ModalFooter renders with delete action consis
   >
     <button
       aria-label="Excluir item"
-      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 py-2 min-h-10 px-3 flex-shrink-0"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-expense hover:bg-expense/10 hover:text-expense h-10 py-2 min-h-10 px-3 flex-shrink-0"
       title="Excluir item"
       type="button"
     >
@@ -510,7 +510,7 @@ exports[`UI primitives snapshots > ModalFooter renders with delete action consis
     </button>
     <button
       aria-label="Salvar alterações"
-      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 py-2 min-h-10 px-3 flex-shrink-0"
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 motion-standard press-subtle [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-transparent text-income hover:bg-income/10 hover:text-income h-10 py-2 min-h-10 px-3 flex-shrink-0"
       disabled=""
       title="Salvar alterações"
       type="submit"
@@ -546,7 +546,7 @@ exports[`UI primitives snapshots > ModalInfoPanel with Checkbox renders consiste
   >
     <button
       aria-checked="true"
-      class="peer h-4 w-4 shrink-0 rounded-sm border border-[var(--ds-color-accent-primary)] ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--ds-color-accent-primary)] data-[state=checked]:text-[var(--ds-color-button-text)]"
+      class="peer h-4 w-4 shrink-0 rounded-sm border border-[var(--ds-color-accent-primary)] ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--ds-color-accent-primary)] data-[state=checked]:text-[var(--ds-color-button-text)]"
       data-state="checked"
       id=":r8:"
       role="checkbox"

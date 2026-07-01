@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-01T04:07:55.906Z",
+  "generatedAt": "2026-07-01T17:35:25.085Z",
   "rules": [
     {
       "id": "ui-no-direct-number-formatting",
@@ -25,95 +25,151 @@
   ],
   "violations": [
     {
-      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|163|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Dashboard.tsx",
-      "line": 163,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|164|.toFixed(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Dashboard.tsx",
-      "line": 164,
-      "match": ".toFixed("
-    },
-    {
-      "key": "ui-no-direct-number-formatting|src/pages/Dashboard.tsx|619|.toLocaleString(",
-      "ruleId": "ui-no-direct-number-formatting",
-      "file": "src/pages/Dashboard.tsx",
-      "line": 619,
-      "match": ".toLocaleString("
-    },
-    {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1367|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1593|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1367,
+      "line": 1593,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1377|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1653|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1377,
+      "line": 1653,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1401|<input",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1663|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1401,
+      "line": 1663,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1686|<button",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1686,
+      "match": "<button"
+    },
+    {
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1719|<input",
+      "ruleId": "ui-no-native-control-in-pages",
+      "file": "src/pages/Dashboard.tsx",
+      "line": 1719,
       "match": "<input"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1408|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1726|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1408,
+      "line": 1726,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1423|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1785|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1423,
+      "line": 1785,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1567|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1801|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1567,
+      "line": 1801,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1595|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1817|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1595,
+      "line": 1817,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1631|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1845|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1631,
+      "line": 1845,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1642|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1856|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1642,
+      "line": 1856,
       "match": "<button"
     },
     {
-      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1651|<button",
+      "key": "ui-no-native-control-in-pages|src/pages/Dashboard.tsx|1865|<button",
       "ruleId": "ui-no-native-control-in-pages",
       "file": "src/pages/Dashboard.tsx",
-      "line": 1651,
+      "line": 1865,
       "match": "<button"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|166|#000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 166,
+      "match": "#000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|17|#000",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 17,
+      "match": "#000"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|31|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 31,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|32|#8b5cf6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 32,
+      "match": "#8b5cf6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|43|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 43,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|44|#3b82f6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 44,
+      "match": "#3b82f6"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|45|#f59e0b",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 45,
+      "match": "#f59e0b"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|48|#10b981",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 48,
+      "match": "#10b981"
+    },
+    {
+      "key": "ui-no-raw-hex-color|src/utils/searchEngine.test.ts|49|#8b5cf6",
+      "ruleId": "ui-no-raw-hex-color",
+      "file": "src/utils/searchEngine.test.ts",
+      "line": 49,
+      "match": "#8b5cf6"
     }
   ]
 }

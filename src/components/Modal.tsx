@@ -75,7 +75,7 @@ function ModalCloseButton({ onClose }: { onClose: () => void }) {
       type="button"
       onClick={onClose}
       aria-label="Fechar"
-      className="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+      className="shrink-0 rounded-full border border-glass p-1.5 text-secondary motion-standard hover:bg-accent hover:text-primary focus:outline-none"
     >
       <X size={16} aria-hidden />
     </button>

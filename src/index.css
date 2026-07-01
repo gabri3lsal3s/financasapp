@@ -2737,8 +2737,7 @@ nav.glass-bottom-nav {
   backdrop-filter: blur(var(--glass-blur-strong));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-shadow-panel),
     var(--glass-inset-highlight);
   display: flex;
   align-items: center;
@@ -2821,8 +2820,7 @@ nav.glass-bottom-nav {
   backdrop-filter: blur(var(--glass-blur-strong));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.16),
-    0 1px 4px rgba(0, 0, 0, 0.1),
+    var(--glass-shadow-panel),
     var(--glass-inset-highlight);
   display: flex;
   align-items: center;
@@ -2868,8 +2866,7 @@ body:has(.modal-overlay) .page-action-hub-root {
   backdrop-filter: blur(var(--glass-blur-strong));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-shadow-panel),
     var(--glass-inset-highlight);
   transition:
     box-shadow 200ms ease,
@@ -2886,8 +2883,7 @@ body:has(.modal-overlay) .page-action-hub-root {
   border-color: color-mix(in srgb, var(--ds-color-accent-primary) 30%, var(--glass-border)) !important;
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--ds-color-accent-primary) 15%, transparent),
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-shadow-panel),
     var(--glass-inset-highlight) !important;
   background-color: var(--glass-surface-strong) !important;
 }
@@ -2899,8 +2895,7 @@ body:has(.modal-overlay) .page-action-hub-root {
   backdrop-filter: blur(var(--glass-blur-strong));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-shadow-panel),
     var(--glass-inset-highlight);
   transition:
     box-shadow 200ms ease,
@@ -2923,7 +2918,6 @@ body:has(.modal-overlay) .page-action-hub-root {
   background-color: color-mix(in srgb, var(--glass-surface-strong) 92%, var(--ds-color-accent-primary) 8%) !important;
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--ds-color-accent-primary) 15%, transparent),
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.14),
+    var(--glass-shadow-panel),
     var(--glass-inset-highlight) !important;
 }

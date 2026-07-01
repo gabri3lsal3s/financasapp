@@ -277,7 +277,7 @@ export default function Expenses() {
               {installmentExpenses.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-secondary">Parceladas</p>
-                  <div className="flex flex-wrap gap-3 lg:gap-4">
+                  <div className="flex flex-col gap-3 lg:gap-4">
                     {installmentExpenses.map((expense, index) => {
                       const category = categories.find((c) => c.id === expense.category_id)
                       const categoryColor = category?.color
@@ -342,7 +342,7 @@ export default function Expenses() {
                   {installmentExpenses.length > 0 && (
                     <p className="text-xs font-medium uppercase tracking-wide text-secondary">Despesas do mês</p>
                   )}
-                  <div className="flex flex-wrap gap-3 lg:gap-4">
+                  <div className="flex flex-col gap-3 lg:gap-4">
                     {monthExpenses.map((expense, index) => {
                       const category = categories.find((c) => c.id === expense.category_id)
                       const categoryColor = category?.color

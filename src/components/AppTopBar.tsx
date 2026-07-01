@@ -12,9 +12,11 @@ import TopBarSearchResults from '@/components/TopBarSearchResults'
 import { formatCurrency } from '@/utils/format'
 import { Z_INDEX } from '@/constants/zIndex'
 import { createPortal } from 'react-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import { resolveProfileDisplayName } from '@/utils/profileDisplayName'
 
 /* ------------------------------------------------------------------ */
-/*  Search Overlay (Mobile)                                           */
+/*  Search Overlay (Global)                                           */
 /* ------------------------------------------------------------------ */
 
 function SearchOverlay({
@@ -61,18 +63,18 @@ function SearchOverlay({
   const hasValidQuery = debouncedQuery.trim().length >= 2
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] lg:relative lg:inset-auto lg:z-auto">
+    <div className="fixed inset-0 z-[200] flex justify-center p-3 sm:p-6 md:p-10 pointer-events-none animate-fade-in">
       {/* Backdrop com blur */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm lg:hidden"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
         onClick={onClose}
       />
 
-      {/* Mobile: overlay full-width com animação elástica */}
+      {/* Container da busca */}
       <motion.div
         initial={{ opacity: 0, y: -20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -82,25 +84,19 @@ function SearchOverlay({
           stiffness: 380,
           damping: 28,
         }}
-        className={cn(
-          'absolute left-0 right-0 top-0',
-          // Mobile: no topo com padding
-          'lg:relative lg:top-auto',
-        )}
+        className="relative w-full max-w-xl pointer-events-auto z-10"
       >
-        <div className="p-3 lg:p-0">
+        <div className="p-3">
           {/* Barra de pesquisa */}
           <div className="relative flex items-center gap-2">
-            {/* Botão voltar (mobile only) */}
-            <motion.button
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
+            {/* Botão voltar */}
+            <button
               onClick={onClose}
-              className="lg:hidden p-2 -ml-1 text-secondary hover:text-primary transition-colors"
+              className="p-2 -ml-1 text-secondary hover:text-primary transition-colors cursor-pointer"
               aria-label="Fechar pesquisa"
             >
               <ArrowLeft size={20} />
-            </motion.button>
+            </button>
 
             <div
               className={cn(
@@ -120,12 +116,12 @@ function SearchOverlay({
                   onQueryChange(e.target.value)
                 }}
                 placeholder="Pesquisar despesas, rendas, dívidas…"
-                className="flex-1 bg-transparent text-xs sm:text-[13px] text-primary placeholder-muted outline-none py-1.5 pr-2 min-w-0 font-medium"
+                className="flex-1 bg-transparent text-xs sm:text-[13px] text-primary placeholder-muted outline-none py-1.5 pr-2 min-w-0 font-medium font-sans"
               />
               {internalQuery && (
                 <button
                   onClick={() => { setInternalQuery(''); onQueryChange('') }}
-                  className="mr-2 p-0.5 rounded-md text-secondary hover:text-primary hover:bg-secondary/10 transition-colors"
+                  className="mr-2 p-0.5 rounded-md text-secondary hover:text-primary hover:bg-secondary/10 transition-colors cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -204,7 +200,7 @@ function NotificationDropdown() {
           </h4>
           <button
             onClick={() => setIsDesktopAlertsOpen(false)}
-            className="text-secondary hover:text-primary transition-colors text-xs font-semibold"
+            className="text-secondary hover:text-primary transition-colors text-xs font-semibold cursor-pointer"
           >
             Fechar
           </button>
@@ -242,7 +238,7 @@ function NotificationDropdown() {
               setIsDesktopAlertsOpen(false)
               navigate('/contas')
             }}
-            className="w-full text-xs font-bold text-center py-2 rounded-xl border border-glass hover:bg-secondary/10 transition-colors"
+            className="w-full text-xs font-bold text-center py-2 rounded-xl border border-glass hover:bg-secondary/10 transition-colors cursor-pointer"
           >
             Gerenciar Contas
           </button>
@@ -262,9 +258,7 @@ export default function AppTopBar() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
-  const desktopSearchRef = useRef<HTMLDivElement>(null)
-  const [isDesktopSearchFocused, setIsDesktopSearchFocused] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   const {
     combinedAlerts,
@@ -281,18 +275,6 @@ export default function AppTopBar() {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 150)
     return () => clearTimeout(timer)
   }, [searchQuery])
-
-  // Fechar busca desktop ao clicar fora
-  useEffect(() => {
-    if (!isDesktopSearchFocused) return
-    const handler = (e: MouseEvent) => {
-      if (desktopSearchRef.current && !desktopSearchRef.current.contains(e.target as Node)) {
-        setIsDesktopSearchFocused(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [isDesktopSearchFocused])
 
   // Dados pesquisáveis
   const searchableData = useSearchData()
@@ -311,83 +293,68 @@ export default function AppTopBar() {
 
   const pageTitle = getPageTitle(location.pathname)
 
+  // Contexto de saudação
+  const { profile } = useAuth()
+  const userName = profile ? resolveProfileDisplayName(profile) : ''
+  
+  const greetingName = useMemo(() => {
+    if (!userName) return 'Usuário'
+    const namePart = userName.includes('@') ? userName.split('@')[0] : userName
+    const cleanName = namePart.replace(/[._-]/g, ' ').trim()
+    return cleanName.split(' ')[0]
+  }, [userName])
+
+  const isDashboard = location.pathname === '/'
+
+  // Cálculo temporal
+  const temporalMessage = useMemo(() => {
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const currentMonthNum = today.getMonth() + 1
+    const daysInMonth = new Date(currentYear, currentMonthNum, 0).getDate()
+    const remainingDays = daysInMonth - today.getDate() + 1
+
+    if (remainingDays === 1) {
+      return 'Hoje é o último dia do mês! Hora de fechar as contas. 📊'
+    }
+    return `Faltam ${remainingDays} dias para o fim do mês.`
+  }, [])
+
   return (
     <>
-      <header className="sticky top-0 z-[100] border-b border-glass bg-[var(--glass-surface-strong)] backdrop-blur-[var(--glass-blur-strong)]">
-        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-3 max-w-7xl mx-auto">
-          {/* ── Esquerda: Nome do App + Título da Página ── */}
+      <header className="w-full max-w-7xl mx-auto mb-4">
+        <div className="flex items-center justify-between px-3 sm:px-6 lg:px-6 lg:xl:px-8 py-3 gap-3 rounded-[24px] border border-glass bg-[var(--glass-surface-strong)] backdrop-blur-[var(--glass-blur-strong)]"
+          style={{ boxShadow: 'var(--glass-shadow-panel), var(--glass-inset-highlight)' }}>
+          {/* ── Esquerda: Saudação / Nome do App + Título da Página ── */}
           <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-            <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-widest text-secondary/60">
-                Finanças
-              </span>
-              <h1 className="text-sm font-bold text-primary truncate">
-                {pageTitle}
-              </h1>
-            </div>
+            {isDashboard ? (
+              <div className="flex flex-col leading-tight min-w-0">
+                <h1 className="text-sm font-bold text-primary truncate">
+                  Olá, {greetingName} 👋
+                </h1>
+                <span className="text-[10px] font-medium text-secondary mt-0.5">
+                  {temporalMessage}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-widest text-secondary/60">
+                  Finanças
+                </span>
+                <h1 className="text-sm font-bold text-primary truncate">
+                  {pageTitle}
+                </h1>
+              </div>
+            )}
           </div>
 
           {/* ── Direita: Busca + Notificação ── */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Desktop: Search Bar */}
-            <div ref={desktopSearchRef} className="hidden lg:block relative">
-              <div
-                className={cn(
-                  'flex items-center gap-2 rounded-2xl border h-[44px] min-w-[240px] max-w-[360px]',
-                  'topbar-search-bar',
-                  'transition-all duration-200',
-                  isDesktopSearchFocused
-                    ? 'topbar-search-bar--focused min-w-[360px]'
-                    : '',
-                )}
-              >
-                <Search size={14} className="ml-3 text-secondary shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value)
-                    if (!isDesktopSearchFocused) setIsDesktopSearchFocused(true)
-                  }}
-                  onFocus={() => setIsDesktopSearchFocused(true)}
-                  placeholder="Pesquisar…"
-                  className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none py-1.5 pr-2 min-w-0 font-medium"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => { setSearchQuery(''); setDebouncedQuery('') }}
-                    className="mr-2 p-0.5 rounded text-secondary hover:text-primary hover:bg-secondary/10 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Desktop: Dropdown de Resultados */}
-              <AnimatePresence>
-                {isDesktopSearchFocused && debouncedQuery.trim().length >= 2 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                    transition={{ type: 'spring', stiffness: 340, damping: 26 }}
-                    className="absolute top-full left-0 right-0 mt-2 rounded-2xl border border-glass surface-glass-strong shadow-lg overflow-hidden z-[150]"
-                  >
-                    <TopBarSearchResults
-                      results={searchResults}
-                      query={debouncedQuery}
-                      onSelect={handleSelect}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Mobile: Botão de busca (lupa) */}
+            {/* Botão de busca unificado para mobile e desktop */}
             <button
-              onClick={() => setIsMobileSearchOpen(true)}
+              onClick={() => setIsSearchOpen(true)}
               className={cn(
-                'lg:hidden relative flex h-[44px] w-[44px] items-center justify-center rounded-xl',
+                'relative flex h-[44px] w-[44px] items-center justify-center rounded-xl cursor-pointer',
                 'text-secondary hover:text-primary hover:bg-secondary/10 transition-all',
               )}
               aria-label="Pesquisar"
@@ -406,7 +373,7 @@ export default function AppTopBar() {
                 }
               }}
               className={cn(
-                'relative flex h-[44px] w-[44px] items-center justify-center rounded-xl',
+                'relative flex h-[44px] w-[44px] items-center justify-center rounded-xl cursor-pointer',
                 'transition-all',
                 isDesktopAlertsOpen || isMobileAlertsOpen
                   ? 'text-primary bg-secondary/10'
@@ -426,15 +393,15 @@ export default function AppTopBar() {
         </div>
       </header>
 
-      {/* Mobile Search Overlay (renderizado via portal) */}
+      {/* Global Search Overlay (renderizado via portal) */}
       <SearchOverlay
-        isOpen={isMobileSearchOpen}
+        isOpen={isSearchOpen}
         query={searchQuery}
         results={searchResults}
         onQueryChange={(q) => setSearchQuery(q)}
         onSelect={handleSelect}
         onClose={() => {
-          setIsMobileSearchOpen(false)
+          setIsSearchOpen(false)
           setSearchQuery('')
           setDebouncedQuery('')
         }}
