@@ -440,6 +440,17 @@ Estes usam valores estáticos que podem ser classes Tailwind:
 | 6 | 🧩 Resiliência | 7.1→7.3 (3 itens) | ~3h | Nenhuma |
 | 7 | 🌗 Temas | 8.1→8.2 (2 itens) | ~1h | Fase 1 |
 
+---
+
+## 📋 Histórico de Correções
+
+### 🔧 Sessão Atual (Junho 2026)
+
+| # | Correção | Descrição | Arquivo |
+|---|----------|-----------|---------|
+| 1 | **Bug: teclado nativo no mobile ao usar calculadora** | Ao abrir a calculadora flutuante em mobile, o input numeric era mantido em foco, ativando o teclado nativo. Corrigido com `setTimeout(0)` para dar blur no input após o evento de focus. | `FloatingCalculator.tsx` |
+| 2 | **Bug: valor enviado pela calculadora não persistia ao sair do campo** | O `sendResultToActiveInput()` definia o valor no DOM e disparava `input`/`change`, mas ao fechar a calculadora imediatamente, o React não tinha processado a atualização de estado. Quando o `onBlur` do campo disparava, ele usava o estado antigo (stale closure) e revertia o valor. Corrigido com `queueMicrotask`: primeiro React processa o evento `input` e atualiza o estado, depois o `blur` é disparado com o closure correto. | `FloatingCalculator.tsx` |
+
 **Esforço total estimado:** ~29h distribuídas em 7 fases.
 
 ---

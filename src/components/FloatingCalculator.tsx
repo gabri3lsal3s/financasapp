@@ -413,6 +413,15 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       setHasError(false)
     }
 
+    // Mobile: blur the input to hide the native keyboard when calculator opens
+    if (activeNumericInput && !isDesktop) {
+      const inputToBlur = activeNumericInput
+      // Pequeno delay para garantir que o evento de focus complete antes do blur
+      setTimeout(() => {
+        inputToBlur?.blur()
+      }, 0)
+    }
+
     setIsExpanded(true)
   }
 
@@ -513,13 +522,25 @@ export default function FloatingCalculator({ isHidden = false }: FloatingCalcula
       activeNumericInput.value = formatCanonicalNumberToPtBr(result)
     }
 
+    // Dispara evento 'input' para React atualizar seu estado interno
     activeNumericInput.dispatchEvent(new Event('input', { bubbles: true }))
-    activeNumericInput.dispatchEvent(new Event('change', { bubbles: true }))
-    activeNumericInput.focus()
-    setHasError(false)
-    setExpression('0')
-    setLastResult('')
-    setIsExpanded(false)
+
+    // Guarda referência para usar dentro do microtask
+    const targetInput = activeNumericInput
+
+    // queueMicrotask: espera React processar o evento 'input' (atualizar estado)
+    // antes de disparar 'blur' e fechar a calculadora.
+    // Isso garante que o handler onBlur (ex: AmountInput.handleBlur)
+    // leia o valor CORRETO do React, evitando que o valor retorne ao anterior.
+    queueMicrotask(() => {
+      if (targetInput.isConnected) {
+        targetInput.dispatchEvent(new Event('blur', { bubbles: true }))
+      }
+      setHasError(false)
+      setExpression('0')
+      setLastResult('')
+      setIsExpanded(false)
+    })
   }
   const initiateIconDrag = useCallback((clientX: number, clientY: number, pointerId: number, targetForCapture?: Element) => {
     if (iconReturnTimeoutRef.current) {
