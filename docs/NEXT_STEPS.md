@@ -134,6 +134,7 @@ supabase migration up
 | 4 | **Overflow DECIMAL(15,2)** — Migration DECIMAL(18,2) + arredondamento | Vários | 🔴 Crash |
 | 5 | **Select.Item value="" no Radix UI** — sentinel value `__empty__` | Select.tsx | 🔴 Erro |
 | 6 | **`any` type** — `ValuedPosition['fundamentals']` | usePortfolioState.ts | 🟡 Type safety |
+| 7 | **InfoTooltip z-index/overflow clipping** — tooltips cortados por cards pais. Reescrevido com `createPortal` + `position: fixed` + posição calculada via `getBoundingClientRect` | `InfoTooltip.tsx` | 🔴 Visual |
 
 ---
 
