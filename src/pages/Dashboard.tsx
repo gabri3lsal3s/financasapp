@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import { SkeletonDashboard } from '@/components/Skeleton'
@@ -9,7 +9,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles, Send, Pin, RefreshCw, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   CARD_PADDING,
@@ -19,8 +19,6 @@ import {
   PAGE_ENTER_ANIMATION,
   CONTENT_PADDING,
 } from '@/constants/layout'
-import { motion, AnimatePresence } from 'framer-motion'
-import { BeautifulMarkdown } from '@/components/dashboard/BeautifulMarkdown'
 import Button from '@/components/Button'
 import BudgetHeroCard from '@/components/dashboard/BudgetHeroCard'
 import ProjectionCard from '@/components/dashboard/ProjectionCard'
@@ -29,7 +27,6 @@ import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { supabase } from '@/lib/supabase'
 import { portfolioInvestmentByDay, sumPortfolioTransactionsForMonth } from '@/utils/portfolioMonthlyFlow'
 import { useDashboardPortfolio } from '@/hooks/useDashboardPortfolio'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
@@ -44,7 +41,8 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { addMonths } from '@/utils/format'
-import { logger } from '@/utils/logger'
+import { useDashboardAI } from '@/hooks/useDashboardAI'
+import { InsightsCard } from '@/components/dashboard/InsightsCard'
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
 export default function Dashboard() {
@@ -114,26 +112,7 @@ export default function Dashboard() {
   )
   const navigate = useNavigate()
 
-  // AI Copilot States
-  const [chatInput, setChatInput] = useState('')
-  const [chatInputFocused, setChatInputFocused] = useState(false)
-  const [activeQueryText, setActiveQueryText] = useState('')
-  const [activeReportText, setActiveReportText] = useState('Selecione um dos insights acima ou digite um tema para analisar seus dados financeiros.')
-  const [activeChartData, setActiveChartData] = useState<any[] | undefined>(undefined)
-  const [isAiTyping, setIsAiTyping] = useState(false)
-  const [pinnedAnalysis, setPinnedAnalysis] = useState<any>(null)
-  const [isUpdatingPinned, setIsUpdatingPinned] = useState(false)
 
-  // Compute data hash for pinning persistence comparison
-  const currentHash = useMemo(() => {
-    const expHash = `${expenses.length}_${formatNumberWithTwoDecimalsBR(totalExpenses)}`
-    const incHash = `${incomes.length}_${formatNumberWithTwoDecimalsBR(totalIncomes)}`
-    return `exp:${expHash}|inc:${incHash}`
-  }, [expenses, totalExpenses, incomes, totalIncomes])
-
-  const hasNewDataForPinned = useMemo(() => {
-    return pinnedAnalysis && pinnedAnalysis.dataHash !== currentHash
-  }, [pinnedAnalysis, currentHash])
 
   // Gasto Disponível integrated calculations
   const spendingCalcs = useMemo(() => {
@@ -281,118 +260,7 @@ export default function Dashboard() {
     refreshLimits()
   }
 
-  // Load pinned analysis from Supabase
-  const loadPinnedAnalysis = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
 
-      const { data, error } = await supabase
-        .from('pinned_ai_analyses')
-        .select('pinned_analysis')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (error) throw error
-      if (data?.pinned_analysis) {
-        setPinnedAnalysis(data.pinned_analysis)
-        // Default active report to pinned if it exists
-        setActiveReportText(data.pinned_analysis.text)
-        setActiveChartData(data.pinned_analysis.chartData)
-        setActiveQueryText(data.pinned_analysis.queryText)
-      }
-    } catch (err) {
-      logger.error('Erro ao carregar análise fixada:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadPinnedAnalysis()
-  }, [loadPinnedAnalysis])
-
-  // Save pinned analysis to Supabase
-  const handlePin = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const newPinned = {
-        text: activeReportText,
-        chartData: activeChartData,
-        queryText: activeQueryText || 'Relatório Consolidado',
-        dataHash: currentHash
-      }
-
-      const { error } = await supabase
-        .from('pinned_ai_analyses')
-        .upsert({
-          user_id: user.id,
-          pinned_analysis: newPinned,
-          updated_at: new Date().toISOString()
-        })
-
-      if (error) throw error
-      setPinnedAnalysis(newPinned)
-    } catch (err) {
-      logger.error('Erro ao fixar análise:', err)
-    }
-  }
-
-  // Delete/unpin analysis from Supabase
-  const handleUnpin = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { error } = await supabase
-        .from('pinned_ai_analyses')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (error) throw error
-      setPinnedAnalysis(null)
-    } catch (err) {
-      logger.error('Erro ao desafixar análise:', err)
-    }
-  }
-
-  // Update pinned analysis with local data
-  const handleUpdatePinnedAnalysis = async () => {
-    if (!pinnedAnalysis) return
-    setIsUpdatingPinned(true)
-    try {
-      const query = pinnedAnalysis.queryText || 'Acompanhamento'
-      const localText = buildLocalAnalysis(query)
-
-      const updatedPinned = {
-        text: localText,
-        chartData: undefined,
-        queryText: query,
-        dataHash: currentHash
-      }
-
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await supabase
-          .from('pinned_ai_analyses')
-          .upsert({
-            user_id: user.id,
-            pinned_analysis: updatedPinned,
-            updated_at: new Date().toISOString()
-          })
-      }
-
-      setPinnedAnalysis(updatedPinned)
-      if (activeQueryText === query) {
-        setActiveReportText(localText)
-        setActiveChartData(undefined)
-      }
-    } catch (err) {
-      logger.error('Erro ao atualizar análise fixada:', err)
-    } finally {
-      setIsUpdatingPinned(false)
-    }
-  }
 
   useEffect(() => {
     const isReady = !expensesLoading && !incomesLoading && !categoriesLoading && !incomeCategoriesLoading
@@ -630,322 +498,47 @@ export default function Dashboard() {
     return totals
   }, [expenses, currentMonth])
 
-  // Dynamic Insights to be used as AI suggestions
-  const dynamicAiSuggestions = useMemo(() => {
-    const list: Array<{
-      id: string
-      text: string
-      tip: string
-      query: string
-      icon: React.ReactNode
-    }> = []
+  // AI Copilot — extracted to useDashboardAI hook
+  const aiInput = useMemo(() => ({
+    currentMonth,
+    totalIncomes,
+    totalExpenses,
+    totalInvestments,
+    savingsRate,
+    categoryExpenseSummaries,
+    previousMonthExpenseTotal,
+    weekdayExpenseData,
+    limitsExceededCount,
+    incomeByCategory,
+    spendingPace,
+    spendingProjection,
+    balance,
+    expensesCount: expenses.length,
+    incomesCount: incomes.length,
+  }), [
+    currentMonth, totalIncomes, totalExpenses, totalInvestments,
+    savingsRate, categoryExpenseSummaries, previousMonthExpenseTotal,
+    weekdayExpenseData, limitsExceededCount, incomeByCategory,
+    spendingPace, spendingProjection, balance,
+    expenses, incomes,
+  ])
 
-    // 1. Limits Exceeded (Most critical warning)
-    if (limitsExceededCount > 0) {
-      list.push({
-        id: 'limits-exceeded',
-        text: `Limite estourado em ${limitsExceededCount} ${limitsExceededCount === 1 ? 'categoria' : 'categorias'}.`,
-        tip: `Reduza gastos nas demais categorias imediatamente para equilibrar o orçamento.`,
-        query: `Quais estratégias posso usar para conter gastos nas ${limitsExceededCount} categorias onde estourei o limite de orçamento?`,
-        icon: <AlertTriangle size={14} className="text-expense" />,
-      })
-    }
-
-    // 2. Savings Rate Insight (Overall financial performance)
-    if (totalIncomes > 0) {
-      if (savingsRate >= 20) {
-        list.push({
-          id: 'savings-rate',
-          text: `Poupou ${formatNumberWithTwoDecimalsBR(savingsRate)}% da renda em ${formatMonth(currentMonth)} (meta: 20%).`,
-          tip: `Excelente! Direcione este excedente poupado para investimentos e acelere seus planos.`,
-          query: `Como posso otimizar meus investimentos considerando que poupei ${formatNumberWithTwoDecimalsBR(savingsRate)}% da minha renda este mês?`,
-          icon: <TrendingDown size={14} className="text-income" />,
-        })
-      } else if (savingsRate > 0 && savingsRate < 20) {
-        list.push({
-          id: 'savings-rate',
-          text: `Poupança em ${formatNumberWithTwoDecimalsBR(savingsRate)}% da renda (abaixo da meta de 20%).`,
-          tip: `Corte pequenos gastos supérfluos para tentar atingir a meta recomendada.`,
-          query: `Como posso aumentar minha taxa de poupança atual de ${formatNumberWithTwoDecimalsBR(savingsRate)}% para a meta saudável de 20%?`,
-          icon: <TrendingUp size={14} className="text-primary" />,
-        })
-      } else if (savingsRate <= 0) {
-        list.push({
-          id: 'savings-rate',
-          text: `Saldo líquido negativo em ${formatNumberWithTwoDecimalsBR(Math.abs(savingsRate))}% este mês.`,
-          tip: `Alerta: Suas despesas superaram a renda. Evite qualquer compra supérflua de imediato.`,
-          query: `Quais ações imediatas devo tomar porque minhas despesas superaram minhas receitas em ${formatNumberWithTwoDecimalsBR(Math.abs(savingsRate))}% este mês?`,
-          icon: <AlertTriangle size={14} className="text-expense" />,
-        })
-      }
-    }
-
-    // 3. Expense Variation (Comparison to previous month)
-    if (previousMonthExpenseTotal > 0 && totalExpenses > 0) {
-      const diffPct = ((totalExpenses - previousMonthExpenseTotal) / previousMonthExpenseTotal) * 100
-      if (diffPct < -5) {
-        list.push({
-          id: 'expense-variance',
-          text: `Despesas caíram ${formatNumberWithTwoDecimalsBR(Math.abs(diffPct))}% comparado ao mês anterior.`,
-          tip: `Bom trabalho! Continue mantendo esse ritmo disciplinado para poupar mais.`,
-          query: `Analise a redução de despesas de ${formatNumberWithTwoDecimalsBR(Math.abs(diffPct))}% que tive em relação ao mês anterior e como manter essa tendência.`,
-          icon: <TrendingDown size={14} className="text-income" />,
-        })
-      } else if (diffPct > 5) {
-        list.push({
-          id: 'expense-variance',
-          text: `Despesas subiram ${formatNumberWithTwoDecimalsBR(diffPct)}% comparado ao mês anterior.`,
-          tip: `Atenção: Modere o consumo diário nas semanas restantes para conter essa alta.`,
-          query: `Quais fatores e categorias causaram o aumento de ${formatNumberWithTwoDecimalsBR(diffPct)}% nas minhas despesas em comparação com o mês anterior?`,
-          icon: <TrendingUp size={14} className="text-expense" />,
-        })
-      }
-    }
-
-    // 4. Top Category (Main cost driver)
-    if (categoryExpenseSummaries.length > 0 && totalExpenses > 0) {
-      const sorted = [...categoryExpenseSummaries].sort((a, b) => b.total - a.total)
-      const topCat = sorted[0]
-      const topPct = (topCat.total / totalExpenses) * 100
-      if (topPct > 15) {
-        list.push({
-          id: 'top-category',
-          text: `"${topCat.category_name}" foi seu maior custo (${formatCurrency(topCat.total)} - ${formatNumberWithTwoDecimalsBR(topPct)}%).`,
-          tip: `Defina um limite específico para esta categoria para reduzir o impacto no total.`,
-          query: `Como posso economizar e cortar gastos na minha maior categoria de despesas: ${topCat.category_name}, onde gastei ${formatCurrency(topCat.total)}?`,
-          icon: <Sparkles size={14} className="text-primary" />,
-        })
-      }
-    }
-
-    // 5. Peak Weekday (Day concentration)
-    if (weekdayExpenseData && weekdayExpenseData.length > 0) {
-      const sortedDays = [...weekdayExpenseData].sort((a, b) => b.Despesas - a.Despesas)
-      const peakDay = sortedDays[0]
-      if (peakDay && peakDay.Despesas > 0) {
-        const fullDayNames: Record<string, string> = {
-          Seg: 'Segunda-feira',
-          Ter: 'Terça-feira',
-          Qua: 'Quarta-feira',
-          Qui: 'Quinta-feira',
-          Sex: 'Sexta-feira',
-          Sáb: 'Sábado',
-          Dom: 'Domingo',
-        }
-        list.push({
-          id: 'peak-weekday',
-          text: `Pico de gastos na(o) ${fullDayNames[peakDay.dia] || peakDay.dia} (${formatCurrency(peakDay.Despesas)}).`,
-          tip: `Evite compras impulsivas concentradas nesse dia da semana. Planeje os gastos.`,
-          query: `Como posso controlar melhor as compras por impulso ou despesas recorrentes concentradas no dia: ${fullDayNames[peakDay.dia] || peakDay.dia}?`,
-          icon: <Calendar size={14} className="text-primary" />,
-        })
-      }
-    }
-
-    // 6. Investment Ratio (what % of income went to investments)
-    if (totalIncomes > 0 && totalInvestments > 0) {
-      const investPct = (totalInvestments / totalIncomes) * 100
-      if (investPct >= 15) {
-        list.push({
-          id: 'investment-ratio',
-          text: `Aportou ${formatNumberWithTwoDecimalsBR(investPct)}% da renda em investimentos.`,
-          tip: `Continue nesse ritmo para acelerar a construção do seu patrimônio líquido.`,
-          query: `Como posso otimizar a alocação dos meus ${formatCurrency(totalInvestments)} em investimentos para maximizar retornos ajustados ao risco?`,
-          icon: <PiggyBank size={14} className="text-balance" />,
-        })
-      } else if (investPct > 0 && investPct < 15) {
-        list.push({
-          id: 'investment-ratio',
-          text: `Apenas ${formatNumberWithTwoDecimalsBR(investPct)}% da renda foi investida.`,
-          tip: `Tente aumentar para ao menos 15% — reveja assinaturas e gastos recorrentes.`,
-          query: `Quais despesas posso cortar para aumentar minha taxa de investimento de ${formatNumberWithTwoDecimalsBR(investPct)}% para pelo menos 15%?`,
-          icon: <PiggyBank size={14} className="text-primary" />,
-        })
-      }
-    }
-
-    // 8. Income Concentration (main income source)
-    if (incomeByCategory.length > 0 && totalIncomes > 0) {
-      const topIncome = incomeByCategory[0]
-      const topPct = (topIncome.total / totalIncomes) * 100
-      if (topPct > 50) {
-        list.push({
-          id: 'income-concentration',
-          text: `${topIncome.name} representa ${formatNumberWithTwoDecimalsBR(topPct)}% da sua renda.`,
-          tip: `Dependência alta de uma única fonte. Considere diversificar para reduzir riscos.`,
-          query: `Minha renda está muito concentrada em ${topIncome.name} (${formatNumberWithTwoDecimalsBR(topPct)}% do total). Como posso diversificar minhas fontes de receita?`,
-          icon: <TrendingUp size={14} className="text-warning" />,
-        })
-      }
-    }
-
-    // 9. Spending Pace (mid-month trajectory check)
-    if (spendingPace && spendingPace.isOverBudget && spendingPace.overPct > 5) {
-      list.push({
-        id: 'spending-pace',
-        text: `Ritmo de gastos ${formatNumberWithTwoDecimalsBR(spendingPace.overPct)}% acima do esperado para esta altura do mês.`,
-        tip: `Ajuste o ritmo nos próximos dias para não estourar o orçamento mensal.`,
-        query: `Meus gastos estão ${formatNumberWithTwoDecimalsBR(spendingPace.overPct)}% acima do ritmo esperado para esta altura do mês. Quais categorias devo priorizar para cortar?`,
-        icon: <AlertTriangle size={14} className="text-expense" />,
-      })
-    }
-
-    // 7. Projected End-of-Month Alert
-    if (spendingProjection && spendingProjection.currentDay >= 10) {
-      if (!spendingProjection.onTrack) {
-        list.push({
-          id: 'end-of-month-projection',
-          text: `Projeção de déficit de ${formatCurrency(Math.abs(spendingProjection.projectedSurplus))} no fim do mês.`,
-          tip: `Seu ritmo atual de ${formatCurrency(spendingProjection.dailyBurnRate)}/dia excede o orçamento. Corte gastos descartáveis agora para evitar o vermelho.`,
-          query: `Minhas despesas projetam um déficit de ${formatCurrency(Math.abs(spendingProjection.projectedSurplus))} para o fim do mês. Quais categorias devo cortar imediatamente para equilibrar as contas?`,
-          icon: <AlertTriangle size={14} className="text-expense" />,
-        })
-      } else if (spendingProjection.projectedSurplus > 0 && spendingProjection.projectedSurplus < totalIncomes * 0.05) {
-        list.push({
-          id: 'end-of-month-projection',
-          text: `Margem apertada: projeção de superávit de apenas ${formatCurrency(spendingProjection.projectedSurplus)}.`,
-          tip: `Pequenos cortes agora podem transformar este aperto em uma folga confortável para investir.`,
-          query: `Meu saldo projetado para o fim do mês é de apenas ${formatCurrency(spendingProjection.projectedSurplus)}. Que pequenos cortes posso fazer nas despesas diárias para melhorar essa margem?`,
-          icon: <TrendingUp size={14} className="text-warning" />,
-        })
-      } else if (spendingProjection.projectedSurplus >= totalIncomes * 0.15) {
-        list.push({
-          id: 'end-of-month-projection',
-          text: `Folga de ${formatCurrency(spendingProjection.projectedSurplus)} projetada. Ótimo ritmo!`,
-          tip: `Com essa folga, você pode direcionar ${formatCurrency(spendingProjection.projectedSurplus * 0.5)} para investimentos e ainda manter ${formatCurrency(spendingProjection.projectedSurplus * 0.5)} de reserva.`,
-          query: `Tenho uma folga projetada de ${formatCurrency(spendingProjection.projectedSurplus)} para o fim do mês. Como alocar esse excedente entre investimentos e reserva de emergência?`,
-          icon: <CheckCircle2 size={14} className="text-income" />,
-        })
-      }
-    }
-
-    // 8. Expense-to-Income Ratio (overall burn rate)
-    if (totalIncomes > 0) {
-      const burnRate = (totalExpenses / totalIncomes) * 100
-      if (burnRate > 85) {
-        list.push({
-          id: 'burn-rate',
-          text: `${formatNumberWithTwoDecimalsBR(burnRate)}% da renda consumida por despesas.`,
-          tip: `Alerta vermelho: sobra muito pouco para investir. Corte gastos supérfluos agora.`,
-          query: `Quais são as despesas não-essenciais que mais impactam minha taxa de consumo de ${formatNumberWithTwoDecimalsBR(burnRate)}% e como reduzi-las?`,
-          icon: <AlertTriangle size={14} className="text-expense" />,
-        })
-      } else if (burnRate <= 50) {
-        list.push({
-          id: 'burn-rate',
-          text: `Apenas ${formatNumberWithTwoDecimalsBR(burnRate)}% da renda vai para despesas.`,
-          tip: `Excelente controle! Considere aumentar seus aportes mensais.`,
-          query: `Com uma taxa de despesas de apenas ${formatNumberWithTwoDecimalsBR(burnRate)}%, como posso melhor alocar o excedente entre reserva de emergência e investimentos?`,
-          icon: <CheckCircle2 size={14} className="text-income" />,
-        })
-      }
-    }
-
-    // Priority ordering: most critical first
-    const priorityOrder: Record<string, number> = {
-      'savings-rate': 0,  // will be overridden by specific sub-type
-      'limits-exceeded': 90,
-      'spending-pace': 85,
-      'burn-rate': 80,
-      'expense-variance': 70,
-      'income-concentration': 60,
-      'investment-ratio': 50,
-      'top-category': 40,
-      'peak-weekday': 30,
-    }
-
-    list.sort((a, b) => {
-      // For savings-rate, check if it's the negative variant (higher priority)
-      const aIsNeg = a.id === 'savings-rate' && a.text.includes('negativo')
-      const bIsNeg = b.id === 'savings-rate' && b.text.includes('negativo')
-      if (aIsNeg && !bIsNeg) return -1
-      if (!aIsNeg && bIsNeg) return 1
-
-      // For burn-rate, check if it's the high variant (higher priority)
-      const aIsHighBurn = a.id === 'burn-rate' && a.text.includes('consumida')
-      const bIsHighBurn = b.id === 'burn-rate' && b.text.includes('consumida')
-      if (aIsHighBurn && !bIsHighBurn) return -1
-      if (!aIsHighBurn && bIsHighBurn) return 1
-
-      const pa = priorityOrder[a.id] ?? 50
-      const pb = priorityOrder[b.id] ?? 50
-      return pb - pa // higher number = higher priority
-    })
-
-    // Limit to at most 3 insights of highest priority
-    return list.slice(0, 3)
-  }, [currentMonth, totalIncomes, totalExpenses, totalInvestments, savingsRate, categoryExpenseSummaries, previousMonthExpenseTotal, weekdayExpenseData, limitsExceededCount, incomeByCategory, spendingPace, spendingProjection])
-
-  // Gera análise local detalhada a partir de dados financeiros
-  const buildLocalAnalysis = useCallback((_context?: string): string => {
-    const topCats = categoryExpenseSummaries.slice(0, 4)
-      .map(c => `• **${c.category_name}:** ${formatCurrency(c.total)}`)
-      .join('\n')
-
-    const lines: string[] = []
-    lines.push(`📊 **Panorama Financeiro de ${formatMonth(currentMonth)}**\n`)
-    lines.push(`| Indicador | Valor |`)
-    lines.push(`|---|---|`)
-    lines.push(`| Receitas | ${formatCurrency(totalIncomes)} |`)
-    lines.push(`| Despesas | ${formatCurrency(totalExpenses)} |`)
-    lines.push(`| Saldo | ${formatCurrency(balance)} |`)
-    if (totalInvestments > 0) lines.push(`| Investimentos | ${formatCurrency(totalInvestments)} |`)
-    lines.push(`| Taxa de Poupança | ${savingsRate > 0 ? '' : ''}${formatNumberWithTwoDecimalsBR(savingsRate)}% |\n`)
-
-    if (totalIncomes > 0) {
-      const burnRate = (totalExpenses / totalIncomes) * 100
-      if (burnRate > 85) {
-        lines.push(`⚠️ **Alerta:** ${formatNumberWithTwoDecimalsBR(burnRate)}% da renda está sendo consumida por despesas.`)
-      } else if (burnRate <= 50) {
-        lines.push(`✅ **Controle:** Apenas ${formatNumberWithTwoDecimalsBR(burnRate)}% da renda vai para despesas. Ótimo trabalho!`)
-      }
-    }
-
-    if (topCats) {
-      lines.push(`\n🏷️ **Principais Categorias de Despesa**\n`)
-      lines.push(topCats)
-    }
-
-    if (limitsExceededCount > 0) {
-      lines.push(`\n🔴 **${limitsExceededCount} ${limitsExceededCount === 1 ? 'categoria' : 'categorias'} com limite estourado.** Acesse a seção de limites para reajustar.`)
-    }
-
-    return lines.join('\n')
-  }, [currentMonth, totalIncomes, totalExpenses, totalInvestments, balance, savingsRate, categoryExpenseSummaries, limitsExceededCount])
-
-  // Main chat submit handler — análise local, sem IA
-  const handleSendChat = async (e?: React.FormEvent, customText?: string) => {
-    if (e) e.preventDefault()
-    const textToSend = customText || chatInput
-    if (!textToSend.trim()) return
-
-    setChatInput('')
-    setActiveQueryText(textToSend)
-    setIsAiTyping(true)
-
-    // Pequena pausa para feedback visual
-    setTimeout(() => {
-      if (customText) {
-        // Insight click — mostra detalhamento local
-        const matched = dynamicAiSuggestions.find(s => s.query === customText)
-        if (matched) {
-          const detail = 
-            `💡 **${matched.text}**\n\n` +
-            `**Dica:** ${matched.tip}\n\n` +
-            `---\n\n` +
-            buildLocalAnalysis(customText)
-          setActiveReportText(detail)
-        } else {
-          setActiveReportText(buildLocalAnalysis(customText))
-        }
-      } else {
-        // Input manual — mostra panorama financeiro geral
-        setActiveReportText(buildLocalAnalysis(textToSend))
-      }
-      setActiveChartData(undefined)
-      setIsAiTyping(false)
-    }, 350)
-  }
+  const {
+    chatInput, setChatInput,
+    chatInputFocused, setChatInputFocused,
+    activeQueryText, setActiveQueryText,
+    activeReportText, setActiveReportText,
+    setActiveChartData,
+    isAiTyping,
+    isUpdatingPinned,
+    pinnedAnalysis,
+    dynamicAiSuggestions,
+    hasNewDataForPinned,
+    handleSendChat,
+    handlePin,
+    handleUnpin,
+    handleUpdatePinnedAnalysis,
+  } = useDashboardAI(aiInput)
 
   const categoriesAttentionList = useMemo(() => {
     const list: Array<{
@@ -1274,13 +867,15 @@ export default function Dashboard() {
                           <span className="truncate max-w-[220px]">
                             Sugestão: Ajustar limite de <strong className="text-primary">{reallocationRecommendation.fromName}</strong> para cobrir <strong className="text-primary">{reallocationRecommendation.toName}</strong>.
                           </span>
-                          <button
+                          <Button
                             onClick={handleReallocate}
                             disabled={isReallocating}
-                            className="text-primary font-bold hover:underline cursor-pointer uppercase tracking-wider text-[9px] border-l border-glass/30 pl-2 shrink-0 bg-transparent"
+                            variant="ghost"
+                            size="xs"
+                            className="uppercase tracking-wider border-l border-glass/30 pl-2 shrink-0"
                           >
                             {isReallocating ? 'Remanejando...' : 'Aplicar'}
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -1320,148 +915,30 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  {/* ── SEÇÃO: Insights Financeiros ── */}
-                  <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "space-y-4 relative overflow-hidden")}>
-                    {/* Header discreto */}
-                    <div className="flex items-center justify-between border-b border-glass/40 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                          {activeQueryText ? `Análise: "${activeQueryText}"` : 'Insights'}
-                        </span>
-                      </div>
-
-                      {activeQueryText && (
-                        <div className="flex items-center gap-2">
-                          {pinnedAnalysis && pinnedAnalysis.queryText === activeQueryText && hasNewDataForPinned && (
-                            <button
-                              onClick={handleUpdatePinnedAnalysis}
-                              disabled={isUpdatingPinned}
-                              className="px-2.5 py-1 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer flex items-center gap-1 border border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-wider"
-                              title="Novos lançamentos detectados! Toque para atualizar a análise."
-                            >
-                              <RefreshCw className={`w-2.5 h-2.5 ${isUpdatingPinned ? 'animate-spin' : ''}`} />
-                              <span>Atualizar</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              const isPinned = pinnedAnalysis && pinnedAnalysis.queryText === activeQueryText
-                              if (isPinned) {
-                                void handleUnpin()
-                              } else {
-                                void handlePin()
-                              }
-                            }}
-                            className="p-1 rounded-lg text-secondary hover:text-primary hover:bg-secondary/10 transition-all cursor-pointer"
-                            title={pinnedAnalysis && pinnedAnalysis.queryText === activeQueryText ? "Desafixar esta análise" : "Fixar esta análise"}
-                          >
-                            <Pin className={`w-3.5 h-3.5 ${pinnedAnalysis && pinnedAnalysis.queryText === activeQueryText ? 'text-primary fill-primary/10' : ''}`} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Carrossel de Insights — scroll suave com fade nas bordas */}
-                    {dynamicAiSuggestions.length > 0 ? (
-                      <div className="relative">
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5 pr-2 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
-                          {dynamicAiSuggestions.map((suggestion) => (
-                            <button
-                              key={suggestion.id}
-                              type="button"
-                              onClick={() => handleSendChat(undefined, suggestion.query)}
-                              disabled={isAiTyping}
-                              className="shrink-0 border border-glass/50 surface-glass-strong px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer text-left hover:border-primary/25 hover:bg-secondary/5 disabled:opacity-50 disabled:cursor-default group"
-                            >
-                              <span className="p-0.5 rounded-md bg-secondary/10 text-primary shrink-0 group-hover:bg-primary/10 transition-colors">
-                                {suggestion.icon}
-                              </span>
-                              <div className="min-w-0">
-                                <span className="text-[9px] font-semibold text-primary leading-tight block truncate max-w-[130px]">
-                                  {suggestion.text}
-                                </span>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                        {/* Fade sutil nas bordas */}
-                        <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-[var(--glass-surface-strong)] to-transparent" />
-                        <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-[var(--glass-surface-strong)] to-transparent" />
-                      </div>
-                    ) : !activeQueryText ? (
-                      <p className="text-[10px] text-secondary/60 text-center py-1 italic">
-                        Nenhum insight disponível no momento. Comece adicionando receitas e despesas.
-                      </p>
-                    ) : null}
-
-                    {/* Caixa de Entrada — padronizada com topbar-search-bar */}                    <form 
-                      onSubmit={(e) => handleSendChat(e)}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-2xl",
-                        "topbar-search-bar",
-                        chatInputFocused && "topbar-search-bar--focused"
-                      )}
-                    >
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onFocus={() => setChatInputFocused(true)}
-                        onBlur={() => setChatInputFocused(false)}
-                        placeholder="Digite um tema para análise..."
-                        className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none min-w-0 font-medium font-sans ml-3"
-                      />
-                      <button
-                        type="submit"
-                        disabled={isAiTyping}
-                        className="h-7 w-7 mr-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 active:scale-95 hover:bg-primary-hover disabled:opacity-50 transition-all cursor-pointer"
-                        aria-label="Enviar"
-                      >
-                        <Send className="w-3 h-3" />
-                      </button>
-                    </form>
-
-                    {/* Workspace de Conversação (Resposta da IA) */}
-                    {activeQueryText && (
-                      <div className="pt-3 border-t border-glass/40">
-                        <AnimatePresence mode="wait">
-                          {isAiTyping ? (
-                            <motion.div
-                              key="ai-loading"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="space-y-2.5 py-1.5 animate-pulse"
-                            >
-                              <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                <span>Gerando análise dos dados...</span>
-                              </div>
-                              <div className="h-2.5 bg-secondary/15 rounded w-full" />
-                              <div className="h-2.5 bg-secondary/15 rounded w-11/12" />
-                              <div className="h-2.5 bg-secondary/15 rounded w-4/5" />
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="ai-content"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="space-y-4"
-                            >
-                              <BeautifulMarkdown text={activeReportText} />
-                              
-                              {/* Chart data analysis — disponível para integrações futuras */}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
-                  </Card>
+                  {/* ── SEÇÃO: Insights Financeiros (extraído para InsightsCard) ── */}
+                  <InsightsCard
+                    chatInput={chatInput}
+                    setChatInput={setChatInput}
+                    chatInputFocused={chatInputFocused}
+                    setChatInputFocused={setChatInputFocused}
+                    activeQueryText={activeQueryText}
+                    setActiveQueryText={setActiveQueryText}
+                    activeReportText={activeReportText}
+                    setActiveReportText={setActiveReportText}
+                    setActiveChartData={setActiveChartData}
+                    isAiTyping={isAiTyping}
+                    isUpdatingPinned={isUpdatingPinned}
+                    pinnedAnalysis={pinnedAnalysis}
+                    dynamicAiSuggestions={dynamicAiSuggestions}
+                    hasNewDataForPinned={hasNewDataForPinned}
+                    handleSendChat={handleSendChat}
+                    handlePin={handlePin}
+                    handleUnpin={handleUnpin}
+                    handleUpdatePinnedAnalysis={handleUpdatePinnedAnalysis}
+                  />
 
                   {/* ── SEÇÃO: SmartLimitSuggestions (cards contextuais) ── */}
                   {/* Placeholder para novos cards contextuais que aparecem conforme o mês avança */}
-                  {/* Sugestões detalhadas na documentação docs/NEXT_STEPS.md */}
 
                   {/* ── SEÇÃO 5: Quick Wins - Ações de Otimização ── */}
                   <QuickWinsGrid
@@ -1469,41 +946,6 @@ export default function Dashboard() {
                     onReallocate={handleReallocate}
                     isReallocating={isReallocating}
                   />
-
-                  {/* Pinned AI Analysis inline pill when not active query */}
-                  {pinnedAnalysis && pinnedAnalysis.queryText !== activeQueryText && (
-                    <div className="flex items-center gap-2 border border-dashed border-glass/60 rounded-xl px-3 py-2 surface-glass-strong">
-                      <Pin className="w-3 h-3 text-primary shrink-0 fill-primary/10" />
-                      <span className="text-[10px] text-secondary truncate flex-1 min-w-0">
-                        Análise: {pinnedAnalysis.queryText}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setActiveReportText(pinnedAnalysis.text)
-                          setActiveChartData(pinnedAnalysis.chartData)
-                          setActiveQueryText(pinnedAnalysis.queryText)
-                        }}
-                        className="px-2 py-0.5 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer border border-primary/20 bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-wider shrink-0"
-                      >
-                        Abrir
-                      </button>
-                      {hasNewDataForPinned && (
-                        <button
-                          onClick={handleUpdatePinnedAnalysis}
-                          disabled={isUpdatingPinned}
-                          className="px-2 py-0.5 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer flex items-center gap-1 border border-primary/20 bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-wider shrink-0"
-                        >
-                          <RefreshCw className={`w-2 h-2 ${isUpdatingPinned ? 'animate-spin' : ''}`} />
-                        </button>
-                      )}
-                      <button
-                        onClick={handleUnpin}
-                        className="p-0.5 text-secondary hover:text-primary rounded-md hover:bg-secondary/10 transition-all cursor-pointer shrink-0"
-                      >
-                        <Pin className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
 
                 </div>
 

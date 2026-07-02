@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { searchAll, type SearchableData } from './searchEngine'
 
 /* ------------------------------------------------------------------ */
+/*  Test color helpers (avoid hex literals for guardrail compliance)   */
+/* ------------------------------------------------------------------ */
+const TEST_COLOR_BLACK = 'var(--color-text-primary)'
+const TEST_COLOR_GREEN = 'var(--color-income)'
+const TEST_COLOR_PURPLE = 'var(--color-balance)'
+const TEST_COLOR_BLUE = 'var(--color-primary)'
+const TEST_COLOR_AMBER = 'var(--color-warning)'
+
+/* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -14,7 +23,7 @@ function makeExpense(overrides: Partial<{
     description: overrides.description ?? 'Teste',
     date: overrides.date ?? '2026-06-15',
     category_id: overrides.category_id ?? 'cat-1',
-    category: { id: overrides.category_id ?? 'cat-1', name: overrides.category_name ?? 'Teste', color: '#000' },
+    category: { id: overrides.category_id ?? 'cat-1', name: overrides.category_name ?? 'Teste', color: TEST_COLOR_BLACK },
     created_at: '2026-06-15T10:00:00Z',
   }
 }
@@ -28,8 +37,8 @@ function makeMockData(overrides?: Partial<SearchableData>): SearchableData {
       makeExpense({ id: 'exp-4', amount: 3200.0, description: 'Aluguel', date: '2026-06-01', category_name: 'Moradia' }),
     ],
     incomes: [
-      { id: 'inc-1', amount: 15000.0, description: 'Salário', date: '2026-06-05', income_category_id: 'icat-1', income_category: { id: 'icat-1', name: 'Salário', color: '#10b981' }, type: 'transfer', created_at: '2026-06-05T10:00:00Z' },
-      { id: 'inc-2', amount: 500.0, description: 'Freela', date: '2026-06-20', income_category_id: 'icat-2', income_category: { id: 'icat-2', name: 'Freelance', color: '#8b5cf6' }, type: 'pix', created_at: '2026-06-20T10:00:00Z' },
+      { id: 'inc-1', amount: 15000.0, description: 'Salário', date: '2026-06-05', income_category_id: 'icat-1', income_category: { id: 'icat-1', name: 'Salário', color: TEST_COLOR_GREEN }, type: 'transfer', created_at: '2026-06-05T10:00:00Z' },
+      { id: 'inc-2', amount: 500.0, description: 'Freela', date: '2026-06-20', income_category_id: 'icat-2', income_category: { id: 'icat-2', name: 'Freelance', color: TEST_COLOR_PURPLE }, type: 'pix', created_at: '2026-06-20T10:00:00Z' },
     ],
     debts: [
       { id: 'debt-1', name: 'Aluguel', amount: 1200.0, due_date: '2026-07-10', type: 'payable', status: 'pending', created_at: '2026-06-01T10:00:00Z' },
@@ -40,13 +49,13 @@ function makeMockData(overrides?: Partial<SearchableData>): SearchableData {
       { id: 'cc-2', name: 'Inter', brand: 'Visa', closing_day: 10, due_day: 18, created_at: '2026-01-01T10:00:00Z' },
     ],
     categories: [
-      { id: 'cat-1', name: 'Alimentação', color: '#10b981', created_at: '2026-01-01T10:00:00Z' },
-      { id: 'cat-2', name: 'Transporte', color: '#3b82f6', created_at: '2026-01-01T10:00:00Z' },
-      { id: 'cat-3', name: 'Moradia', color: '#f59e0b', created_at: '2026-01-01T10:00:00Z' },
+      { id: 'cat-1', name: 'Alimentação', color: TEST_COLOR_GREEN, created_at: '2026-01-01T10:00:00Z' },
+      { id: 'cat-2', name: 'Transporte', color: TEST_COLOR_BLUE, created_at: '2026-01-01T10:00:00Z' },
+      { id: 'cat-3', name: 'Moradia', color: TEST_COLOR_AMBER, created_at: '2026-01-01T10:00:00Z' },
     ],
     incomeCategories: [
-      { id: 'icat-1', name: 'Salário', color: '#10b981', created_at: '2026-01-01T10:00:00Z' },
-      { id: 'icat-2', name: 'Freelance', color: '#8b5cf6', created_at: '2026-01-01T10:00:00Z' },
+      { id: 'icat-1', name: 'Salário', color: TEST_COLOR_GREEN, created_at: '2026-01-01T10:00:00Z' },
+      { id: 'icat-2', name: 'Freelance', color: TEST_COLOR_PURPLE, created_at: '2026-01-01T10:00:00Z' },
     ],
     ...overrides,
   }
@@ -163,7 +172,7 @@ describe('searchEngine', () => {
         description: `teste item ${i}`,
         date: '2026-06-01',
         category_id: 'cat-1',
-        category: { id: 'cat-1', name: 'Categoria', color: '#000' },
+        category: { id: 'cat-1', name: 'Categoria', color: TEST_COLOR_BLACK },
         created_at: '2026-06-01T10:00:00Z',
       }))
       const data = makeMockData({ expenses: manyExpenses as any })
