@@ -292,6 +292,7 @@ Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar
 | `useCalculatorPanel` | Drag/resize do painel da calculadora |
 | `useScrollToTop` | Scroll-to-top com pull gesture e haptics |
 | `useDashboardInsights` | Insights estruturados (assinaturas, desafios, limites) |
+| `useReportCustomPeriod` | Hook de período customizado para Reports (data loading, memoização, auto-reload) |
 
 ---
 

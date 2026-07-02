@@ -336,6 +336,8 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `LimitsControl` | Controle de limites por categoria |
 | `FinancialInsights` | Cards de insights mensais |
 | `BudgetHeroCard` | Card de gasto disponível (diário + mensal + alerta) |
+| `DashboardSummaryCard` | Card Resumo do Mês com termômetro de orçamento e sugestão de remanejamento |
+| `DashboardCategoryDetailModal` | Modal de detalhamento de categoria: comparação, metas, mini-chart, lançamentos |
 | `ProjectionCard` | Projeção de fim de mês com ritmo de gastos |
 | `QuickWinsGrid` | Grade de ações rápidas de otimização |
 | `InsightsCard` | Centro de Economia (alertas, assinaturas, desafios, limites) |
@@ -779,18 +781,17 @@ npm run preview   # Preview do build
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **290/290** (31 arquivos, 4.15s) |
-| UI Guardrails | **21 na baseline** |
+| Testes passando | **387/387** (35 arquivos) |
+| UI Guardrails | **0 violações** |
 | `as any` em produção | **0** |
 | `as any` em assinaturas de função | **0** |
 | Non-null assertions em produção | **0** |
 | `catch(err: any)` | **0** |
 | `console.log` em produção | **0** (via logger condicional) |
-| Maior arquivo | **2.276 linhas** (Reports.tsx) |
+| Maior arquivo | **~1.600 linhas** (Reports.tsx) |
 | Total componentes | **130+** |
-| Total hooks | **35+** |
+| Total hooks | **40+** |
 | Total migrations | **43** |
-| Novos arquivos (última sessão) | **14** |
 
 ---
 
