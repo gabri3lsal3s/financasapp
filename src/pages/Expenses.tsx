@@ -24,6 +24,7 @@ import ExpenseFormModal from '@/components/ExpenseFormModal'
 import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import EmptyState from '@/components/EmptyState'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
@@ -119,6 +120,7 @@ export default function Expenses() {
   } | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const { isOnline } = useNetworkStatus()
+  const isMobile = useMediaQuery('(max-width: 639px)')
 
   useEffect(() => {
     const isReady = !loading && !categoriesLoading && !incomeCategoriesLoading
@@ -176,6 +178,15 @@ export default function Expenses() {
       return { error }
     }
   }
+
+  // Expande o card no mobile quando navega por resultado da busca
+  useEffect(() => {
+    const shouldExpand = searchParams.get('expand') === '1'
+    const highlightId = searchParams.get('highlight')
+    if (shouldExpand && highlightId && isMobile) {
+      setExpandedIds((prev) => ({ ...prev, [highlightId]: true }))
+    }
+  }, [searchParams, isMobile])
 
   useEffect(() => {
     const quickAdd = searchParams.get('quickAdd')

@@ -238,10 +238,12 @@ describe('searchEngine', () => {
       expect(types.has('expense')).toBe(true)
     })
 
-    it('resultados incluem path de navegação', () => {
+    it('resultados incluem path de navegação com mês e expand', () => {
       const data = makeMockData()
       const results = searchAll('gasolina', data)
-      expect(results[0].path).toBe('/expenses?highlight=exp-2')
+      expect(results[0].path).toContain('/expenses?highlight=exp-2')
+      expect(results[0].path).toContain('expand=1')
+      expect(results[0].path).toContain('month=2026-06')
     })
   })
 })

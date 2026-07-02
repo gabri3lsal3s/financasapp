@@ -22,6 +22,7 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useContasBills } from '@/hooks/useContasBills'
 import { useContasModals } from '@/hooks/useContasModals'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { supabase } from '@/lib/supabase'
 import type { Debt, Expense } from '@/types'
 import { useSearchHighlight } from '@/utils/pageTitles'
@@ -83,6 +84,7 @@ export default function Contas() {
   const swipeHandlers = useSwipeMonth(currentMonth, setCurrentMonth)
   const [hasResolvedInitialMonth, setHasResolvedInitialMonth] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+  const isMobile = useMediaQuery('(max-width: 639px)')
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) => ({
@@ -410,10 +412,14 @@ export default function Contas() {
     if (hasResolvedInitialMonth) return
     if (loadingCards) return
 
-    if (hasExplicitCreditCardsDeepLink(searchParams, getCurrentMonthString())) {
-      const targetMonth = searchParams.get('month')
-      if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth)) {
-        setCurrentMonth(targetMonth)
+    // Tenta navegar para o mês vindo da busca (?month=YYYY-MM)
+    const targetMonth = searchParams.get('month')
+    if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth)) {
+      setCurrentMonth(targetMonth)
+    } else if (hasExplicitCreditCardsDeepLink(searchParams, getCurrentMonthString())) {
+      const cardMonth = searchParams.get('month')
+      if (cardMonth && /^\d{4}-\d{2}$/.test(cardMonth)) {
+        setCurrentMonth(cardMonth)
       }
     } else {
       setCurrentMonth(getCurrentMonthString())
@@ -428,14 +434,27 @@ export default function Contas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasResolvedInitialMonth, currentMonth, creditCards])
 
+  // Expande debts no mobile quando navega por resultado da busca
+  useEffect(() => {
+    const shouldExpand = searchParams.get('expand') === '1'
+    const highlightId = searchParams.get('highlight')
+    if (shouldExpand && highlightId && isMobile) {
+      setExpandedItems((prev) => ({ ...prev, [highlightId]: true }))
+    }
+  }, [searchParams, isMobile])
+
   useEffect(() => {
     const targetCardId = searchParams.get('card')
     if (!targetCardId || loadingCards || loadingBills) return
     const targetElement = document.getElementById(`credit-card-${targetCardId}`)
     if (targetElement) {
       targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      // Expande o card no mobile
+      if (isMobile) {
+        setExpandedItems((prev) => ({ ...prev, [targetCardId]: true }))
+      }
     }
-  }, [searchParams, loadingCards, loadingBills, currentMonth])
+  }, [searchParams, loadingCards, loadingBills, currentMonth, isMobile])
 
   const handleSubmitCard = async (payload: {
     name: string
@@ -1003,7 +1022,7 @@ export default function Contas() {
                         const isExpanded = !!expandedItems[card.id]
 
                         return (
-                          <Card key={card.id} className="p-0 overflow-hidden border border-glass transition-all duration-300">
+                          <Card key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300">
                             {/* Header Accordion */}
                             <div 
                               className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"

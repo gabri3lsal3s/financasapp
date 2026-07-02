@@ -2857,6 +2857,52 @@ body:has(.modal-overlay) .page-action-hub-root {
   transition: none !important;
 }
 
+/* ==========================================================================
+   SEARCH HIGHLIGHT — glow + scale sutil ao navegar por resultado de busca
+   ========================================================================== */
+
+@keyframes search-highlight-glow {
+  0% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 20%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 10%, transparent),
+      var(--glass-shadow-panel);
+    transform: scale(1);
+  }
+  30% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--color-primary) 20%, transparent),
+      0 0 0 8px color-mix(in srgb, var(--color-primary) 8%, transparent),
+      var(--glass-shadow-panel);
+    transform: scale(1.008);
+  }
+  60% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--color-primary) 5%, transparent),
+      var(--glass-shadow-panel);
+    transform: scale(1.004);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent),
+      var(--glass-shadow-panel);
+    transform: scale(1);
+  }
+}
+
+.search-highlight-item {
+  animation: search-highlight-glow 4s var(--ds-motion-easing-emphasis) forwards;
+  transform-origin: center;
+  position: relative;
+}
+
+/* Glow mais sutil no dark mode */
+[data-theme='dark'] .search-highlight-item {
+  animation: search-highlight-glow 4s var(--ds-motion-easing-emphasis) forwards;
+}
+
 /* Barra de pesquisa da barra superior - padronizada com o FAB e bottom nav */
 .topbar-search-bar {
   border: 1px solid var(--glass-border);

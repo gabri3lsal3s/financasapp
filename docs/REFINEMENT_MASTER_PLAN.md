@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v1.9) — Motor de sugestões de otimização (`optimizationSuggestionsEngine.ts`) com 8 tipos de ações contextuais. QuickWinsGrid refatorado: só aparece quando há ações úteis, cards dinâmicos com economia mensal + projeção anual. Build: 0 erros TS, 387/387 testes, Build OK.
+> **Última atualização:** Julho de 2026 (v2.0) — Navegação contextual da busca global aprimorada: paths incluem `&month=YYYY-MM` e `&expand=1`; glow animado com scale no highlight; busca expande cards automaticamente no mobile; `useSearchHighlight` refatorado com animação CSS; Incomes agora lê `month` param. Build: 0 erros TS, 387/387 testes, Build OK, 0 regressões.
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -176,9 +176,11 @@
 | Motor de busca | `searchEngine.ts` — pesquisa descrições, valores, datas, categorias |
 | Scoring | Match exato (100), prefixo (85), substring (60), recência (25-0) |
 | 6 entidades pesquisáveis | Despesas, Rendas, Dívidas, Cartões, Categorias, Categorias de Renda |
-| Highlight | Termo destacado com `<mark>` |
-| Navegação contextual | Cada resultado navega p/ página correta c/ `?highlight={id}` |
-| 23+ testes | `searchEngine.test.ts` — todos passando |
+| Highlight | Termo destacado com `<mark>` + glow animado (`search-highlight-glow`) no card alvo |
+| Navegação contextual | Cada resultado navega p/ página correta c/ `?highlight={id}&month=YYYY-MM&expand=1` |
+| Expansão automática mobile | Card alvo é expandido automaticamente ao navegar por resultado de busca |
+| Scroll + glow | `useSearchHighlight` faz scroll suave, aplica ring + glow animado por 4s, depois limpa URL |
+| 23+ testes | `searchEngine.test.ts` — 23 testes passando (paths atualizados para novo formato) |
 
 ### Notificações
 

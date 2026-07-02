@@ -1,5 +1,5 @@
 import type { Expense, Income, Debt, CreditCard, Category, IncomeCategory } from '@/types'
-import { formatDate } from './format'
+import { formatDate, getCurrentMonthString } from './format'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -123,7 +123,7 @@ function searchExpenses(query: string, expenses: Expense[]): SearchResult[] {
         iconName: 'TrendingDown',
         iconColor: 'var(--color-expense-text)',
         bgColor: 'var(--color-expense)',
-        path: `/expenses?highlight=${e.id}`,
+        path: `/expenses?highlight=${e.id}&expand=1&month=${e.date.substring(0, 7)}`,
         score: best + recencyBonus(e.date),
       })
     }
@@ -156,7 +156,7 @@ function searchIncomes(query: string, incomes: Income[]): SearchResult[] {
         iconName: 'TrendingUp',
         iconColor: 'var(--color-income-text)',
         bgColor: 'var(--color-income)',
-        path: `/incomes?highlight=${inc.id}`,
+        path: `/incomes?highlight=${inc.id}&expand=1&month=${inc.date.substring(0, 7)}`,
         score: best + recencyBonus(inc.date),
       })
     }
@@ -191,7 +191,7 @@ function searchDebts(query: string, debts: Debt[]): SearchResult[] {
         iconName: 'Receipt',
         iconColor: 'var(--color-warning)',
         bgColor: 'var(--color-warning)',
-        path: `/contas?highlight=${d.id}`,
+        path: `/contas?highlight=${d.id}&expand=1&month=${d.due_date.substring(0, 7)}`,
         score: best + recencyBonus(d.due_date),
       })
     }
@@ -217,7 +217,7 @@ function searchCreditCards(query: string, cards: CreditCard[]): SearchResult[] {
         iconName: 'CreditCard',
         iconColor: 'var(--color-primary)',
         bgColor: 'var(--color-primary)',
-        path: `/contas?card=${c.id}`,
+        path: `/contas?card=${c.id}&month=${getCurrentMonthString()}`,
         score: best,
       })
     }
