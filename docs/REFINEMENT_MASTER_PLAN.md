@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v1.3)
+> **Última atualização:** Julho de 2026 (v1.5) — Insights do Dashboard refatorados: novo motor de insights com detecção de assinaturas, desafios de economia e sugestões de limites. Input de chat removido.
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -13,10 +13,11 @@
 3. [Correções de Bugs](#3-correções-de-bugs)
 4. [Melhorias de UI/UX Concluídas](#4-melhorias-de-uiux-concluídas)
 5. [Pendências Técnicas](#5-pendências-técnicas)
-6. [Melhorias de Curto Prazo](#6-melhorias-de-curto-prazo)
-7. [Melhorias de Médio/Longo Prazo](#7-melhorias-de-médiolongo-prazo)
-8. [Monitoramento Contínuo](#8-monitoramento-contínuo)
-9. [Apêndice: Inventário de Componentes](#9-apêndice-inventário-de-componentes)
+6. [Dashboard Redesign](#6-dashboard-redesign)
+7. [Melhorias de Curto Prazo](#7-melhorias-de-curto-prazo)
+8. [Melhorias de Médio/Longo Prazo](#8-melhorias-de-médiolongo-prazo)
+9. [Monitoramento Contínuo](#9-monitoramento-contínuo)
+10. [Apêndice: Inventário de Componentes](#10-apêndice-inventário-de-componentes)
 
 ---
 
@@ -38,21 +39,16 @@
 | Métrica | Valor | Status |
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **290/290** (31 arquivos) | ✅ |
+| Testes passando | **290/290** (31 arquivos, 4.15s) | ✅ |
 | Build | **OK** | ✅ |
 | UI Guardrails | **21 na baseline** | 🟡 |
-| `as any` em produção | **0** | ✅ |
+| `as any` em produção | **0** (5 em gráficos Recharts) | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
-| `console.log` residual | **0** | ✅ |
-| `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
-| `as any` em produção | **0** | ✅ |
-| Non-null assertions em produção | **0** | ✅ |
-| `catch(err: any)` | **0** | ✅ |
-| `console.log` residual | **0** | ✅ |
+| `console.log` residual | **0** (via logger condicional) | ✅ |
 | `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
 | Maior arquivo | **~1.925 linhas** (Reports.tsx) | 🟡 |
-| Dashboard.tsx | **~1.900+ linhas** | 🟡 |
+| Dashboard.tsx | **~1.940 linhas** | 🟡 |
 | Componentes | **130+** | ✅ |
 | Hooks customizados | **35+** | ✅ |
 | Migrations | **43** | ✅ |
@@ -195,6 +191,15 @@
 
 ## 5. Pendências Técnicas
 
+### ✅ Insights do Dashboard Refatorados (v1.5)
+
+| Item | Descrição | Status |
+|------|-----------|--------|
+| Motor de insights | `insightsEngine.ts` — detecção de assinaturas (descrições repetidas entre meses), desafios de economia (categorias não essenciais), sugestões de ajuste de limites | ✅ |
+| InsightsCard | Reescrevido sem input de chat, seções organizadas (Alertas, Assinaturas, Desafios, Limites), componentes padronizados | ✅ |
+| useDashboardInsights | Hook simplificado, sem estado de chat, retorna dados estruturados | ✅ |
+| aiIcons | Novos ícones para assinatura, desafios e limites | ✅ |
+
 ### 🔴 Migration Pendente no Supabase
 
 A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
@@ -210,9 +215,16 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
 **Como aplicar:** Acesse o SQL Editor do Supabase Dashboard e execute o SQL.
 
+### ⏳ Pendências Resolvidas
+
+| Item | Descrição | Resolução |
+|------|-----------|-----------|
+| 4.4 | Extrair dynamicAiSuggestions do Dashboard | ✅ Já estava extraído — `aiSuggestions.ts`, `useDashboardAI.ts`, `InsightsCard.tsx`, `aiIcons.tsx` |
+| 4.5 | Contraste modo midnight (WCAG AA) | ✅ `--ds-color-text-secondary` alterado de `#a1a1aa` → `#d4d4d8` (zinc-300). text-secondary/60 passa de 3.40:1 → 5.25:1 no WCAG AA. text-secondary/50 permanece 3.95:1 (aceitável para texto decorativo). |
+
 ---
 
-## 6. Fase Dashboard Redesign ✅
+## 6. Dashboard Redesign ✅
 
 | # | Item | Descrição | Status |
 |---|------|-----------|--------|
@@ -224,26 +236,14 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
 ---
 
-## 7. Fase 4 — Melhorias de Curto Prazo
-
-| # | Item | Esforço | Status |
-|---|------|---------|--------|
-| 4.1 | ✅ Carrossel redesenho (max 3, chips menores, empty state) | ✅ Concluído | ✅ |
-| 4.2 | ✅ Unificar card fixado IA (pill inline) | ✅ Concluído | ✅ |
-| 4.3 | ✅ Padronizar input do Copiloto com topbar-search-bar | ✅ Concluído | Input do Insights usa `topbar-search-bar` com foco `--focused` | ✅ |
-| 4.4 | Extrair dynamicAiSuggestions do Dashboard para service | ~2h | ⏳ |
-| 4.5 | Verificar contraste modo midnight (WCAG AA) | ~30min | ⏳ |
-
----
-
-## 6. Melhorias de Curto Prazo
+## 7. Melhorias de Curto Prazo
 
 ### Prioridade Alta 🟡
 
 | # | Item | Esforço | Arquivos | Descrição |
 |---|------|---------|----------|-----------|
 | 1 | ✅ Extrair lógica de `useExpenses.ts` (~497 linhas → 437) | **✅ Concluído** | `utils/expenseInstallments.ts`, `utils/expenseDeletion.ts`, `utils/creditCardCompetence.ts` | Já estava extraído — usoExpenses.ts importa dos 3 utils |
-| 2 | Extrair `dynamicAiSuggestions` + `handleSendChat` do Dashboard | ~3h | `services/aiSuggestions.ts`, `hooks/useDashboardAI.ts` | Lógica de insights + NL parser do Copiloto IA |
+| 2 | ✅ Extrair `dynamicAiSuggestions` + `handleSendChat` do Dashboard | ~3h | Componentes extraídos para `insightsEngine.ts`, `useDashboardInsights.ts`, `InsightsCard.tsx`, `aiIcons.tsx` | ✅ Já extraído — lógica em service + hook, render em componente |
 | 3 | Padronizar espaçamento entre cards em todas as páginas | ~1h | Todas as pages | Unificar `space-y-4/5/6` para valor consistente |
 | 4 | ✅ Limpar imports não usados (TS6133) no Reports.tsx + MonthlyReportView.tsx | ✅ Fixado | `Reports.tsx`, `MonthlyReportView.tsx` | Após extração da Fase 4 |
 
@@ -253,13 +253,13 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 |---|------|---------|-----------|--------|
 | 5 | ✅ Unificar card fixado no Copiloto IA | ✅ Concluído | Análise fixada integrada como pill inline no Copiloto (card separado removido) | ✅ |
 | 6 | ✅ Redesenhar carrossel de insights | ✅ Concluído | Max 3 insights, chips menores (pill-style), empty state adicionado | ✅ |
-| 7 | ✅ Padronizar input do Copiloto com topbar-search-bar | ✅ Concluído | Input do Insights usa `topbar-search-bar` com foco `--focused` | ✅ |
-| 8 | Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | Reduzir Dashboard.tsx em ~200 linhas | ⏳ |
-| 9 | Verificar contraste em modo midnight (WCAG AA) | ~30min | text-secondary + border-glass no modo escuro | ⏳ |
+| 7 | ✅ Padronizar input do Copiloto com topbar-search-bar | ✅ Concluído | Input do Insights foi removido — insights agora são 100% automáticos | ✅ |
+| 8 | ✅ Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | ✅ Extraído — `insightsEngine.ts` + `useDashboardInsights.ts` + `InsightsCard.tsx` + `aiIcons.tsx` |
+| 9 | ✅ Verificar contraste em modo midnight (WCAG AA) | ~30min | ✅ `--ds-color-text-secondary` alterado de `#a1a1aa` → `#d4d4d8` no midnight |
 
 ---
 
-## 7. Melhorias de Médio/Longo Prazo
+## 8. Melhorias de Médio/Longo Prazo
 
 ### Arquivos > 1000 Linhas para Fracionar
 
@@ -290,7 +290,7 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
 ---
 
-## 8. Monitoramento Contínuo
+## 9. Monitoramento Contínuo
 
 ### Pré-commit Checklist
 
@@ -313,7 +313,7 @@ npm run build              # Build OK
 
 ---
 
-## 9. Apêndice: Inventário de Componentes
+## 10. Apêndice: Inventário de Componentes
 
 ### Primitives (shadcn/ui) — `src/components/ui/`
 

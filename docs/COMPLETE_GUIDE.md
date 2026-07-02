@@ -38,7 +38,7 @@ O **Minhas Finanças** é uma aplicação web **PWA (Progressive Web App)** de c
 
 | Área | Funcionalidades |
 |------|----------------|
-| **Dashboard** | KPIs de rendas, despesas, investimentos e saldo; gráfico de fluxo diário; **Copiloto de IA** com sugestões inteligentes não-LLM, análise LLM via Gemini, gráficos interativos e análises fixadas; limites de gastos |
+| **Dashboard** | KPIs de rendas, despesas, investimentos e saldo; gráfico de fluxo diário; **Centro de Economia** com insights automáticos (assinaturas, desafios de economia, sugestões de limites); limites de gastos |
 | **Despesas** | CRUD completo com parcelamento, competência de cartão de crédito, sincronização offline |
 | **Rendas** | CRUD completo com suporte a estornos automáticos de cartões |
 | **Investimentos** | Portfólio completo com motor quantamental (Scuttlebutt + Fundamentos), TWR, ledger, conciliação B3, Smart Aporte |
@@ -335,8 +335,10 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `DailyBudgetAdvisor` | Orçamento diário sugerido |
 | `LimitsControl` | Controle de limites por categoria |
 | `FinancialInsights` | Cards de insights mensais |
-| `BeautifulMarkdown` | Renderização de markdown com destaque para valores monetários |
-| `InteractiveAIChart` | Gráfico interativo gerado pela IA (barras, rosca, comparativo) |
+| `BudgetHeroCard` | Card de gasto disponível (diário + mensal + alerta) |
+| `ProjectionCard` | Projeção de fim de mês com ritmo de gastos |
+| `QuickWinsGrid` | Grade de ações rápidas de otimização |
+| `InsightsCard` | Centro de Economia (alertas, assinaturas, desafios, limites) |
 
 ### 5.7 Investimentos
 
@@ -777,8 +779,8 @@ npm run preview   # Preview do build
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **267/267** (30 arquivos) |
-| UI Guardrails | **0 violações** |
+| Testes passando | **290/290** (31 arquivos, 4.15s) |
+| UI Guardrails | **21 na baseline** |
 | `as any` em produção | **0** |
 | `as any` em assinaturas de função | **0** |
 | Non-null assertions em produção | **0** |

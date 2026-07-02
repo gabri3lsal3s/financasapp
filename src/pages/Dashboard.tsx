@@ -41,7 +41,7 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { addMonths } from '@/utils/format'
-import { useDashboardAI } from '@/hooks/useDashboardAI'
+import { useDashboardInsights } from '@/hooks/useDashboardInsights'
 import { InsightsCard } from '@/components/dashboard/InsightsCard'
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
@@ -498,7 +498,25 @@ export default function Dashboard() {
     return totals
   }, [expenses, currentMonth])
 
-  // AI Copilot — extracted to useDashboardAI hook
+  // ── Expenses with limit for insights engine ──
+  const expensesWithLimit = useMemo(() => {
+    return categories
+      .map((cat) => {
+        const limit = currentMonthExpenseLimitMap.get(cat.id)
+        const spent = expenses
+          .filter((e) => (e.category?.id || e.category_id) === cat.id)
+          .reduce((s, e) => s + e.amount * (e.report_weight ?? 1), 0)
+        return {
+          categoryId: cat.id,
+          spent,
+          limit: limit ?? null,
+          name: cat.name,
+        }
+      })
+      .filter((item) => item.limit !== null && item.limit !== undefined)
+  }, [categories, expenses, currentMonthExpenseLimitMap])
+
+  // ── Insights Engine (substitui useDashboardAI) ──
   const aiInput = useMemo(() => ({
     currentMonth,
     totalIncomes,
@@ -513,6 +531,10 @@ export default function Dashboard() {
     spendingPace,
     spendingProjection,
     balance,
+    expenses,
+    previousMonthExpenses,
+    categories: categories.map(c => ({ id: c.id, name: c.name })),
+    expensesWithLimit,
     expensesCount: expenses.length,
     incomesCount: incomes.length,
   }), [
@@ -520,25 +542,12 @@ export default function Dashboard() {
     savingsRate, categoryExpenseSummaries, previousMonthExpenseTotal,
     weekdayExpenseData, limitsExceededCount, incomeByCategory,
     spendingPace, spendingProjection, balance,
-    expenses, incomes,
+    expenses, previousMonthExpenses, categories, expensesWithLimit,
   ])
 
   const {
-    chatInput, setChatInput,
-    chatInputFocused, setChatInputFocused,
-    activeQueryText, setActiveQueryText,
-    activeReportText, setActiveReportText,
-    setActiveChartData,
-    isAiTyping,
-    isUpdatingPinned,
-    pinnedAnalysis,
-    dynamicAiSuggestions,
-    hasNewDataForPinned,
-    handleSendChat,
-    handlePin,
-    handleUnpin,
-    handleUpdatePinnedAnalysis,
-  } = useDashboardAI(aiInput)
+    insights,
+  } = useDashboardInsights(aiInput)
 
   const categoriesAttentionList = useMemo(() => {
     const list: Array<{
@@ -915,26 +924,9 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  {/* ── SEÇÃO: Insights Financeiros (extraído para InsightsCard) ── */}
+                  {/* ── SEÇÃO: Centro de Economia (Insights reformulados) ── */}
                   <InsightsCard
-                    chatInput={chatInput}
-                    setChatInput={setChatInput}
-                    chatInputFocused={chatInputFocused}
-                    setChatInputFocused={setChatInputFocused}
-                    activeQueryText={activeQueryText}
-                    setActiveQueryText={setActiveQueryText}
-                    activeReportText={activeReportText}
-                    setActiveReportText={setActiveReportText}
-                    setActiveChartData={setActiveChartData}
-                    isAiTyping={isAiTyping}
-                    isUpdatingPinned={isUpdatingPinned}
-                    pinnedAnalysis={pinnedAnalysis}
-                    dynamicAiSuggestions={dynamicAiSuggestions}
-                    hasNewDataForPinned={hasNewDataForPinned}
-                    handleSendChat={handleSendChat}
-                    handlePin={handlePin}
-                    handleUnpin={handleUnpin}
-                    handleUpdatePinnedAnalysis={handleUpdatePinnedAnalysis}
+                    insights={insights}
                   />
 
                   {/* ── SEÇÃO: SmartLimitSuggestions (cards contextuais) ── */}

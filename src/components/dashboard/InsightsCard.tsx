@@ -1,271 +1,377 @@
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import Card from '@/components/Card'
 import { CARD_BASE, CARD_PADDING_LARGE } from '@/constants/layout'
-import { motion, AnimatePresence } from 'framer-motion'
-import { BeautifulMarkdown } from '@/components/dashboard/BeautifulMarkdown'
+import { formatCurrency } from '@/utils/format'
 import Button from '@/components/Button'
-import { Input } from '@/components/ui/input'
-import { Send, Pin, RefreshCw } from 'lucide-react'
-import { resolveIcon } from '@/services/aiIcons'
-import type { RawSuggestion } from '@/services/aiSuggestions'
-import type { PinnedAnalysisData } from '@/hooks/useDashboardAI'
-import type { FormEvent } from 'react'
+import { getCategoryIcon } from '@/utils/categoryIcons'
+import {
+  AlertTriangle, TrendingUp, Sparkles, PiggyBank,
+  CheckCircle2, CreditCard, ArrowRight, ChevronRight,
+} from 'lucide-react'
+import type { StructuredInsights, SubscriptionInfo, SavingsChallenge, LimitSuggestion } from '@/services/insightsEngine'
 
 /* ------------------------------------------------------------------ */
-/*  Types                                                              */
+/*  Props                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface InsightsCardHandlers {
-  chatInput: string
-  setChatInput: (v: string) => void
-  chatInputFocused: boolean
-  setChatInputFocused: (v: boolean) => void
-  activeQueryText: string
-  setActiveQueryText: (v: string) => void
-  activeReportText: string
-  setActiveReportText: (v: string) => void
-  setActiveChartData: (v: unknown[] | undefined) => void
-  isAiTyping: boolean
-  isUpdatingPinned: boolean
-  pinnedAnalysis: PinnedAnalysisData | null
-  dynamicAiSuggestions: RawSuggestion[]
-  hasNewDataForPinned: boolean
-  handleSendChat: (e?: FormEvent, customText?: string) => void
-  handlePin: () => Promise<void>
-  handleUnpin: () => Promise<void>
-  handleUpdatePinnedAnalysis: () => Promise<void>
+export interface InsightsCardProps {
+  insights: StructuredInsights
 }
 
 /* ------------------------------------------------------------------ */
-/*  Component                                                         */
+/*  Section: Critical Alert                                            */
 /* ------------------------------------------------------------------ */
 
-export function InsightsCard(props: InsightsCardHandlers) {
-  const {
-    chatInput,
-    setChatInput,
-    chatInputFocused,
-    setChatInputFocused,
-    activeQueryText,
-    activeReportText,
-    setActiveReportText,
-    setActiveChartData,
-    isAiTyping,
-    isUpdatingPinned,
-    pinnedAnalysis,
-    dynamicAiSuggestions,
-    hasNewDataForPinned,
-    handleSendChat,
-    handlePin,
-    handleUnpin,
-    handleUpdatePinnedAnalysis,
-  } = props
+function AlertSection({ alert }: { alert: NonNullable<StructuredInsights['criticalAlert']> }) {
+  const borderMap = {
+    danger: 'border-expense/30 bg-expense/[0.03]',
+    warning: 'border-warning/30 bg-warning/[0.03]',
+    success: 'border-income/30 bg-income/[0.03]',
+  }
 
-  const isPinnedActive =
-    pinnedAnalysis && pinnedAnalysis.queryText === activeQueryText
+  const iconMap = {
+    danger: <AlertTriangle size={16} className="text-expense shrink-0" />,
+    warning: <TrendingUp size={16} className="text-warning shrink-0" />,
+    success: <CheckCircle2 size={16} className="text-income shrink-0" />,
+  }
 
   return (
-    <Card
-      className={cn(CARD_BASE, CARD_PADDING_LARGE, 'space-y-4 relative overflow-hidden')}
-    >
+    <div className={cn(
+      'flex items-start gap-3 px-3.5 py-2.5 rounded-xl border',
+      borderMap[alert.severity],
+    )}>
+      {iconMap[alert.severity]}
+      <p className={cn(
+        'text-[11px] font-bold leading-snug',
+        alert.severity === 'danger' && 'text-expense',
+        alert.severity === 'warning' && 'text-warning',
+        alert.severity === 'success' && 'text-income',
+      )}>
+        {alert.text}
+      </p>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section: Subscriptions                                             */
+/* ------------------------------------------------------------------ */
+
+function SubscriptionRow({ sub }: { sub: SubscriptionInfo }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-glass surface-glass-strong">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <span className="w-7 h-7 rounded-lg bg-balance/10 text-balance flex items-center justify-center shrink-0">
+          <CreditCard size={13} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-primary truncate">{sub.description}</p>
+          <p className="text-[9px] text-secondary">{sub.categoryName}</p>
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-[11px] font-bold text-primary font-mono">{formatCurrency(sub.monthlyAmount)}</p>
+        <p className="text-[8px] text-secondary/60">{formatCurrency(sub.annualAmount)}/ano</p>
+      </div>
+    </div>
+  )
+}
+
+function SubscriptionsSection({ subscriptions, totalAnnual }: { subscriptions: SubscriptionInfo[]; totalAnnual: number }) {
+  const navigate = useNavigate()
+
+  if (subscriptions.length === 0) return null
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between border-b border-glass/40 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+            Assinaturas Detectadas
+          </span>
+          <span className="text-[8px] font-bold text-balance bg-balance/10 px-1.5 py-0.5 rounded-md">
+            {subscriptions.length}
+          </span>
+        </div>
+        <p className="text-[9px] text-secondary/70 font-mono">
+          Total: <strong className="text-primary">{formatCurrency(totalAnnual)}</strong>/ano
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        {subscriptions.slice(0, 4).map((sub) => (
+          <SubscriptionRow key={`${sub.description}-${sub.monthlyAmount}`} sub={sub} />
+        ))}
+      </div>
+
+      {subscriptions.length > 4 && (
+        <p className="text-[9px] text-secondary/50 text-center">
+          +{subscriptions.length - 4} outras assinaturas detectadas
+        </p>
+      )}
+
+      <Button
+        onClick={() => navigate('/expenses')}
+        variant="ghost"
+        size="xs"
+        className="w-full text-[9px] font-bold uppercase tracking-wider border border-dashed border-glass/50"
+      >
+        Revisar despesas recorrentes
+        <ChevronRight size={12} />
+      </Button>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section: Savings Challenges                                        */
+/* ------------------------------------------------------------------ */
+
+function DifficultyBadge({ difficulty }: { difficulty: string }) {
+  const colors = {
+    'fácil': 'bg-income/10 text-income',
+    'médio': 'bg-warning/10 text-warning',
+    'desafiador': 'bg-expense/10 text-expense',
+  }
+  const color = colors[difficulty as keyof typeof colors] || 'bg-secondary/10 text-secondary'
+
+  return (
+    <span className={cn('text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase', color)}>
+      {difficulty}
+    </span>
+  )
+}
+
+function SavingsChallengesSection({ challenges, totalSavings }: { challenges: SavingsChallenge[]; totalSavings: number }) {
+  const navigate = useNavigate()
+
+  if (challenges.length === 0) return null
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between border-b border-glass/40 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+            Desafios de Economia
+          </span>
+        </div>
+        <p className="text-[9px] text-income font-mono">
+          Potencial: <strong className="text-income">{formatCurrency(totalSavings)}</strong>/mês
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {challenges.slice(0, 3).map((challenge) => (
+          <div
+            key={challenge.id}
+            className={cn(
+              'flex items-start gap-3 p-3 rounded-xl border border-glass surface-glass-strong',
+              'transition-all duration-200',
+            )}
+          >
+            <span className="w-8 h-8 rounded-lg bg-income/10 text-income flex items-center justify-center shrink-0">
+              <PiggyBank size={15} />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="text-[11px] font-bold text-primary">{challenge.title}</h4>
+                <DifficultyBadge difficulty={challenge.difficulty} />
+              </div>
+              <p className="text-[9px] text-secondary leading-relaxed">
+                {challenge.description}
+              </p>
+
+              {/* Mini barra de progresso */}
+              <div className="mt-2 flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-secondary/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-income"
+                    style={{ width: `${Math.min(100, (challenge.reductionPercent / 30) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[8px] font-bold text-income font-mono shrink-0">
+                  {formatCurrency(challenge.potentialSavings)}
+                </span>
+              </div>
+
+              <Button
+                onClick={() => {
+                  if (challenge.action === 'navigate' && challenge.path) {
+                    navigate(challenge.path)
+                  } else {
+                    navigate('/categories')
+                  }
+                }}
+                variant="ghost"
+                size="xs"
+                className="mt-2 text-[8px] font-bold uppercase tracking-wider"
+              >
+                {challenge.action === 'set_limit' ? 'Definir limite' : 'Ver gastos'}
+                <ArrowRight size={10} />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section: Limit Suggestions                                         */
+/* ------------------------------------------------------------------ */
+
+function getCategoryIconElement(name: string): React.ReactNode {
+  return getCategoryIcon(name, 14)
+}
+
+function LimitSuggestionsSection({ suggestions }: { suggestions: LimitSuggestion[] }) {
+  const navigate = useNavigate()
+
+  if (suggestions.length === 0) return null
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between border-b border-glass/40 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+            Ajustes de Limites
+          </span>
+          <span className="text-[8px] font-bold text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded-md">
+            {suggestions.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        {suggestions.map((s) => (
+          <div
+            key={s.categoryId}
+            className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-glass surface-glass-strong"
+          >
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span className={cn(
+                'w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
+                s.type === 'increase' ? 'bg-expense/10 text-expense' : 'bg-income/10 text-income',
+              )}>
+                {getCategoryIconElement(s.categoryName)}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-primary truncate">{s.categoryName}</p>
+                <p className="text-[8px] text-secondary">{s.reason}</p>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <p className={cn(
+                'text-[11px] font-bold font-mono',
+                s.type === 'increase' ? 'text-expense' : 'text-income',
+              )}>
+                {s.type === 'increase' ? '+' : '-'}{formatCurrency(Math.abs(s.difference))}
+              </p>
+              <p className="text-[8px] text-secondary/60">
+                {formatCurrency(s.currentLimit)} → {formatCurrency(s.suggestedLimit)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        onClick={() => navigate('/categories')}
+        variant="ghost"
+        size="xs"
+        className="w-full text-[9px] font-bold uppercase tracking-wider border border-dashed border-glass/50"
+      >
+        Ajustar limites
+        <ChevronRight size={12} />
+      </Button>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Empty State                                                        */
+/* ------------------------------------------------------------------ */
+
+function EmptyInsightsState() {
+  return (
+    <div className="py-6 text-center space-y-2">
+      <Sparkles size={24} className="text-secondary/40 mx-auto" />
+      <p className="text-[11px] font-bold text-secondary">Nenhum insight disponível</p>
+      <p className="text-[9px] text-secondary/60 max-w-[260px] mx-auto">
+        Adicione receitas e despesas nos próximos meses para receber análises inteligentes.
+      </p>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                     */
+/* ------------------------------------------------------------------ */
+
+export function InsightsCard({ insights }: InsightsCardProps) {
+  const hasAnyInsight = insights.criticalAlert || insights.subscriptions.length > 0
+    || insights.savingsChallenges.length > 0 || insights.limitSuggestions.length > 0
+
+  if (!hasAnyInsight) {
+    return (
+      <Card className={cn(CARD_BASE, CARD_PADDING_LARGE)}>
+        <div className="flex items-center gap-2 border-b border-glass/40 pb-2.5 mb-3">
+          <Sparkles size={14} className="text-primary" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+            Centro de Economia
+          </span>
+        </div>
+        <EmptyInsightsState />
+      </Card>
+    )
+  }
+
+  return (
+    <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, 'space-y-4 relative overflow-hidden')}>
       {/* ── Header ── */}
       <div className="flex items-center justify-between border-b border-glass/40 pb-2.5">
         <div className="flex items-center gap-2">
+          <Sparkles size={14} className="text-primary" />
           <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-            {activeQueryText
-              ? `Análise: "${activeQueryText}"`
-              : 'Insights Financeiros'}
+            Centro de Economia
           </span>
         </div>
 
-        {activeQueryText && (
-          <div className="flex items-center gap-2">
-            {isPinnedActive && hasNewDataForPinned && (
-              <Button
-                onClick={handleUpdatePinnedAnalysis}
-                disabled={isUpdatingPinned}
-                variant="outline"
-                size="xs"
-                className="text-[10px] font-bold uppercase tracking-wider"
-                title="Novos lançamentos detectados! Toque para atualizar a análise."
-              >
-                <RefreshCw
-                  className={`w-2.5 h-2.5 ${isUpdatingPinned ? 'animate-spin' : ''}`}
-                />
-                <span>Atualizar</span>
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                if (isPinnedActive) {
-                  void handleUnpin()
-                } else {
-                  void handlePin()
-                }
-              }}
-              variant="ghost"
-              size="icon"
-              className="rounded-lg"
-              title={
-                isPinnedActive
-                  ? 'Desafixar esta análise'
-                  : 'Fixar esta análise'
-              }
-            >
-              <Pin
-                className={`w-3.5 h-3.5 ${
-                  isPinnedActive ? 'text-primary fill-primary/10' : ''
-                }`}
-              />
-            </Button>
+        {insights.totalPotentialSavings > 0 && (
+          <div className="flex items-center gap-1.5 text-[9px] font-bold text-income bg-income/10 px-2 py-1 rounded-lg">
+            <PiggyBank size={11} />
+            Economia potencial: {formatCurrency(insights.totalPotentialSavings)}/mês
           </div>
         )}
       </div>
 
-      {/* ── Carrossel de Insights ── */}
-      {dynamicAiSuggestions.length > 0 ? (
-        <div className="relative">
-          <div
-            className="flex gap-2 overflow-x-auto no-scrollbar py-0.5 pr-2 scroll-smooth"
-            style={{ scrollbarWidth: 'none' }}
-          >
-            {dynamicAiSuggestions.map((suggestion) => (
-              <Button
-                key={suggestion.id}
-                onClick={() => handleSendChat(undefined, suggestion.query)}
-                disabled={isAiTyping}
-                variant="outline"
-                size="xs"
-                className="shrink-0 surface-glass-strong flex items-center gap-1.5 text-left group disabled:opacity-50"
-              >
-                <span className="p-0.5 rounded-md bg-secondary/10 text-primary shrink-0 group-hover:bg-primary/10 transition-colors">
-                  {resolveIcon(suggestion.iconId)}
-                </span>
-                <div className="min-w-0">
-                  <span className="text-[9px] font-semibold text-primary leading-tight block truncate max-w-[130px]">
-                    {suggestion.text}
-                  </span>
-                </div>
-              </Button>
-            ))}
-          </div>
-          {/* Fade sutil nas bordas */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-[var(--glass-surface-strong)] to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-[var(--glass-surface-strong)] to-transparent" />
-        </div>
-      ) : !activeQueryText ? (
-        <p className="text-[10px] text-secondary/60 text-center py-1 italic">
-          Nenhum insight disponível no momento. Comece adicionando receitas e
-          despesas.
-        </p>
-      ) : null}
-
-      {/* ── Caixa de Entrada ── */}
-      <form
-        onSubmit={(e) => handleSendChat(e)}
-        className={cn(
-          'flex items-center gap-1.5 rounded-2xl',
-          'topbar-search-bar',
-          chatInputFocused && 'topbar-search-bar--focused',
-        )}
-      >
-        <Input
-          type="text"
-          value={chatInput}
-          onChange={(e) => setChatInput(e.target.value)}
-          onFocus={() => setChatInputFocused(true)}
-          onBlur={() => setChatInputFocused(false)}
-          placeholder="Digite um tema para análise..."
-          className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none min-w-0 font-medium font-sans ml-3"
-        />
-        <Button
-          type="submit"
-          disabled={isAiTyping}
-          variant="primary"
-          size="icon"
-          className="h-7 w-7 mr-1.5 rounded-lg shrink-0"
-          aria-label="Enviar"
-        >
-          <Send className="w-3 h-3" />
-        </Button>
-      </form>
-
-      {/* ── Workspace de Resposta ── */}
-      {activeQueryText && (
-        <div className="pt-3 border-t border-glass/40">
-          <AnimatePresence mode="wait">
-            {isAiTyping ? (
-              <motion.div
-                key="ai-loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-2.5 py-1.5 animate-pulse"
-              >
-                <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span>Gerando análise dos dados...</span>
-                </div>
-                <div className="h-2.5 bg-secondary/15 rounded w-full" />
-                <div className="h-2.5 bg-secondary/15 rounded w-11/12" />
-                <div className="h-2.5 bg-secondary/15 rounded w-4/5" />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="ai-content"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-4"
-              >
-                <BeautifulMarkdown text={activeReportText} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+      {/* ── Critical Alert ── */}
+      {insights.criticalAlert && (
+        <AlertSection alert={insights.criticalAlert} />
       )}
 
-      {/* ── Pinned analysis pill inline ── */}
-      {pinnedAnalysis && pinnedAnalysis.queryText !== activeQueryText && (
-        <div className="flex items-center gap-2 border border-dashed border-glass/60 rounded-xl px-3 py-2 surface-glass-strong">
-          <Pin className="w-3 h-3 text-primary shrink-0 fill-primary/10" />
-          <span className="text-[10px] text-secondary truncate flex-1 min-w-0">
-            Análise: {pinnedAnalysis.queryText}
-          </span>
-          <Button
-            onClick={() => {
-              setActiveReportText(pinnedAnalysis.text)
-              setActiveChartData(pinnedAnalysis.chartData)
-              props.setActiveQueryText(pinnedAnalysis.queryText)
-            }}
-            variant="outline"
-            size="xs"
-            className="text-[9px] font-bold uppercase tracking-wider shrink-0"
-          >
-            Abrir
-          </Button>
-          {hasNewDataForPinned && (
-            <Button
-              onClick={handleUpdatePinnedAnalysis}
-              disabled={isUpdatingPinned}
-              variant="outline"
-              size="xs"
-              className="text-[9px] font-bold uppercase tracking-wider shrink-0"
-            >
-              <RefreshCw
-                className={`w-2 h-2 ${isUpdatingPinned ? 'animate-spin' : ''}`}
-              />
-            </Button>
-          )}
-          <Button
-            onClick={handleUnpin}
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-md shrink-0"
-          >
-            <Pin className="w-3 h-3" />
-          </Button>
-        </div>
+      {/* ── Subscriptions ── */}
+      {insights.subscriptions.length > 0 && (
+        <SubscriptionsSection
+          subscriptions={insights.subscriptions}
+          totalAnnual={insights.totalSubscriptionsAnnual}
+        />
+      )}
+
+      {/* ── Savings Challenges ── */}
+      {insights.savingsChallenges.length > 0 && (
+        <SavingsChallengesSection
+          challenges={insights.savingsChallenges}
+          totalSavings={insights.totalPotentialSavings}
+        />
+      )}
+
+      {/* ── Limit Suggestions ── */}
+      {insights.limitSuggestions.length > 0 && (
+        <LimitSuggestionsSection suggestions={insights.limitSuggestions} />
       )}
     </Card>
   )

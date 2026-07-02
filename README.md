@@ -84,7 +84,7 @@ VITE_SUPABASE_ANON_KEY=sua-chave-anonima-supabase
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **290/290** (31 arquivos) |
+| Testes passando | **290/290** (31 arquivos, 4.15s) |
 | UI Guardrails | **0 violações** |
 | Componentes | **130+** |
 | Hooks | **35+** |

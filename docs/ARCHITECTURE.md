@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — TopBar padronizado, notificações unificadas, cards de ação removidos, labels de 'base' limpos.
+> **Última atualização:** Julho de 2026 — Insights do Dashboard refatorados: `insightsEngine.ts`, `useDashboardInsights.ts`, `InsightsCard.tsx`. Dead code removido: `aiSuggestions.ts`, `useDashboardAI.ts`, `BeautifulMarkdown.tsx`, `InteractiveAIChart.tsx`.
 
 ---
 
@@ -291,6 +291,7 @@ Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar
 | `useCalculatorKeyboard` | Atalhos de teclado para calculadora flutuante |
 | `useCalculatorPanel` | Drag/resize do painel da calculadora |
 | `useScrollToTop` | Scroll-to-top com pull gesture e haptics |
+| `useDashboardInsights` | Insights estruturados (assinaturas, desafios, limites) |
 
 ---
 
@@ -573,9 +574,9 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
-- ✅ Testes: 267/267 passando (30 arquivos)
-- ✅ UI Guardrails: 0 violações
-- ✅ `as any` em produção: 0
+- ✅ Testes: 290/290 passando (31 arquivos, 4.15s)
+- ✅ UI Guardrails: 21 na baseline
+- ✅ `as any` em produção: 0 (5 em gráficos Recharts)
 - ✅ Non-null assertions em produção: 0
 
 ### Melhorias adicionais (pós-refatoração)
@@ -584,6 +585,7 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - **Select → Radix UI**: `Select.tsx` refatorado internamente para usar `@radix-ui/react-select` (shadcn), mantendo a mesma API externa. 19 consumidores inalterados. 4 snapshots atualizados.
 - **useEffect reduzido**: FloatingCalculator ~14→11 effects (MutationObserver + resize unificado + localStorage unificado + keyboard com useRef). Reports.tsx: 2 effects de validação unificados.
 - **Sistema de z-index unificado**: Implementação de CSS Custom Properties e constantes TypeScript para hierarquia padronizada. Todos os componentes migrados de valores hardcoded. Teste de consistência automatizado (16 testes).
+- **Insights do Dashboard refatorados**: Novo motor `insightsEngine.ts` com detecção de assinaturas (comparação entre meses), desafios de economia (categorias não essenciais), sugestões de ajuste de limites. Hook `useDashboardInsights.ts` simplificado. Componente `InsightsCard.tsx` sem input de chat. Dead code removido: `aiSuggestions.ts`, `aiSuggestions.tsx`, `useDashboardAI.ts`, `BeautifulMarkdown.tsx`, `InteractiveAIChart.tsx`.
 - **Motor Quantamental**: Sistema completo de avaliação híbrida (Scuttlebutt + Fundamentos) com Tiers de convicção, enquadramento automático, Smart Aporte com log de roteamento, overrides manuais com alertas de contraste, decay trigger configurável, e checklist detalhado de critérios quantitativos por classe (Ações, FIIs, ETFs). Migrations SQL, 27 componentes de investimentos, 4 testes específicos do engine.
 - **Bug Fix — CSS class spacing**: Settings.tsx — classes Tailwind com espaços entre hífens (`h - 2 w - 2`, `rounded - lg border p - 3`) corrompiam a renderização do indicador biométrico e do card de status.
 - **Bug Fix — `any` type eliminado**: `let mergedFundamentals: any = null` → `ValuedPosition['fundamentals']` em `usePortfolioState.ts`.
