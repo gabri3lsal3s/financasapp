@@ -9,7 +9,7 @@ import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
 import { formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles, Send, Pin, RefreshCw, Bot, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Sparkles, Send, Pin, RefreshCw, Calendar, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   CARD_PADDING,
@@ -20,9 +20,7 @@ import {
   CONTENT_PADDING,
 } from '@/constants/layout'
 import { motion, AnimatePresence } from 'framer-motion'
-import { askGemini } from '@/services/geminiService'
 import { BeautifulMarkdown } from '@/components/dashboard/BeautifulMarkdown'
-import { InteractiveAIChart } from '@/components/dashboard/InteractiveAIChart'
 import Button from '@/components/Button'
 import BudgetHeroCard from '@/components/dashboard/BudgetHeroCard'
 import ProjectionCard from '@/components/dashboard/ProjectionCard'
@@ -118,8 +116,9 @@ export default function Dashboard() {
 
   // AI Copilot States
   const [chatInput, setChatInput] = useState('')
+  const [chatInputFocused, setChatInputFocused] = useState(false)
   const [activeQueryText, setActiveQueryText] = useState('')
-  const [activeReportText, setActiveReportText] = useState('Selecione uma das sugestões abaixo ou digite sua pergunta para que a Inteligência Artificial possa analisar seus dados consolidados e fornecer insights de economia imediata.')
+  const [activeReportText, setActiveReportText] = useState('Selecione um dos insights acima ou digite um tema para analisar seus dados financeiros.')
   const [activeChartData, setActiveChartData] = useState<any[] | undefined>(undefined)
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [pinnedAnalysis, setPinnedAnalysis] = useState<any>(null)
@@ -357,50 +356,17 @@ export default function Dashboard() {
     }
   }
 
-  // Update pinned analysis when transaction counts/amounts change
+  // Update pinned analysis with local data
   const handleUpdatePinnedAnalysis = async () => {
     if (!pinnedAnalysis) return
     setIsUpdatingPinned(true)
     try {
-      const query = pinnedAnalysis.queryText || 'Acompanhamento diário'
-      
-      const today = new Date()
-      const todayStr = today.toISOString().slice(0, 10)
-
-      const financialsContext = {
-        balance,
-        totalIncome: totalIncomes,
-        totalExpense: totalExpenses,
-        totalInvestment: totalInvestments,
-        spentToday: expenses
-          .filter(e => e.date === todayStr)
-          .reduce((sum, e) => sum + e.amount * (e.report_weight ?? 1), 0),
-        cardInvoice: creditCards.reduce((sum, card) => sum + (card.limit_total || 0), 0),
-        expenses: expenses.map(e => ({
-          id: e.id,
-          title: e.description || '',
-          category: e.category?.name || 'Outros',
-          amount: e.amount,
-          date: e.date,
-          group: e.payment_method === 'credit_card' ? 'Cartão de Crédito' : 'Outros'
-        })),
-        incomes: incomes.map(i => ({
-          id: i.id,
-          title: i.description || '',
-          category: i.income_category?.name || 'Outros',
-          amount: i.amount,
-          date: i.date
-        }))
-      }
-
-      const result = await askGemini(
-        [{ sender: 'user', text: query }],
-        financialsContext
-      )
+      const query = pinnedAnalysis.queryText || 'Acompanhamento'
+      const localText = buildLocalAnalysis(query)
 
       const updatedPinned = {
-        text: result.text,
-        chartData: result.chartData,
+        text: localText,
+        chartData: undefined,
         queryText: query,
         dataHash: currentHash
       }
@@ -418,8 +384,8 @@ export default function Dashboard() {
 
       setPinnedAnalysis(updatedPinned)
       if (activeQueryText === query) {
-        setActiveReportText(result.text)
-        setActiveChartData(result.chartData)
+        setActiveReportText(localText)
+        setActiveChartData(undefined)
       }
     } catch (err) {
       logger.error('Erro ao atualizar análise fixada:', err)
@@ -427,184 +393,6 @@ export default function Dashboard() {
       setIsUpdatingPinned(false)
     }
   }
-
-  // Main chat submit handler with natural language command parser
-  const handleSendChat = async (e?: React.FormEvent, customText?: string) => {
-    if (e) e.preventDefault()
-    const textToSend = customText || chatInput
-    if (!textToSend.trim()) return
-
-    setChatInput('')
-    setIsAiTyping(true)
-    setActiveQueryText(textToSend)
-
-    const lower = textToSend.toLowerCase()
-    
-    // Natural Language Transaction Parser
-    let parsedAmount = 0
-    let parsedTitle = ''
-    let parsedType: 'despesa' | 'receita' | null = null
-    let parsedCategory = 'Outros'
-
-    const isExpense = lower.includes('despesa') || lower.includes('gastei') || lower.includes('gastou') || lower.includes('gasto') || lower.includes('paguei') || lower.includes('pagou') || lower.includes('compra') || lower.includes('comprei')
-    const isIncome = lower.includes('receita') || lower.includes('recebi') || lower.includes('ganhei') || lower.includes('renda') || lower.includes('entrada') || lower.includes('salário') || lower.includes('salario') || lower.includes('pix')
-
-    if (isExpense || isIncome) {
-      parsedType = isExpense ? 'despesa' : 'receita'
-      
-      const rxAmount = /(?:r\$\s*)?(\d+(?:[.,]\d{2})?)/i
-      const amountMatch = lower.match(rxAmount)
-      if (amountMatch) {
-        const rawAmount = amountMatch[1].replace(',', '.')
-        parsedAmount = parseFloat(rawAmount)
-      }
-      
-      const rxDesc = /(?:com|de|em|para)\s+([a-zA-Z0-9\sãáàâéêíóôúç]{3,20})/i
-      const descMatch = lower.match(rxDesc)
-      if (descMatch) {
-        parsedTitle = descMatch[1].trim()
-        parsedTitle = parsedTitle.charAt(0).toUpperCase() + parsedTitle.slice(1)
-      } else {
-        parsedTitle = isExpense ? 'Gasto IA' : 'Receita IA'
-      }
-
-      if (parsedTitle.toLowerCase().includes('cafe') || parsedTitle.toLowerCase().includes('almoço') || parsedTitle.toLowerCase().includes('comida') || parsedTitle.toLowerCase().includes('refrigerante') || parsedTitle.toLowerCase().includes('pizza')) {
-        parsedCategory = 'Supermercado'
-      } else if (parsedTitle.toLowerCase().includes('carro') || parsedTitle.toLowerCase().includes('gasolina') || parsedTitle.toLowerCase().includes('uber') || parsedTitle.toLowerCase().includes('taxi') || parsedTitle.toLowerCase().includes('transporte')) {
-        parsedCategory = 'Transporte'
-      } else if (parsedTitle.toLowerCase().includes('cinema') || parsedTitle.toLowerCase().includes('role') || parsedTitle.toLowerCase().includes('festa') || parsedTitle.toLowerCase().includes('lazer')) {
-        parsedCategory = 'Lazer'
-      } else if (parsedTitle.toLowerCase().includes('salario') || parsedTitle.toLowerCase().includes('pagamento') || parsedTitle.toLowerCase().includes('reembolso')) {
-        parsedCategory = 'Reembolso'
-      } else if (parsedTitle.toLowerCase().includes('monitoria')) {
-        parsedCategory = 'Monitoria'
-      }
-    }
-
-    if (parsedType && parsedAmount > 0) {
-      const today = new Date()
-      const todayStr = today.toISOString().slice(0, 10)
-      const selectedMonthPrefix = currentMonth
-      let dateToUse = todayStr
-      if (!todayStr.startsWith(selectedMonthPrefix)) {
-        dateToUse = `${selectedMonthPrefix}-01`
-      }
-
-      try {
-        if (parsedType === 'despesa') {
-          let category_id = ''
-          const matchedCategory = categories.find(c =>
-            c.name.toLowerCase() === parsedCategory.toLowerCase() ||
-            parsedTitle.toLowerCase().includes(c.name.toLowerCase())
-          )
-          if (matchedCategory) {
-            category_id = matchedCategory.id
-            parsedCategory = matchedCategory.name
-          } else {
-            const defaultCategory = categories.find(c => c.name.toLowerCase().includes('outr')) || categories[0]
-            category_id = defaultCategory?.id || ''
-            parsedCategory = defaultCategory?.name || 'Outros'
-          }
-
-          const res = await createExpense({
-            amount: parsedAmount,
-            description: parsedTitle,
-            category_id,
-            date: dateToUse,
-            payment_method: 'cash',
-            installment_total: 1,
-            report_weight: 1
-          })
-
-          if (!res.error) {
-            refreshExpenses()
-          }
-        } else {
-          let income_category_id = ''
-          const matchedIncomeCategory = incomeCategories.find(c =>
-            c.name.toLowerCase() === parsedCategory.toLowerCase() ||
-            parsedTitle.toLowerCase().includes(c.name.toLowerCase())
-          )
-          if (matchedIncomeCategory) {
-            income_category_id = matchedIncomeCategory.id
-            parsedCategory = matchedIncomeCategory.name
-          } else {
-            const defaultIncomeCategory = incomeCategories.find(c => c.name.toLowerCase().includes('outr')) || incomeCategories[0]
-            income_category_id = defaultIncomeCategory?.id || ''
-            parsedCategory = defaultIncomeCategory?.name || 'Outros'
-          }
-
-          const res = await createIncome({
-            amount: parsedAmount,
-            description: parsedTitle,
-            income_category_id,
-            date: dateToUse,
-            type: 'cash',
-            report_weight: 1
-          })
-
-          if (!res.error) {
-            refreshIncomes()
-          }
-        }
-
-        setTimeout(() => {
-          setActiveReportText(`🎯 **Entendido!** Adicionei com sucesso esta ${parsedType === 'despesa' ? 'despesa' : 'receita'} ao seu aplicativo:\n\n• **Item:** ${parsedTitle}\n• **Valor:** R$ ${formatCurrency(parsedAmount)}\n• **Categoria:** ${parsedCategory}\n\nSeu saldo, limites e gráficos foram atualizados na tela em tempo real!`)
-          setActiveChartData(undefined)
-          setIsAiTyping(false)
-        }, 750)
-      } catch (err) {
-        logger.error('Erro ao adicionar transação via IA:', err)
-        setIsAiTyping(false)
-      }
-      return
-    }
-
-    try {
-      const today = new Date()
-      const todayStr = today.toISOString().slice(0, 10)
-
-      const financialsContext = {
-        balance,
-        totalIncome: totalIncomes,
-        totalExpense: totalExpenses,
-        totalInvestment: totalInvestments,
-        spentToday: expenses
-          .filter(e => e.date === todayStr)
-          .reduce((sum, e) => sum + e.amount * (e.report_weight ?? 1), 0),
-        cardInvoice: creditCards.reduce((sum, card) => sum + (card.limit_total || 0), 0),
-        expenses: expenses.map(e => ({
-          id: e.id,
-          title: e.description || '',
-          category: e.category?.name || 'Outros',
-          amount: e.amount,
-          date: e.date,
-          group: e.payment_method === 'credit_card' ? 'Cartão de Crédito' : 'Outros'
-        })),
-        incomes: incomes.map(i => ({
-          id: i.id,
-          title: i.description || '',
-          category: i.income_category?.name || 'Outros',
-          amount: i.amount,
-          date: i.date
-        }))
-      }
-
-      const result = await askGemini(
-        [{ sender: 'user', text: textToSend }],
-        financialsContext
-      )
-
-      setActiveReportText(result.text)
-      setActiveChartData(result.chartData)
-    } catch (err) {
-      logger.error('Erro ao consultar o assistente Gemini:', err)
-      setActiveReportText('Ocorreu um erro ao processar a resposta. Por favor, tente novamente mais tarde.')
-    } finally {
-      setIsAiTyping(false)
-    }
-  }
-
 
   useEffect(() => {
     const isReady = !expensesLoading && !incomesLoading && !categoriesLoading && !incomeCategoriesLoading
@@ -1088,6 +876,77 @@ export default function Dashboard() {
     return list.slice(0, 3)
   }, [currentMonth, totalIncomes, totalExpenses, totalInvestments, savingsRate, categoryExpenseSummaries, previousMonthExpenseTotal, weekdayExpenseData, limitsExceededCount, incomeByCategory, spendingPace, spendingProjection])
 
+  // Gera análise local detalhada a partir de dados financeiros
+  const buildLocalAnalysis = useCallback((_context?: string): string => {
+    const topCats = categoryExpenseSummaries.slice(0, 4)
+      .map(c => `• **${c.category_name}:** ${formatCurrency(c.total)}`)
+      .join('\n')
+
+    const lines: string[] = []
+    lines.push(`📊 **Panorama Financeiro de ${formatMonth(currentMonth)}**\n`)
+    lines.push(`| Indicador | Valor |`)
+    lines.push(`|---|---|`)
+    lines.push(`| Receitas | ${formatCurrency(totalIncomes)} |`)
+    lines.push(`| Despesas | ${formatCurrency(totalExpenses)} |`)
+    lines.push(`| Saldo | ${formatCurrency(balance)} |`)
+    if (totalInvestments > 0) lines.push(`| Investimentos | ${formatCurrency(totalInvestments)} |`)
+    lines.push(`| Taxa de Poupança | ${savingsRate > 0 ? '' : ''}${formatNumberWithTwoDecimalsBR(savingsRate)}% |\n`)
+
+    if (totalIncomes > 0) {
+      const burnRate = (totalExpenses / totalIncomes) * 100
+      if (burnRate > 85) {
+        lines.push(`⚠️ **Alerta:** ${formatNumberWithTwoDecimalsBR(burnRate)}% da renda está sendo consumida por despesas.`)
+      } else if (burnRate <= 50) {
+        lines.push(`✅ **Controle:** Apenas ${formatNumberWithTwoDecimalsBR(burnRate)}% da renda vai para despesas. Ótimo trabalho!`)
+      }
+    }
+
+    if (topCats) {
+      lines.push(`\n🏷️ **Principais Categorias de Despesa**\n`)
+      lines.push(topCats)
+    }
+
+    if (limitsExceededCount > 0) {
+      lines.push(`\n🔴 **${limitsExceededCount} ${limitsExceededCount === 1 ? 'categoria' : 'categorias'} com limite estourado.** Acesse a seção de limites para reajustar.`)
+    }
+
+    return lines.join('\n')
+  }, [currentMonth, totalIncomes, totalExpenses, totalInvestments, balance, savingsRate, categoryExpenseSummaries, limitsExceededCount])
+
+  // Main chat submit handler — análise local, sem IA
+  const handleSendChat = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault()
+    const textToSend = customText || chatInput
+    if (!textToSend.trim()) return
+
+    setChatInput('')
+    setActiveQueryText(textToSend)
+    setIsAiTyping(true)
+
+    // Pequena pausa para feedback visual
+    setTimeout(() => {
+      if (customText) {
+        // Insight click — mostra detalhamento local
+        const matched = dynamicAiSuggestions.find(s => s.query === customText)
+        if (matched) {
+          const detail = 
+            `💡 **${matched.text}**\n\n` +
+            `**Dica:** ${matched.tip}\n\n` +
+            `---\n\n` +
+            buildLocalAnalysis(customText)
+          setActiveReportText(detail)
+        } else {
+          setActiveReportText(buildLocalAnalysis(customText))
+        }
+      } else {
+        // Input manual — mostra panorama financeiro geral
+        setActiveReportText(buildLocalAnalysis(textToSend))
+      }
+      setActiveChartData(undefined)
+      setIsAiTyping(false)
+    }, 350)
+  }
+
   const categoriesAttentionList = useMemo(() => {
     const list: Array<{
       categoryId: string
@@ -1461,14 +1320,13 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  {/* ── SEÇÃO: Copiloto de IA com Carrossel de Insights ── */}
+                  {/* ── SEÇÃO: Insights Financeiros ── */}
                   <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "space-y-4 relative overflow-hidden")}>
-                    {/* Header com indicador dinâmico */}
+                    {/* Header discreto */}
                     <div className="flex items-center justify-between border-b border-glass/40 pb-2.5">
                       <div className="flex items-center gap-2">
-                        <Bot size={16} className="text-primary" />
-                        <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                          {activeQueryText ? `Análise: "${activeQueryText}"` : 'Copiloto de IA'}
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                          {activeQueryText ? `Análise: "${activeQueryText}"` : 'Insights'}
                         </span>
                       </div>
 
@@ -1503,27 +1361,32 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Carrossel de Insights Proativos — compacto */}
+                    {/* Carrossel de Insights — scroll suave com fade nas bordas */}
                     {dynamicAiSuggestions.length > 0 ? (
-                      <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
-                        {dynamicAiSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion.id}
-                            type="button"
-                            onClick={() => handleSendChat(undefined, suggestion.query)}
-                            disabled={isAiTyping}
-                            className="shrink-0 border border-glass surface-glass-strong px-3 py-2 rounded-xl flex items-center gap-2 transition-all cursor-pointer text-left hover:border-primary/30 hover:bg-secondary/5 disabled:opacity-50 disabled:cursor-default"
-                          >
-                            <span className="p-0.5 rounded-md bg-secondary/10 text-primary shrink-0">
-                              {suggestion.icon}
-                            </span>
-                            <div className="min-w-0">
-                              <span className="text-[10px] font-bold text-primary leading-tight block truncate max-w-[140px]">
-                                {suggestion.text}
+                      <div className="relative">
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5 pr-2 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
+                          {dynamicAiSuggestions.map((suggestion) => (
+                            <button
+                              key={suggestion.id}
+                              type="button"
+                              onClick={() => handleSendChat(undefined, suggestion.query)}
+                              disabled={isAiTyping}
+                              className="shrink-0 border border-glass/50 surface-glass-strong px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer text-left hover:border-primary/25 hover:bg-secondary/5 disabled:opacity-50 disabled:cursor-default group"
+                            >
+                              <span className="p-0.5 rounded-md bg-secondary/10 text-primary shrink-0 group-hover:bg-primary/10 transition-colors">
+                                {suggestion.icon}
                               </span>
-                            </div>
-                          </button>
-                        ))}
+                              <div className="min-w-0">
+                                <span className="text-[9px] font-semibold text-primary leading-tight block truncate max-w-[130px]">
+                                  {suggestion.text}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        {/* Fade sutil nas bordas */}
+                        <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-[var(--glass-surface-strong)] to-transparent" />
+                        <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-[var(--glass-surface-strong)] to-transparent" />
                       </div>
                     ) : !activeQueryText ? (
                       <p className="text-[10px] text-secondary/60 text-center py-1 italic">
@@ -1531,24 +1394,30 @@ export default function Dashboard() {
                       </p>
                     ) : null}
 
-                    {/* Caixa de Entrada Integrada */}                    <form 
+                    {/* Caixa de Entrada — padronizada com topbar-search-bar */}                    <form 
                       onSubmit={(e) => handleSendChat(e)}
-                      className="flex items-center gap-2 bg-secondary/5 border border-glass rounded-xl pl-3 pr-1 py-1 transition-all"
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-2xl",
+                        "topbar-search-bar",
+                        chatInputFocused && "topbar-search-bar--focused"
+                      )}
                     >
                       <input
                         type="text"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Pergunte ao Copiloto ou digite uma despesa/receita..."
-                        className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none min-w-0 font-medium font-sans"
+                        onFocus={() => setChatInputFocused(true)}
+                        onBlur={() => setChatInputFocused(false)}
+                        placeholder="Digite um tema para análise..."
+                        className="flex-1 bg-transparent text-xs text-primary placeholder-muted outline-none min-w-0 font-medium font-sans ml-3"
                       />
                       <button
                         type="submit"
                         disabled={isAiTyping}
-                        className="h-8 px-3 rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1.5 shrink-0 active:scale-95 hover:bg-primary-hover disabled:opacity-50 transition-all cursor-pointer text-xs font-bold uppercase tracking-wider"
+                        className="h-7 w-7 mr-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 active:scale-95 hover:bg-primary-hover disabled:opacity-50 transition-all cursor-pointer"
+                        aria-label="Enviar"
                       >
-                        <span>Perguntar</span>
-                        <Send className="w-2.5 h-2.5" />
+                        <Send className="w-3 h-3" />
                       </button>
                     </form>
 
@@ -1565,8 +1434,8 @@ export default function Dashboard() {
                               className="space-y-2.5 py-1.5 animate-pulse"
                             >
                               <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                <span>Analisando lançamentos com IA...</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                <span>Gerando análise dos dados...</span>
                               </div>
                               <div className="h-2.5 bg-secondary/15 rounded w-full" />
                               <div className="h-2.5 bg-secondary/15 rounded w-11/12" />
@@ -1582,16 +1451,7 @@ export default function Dashboard() {
                             >
                               <BeautifulMarkdown text={activeReportText} />
                               
-                              {activeChartData && activeChartData.length > 0 && (
-                                <div className="pt-2 border-t border-glass/40">
-                                  <InteractiveAIChart 
-                                    chartData={activeChartData} 
-                                    onBarClick={(item) => {
-                                      setChatInput(`Como economizar nos gastos de ${item.name}?`)
-                                    }}
-                                  />
-                                </div>
-                              )}
+                              {/* Chart data analysis — disponível para integrações futuras */}
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -1604,7 +1464,11 @@ export default function Dashboard() {
                   {/* Sugestões detalhadas na documentação docs/NEXT_STEPS.md */}
 
                   {/* ── SEÇÃO 5: Quick Wins - Ações de Otimização ── */}
-                  <QuickWinsGrid />
+                  <QuickWinsGrid
+                    hasReallocation={Boolean(reallocationRecommendation)}
+                    onReallocate={handleReallocate}
+                    isReallocating={isReallocating}
+                  />
 
                   {/* Pinned AI Analysis inline pill when not active query */}
                   {pinnedAnalysis && pinnedAnalysis.queryText !== activeQueryText && (

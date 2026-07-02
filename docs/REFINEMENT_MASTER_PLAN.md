@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v1.2)
+> **Última atualização:** Julho de 2026 (v1.3)
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -230,7 +230,7 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 |---|------|---------|--------|
 | 4.1 | ✅ Carrossel redesenho (max 3, chips menores, empty state) | ✅ Concluído | ✅ |
 | 4.2 | ✅ Unificar card fixado IA (pill inline) | ✅ Concluído | ✅ |
-| 4.3 | Padronizar input do Copiloto com topbar | ~30min | ⏳ |
+| 4.3 | ✅ Padronizar input do Copiloto com topbar-search-bar | ✅ Concluído | Input do Insights usa `topbar-search-bar` com foco `--focused` | ✅ |
 | 4.4 | Extrair dynamicAiSuggestions do Dashboard para service | ~2h | ⏳ |
 | 4.5 | Verificar contraste modo midnight (WCAG AA) | ~30min | ⏳ |
 
@@ -253,7 +253,7 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 |---|------|---------|-----------|--------|
 | 5 | ✅ Unificar card fixado no Copiloto IA | ✅ Concluído | Análise fixada integrada como pill inline no Copiloto (card separado removido) | ✅ |
 | 6 | ✅ Redesenhar carrossel de insights | ✅ Concluído | Max 3 insights, chips menores (pill-style), empty state adicionado | ✅ |
-| 7 | Padronizar input do Copiloto com topbar | ~30min | Usar `topbar-search-bar` / `surface-glass-strong` | ⏳ |
+| 7 | ✅ Padronizar input do Copiloto com topbar-search-bar | ✅ Concluído | Input do Insights usa `topbar-search-bar` com foco `--focused` | ✅ |
 | 8 | Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | Reduzir Dashboard.tsx em ~200 linhas | ⏳ |
 | 9 | Verificar contraste em modo midnight (WCAG AA) | ~30min | text-secondary + border-glass no modo escuro | ⏳ |
 
