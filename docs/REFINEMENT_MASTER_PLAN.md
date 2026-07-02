@@ -49,7 +49,7 @@
 | `console.log` residual | **0** (via logger condicional) | ✅ |
 | `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
 | Maior arquivo | **~1.600 linhas** (Reports.tsx, -17% graças ao useReportCustomPeriod) | 🟢 |
-| Dashboard.tsx | **~1.700 linhas** (3 hooks extraídos) | 🟢 |
+| Dashboard.tsx | **~1.500 linhas** (-21%: DashboardSummaryCard + DashboardCategoryDetailModal extraídos) | 🟢 |
 | Componentes | **130+** | ✅ |
 | Hooks customizados | **35+** | ✅ |
 | Migrations | **43** | ✅ |
@@ -291,7 +291,7 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 | Arquivo | Linhas | Ação | Esforço |
 |---------|--------|------|---------|
 | `src/pages/Reports.tsx` | ~1.600 | Hook `useReportCustomPeriod` extraído (~250 linhas). Pendente: ReportSummarySection, ReportChartsSection, ReportInsightsSection | ~2h |
-| `src/pages/Dashboard.tsx` | ~1.900 | Extrair lógica de IA + seções para hooks/componentes | ~3h |
+| `src/pages/Dashboard.tsx` | ~1.500 | DashboardSummaryCard + DashboardCategoryDetailModal extraídos (~400 linhas removidas). Pendente: seções restantes | ~1h |
 | `src/pages/Categories.tsx` | 1.252 | Componentização adicional das seções de KPI | ~2h |
 | `src/components/CreditCardCsvReconciliationPanel.tsx` | 1.193 | Extrair CsvUploadZone, CsvMatchTable | ~3h |
 

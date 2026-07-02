@@ -8,12 +8,11 @@ import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { getCategoryColorForPalette } from '@/utils/categoryColors'
-import { formatCurrency, formatMonth, formatNumberWithTwoDecimalsBR, getCurrentMonthString } from '@/utils/format'
-import { TrendingUp, TrendingDown, PiggyBank, Plus, Calendar } from 'lucide-react'
+import { formatMonth, getCurrentMonthString } from '@/utils/format'
+import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   CARD_PADDING,
-  CARD_PADDING_LARGE,
   CARD_PADDING_XL,
   CARD_BASE,
   PAGE_ENTER_ANIMATION,
@@ -23,6 +22,8 @@ import Button from '@/components/Button'
 import BudgetHeroCard from '@/components/dashboard/BudgetHeroCard'
 import ProjectionCard from '@/components/dashboard/ProjectionCard'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
+import DashboardSummaryCard from '@/components/dashboard/DashboardSummaryCard'
+import DashboardCategoryDetailModal from '@/components/dashboard/DashboardCategoryDetailModal'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
@@ -33,10 +34,8 @@ import ExpenseFormModal from '@/components/ExpenseFormModal'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
-import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 import LimitsControl from '@/components/dashboard/LimitsControl'
 import QuickWinsGrid from '@/components/dashboard/QuickWinsGrid'
-import TransactionRow from '@/components/TransactionRow'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
@@ -487,110 +486,19 @@ export default function Dashboard() {
                 )}
 
                 {/* ── SEÇÃO 3: Resumo do Mês (Termômetro) ── */}
-                <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "relative overflow-hidden")}>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-glass/40 pb-3.5 mb-4">
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
-                        Resumo do Mês
-                      </h3>
-                      <p className="text-[10px] text-secondary mt-0.5">
-                        Acompanhamento de despesas contra a receita total e o limite de orçamento
-                      </p>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-4 text-[11px] font-semibold">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-income shrink-0" />
-                        <span className="text-secondary font-sans">Receita:</span>
-                        <strong className="text-primary font-mono">{formatCurrency(totalIncomes)}</strong>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-expense shrink-0" />
-                        <span className="text-secondary font-sans">Despesa:</span>
-                        <strong className="text-primary font-mono">{formatCurrency(totalExpenses)}</strong>
-                      </div>
-                      {totalLimits > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-secondary/30 shrink-0" />
-                          <span className="text-secondary font-sans">Limite:</span>
-                          <strong className="text-primary font-mono">{formatCurrency(totalLimits)}</strong>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* Barra de progresso grossa */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-secondary">
-                        <span id="budget-usage-label">Uso do Orçamento</span>
-                        <span className={cn(
-                          "font-mono font-bold",
-                          limitUsedPercentage >= 85 ? "text-expense" : limitUsedPercentage >= 70 ? "text-warning" : "text-income"
-                        )}>
-                          {formatNumberWithTwoDecimalsBR(limitUsedPercentage)}%
-                        </span>
-                      </div>
-                      
-                      <div
-                        role="progressbar"
-                        aria-valuenow={Math.round(limitUsedPercentage)}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuetext={`${formatNumberWithTwoDecimalsBR(limitUsedPercentage)}% do orçamento utilizado`}
-                        aria-labelledby="budget-usage-label"
-                        className="w-full h-4 rounded-full bg-secondary/10 overflow-hidden relative border border-glass/25"
-                      >
-                        <div 
-                          className={cn("h-full transition-all duration-500 rounded-full", progressColor)}
-                          style={{ width: `${limitUsedPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Mensagem descritiva e reajuste rápido */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 text-[10px] text-secondary font-medium">
-                      <div>
-                        {totalLimits > 0 ? (
-                          <span>
-                            Você utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> do seu limite global de <strong className="text-primary">{formatCurrency(totalLimits)}</strong>.
-                          </span>
-                        ) : totalIncomes > 0 ? (
-                          <span>
-                            Você utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> da sua receita total de <strong className="text-primary">{formatCurrency(totalIncomes)}</strong>.
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5">
-                            <Calendar size={11} className="text-secondary" />
-                            Faltam {(() => {
-                              const today = new Date()
-                              const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-                              const remaining = daysInMonth - today.getDate() + 1
-                              return `${remaining} ${remaining === 1 ? 'dia' : 'dias'} para o fim do mês.`
-                            })()} 
-                          </span>
-                        )}
-                      </div>
-
-                      {reallocationRecommendation && (
-                        <div className="flex items-center gap-2 border border-glass surface-glass-strong px-2.5 py-1 rounded-xl text-[10px]">
-                          <span className="truncate max-w-[220px]">
-                            Sugestão: Ajustar limite de <strong className="text-primary">{reallocationRecommendation.fromName}</strong> para cobrir <strong className="text-primary">{reallocationRecommendation.toName}</strong>.
-                          </span>
-                          <Button
-                            onClick={handleReallocate}
-                            disabled={isReallocating}
-                            variant="ghost"
-                            size="xs"
-                            className="uppercase tracking-wider border-l border-glass/30 pl-2 shrink-0"
-                          >
-                            {isReallocating ? 'Remanejando...' : 'Aplicar'}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
+                <DashboardSummaryCard
+                  totalIncomes={totalIncomes}
+                  totalExpenses={totalExpenses}
+                  totalLimits={totalLimits}
+                  limitUsedPercentage={limitUsedPercentage}
+                  progressColor={progressColor}
+                  reallocationRecommendation={reallocationRecommendation ? {
+                    fromName: reallocationRecommendation.fromName,
+                    toName: reallocationRecommendation.toName,
+                  } : null}
+                  isReallocating={isReallocating}
+                  handleReallocate={handleReallocate}
+                />
 
                 {/* Layout Principal: Fluxo → Limites → Copiloto → Ações → Fixadas */}
                 <div className="space-y-5">
@@ -746,78 +654,20 @@ export default function Dashboard() {
       />
 
       {/* ── Modal de detalhamento de categoria ── */}
-      <Modal
+      <DashboardCategoryDetailModal
         isOpen={Boolean(selectedExpenseCategory)}
         onClose={() => setSelectedExpenseCategory(null)}
-        title={selectedExpenseCategory ? `Detalhamento: ${selectedExpenseCategory.name}` : 'Detalhamento'}
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-secondary">Comparação mensal</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-xl border border-glass surface-glass p-3">
-                <p className="text-xs text-secondary">Total em {formatMonth(currentMonth)}</p>
-                <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.currentTotal ?? 0)}</p>
-              </div>
-              <div className="rounded-xl border border-glass surface-glass p-3">
-                <p className="text-xs text-secondary">Total em {formatMonth(previousMonth)}</p>
-                <p className="text-lg font-semibold text-primary">{formatCurrency(selectedExpenseCategoryDetails?.previousTotal ?? 0)}</p>
-              </div>
-            </div>
-          </div>
-
-          {selectedExpenseCategoryLimitDetails && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-secondary">Metas do mês</p>
-              <div className="rounded-xl border border-glass surface-glass p-3">
-                <p className="text-sm text-primary">Limite: {formatCurrency(selectedExpenseCategoryLimitDetails.limitAmount)}</p>
-                <p className="text-sm text-primary">Gasto: {formatCurrency(selectedExpenseCategoryLimitDetails.currentTotal)}</p>
-                <p className={`text-sm font-medium ${selectedExpenseCategoryLimitDetails.isExceeded ? 'text-expense' : 'text-income'}`}>
-                  {selectedExpenseCategoryLimitDetails.isExceeded
-                    ? `Excesso: ${formatCurrency(selectedExpenseCategoryLimitDetails.exceededAmount)}`
-                    : `Restante: ${formatCurrency(selectedExpenseCategoryLimitDetails.remainingAmount)}`}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {selectedExpenseCategory && (
-            <CategoryDetailMiniChart
-              detailItems={miniChartItems}
-              period="month"
-              selectedMonth={currentMonth}
-              selectedYear={new Date(currentMonth).getFullYear()}
-              color={getCategoryColorForPalette(
-                expenses.find(e => (e.category?.id || e.category_id || '') === selectedExpenseCategory.id)?.category?.color || 'var(--color-primary)',
-                colorPalette
-              )}
-            />
-          )}
-
-          <p className="text-xs font-medium uppercase tracking-wide text-secondary">Lançamentos do mês</p>
-
-          {selectedExpenseCategoryDetails && selectedExpenseCategoryDetails.currentItems.length > 0 ? (
-            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-              {selectedExpenseCategoryDetails.currentItems.map((item) => {
-                const reportAmount = expenseAmountForDashboard(item.amount, item.report_weight)
-
-                return (
-                  <TransactionRow
-                    key={item.id}
-                    description={item.description || item.category?.name || 'Despesa'}
-                    date={item.date}
-                    amount={reportAmount}
-                    originalAmount={item.amount}
-                  />
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-secondary">Sem lançamentos dessa categoria no mês selecionado.</p>
-          )}
-        </div>
-      </Modal>
+        category={selectedExpenseCategory}
+        details={selectedExpenseCategoryDetails}
+        limitDetails={selectedExpenseCategoryLimitDetails}
+        miniChartItems={miniChartItems}
+        currentMonth={currentMonth}
+        previousMonth={previousMonth}
+        expenses={expenses}
+        expenseAmountForDashboard={expenseAmountForDashboard}
+        colorPalette={colorPalette}
+        getCategoryColorForPalette={getCategoryColorForPalette}
+      />
 
     </div>
     )
