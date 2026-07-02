@@ -40,10 +40,12 @@ import TransactionRow from '@/components/TransactionRow'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
-import { addMonths } from '@/utils/format'
 import { useDashboardInsights } from '@/hooks/useDashboardInsights'
 import { InsightsCard } from '@/components/dashboard/InsightsCard'
-const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
+import { useSpendingCalculations } from '@/hooks/useSpendingCalculations'
+import { useSpendingProjection } from '@/hooks/useSpendingProjection'
+import { useBudgetLimits } from '@/hooks/useBudgetLimits'
+import { addMonths } from '@/utils/format'
 
 export default function Dashboard() {
   const currentMonth = getCurrentMonthString()
@@ -114,151 +116,34 @@ export default function Dashboard() {
 
 
 
-  // Gasto Disponível integrated calculations
-  const spendingCalcs = useMemo(() => {
-    const today = new Date()
-    const currentYear = today.getFullYear()
-    const currentMonthNum = today.getMonth() + 1
-    const currentDay = today.getDate()
-
-    const systemMonthStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`
-    const isPast = currentMonth < systemMonthStr
-    const isFuture = currentMonth > systemMonthStr
-
-    const [selYear, selMonth] = currentMonth.split('-').map(Number)
-    const daysInMonth = new Date(selYear, selMonth, 0).getDate()
-
-    const monthlyAvailable = totalIncomes - totalInvestments - totalExpenses
-
-    if (isPast) {
-      return {
-        mode: 'past' as const,
-        title: 'Gasto Disponível (Mês Encerrado)',
-        monthlyAvailable,
-        dailyAvailable: 0,
-        daysInMonth,
-        remainingDays: 0,
-      }
-    }
-
-    if (isFuture) {
-      const totalProjected = totalIncomes - totalInvestments
-      const dailyAvailable = daysInMonth > 0 ? Math.max(0, totalProjected / daysInMonth) : 0
-      return {
-        mode: 'future' as const,
-        title: 'Gasto Disponível Projetado',
-        monthlyAvailable: totalProjected,
-        dailyAvailable,
-        daysInMonth,
-        remainingDays: daysInMonth,
-      }
-    }
-
-    const remainingDays = daysInMonth - currentDay + 1
-    const dailyAvailable = remainingDays > 0 ? Math.max(0, monthlyAvailable / remainingDays) : 0
-
-    return {
-      mode: 'current' as const,
-      title: 'Gasto Disponível',
-      currentDay,
-      daysInMonth,
-      remainingDays,
-      monthlyAvailable,
-      dailyAvailable
-    }
-  }, [currentMonth, totalIncomes, totalExpenses, totalInvestments])
-
-  // Smart Limits integrated calculations
-  const currentLimitsMap = useMemo(() => {
-    const map = new Map<string, number>()
-    currentMonthExpenseLimits.forEach((l) => {
-      if (l.limit_amount !== null && l.limit_amount !== undefined) {
-        map.set(l.category_id, l.limit_amount)
-      }
-    })
-    return map
-  }, [currentMonthExpenseLimits])
-
-  const spentMap = useMemo(() => {
-    const map = new Map<string, number>()
-    expenses.forEach((e) => {
-      const weight = e.report_weight ?? 1
-      map.set(e.category_id, (map.get(e.category_id) || 0) + e.amount * weight)
-    })
-    return map
-  }, [expenses])
-
-  const reallocationRecommendation = useMemo(() => {
-    const exceededList: Array<{ id: string; name: string; exceeded: number; limit: number }> = []
-    const surplusList: Array<{ id: string; name: string; surplus: number; limit: number }> = []
-
-    categories.forEach((cat) => {
-      const limit = currentLimitsMap.get(cat.id)
-      const spent = spentMap.get(cat.id) || 0
-      if (limit !== undefined && limit > 0) {
-        if (spent > limit) {
-          exceededList.push({ id: cat.id, name: cat.name, exceeded: spent - limit, limit })
-        } else if (limit > spent) {
-          surplusList.push({ id: cat.id, name: cat.name, surplus: limit - spent, limit })
-        }
-      }
-    })
-
-    if (exceededList.length === 0 || surplusList.length === 0) {
-      return null
-    }
-
-    exceededList.sort((a, b) => b.exceeded - a.exceeded)
-    surplusList.sort((a, b) => b.surplus - a.surplus)
-
-    const targetTo = exceededList[0]
-    const targetFrom = surplusList[0]
-
-    let amountToTransfer = Math.min(targetTo.exceeded, targetFrom.surplus)
-    amountToTransfer = Math.max(10, Math.round(amountToTransfer / 10) * 10)
-
-    if (amountToTransfer < 10) return null
-
-    return {
-      fromId: targetFrom.id,
-      fromName: targetFrom.name,
-      fromCurrentLimit: targetFrom.limit,
-      toId: targetTo.id,
-      toName: targetTo.name,
-      toCurrentLimit: targetTo.limit,
-      exceededAmount: targetTo.exceeded,
-      transferAmount: amountToTransfer,
-    }
-  }, [categories, currentLimitsMap, spentMap])
-
-  const [isReallocating, setIsReallocating] = useState(false)
-
-  const handleReallocate = async () => {
-    if (!reallocationRecommendation) return
-
-    setIsReallocating(true)
-    const { fromId, fromCurrentLimit, toId, toCurrentLimit, transferAmount } = reallocationRecommendation
-
-    const fromNewLimit = Math.max(0, fromCurrentLimit - transferAmount)
-    const toNewLimit = toCurrentLimit + transferAmount
-
-    const res1 = await setCategoryLimit(fromId, fromNewLimit)
-    if (res1.error) {
-      alert(`Erro ao atualizar limite de origem: ${res1.error}`)
-      setIsReallocating(false)
-      return
-    }
-
-    const res2 = await setCategoryLimit(toId, toNewLimit)
-    if (res2.error) {
-      alert(`Erro ao atualizar limite de destino: ${res2.error}`)
-      setIsReallocating(false)
-      return
-    }
-
-    setIsReallocating(false)
-    refreshLimits()
-  }
+  // ── Hooks extraídos ──
+  const spendingCalcs = useSpendingCalculations(currentMonth, totalIncomes, totalExpenses, totalInvestments)
+  const spendingProjection = useSpendingProjection(currentMonth, totalExpenses, totalIncomes, totalInvestments)
+  const {
+    spentMap,
+    expenseLimitMap,
+    expenseByCategory,
+    limitsExceededCount,
+    categoriesAttentionList,
+    reallocationRecommendation,
+    isReallocating,
+    handleReallocate,
+    totalLimits,
+    limitUsedPercentage,
+    progressColor,
+  } = useBudgetLimits(
+    categories,
+    expenses,
+    currentMonthExpenseLimits,
+    previousMonthExpenseLimits,
+    totalExpenses,
+    totalIncomes,
+    expenseAmountForDashboard,
+    colorPalette,
+    getCategoryColorForPalette,
+    setCategoryLimit,
+    refreshLimits,
+  )
 
 
 
@@ -271,169 +156,13 @@ export default function Dashboard() {
 
   // monthlyOverviewData removed because pizza chart was removed
 
-  const expenseByCategory = useMemo(() => {
-    const map = new Map<string, { categoryId: string; name: string; color: string; iconName?: string; value: number; baseValue: number }>()
-
-    expenses.forEach((expense) => {
-      const name = expense.category?.name || 'Sem categoria'
-      const categoryId = expense.category?.id || expense.category_id || ''
-      const key = categoryId || name
-      const category = categories.find((c) => c.id === categoryId)
-      const rawColor = category?.color || expense.category?.color || 'var(--color-primary)'
-      const [_, iconName] = rawColor.split('|')
-      const color = getCategoryColorForPalette(rawColor, colorPalette)
-      const current = map.get(key)
-
-      if (current) {
-        current.value += expenseAmountForDashboard(expense.amount, expense.report_weight)
-        current.baseValue += expense.amount
-      } else {
-        map.set(key, { categoryId, name, color, iconName, value: expenseAmountForDashboard(expense.amount, expense.report_weight), baseValue: expense.amount })
-      }
-    })
-
-    return Array.from(map.values()).sort((a, b) => b.value - a.value)
-  }, [expenses, categories, colorPalette])
-
-  /* ── Projeção de Fim do Mês ── */
-  const spendingProjection = useMemo(() => {
-    const today = new Date()
-    const currentYear = today.getFullYear()
-    const currentMonthNum = today.getMonth() + 1
-    const systemMonthStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`
-    const isPast = currentMonth < systemMonthStr
-    const isFuture = currentMonth > systemMonthStr
-
-    const [year, month] = currentMonth.split('-').map(Number)
-    const daysInMonth = new Date(year, month, 0).getDate()
-    if (daysInMonth <= 0) return null
-
-    // For past months: show actual results (projection = what happened)
-    if (isPast) {
-      return {
-        daysElapsed: daysInMonth,
-        daysInMonth,
-        currentDay: daysInMonth,
-        dailyBurnRate: daysInMonth > 0 ? totalExpenses / daysInMonth : 0,
-        projectedEndOfMonthExpenses: totalExpenses,
-        projectedSurplus: totalIncomes - totalInvestments - totalExpenses,
-        onTrack: (totalIncomes - totalInvestments - totalExpenses) >= 0,
-        mode: 'past' as const,
-      }
-    }
-
-    // For future months: projection not applicable (no data yet)
-    if (isFuture) return null
-
-    // Current month: project based on pace so far
-    const currentDay = today.getDate()
-    if (currentDay < 3) return null // Only meaningful after a few days
-
-    const daysElapsed = Math.min(currentDay, daysInMonth)
-    const dailyBurnRate = daysElapsed > 0 ? totalExpenses / daysElapsed : 0
-    const projectedEndOfMonthExpenses = dailyBurnRate * daysInMonth
-    const projectedSurplus = totalIncomes - totalInvestments - projectedEndOfMonthExpenses
-    const onTrack = projectedSurplus >= 0
-
-    return {
-      daysElapsed,
-      daysInMonth,
-      currentDay,
-      dailyBurnRate,
-      projectedEndOfMonthExpenses,
-      projectedSurplus,
-      onTrack,
-      mode: 'current' as const,
-    }
-  }, [currentMonth, totalExpenses, totalIncomes, totalInvestments])
-
   const currentMonthExpenseLimitMap = useMemo(() => {
     const map = new Map<string, number | null>()
     currentMonthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
     return map
   }, [currentMonthExpenseLimits])
 
-  const previousMonthExpenseLimitMap = useMemo(() => {
-    const map = new Map<string, number | null>()
-    previousMonthExpenseLimits.forEach((item) => map.set(item.category_id, item.limit_amount))
-    return map
-  }, [previousMonthExpenseLimits])
-
-  const expenseLimitMap = useMemo(() => {
-    const map = new Map<string, number | null>()
-
-    categories.forEach((category) => {
-      const currentValue = currentMonthExpenseLimitMap.get(category.id)
-      if (currentValue !== undefined) {
-        map.set(category.id, currentValue)
-        return
-      }
-
-      const previousValue = previousMonthExpenseLimitMap.get(category.id)
-      if (previousValue !== undefined) {
-        map.set(category.id, previousValue)
-      }
-    })
-
-    return map
-  }, [categories, currentMonthExpenseLimitMap, previousMonthExpenseLimitMap])
-
-  const expenseLimitAlerts = useMemo(() => {
-    return expenseByCategory
-      .map((item) => {
-        const limitAmount = item.categoryId ? expenseLimitMap.get(item.categoryId) : undefined
-        const hasLimit = limitAmount !== null && limitAmount !== undefined
-
-        if (!hasLimit) return null
-
-        const exceededAmount = item.value - (limitAmount || 0)
-        if (exceededAmount <= 0) return null
-
-        const exceededPercentage = (limitAmount || 0) > 0 ? (exceededAmount / (limitAmount || 1)) * 100 : 100
-        const usagePercentage = (limitAmount || 0) > 0 ? (item.value / (limitAmount || 1)) * 100 : 100
-
-        return {
-          ...item,
-          limitAmount: limitAmount || 0,
-          exceededAmount,
-          exceededPercentage,
-          usagePercentage,
-        }
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      .sort((a, b) => b.exceededAmount - a.exceededAmount)
-  }, [expenseByCategory, expenseLimitMap])
-
   // expenseCategoriesPieData removed because pizza chart was removed
-
-  const expenseAttentionCategories = useMemo(() => {
-    return expenseByCategory
-      .map((item) => {
-        const limitAmount = item.categoryId ? expenseLimitMap.get(item.categoryId) : undefined
-        const hasLimit = limitAmount !== null && limitAmount !== undefined
-
-        if (!hasLimit || (limitAmount || 0) <= 0) return null
-
-        const usagePercentage = (item.value / (limitAmount || 1)) * 100
-        const isNearLimit = usagePercentage >= EXPENSE_LIMIT_WARNING_THRESHOLD && usagePercentage < 100
-
-        if (!isNearLimit) return null
-
-        const level = usagePercentage >= 95 ? 'Crítica' : usagePercentage >= 90 ? 'Alta' : 'Média'
-
-        return {
-          ...item,
-          level,
-          usagePercentage,
-          limitAmount: limitAmount || 0,
-          remainingAmount: (limitAmount || 0) - item.value,
-        }
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      .sort((a, b) => b.usagePercentage - a.usagePercentage)
-  }, [expenseByCategory, expenseLimitMap])
-
-  const limitsExceededCount = useMemo(() => expenseLimitAlerts.length, [expenseLimitAlerts])
 
   // Category summaries for FinancialInsights
   const categoryExpenseSummaries = useMemo(() =>
@@ -549,59 +278,7 @@ export default function Dashboard() {
     insights,
   } = useDashboardInsights(aiInput)
 
-  const categoriesAttentionList = useMemo(() => {
-    const list: Array<{
-      categoryId: string
-      name: string
-      color: string
-      iconName?: string
-      value: number
-      baseValue: number
-      limitAmount: number
-      usagePercentage: number
-      isExceeded: boolean
-      exceededAmount?: number
-      remainingAmount?: number
-      statusLabel: string
-      alertStatusClass: string
-    }> = []
-
-    expenseLimitAlerts.forEach((alert) => {
-      list.push({
-        categoryId: alert.categoryId || '',
-        name: alert.name,
-        color: alert.color,
-        iconName: alert.iconName,
-        value: alert.value,
-        baseValue: alert.baseValue,
-        limitAmount: alert.limitAmount,
-        usagePercentage: alert.usagePercentage,
-        isExceeded: true,
-        exceededAmount: alert.exceededAmount,
-        statusLabel: 'Excedido',
-        alertStatusClass: 'text-expense font-bold bg-expense/10 px-2 py-0.5 rounded-full'
-      })
-    })
-
-    expenseAttentionCategories.forEach((alert) => {
-      list.push({
-        categoryId: alert.categoryId || '',
-        name: alert.name,
-        color: alert.color,
-        iconName: alert.iconName,
-        value: alert.value,
-        baseValue: alert.baseValue,
-        limitAmount: alert.limitAmount,
-        usagePercentage: alert.usagePercentage,
-        isExceeded: false,
-        remainingAmount: alert.remainingAmount,
-        statusLabel: alert.level === 'Crítica' ? 'Crítico (95%+)' : alert.level === 'Alta' ? 'Alerta (90%+)' : 'Atenção (85%+)',
-        alertStatusClass: 'text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded-full'
-      })
-    })
-
-    return list.sort((a, b) => b.usagePercentage - a.usagePercentage)
-  }, [expenseLimitAlerts, expenseAttentionCategories])
+  // categoriesAttentionList agora vem do hook useBudgetLimits
 
   const dailyFlowData = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number)
@@ -723,21 +400,7 @@ export default function Dashboard() {
   }, [isOnline, loadPortfolioTransactions])
 
 
-  const totalLimits = useMemo(() => {
-    return currentMonthExpenseLimits.reduce((sum, limit) => sum + (limit.limit_amount || 0), 0)
-  }, [currentMonthExpenseLimits])
-
-  const limitUsedPercentage = useMemo(() => {
-    const effectiveLimit = totalLimits > 0 ? totalLimits : totalIncomes
-    if (effectiveLimit <= 0) return 0
-    return Math.min(100, (totalExpenses / effectiveLimit) * 100)
-  }, [totalExpenses, totalLimits, totalIncomes])
-
-  const progressColor = useMemo(() => {
-    if (limitUsedPercentage >= 85) return 'bg-expense'
-    if (limitUsedPercentage >= 70) return 'bg-warning'
-    return 'bg-income'
-  }, [limitUsedPercentage])
+  // totalLimits, limitUsedPercentage, progressColor agora vêm do hook useBudgetLimits
 
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col">

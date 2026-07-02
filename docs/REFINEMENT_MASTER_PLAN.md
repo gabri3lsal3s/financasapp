@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v1.6) — QuickWinsGrid refatorado com ações inline (sem navegação). 6 novos cards de insights (concentração, tendência, fim de semana, destaque, poupança, investimentos). Motor de insights refinado. Build: 0 erros TS, 290/290 testes.
+> **Última atualização:** Julho de 2026 (v1.7) — 3 hooks extraídos do Dashboard (useSpendingCalculations, useSpendingProjection, useBudgetLimits). Duplicata expenseByCategory eliminada. Testes insightsEngine adicionados (15+). Tipos ColorPalette corrigidos. Build: 0 erros TS, 312/312 testes.
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -39,7 +39,7 @@
 | Métrica | Valor | Status |
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **290/290** (31 arquivos, 4.15s) | ✅ |
+| Testes passando | **312/312** (32 arquivos, 7s) | ✅ |
 | Build | **OK** | ✅ |
 | UI Guardrails | **21 na baseline** | 🟡 |
 | `as any` em produção | **0** (5 em gráficos Recharts) | ✅ |
@@ -48,7 +48,7 @@
 | `console.log` residual | **0** (via logger condicional) | ✅ |
 | `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
 | Maior arquivo | **~1.925 linhas** (Reports.tsx) | 🟡 |
-| Dashboard.tsx | **~1.940 linhas** | 🟡 |
+| Dashboard.tsx | **~1.700 linhas** (3 hooks extraídos) | 🟢 |
 | Componentes | **130+** | ✅ |
 | Hooks customizados | **35+** | ✅ |
 | Migrations | **43** | ✅ |
