@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026
+> **Última atualização:** Julho de 2026 (v1.2)
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -41,6 +41,11 @@
 | Testes passando | **290/290** (31 arquivos) | ✅ |
 | Build | **OK** | ✅ |
 | UI Guardrails | **21 na baseline** | 🟡 |
+| `as any` em produção | **0** | ✅ |
+| Non-null assertions em produção | **0** | ✅ |
+| `catch(err: any)` | **0** | ✅ |
+| `console.log` residual | **0** | ✅ |
+| `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
 | `as any` em produção | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
@@ -194,19 +199,40 @@
 
 A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
-```bash
-supabase migration up
-# Ou via SQL Editor do Supabase
-```
-
 **Migration:** `supabase/migrations/20260629_fix_numeric_overflow.sql`
 
-| Tabela | Colunas | Tipo Antigo → Novo |
-|--------|---------|-------------------|
-| `portfolio_share_daily` | `gross_pl`, `net_pl`, `cash_value`, `invested_cost` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
-| `portfolios` | `cash_balance`, `last_gross_pl`, `last_net_pl` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
-| `portfolio_period_snapshots` | `somatorio_aportes`, `somatorio_resgates`, `dividendos_recebidos` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
-| `portfolio_asset_definitions` | `applied_amount`, `manual_current_value` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| Tabela | Colunas | Tipo Antigo → Novo | Status |
+|--------|---------|-------------------|--------|
+| `portfolio_share_daily` | `gross_pl`, `net_pl`, `cash_value`, `invested_cost` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
+| `portfolios` | `cash_balance`, `last_gross_pl`, `last_net_pl` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
+| `portfolio_period_snapshots` | `somatorio_aportes`, `somatorio_resgates`, `dividendos_recebidos` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
+| `portfolio_asset_definitions` | `applied_amount`, `manual_current_value` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
+
+**Como aplicar:** Acesse o SQL Editor do Supabase Dashboard e execute o SQL.
+
+---
+
+## 6. Fase Dashboard Redesign ✅
+
+| # | Item | Descrição | Status |
+|---|------|-----------|--------|
+| D.1 | AppTopBar greeting | Saudação "Olá, [Nome] 👋" + "Faltam [X] dias" | ✅ |
+| D.2 | Card Herói (Gasto Disponível) | BudgetHeroCard com diário + mensal + alerta de estouro | ✅ (pré-existente) |
+| D.3 | Termômetro do Mês | Barra de progresso unificada no Resumo do Mês | ✅ (pré-existente) |
+| D.4 | Carrossel de Insights Proativos | Chips compactos, max 3, empty state | ✅ |
+| D.5 | Grade de Quick Wins | QuickWinsGrid com 3 atalhos (assinaturas, economia, limites) | ✅ |
+
+---
+
+## 7. Fase 4 — Melhorias de Curto Prazo
+
+| # | Item | Esforço | Status |
+|---|------|---------|--------|
+| 4.1 | ✅ Carrossel redesenho (max 3, chips menores, empty state) | ✅ Concluído | ✅ |
+| 4.2 | ✅ Unificar card fixado IA (pill inline) | ✅ Concluído | ✅ |
+| 4.3 | Padronizar input do Copiloto com topbar | ~30min | ⏳ |
+| 4.4 | Extrair dynamicAiSuggestions do Dashboard para service | ~2h | ⏳ |
+| 4.5 | Verificar contraste modo midnight (WCAG AA) | ~30min | ⏳ |
 
 ---
 
@@ -216,20 +242,20 @@ supabase migration up
 
 | # | Item | Esforço | Arquivos | Descrição |
 |---|------|---------|----------|-----------|
-| 1 | Extrair lógica de `useExpenses.ts` (~497 linhas) | ~3h | `utils/expenseInstallments.ts`, `utils/expenseDeletion.ts`, `utils/creditCardCompetence.ts` | Parcelamento, competência cartão, exclusão single/all/subsequent |
+| 1 | ✅ Extrair lógica de `useExpenses.ts` (~497 linhas → 437) | **✅ Concluído** | `utils/expenseInstallments.ts`, `utils/expenseDeletion.ts`, `utils/creditCardCompetence.ts` | Já estava extraído — usoExpenses.ts importa dos 3 utils |
 | 2 | Extrair `dynamicAiSuggestions` + `handleSendChat` do Dashboard | ~3h | `services/aiSuggestions.ts`, `hooks/useDashboardAI.ts` | Lógica de insights + NL parser do Copiloto IA |
 | 3 | Padronizar espaçamento entre cards em todas as páginas | ~1h | Todas as pages | Unificar `space-y-4/5/6` para valor consistente |
-| 4 | ✅ Limpar imports não usados (TS6133) no Reports.tsx + MonthlyReportView.tsx | ~30min | `Reports.tsx`, `MonthlyReportView.tsx` | Após extração da Fase 4 | ✅ Fixado |
+| 4 | ✅ Limpar imports não usados (TS6133) no Reports.tsx + MonthlyReportView.tsx | ✅ Fixado | `Reports.tsx`, `MonthlyReportView.tsx` | Após extração da Fase 4 |
 
 ### Prioridade Média 🟡
 
-| # | Item | Esforço | Descrição |
-|---|------|---------|-----------|
-| 5 | Unificar card fixado no Copiloto IA | ~2h | Remover a funcionalidade de Pinned |
-| 6 | Redesenhar carrossel de insights | ~1.5h | Max 3 insights, chips menores, empty state |
-| 7 | Padronizar input do Copiloto com topbar | ~30min | Usar `topbar-search-bar` / `surface-glass-strong` |
-| 8 | Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | Reduzir Dashboard.tsx em ~200 linhas |
-| 9 | Verificar contraste em modo midnight (WCAG AA) | ~30min | text-secondary + border-glass no modo escuro |
+| # | Item | Esforço | Descrição | Status |
+|---|------|---------|-----------|--------|
+| 5 | ✅ Unificar card fixado no Copiloto IA | ✅ Concluído | Análise fixada integrada como pill inline no Copiloto (card separado removido) | ✅ |
+| 6 | ✅ Redesenhar carrossel de insights | ✅ Concluído | Max 3 insights, chips menores (pill-style), empty state adicionado | ✅ |
+| 7 | Padronizar input do Copiloto com topbar | ~30min | Usar `topbar-search-bar` / `surface-glass-strong` | ⏳ |
+| 8 | Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | Reduzir Dashboard.tsx em ~200 linhas | ⏳ |
+| 9 | Verificar contraste em modo midnight (WCAG AA) | ~30min | text-secondary + border-glass no modo escuro | ⏳ |
 
 ---
 

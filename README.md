@@ -5,7 +5,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-BaaS-3ECF8E)](https://supabase.com/)
-[![Tests](https://img.shields.io/badge/Tests-260_passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-290_passing-brightgreen)]()
 
 Aplicação web premium de controle financeiro pessoal com **arquitetura Offline-First**, **motor quantamental de portfólio** e design system glass-based.
 
@@ -84,11 +84,11 @@ VITE_SUPABASE_ANON_KEY=sua-chave-anonima-supabase
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **260/260** |
+| Testes passando | **290/290** (31 arquivos) |
 | UI Guardrails | **0 violações** |
-| Componentes | **120+** |
-| Hooks | **30+** |
-| Migrations | **37** |
+| Componentes | **130+** |
+| Hooks | **35+** |
+| Migrations | **43** |
 | `as any` em produção | **0** |
 | `console.log` residual | **0** (via logger condicional) |
 
@@ -108,7 +108,7 @@ npm run lint                  # Guardrails + ESLint
 
 ## 🧪 Cobertura de Testes
 
-**259 testes** em **29 arquivos**, cobrindo:
+**290 testes** em **31 arquivos**, cobrindo:
 
 - Utilitários financeiros (format, creditCard, cashBalance, installment)
 - Motor de portfolio (ledger, TWR, cálculos, fluxo mensal)

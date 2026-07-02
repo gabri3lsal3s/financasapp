@@ -40,6 +40,7 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
 import LimitsControl from '@/components/dashboard/LimitsControl'
+import QuickWinsGrid from '@/components/dashboard/QuickWinsGrid'
 import TransactionRow from '@/components/TransactionRow'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -1083,8 +1084,8 @@ export default function Dashboard() {
       return pb - pa // higher number = higher priority
     })
 
-    // Limit to at most 6 insights of highest priority
-    return list.slice(0, 6)
+    // Limit to at most 3 insights of highest priority
+    return list.slice(0, 3)
   }, [currentMonth, totalIncomes, totalExpenses, totalInvestments, savingsRate, categoryExpenseSummaries, previousMonthExpenseTotal, weekdayExpenseData, limitsExceededCount, incomeByCategory, spendingPace, spendingProjection])
 
   const categoriesAttentionList = useMemo(() => {
@@ -1397,8 +1398,14 @@ export default function Dashboard() {
                             Você utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> da sua receita total de <strong className="text-primary">{formatCurrency(totalIncomes)}</strong>.
                           </span>
                         ) : (
-                          <span>
-                            Defina limites por categoria para acompanhar o uso do seu orçamento mensal.
+                          <span className="flex items-center gap-1.5">
+                            <Calendar size={11} className="text-secondary" />
+                            Faltam {(() => {
+                              const today = new Date()
+                              const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+                              const remaining = daysInMonth - today.getDate() + 1
+                              return `${remaining} ${remaining === 1 ? 'dia' : 'dias'} para o fim do mês.`
+                            })()} 
                           </span>
                         )}
                       </div>
@@ -1496,39 +1503,33 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Carrossel de Insights Proativos */}
-                    {dynamicAiSuggestions.length > 0 && (
-                      <div className="space-y-1.5">
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 pt-0.5">
-                          {dynamicAiSuggestions.map((suggestion) => (
-                            <button
-                              key={suggestion.id}
-                              type="button"
-                              onClick={() => handleSendChat(undefined, suggestion.query)}
-                              disabled={isAiTyping}
-                              className="shrink-0 w-64 border border-glass surface-glass-strong p-3.5 rounded-xl flex flex-col justify-between transition-all cursor-pointer text-left hover:border-primary/30 hover:bg-secondary/5 disabled:opacity-50 disabled:cursor-default text-start"
-                            >
-                              <div>
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                  <div className="p-1 rounded-lg bg-secondary/10 text-primary">
-                                    {suggestion.icon}
-                                  </div>
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-secondary">
-                                    Insight
-                                  </span>
-                                </div>
-                                <h4 className="text-xs font-bold text-primary leading-snug mb-1">
-                                  {suggestion.text}
-                                </h4>
-                                <p className="text-[10px] text-secondary leading-normal">
-                                  {suggestion.tip}
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
+                    {/* Carrossel de Insights Proativos — compacto */}
+                    {dynamicAiSuggestions.length > 0 ? (
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+                        {dynamicAiSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => handleSendChat(undefined, suggestion.query)}
+                            disabled={isAiTyping}
+                            className="shrink-0 border border-glass surface-glass-strong px-3 py-2 rounded-xl flex items-center gap-2 transition-all cursor-pointer text-left hover:border-primary/30 hover:bg-secondary/5 disabled:opacity-50 disabled:cursor-default"
+                          >
+                            <span className="p-0.5 rounded-md bg-secondary/10 text-primary shrink-0">
+                              {suggestion.icon}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-primary leading-tight block truncate max-w-[140px]">
+                                {suggestion.text}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                    )}
+                    ) : !activeQueryText ? (
+                      <p className="text-[10px] text-secondary/60 text-center py-1 italic">
+                        Nenhum insight disponível no momento. Comece adicionando receitas e despesas.
+                      </p>
+                    ) : null}
 
                     {/* Caixa de Entrada Integrada */}                    <form 
                       onSubmit={(e) => handleSendChat(e)}
@@ -1602,62 +1603,42 @@ export default function Dashboard() {
                   {/* Placeholder para novos cards contextuais que aparecem conforme o mês avança */}
                   {/* Sugestões detalhadas na documentação docs/NEXT_STEPS.md */}
 
-                  {/* Pinned AI Analysis (Dashed border) shown separately when not active query */}
+                  {/* ── SEÇÃO 5: Quick Wins - Ações de Otimização ── */}
+                  <QuickWinsGrid />
+
+                  {/* Pinned AI Analysis inline pill when not active query */}
                   {pinnedAnalysis && pinnedAnalysis.queryText !== activeQueryText && (
-                    <Card className={cn(CARD_BASE, CARD_PADDING_LARGE, "space-y-4 relative overflow-hidden transition-all hover:border-glass-strong border-dashed")}>
-                      <div className="flex items-center justify-between border-b border-glass/40 pb-2">
-                        <div className="flex items-center gap-1.5">
-                          <Pin className="w-3 h-3 text-primary fill-primary/10 rotate-45" />
-                          <span className="text-xs font-bold uppercase tracking-wide text-primary">
-                            Análise Fixada
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setActiveReportText(pinnedAnalysis.text)
-                              setActiveChartData(pinnedAnalysis.chartData)
-                              setActiveQueryText(pinnedAnalysis.queryText)
-                            }}
-                            className="px-2.5 py-1 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer border border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-wider"
-                          >
-                            Abrir
-                          </button>
-                          {hasNewDataForPinned && (
-                            <button
-                              onClick={handleUpdatePinnedAnalysis}
-                              disabled={isUpdatingPinned}
-                              className="px-2.5 py-1 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer flex items-center gap-1 border border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-wider"
-                            >
-                              <RefreshCw className={`w-2 h-2 ${isUpdatingPinned ? 'animate-spin' : ''}`} />
-                              <span>Atualizar</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={handleUnpin}
-                            className="p-1 text-secondary hover:text-primary rounded-lg hover:bg-secondary/10 transition-all cursor-pointer"
-                          >
-                            <Pin className="w-3 h-3 fill-primary/10 text-primary" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <BeautifulMarkdown text={pinnedAnalysis.text} />
-                        
-                        {pinnedAnalysis.chartData && pinnedAnalysis.chartData.length > 0 && (
-                          <div className="pt-2 border-t border-glass/40">
-                            <InteractiveAIChart 
-                              chartData={pinnedAnalysis.chartData} 
-                              onBarClick={(item) => {
-                                setChatInput(`Como economizar nos gastos de ${item.name}?`)
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </Card>
+                    <div className="flex items-center gap-2 border border-dashed border-glass/60 rounded-xl px-3 py-2 surface-glass-strong">
+                      <Pin className="w-3 h-3 text-primary shrink-0 fill-primary/10" />
+                      <span className="text-[10px] text-secondary truncate flex-1 min-w-0">
+                        Análise: {pinnedAnalysis.queryText}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setActiveReportText(pinnedAnalysis.text)
+                          setActiveChartData(pinnedAnalysis.chartData)
+                          setActiveQueryText(pinnedAnalysis.queryText)
+                        }}
+                        className="px-2 py-0.5 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer border border-primary/20 bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-wider shrink-0"
+                      >
+                        Abrir
+                      </button>
+                      {hasNewDataForPinned && (
+                        <button
+                          onClick={handleUpdatePinnedAnalysis}
+                          disabled={isUpdatingPinned}
+                          className="px-2 py-0.5 rounded-lg hover:bg-secondary/10 transition-all cursor-pointer flex items-center gap-1 border border-primary/20 bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-wider shrink-0"
+                        >
+                          <RefreshCw className={`w-2 h-2 ${isUpdatingPinned ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
+                      <button
+                        onClick={handleUnpin}
+                        className="p-0.5 text-secondary hover:text-primary rounded-md hover:bg-secondary/10 transition-all cursor-pointer shrink-0"
+                      >
+                        <Pin className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
 
                 </div>
