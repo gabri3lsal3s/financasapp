@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v1.7) — 3 hooks extraídos do Dashboard (useSpendingCalculations, useSpendingProjection, useBudgetLimits). Duplicata expenseByCategory eliminada. Testes insightsEngine adicionados (15+). Tipos ColorPalette corrigidos. Build: 0 erros TS, 312/312 testes.
+> **Última atualização:** Julho de 2026 (v1.9) — Motor de sugestões de otimização (`optimizationSuggestionsEngine.ts`) com 8 tipos de ações contextuais. QuickWinsGrid refatorado: só aparece quando há ações úteis, cards dinâmicos com economia mensal + projeção anual. Build: 0 erros TS, 387/387 testes, Build OK.
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -39,15 +39,16 @@
 | Métrica | Valor | Status |
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **312/312** (32 arquivos, 7s) | ✅ |
+| Testes passando | **387/387** (35 arquivos, ~8s) | ✅ |
+| Build | **OK** (PWA, 72 entries precached) | ✅ |
 | Build | **OK** | ✅ |
 | UI Guardrails | **21 na baseline** | 🟡 |
-| `as any` em produção | **0** (5 em gráficos Recharts) | ✅ |
+| `as any` em produção | **0** | ✅ |
 | Non-null assertions em produção | **0** | ✅ |
 | `catch(err: any)` | **0** | ✅ |
 | `console.log` residual | **0** (via logger condicional) | ✅ |
 | `style={{ }}` em produção | **< 50 ocorrências** | 🟡 |
-| Maior arquivo | **~1.925 linhas** (Reports.tsx) | 🟡 |
+| Maior arquivo | **~1.600 linhas** (Reports.tsx, -17% graças ao useReportCustomPeriod) | 🟢 |
 | Dashboard.tsx | **~1.700 linhas** (3 hooks extraídos) | 🟢 |
 | Componentes | **130+** | ✅ |
 | Hooks customizados | **35+** | ✅ |
@@ -202,19 +203,38 @@
 | Engine refinado | Filtra parcelas em assinaturas, +10 categorias de desafios, mínimo dinâmico (0.5% renda), redução de 30% adicionada | ✅ |
 | QuickWinsGrid | **Reescrito**: 4 ações inline sem navegação, sem duplicatas com InsightsCard. Ações: Ajustar Limite Manual, Remanejamento Inteligente, Redução Rápida (-10%/-20%), Aplicar Sugestão do Motor | ✅ |
 
-### 🔴 Migration Pendente no Supabase
-### 🔴 Migration Pendente no Supabase
+### ✅ Fase 2 — Refinamento de Insights (v1.8)
+
+| Item | Descrição | Status |
+|------|-----------|--------|
+| **Detecção multi-mês de assinaturas** | `additionalPreviousMonthExpenses` aceita até 3 meses históricos. `monthsFound` e `confidence` refletem o real histórico. Maior precisão em assinaturas consolidadas | ✅ |
+| **Projeção anual nos desafios** | `SavingsChallenge.annualProjectedSavings` calcula economia em 12 meses. Exibido no `InsightsCard.tsx` como badge `🗓️ R$ X/ano` | ✅ |
+| **Dismiss/Restore de assinaturas** | `ignoredSubscriptions.ts` — persistência em localStorage, seção recolhida de ignorados no InsightsCard | ✅ |
+| **Testes de assinaturas ignoradas** | `ignoredSubscriptions.test.ts` — 16 testes: mock localStorage, normalize, ignore/restore, edge cases | ✅ |
+| **Testes de calculadora** | `calculatorExpression.test.ts` (23 testes), `calculatorGeometry.test.ts` (24 testes) — pure functions | ✅ |
+| **Integração Dashboard** | Dashboard carrega meses -2 e -3 e passa ao motor via `additionalPreviousMonthExpenses` | ✅ |
+
+### ✅ Fase 2.5 — Motor de Sugestões de Otimização (v1.9)
+
+| Item | Descrição | Status |
+|------|-----------|--------|
+| **`optimizationSuggestionsEngine.ts`** | Novo motor que combina 8 fontes: assinaturas cortáveis, desafios, limites estourados, sobras de limite, remanejamento, gastos FDS, status poupança, investimentos. Cada sugestão inclui `monthlySavings` + `annualProjectedSavings` | ✅ |
+| **QuickWinsGrid refatorado** | Só renderiza quando `hasActionableSuggestions === true`. Cards dinâmicos (não mais painéis fixos). Ação com 1 clique (Aplicar/Ignorar/Ver). Badges de economia mensal + anual | ✅ |
+| **Dashboard integrado** | `optimizationSummary` computado via `useMemo` no Dashboard. `onRefreshInsights` recarrega após cada ação | ✅ |
+| **Código morto removido** | `reduce_limit` type, `EmptyOptimizationState`, `X` icon. ActionButton com switch unificado (`set_limit` + `create_limit` combinados) | ✅ |
+
+### ⏳ Migration Pendente no Supabase
 
 A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
 **Migration:** `supabase/migrations/20260629_fix_numeric_overflow.sql`
 
-| Tabela | Colunas | Tipo Antigo → Novo | Status |
-|--------|---------|-------------------|--------|
-| `portfolio_share_daily` | `gross_pl`, `net_pl`, `cash_value`, `invested_cost` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
-| `portfolios` | `cash_balance`, `last_gross_pl`, `last_net_pl` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
-| `portfolio_period_snapshots` | `somatorio_aportes`, `somatorio_resgates`, `dividendos_recebidos` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
-| `portfolio_asset_definitions` | `applied_amount`, `manual_current_value` | `DECIMAL(15,2)` → `DECIMAL(18,2)` | ⏳ |
+| Tabela | Colunas | Tipo Antigo → Novo |
+|--------|---------|-------------------|
+| `portfolio_share_daily` | `gross_pl`, `net_pl`, `cash_value`, `invested_cost` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| `portfolios` | `cash_balance`, `last_gross_pl`, `last_net_pl` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| `portfolio_period_snapshots` | `somatorio_aportes`, `somatorio_resgates`, `dividendos_recebidos` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
+| `portfolio_asset_definitions` | `applied_amount`, `manual_current_value` | `DECIMAL(15,2)` → `DECIMAL(18,2)` |
 
 **Como aplicar:** Acesse o SQL Editor do Supabase Dashboard e execute o SQL.
 
@@ -270,19 +290,21 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
 | Arquivo | Linhas | Ação | Esforço |
 |---------|--------|------|---------|
-| `src/pages/Reports.tsx` | ~1.925 | Extrair seções restantes (ReportSummarySection, ReportChartsSection, ReportInsightsSection) | ~3h |
+| `src/pages/Reports.tsx` | ~1.600 | Hook `useReportCustomPeriod` extraído (~250 linhas). Pendente: ReportSummarySection, ReportChartsSection, ReportInsightsSection | ~2h |
 | `src/pages/Dashboard.tsx` | ~1.900 | Extrair lógica de IA + seções para hooks/componentes | ~3h |
 | `src/pages/Categories.tsx` | 1.252 | Componentização adicional das seções de KPI | ~2h |
 | `src/components/CreditCardCsvReconciliationPanel.tsx` | 1.193 | Extrair CsvUploadZone, CsvMatchTable | ~3h |
 
 ### Testes Pendentes
 
-| Área | Esforço | Prioridade |
-|------|---------|------------|
-| `calculatorExpression`, `calculatorGeometry`, `calculatorDom` | ~1h | 🟢 |
-| `useCalculatorKeyboard`, `useCalculatorPanel`, `useScrollToTop` | ~1.5h | 🟢 |
-| `reportAggregation` + `reportCustomData` | ~1h | 🟢 |
-| Componentes extraídos (AnnualReportView, MonthlyReportView) | ~2h | 🟢 |
+| Área | Esforço | Prioridade | Status |
+|------|---------|------------|--------|
+| `calculatorExpression`, `calculatorGeometry` | ~1h | 🟢 | ✅ Concluído |
+| `calculatorDom` | ~30min | 🟢 | ⏳ |
+| `useReportCustomPeriod` | ~1h | 🟢 | ✅ Concluído |
+| `useCalculatorKeyboard`, `useCalculatorPanel`, `useScrollToTop` | ~1.5h | 🟢 | ⏳ |
+| `reportAggregation` + `reportCustomData` | ~1h | 🟢 | ⏳ |
+| Componentes extraídos (AnnualReportView, MonthlyReportView) | ~2h | 🟢 | ⏳ |
 
 ### Melhorias de Qualidade
 

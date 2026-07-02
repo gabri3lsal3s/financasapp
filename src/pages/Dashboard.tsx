@@ -46,6 +46,7 @@ import { useSpendingCalculations } from '@/hooks/useSpendingCalculations'
 import { useSpendingProjection } from '@/hooks/useSpendingProjection'
 import { useBudgetLimits } from '@/hooks/useBudgetLimits'
 import { addMonths } from '@/utils/format'
+import { generateOptimizationSuggestions } from '@/services/optimizationSuggestionsEngine'
 
 export default function Dashboard() {
   const currentMonth = getCurrentMonthString()
@@ -72,7 +73,11 @@ export default function Dashboard() {
   const { creditCards } = useCreditCards()
   const { expenses, loading: expensesLoading, refreshExpenses, createExpense } = useExpenses(currentMonth)
   const previousMonth = useMemo(() => addMonths(currentMonth, -1), [currentMonth])
+  const monthMinus2 = useMemo(() => addMonths(currentMonth, -2), [currentMonth])
+  const monthMinus3 = useMemo(() => addMonths(currentMonth, -3), [currentMonth])
   const { expenses: previousMonthExpenses } = useExpenses(previousMonth)
+  const { expenses: expensesMinus2 } = useExpenses(monthMinus2)
+  const { expenses: expensesMinus3 } = useExpenses(monthMinus3)
   const { incomes, loading: incomesLoading, refreshIncomes, createIncome } = useIncomes(currentMonth)
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading, setCategoryLimit, refreshLimits } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
@@ -262,6 +267,7 @@ export default function Dashboard() {
     balance,
     expenses,
     previousMonthExpenses,
+    additionalPreviousMonthExpenses: [expensesMinus2, expensesMinus3],
     categories: categories.map(c => ({ id: c.id, name: c.name })),
     expensesWithLimit,
     expensesCount: expenses.length,
@@ -271,12 +277,44 @@ export default function Dashboard() {
     savingsRate, categoryExpenseSummaries, previousMonthExpenseTotal,
     weekdayExpenseData, limitsExceededCount, incomeByCategory,
     spendingPace, spendingProjection, balance,
-    expenses, previousMonthExpenses, categories, expensesWithLimit,
+    expenses, previousMonthExpenses, expensesMinus2, expensesMinus3,
+    categories, expensesWithLimit,
   ])
 
   const {
     insights,
+    refreshInsights,
   } = useDashboardInsights(aiInput)
+
+  // ── Optimization Suggestions Engine ──
+  const optimizationSummary = useMemo(() => {
+    return generateOptimizationSuggestions({
+      insights,
+      categoriesWithLimit: categories.map(c => ({
+        categoryId: c.id,
+        name: c.name,
+        spent: spentMap.get(c.id) || 0,
+        limit: currentMonthExpenseLimitMap.get(c.id) ?? null,
+      })),
+      reallocationRecommendation: reallocationRecommendation ? {
+        fromId: reallocationRecommendation.fromId,
+        fromName: reallocationRecommendation.fromName,
+        toId: reallocationRecommendation.toId,
+        toName: reallocationRecommendation.toName,
+        transferAmount: reallocationRecommendation.transferAmount,
+      } : null,
+      totalIncomes,
+      totalExpenses,
+    })
+  }, [
+    insights,
+    categories,
+    spentMap,
+    currentMonthExpenseLimitMap,
+    reallocationRecommendation,
+    totalIncomes,
+    totalExpenses,
+  ])
 
   // categoriesAttentionList agora vem do hook useBudgetLimits
 
@@ -597,24 +635,20 @@ export default function Dashboard() {
 
                   {/* ── SEÇÃO 5: Quick Wins - Ações de Otimização ── */}
                   <QuickWinsGrid
-                    categories={categories.map(c => ({
-                      id: c.id,
-                      name: c.name,
-                      spent: spentMap.get(c.id) || 0,
-                      limit: currentMonthExpenseLimitMap.get(c.id) ?? null,
-                    }))}
-                    reallocationRecommendation={reallocationRecommendation}
-                    limitSuggestions={insights.limitSuggestions.map(s => ({
-                      categoryId: s.categoryId,
-                      categoryName: s.categoryName,
-                      currentLimit: s.currentLimit,
-                      suggestedLimit: s.suggestedLimit,
-                      difference: s.difference,
-                      type: s.type,
-                    }))}
-                    onSetLimit={setCategoryLimit}
-                    onReallocate={handleReallocate}
-                    isReallocating={isReallocating}
+                    optimizationSummary={optimizationSummary}
+                    onSetLimit={(categoryId: string, amount: number) =>
+                      setCategoryLimit(categoryId, amount).then(r => ({ error: r.error }))
+                    }
+                    onReallocate={async (fromId: string, toId: string, amount: number) => {
+                      const fromLimit = currentMonthExpenseLimitMap.get(fromId) ?? 0
+                      const toLimit = currentMonthExpenseLimitMap.get(toId) ?? 0
+                      const fromNewLimit = Math.max(0, fromLimit - amount)
+                      const toNewLimit = toLimit + amount
+                      await setCategoryLimit(fromId, fromNewLimit)
+                      await setCategoryLimit(toId, toNewLimit)
+                      refreshLimits()
+                    }}
+                    onRefreshInsights={refreshInsights}
                   />
 
                 </div>

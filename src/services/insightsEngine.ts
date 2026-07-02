@@ -1,5 +1,6 @@
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { Expense } from '@/types'
+import { isSubscriptionIgnored } from '@/utils/ignoredSubscriptions'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -37,6 +38,8 @@ export interface SpendingProjectionInfo {
   mode: 'past' | 'current'
 }
 
+export type SubscriptionTier = 'essential' | 'discretionary' | 'can_cut'
+
 export interface SubscriptionInfo {
   description: string
   categoryName: string
@@ -44,6 +47,16 @@ export interface SubscriptionInfo {
   annualAmount: number
   monthsFound: number
   categoryId?: string
+  /** Quão confiante a detecção é (0-1) */
+  confidence: number
+  /** Classificação inteligente */
+  tier: SubscriptionTier
+  /** Quanto economizaria por mês se cortasse (0 para essenciais) */
+  savingsIfCut: number
+  /** Razão para a classificação */
+  tierReason: string
+  /** Se o usuário já ignorou esta assinatura */
+  isIgnored: boolean
 }
 
 export interface SavingsChallenge {
@@ -51,6 +64,8 @@ export interface SavingsChallenge {
   title: string
   description: string
   potentialSavings: number
+  /** Economia projetada em 12 meses se mantiver o corte */
+  annualProjectedSavings: number
   categoryName: string
   currentSpending: number
   reductionPercent: number
@@ -123,6 +138,10 @@ export interface StructuredInsights {
     severity: 'danger' | 'warning' | 'success'
   } | null
   subscriptions: SubscriptionInfo[]
+  /** Assinaturas não-essenciais que poderiam ser cortadas (subset de subscriptions) */
+  cuttableSubscriptions: SubscriptionInfo[]
+  /** Economia total se cortar todas as não-essenciais */
+  totalCuttableSavingsMonthly: number
   savingsChallenges: SavingsChallenge[]
   limitSuggestions: LimitSuggestion[]
   totalSubscriptionsAnnual: number
@@ -152,6 +171,11 @@ export interface AnalysisInput {
   balance: number
   expenses: Expense[]
   previousMonthExpenses: Expense[]
+  /**
+   * Despesas de meses anteriores adicionais (mês -2, -3, etc.)
+   * Usado para melhorar a detecção de assinaturas com mais histórico.
+   */
+  additionalPreviousMonthExpenses?: Expense[][]
   categories: { id: string; name: string }[]
   expensesWithLimit: { categoryId: string; spent: number; limit: number | null; name: string }[]
   expensesCount: number
@@ -162,14 +186,110 @@ export interface AnalysisInput {
 /*  Subscription Detection                                            */
 /* ------------------------------------------------------------------ */
 
+/** Categorias consideradas essenciais — não sugerimos corte */
+const ESSENTIAL_CATEGORIES = [
+  'moradia', 'aluguel', 'condomínio', 'água', 'luz', 'energia', 'gás',
+  'internet', 'telefone', 'plano de saúde', 'saúde', 'seguro', 'seguro de vida',
+  'educação', 'escola', 'faculdade', 'mensalidade',
+  'transporte público', 'ônibus', 'metrô', 'supermercado', 'mercado',
+  'farmácia', 'remédio', 'medicamento',
+]
+
+/** Categorias discricionárias — podem ser reduzidas */
+const DISCRETIONARY_CATEGORIES = [
+  'streaming', 'netflix', 'spotify', 'prime', 'disney', 'hbo', 'apple tv',
+  'aplicativos', 'app', 'icloud', 'google', 'drive',
+  'academia', 'ginástica', 'esporte',
+  'assinatura', 'membership', 'clube',
+]
+
+/** Categorias de alto potencial de corte — delivery, lazer, compras */
+const CUTTABLE_CATEGORIES = [
+  'delivery', 'ifood', 'uber eat', 'restaurante', 'alimentação fora',
+  'lazer', 'entretenimento', 'cinema', 'shopping', 'compras',
+  'café', 'cafeteria', 'sobremesa', 'sorvete',
+  'bar', 'balada', 'happy hour',
+  'uber', 'taxi', 'transporte por app',
+  'games', 'jogos', 'passatempo',
+  'presente', 'lembrança',
+  'cabelo', 'estética', 'beleza',
+  'pet', 'animal', 'veterinário',
+  'livro', 'amazon', 'kindle',
+]
+
 /**
- * Detecta assinaturas comparando despesas do mês atual com o anterior.
+ * Classifica uma assinatura em tiers baseado na categoria e valor.
+ */
+function classifySubscription(categoryName: string, monthlyAmount: number): {
+  tier: SubscriptionTier
+  savingsIfCut: number
+  tierReason: string
+} {
+  const cat = categoryName.toLowerCase()
+
+  // Essencial: contas fixas, saúde, educação
+  if (ESSENTIAL_CATEGORIES.some((e) => cat.includes(e))) {
+    return {
+      tier: 'essential',
+      savingsIfCut: 0,
+      tierReason: 'Gasto essencial — não recomendamos corte',
+    }
+  }
+
+  // Discricionário: streaming, apps, academia
+  if (DISCRETIONARY_CATEGORIES.some((d) => cat.includes(d))) {
+    // Streaming abaixo de R$50 é discricionário barato
+    if (monthlyAmount < 50) {
+      return {
+        tier: 'discretionary',
+        savingsIfCut: monthlyAmount,
+        tierReason: 'Assinatura opcional de baixo valor — avalie se realmente usa',
+      }
+    }
+    return {
+      tier: 'can_cut',
+      savingsIfCut: monthlyAmount,
+      tierReason: 'Assinatura opcional com custo significativo — considere cancelar',
+    }
+  }
+
+  // Alto potencial de corte: delivery, lazer, compras
+  if (CUTTABLE_CATEGORIES.some((c) => cat.includes(c))) {
+    return {
+      tier: 'can_cut',
+      savingsIfCut: monthlyAmount,
+      tierReason: 'Gasto não essencial com alto potencial de economia',
+    }
+  }
+
+  // Categoria não classificada — assume discricionário
+  // Se for valor alto (>R$100), sugere corte; senão, apenas discricionário
+  if (monthlyAmount > 100) {
+    return {
+      tier: 'can_cut',
+      savingsIfCut: monthlyAmount,
+      tierReason: 'Gasto recorrente significativo em categoria não essencial',
+    }
+  }
+
+  return {
+    tier: 'discretionary',
+    savingsIfCut: monthlyAmount * 0.5, // 50% pode ser reduzido
+    tierReason: 'Gasto opcional — reduzir pode liberar orçamento',
+  }
+}
+
+/**
+ * Detecta assinaturas comparando despesas do mês atual com os anteriores.
  * Agrupa por descrição normalizada e valores aproximados.
- * Refinado: filtra parcelas (installment_group_id) para não falsificar detecção.
+ * 
+ * Suporta múltiplos meses históricos (via additionalPreviousMonthExpenses)
+ * para aumentar a confiança da detecção e precisão do monthsFound.
  */
 function detectSubscriptions(
   currentExpenses: Expense[],
   previousExpenses: Expense[],
+  additionalPreviousMonths?: Expense[][],
 ): SubscriptionInfo[] {
   const subscriptions: SubscriptionInfo[] = []
   const matchedKeys = new Set<string>()
@@ -182,8 +302,15 @@ function detectSubscriptions(
   const filterInstallments = (exps: Expense[]) =>
     exps.filter(e => !e.installment_group_id)
 
+  // Monta lista de todos os meses históricos para análise
+  const historicalMonths: Expense[][] = [filterInstallments(previousExpenses)]
+  if (additionalPreviousMonths) {
+    for (const monthExpenses of additionalPreviousMonths) {
+      historicalMonths.push(filterInstallments(monthExpenses))
+    }
+  }
+
   const validCurrent = filterInstallments(currentExpenses)
-  const validPrevious = filterInstallments(previousExpenses)
 
   // Agrupa despesas atuais por descrição normalizada
   const currentGrouped = new Map<string, { desc: string; total: number; cat: string; catId?: string }[]>()
@@ -199,48 +326,87 @@ function detectSubscriptions(
     })
   }
 
-  // Agrupa despesas anteriores por descrição normalizada
-  const prevGrouped = new Map<string, { desc: string; total: number }[]>()
-  for (const exp of validPrevious) {
-    if (!exp.description) continue
-    const key = normalize(exp.description)
-    if (!prevGrouped.has(key)) prevGrouped.set(key, [])
-    prevGrouped.get(key)!.push({
-      desc: exp.description,
-      total: exp.amount * (exp.report_weight ?? 1),
-    })
-  }
-
-  // Compara: mesma descrição aparece em ambos os meses com valor similar
+  // Para cada despesa do mês atual, verifica em quantos meses históricos ela aparece
   for (const [key, currentItems] of currentGrouped) {
     if (matchedKeys.has(key)) continue
-    const prevItems = prevGrouped.get(key)
-    if (!prevItems || prevItems.length === 0) continue
 
-    // Soma valores de cada mês
     const currentTotal = currentItems.reduce((s, i) => s + i.total, 0)
-    const prevTotal = prevItems.reduce((s, i) => s + i.total, 0)
+    if (currentTotal <= 0) continue
 
-    if (currentTotal <= 0 || prevTotal <= 0) continue
+    // Verifica em quantos meses históricos a despesa aparece com valor similar
+    let monthsWithMatch = 0
+    let totalHistoricalAmount = 0
 
-    // Verifica se os valores são próximos (variação máxima de 30%)
-    const ratio = Math.max(currentTotal, prevTotal) / Math.min(currentTotal, prevTotal)
-    if (ratio <= 1.3) {
-      const monthsFound = 2 // atual + anterior
-      subscriptions.push({
-        description: currentItems[0].desc,
-        categoryName: currentItems[0].cat,
-        monthlyAmount: Math.round((currentTotal + prevTotal) / 2 * 100) / 100,
-        annualAmount: Math.round(Math.round((currentTotal + prevTotal) / 2 * 100) / 100 * 12 * 100) / 100,
-        monthsFound,
-        categoryId: currentItems[0].catId,
-      })
-      matchedKeys.add(key)
+    for (const monthExpenses of historicalMonths) {
+      const grouped = new Map<string, { total: number }[]>()
+      for (const exp of monthExpenses) {
+        if (!exp.description) continue
+        const k = normalize(exp.description)
+        if (!grouped.has(k)) grouped.set(k, [])
+        grouped.get(k)!.push({ total: exp.amount * (exp.report_weight ?? 1) })
+      }
+
+      const historicalItems = grouped.get(key)
+      if (!historicalItems || historicalItems.length === 0) continue
+
+      const historicalTotal = historicalItems.reduce((s, i) => s + i.total, 0)
+      if (historicalTotal <= 0) continue
+
+      // Verifica variação máxima de 30%
+      const maxVal = Math.max(currentTotal, historicalTotal)
+      const minVal = Math.min(currentTotal, historicalTotal)
+      const ratio = maxVal / minVal
+
+      if (ratio <= 1.3) {
+        monthsWithMatch++
+        totalHistoricalAmount += historicalTotal
+      }
     }
+
+    // Só considera assinatura se apareceu em pelo menos 1 mês histórico
+    if (monthsWithMatch === 0) continue
+
+    // total de meses = mês atual + meses históricos com match
+    const totalMonthsFound = 1 + monthsWithMatch
+
+    // Média ponderada entre mês atual e meses históricos
+    const avgHistorical = monthsWithMatch > 0 ? totalHistoricalAmount / monthsWithMatch : 0
+    const monthlyAmount = Math.round((currentTotal + avgHistorical) / 2 * 100) / 100
+
+    // Confiança baseada em quantos meses a assinatura apareceu
+    // e na consistência dos valores
+    const totalRatio = Math.max(currentTotal, avgHistorical) / Math.max(Math.min(currentTotal, avgHistorical), 0.01)
+    const variance = Math.max(0, totalRatio - 1)
+    const monthsBonus = Math.min(1, (totalMonthsFound - 1) / 3) // +0 a +0.33 para 2-4 meses
+    const confidence = Math.round(Math.max(0, Math.min(1, (1 - variance * 1.5) + monthsBonus * 0.3)) * 100) / 100
+
+    // Classificação inteligente
+    const classification = classifySubscription(currentItems[0].cat, monthlyAmount)
+
+    // Verifica se usuário já ignorou
+    const isIgnored = isSubscriptionIgnored(currentItems[0].desc)
+
+    subscriptions.push({
+      description: currentItems[0].desc,
+      categoryName: currentItems[0].cat,
+      monthlyAmount,
+      annualAmount: Math.round(monthlyAmount * 12 * 100) / 100,
+      monthsFound: totalMonthsFound,
+      categoryId: currentItems[0].catId,
+      confidence,
+      tier: classification.tier,
+      savingsIfCut: classification.savingsIfCut,
+      tierReason: classification.tierReason,
+      isIgnored,
+    })
+    matchedKeys.add(key)
   }
 
-  // Ordena por valor mensal (maior primeiro)
-  return subscriptions.sort((a, b) => b.monthlyAmount - a.monthlyAmount)
+  // Ordena: não-ignorados primeiro, depois por valor mensal (maior primeiro)
+  return subscriptions.sort((a, b) => {
+    if (a.isIgnored !== b.isIgnored) return a.isIgnored ? 1 : -1
+    return b.monthlyAmount - a.monthlyAmount
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -289,11 +455,13 @@ function generateSavingsChallenges(
 
       const difficulty = pct <= 10 ? 'fácil' as const : pct <= 20 ? 'médio' as const : 'desafiador' as const
 
+      const annualSavings = Math.round(savings * 12 * 100) / 100
       challenges.push({
         id: `challenge-${cat.category_name}-${pct}`,
         title: `Reduza ${pct}% em ${cat.category_name}`,
-        description: `Cortar ${pct}% dos gastos com ${cat.category_name} economiza ${formatCurrency(savings)} por mês (${formatCurrency(savings * 12)}/ano).`,
+        description: `Cortar ${pct}% dos gastos com ${cat.category_name} economiza ${formatCurrency(savings)} por mês (${formatCurrency(annualSavings)}/ano).`,
         potentialSavings: savings,
+        annualProjectedSavings: annualSavings,
         categoryName: cat.category_name,
         currentSpending: cat.total,
         reductionPercent: pct,
@@ -312,11 +480,13 @@ function generateSavingsChallenges(
   if (nonEssentialTotal > 0 && totalExpenses > 0) {
     const savings30 = Math.round(nonEssentialTotal * 0.3 * 100) / 100
     if (savings30 >= minSavingsThreshold) {
+      const annualSavings30 = Math.round(savings30 * 12 * 100) / 100
       challenges.push({
         id: 'challenge-non-essential-30',
         title: 'Desafio 30% em não essenciais',
         description: `Reduza 30% dos gastos não essenciais (${formatCurrency(nonEssentialTotal)}) e economize ${formatCurrency(savings30)}/mês. Revise suas assinaturas, delivery e lazer.`,
         potentialSavings: savings30,
+        annualProjectedSavings: annualSavings30,
         categoryName: 'Não essenciais',
         currentSpending: nonEssentialTotal,
         reductionPercent: 30,
@@ -660,9 +830,21 @@ export function computeStructuredInsights(input: AnalysisInput): StructuredInsig
   // 1. Critical alert
   const criticalAlert = getCriticalAlert(input)
 
-  // 2. Subscriptions
-  const subscriptions = detectSubscriptions(expenses, previousMonthExpenses)
+  // 2. Subscriptions (com suporte a múltiplos meses históricos)
+  const subscriptions = detectSubscriptions(
+    expenses,
+    previousMonthExpenses,
+    input.additionalPreviousMonthExpenses,
+  )
   const totalSubscriptionsAnnual = subscriptions.reduce((s, sub) => s + sub.annualAmount, 0)
+
+  // 2b. Cuttable subscriptions (não-essenciais, não ignoradas)
+  const cuttableSubscriptions = subscriptions.filter(
+    (sub) => sub.tier !== 'essential' && !sub.isIgnored
+  )
+  const totalCuttableSavingsMonthly = Math.round(
+    cuttableSubscriptions.reduce((s, sub) => s + sub.savingsIfCut, 0) * 100
+  ) / 100
 
   // 3. Savings challenges
   const savingsChallenges = generateSavingsChallenges(categoryExpenseSummaries, totalExpenses, totalIncomes)
@@ -693,6 +875,8 @@ export function computeStructuredInsights(input: AnalysisInput): StructuredInsig
   return {
     criticalAlert,
     subscriptions,
+    cuttableSubscriptions,
+    totalCuttableSavingsMonthly,
     savingsChallenges,
     limitSuggestions,
     totalSubscriptionsAnnual,

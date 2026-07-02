@@ -19,7 +19,7 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
     description: 'Test expense',
     created_at: '2026-07-15T00:00:00.000Z',
     user_id: 'user-1',
-    category: { id: 'cat-1', name: 'Categoria Teste', color: '#ff0000', created_at: '' },
+    category: { id: 'cat-1', name: 'Categoria Teste', color: 'var(--color-primary)', created_at: '' },
     ...overrides,
   }
 }
@@ -101,10 +101,10 @@ describe('insightsEngine - computeStructuredInsights', () => {
   describe('subscriptions', () => {
     it('detects subscription when same description appears in both months with similar value', () => {
       const currentExpenses = [
-        makeExpense({ description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: '#000', created_at: '' } }),
+        makeExpense({ description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' } }),
       ]
       const previousExpenses = [
-        makeExpense({ id: 'exp-2', description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: '#000', created_at: '' }, created_at: '2026-06-15T00:00:00.000Z' }),
+        makeExpense({ id: 'exp-2', description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' }, created_at: '2026-06-15T00:00:00.000Z' }),
       ]
       const input = makeBaseInput({ expenses: currentExpenses, previousMonthExpenses: previousExpenses })
       const result = computeStructuredInsights(input)
@@ -292,6 +292,95 @@ describe('insightsEngine - computeStructuredInsights', () => {
       // Only Netflix should be detected, not the installment
       expect(result.subscriptions.length).toBe(1)
       expect(result.subscriptions[0].description).toBe('Netflix')
+    })
+  })
+
+  describe('multi-month subscription detection', () => {
+    it('detects subscription with 3 months of history and higher confidence', () => {
+      const netflixJuly = makeExpense({ description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' } })
+      const netflixJune = makeExpense({ id: 'exp-2', description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' }, created_at: '2026-06-15T00:00:00.000Z' })
+      const netflixMay = makeExpense({ id: 'exp-3', description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' }, created_at: '2026-05-15T00:00:00.000Z' })
+      const netflixApr = makeExpense({ id: 'exp-4', description: 'Netflix', amount: 39.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' }, created_at: '2026-04-15T00:00:00.000Z' })
+
+      const currentExpenses = [netflixJuly]
+      const previousExpenses = [netflixJune]
+      const additionalMonths = [
+        [netflixMay],  // month -2
+        [netflixApr],  // month -3
+      ]
+
+      const input = makeBaseInput({
+        expenses: currentExpenses,
+        previousMonthExpenses: previousExpenses,
+        additionalPreviousMonthExpenses: additionalMonths,
+      })
+
+      const result = computeStructuredInsights(input)
+      expect(result.subscriptions.length).toBe(1)
+      expect(result.subscriptions[0].description).toBe('Netflix')
+      expect(result.subscriptions[0].monthsFound).toBe(4) // current + 3 historical
+      expect(result.subscriptions[0].confidence).toBeGreaterThan(0.8) // Alta consistência
+    })
+
+    it('maintains backward compatibility when no additional months provided', () => {
+      const currentExpenses = [
+        makeExpense({ description: 'Spotify', amount: 19.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' } }),
+      ]
+      const previousExpenses = [
+        makeExpense({ id: 'exp-2', description: 'Spotify', amount: 19.90, category_id: 'cat-str', category: { id: 'cat-str', name: 'Streaming', color: 'var(--color-primary)', created_at: '' }, created_at: '2026-06-15T00:00:00.000Z' }),
+      ]
+
+      const input = makeBaseInput({
+        expenses: currentExpenses,
+        previousMonthExpenses: previousExpenses,
+        additionalPreviousMonthExpenses: undefined,
+      })
+
+      const result = computeStructuredInsights(input)
+      expect(result.subscriptions.length).toBe(1)
+      expect(result.subscriptions[0].monthsFound).toBe(2) // current + 1 historical
+    })
+
+    it('does not detect subscription that appears in only 1 of 3 historical months', () => {
+      const gymJuly = makeExpense({ description: 'Academia', amount: 89.90, category_id: 'cat-fit', category: { id: 'cat-fit', name: 'Saúde', color: 'var(--color-primary)', created_at: '' } })
+      const gymJune = makeExpense({ id: 'exp-2', description: 'Academia', amount: 89.90, category_id: 'cat-fit', category: { id: 'cat-fit', name: 'Saúde', color: 'var(--color-primary)', created_at: '' }, created_at: '2026-06-15T00:00:00.000Z' })
+      // Only appears in current and June, not in May/Apr
+      const mayExpenses = []
+      const aprExpenses = []
+
+      const input = makeBaseInput({
+        expenses: [gymJuly],
+        previousMonthExpenses: [gymJune],
+        additionalPreviousMonthExpenses: [mayExpenses, aprExpenses],
+      })
+
+      const result = computeStructuredInsights(input)
+      // Should still detect because it appears in current + at least 1 historical
+      expect(result.subscriptions.length).toBe(1)
+      expect(result.subscriptions[0].monthsFound).toBe(2) // current + June only
+    })
+  })
+
+  describe('savings challenges - annual projection', () => {
+    it('includes annualProjectedSavings field', () => {
+      const input = makeBaseInput({
+        categoryExpenseSummaries: [
+          { category_name: 'Delivery', total: 500, baseTotal: 500 },
+          { category_name: 'Supermercado', total: 1000, baseTotal: 1000 },
+        ],
+        totalExpenses: 1500,
+        totalIncomes: 5000,
+      })
+
+      const result = computeStructuredInsights(input)
+      expect(result.savingsChallenges.length).toBeGreaterThan(0)
+
+      // Each challenge should have annualProjectedSavings = potentialSavings * 12
+      for (const challenge of result.savingsChallenges) {
+        expect(challenge.annualProjectedSavings).toBe(
+          Math.round(challenge.potentialSavings * 12 * 100) / 100
+        )
+      }
     })
   })
 })

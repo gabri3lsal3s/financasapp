@@ -29,7 +29,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useSearchParams } from 'react-router-dom'
 
 import CategoryDetailModal from '@/components/reports/CategoryDetailModal'
-import { logger } from '@/utils/logger'
 import type {
   ViewMode,
   DetailType,
@@ -41,8 +40,6 @@ import type {
   DetailIncomeEntry,
 } from '@/types/reports'
 import {
-  generateMonthsRange,
-  generateDaysRange,
   mergeSummariesWithDebts,
   buildMonthlyFlowData,
   buildCumulativeBalanceData,
@@ -51,24 +48,8 @@ import {
   buildExpenseCategoryColorMap,
   buildIncomeCategoryColorMap,
   computePeriodPending,
-  computePeriodPendingInRange,
 } from '@/utils/reportAggregation'
-import {
-  buildCustomCategoryExpenses,
-  buildCustomCategoryIncomes,
-  buildCustomMonthlySummaries,
-  buildCustomDailySummaries,
-  buildCustomMonthlyCategoryExpenses,
-  buildCustomDailyCategoryExpenses,
-  buildCustomMonthlyIncomeByCategory,
-  buildCustomDailyIncomeByCategory,
-  buildCustomCumulativeBalance,
-  buildCustomTrendData,
-  buildCustomConsolidatedSummary,
-  buildCustomDailyConsolidated,
-  buildCustomWeekdayData,
-  buildBaseTotalsMap,
-} from '@/utils/reportCustomData'
+import { useReportCustomPeriod } from '@/hooks/useReportCustomPeriod'
 
 import ReportCustomDateFilter from '@/components/reports/ReportCustomDateFilter'
 import AnnualReportView from '@/components/reports/AnnualReportView'
@@ -110,162 +91,6 @@ export default function Reports() {
   const [compositionPieType, setCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
   const [annualCompositionPieType, setAnnualCompositionPieType] = useState<'expense' | 'income' | 'payment'>('expense')
   const [annualChartType, setAnnualChartType] = useState<'flow' | 'balance' | 'trend'>('flow')
-
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
-  const [customExpenses, setCustomExpenses] = useState<DetailExpenseEntry[]>([])
-  const [customIncomes, setCustomIncomes] = useState<DetailIncomeEntry[]>([])
-  const [customPortfolioTransactions, setCustomPortfolioTransactions] = useState<
-    Pick<PortfolioTransaction, 'id' | 'cash_offset_source_id' | 'date' | 'operation_type' | 'quantity' | 'price'>[]
-  >([])
-  const [customLoading, setCustomLoading] = useState(false)
-
-  // Inicializar datas personalizadas com o mês atual
-  useEffect(() => {
-    if (!customStartDate || !customEndDate) {
-      const now = new Date()
-      const yyyy = now.getFullYear()
-      const mm = String(now.getMonth() + 1).padStart(2, '0')
-      const lastDay = new Date(yyyy, now.getMonth() + 1, 0).getDate()
-      
-      setCustomStartDate(`${yyyy}-${mm}-01`)
-      setCustomEndDate(`${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`)
-    }
-  }, [customStartDate, customEndDate])
-
-  // Função para carregar os dados customizados via Supabase
-  const loadCustomData = useCallback(async () => {
-    if (!customStartDate || !customEndDate) return
-    setCustomLoading(true)
-    try {
-      // 1. Fetch expenses
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select(`
-          id,
-          amount,
-          report_weight,
-          category_id,
-          date,
-          description,
-          payment_method,
-          credit_card_id,
-          category:categories(id, name, color)
-        `)
-        .gte('date', customStartDate)
-        .lte('date', customEndDate)
-
-      if (expensesError) throw expensesError
-
-      // 2. Fetch incomes
-      const { data: incomesData, error: incomesError } = await supabase
-        .from('incomes')
-        .select(`
-          id,
-          amount,
-          report_weight,
-          income_category_id,
-          date,
-          description,
-          income_category:income_categories(id, name, color)
-        `)
-        .gte('date', customStartDate)
-        .lte('date', customEndDate)
-
-      if (incomesError) throw incomesError
-
-      // 3. Fetch portfolio transactions
-      let transactions: Pick<
-        PortfolioTransaction,
-        'id' | 'cash_offset_source_id' | 'date' | 'operation_type' | 'quantity' | 'price'
-      >[] = []
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: portfolio } = await supabase
-          .from('portfolios')
-          .select('id')
-          .eq('client_id', user.id)
-          .maybeSingle()
-
-        if (portfolio) {
-          const { data: txs } = await supabase
-            .from('portfolio_transactions')
-            .select('id, cash_offset_source_id, date, operation_type, quantity, price')
-            .eq('portfolio_id', portfolio.id)
-            .gte('date', customStartDate)
-            .lte('date', customEndDate)
-
-          if (txs) {
-            const rawTxs = txs || []
-            const offsetSourceIds = new Set(
-              rawTxs
-                .map((t) => t.cash_offset_source_id)
-                .filter((id): id is string => !!id)
-            )
-            transactions = rawTxs.filter(
-              (t) => !t.cash_offset_source_id && !offsetSourceIds.has(t.id)
-            )
-          }
-        }
-      }
-
-      const mappedExpenses: DetailExpenseEntry[] = (expensesData || []).map((exp) => {
-        const cat = Array.isArray(exp.category) ? exp.category[0] : exp.category
-        return {
-          id: exp.id,
-          amount: exp.amount,
-          report_weight: exp.report_weight,
-          category_id: exp.category_id,
-          date: exp.date,
-          description: exp.description,
-          payment_method: exp.payment_method,
-          credit_card_id: exp.credit_card_id,
-          category: cat ? { id: cat.id, name: cat.name, color: cat.color } : null,
-        }
-      })
-
-      const mappedIncomes: DetailIncomeEntry[] = (incomesData || []).map((inc) => {
-        const cat = Array.isArray(inc.income_category) ? inc.income_category[0] : inc.income_category
-        return {
-          id: inc.id,
-          amount: inc.amount,
-          report_weight: inc.report_weight,
-          income_category_id: inc.income_category_id,
-          date: inc.date,
-          description: inc.description,
-          income_category: cat ? { id: cat.id, name: cat.name, color: cat.color } : null,
-        }
-      })
-
-      setCustomExpenses(mappedExpenses)
-      setCustomIncomes(mappedIncomes)
-      setCustomPortfolioTransactions(transactions)
-    } catch (err) {
-      logger.error('Erro ao carregar dados customizados:', err)
-    } finally {
-      setCustomLoading(false)
-    }
-  }, [customStartDate, customEndDate])
-
-  // Efeito para carregar dados automaticamente ao alterar datas ou modo
-  useEffect(() => {
-    if (viewMode === 'custom' && customStartDate && customEndDate) {
-      void loadCustomData()
-    }
-  }, [viewMode, customStartDate, customEndDate, loadCustomData])
-
-  // Efeito para recarregar dados quando houver alteração local
-  useEffect(() => {
-    const onDataChanged = () => {
-      if (viewMode === 'custom') {
-        void loadCustomData()
-      }
-    }
-    window.addEventListener('local-data-changed', onDataChanged)
-    return () => {
-      window.removeEventListener('local-data-changed', onDataChanged)
-    }
-  }, [viewMode, loadCustomData])
 
   usePageActions([
     ...(viewMode !== 'custom'
@@ -561,6 +386,17 @@ export default function Reports() {
     [includeReportWeights],
   )
 
+  // ── Hook do período customizado (DEVE vir após todas as dependências) ──
+  const customData = useReportCustomPeriod(
+    debts,
+    creditCards,
+    getAmountByMode,
+    categories,
+    incomeCategories,
+    getExpenseColor,
+    getIncomeColor,
+  )
+
   const monthlyData = useMemo(
     () => buildMonthlyFlowData(monthlySummaries, prevMonthlySummaries, compareWithPrevious),
     [monthlySummaries, prevMonthlySummaries, compareWithPrevious],
@@ -653,188 +489,6 @@ export default function Reports() {
         color: getIncomeColor(category.income_category_id, category.color),
       }))
   }, [incomeByCategory, getIncomeColor])
-
-  // Mapeamento de despesas por categoria no período customizado
-  const customCategoryExpenses = useMemo(
-    () => buildCustomCategoryExpenses(customExpenses, getAmountByMode),
-    [customExpenses, getAmountByMode],
-  )
-
-  // Mapeamento de receitas por categoria no período customizado
-  const customCategoryIncomes = useMemo(
-    () => buildCustomCategoryIncomes(customIncomes, getAmountByMode),
-    [customIncomes, getAmountByMode],
-  )
-
-  // Lista de meses no intervalo do período customizado
-  const customMonths = useMemo(
-    () => generateMonthsRange(customStartDate, customEndDate),
-    [customStartDate, customEndDate],
-  )
-
-  const isSingleMonth = useMemo(() => customMonths.length <= 1, [customMonths])
-
-  // Lista de dias no intervalo do período customizado
-  const customDays = useMemo(
-    () => generateDaysRange(customStartDate, customEndDate),
-    [customStartDate, customEndDate],
-  )
-
-  // Resumo mensal do período customizado (quando período > 1 mês)
-  const customMonthlySummaries = useMemo(
-    () =>
-      buildCustomMonthlySummaries(
-        customMonths,
-        customExpenses,
-        customIncomes,
-        customPortfolioTransactions,
-        debts,
-        customStartDate,
-        customEndDate,
-        getAmountByMode,
-      ),
-    [
-      customMonths,
-      customExpenses,
-      customIncomes,
-      customPortfolioTransactions,
-      debts,
-      customStartDate,
-      customEndDate,
-      getAmountByMode,
-    ],
-  )
-
-  // Resumo diário do período customizado (quando período <= 1 mês)
-  const customDailySummaries = useMemo(
-    () =>
-      buildCustomDailySummaries(
-        customDays,
-        customExpenses,
-        customIncomes,
-        customPortfolioTransactions,
-        debts,
-        getAmountByMode,
-      ),
-    [customDays, customExpenses, customIncomes, customPortfolioTransactions, debts, getAmountByMode],
-  )
-
-  // Despesas de categoria por mês no período customizado (quando período > 1 mês)
-  const customMonthlyCategoryExpenses = useMemo(
-    () =>
-      buildCustomMonthlyCategoryExpenses(customMonths, customExpenses, customStartDate, customEndDate, getAmountByMode),
-    [customMonths, customExpenses, customStartDate, customEndDate, getAmountByMode],
-  )
-
-  // Despesas de categoria por dia no período customizado (quando período <= 1 mês)
-  const customDailyCategoryExpenses = useMemo(
-    () => buildCustomDailyCategoryExpenses(customDays, customExpenses, getAmountByMode),
-    [customDays, customExpenses, getAmountByMode],
-  )
-
-  // Receitas de categoria por mês no período customizado (quando período > 1 mês)
-  const customMonthlyIncomeByCategory = useMemo(
-    () =>
-      buildCustomMonthlyIncomeByCategory(customMonths, customIncomes, customStartDate, customEndDate, getAmountByMode),
-    [customMonths, customIncomes, customStartDate, customEndDate, getAmountByMode],
-  )
-
-  // Receitas de categoria por dia no período customizado (quando período <= 1 mês)
-  const customDailyIncomeByCategory = useMemo(
-    () => buildCustomDailyIncomeByCategory(customDays, customIncomes, getAmountByMode),
-    [customDays, customIncomes, getAmountByMode],
-  )
-
-  // Saldo acumulado do período customizado
-  const customCumulativeBalanceData = useMemo(
-    () => buildCustomCumulativeBalance(isSingleMonth, customDailySummaries, customMonthlySummaries),
-    [isSingleMonth, customDailySummaries, customMonthlySummaries],
-  )
-
-  // Evolução de despesas do período customizado
-  const customExpenseTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
-    return [...customCategoryExpenses]
-      .sort((a, b) => b.total - a.total)
-      .map((category) => ({
-        key: category.category_id,
-        name: category.category_name,
-        color: getExpenseColor(category.category_id, category.color),
-      }))
-  }, [customCategoryExpenses, getExpenseColor])
-
-  const customExpenseTrendData = useMemo(
-    () =>
-      buildCustomTrendData(
-        isSingleMonth,
-        customDailySummaries,
-        customMonthlySummaries,
-        customDailyCategoryExpenses,
-        customMonthlyCategoryExpenses,
-        customExpenseTrendSeries,
-        (item) => item.category_id,
-      ),
-    [
-      isSingleMonth,
-      customDailySummaries,
-      customMonthlySummaries,
-      customDailyCategoryExpenses,
-      customMonthlyCategoryExpenses,
-      customExpenseTrendSeries,
-    ],
-  )
-
-  const customExpenseTrendVisibleData = useMemo(() => {
-    if (customExpenseTrendSeries.length === 0) {
-      return [] as Array<Record<string, string | number>>
-    }
-
-    return customExpenseTrendData.filter((row) =>
-      customExpenseTrendSeries.some((series) => Number(row[series.key] ?? 0) > 0)
-    )
-  }, [customExpenseTrendData, customExpenseTrendSeries])
-
-  // Evolução de receitas do período customizado
-  const customIncomeTrendSeries = useMemo<TrendSeriesMeta[]>(() => {
-    return [...customCategoryIncomes]
-      .sort((a, b) => b.total - a.total)
-      .map((category) => ({
-        key: category.income_category_id,
-        name: category.category_name,
-        color: getIncomeColor(category.income_category_id, category.color),
-      }))
-  }, [customCategoryIncomes, getIncomeColor])
-
-  const customIncomeTrendData = useMemo(
-    () =>
-      buildCustomTrendData(
-        isSingleMonth,
-        customDailySummaries,
-        customMonthlySummaries,
-        customDailyIncomeByCategory,
-        customMonthlyIncomeByCategory,
-        customIncomeTrendSeries,
-        (item) => item.income_category_id,
-      ),
-    [
-      isSingleMonth,
-      customDailySummaries,
-      customMonthlySummaries,
-      customDailyIncomeByCategory,
-      customMonthlyIncomeByCategory,
-      customIncomeTrendSeries,
-    ],
-  )
-
-  const customIncomeTrendVisibleData = useMemo(() => {
-    if (customIncomeTrendSeries.length === 0) {
-      return [] as Array<Record<string, string | number>>
-    }
-
-    return customIncomeTrendData.filter((row) =>
-      customIncomeTrendSeries.some((series) => Number(row[series.key] ?? 0) > 0)
-    )
-  }, [customIncomeTrendData, customIncomeTrendSeries])
-
   useEffect(() => {
     if (viewMode === 'month' && (monthChartTab === 'balance' || monthChartTab === 'trend')) {
       setMonthChartTab('daily')
@@ -842,16 +496,16 @@ export default function Reports() {
   }, [viewMode, monthChartTab])
 
   useEffect(() => {
-    const activeSeries = viewMode === 'custom' ? customExpenseTrendSeries : annualExpenseTrendSeries
+    const activeSeries = viewMode === 'custom' ? customData.expenseTrendSeries : annualExpenseTrendSeries
     const validKeys = new Set(activeSeries.map((series) => series.key))
     setHiddenExpenseSeries((prev) => prev.filter((key) => validKeys.has(key)))
-  }, [annualExpenseTrendSeries, customExpenseTrendSeries, viewMode])
+  }, [annualExpenseTrendSeries, customData.expenseTrendSeries, viewMode])
 
   useEffect(() => {
-    const activeSeries = viewMode === 'custom' ? customIncomeTrendSeries : annualIncomeTrendSeries
+    const activeSeries = viewMode === 'custom' ? customData.incomeTrendSeries : annualIncomeTrendSeries
     const validKeys = new Set(activeSeries.map((series) => series.key))
     setHiddenIncomeSeries((prev) => prev.filter((key) => validKeys.has(key)))
-  }, [annualIncomeTrendSeries, customIncomeTrendSeries, viewMode])
+  }, [annualIncomeTrendSeries, customData.incomeTrendSeries, viewMode])
 
   const annualExpenseTrendData = useMemo(() => {
     return monthlySummaries.map((summary) => {
@@ -1043,110 +697,6 @@ export default function Reports() {
     monthIncomeExpectations.forEach((item) => map.set(item.income_category_id, item.expectation_amount))
     return map
   }, [monthIncomeExpectations])
-
-
-
-  const customBaseExpenseTotals = useMemo(
-    () => buildBaseTotalsMap(customExpenses, (e) => e.category_id),
-    [customExpenses],
-  )
-
-  const customBaseIncomeTotals = useMemo(
-    () => buildBaseTotalsMap(customIncomes, (i) => i.income_category_id),
-    [customIncomes],
-  )
-
-  // Gráfico de Pizza: despesas customizadas
-  const customPieExpenses = useMemo(() => {
-    return customCategoryExpenses.map((cat) => {
-      const matched = categories.find((c) => c.id === cat.category_id)
-      const [_, iconName] = (matched?.color || cat.color || '').split('|')
-      return {
-        categoryId: cat.category_id,
-        name: cat.category_name,
-        value: cat.total,
-        baseValue: customBaseExpenseTotals.get(cat.category_id) ?? cat.total,
-        detailType: 'expense' as const,
-        detailPeriod: 'month' as const,
-        color: getExpenseColor(cat.category_id, cat.color),
-        iconName,
-      }
-    })
-  }, [customCategoryExpenses, categories, getExpenseColor, customBaseExpenseTotals])
-
-  // Gráfico de Pizza: receitas customizadas
-  const customPieIncomes = useMemo(() => {
-    return customCategoryIncomes.map((cat) => {
-      const matched = incomeCategories.find((c) => c.id === cat.income_category_id)
-      const [_, iconName] = (matched?.color || cat.color || '').split('|')
-      return {
-        categoryId: cat.income_category_id,
-        name: cat.category_name,
-        value: cat.total,
-        baseValue: customBaseIncomeTotals.get(cat.income_category_id) ?? cat.total,
-        detailType: 'income' as const,
-        detailPeriod: 'month' as const,
-        color: getIncomeColor(cat.income_category_id, cat.color),
-        iconName,
-      }
-    })
-  }, [customCategoryIncomes, incomeCategories, getIncomeColor, customBaseIncomeTotals])
-
-  // Gráfico de Pizza: meios de pagamento customizados
-  const customPiePaymentMethods = useMemo(
-    () => buildPaymentMethodsBreakdown(customExpenses, creditCards, getAmountByMode),
-    [customExpenses, creditCards, getAmountByMode],
-  )
-
-  // Distribuição semanal de despesas, rendas e investimentos customizados
-  const customWeekdayExpenseData = useMemo(
-    () => buildCustomWeekdayData(customExpenses, customIncomes, customPortfolioTransactions, getAmountByMode),
-    [customExpenses, customIncomes, customPortfolioTransactions, getAmountByMode],
-  )
-
-  // Valores consolidados customizados
-  const customSummary = useMemo(
-    () =>
-      buildCustomConsolidatedSummary(
-        customExpenses,
-        customIncomes,
-        customPortfolioTransactions,
-        debts,
-        customStartDate,
-        customEndDate,
-        getAmountByMode,
-      ),
-    [customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode],
-  )
-
-  // Fluxo diário consolidado customizado
-  const customDailyConsolidatedData = useMemo(
-    () =>
-      buildCustomDailyConsolidated(
-        customStartDate,
-        customEndDate,
-        customExpenses,
-        customIncomes,
-        customPortfolioTransactions,
-        debts,
-        getAmountByMode,
-      ),
-    [customExpenses, customIncomes, customPortfolioTransactions, debts, customStartDate, customEndDate, getAmountByMode],
-  )
-
-  // Composição de saldo customizada
-  const customQuickData = useMemo(() => {
-    if (!customSummary) {
-      return []
-    }
-
-    return [{
-      month: 'Período',
-      Rendas: customSummary.total_income,
-      Despesas: customSummary.total_expenses,
-      Investimentos: customSummary.total_investments,
-    }]
-  }, [customSummary])
 
 
 
@@ -1527,7 +1077,7 @@ export default function Reports() {
   ])
 
   const topWeekdayExpense = useMemo(() => {
-    const currentData = viewMode === 'custom' ? customWeekdayExpenseData : weekdayExpenseData
+    const currentData = viewMode === 'custom' ? customData.weekdayExpenseData : weekdayExpenseData
     if (currentData.length === 0) {
       return null
     }
@@ -1535,14 +1085,14 @@ export default function Reports() {
     return currentData.reduce((highest, current) =>
       current.Despesas > highest.Despesas ? current : highest
     )
-  }, [viewMode, customWeekdayExpenseData, weekdayExpenseData])
+  }, [viewMode, customData.weekdayExpenseData, weekdayExpenseData])
 
 
 
 
 
   const loadingState = viewMode === 'custom'
-    ? customLoading
+    ? customData.loading
     : (loading || loadingIncomes || loadingMonthExpenses || loadingMonthIncomes || loadingPreviousMonthExpenses || loadingPreviousMonthIncomes || loadingAvailablePeriods || loadingPrevReports)
 
   const savingsRate = monthSummary && monthSummary.total_income > 0
@@ -1578,52 +1128,52 @@ export default function Reports() {
   // Seletores ativos para alternar dinamicamente entre visualização mensal e customizada
   const activeSummary = useMemo(() => {
     if (viewMode === 'custom') {
-      return customSummary
+      return customData.summary
     }
     return monthSummary
-  }, [viewMode, customSummary, monthSummary])
+  }, [viewMode, customData.summary, monthSummary])
 
   const activeExpenseCategories = useMemo(() => {
     if (viewMode === 'custom') {
-      return customCategoryExpenses
+      return customData.categoryExpenses
     }
     return monthExpenseCategories
-  }, [viewMode, customCategoryExpenses, monthExpenseCategories])
+  }, [viewMode, customData.categoryExpenses, monthExpenseCategories])
 
   const activePieExpenses = useMemo(() => {
     if (viewMode === 'custom') {
-      return customPieExpenses
+      return customData.pieExpenses
     }
     return monthPieExpenses
-  }, [viewMode, customPieExpenses, monthPieExpenses])
+  }, [viewMode, customData.pieExpenses, monthPieExpenses])
 
   const activePieIncomes = useMemo(() => {
     if (viewMode === 'custom') {
-      return customPieIncomes
+      return customData.pieIncomes
     }
     return monthPieIncomes
-  }, [viewMode, customPieIncomes, monthPieIncomes])
+  }, [viewMode, customData.pieIncomes, monthPieIncomes])
 
   const activePiePaymentMethods = useMemo(() => {
     if (viewMode === 'custom') {
-      return customPiePaymentMethods
+      return customData.piePaymentMethods
     }
     return monthPiePaymentMethods
-  }, [viewMode, customPiePaymentMethods, monthPiePaymentMethods])
+  }, [viewMode, customData.piePaymentMethods, monthPiePaymentMethods])
 
   const activeDailyConsolidatedData = useMemo(() => {
     if (viewMode === 'custom') {
-      return customDailyConsolidatedData
+      return customData.dailyConsolidatedData
     }
     return dailyConsolidatedData
-  }, [viewMode, customDailyConsolidatedData, dailyConsolidatedData])
+  }, [viewMode, customData.dailyConsolidatedData, dailyConsolidatedData])
 
   const activeWeekdayExpenseData = useMemo(() => {
     if (viewMode === 'custom') {
-      return customWeekdayExpenseData
+      return customData.weekdayExpenseData
     }
     return weekdayExpenseData
-  }, [viewMode, customWeekdayExpenseData, weekdayExpenseData])
+  }, [viewMode, customData.weekdayExpenseData, weekdayExpenseData])
 
   const activeSavingsRate = useMemo(() => {
     if (viewMode === 'custom') {
@@ -1643,10 +1193,10 @@ export default function Reports() {
 
   const activePeriodPending = useMemo(() => {
     if (viewMode === 'custom') {
-      return computePeriodPendingInRange(debts, customStartDate, customEndDate)
+      return customData.pendingInfo
     }
     return selectedPeriodPending
-  }, [viewMode, debts, customStartDate, customEndDate, selectedPeriodPending])
+  }, [viewMode, customData.pendingInfo, selectedPeriodPending])
 
   const activePeriodLabel = useMemo(() => {
     if (viewMode === 'custom') {
@@ -1655,31 +1205,31 @@ export default function Reports() {
         const [yyyy, mm, dd] = dateStr.split('-')
         return `${dd}/${mm}/${yyyy}`
       }
-      return `${formatDateBR(customStartDate)} a ${formatDateBR(customEndDate)}`
+      return `${formatDateBR(customData.startDate)} a ${formatDateBR(customData.endDate)}`
     }
     return formatMonth(selectedMonth)
-  }, [viewMode, customStartDate, customEndDate, selectedMonth])
+  }, [viewMode, customData.startDate, customData.endDate, selectedMonth])
 
   const activeExpensesList = useMemo(() => {
     if (viewMode === 'custom') {
-      return customExpenses
+      return customData.expenses
     }
     return monthExpenses
-  }, [viewMode, customExpenses, monthExpenses])
+  }, [viewMode, customData.expenses, monthExpenses])
 
   const activeIncomesList = useMemo(() => {
     if (viewMode === 'custom') {
-      return customIncomes
+      return customData.incomes
     }
     return monthIncomes
-  }, [viewMode, customIncomes, monthIncomes])
+  }, [viewMode, customData.incomes, monthIncomes])
 
   const activeQuickData = useMemo(() => {
     if (viewMode === 'custom') {
-      return customQuickData
+      return customData.quickData
     }
     return monthQuickData
-  }, [viewMode, customQuickData, monthQuickData])
+  }, [viewMode, customData.quickData, monthQuickData])
 
   const activePendingInfo = useMemo(() => {
     if (activePeriodPending.count === 0) return null
@@ -1733,12 +1283,12 @@ export default function Reports() {
           />
         ) : (
           <ReportCustomDateFilter
-            startDate={customStartDate}
-            endDate={customEndDate}
-            loading={customLoading}
-            onStartDateChange={setCustomStartDate}
-            onEndDateChange={setCustomEndDate}
-            onRecalculate={loadCustomData}
+            startDate={customData.startDate}
+            endDate={customData.endDate}
+            loading={customData.loading}
+            onStartDateChange={customData.setStartDate}
+            onEndDateChange={customData.setEndDate}
+            onRecalculate={customData.recalculate}
           />
         )}
 
@@ -1834,11 +1384,11 @@ export default function Reports() {
                 topWeekdayExpense={topWeekdayExpense}
                 evolutionType={evolutionType}
                 onEvolutionTypeChange={setEvolutionType}
-                customExpenseTrendSeries={customExpenseTrendSeries}
-                customIncomeTrendSeries={customIncomeTrendSeries}
-                customExpenseTrendVisibleData={customExpenseTrendVisibleData}
-                customIncomeTrendVisibleData={customIncomeTrendVisibleData}
-                customCumulativeBalanceData={customCumulativeBalanceData}
+                customExpenseTrendSeries={customData.expenseTrendSeries}
+                customIncomeTrendSeries={customData.incomeTrendSeries}
+                customExpenseTrendVisibleData={customData.expenseTrendVisibleData}
+                customIncomeTrendVisibleData={customData.incomeTrendVisibleData}
+                customCumulativeBalanceData={customData.cumulativeBalanceData}
                 hiddenExpenseSeries={hiddenExpenseSeries}
                 hiddenIncomeSeries={hiddenIncomeSeries}
                 hiddenDailyConsolidatedSeries={hiddenDailyConsolidatedSeries}

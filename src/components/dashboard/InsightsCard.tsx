@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import Card from '@/components/Card'
@@ -8,8 +9,9 @@ import { getCategoryIcon } from '@/utils/categoryIcons'
 import {
   AlertTriangle, TrendingUp, Sparkles, PiggyBank,
   CheckCircle2, CreditCard, ArrowRight, ChevronRight,
-  BarChart3, Activity, Coffee, Landmark,
+  BarChart3, Activity, Coffee, Landmark, X, Eye, EyeOff,
 } from 'lucide-react'
+import { ignoreSubscription, restoreSubscription } from '@/utils/ignoredSubscriptions'
 import type {
   StructuredInsights, SubscriptionInfo, SavingsChallenge, LimitSuggestion,
   IncomeConcentrationInfo, ExpenseTrendInfo, WeekendSpendingInfo,
@@ -60,43 +62,169 @@ function AlertSection({ alert }: { alert: NonNullable<StructuredInsights['critic
 }
 
 /* ------------------------------------------------------------------ */
-/*  Section: Subscriptions                                             */
+/*  Section: Economia Potencial (assinaturas cortáveis)                */
 /* ------------------------------------------------------------------ */
 
-function SubscriptionRow({ sub }: { sub: SubscriptionInfo }) {
+function CuttableSubscriptionsBanner({ count, totalSavings }: { count: number; totalSavings: number }) {
+  if (count === 0 || totalSavings <= 0) return null
+
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-glass surface-glass-strong">
-      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <span className="w-7 h-7 rounded-lg bg-balance/10 text-balance flex items-center justify-center shrink-0">
-          <CreditCard size={13} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold text-primary truncate">{sub.description}</p>
-          <p className="text-[9px] text-secondary">{sub.categoryName}</p>
-        </div>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-[11px] font-bold text-primary font-mono">{formatCurrency(sub.monthlyAmount)}</p>
-        <p className="text-[8px] text-secondary/60">{formatCurrency(sub.annualAmount)}/ano</p>
+    <div className="flex items-center gap-3 p-3 rounded-xl border border-income/30 bg-income/[0.03]">
+      <span className="w-8 h-8 rounded-lg bg-income/10 text-income flex items-center justify-center shrink-0">
+        <PiggyBank size={15} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Economia Potencial em Assinaturas</h4>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          {count} {count === 1 ? 'assinatura pode' : 'assinaturas podem'} ser revisadas para
+          economizar até <strong className="text-income">{formatCurrency(totalSavings)}/mês</strong>
+          {' '}({formatCurrency(totalSavings * 12)}/ano).
+        </p>
       </div>
     </div>
   )
 }
 
-function SubscriptionsSection({ subscriptions, totalAnnual }: { subscriptions: SubscriptionInfo[]; totalAnnual: number }) {
+/* ------------------------------------------------------------------ */
+/*  Subscription Row with Dismiss                                       */
+/* ------------------------------------------------------------------ */
+
+function SubscriptionRow({ 
+  sub, 
+  onDismiss, 
+  onRestore,
+  showDismiss = true,
+}: { 
+  sub: SubscriptionInfo
+  onDismiss?: (description: string) => void
+  onRestore?: (description: string) => void
+  showDismiss?: boolean
+}) {
+  const tierColors: Record<string, string> = {
+    essential: 'border-primary/20 bg-primary/[0.02]',
+    discretionary: 'border-glass surface-glass-strong',
+    can_cut: 'border-expense/20 bg-expense/[0.02]',
+  }
+
+  const tierLabels: Record<string, string> = {
+    essential: 'Essencial',
+    discretionary: 'Opcional',
+    can_cut: 'Cortável',
+  }
+
+  const tierLabelColors: Record<string, string> = {
+    essential: 'text-primary bg-primary/10',
+    discretionary: 'text-secondary bg-secondary/10',
+    can_cut: 'text-expense bg-expense/10',
+  }
+
+  return (
+    <div className={cn(
+      'flex items-center justify-between gap-2 px-3 py-2 rounded-xl border',
+      tierColors[sub.tier] || 'border-glass surface-glass-strong',
+      sub.isIgnored && 'opacity-40',
+    )}>
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <span className="w-7 h-7 rounded-lg bg-balance/10 text-balance flex items-center justify-center shrink-0">
+          <CreditCard size={13} />
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] font-bold text-primary truncate">{sub.description}</p>
+            <span className={cn(
+              'text-[7px] font-bold px-1 py-0.5 rounded-full uppercase shrink-0',
+              tierLabelColors[sub.tier] || 'text-secondary bg-secondary/10',
+            )}>
+              {tierLabels[sub.tier]}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <p className="text-[9px] text-secondary">{sub.categoryName}</p>
+            {sub.confidence > 0.7 && (
+              <span className="text-[7px] text-income/60">✓ alta confiança</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-right">
+          <p className="text-[11px] font-bold text-primary font-mono">{formatCurrency(sub.monthlyAmount)}</p>
+          <p className="text-[8px] text-secondary/60">{formatCurrency(sub.annualAmount)}/ano</p>
+        </div>
+
+        {showDismiss && sub.tier !== 'essential' && !sub.isIgnored && (
+          <button
+            onClick={() => onDismiss?.(sub.description)}
+            className="w-6 h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-secondary transition-colors shrink-0"
+            title="Ignorar esta assinatura"
+          >
+            <X size={12} />
+          </button>
+        )}
+
+        {sub.isIgnored && onRestore && (
+          <button
+            onClick={() => onRestore(sub.description)}
+            className="w-6 h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-income transition-colors shrink-0"
+            title="Restaurar assinatura"
+          >
+            <Eye size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section: Subscriptions (main)                                      */
+/* ------------------------------------------------------------------ */
+
+function SubscriptionsSection({ 
+  subscriptions, 
+  totalAnnual,
+  cuttableSubscriptions,
+  totalCuttableSavingsMonthly,
+}: { 
+  subscriptions: SubscriptionInfo[]
+  totalAnnual: number
+  cuttableSubscriptions: SubscriptionInfo[]
+  totalCuttableSavingsMonthly: number
+}) {
   const navigate = useNavigate()
+  const [showIgnored, setShowIgnored] = useState(false)
+
+  // Força re-render ao ignorar/restaurar
+  const [, forceUpdate] = useState(0)
+  const refresh = useCallback(() => forceUpdate((n) => n + 1), [])
 
   if (subscriptions.length === 0) return null
 
+  // Separa entre visíveis e ignoradas
+  const visibleSubs = subscriptions.filter((s) => !s.isIgnored)
+  const ignoredSubs = subscriptions.filter((s) => s.isIgnored)
+
+  const handleDismiss = (description: string) => {
+    ignoreSubscription(description)
+    refresh()
+  }
+
+  const handleRestore = (description: string) => {
+    restoreSubscription(description)
+    refresh()
+  }
+
   return (
     <div className="space-y-2.5">
+      {/* ── Header ── */}
       <div className="flex items-center justify-between border-b border-glass/40 pb-2">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-            Assinaturas Detectadas
+            Assinaturas e Gastos Recorrentes
           </span>
           <span className="text-[8px] font-bold text-balance bg-balance/10 px-1.5 py-0.5 rounded-md">
-            {subscriptions.length}
+            {visibleSubs.length}
           </span>
         </div>
         <p className="text-[9px] text-secondary/70 font-mono">
@@ -104,16 +232,57 @@ function SubscriptionsSection({ subscriptions, totalAnnual }: { subscriptions: S
         </p>
       </div>
 
+      {/* ── Economia potencial banner ── */}
+      <CuttableSubscriptionsBanner
+        count={cuttableSubscriptions.length}
+        totalSavings={totalCuttableSavingsMonthly}
+      />
+
+      {/* ── Lista de assinaturas visíveis ── */}
       <div className="space-y-1.5">
-        {subscriptions.slice(0, 4).map((sub) => (
-          <SubscriptionRow key={`${sub.description}-${sub.monthlyAmount}`} sub={sub} />
+        {visibleSubs.slice(0, 6).map((sub) => (
+          <SubscriptionRow
+            key={`${sub.description}-${sub.monthlyAmount}`}
+            sub={sub}
+            onDismiss={handleDismiss}
+          />
         ))}
       </div>
 
-      {subscriptions.length > 4 && (
+      {visibleSubs.length > 6 && (
         <p className="text-[9px] text-secondary/50 text-center">
-          +{subscriptions.length - 4} outras assinaturas detectadas
+          +{visibleSubs.length - 6} outras assinaturas detectadas
         </p>
+      )}
+
+      {/* ── Assinaturas ignoradas (recolhidas) ── */}
+      {ignoredSubs.length > 0 && (
+        <div className="space-y-1.5">
+          <button
+            onClick={() => setShowIgnored(!showIgnored)}
+            className="flex items-center gap-2 w-full text-left text-[9px] font-bold uppercase tracking-wider text-secondary/50 hover:text-secondary transition-colors py-1"
+          >
+            <EyeOff size={11} />
+            {ignoredSubs.length} {ignoredSubs.length === 1 ? 'assinatura ignorada' : 'assinaturas ignoradas'}
+            <ChevronRight size={11} className={cn(
+              'transition-transform',
+              showIgnored && 'rotate-90',
+            )} />
+          </button>
+
+          {showIgnored && (
+            <div className="space-y-1">
+              {ignoredSubs.map((sub) => (
+                <SubscriptionRow
+                  key={`ignored-${sub.description}-${sub.monthlyAmount}`}
+                  sub={sub}
+                  onRestore={handleRestore}
+                  showDismiss={false}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <Button
@@ -200,6 +369,18 @@ function SavingsChallengesSection({ challenges, totalSavings }: { challenges: Sa
                   {formatCurrency(challenge.potentialSavings)}
                 </span>
               </div>
+
+              {/* Projeção anual */}
+              {challenge.annualProjectedSavings > 0 && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="text-[7px] text-income/70 bg-income/[0.05] px-1.5 py-0.5 rounded-full">
+                    🗓️ {formatCurrency(challenge.annualProjectedSavings)}/ano
+                  </span>
+                  <span className="text-[7px] text-secondary/50">
+                    (12× {formatCurrency(challenge.potentialSavings)})
+                  </span>
+                </div>
+              )}
 
               <Button
                 onClick={() => {
@@ -589,6 +770,8 @@ export function InsightsCard({ insights }: InsightsCardProps) {
         <SubscriptionsSection
           subscriptions={insights.subscriptions}
           totalAnnual={insights.totalSubscriptionsAnnual}
+          cuttableSubscriptions={insights.cuttableSubscriptions}
+          totalCuttableSavingsMonthly={insights.totalCuttableSavingsMonthly}
         />
       )}
 
