@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v2.0) — Navegação contextual da busca global aprimorada: paths incluem `&month=YYYY-MM` e `&expand=1`; glow animado com scale no highlight; busca expande cards automaticamente no mobile; `useSearchHighlight` refatorado com animação CSS; Incomes agora lê `month` param. Build: 0 erros TS, 387/387 testes, Build OK, 0 regressões.
+> **Última atualização:** Julho de 2026 (v2.1) — Dashboard reordenado: cards agora seguem fluxo lógico Visão Geral (Hero → Projeção → Resumo) → Economia (Insights → Quick Wins) → Detalhamento (Fluxo Diário → Limites). Navegação contextual e glow animado da busca. Build: 0 erros TS, 387/387 testes, Build OK.
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -58,7 +58,7 @@
 
 | Rota | Página | Descrição |
 |------|--------|-----------|
-| `/` | Dashboard | KPIs, fluxo diário, Centro de Economia (10 insights), ações de otimização inline, limites |
+| `/` | Dashboard | Visão Geral (BudgetHero, Projeção, Resumo) → Centro de Economia (10 insights, Quick Wins) → Detalhamento (Fluxo Diário, Limites) |
 | `/expenses` | Expenses | CRUD despesas c/ parcelamento |
 | `/incomes` | Incomes | CRUD rendas |
 | `/investments` | Investments | Portfólio, quantamental, conciliação B3 |
@@ -258,6 +258,7 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 | D.3 | Termômetro do Mês | Barra de progresso unificada no Resumo do Mês | ✅ (pré-existente) |
 | D.4 | Carrossel de Insights Proativos | Chips compactos, max 3, empty state | ✅ |
 | D.5 | Grade de Quick Wins | QuickWinsGrid refatorado: 4 ações inline (Ajustar Limite, Remanejamento, Redução Rápida, Sugestão Motor). Navegação removida, duplicatas eliminadas. | ✅ |
+| D.6 | Reordenação Dashboard | Cards reorganizados: Visão Geral (Hero → Projeção → Resumo) → Economia (Insights → QuickWins) → Detalhamento (Fluxo → Limites). Centro de Economia movido para logo após Resumo do Mês. | ✅ |
 
 ---
 

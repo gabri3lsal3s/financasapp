@@ -500,10 +500,38 @@ export default function Dashboard() {
                   handleReallocate={handleReallocate}
                 />
 
-                {/* Layout Principal: Fluxo → Limites → Copiloto → Ações → Fixadas */}
+                {/* ── Centro de Economia + Quick Wins ── */}
                 <div className="space-y-5">
-                  
-                  {/* ── SEÇÃO: Gráfico de Fluxo Diário (Padrões Visuais) ── */}
+
+                  {/* ── SEÇÃO: Insights e Análises Automáticas ── */}
+                  <InsightsCard
+                    insights={insights}
+                  />
+
+                  {/* ── SEÇÃO: Quick Wins - Ações de Otimização ── */}
+                  <QuickWinsGrid
+                    optimizationSummary={optimizationSummary}
+                    onSetLimit={(categoryId: string, amount: number) =>
+                      setCategoryLimit(categoryId, amount).then(r => ({ error: r.error }))
+                    }
+                    onReallocate={async (fromId: string, toId: string, amount: number) => {
+                      const fromLimit = currentMonthExpenseLimitMap.get(fromId) ?? 0
+                      const toLimit = currentMonthExpenseLimitMap.get(toId) ?? 0
+                      const fromNewLimit = Math.max(0, fromLimit - amount)
+                      const toNewLimit = toLimit + amount
+                      await setCategoryLimit(fromId, fromNewLimit)
+                      await setCategoryLimit(toId, toNewLimit)
+                      refreshLimits()
+                    }}
+                    onRefreshInsights={refreshInsights}
+                  />
+
+                </div>
+
+                {/* Detalhamento: Fluxo Diário → Limites */}
+                <div className="space-y-5">
+
+                  {/* ── SEÇÃO: Gráfico de Fluxo Diário ── */}
                   <Card className={cn(CARD_BASE, CARD_PADDING, "transition-all duration-300")}>
                     <div className="mb-4 border-b border-glass/40 pb-3 flex justify-between items-center">
                       <div>
@@ -532,32 +560,6 @@ export default function Dashboard() {
                       onCategoryClick={openExpenseCategoryDetails}
                     />
                   </div>
-
-                  {/* ── SEÇÃO: Centro de Economia (Insights reformulados) ── */}
-                  <InsightsCard
-                    insights={insights}
-                  />
-
-                  {/* ── SEÇÃO: SmartLimitSuggestions (cards contextuais) ── */}
-                  {/* Placeholder para novos cards contextuais que aparecem conforme o mês avança */}
-
-                  {/* ── SEÇÃO 5: Quick Wins - Ações de Otimização ── */}
-                  <QuickWinsGrid
-                    optimizationSummary={optimizationSummary}
-                    onSetLimit={(categoryId: string, amount: number) =>
-                      setCategoryLimit(categoryId, amount).then(r => ({ error: r.error }))
-                    }
-                    onReallocate={async (fromId: string, toId: string, amount: number) => {
-                      const fromLimit = currentMonthExpenseLimitMap.get(fromId) ?? 0
-                      const toLimit = currentMonthExpenseLimitMap.get(toId) ?? 0
-                      const fromNewLimit = Math.max(0, fromLimit - amount)
-                      const toNewLimit = toLimit + amount
-                      await setCategoryLimit(fromId, fromNewLimit)
-                      await setCategoryLimit(toId, toNewLimit)
-                      refreshLimits()
-                    }}
-                    onRefreshInsights={refreshInsights}
-                  />
 
                 </div>
 
