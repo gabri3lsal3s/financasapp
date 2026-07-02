@@ -70,6 +70,52 @@ export interface LimitSuggestion {
   reason: string
 }
 
+/** Novo: Concentração de renda */
+export interface IncomeConcentrationInfo {
+  isConcentrated: boolean
+  topSourceName: string
+  topSourcePercentage: number
+  topSourceAmount: number
+}
+
+/** Novo: Tendência vs mês anterior */
+export interface ExpenseTrendInfo {
+  percentageChange: number
+  isIncrease: boolean
+  absoluteChange: number
+  isSignificant: boolean
+}
+
+/** Novo: Gastos de fim de semana */
+export interface WeekendSpendingInfo {
+  weekendAvg: number
+  weekdayAvg: number
+  ratio: number
+  isHigherOnWeekends: boolean
+}
+
+/** Novo: Categoria destaque */
+export interface TopCategoryInfo {
+  name: string
+  total: number
+  percentageOfTotal: number
+}
+
+/** Novo: Status da poupança */
+export interface SavingsStatusInfo {
+  rate: number
+  level: 'crítico' | 'baixo' | 'moderado' | 'saudável' | 'forte'
+  label: string
+  suggestion: string
+}
+
+/** Novo: Compromisso com investimentos */
+export interface InvestmentCommitmentInfo {
+  ratio: number
+  isAdequate: boolean
+  suggestion: string
+}
+
 export interface StructuredInsights {
   criticalAlert: {
     text: string
@@ -81,6 +127,13 @@ export interface StructuredInsights {
   limitSuggestions: LimitSuggestion[]
   totalSubscriptionsAnnual: number
   totalPotentialSavings: number
+  /** Novos insights */
+  incomeConcentration: IncomeConcentrationInfo | null
+  expenseTrend: ExpenseTrendInfo | null
+  weekendSpending: WeekendSpendingInfo | null
+  topCategory: TopCategoryInfo | null
+  savingsStatus: SavingsStatusInfo | null
+  investmentCommitment: InvestmentCommitmentInfo | null
 }
 
 export interface AnalysisInput {
@@ -112,6 +165,7 @@ export interface AnalysisInput {
 /**
  * Detecta assinaturas comparando despesas do mês atual com o anterior.
  * Agrupa por descrição normalizada e valores aproximados.
+ * Refinado: filtra parcelas (installment_group_id) para não falsificar detecção.
  */
 function detectSubscriptions(
   currentExpenses: Expense[],
@@ -124,9 +178,16 @@ function detectSubscriptions(
   const normalize = (desc: string) =>
     desc.toLowerCase().replace(/[^a-zà-ÿ0-9]/g, '').trim()
 
+  // Filtra despesas parceladas — parcelas não são assinaturas
+  const filterInstallments = (exps: Expense[]) =>
+    exps.filter(e => !e.installment_group_id)
+
+  const validCurrent = filterInstallments(currentExpenses)
+  const validPrevious = filterInstallments(previousExpenses)
+
   // Agrupa despesas atuais por descrição normalizada
   const currentGrouped = new Map<string, { desc: string; total: number; cat: string; catId?: string }[]>()
-  for (const exp of currentExpenses) {
+  for (const exp of validCurrent) {
     if (!exp.description) continue
     const key = normalize(exp.description)
     if (!currentGrouped.has(key)) currentGrouped.set(key, [])
@@ -140,7 +201,7 @@ function detectSubscriptions(
 
   // Agrupa despesas anteriores por descrição normalizada
   const prevGrouped = new Map<string, { desc: string; total: number }[]>()
-  for (const exp of previousExpenses) {
+  for (const exp of validPrevious) {
     if (!exp.description) continue
     const key = normalize(exp.description)
     if (!prevGrouped.has(key)) prevGrouped.set(key, [])
@@ -192,16 +253,27 @@ const HIGH_SPEND_CATEGORIES = [
   'streaming', 'assinaturas', 'aplicativos',
   'cabelo', 'estética', 'beleza',
   'bar', 'balada', 'happy hour',
+  'café', 'cafeteria', 'sobremesa', 'sorvete',
+  'uber', 'taxi', 'transporte por app',
+  'games', 'jogos', 'passatempo',
+  'pet', 'animal', 'veterinário',
+  'presente', 'lembrança',
+  'livro', 'amazon', 'kindle',
 ]
 
 /**
  * Gera desafios de economia baseados nos padrões de gasto do usuário.
+ * Refinado: mais categorias, mínimo dinâmico baseado na renda.
  */
 function generateSavingsChallenges(
   categoryExpenses: CategoryExpenseSummary[],
   totalExpenses: number,
+  totalIncomes: number,
 ): SavingsChallenge[] {
   const challenges: SavingsChallenge[] = []
+
+  // Limite mínimo dinâmico: 0.5% da renda ou R$20 (o que for maior)
+  const minSavingsThreshold = totalIncomes > 0 ? Math.max(20, totalIncomes * 0.005) : 20
 
   // 1. Desafio por categoria de alto gasto
   for (const cat of categoryExpenses) {
@@ -210,10 +282,10 @@ function generateSavingsChallenges(
 
     if (!isHighSpend || cat.total <= 0) continue
 
-    const reductionPcts = [10, 20]
+    const reductionPcts = [10, 20, 30]
     for (const pct of reductionPcts) {
       const savings = Math.round(cat.total * pct / 100 * 100) / 100
-      if (savings < 20) continue // Ignora valores muito baixos
+      if (savings < minSavingsThreshold) continue // Mínimo dinâmico
 
       const difficulty = pct <= 10 ? 'fácil' as const : pct <= 20 ? 'médio' as const : 'desafiador' as const
 
@@ -239,11 +311,11 @@ function generateSavingsChallenges(
 
   if (nonEssentialTotal > 0 && totalExpenses > 0) {
     const savings30 = Math.round(nonEssentialTotal * 0.3 * 100) / 100
-    if (savings30 >= 50) {
+    if (savings30 >= minSavingsThreshold) {
       challenges.push({
         id: 'challenge-non-essential-30',
         title: 'Desafio 30% em não essenciais',
-        description: `Reduza 30% dos gastos não essenciais (${formatCurrency(nonEssentialTotal)}) e economize ${formatCurrency(savings30)}/mês. Revira suas assinaturas, delivery e lazer.`,
+        description: `Reduza 30% dos gastos não essenciais (${formatCurrency(nonEssentialTotal)}) e economize ${formatCurrency(savings30)}/mês. Revise suas assinaturas, delivery e lazer.`,
         potentialSavings: savings30,
         categoryName: 'Não essenciais',
         currentSpending: nonEssentialTotal,
@@ -255,9 +327,6 @@ function generateSavingsChallenges(
     }
   }
 
-  // 3. Se há projeção de déficit, sugere desafio de corte
-  // (feito externamente via spendingProjection)
-
   return challenges.slice(0, 4) // Max 4 challenges
 }
 
@@ -267,6 +336,7 @@ function generateSavingsChallenges(
 
 /**
  * Gera sugestões de ajuste de limites baseado nos gastos atuais.
+ * Refinado: sugere CRIAR limite para categorias sem limite mas com gasto significativo.
  */
 function generateLimitSuggestions(
   expensesWithLimit: { categoryId: string; spent: number; limit: number | null; name: string }[],
@@ -289,7 +359,7 @@ function generateLimitSuggestions(
         suggestedLimit: Math.round((item.limit + increase) * 100) / 100,
         difference: increase,
         type: 'increase',
-        reason: `Gastou ${formatCurrency(excess)} acima do limite. Considere aumentar o limite ou reduzir gastos.`,
+        reason: `Gastou ${formatCurrency(excess)} acima do limite de ${formatCurrency(item.limit)}. Sugerimos ${formatCurrency(Math.round((item.limit + increase) * 100) / 100)} para cobrir.`,
       })
     }
 
@@ -306,7 +376,7 @@ function generateLimitSuggestions(
         suggestedLimit: Math.round(Math.max(suggested, item.spent * 1.2) * 100) / 100,
         difference: Math.round((item.limit - suggested) * 100) / 100,
         type: 'decrease',
-        reason: `Usou apenas ${formatNumberWithTwoDecimalsBR((item.spent / item.limit) * 100)}% do limite. Pode reduzir e realocar para outras categorias.`,
+        reason: `Usou apenas ${formatNumberWithTwoDecimalsBR((item.spent / item.limit) * 100)}% do limite de ${formatCurrency(item.limit)}. Pode reduzir para ${formatCurrency(Math.round(Math.max(suggested, item.spent * 1.2) * 100) / 100)} e realocar.`,
       })
     }
   }
@@ -333,7 +403,7 @@ function getCriticalAlert(input: AnalysisInput): StructuredInsights['criticalAle
   // Spending pace alert
   if (spendingPace && spendingPace.isOverBudget && spendingPace.overPct > 5) {
     return {
-      text: `Ritmo de gastos ${formatNumberWithTwoDecimalsBR(spendingPace.overPct)}% acima do esperado`,
+      text: `Ritmo de gastos ${formatNumberWithTwoDecimalsBR(spendingPace.overPct)}% acima do esperado para o período`,
       iconId: 'alert-triangle-expense',
       severity: 'danger',
     }
@@ -353,7 +423,7 @@ function getCriticalAlert(input: AnalysisInput): StructuredInsights['criticalAle
     const burnRate = (totalExpenses / totalIncomes) * 100
     if (burnRate > 85) {
       return {
-        text: `${formatNumberWithTwoDecimalsBR(burnRate)}% da renda consumida por despesas`,
+        text: `${formatNumberWithTwoDecimalsBR(burnRate)}% da renda consumida por despesas — margem apertada`,
         iconId: 'trending-up-expense',
         severity: 'warning',
       }
@@ -369,10 +439,10 @@ function getCriticalAlert(input: AnalysisInput): StructuredInsights['criticalAle
     }
   }
 
-  // All good
+  // All good — positive feedback
   if (totalIncomes > 0 && savingsRate >= 20) {
     return {
-      text: `Poupando ${formatNumberWithTwoDecimalsBR(savingsRate)}% da renda — excelente controle!`,
+      text: `Poupando ${formatNumberWithTwoDecimalsBR(savingsRate)}% da renda — excelente controle financeiro!`,
       iconId: 'check-circle-income',
       severity: 'success',
     }
@@ -382,12 +452,195 @@ function getCriticalAlert(input: AnalysisInput): StructuredInsights['criticalAle
 }
 
 /* ------------------------------------------------------------------ */
+/*  NEW: Income Concentration                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Analisa se a renda está muito concentrada em uma única fonte.
+ */
+function getIncomeConcentration(
+  incomeByCategory: IncomeCategorySummary[],
+  totalIncomes: number,
+): IncomeConcentrationInfo | null {
+  if (incomeByCategory.length === 0 || totalIncomes <= 0) return null
+
+  const topSource = incomeByCategory[0] // Já ordenado do maior para o menor
+  const percentage = (topSource.total / totalIncomes) * 100
+
+  if (percentage > 60) {
+    return {
+      isConcentrated: true,
+      topSourceName: topSource.name,
+      topSourcePercentage: Math.round(percentage * 100) / 100,
+      topSourceAmount: topSource.total,
+    }
+  }
+
+  return null
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Expense Trend vs Previous Month                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Calcula a variação percentual dos gastos em relação ao mês anterior.
+ */
+function getExpenseTrend(
+  totalExpenses: number,
+  previousMonthExpenseTotal: number,
+): ExpenseTrendInfo | null {
+  if (totalExpenses <= 0 || previousMonthExpenseTotal <= 0) return null
+
+  const change = totalExpenses - previousMonthExpenseTotal
+  const percentageChange = (change / previousMonthExpenseTotal) * 100
+  const isIncrease = change > 0
+  const isSignificant = Math.abs(percentageChange) > 15
+
+  return {
+    percentageChange: Math.round(percentageChange * 100) / 100,
+    isIncrease,
+    absoluteChange: Math.round(Math.abs(change) * 100) / 100,
+    isSignificant,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Weekend Spending Analysis                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Compara gastos de fim de semana vs dias úteis.
+ */
+function getWeekendSpending(
+  weekdayExpenseData: WeekdayExpense[],
+): WeekendSpendingInfo | null {
+  if (weekdayExpenseData.length < 7) return null
+
+  // Dias úteis: Seg-Sex (índices 0-4)
+  // Fim de semana: Sáb-Dom (índices 5-6)
+  const weekdays = weekdayExpenseData.slice(0, 5)
+  const weekends = weekdayExpenseData.slice(5, 7)
+
+  const weekdayAvg = weekdays.reduce((s, d) => s + d.Despesas, 0) / weekdays.length
+  const weekendAvg = weekends.reduce((s, d) => s + d.Despesas, 0) / weekends.length
+
+  if (weekdayAvg <= 0 && weekendAvg <= 0) return null
+
+  const ratio = weekdayAvg > 0 ? weekendAvg / weekdayAvg : weekendAvg > 0 ? 99 : 1
+
+  return {
+    weekendAvg: Math.round(weekendAvg * 100) / 100,
+    weekdayAvg: Math.round(weekdayAvg * 100) / 100,
+    ratio: Math.round(ratio * 100) / 100,
+    isHigherOnWeekends: ratio > 1.5,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Top Category Highlight                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Destaca a categoria com maior gasto e sua participação no total.
+ */
+function getTopCategory(
+  categoryExpenseSummaries: CategoryExpenseSummary[],
+  totalExpenses: number,
+): TopCategoryInfo | null {
+  if (categoryExpenseSummaries.length === 0 || totalExpenses <= 0) return null
+
+  const top = categoryExpenseSummaries[0] // Já ordenado
+  const percentage = (top.total / totalExpenses) * 100
+
+  return {
+    name: top.category_name,
+    total: top.total,
+    percentageOfTotal: Math.round(percentage * 100) / 100,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Savings Status Classification                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Classifica qualitativamente a taxa de poupança do usuário.
+ */
+function getSavingsStatus(savingsRate: number, totalIncomes: number): SavingsStatusInfo | null {
+  if (totalIncomes <= 0) return null
+
+  let level: SavingsStatusInfo['level']
+  let label: string
+  let suggestion: string
+
+  if (savingsRate <= 0) {
+    level = 'crítico'
+    label = 'Crítico — gastando mais do que ganha'
+    suggestion = 'Revise suas despesas fixas e busque cortar gastos não essenciais imediatamente.'
+  } else if (savingsRate < 5) {
+    level = 'baixo'
+    label = 'Baixo — margem muito apertada'
+    suggestion = 'Tente reduzir pequenas despesas diárias. Cada R$10 economizado faz diferença.'
+  } else if (savingsRate < 15) {
+    level = 'moderado'
+    label = 'Moderado — boa margem, mas pode melhorar'
+    suggestion = 'Aumente sua taxa para 20% definindo limites mais rigorosos em categorias não essenciais.'
+  } else if (savingsRate < 25) {
+    level = 'saudável'
+    label = 'Saudável — ótimo controle financeiro'
+    suggestion = 'Considere direcionar parte da poupança para investimentos de longo prazo.'
+  } else {
+    level = 'forte'
+    label = 'Forte — excelente disciplina financeira'
+    suggestion = 'Continue assim! Avalie se seus investimentos estão diversificados adequadamente.'
+  }
+
+  return { rate: savingsRate, level, label, suggestion }
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Investment Commitment                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Avalia o compromisso com investimentos baseado na % da renda investida.
+ */
+function getInvestmentCommitment(
+  totalInvestments: number,
+  totalIncomes: number,
+): InvestmentCommitmentInfo | null {
+  if (totalIncomes <= 0) return null
+
+  const ratio = (totalInvestments / totalIncomes) * 100
+
+  let suggestion: string
+  let isAdequate: boolean
+
+  if (ratio >= 15) {
+    isAdequate = true
+    suggestion = `Ótimo! ${formatNumberWithTwoDecimalsBR(ratio)}% da renda investida — mantenha este ritmo.`
+  } else if (ratio >= 5) {
+    isAdequate = true
+    suggestion = `${formatNumberWithTwoDecimalsBR(ratio)}% investido. Tente chegar a pelo menos 15% para acelerar o crescimento patrimonial.`
+  } else if (ratio > 0) {
+    isAdequate = false
+    suggestion = `Apenas ${formatNumberWithTwoDecimalsBR(ratio)}% da renda investida. A meta recomendada é de 15-20% para construir patrimônio sólido.`
+  } else {
+    isAdequate = false
+    suggestion = 'Nenhum investimento registrado este mês. Considere aportar pelo menos 10% da renda para começar.'
+  }
+
+  return { ratio: Math.round(ratio * 100) / 100, isAdequate, suggestion }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Engine                                                        */
 /* ------------------------------------------------------------------ */
 
 /**
  * Gera todos os insights estruturados do dashboard.
- * Substitui `generateDynamicSuggestions` + `buildLocalAnalysis`.
+ * Combina análise existente com 6 novos cards de insights financeiros.
  */
 export function computeStructuredInsights(input: AnalysisInput): StructuredInsights {
   const {
@@ -395,6 +648,13 @@ export function computeStructuredInsights(input: AnalysisInput): StructuredInsig
     expenses,
     previousMonthExpenses,
     expensesWithLimit,
+    incomeByCategory,
+    weekdayExpenseData,
+    totalIncomes,
+    totalExpenses,
+    totalInvestments,
+    previousMonthExpenseTotal,
+    savingsRate,
   } = input
 
   // 1. Critical alert
@@ -405,10 +665,28 @@ export function computeStructuredInsights(input: AnalysisInput): StructuredInsig
   const totalSubscriptionsAnnual = subscriptions.reduce((s, sub) => s + sub.annualAmount, 0)
 
   // 3. Savings challenges
-  const savingsChallenges = generateSavingsChallenges(categoryExpenseSummaries, input.totalExpenses)
+  const savingsChallenges = generateSavingsChallenges(categoryExpenseSummaries, totalExpenses, totalIncomes)
 
   // 4. Limit suggestions
   const limitSuggestions = generateLimitSuggestions(expensesWithLimit)
+
+  // 5. Income concentration
+  const incomeConcentration = getIncomeConcentration(incomeByCategory, totalIncomes)
+
+  // 6. Expense trend vs last month
+  const expenseTrend = getExpenseTrend(totalExpenses, previousMonthExpenseTotal)
+
+  // 7. Weekend spending pattern
+  const weekendSpending = getWeekendSpending(weekdayExpenseData)
+
+  // 8. Top category highlight
+  const topCategory = getTopCategory(categoryExpenseSummaries, totalExpenses)
+
+  // 9. Savings status
+  const savingsStatus = getSavingsStatus(savingsRate, totalIncomes)
+
+  // 10. Investment commitment
+  const investmentCommitment = getInvestmentCommitment(totalInvestments, totalIncomes)
 
   const totalPotentialSavings = savingsChallenges.reduce((s, c) => s + c.potentialSavings, 0)
 
@@ -419,5 +697,11 @@ export function computeStructuredInsights(input: AnalysisInput): StructuredInsig
     limitSuggestions,
     totalSubscriptionsAnnual,
     totalPotentialSavings,
+    incomeConcentration,
+    expenseTrend,
+    weekendSpending,
+    topCategory,
+    savingsStatus,
+    investmentCommitment,
   }
 }

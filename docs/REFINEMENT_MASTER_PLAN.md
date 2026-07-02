@@ -1,6 +1,6 @@
 # Plano de Refinamento — FinançasApp (Consolidado)
 
-> **Última atualização:** Julho de 2026 (v1.5) — Insights do Dashboard refatorados: novo motor de insights com detecção de assinaturas, desafios de economia e sugestões de limites. Input de chat removido.
+> **Última atualização:** Julho de 2026 (v1.6) — QuickWinsGrid refatorado com ações inline (sem navegação). 6 novos cards de insights (concentração, tendência, fim de semana, destaque, poupança, investimentos). Motor de insights refinado. Build: 0 erros TS, 290/290 testes.
 > **Propósito:** Documento único consolidando todo o planejamento de refatoração, refinamento e melhorias do aplicativo — tanto concluído quanto pendente.
 > **Substitui:** `AUDITORIA_REVISAO.md`, `REFACTORING_PLAN.md`, `IMPROVEMENT_PLAN.md`, `REFINEMENT_PLAN.md`, `NEXT_STEPS.md`, `SEARCH_IMPROVEMENT_PLAN.md`
 
@@ -57,7 +57,7 @@
 
 | Rota | Página | Descrição |
 |------|--------|-----------|
-| `/` | Dashboard | KPIs, fluxo diário, Copiloto IA, limites |
+| `/` | Dashboard | KPIs, fluxo diário, Centro de Economia (10 insights), ações de otimização inline, limites |
 | `/expenses` | Expenses | CRUD despesas c/ parcelamento |
 | `/incomes` | Incomes | CRUD rendas |
 | `/investments` | Investments | Portfólio, quantamental, conciliação B3 |
@@ -191,15 +191,18 @@
 
 ## 5. Pendências Técnicas
 
-### ✅ Insights do Dashboard Refatorados (v1.5)
+### ✅ Insights do Dashboard Refatorados (v1.6)
 
 | Item | Descrição | Status |
 |------|-----------|--------|
-| Motor de insights | `insightsEngine.ts` — detecção de assinaturas (descrições repetidas entre meses), desafios de economia (categorias não essenciais), sugestões de ajuste de limites | ✅ |
-| InsightsCard | Reescrevido sem input de chat, seções organizadas (Alertas, Assinaturas, Desafios, Limites), componentes padronizados | ✅ |
+| Motor de insights | `insightsEngine.ts` — 10 cards: Alerta Crítico, Assinaturas, Desafios, Limites, Concentração Renda, Tendência vs Mês, Gastos FDS, Categoria Destaque, Status Poupança, Compromisso Investimentos | ✅ |
+| InsightsCard | Reescrevido sem input de chat, grid 2 colunas para novos insights, seções organizadas | ✅ |
 | useDashboardInsights | Hook simplificado, sem estado de chat, retorna dados estruturados | ✅ |
-| aiIcons | Novos ícones para assinatura, desafios e limites | ✅ |
+| aiIcons | Novos ícones: BarChart3, Activity, Coffee, Landmark | ✅ |
+| Engine refinado | Filtra parcelas em assinaturas, +10 categorias de desafios, mínimo dinâmico (0.5% renda), redução de 30% adicionada | ✅ |
+| QuickWinsGrid | **Reescrito**: 4 ações inline sem navegação, sem duplicatas com InsightsCard. Ações: Ajustar Limite Manual, Remanejamento Inteligente, Redução Rápida (-10%/-20%), Aplicar Sugestão do Motor | ✅ |
 
+### 🔴 Migration Pendente no Supabase
 ### 🔴 Migration Pendente no Supabase
 
 A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
@@ -232,7 +235,7 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 | D.2 | Card Herói (Gasto Disponível) | BudgetHeroCard com diário + mensal + alerta de estouro | ✅ (pré-existente) |
 | D.3 | Termômetro do Mês | Barra de progresso unificada no Resumo do Mês | ✅ (pré-existente) |
 | D.4 | Carrossel de Insights Proativos | Chips compactos, max 3, empty state | ✅ |
-| D.5 | Grade de Quick Wins | QuickWinsGrid com 3 atalhos (assinaturas, economia, limites) | ✅ |
+| D.5 | Grade de Quick Wins | QuickWinsGrid refatorado: 4 ações inline (Ajustar Limite, Remanejamento, Redução Rápida, Sugestão Motor). Navegação removida, duplicatas eliminadas. | ✅ |
 
 ---
 
@@ -256,6 +259,8 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 | 7 | ✅ Padronizar input do Copiloto com topbar-search-bar | ✅ Concluído | Input do Insights foi removido — insights agora são 100% automáticos | ✅ |
 | 8 | ✅ Extrair `dynamicAiSuggestions` do Dashboard para service | ~2h | ✅ Extraído — `insightsEngine.ts` + `useDashboardInsights.ts` + `InsightsCard.tsx` + `aiIcons.tsx` |
 | 9 | ✅ Verificar contraste em modo midnight (WCAG AA) | ~30min | ✅ `--ds-color-text-secondary` alterado de `#a1a1aa` → `#d4d4d8` no midnight |
+| 10 | ✅ Refatorar QuickWinsGrid — ações inline, sem navegação, sem duplicatas | ~3h | ✅ QuickWinsGrid reescrito com 4 painéis expansíveis inline (Ajustar Limite Manual, Remanejamento Inteligente, Redução Rápida, Sugestão do Motor). Dashboard.tsx atualizado para passar dados. |
+| 11 | ✅ Adicionar 6 novos cards de insights ao insightsEngine | ~2h | ✅ Concentração Renda, Tendência vs Mês, Gastos FDS, Categoria Destaque, Status Poupança, Compromisso Investimentos. Todos integrados ao InsightsCard. |
 
 ---
 

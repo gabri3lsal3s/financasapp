@@ -2,14 +2,19 @@ import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import Card from '@/components/Card'
 import { CARD_BASE, CARD_PADDING_LARGE } from '@/constants/layout'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import Button from '@/components/Button'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import {
   AlertTriangle, TrendingUp, Sparkles, PiggyBank,
   CheckCircle2, CreditCard, ArrowRight, ChevronRight,
+  BarChart3, Activity, Coffee, Landmark,
 } from 'lucide-react'
-import type { StructuredInsights, SubscriptionInfo, SavingsChallenge, LimitSuggestion } from '@/services/insightsEngine'
+import type {
+  StructuredInsights, SubscriptionInfo, SavingsChallenge, LimitSuggestion,
+  IncomeConcentrationInfo, ExpenseTrendInfo, WeekendSpendingInfo,
+  TopCategoryInfo, SavingsStatusInfo, InvestmentCommitmentInfo,
+} from '@/services/insightsEngine'
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -129,12 +134,12 @@ function SubscriptionsSection({ subscriptions, totalAnnual }: { subscriptions: S
 /* ------------------------------------------------------------------ */
 
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
-  const colors = {
+  const colors: Record<string, string> = {
     'fácil': 'bg-income/10 text-income',
     'médio': 'bg-warning/10 text-warning',
     'desafiador': 'bg-expense/10 text-expense',
   }
-  const color = colors[difficulty as keyof typeof colors] || 'bg-secondary/10 text-secondary'
+  const color = colors[difficulty] || 'bg-secondary/10 text-secondary'
 
   return (
     <span className={cn('text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase', color)}>
@@ -292,6 +297,191 @@ function LimitSuggestionsSection({ suggestions }: { suggestions: LimitSuggestion
 }
 
 /* ------------------------------------------------------------------ */
+/*  NEW: Income Concentration                                          */
+/* ------------------------------------------------------------------ */
+
+function IncomeConcentrationSection({ info }: { info: IncomeConcentrationInfo }) {
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-xl border border-expense/30 bg-expense/[0.03]">
+      <span className="w-8 h-8 rounded-lg bg-expense/10 text-expense flex items-center justify-center shrink-0">
+        <BarChart3 size={15} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Concentração de Renda</h4>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          <strong className="text-expense">{formatNumberWithTwoDecimalsBR(info.topSourcePercentage)}%</strong> da sua renda
+          vem de <strong className="text-primary">{info.topSourceName}</strong>
+          {' '}({formatCurrency(info.topSourceAmount)}). Considere diversificar para reduzir riscos.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Expense Trend vs Previous Month                                */
+/* ------------------------------------------------------------------ */
+
+function ExpenseTrendSection({ info }: { info: ExpenseTrendInfo }) {
+  const isIncrease = info.isIncrease && info.isSignificant
+  const isDecrease = !info.isIncrease && info.isSignificant
+
+  return (
+    <div className={cn(
+      'flex items-start gap-3 p-3 rounded-xl border',
+      isIncrease ? 'border-expense/30 bg-expense/[0.03]' :
+        isDecrease ? 'border-income/30 bg-income/[0.03]' :
+        'border-glass surface-glass-strong',
+    )}>
+      <span className={cn(
+        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+        isIncrease ? 'bg-expense/10 text-expense' :
+          isDecrease ? 'bg-income/10 text-income' :
+          'bg-secondary/10 text-secondary',
+      )}>
+        <Activity size={15} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Gastos vs Mês Passado</h4>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          {info.isIncrease ? (
+            <>
+              Gastos <strong className="text-expense">aumentaram {formatNumberWithTwoDecimalsBR(info.percentageChange)}%</strong>
+              {' '}({formatCurrency(info.absoluteChange)}) em relação ao mês anterior.
+              {info.isSignificant && ' Fique atento a este crescimento.'}
+            </>
+          ) : (
+            <>
+              Gastos <strong className="text-income">reduziram {formatNumberWithTwoDecimalsBR(Math.abs(info.percentageChange))}%</strong>
+              {' '}({formatCurrency(info.absoluteChange)}) em relação ao mês anterior. Bom trabalho!
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Weekend Spending                                              */
+/* ------------------------------------------------------------------ */
+
+function WeekendSpendingSection({ info }: { info: WeekendSpendingInfo }) {
+  if (!info.isHigherOnWeekends) return null
+
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-xl border border-warning/30 bg-warning/[0.03]">
+      <span className="w-8 h-8 rounded-lg bg-warning/10 text-warning flex items-center justify-center shrink-0">
+        <Coffee size={15} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Gastos de Fim de Semana</h4>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          Fim de semana gasta em média <strong className="text-warning">{formatCurrency(info.weekendAvg)}</strong>/dia
+          {' '}vs <strong className="text-primary">{formatCurrency(info.weekdayAvg)}</strong>/dia em dias úteis
+          {' '}({formatNumberWithTwoDecimalsBR(info.ratio)}x mais). Que tal planejar programas mais econômicos?
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Top Category Highlight                                        */
+/* ------------------------------------------------------------------ */
+
+function TopCategorySection({ info }: { info: TopCategoryInfo }) {
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-xl border border-glass surface-glass-strong">
+      <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+        {getCategoryIcon(info.name, 15)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Categoria Destaque</h4>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          <strong className="text-primary">{info.name}</strong> é sua maior categoria de gasto,
+          representando <strong className="text-expense">{formatNumberWithTwoDecimalsBR(info.percentageOfTotal)}%</strong>
+          {' '}do total ({formatCurrency(info.total)}). Revise se este nível de gasto está alinhado com suas prioridades.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Savings Status                                                */
+/* ------------------------------------------------------------------ */
+
+function SavingsStatusSection({ info }: { info: SavingsStatusInfo }) {
+  const colorMap: Record<string, string> = {
+    crítico: 'border-expense/30 bg-expense/[0.03] text-expense',
+    baixo: 'border-warning/30 bg-warning/[0.03] text-warning',
+    moderado: 'border-primary/30 bg-primary/[0.03] text-primary',
+    saudável: 'border-income/30 bg-income/[0.03] text-income',
+    forte: 'border-income/40 bg-income/[0.05] text-income',
+  }
+  const iconColorMap: Record<string, string> = {
+    crítico: 'bg-expense/10 text-expense',
+    baixo: 'bg-warning/10 text-warning',
+    moderado: 'bg-primary/10 text-primary',
+    saudável: 'bg-income/10 text-income',
+    forte: 'bg-income/10 text-income',
+  }
+
+  return (
+    <div className={cn(
+      'flex items-start gap-3 p-3 rounded-xl border',
+      colorMap[info.level] || 'border-glass surface-glass-strong',
+    )}>
+      <span className={cn(
+        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+        iconColorMap[info.level] || 'bg-secondary/10 text-secondary',
+      )}>
+        <PiggyBank size={15} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Status da Poupança</h4>
+        <p className={cn(
+          'text-[9px] font-bold mt-0.5',
+          colorMap[info.level]?.split(' ')[2] || 'text-secondary',
+        )}>
+          {info.label} ({formatNumberWithTwoDecimalsBR(info.rate)}%)
+        </p>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          {info.suggestion}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  NEW: Investment Commitment                                         */
+/* ------------------------------------------------------------------ */
+
+function InvestmentCommitmentSection({ info }: { info: InvestmentCommitmentInfo }) {
+  return (
+    <div className={cn(
+      'flex items-start gap-3 p-3 rounded-xl border',
+      info.isAdequate ? 'border-income/30 bg-income/[0.03]' : 'border-warning/30 bg-warning/[0.03]',
+    )}>
+      <span className={cn(
+        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+        info.isAdequate ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning',
+      )}>
+        <Landmark size={15} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h4 className="text-[11px] font-bold text-primary">Compromisso com Investimentos</h4>
+        <p className="text-[9px] text-secondary leading-relaxed mt-0.5">
+          {info.suggestion}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /*  Empty State                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -312,8 +502,16 @@ function EmptyInsightsState() {
 /* ------------------------------------------------------------------ */
 
 export function InsightsCard({ insights }: InsightsCardProps) {
-  const hasAnyInsight = insights.criticalAlert || insights.subscriptions.length > 0
-    || insights.savingsChallenges.length > 0 || insights.limitSuggestions.length > 0
+  const hasAnyInsight = insights.criticalAlert
+    || insights.subscriptions.length > 0
+    || insights.savingsChallenges.length > 0
+    || insights.limitSuggestions.length > 0
+    || insights.incomeConcentration
+    || insights.expenseTrend
+    || insights.weekendSpending
+    || insights.topCategory
+    || insights.savingsStatus
+    || insights.investmentCommitment
 
   if (!hasAnyInsight) {
     return (
@@ -352,6 +550,39 @@ export function InsightsCard({ insights }: InsightsCardProps) {
       {insights.criticalAlert && (
         <AlertSection alert={insights.criticalAlert} />
       )}
+
+      {/* ── Grid de insights compactos (novos cards) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {/* Top Category */}
+        {insights.topCategory && (
+          <TopCategorySection info={insights.topCategory} />
+        )}
+
+        {/* Income Concentration */}
+        {insights.incomeConcentration && (
+          <IncomeConcentrationSection info={insights.incomeConcentration} />
+        )}
+
+        {/* Expense Trend */}
+        {insights.expenseTrend && (
+          <ExpenseTrendSection info={insights.expenseTrend} />
+        )}
+
+        {/* Weekend Spending */}
+        {insights.weekendSpending && (
+          <WeekendSpendingSection info={insights.weekendSpending} />
+        )}
+
+        {/* Savings Status */}
+        {insights.savingsStatus && (
+          <SavingsStatusSection info={insights.savingsStatus} />
+        )}
+
+        {/* Investment Commitment */}
+        {insights.investmentCommitment && (
+          <InvestmentCommitmentSection info={insights.investmentCommitment} />
+        )}
+      </div>
 
       {/* ── Subscriptions ── */}
       {insights.subscriptions.length > 0 && (

@@ -934,7 +934,22 @@ export default function Dashboard() {
 
                   {/* ── SEÇÃO 5: Quick Wins - Ações de Otimização ── */}
                   <QuickWinsGrid
-                    hasReallocation={Boolean(reallocationRecommendation)}
+                    categories={categories.map(c => ({
+                      id: c.id,
+                      name: c.name,
+                      spent: spentMap.get(c.id) || 0,
+                      limit: currentMonthExpenseLimitMap.get(c.id) ?? null,
+                    }))}
+                    reallocationRecommendation={reallocationRecommendation}
+                    limitSuggestions={insights.limitSuggestions.map(s => ({
+                      categoryId: s.categoryId,
+                      categoryName: s.categoryName,
+                      currentLimit: s.currentLimit,
+                      suggestedLimit: s.suggestedLimit,
+                      difference: s.difference,
+                      type: s.type,
+                    }))}
+                    onSetLimit={setCategoryLimit}
                     onReallocate={handleReallocate}
                     isReallocating={isReallocating}
                   />

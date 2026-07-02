@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import {
   AlertTriangle, TrendingDown, TrendingUp, Sparkles,
   Calendar, PiggyBank, CheckCircle2, CreditCard,
-  Target, Receipt,
+  Target, Receipt, BarChart3, Activity, Coffee,
+  Landmark,
 } from 'lucide-react'
 
 /**
@@ -37,6 +38,14 @@ export function resolveIcon(iconId: string): ReactNode {
       return <Target size={14} className="text-primary" />
     case 'receipt-income':
       return <Receipt size={14} className="text-income" />
+    case 'bar-chart-warning':
+      return <BarChart3 size={14} className="text-warning" />
+    case 'activity-expense':
+      return <Activity size={14} className="text-expense" />
+    case 'coffee-warning':
+      return <Coffee size={14} className="text-warning" />
+    case 'landmark-balance':
+      return <Landmark size={14} className="text-balance" />
     default:
       return <AlertTriangle size={14} className="text-expense" />
   }
