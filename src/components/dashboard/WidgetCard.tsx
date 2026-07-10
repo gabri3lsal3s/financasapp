@@ -1,7 +1,10 @@
-import { Suspense, type ReactNode } from 'react'
+import { Suspense, useState, type ReactNode } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Card from '@/components/Card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import type { DashboardWidgetMeta } from '@/hooks/useDashboardLayout'
 
 /* ------------------------------------------------------------------ */
@@ -14,6 +17,8 @@ interface WidgetCardProps {
   summary: ReactNode
   /** Conteúdo principal do card (renderizado com Suspense) */
   detail: ReactNode
+  /** Impede o colapso no mobile (sempre expandido) */
+  disableCollapse?: boolean
 }
 
 /* ------------------------------------------------------------------ */
@@ -35,8 +40,13 @@ function DefaultSkeleton() {
 /*  Componente                                                         */
 /* ------------------------------------------------------------------ */
 
-export default function WidgetCard({ widget, summary, detail }: WidgetCardProps) {
+export default function WidgetCard({ widget, summary, detail, disableCollapse }: WidgetCardProps) {
+  const isMobile = useMediaQuery('(max-width: 639px)')
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const Icon = widget.icon
+
+  // Se disableCollapse, comporta como desktop (sempre expandido, sem chevron)
+  const effectiveMobile = isMobile && !disableCollapse
 
   return (
     <Card
@@ -46,25 +56,67 @@ export default function WidgetCard({ widget, summary, detail }: WidgetCardProps)
       )}
     >
       {/* ── Header (sempre visível) ── */}
-      <div className="flex items-center justify-between gap-2 sm:gap-4 border-b border-glass/40 px-4 sm:px-5 pt-4 sm:pt-5 pb-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Icon size={16} className="shrink-0 text-primary/60 sm:text-primary/70" />
-          <div className="min-w-0">
-            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary truncate">
+      <div
+        className={cn(
+          'border-b border-glass/40 px-4 sm:px-5 pt-4 sm:pt-5 pb-3',
+          effectiveMobile && 'cursor-pointer select-none active:bg-secondary/10 transition-colors',
+        )}
+        onClick={() => effectiveMobile && setIsCollapsed((prev) => !prev)}
+        role={effectiveMobile ? 'button' : undefined}
+        tabIndex={effectiveMobile ? 0 : undefined}
+        onKeyDown={effectiveMobile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsCollapsed((prev) => !prev) } } : undefined}
+      >
+        {effectiveMobile ? (
+          /* ── Mobile colapsável: só título + chevron (sem summary) ── */
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-primary truncate">
               {widget.title}
             </h3>
-            <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">{widget.subtitle}</p>
+            <motion.div
+              animate={{ rotate: isCollapsed ? 0 : 180 }}
+              transition={{ duration: 0.2 }}
+              className="text-secondary/40 shrink-0"
+            >
+              <ChevronDown size={14} />
+            </motion.div>
           </div>
-        </div>
-        <div className="shrink-0 max-w-[45%] sm:max-w-none">{summary}</div>
+        ) : (
+          /* ── Desktop / disableCollapse: layout horizontal clássico com resumo ── */
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Icon size={16} className="shrink-0 text-primary/60 sm:text-primary/70" />
+              <div className="min-w-0">
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary truncate">
+                  {widget.title}
+                </h3>
+                <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">{widget.subtitle}</p>
+              </div>
+            </div>
+            <div className="shrink-0 sm:max-w-none">
+              {summary}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Conteúdo (Suspense para lazy loading) ── */}
-      <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3">
-        <Suspense fallback={<DefaultSkeleton />}>
-          {detail}
-        </Suspense>
-      </div>
+      {/* ── Conteúdo (colapsável no mobile, sempre visível no desktop / disableCollapse) ── */}
+      <AnimatePresence initial={false}>
+        {(!effectiveMobile || !isCollapsed) && (
+          <motion.div
+            key="content"
+            initial={effectiveMobile ? { height: 0, opacity: 0 } : undefined}
+            animate={effectiveMobile ? { height: 'auto', opacity: 1 } : undefined}
+            exit={effectiveMobile ? { height: 0, opacity: 0 } : undefined}
+            transition={effectiveMobile ? { duration: 0.22, ease: [0.16, 1, 0.3, 1] } : undefined}
+          >
+            <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3">
+              <Suspense fallback={<DefaultSkeleton />}>
+                {detail}
+              </Suspense>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Card>
   )
 }

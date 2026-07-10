@@ -111,44 +111,34 @@ function SkeletonKpiGrid() {
 export function SkeletonDashboard() {
   return (
     <div className="space-y-5 animate-fade-in">
+      {/* KPI Bar: 2×2 mobile, 4 colunas desktop */}
       <SkeletonKpiGrid />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
-        <div className="flex flex-col gap-5 lg:col-span-2">
-          <div className="rounded-2xl border border-glass surface-glass p-4 sm:p-5">
-            <div className="mb-4 border-b border-glass/40 pb-3 space-y-1.5">
-              <Skeleton className="h-4 w-28 rounded" />
-              <Skeleton className="h-2.5 w-44 rounded" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-32 w-full rounded-lg" />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-glass surface-glass p-4 sm:p-5">
-            <div className="space-y-2">
-              <Skeleton className="h-3.5 w-24 rounded" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Skeleton className="h-12 rounded-lg" />
-                <Skeleton className="h-12 rounded-lg" />
-              </div>
-            </div>
-          </div>
+
+      {/* Widget cards empilhados (até 4 visíveis por padrão) */}
+      <SkeletonWidgetCard />
+      <SkeletonWidgetCard />
+      <SkeletonWidgetCard />
+      <SkeletonWidgetCard />
+    </div>
+  )
+}
+
+function SkeletonWidgetCard() {
+  return (
+    <div className="rounded-2xl border border-glass surface-glass shadow-sm !p-0 overflow-hidden">
+      {/* Header com título + badge de summary */}
+      <div className="flex items-center justify-between gap-2 border-b border-glass/40 px-4 sm:px-5 pt-4 sm:pt-5 pb-3">
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-3 sm:h-4 w-28 sm:w-36 rounded" />
         </div>
-        <div className="flex flex-col gap-5 lg:col-span-1">
-          <div className="rounded-2xl border border-glass surface-glass p-4 sm:p-5 space-y-3">
-            {[1, 2, 3].map(i => (
-              <Skeleton key={i} className={`h-3 w-${i === 1 ? 'full' : i === 2 ? '3/4' : '1/2'} rounded`} />
-            ))}
-          </div>
-          <div className="rounded-2xl border border-glass surface-glass p-4 sm:p-5 space-y-3">
-            <Skeleton className="h-4 w-20 rounded" />
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between">
-                <Skeleton className="h-3 w-24 rounded" />
-                <Skeleton className="h-3 w-16 rounded" />
-              </div>
-            ))}
-          </div>
-        </div>
+        <Skeleton className="h-4 w-20 rounded-md shrink-0" />
+      </div>
+      {/* Conteúdo do card */}
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 space-y-3">
+        <Skeleton className="h-3 w-full rounded" />
+        <Skeleton className="h-3 w-3/4 rounded" />
+        <Skeleton className="h-16 sm:h-20 w-full rounded-lg" />
+        <Skeleton className="h-3 w-1/2 rounded" />
       </div>
     </div>
   )

@@ -1,8 +1,10 @@
 import { lazy, Component, useState, createContext, useContext, type ReactNode } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, TrendingUp, TrendingDown, PiggyBank, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SECTION_GAP, CONTENT_MAX_WIDTH } from '@/constants/layout'
+import { SECTION_GAP, CONTENT_MAX_WIDTH, KPI_GRID, CARD_BASE_FLAT } from '@/constants/layout'
 import type { WidgetId, DashboardWidgetMeta } from '@/hooks/useDashboardLayout'
+import { useDashboardFinances } from '@/contexts/DashboardDataContext'
+import { formatCurrency } from '@/utils/format'
 import WidgetCard from '@/components/dashboard/WidgetCard'
 import DashboardCategoryDetailModal from '@/components/dashboard/DashboardCategoryDetailModal'
 
@@ -98,14 +100,72 @@ const WIDGET_MAP: Record<WidgetId, WidgetComponents> = {
 export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps) {
   const { visibleWidgets, loaded } = layout
   const [detailTarget, setDetailTarget] = useState<CategoryDetailTarget | null>(null)
+  const {
+    totalIncomes,
+    totalExpenses,
+    totalInvestments,
+    balance,
+  } = useDashboardFinances()
 
   if (!loaded) return null
+
+  const hasAnyData = totalIncomes > 0 || totalExpenses > 0 || totalInvestments > 0 || balance !== 0
+
+  // Separa o widget de fluxo para renderização fixa/expandida
+  const flowWidget = visibleWidgets.find((w) => w.id === 'flow')
+  const otherWidgets = visibleWidgets.filter((w) => w.id !== 'flow')
 
   return (
     <CategoryDetailContext.Provider value={setDetailTarget}>
       <div className={cn(CONTENT_MAX_WIDTH)}>
         <div className={cn(SECTION_GAP)}>
-          {visibleWidgets.map((widget) => {
+          {/* ── KPI Bar (mobile: 2×2, desktop: 4 colunas) ── */}
+          {hasAnyData && (
+            <div className={cn(KPI_GRID)}>
+              <KpiCard
+                icon={<TrendingUp size={15} />}
+                label="Rendas"
+                value={totalIncomes}
+                color="text-income"
+              />
+              <KpiCard
+                icon={<TrendingDown size={15} />}
+                label="Despesas"
+                value={totalExpenses}
+                color="text-expense"
+              />
+              <KpiCard
+                icon={<PiggyBank size={15} />}
+                label="Investimentos"
+                value={totalInvestments}
+                color="text-balance"
+              />
+              <KpiCard
+                icon={<Wallet size={15} />}
+                label="Saldo"
+                value={balance}
+                color={balance >= 0 ? 'text-income' : 'text-expense'}
+              />
+            </div>
+          )}
+
+          {/* ── Fluxo Diário: sempre fixo após os KPIs e expandido ── */}
+          {flowWidget && (
+            <WidgetCard
+              key="flow-fixed"
+              widget={flowWidget}
+              disableCollapse
+              summary={<DailyFlowSummary />}
+              detail={
+                <ErrorFallback>
+                  <DailyFlowDetail />
+                </ErrorFallback>
+              }
+            />
+          )}
+
+          {/* ── Demais widgets (colapsáveis no mobile) ── */}
+          {otherWidgets.map((widget) => {
             const comps = WIDGET_MAP[widget.id]
             if (!comps) return null
 
@@ -135,5 +195,25 @@ export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps
         type={detailTarget?.type ?? 'expense'}
       />
     </CategoryDetailContext.Provider>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  KpiCard interno                                                    */
+/* ------------------------------------------------------------------ */
+
+function KpiCard({ icon, label, value, color }: { icon: ReactNode; label: string; value: number; color: string }) {
+  return (
+    <div className={cn(CARD_BASE_FLAT, 'p-3 sm:p-4 flex flex-col justify-between min-h-[72px] sm:min-h-0')}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-secondary/70">
+          {label}
+        </span>
+        <span className="shrink-0 opacity-40">{icon}</span>
+      </div>
+      <p className={cn('text-sm sm:text-base font-extrabold font-mono leading-tight mt-1', color)}>
+        {formatCurrency(value)}
+      </p>
+    </div>
   )
 }

@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — CurrencyInput: novo componente de input monetário com máscara reversa (estilo Nubank). Substituição de `AmountInput` e `TransactionAmountFields` por `CurrencyInput` e `TransactionCurrencyFields` em ~18 arquivos. Migração de todos os formulários financeiros para valores numéricos (number), eliminando bridges string↔number.
+> **Última atualização:** Julho de 2026 — Dashboard mobile: KPI bar fixa no topo, widgets colapsáveis no mobile, summary badges removidos dos headers, Fluxo Diário fixo (não configurável no settings) e sempre expandido após KPIs. Botão de configurar dashboard movido para FAB hub. Skeleton refatorado para espelhar o novo layout.
 
 ---
 
@@ -125,33 +125,41 @@ O dashboard foi refatorado para um sistema de **widget cards** configuráveis pe
 
 #### Widgets Disponíveis
 
-| ID | Widget | Summary | Detail |
-|----|--------|---------|--------|
-| `health` | Situação Financeira | Saldo + taxa de poupança + badge | Budget usage bar, disponível/mês, projeção |
-| `actions` | Insights Financeiros | Contagem de sugestões de otimização | Cards de insights (poupança, variação, top categoria, limites, pico semanal) |
-| `subscriptions` | Gastos Recorrentes | Nº de assinaturas + total/mês | Lista de despesas recorrentes com indicadores de confiança, linhas clicáveis → modal de detalhamento com feedback do usuário |
-| `categories` | Gastos por Categoria | Top 3 categorias + total | Stacked bar + lista de categorias com % e valor (clicável → modal de detalhamento) |
-| `limits` | Limites de Orçamento | % usado + contagem de excedidos | Lista de categorias com atenção (clicável → modal de detalhamento) |
-| `flow` | Fluxo Diário | Total rendas/despesas/investimentos | Gráfico de fluxo diário interativo |
+| ID | Widget | Descrição |
+|----|--------|-----------|
+| `health` | Situação Financeira | Budget usage bar, disponível/mês, projeção |
+| `actions` | Insights Financeiros | Cards de insights (poupança, variação, top categoria, limites, pico semanal) |
+| `subscriptions` | Gastos Recorrentes | Lista de despesas recorrentes com indicadores de confiança, linhas clicáveis → modal de detalhamento com feedback do usuário |
+| `categories` | Gastos por Categoria | Stacked bar + lista de categorias com % e valor (clicável → modal de detalhamento) |
+| `limits` | Limites de Orçamento | Lista de categorias com atenção (clicável → modal de detalhamento) |
+| `flow` | Fluxo Diário | Gráfico de fluxo diário interativo — **sempre expandido e fixo após KPIs (não configurável no WidgetSettingsSheet)** |
 
 #### Arquitetura dos Widgets
 
 | Componente | Função |
 |-----------|--------|
-| `WidgetCard.tsx` | Card base padronizado (header com ícone sem fundo, título, subtitle, summary badge + conteúdo com Suspense) |
-| `DashboardWidgetGrid.tsx` | Grid de widgets visíveis, gerencia estado do modal de detalhamento de categoria via `CategoryDetailContext` |
-| `WidgetSettingsSheet.tsx` | Sheet de personalização: reordenação via drag-and-drop (dnd-kit) e toggle de visibilidade por widget |
-| `useDashboardLayout.ts` | Hook que gerencia ordem/visibilidade dos widgets, com persistência em `user_preferences` (Supabase + localStorage) |
-| `DashboardCategoryDetailModal.tsx` | Modal de detalhamento de categoria (transactions filtradas por categoria, busca textual, total e % do total) |
-| `RecurringExpenseDetailModal.tsx` | Modal de detalhamento de despesa recorrente com todas as ocorrências, feedback do usuário (confirmar/ignorar/restaurar) |
-| `recurringExpenseLearning.ts` | Utilitário de aprendizado do usuário sobre recorrências (dismiss/confirm/clear com persistência localStorage) |
+| `WidgetCard.tsx` | Card base padronizado com header + conteúdo (`Suspense`). **Mobile**: colapsável (título + chevron apenas quando recolhido). **Desktop** / `disableCollapse`: layout horizontal com ícone + título + subtítulo. Animação com `AnimatePresence`/`motion`. |
+| `DashboardWidgetGrid.tsx` | Grid de widgets: **KPI bar fixa no topo** (Rendas/Despesas/Investimentos/Saldo em grid 2×2 mobile, 4 colunas desktop). Widget `flow` renderizado separadamente com `disableCollapse` (sempre expandido após KPIs). Demais widgets colapsáveis no mobile. Gerencia modal de detalhamento de categoria via `CategoryDetailContext`. |
+| `WidgetSettingsSheet.tsx` | Sheet de personalização: reordenação via drag-and-drop (dnd-kit) e toggle de visibilidade por widget. Widget `flow` **não aparece** na lista (é fixo como os KPIs). |
+| `useDashboardLayout.ts` | Hook que gerencia ordem/visibilidade dos widgets, com persistência em `user_preferences` (Supabase + localStorage). Widget `flow` é **sempre visível** e `toggleVisibility` o ignora. Botão de configurar movido para FAB hub (`usePageActions`). |
+| `DashboardCategoryDetailModal.tsx` | Modal de detalhamento de categoria (transactions filtradas por categoria, busca textual, total e % do total). |
+| `RecurringExpenseDetailModal.tsx` | Modal de detalhamento de despesa recorrente com todas as ocorrências, feedback do usuário (confirmar/ignorar/restaurar). |
+| `recurringExpenseLearning.ts` | Utilitário de aprendizado do usuário sobre recorrências (dismiss/confirm/clear com persistência localStorage). |
+
+#### Componentes de Summary
+
+Os componentes de summary (badges nos headers dos widgets) **retornam `null`** em todas as variantes (`HealthSummary`, `SubscriptionsSummary`, `CategoryBreakdownSummary`, `LimitsOverviewSummary`, `DailyFlowSummary`). No mobile colapsado, o header mostra apenas título + chevron de expansão. No desktop/expandido, o summary não é renderizado. Apenas `ActionsSummary` mantém conteúdo (contagem de sugestões de otimização).
 
 #### Resumo da Refatoração
 
 - **Antigos componentes removidos** (~2.060 linhas deletadas): `DashboardKpis`, `ActionsEconomyCard`, `DailyBudgetAdvisor`, `DailyFlowCard`, `FinancialHealthCard`, `LimitsControl`, `MonthlyOverviewChart`, `SmartLimitSuggestions`, `ExpenseCategoryRowButton`, `MobileChartSwitcher`
-- **Widget cards**: `WidgetCard` com `!p-0` (padrão `KpiCard`), header padronizado, sem collapse/expand, ícones sem fundo
+- **Widget cards**: `WidgetCard` com `!p-0`, header padronizado, **colapsável no mobile** com `disableCollapse` para widget de Fluxo Diário. **KPI bar fixa** (Rendas/Despesas/Investimentos/Saldo) no topo do grid.
 - **Contexto**: `DashboardDataContext` com hooks focados (`useDashboardFinances`, `useDashboardBudget`, `useDashboardInsightsContext`, `useDashboardPortfolioContext`, `useDashboardActions`)
 - **Redundâncias corrigidas**: `ActionsSummary` não repete savings rate do Health; `LimitsOverviewDetail` não repete barra de orçamento do FinancialHealthDetail no estado vazio
+
+#### Botão de Configurar Dashboard
+
+O botão de engrenagem para personalizar widgets foi **movido** do canto superior direito do `DashboardWidgetGrid` para o **FAB hub** (via `usePageActions`). Agora aparece como uma ação `{ icon: Settings, label: 'Personalizar', intent: 'neutral' }` no menu de ações flutuantes, liberando espaço no grid.
 
 ### 2.6 Elementos Flutuantes
 
@@ -525,7 +533,7 @@ O componente `Skeleton.tsx` (`src/components/Skeleton.tsx`) fornece placeholders
 
 | Variante | Uso | Descrição |
 |----------|-----|-----------|
-| `SkeletonDashboard` | Dashboard | 4 KPIs + gráfico de fluxo + limites + insights |
+| `SkeletonDashboard` | Dashboard | KPI grid (2×2 mobile, 4 colunas desktop) + 4 widget cards empilhados com header e conteúdo placeholder |
 | `SkeletonInvestments` | Investimentos | 4 KPIs + tabs + saldo + chart evolução + 3 pizza charts |
 | `SkeletonCategories` | Categorias | 4 KPIs + 6 category cards com status |
 | `SkeletonTransactionList` | Despesas/Rendas | 3 linhas com ícone, título e valor |
@@ -616,12 +624,16 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Mínimo de 2 widgets visíveis** | `toggleVisibility` no `useDashboardLayout` agora bloqueia ocultação se restariam menos de 2 widgets visíveis. | Segurança | ✅ |
 | — | **Aprendizado de recorrências** | `RecurringExpenseDetailModal` com feedback do usuário (confirmar/ignorar/restaurar) via `recurringExpenseLearning.ts`. Detecção refinada com `matchedExpenseIds` e `occurrencesByMonth` preenchidos. | Novo | ✅ |
 | — | **CurrencyInput + máscara reversa** | Novo componente `CurrencyInput.tsx` com máscara reversa estilo Nubank (`Intl.NumberFormat` com `style: currency`), `type="text"`, `inputMode="numeric"`, `pattern="[0-9]*"`. Substituição de `AmountInput.tsx` e `TransactionAmountFields.tsx` em ~18 arquivos. Migração de todos os formulários financeiros para valores numéricos. | Novo | ✅ |
+| — | **Dashboard mobile: KPI bar, widgets colapsáveis, summary removido** | Adição de KPI bar fixa (Rendas/Despesas/Investimentos/Saldo) no topo do `DashboardWidgetGrid`. Widgets colapsáveis no mobile com `useState` + `AnimatePresence`. `disableCollapse` prop no `WidgetCard` para Fluxo Diário (sempre expandido). Todos os summaries (`HealthSummary`, `SubscriptionsSummary`, `CategoryBreakdownSummary`, `LimitsOverviewSummary`, `DailyFlowSummary`) retornam `null`. Botão de configurar dashboard movido de `WidgetCard` para `usePageActions` (FAB hub). Skeleton refatorado para espelhar o novo layout. | Melhoria | ✅ |
+| — | **Fluxo Diário removido das configurações de widgets** | Widget `flow` não aparece mais no `WidgetSettingsSheet` por ser fixo (como os KPIs). `toggleVisibility` no `useDashboardLayout` ignora `'flow'`. `visibleWidgets` sempre inclui `flow` independente do estado de visibilidade. `handleDragEnd` corrigido para usar `order.indexOf()` em vez de `widgetIds.indexOf()` para mapear corretamente os índices da lista filtrada. | Melhoria | ✅ |
 
 ### Validação final
 
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
 - ✅ Testes: 425/425 passando (35 arquivos)
+- ✅ Dashboard mobile responsivo com widgets colapsáveis
+- ✅ Skeleton espelha layout real (KPI grid + widgets)
 - ✅ UI Guardrails: 21 na baseline
 - ✅ `as any` em produção: 0
 - ✅ Non-null assertions em produção: 0

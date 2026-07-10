@@ -139,11 +139,12 @@ export default function WidgetSettingsSheet({ layout, isOpen, onClose }: WidgetS
     resetLayout,
   } = layout
 
-  // Widgets ordenados conforme layout atual
+  // Widgets ordenados conforme layout atual (exceto 'flow' que é fixo)
   const sortedWidgets = useMemo(
     () => order
       .map((id) => allWidgets.find((w) => w.id === id))
-      .filter((w): w is DashboardWidgetMeta => w !== undefined),
+      .filter((w): w is DashboardWidgetMeta => w !== undefined)
+      .filter((w) => w.id !== 'flow'),
     [order, allWidgets],
   )
 
@@ -160,16 +161,18 @@ export default function WidgetSettingsSheet({ layout, isOpen, onClose }: WidgetS
   )
 
   // ── Handlers ──
+  // Usa order.indexOf (que inclui 'flow') para mapear corretamente
+  // os índices da lista filtrada (sem 'flow') para o array order completo
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const oldIndex = widgetIds.indexOf(active.id as WidgetId)
-    const newIndex = widgetIds.indexOf(over.id as WidgetId)
+    const oldIndex = order.indexOf(active.id as WidgetId)
+    const newIndex = order.indexOf(over.id as WidgetId)
     if (oldIndex !== -1 && newIndex !== -1) {
       moveWidget(oldIndex, newIndex)
     }
-  }, [widgetIds, moveWidget])
+  }, [order, moveWidget])
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Personalizar Dashboard">

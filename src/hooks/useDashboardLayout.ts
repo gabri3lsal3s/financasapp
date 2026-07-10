@@ -181,6 +181,8 @@ export function useDashboardLayout() {
   const MIN_VISIBLE_WIDGETS = 2
 
   const toggleVisibility = useCallback((widgetId: WidgetId) => {
+    if (widgetId === 'flow') return // fluxo diário é fixo (não configurável)
+
     setLayout((prev) => {
       // Não permite ocultar se restariam menos de MIN_VISIBLE_WIDGETS visíveis
       const isCurrentlyVisible = prev.visibility[widgetId]
@@ -211,7 +213,7 @@ export function useDashboardLayout() {
 
   const visibleWidgets = useMemo(() => {
     return layout.order
-      .filter((id) => layout.visibility[id])
+      .filter((id) => layout.visibility[id] || id === 'flow') // flow é sempre visível
       .map((id) => ALL_WIDGETS.find((w) => w.id === id)!)
       .filter(Boolean)
   }, [layout.order, layout.visibility])

@@ -13,7 +13,7 @@ Aplicação web premium de controle financeiro pessoal com **arquitetura Offline
 
 ## ✨ Funcionalidades Principais
 
-- **Dashboard Unificado** — KPIs, gráfico de fluxo diário, insights financeiros e controle de orçamentos
+- **Dashboard Unificado** — KPI bar fixa (Rendas/Despesas/Investimentos/Saldo), widgets colapsáveis no mobile, gráfico de fluxo diário, insights financeiros e controle de orçamentos
 - **Gestão de Despesas e Rendas** — CRUD completo com parcelamento (até 60x), competência de cartão de crédito, estornos automáticos e sincronização offline
 - **Motor Quantamental de Portfólio** — Avaliação híbrida (Scuttlebutt qualitativo + fundamentos quantitativos), Tiers de convicção (S/A/B/C), Smart Aporte com roteamento inteligente, conciliação B3 via upload de extrato
 - **Cartões de Crédito** — Gestão completa de faturas, conciliação CSV, estornos vinculados, ciclos de fechamento customizáveis

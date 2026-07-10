@@ -1,6 +1,6 @@
 # Minhas Finanças — Guia Completo do Sistema
 
-> **Versão:** 1.2.0 | **Última atualização:** Julho de 2026
+> **Versão:** 1.3.0 | **Última atualização:** Julho de 2026
 > **Stack:** React 18 + TypeScript + Vite + Tailwind CSS + Supabase
 
 ---
@@ -38,7 +38,7 @@ O **Minhas Finanças** é uma aplicação web **PWA (Progressive Web App)** de c
 
 | Área | Funcionalidades |
 |------|----------------|
-| **Dashboard** | KPIs de rendas, despesas, investimentos e saldo; gráfico de fluxo diário; **Centro de Economia** com insights automáticos (assinaturas, desafios de economia, sugestões de limites); limites de gastos |
+| **Dashboard** | KPI bar fixa (Rendas/Despesas/Investimentos/Saldo), widgets colapsáveis no mobile, gráfico de fluxo diário sempre expandido; **Centro de Economia** com insights automáticos (assinaturas, desafios de economia, sugestões de limites); limites de gastos |
 | **Despesas** | CRUD completo com parcelamento, competência de cartão de crédito, sincronização offline |
 | **Rendas** | CRUD completo com suporte a estornos automáticos de cartões |
 | **Investimentos** | Portfólio completo com motor quantamental (Scuttlebutt + Fundamentos), TWR, ledger, conciliação B3, Smart Aporte |
@@ -182,18 +182,14 @@ O **Minhas Finanças** é uma aplicação web **PWA (Progressive Web App)** de c
 
 ### 4.2 Dashboard (`/`)
 
-- **KPIs**: Rendas, Despesas, Investimentos, Saldo com glow dinâmico e sparklines
-- **Copiloto de IA**:
-  - Campo de pergunta para IA com suporte a lançamentos via linguagem natural
-  - **Sugestões inteligentes não-LLM**: 7 tipos de insights baseados em dados reais (limites estourados, taxa de poupança, variação de despesas, categoria de maior custo, pico semanal, taxa de investimento, taxa de consumo) com priorização por criticidade
-  - Cards clicáveis de detalhamento dos insights que enviam consultas específicas à IA
-  - Análise fixada (pinned) com persistência no Supabase e botão de atualização
-  - Gráfico interativo gerado pela IA (barras, rosca, comparativo)
-  - Bloco integrado de **Gasto Disponível** (mensal + diário) e **Ajustes e Otimizações** (remanejamento de limites)
-- **Gráfico fluxo diário**: Barras empilhadas (rendas/despesas/investimentos por dia)
+- **KPI Bar fixa**: Rendas, Despesas, Investimentos, Saldo em grid 2×2 (mobile) / 4 colunas (desktop), sempre visível no topo
+- **Fluxo Diário**: Gráfico de barras empilhadas (rendas/despesas/investimentos por dia) — fixo após KPIs, sempre expandido, sem colapso
+- **Widgets colapsáveis (mobile)**: Cards com header (título + chevron) que expandem ao toque. Desktop mostra layout clássico com ícone + título + subtítulo
+- **Grid de widgets**: Até 6 widgets configuráveis, ordem/visibilidade persistida via `user_preferences` (Supabase + localStorage)
+- **Botão de personalizar widgets**: Acessível via ações flutuantes (FAB hub) — não mais no grid
 - **Insights financeiros**: Cards com dicas e alertas
 - **Limites/Orçamentos**: Cards de progresso por categoria
-- **Ações flutuantes**: Navegação rápida para despesas, rendas, investimentos
+- **Ações flutuantes**: Navegação rápida para despesas, rendas, investimentos e personalizar widget
 
 ### 4.3 Despesas (`/despesas`)
 
@@ -329,9 +325,9 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 
 | Componente | Função |
 |------------|--------|
-| `WidgetCard` | Card base padronizado: header (ícone sem fundo, título, subtitle, summary badge) + conteúdo com `Suspense` (lazy loading) |
-| `DashboardWidgetGrid` | Grid de widgets visíveis com `CategoryDetailContext` para modal de detalhamento |
-| `WidgetSettingsSheet` | Sheet de personalização: reordenação drag-and-drop + toggle visibilidade |
+| `WidgetCard` | Card base padronizado: header (ícone sem fundo, título, subtitle) + conteúdo com `Suspense` (lazy loading). **Mobile**: colapsável (mostra só título + chevron). `disableCollapse` prop para manter expandido. |
+| `DashboardWidgetGrid` | Grid de widgets visíveis com **KPI bar fixa** no topo + widget `flow` sempre expandido após KPIs. Demais widgets colapsáveis no mobile. `CategoryDetailContext` para modal de detalhamento. |
+| `WidgetSettingsSheet` | Sheet de personalização: reordenação drag-and-drop + toggle visibilidade. Widget `flow` **não aparece** na lista (é fixo como os KPIs). Botão de configurar acessível via FAB hub. |
 | `DashboardCategoryDetailModal` | Modal de detalhamento de categoria (transactions filtradas, busca textual, total) |
 | `RecurringExpenseDetailModal` | Modal de detalhamento de despesa recorrente com ocorrências e feedback do usuário (confirmar/ignorar/restaurar) |
 | `FinancialHealthDetail` | Budget usage bar, disponível/mês/dia, projeção de fim de mês |
