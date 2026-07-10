@@ -6,9 +6,15 @@
  * - Confirmar/validar ocorrências que o sistema não identificou
  * 
  * O feedback é usado para refinar a detecção futura.
+ * 
+ * Persistência: localStorage (imediato) + Supabase (background).
  */
 
-const STORAGE_KEY = 'recurring-expense-learning-v1'
+import {
+  getAllFeedback,
+  saveAllFeedback,
+  syncFeedbackFromServer,
+} from '@/services/recurringExpenseFeedbackService'
 
 /* ------------------------------------------------------------------ */
 /*  Tipos                                                              */
@@ -29,39 +35,17 @@ export interface UserFeedback {
 /*  Internas                                                           */
 /* ------------------------------------------------------------------ */
 
-function readAll(): UserFeedback[] {
-  try {
-    if (typeof localStorage === 'undefined') return []
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function writeAll(feedbacks: UserFeedback[]) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(feedbacks))
-}
-
-function getOrCreate(recurringKey: string): UserFeedback {
-  const all = readAll()
-  let fb = all.find(f => f.recurringKey === recurringKey)
+function getOrCreate(feedbacks: UserFeedback[], recurringKey: string): UserFeedback {
+  let fb = feedbacks.find(f => f.recurringKey === recurringKey)
   if (!fb) {
     fb = { recurringKey, dismissedIds: [], confirmedIds: [], updatedAt: new Date().toISOString() }
-    all.push(fb)
+    feedbacks.push(fb)
   }
   return fb
 }
 
-function save(fb: UserFeedback) {
-  const all = readAll()
-  const idx = all.findIndex(f => f.recurringKey === fb.recurringKey)
-  if (idx >= 0) all[idx] = fb
-  else all.push(fb)
-  writeAll(all)
+async function persistAndSync(feedbacks: UserFeedback[]): Promise<void> {
+  await saveAllFeedback(feedbacks)
 }
 
 /* ------------------------------------------------------------------ */
@@ -69,63 +53,90 @@ function save(fb: UserFeedback) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Retorna o feedback para uma despesa recorrente.
+ * Inicializa o sistema de aprendizado, sincronizando do Supabase para localStorage.
+ * Chamar uma vez na inicialização do app.
+ */
+export async function initRecurringLearning(): Promise<void> {
+  await syncFeedbackFromServer()
+}
+
+/**
+ * Retorna o feedback para uma despesa recorrente (síncrono, lê do localStorage).
  */
 export function getFeedback(recurringKey: string): UserFeedback {
-  return getOrCreate(recurringKey)
+  const all = getAllFeedback()
+  return getOrCreate(all, recurringKey)
 }
 
 /**
  * Marca um expense ID como "não é recorrência" (falso positivo).
+ * Atualiza localStorage imediatamente e sincroniza com Supabase em background.
  */
-export function dismissOccurrence(recurringKey: string, expenseId: string): void {
-  const fb = getOrCreate(recurringKey)
+export async function dismissOccurrence(recurringKey: string, expenseId: string): Promise<void> {
+  const all = getAllFeedback()
+  const fb = getOrCreate(all, recurringKey)
   fb.dismissedIds = [...new Set([...fb.dismissedIds, expenseId])]
   fb.confirmedIds = fb.confirmedIds.filter(id => id !== expenseId)
   fb.updatedAt = new Date().toISOString()
-  save(fb)
+  const idx = all.findIndex(f => f.recurringKey === recurringKey)
+  if (idx >= 0) all[idx] = fb
+  else all.push(fb)
+  await persistAndSync(all)
 }
 
 /**
  * Marca um expense ID como "é recorrência" (falso negativo).
+ * Atualiza localStorage imediatamente e sincroniza com Supabase em background.
  */
-export function confirmOccurrence(recurringKey: string, expenseId: string): void {
-  const fb = getOrCreate(recurringKey)
+export async function confirmOccurrence(recurringKey: string, expenseId: string): Promise<void> {
+  const all = getAllFeedback()
+  const fb = getOrCreate(all, recurringKey)
   fb.confirmedIds = [...new Set([...fb.confirmedIds, expenseId])]
   fb.dismissedIds = fb.dismissedIds.filter(id => id !== expenseId)
   fb.updatedAt = new Date().toISOString()
-  save(fb)
+  const idx = all.findIndex(f => f.recurringKey === recurringKey)
+  if (idx >= 0) all[idx] = fb
+  else all.push(fb)
+  await persistAndSync(all)
 }
 
 /**
  * Remove um expense ID de qualquer feedback (restaura).
+ * Atualiza localStorage imediatamente e sincroniza com Supabase em background.
  */
-export function clearOccurrenceFeedback(recurringKey: string, expenseId: string): void {
-  const fb = getOrCreate(recurringKey)
+export async function clearOccurrenceFeedback(recurringKey: string, expenseId: string): Promise<void> {
+  const all = getAllFeedback()
+  const fb = getOrCreate(all, recurringKey)
   fb.dismissedIds = fb.dismissedIds.filter(id => id !== expenseId)
   fb.confirmedIds = fb.confirmedIds.filter(id => id !== expenseId)
   fb.updatedAt = new Date().toISOString()
-  save(fb)
+  const idx = all.findIndex(f => f.recurringKey === recurringKey)
+  if (idx >= 0) all[idx] = fb
+  else all.push(fb)
+  await persistAndSync(all)
 }
 
 /**
  * Retorna todos os expense IDs que o usuário já marcou como "não recorrência" para uma chave.
+ * (síncrono, lê do localStorage)
  */
 export function getDismissedIds(recurringKey: string): string[] {
-  return getOrCreate(recurringKey).dismissedIds
+  return getFeedback(recurringKey).dismissedIds
 }
 
 /**
  * Retorna todos os expense IDs que o usuário já confirmou como recorrência.
+ * (síncrono, lê do localStorage)
  */
 export function getConfirmedIds(recurringKey: string): string[] {
-  return getOrCreate(recurringKey).confirmedIds
+  return getFeedback(recurringKey).confirmedIds
 }
 
 /**
  * Remove todo o feedback para uma chave (usado quando a despesa é restaurada).
+ * Atualiza localStorage imediatamente e sincroniza com Supabase em background.
  */
-export function clearFeedbackForRecurring(recurringKey: string): void {
-  const all = readAll().filter(f => f.recurringKey !== recurringKey)
-  writeAll(all)
+export async function clearFeedbackForRecurring(recurringKey: string): Promise<void> {
+  const all = getAllFeedback().filter(f => f.recurringKey !== recurringKey)
+  await persistAndSync(all)
 }

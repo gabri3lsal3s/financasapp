@@ -108,18 +108,18 @@ export default function RecurringExpenseDetailModal({
     return allOccurrences.sort((a, b) => b.date.localeCompare(a.date))
   }, [ctx, isOpen, item, recurringKey])
 
-  const handleDismiss = (expenseId: string) => {
-    dismissOccurrence(recurringKey, expenseId)
+  const handleDismiss = async (expenseId: string) => {
+    await dismissOccurrence(recurringKey, expenseId)
     refresh()
   }
 
-  const handleConfirm = (expenseId: string) => {
-    confirmOccurrence(recurringKey, expenseId)
+  const handleConfirm = async (expenseId: string) => {
+    await confirmOccurrence(recurringKey, expenseId)
     refresh()
   }
 
-  const handleClear = (expenseId: string) => {
-    clearOccurrenceFeedback(recurringKey, expenseId)
+  const handleClear = async (expenseId: string) => {
+    await clearOccurrenceFeedback(recurringKey, expenseId)
     refresh()
   }
 

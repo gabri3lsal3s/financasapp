@@ -28,6 +28,7 @@ import {
   useDashboardActions,
   useDashboardPortfolioContext,
 } from '@/contexts/DashboardDataContext'
+import { initRecurringLearning } from '@/utils/recurringExpenseLearning'
 
 /* ------------------------------------------------------------------ */
 /*  Modal state (useReducer)                                           */
@@ -96,6 +97,11 @@ function DashboardContent() {
     window.addEventListener('local-data-changed', onDataChanged)
     return () => window.removeEventListener('local-data-changed', onDataChanged)
   }, [isOnline, loadPortfolioTransactions])
+
+  // ── Sincroniza feedback de recorrências do Supabase para localStorage ──
+  useEffect(() => {
+    void initRecurringLearning()
+  }, [])
 
   usePageActions(
     [{
