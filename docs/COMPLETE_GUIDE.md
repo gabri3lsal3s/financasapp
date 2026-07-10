@@ -334,13 +334,11 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `MonthlyOverviewChart` | Evolução mensal |
 | `DailyBudgetAdvisor` | Orçamento diário sugerido |
 | `LimitsControl` | Controle de limites por categoria |
-| `FinancialInsights` | Cards de insights mensais |
-| `BudgetHeroCard` | Card de gasto disponível (diário + mensal + alerta) |
-| `DashboardSummaryCard` | Card Resumo do Mês com termômetro de orçamento e sugestão de remanejamento |
-| `DashboardCategoryDetailModal` | Modal de detalhamento de categoria: comparação, metas, mini-chart, lançamentos |
-| `ProjectionCard` | Projeção de fim de mês com ritmo de gastos |
-| `QuickWinsGrid` | Grade de ações rápidas de otimização |
-| `InsightsCard` | Centro de Economia (alertas, assinaturas, desafios, limites) |
+| `FinancialHealthCard` | Card único de saúde financeira (saldo, diário, barra de orçamento, projeção) |
+| `ActionsEconomyCard` | Centro de Ações e Economia (alertas, quick wins, despesas recorrentes, padrões similares) |
+| `DailyFlowCard` | Gráfico de fluxo diário (collapsible) |
+| `SimilarPatternRow` | Sub-componente para exibição de padrões similares de gasto por categoria |
+| `RecurringExpensesSection` | Seção de despesas recorrentes com indicadores de confiança e meses detectados |
 
 ### 5.7 Investimentos
 
@@ -485,6 +483,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `portfolioOrphanCleanup.ts` | Limpeza de órfãos de portfólio |
 | `indexRatesFetcher.ts` | Taxas de índice (CDI, Selic, IPCA) |
 | `offlineCache.ts` | Cache offline |
+| `insightsEngine.ts` | **Motor de insights do dashboard** — `calcSubscriptionSignals()` (3 sinais: nameMatch, categoryMatch, exactValue), `classifyBySignals()` (árvore de decisão com 9 níveis, confiança 0.40-0.98). Detecção separa valor bruto (comparação entre meses) de valor do relatório (exibição). 38+ testes unitários. |
 
 ---
 
@@ -781,7 +780,7 @@ npm run preview   # Preview do build
 | Métrica | Valor |
 |---------|-------|
 | TypeScript errors | **0** |
-| Testes passando | **387/387** (35 arquivos) |
+| Testes passando | **425/425** (35 arquivos) |
 | UI Guardrails | **0 violações** |
 | `as any` em produção | **0** |
 | `as any` em assinaturas de função | **0** |

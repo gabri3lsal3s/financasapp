@@ -39,8 +39,8 @@
 | Métrica | Valor | Status |
 |---------|-------|--------|
 | TypeScript errors | **0** | ✅ |
-| Testes passando | **387/387** (35 arquivos, ~8s) | ✅ |
-| Build | **OK** (PWA, 72 entries precached) | ✅ |
+| Testes passando | **425/425** (35 arquivos, ~10s) | ✅ |
+| Build | **OK** (PWA, 74 entries precached) | ✅ |
 | Build | **OK** | ✅ |
 | UI Guardrails | **21 na baseline** | 🟡 |
 | `as any` em produção | **0** | ✅ |
@@ -100,6 +100,15 @@
 | 3.3 | CSS Recharts consolidado | Centralizado em index.css | ✅ |
 | 3.4 | Inline styles → Tailwind | ~30 estilos migrados em 4 arquivos (TransactionRow, TransactionCard, PageActionButtonHub, FloatingCalculator) | ✅ |
 | 3.5 | EmptyState unificado | ExpenseCategoryGrid + IncomeCategoryGrid usam EmptyState component | ✅ |
+
+### Fase 2.6 — Detecção por Sinais (Signal-based Subscription Detection) ✅
+
+| # | Item | Descrição | Status |
+|---|------|-----------|--------|
+| 3.6 | **`calcSubscriptionSignals()`** | 3 sinais: nameMatch (70+ serviços), categoryMatch (16+ categorias), exactValue (±5%). Exportada com 21 testes unitários | ✅ |
+| 3.7 | **`classifyBySignals()`** | Árvore de decisão com 9 níveis de prioridade (confiança 0.40-0.98). Exportada com 17 testes unitários | ✅ |
+| 3.8 | **Raw/Report split** | Detecção usa valor bruto (`exp.amount`) para comparação; `monthlyAmount` usa valor do relatório. Aplicado em Passos 2 e 3 | ✅ |
+| 3.9 | **JSDoc + polish** | Natureza condicional ('fixed' só com exactValue), 'site' removido (muito genérico), duplicatas limpas | ✅ |
 
 ### Fase 4 — Extração de Arquivos Grandes ✅
 

@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — Insights do Dashboard refatorados: `insightsEngine.ts`, `useDashboardInsights.ts`, `InsightsCard.tsx`. Dead code removido: `aiSuggestions.ts`, `useDashboardAI.ts`, `BeautifulMarkdown.tsx`, `InteractiveAIChart.tsx`.
+> **Última atualização:** Julho de 2026 — Detecção inteligente de despesas recorrentes em 3 níveis (`subscription`/`recurring`/`similar`) + **detecção por sinais** (nome, categoria, valor exato) + **separação raw/report** (comparação usa valor bruto, exibição usa valor do relatório) no `insightsEngine.ts`.
 
 ---
 
@@ -291,7 +291,7 @@ Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar
 | `useCalculatorKeyboard` | Atalhos de teclado para calculadora flutuante |
 | `useCalculatorPanel` | Drag/resize do painel da calculadora |
 | `useScrollToTop` | Scroll-to-top com pull gesture e haptics |
-| `useDashboardInsights` | Insights estruturados (assinaturas, desafios, limites) |
+| `useDashboardInsights` | Insights estruturados (assinaturas, despesas recorrentes, desafios, limites) |
 | `useReportCustomPeriod` | Hook de período customizado para Reports (data loading, memoização, auto-reload) |
 
 ---
@@ -587,6 +587,11 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - **useEffect reduzido**: FloatingCalculator ~14→11 effects (MutationObserver + resize unificado + localStorage unificado + keyboard com useRef). Reports.tsx: 2 effects de validação unificados.
 - **Sistema de z-index unificado**: Implementação de CSS Custom Properties e constantes TypeScript para hierarquia padronizada. Todos os componentes migrados de valores hardcoded. Teste de consistência automatizado (16 testes).
 - **Insights do Dashboard refatorados**: Novo motor `insightsEngine.ts` com detecção de assinaturas (comparação entre meses), desafios de economia (categorias não essenciais), sugestões de ajuste de limites. Hook `useDashboardInsights.ts` simplificado. Componente `InsightsCard.tsx` sem input de chat. Dead code removido: `aiSuggestions.ts`, `aiSuggestions.tsx`, `useDashboardAI.ts`, `BeautifulMarkdown.tsx`, `InteractiveAIChart.tsx`.
+- **Detecção de despesas recorrentes em 3 níveis**: `detectRecurringExpenses()` classifica recorrências como `subscription` (mesma descrição ±10% em 3+ meses), `recurring` (mesma descrição ±50% em 2+ meses) e `similar` (mesma categoria + valor similar em meses diferentes).
+  - **Detecção por sinais (v2)**: `calcSubscriptionSignals()` e `classifyBySignals()` adicionam 3 sinais para classificação mais precisa: `nameMatch` (70+ serviços conhecidos como Netflix, Spotify, Adobe, Disney+), `categoryMatch` (16+ categorias de assinatura), `exactValue` (valor ±5% entre meses). Árvore de decisão com 9 níveis de prioridade, confiança de 0.40 a 0.98.
+  - **Separação raw/report**: A comparação entre meses usa o valor bruto (`exp.amount`), enquanto o `monthlyAmount` exibido usa o valor ajustado pelo relatório (`amount × report_weight`). Aplicado nos Passos 2 e 3.
+  - Mitigações de falso positivo no Passo 3: exclusão de categorias agregadoras (`AGGREGATE_CATEGORIES`), verificação de dispersão interna (5+ itens com nenhum >40% do total → não é recorrência), verificação de descrição dominante (70%+ do valor em 1 item → delegar ao Passo 1/2), e threshold adaptativo de meses históricos (2+ matches quando há 3+ meses de dados, 1+ caso contrário).
+  - 38 novos testes unitários para `calcSubscriptionSignals` e `classifyBySignals`. Total: 425 testes passando.
 - **Motor Quantamental**: Sistema completo de avaliação híbrida (Scuttlebutt + Fundamentos) com Tiers de convicção, enquadramento automático, Smart Aporte com log de roteamento, overrides manuais com alertas de contraste, decay trigger configurável, e checklist detalhado de critérios quantitativos por classe (Ações, FIIs, ETFs). Migrations SQL, 27 componentes de investimentos, 4 testes específicos do engine.
 - **Bug Fix — CSS class spacing**: Settings.tsx — classes Tailwind com espaços entre hífens (`h - 2 w - 2`, `rounded - lg border p - 3`) corrompiam a renderização do indicador biométrico e do card de status.
 - **Bug Fix — `any` type eliminado**: `let mergedFundamentals: any = null` → `ValuedPosition['fundamentals']` em `usePortfolioState.ts`.
