@@ -78,7 +78,7 @@ export default function FinancialHealthDetail() {
               </span>
             </span>
           </div>
-          <div className="flex items-center gap-4 text-[9px] text-secondary">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-secondary">
             <span>Ritmo: <strong className="text-primary">{formatCurrency(spendingProjection.dailyBurnRate)}</strong>/dia</span>
             <span>
               {spendingProjection.onTrack

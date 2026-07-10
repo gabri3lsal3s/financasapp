@@ -46,17 +46,17 @@ export default function WidgetCard({ widget, summary, detail }: WidgetCardProps)
       )}
     >
       {/* ── Header (sempre visível) ── */}
-      <div className="flex items-center justify-between gap-4 border-b border-glass/40 px-4 sm:px-5 pt-4 sm:pt-5 pb-3">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <Icon size={18} className="shrink-0 text-primary/70" />
+      <div className="flex items-center justify-between gap-2 sm:gap-4 border-b border-glass/40 px-4 sm:px-5 pt-4 sm:pt-5 pb-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Icon size={16} className="shrink-0 text-primary/60 sm:text-primary/70" />
           <div className="min-w-0">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary truncate">
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary truncate">
               {widget.title}
             </h3>
-            <p className="text-xs text-secondary mt-0.5 truncate">{widget.subtitle}</p>
+            <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">{widget.subtitle}</p>
           </div>
         </div>
-        <div className="shrink-0">{summary}</div>
+        <div className="shrink-0 max-w-[45%] sm:max-w-none">{summary}</div>
       </div>
 
       {/* ── Conteúdo (Suspense para lazy loading) ── */}

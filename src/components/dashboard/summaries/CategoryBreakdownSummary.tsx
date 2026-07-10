@@ -20,13 +20,11 @@ export default function CategoryBreakdownSummary() {
   }
 
   return (
-    <div className="flex items-center gap-2 text-right">
-      {top3.map((item) => (
-        <span key={item.name} className="text-xs text-secondary truncate max-w-[100px] hidden sm:inline">
-          {item.name}
-        </span>
-      ))}
-      <span className="text-xs font-bold text-primary font-mono">
+    <div className="flex items-center gap-1 sm:gap-2 text-right">
+      <span className="text-[9px] sm:text-xs text-secondary truncate max-w-[80px] sm:max-w-[100px]">
+        {top3[0].name}
+      </span>
+      <span className="text-[10px] sm:text-xs font-bold text-primary font-mono">
         {formatCurrency(total)}
       </span>
     </div>

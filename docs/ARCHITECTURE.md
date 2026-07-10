@@ -601,6 +601,16 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **InsightsDetail substitui ActionsEconomyDetail** | Novo componente baseado em FinancialInsights do reports, consumindo dados do dashboard context. | Melhoria | ✅ |
 | — | **Redundância: ActionsSummary sem savings rate** | ActionsSummary mudou de `useDashboardFinances` (savingsRate que duplicava HealthSummary) para `useDashboardInsightsContext` (contagem de sugestões de otimização). | Melhoria | ✅ |
 | — | **Redundância: LimitsOverviewDetail sem barra duplicada** | Estado vazio do LimitsOverviewDetail agora mostra apenas mensagem, sem a barra de progresso que duplicava FinancialHealthDetail. | Melhoria | ✅ |
+| — | **Responsividade mobile do dashboard** | Ajustes de layout: gaps reduzidos, textos menores no mobile, flex-wrap em headers, line-clamp nos insights, badge de status oculto no mobile, investimentos ocultos em telas < 640px, ícones e botões compactados. | Melhoria | ✅ |
+| — | **Mínimo de 2 widgets visíveis** | `toggleVisibility` no `useDashboardLayout` agora bloqueia ocultação se restariam menos de 2 widgets visíveis. | Segurança | ✅ |
+
+### Validação final
+
+- ✅ Build: OK
+- ✅ Typecheck: 0 erros
+- ✅ Testes: 425/425 passando (35 arquivos)
+- ✅ UI Guardrails: 21 na baseline
+- ✅ `as any` em produção: 0
 
 ### Validação final
 

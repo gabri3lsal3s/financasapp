@@ -30,39 +30,39 @@ function ExpenseRow({
 
   return (
     <div className={cn(
-      'flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-glass',
+      'flex items-center justify-between gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 rounded-xl border border-glass',
       item.isIgnored && 'opacity-40',
     )}>
-      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <span className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0', levelStyle.color)}>
-          <LevelIcon size={13} />
+      <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+        <span className={cn('w-6 sm:w-7 h-6 sm:h-7 rounded-lg flex items-center justify-center shrink-0', levelStyle.color)}>
+          <LevelIcon size={11} />
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] font-bold text-primary truncate">{item.description}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[8px] text-secondary/70">{item.categoryName}</span>
-            <span className="flex items-center gap-[2px]">
+          <p className="text-[10px] sm:text-[11px] font-bold text-primary truncate">{item.description}</p>
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
+            <span className="text-[7px] sm:text-[8px] text-secondary/70 truncate max-w-[80px] sm:max-w-none">{item.categoryName}</span>
+            <span className="flex items-center gap-[2px] shrink-0">
               {[0, 1, 2].map((i) => (
-                <span key={i} className={cn('w-[5px] h-[5px] rounded-full', i < confidenceDots ? confidenceColors[i] : 'bg-glass/30')} />
+                <span key={i} className={cn('w-[4px] sm:w-[5px] h-[4px] sm:h-[5px] rounded-full', i < confidenceDots ? confidenceColors[i] : 'bg-glass/30')} />
               ))}
             </span>
-            {item.monthsFound > 1 && <span className="text-[8px] text-secondary/50">{item.monthsFound} meses</span>}
+            {item.monthsFound > 1 && <span className="text-[7px] sm:text-[8px] text-secondary/50">{item.monthsFound} meses</span>}
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <div className="text-right">
-          <p className="text-[11px] font-bold text-primary font-mono">{formatCurrency(item.monthlyAmount)}</p>
-          <p className="text-[8px] text-secondary/60">{formatCurrency(item.annualAmount)}/ano</p>
+          <p className="text-[10px] sm:text-[11px] font-bold text-primary font-mono">{formatCurrency(item.monthlyAmount)}</p>
+          <p className="text-[7px] sm:text-[8px] text-secondary/60 hidden sm:block">{formatCurrency(item.annualAmount)}/ano</p>
         </div>
         {showDismiss && !item.isIgnored && (
-          <button onClick={() => onDismiss?.(item.description)} className="w-6 h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-secondary shrink-0" title="Ignorar">
-            <X size={12} />
+          <button onClick={() => onDismiss?.(item.description)} className="w-5 sm:w-6 h-5 sm:h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-secondary shrink-0" title="Ignorar">
+            <X size={10} />
           </button>
         )}
         {item.isIgnored && onRestore && (
-          <button onClick={() => onRestore(item.description)} className="w-6 h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-income shrink-0" title="Restaurar">
-            <Eye size={12} />
+          <button onClick={() => onRestore(item.description)} className="w-5 sm:w-6 h-5 sm:h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-income shrink-0" title="Restaurar">
+            <Eye size={10} />
           </button>
         )}
       </div>
@@ -90,11 +90,11 @@ export default function SubscriptionsDetail() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-[10px] font-bold text-primary">{formatCurrency(totalMonthly)}<span className="text-[8px] font-normal text-secondary/60">/mês</span></span>
         <span className="text-[9px] text-secondary/60">{formatCurrency(totalAnnual)}/ano</span>
         {cuttableMonthly > 0 && (
-          <span className="text-[8px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-md">Cortável: {formatCurrency(cuttableMonthly)}/mês</span>
+          <span className="text-[8px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-md whitespace-nowrap">Cortável: {formatCurrency(cuttableMonthly)}/mês</span>
         )}
       </div>
 

@@ -71,15 +71,15 @@ export default function LimitsOverviewDetail() {
                 {item.name}
               </span>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
               <span className={cn(
-                'text-[8px] font-bold px-1.5 py-0.5 rounded-full',
+                'hidden sm:inline-block text-[8px] font-bold px-1.5 py-0.5 rounded-full',
                 item.isExceeded ? 'text-expense bg-expense/10' : 'text-warning bg-warning/10',
               )}>
                 {item.statusLabel}
               </span>
-              <span className="text-[9px] font-mono text-secondary/60 w-10 text-right">{formatNumberWithTwoDecimalsBR(item.usagePercentage)}%</span>
-              <span className="text-[10px] font-bold text-primary font-mono w-16 text-right">{formatCurrency(item.value)}</span>
+              <span className="text-[9px] font-mono text-secondary/60 w-8 sm:w-10 text-right">{formatNumberWithTwoDecimalsBR(item.usagePercentage)}%</span>
+              <span className="text-[10px] font-bold text-primary font-mono w-14 sm:w-16 text-right">{formatCurrency(item.value)}</span>
             </div>
           </button>
         ))}

@@ -178,14 +178,27 @@ export function useDashboardLayout() {
     })
   }, [])
 
+  const MIN_VISIBLE_WIDGETS = 2
+
   const toggleVisibility = useCallback((widgetId: WidgetId) => {
-    setLayout((prev) => ({
-      ...prev,
-      visibility: {
-        ...prev.visibility,
-        [widgetId]: !prev.visibility[widgetId],
-      },
-    }))
+    setLayout((prev) => {
+      // Não permite ocultar se restariam menos de MIN_VISIBLE_WIDGETS visíveis
+      const isCurrentlyVisible = prev.visibility[widgetId]
+      if (isCurrentlyVisible) {
+        const visibleCount = Object.values(prev.visibility).filter(Boolean).length
+        if (visibleCount <= MIN_VISIBLE_WIDGETS) {
+          return prev // não altera — mantém o mínimo de visíveis
+        }
+      }
+
+      return {
+        ...prev,
+        visibility: {
+          ...prev.visibility,
+          [widgetId]: !isCurrentlyVisible,
+        },
+      }
+    })
   }, [])
 
   const resetLayout = useCallback(() => {

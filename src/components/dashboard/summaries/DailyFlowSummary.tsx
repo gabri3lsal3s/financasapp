@@ -20,14 +20,14 @@ export default function DailyFlowSummary() {
   }, [dailyFlowData])
 
   return (
-    <div className="flex items-center gap-3 text-right">
-      <span className="text-xs font-bold text-income font-mono">
+    <div className="flex items-center gap-1.5 sm:gap-3 text-right">
+      <span className="text-[10px] sm:text-xs font-bold text-income font-mono">
         {formatCurrency(totals.Rendas)}
       </span>
-      <span className="text-xs font-bold text-expense font-mono">
+      <span className="text-[10px] sm:text-xs font-bold text-expense font-mono">
         {formatCurrency(totals.Despesas)}
       </span>
-      <span className="text-xs font-bold text-balance font-mono">
+      <span className="text-[10px] sm:text-xs font-bold text-balance font-mono hidden sm:inline">
         {formatCurrency(totals.Investimentos)}
       </span>
     </div>

@@ -145,7 +145,7 @@ export default function InsightsDetail() {
             <span className="text-[10px] font-bold uppercase tracking-wider text-secondary block mb-0.5">
               {insight.highlight}
             </span>
-            <p className="text-xs leading-relaxed text-primary">
+            <p className="text-xs leading-relaxed text-primary line-clamp-3 sm:line-clamp-none">
               {insight.text}
             </p>
           </div>

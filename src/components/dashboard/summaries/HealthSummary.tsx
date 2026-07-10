@@ -7,17 +7,17 @@ export default function HealthSummary() {
   const isPositive = balance >= 0
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <div className="text-right">
         <p className={cn(
-          'text-sm font-extrabold font-mono leading-none',
+          'text-xs sm:text-sm font-extrabold font-mono leading-none',
           isPositive ? 'text-income' : 'text-expense',
         )}>
           {formatCurrency(balance)}
         </p>
         {totalIncomes > 0 && (
           <span className={cn(
-            'text-xs font-bold font-mono',
+            'text-[10px] sm:text-xs font-bold font-mono',
             isPositive ? 'text-income/70' : 'text-expense/70',
           )}>
             {formatNumberWithTwoDecimalsBR(savingsRate)}%
@@ -25,7 +25,7 @@ export default function HealthSummary() {
         )}
       </div>
       <span className={cn(
-        'text-xs font-bold px-2 py-0.5 rounded-full',
+        'text-[9px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap',
         isPositive
           ? 'text-income bg-income/10'
           : 'text-expense bg-expense/10',
