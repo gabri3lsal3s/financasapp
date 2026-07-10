@@ -1,7 +1,7 @@
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
-import Input from '@/components/Input'
-import { formatCurrency, formatMoneyInput, parseMoneyInput } from '@/utils/format'
+import CurrencyInput from '@/components/CurrencyInput'
+import { formatCurrency } from '@/utils/format'
 import type { Debt, Expense } from '@/types'
 
 // 1. CONFIRMAR RECEBIMENTO (CRIAR RENDA)
@@ -81,8 +81,8 @@ interface IntegratedDebtModalProps {
   onClose: () => void
   debt: Debt | null
   linkedExpense: Expense | null
-  reportValueInput: string
-  onReportValueChange: (val: string) => void
+  reportValueInput: number
+  onReportValueChange: (val: number) => void
   onConfirm: () => Promise<void>
 }
 
@@ -148,19 +148,10 @@ export function IntegratedDebtModal({
           </div>
 
           <div className="space-y-1.5 text-left">
-            <Input
+            <CurrencyInput
               label="Valor final no relatório da despesa"
-              type="text"
-              inputMode="decimal"
               value={reportValueInput}
-              onChange={(e) => onReportValueChange(e.target.value)}
-              onBlur={() => {
-                const parsed = parseMoneyInput(reportValueInput)
-                if (!Number.isNaN(parsed) && parsed >= 0) {
-                  onReportValueChange(formatMoneyInput(parsed))
-                }
-              }}
-              placeholder="0,00"
+              onChange={(_e, val) => onReportValueChange(val)}
               required
             />
             <p className="text-[10px] text-secondary">

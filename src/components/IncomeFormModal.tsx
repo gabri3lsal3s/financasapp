@@ -5,7 +5,7 @@ import Modal from '@/components/Modal'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
-import TransactionAmountFields from '@/components/TransactionAmountFields'
+import TransactionCurrencyFields from '@/components/TransactionCurrencyFields'
 import TransactionDateField from '@/components/TransactionDateField'
 import TransactionCategorySelect from '@/components/TransactionCategorySelect'
 import TransactionDescriptionField from '@/components/TransactionDescriptionField'
@@ -18,8 +18,6 @@ import { logger } from '@/utils/logger'
 import {
   formatCurrency,
   formatDate,
-  formatMoneyInput,
-  parseMoneyInput,
   roundToDecimals,
 } from '@/utils/format'
 
@@ -53,8 +51,8 @@ export default function IncomeFormModal({
 }: IncomeFormModalProps) {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    amount: '',
-    report_amount: '',
+    amount: 0,
+    report_amount: 0,
     date: format(new Date(), 'yyyy-MM-dd'),
     income_category_id: '',
     description: '',
@@ -117,10 +115,8 @@ export default function IncomeFormModal({
     if (isOpen) {
       if (editingIncome) {
         setFormData({
-          amount: formatMoneyInput(editingIncome.amount),
-          report_amount: formatMoneyInput(
-            editingIncome.amount * (editingIncome.report_weight ?? 1)
-          ),
+          amount: editingIncome.amount,
+          report_amount: editingIncome.amount * (editingIncome.report_weight ?? 1),
           date: editingIncome.date,
           income_category_id: editingIncome.income_category_id,
           description: editingIncome.description || '',
@@ -135,8 +131,8 @@ export default function IncomeFormModal({
         }
       } else {
         setFormData({
-          amount: '',
-          report_amount: '',
+          amount: 0,
+          report_amount: 0,
           date: format(new Date(), 'yyyy-MM-dd'),
           income_category_id: incomeCategories[0]?.id || '',
           description: '',
@@ -186,15 +182,13 @@ export default function IncomeFormModal({
       }
     }
 
-    const amount = parseMoneyInput(formData.amount)
+    const amount = formData.amount
     if (isNaN(amount) || amount <= 0) {
       alert('Por favor, insira um valor válido maior que zero')
       return
     }
 
-    const reportAmount = formData.report_amount
-      ? parseMoneyInput(formData.report_amount)
-      : amount
+    const reportAmount = formData.report_amount || amount
     if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
       alert('O valor no relatório deve estar entre 0 e o valor da renda')
       return
@@ -344,14 +338,11 @@ export default function IncomeFormModal({
         />
       )}
     >
-      <TransactionAmountFields
+      <TransactionCurrencyFields
         amount={formData.amount}
         reportAmount={formData.report_amount}
         onSetAmounts={(next) =>
           setFormData((prev) => ({ ...prev, ...next }))
-        }
-        onReportAmountBlur={(formatted) =>
-          setFormData((prev) => ({ ...prev, report_amount: formatted }))
         }
       />
 

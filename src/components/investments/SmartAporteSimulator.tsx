@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
-import NumberInput from '@/components/NumberInput'
+import CurrencyInput from '@/components/CurrencyInput'
 import Button from '@/components/Button'
 import { formatCurrency, formatPercentBR, formatNumberBR, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
@@ -26,7 +26,7 @@ export default function SmartAporteSimulator({
   totalValue,
   cashValue
 }: SmartAporteSimulatorProps) {
-  const [aporteInput, setAporteInput] = useState('')
+  const [aporteInput, setAporteInput] = useState(0)
   const [simulationResult, setSimulationResult] = useState<{
     suggestions: SmartAporteSuggestion[]
     fallbackAmount: number
@@ -51,8 +51,8 @@ export default function SmartAporteSimulator({
   }, [preferences])
 
   const handleSimulate = () => {
-    const amount = parseFloat(aporteInput)
-    if (isNaN(amount) || amount <= 0) return
+    if (isNaN(aporteInput) || aporteInput <= 0) return
+    const amount = aporteInput
 
     const result = simulateSmartAporte(
       positions,
@@ -200,17 +200,16 @@ export default function SmartAporteSimulator({
           <label className="text-[9px] uppercase font-black text-secondary tracking-wider block">
             Valor Disponível para Aporte
           </label>
-          <NumberInput
+          <CurrencyInput
             value={aporteInput}
-            onChange={(e) => setAporteInput(e.target.value)}
+            onChange={(_e, val) => setAporteInput(val)}
             placeholder="0,00"
-            prefix="R$"
             className="h-10 text-sm font-mono font-bold rounded-2xl"
           />
         </div>
         <Button
           onClick={handleSimulate}
-          disabled={!aporteInput || parseFloat(aporteInput) <= 0}
+          disabled={!aporteInput || aporteInput <= 0}
           variant="balance"
           className="h-10 rounded-2xl font-black uppercase text-[10px] tracking-widest"
         >

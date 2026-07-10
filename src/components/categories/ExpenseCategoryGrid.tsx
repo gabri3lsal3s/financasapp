@@ -2,10 +2,10 @@ import { useMemo } from 'react'
 import { Plus, Pencil, Trash2, Check, X, TrendingDown } from 'lucide-react'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import Input from '@/components/Input'
+import CurrencyInput from '@/components/CurrencyInput'
 import EmptyState from '@/components/EmptyState'
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import { formatCurrency, formatMoneyInput } from '@/utils/format'
+import { formatCurrency } from '@/utils/format'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import { getStaggerClass } from '@/constants/animation'
@@ -20,7 +20,7 @@ interface ExpenseCategoryGridProps {
   expensesKpis: { limitSum: number; spentSum: number; remaining: number; percentage: number }
   savingExpenseLimitIds: string[]
   editingCategoryId: string | null
-  expenseLimitInputs: Record<string, string>
+  expenseLimitInputs: Record<string, number>
   averageIncome: number
   getCategoryPercentageSuggestion: (category: Category) => number
   onEditCategory: (category: Category) => void
@@ -28,7 +28,7 @@ interface ExpenseCategoryGridProps {
   onEditLimit: (categoryId: string) => void
   onSaveLimit: (categoryId: string) => Promise<void>
   onCancelEditLimit: () => void
-  onSetLimitInput: (categoryId: string, value: string) => void
+  onSetLimitInput: (categoryId: string, value: number) => void
   onAddCategory: () => void
 }
 
@@ -253,14 +253,11 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
                     {isEditing ? (
                       <div className="space-y-1.5 w-full">
                         <div className="flex items-center gap-1.5 w-full">
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={expenseLimitInputs[cat.id] || ''}
-                            onChange={(event) => onSetLimitInput(cat.id, event.target.value)}
+                          <CurrencyInput
+                            value={expenseLimitInputs[cat.id] || 0}
+                            onChange={(_e, val) => onSetLimitInput(cat.id, val)}
                             placeholder="Limite (ex: 500)"
                             className="w-full h-8 text-xs py-1"
-                            autoFocus
                           />
                           <Button
                             type="button"
@@ -293,7 +290,7 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
                             onClick={() => {
                               const pct = getCategoryPercentageSuggestion(cat)
                               const calculated = Math.round((averageIncome * pct) / 1000) * 10
-                              onSetLimitInput(cat.id, formatMoneyInput(calculated))
+                              onSetLimitInput(cat.id, calculated)
                             }}
                             className="h-auto p-0 text-[10px] text-left text-secondary hover:text-primary transition-colors flex items-center gap-1 mt-0.5 font-normal hover:bg-transparent"
                           >

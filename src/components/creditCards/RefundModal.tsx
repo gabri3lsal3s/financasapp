@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import Input from '@/components/Input'
+import CurrencyInput from '@/components/CurrencyInput'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
-import { formatMoneyInput, parseMoneyInput } from '@/utils/format'
 
 interface RefundModalProps {
   isOpen: boolean
@@ -20,13 +20,13 @@ export default function RefundModal({
   currentMonth,
   loading,
 }: RefundModalProps) {
-  const [refundAmount, setRefundAmount] = useState('')
+  const [refundAmount, setRefundAmount] = useState(0)
   const [refundDate, setRefundDate] = useState('')
   const [refundDescription, setRefundDescription] = useState('')
 
   useEffect(() => {
     if (isOpen) {
-      setRefundAmount('')
+      setRefundAmount(0)
       setRefundDate(format(new Date(), 'yyyy-MM-dd'))
       setRefundDescription('')
     }
@@ -35,20 +35,12 @@ export default function RefundModal({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    const baseVal = parseMoneyInput(refundAmount)
-    if (Number.isNaN(baseVal) || baseVal <= 0) {
+    if (Number.isNaN(refundAmount) || refundAmount <= 0) {
       alert('Informe um valor de estorno válido.')
       return
     }
 
-    await onSubmit(baseVal, refundDate, refundDescription.trim())
-  }
-
-  const handleBlurAmount = () => {
-    const parsed = parseMoneyInput(refundAmount)
-    if (!Number.isNaN(parsed) && parsed >= 0) {
-      setRefundAmount(formatMoneyInput(parsed))
-    }
+    await onSubmit(refundAmount, refundDate, refundDescription.trim())
   }
 
   return (
@@ -66,14 +58,10 @@ export default function RefundModal({
         />
       )}
     >
-      <Input
+      <CurrencyInput
         label="Valor do estorno"
-        type="text"
-        inputMode="decimal"
         value={refundAmount}
-        onChange={(event) => setRefundAmount(event.target.value)}
-        onBlur={handleBlurAmount}
-        placeholder="0,00"
+        onChange={(_e, val) => setRefundAmount(val)}
         required
       />
 

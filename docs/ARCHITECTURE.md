@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — Aprendizado de recorrências: `RecurringExpenseDetailModal` com feedback do usuário (confirmar/ignorar ocorrências), `recurringExpenseLearning.ts` para persistência, refinamento da detecção com `matchedExpenseIds` e `occurrencesByMonth`. Correção de bugs de tipo (TS6133, TS2345) no modal e na detecção similar.
+> **Última atualização:** Julho de 2026 — CurrencyInput: novo componente de input monetário com máscara reversa (estilo Nubank). Substituição de `AmountInput` e `TransactionAmountFields` por `CurrencyInput` e `TransactionCurrencyFields` em ~18 arquivos. Migração de todos os formulários financeiros para valores numéricos (number), eliminando bridges string↔number.
 
 ---
 
@@ -98,19 +98,28 @@ Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModa
 
 | Componente | Arquivo | Função |
 |-----------|---------|--------|
-| `TransactionAmountFields` | `src/components/TransactionAmountFields.tsx` | Par de inputs de valor (amount + report_weight) com `useFormAmountSync` embutido, `onAmountChanged` para side effects, e `onReportAmountBlur` para formatação |
+| `TransactionCurrencyFields` | `src/components/TransactionCurrencyFields.tsx` | Par de inputs de valor (amount + report_weight) com `useFormAmountSync` embutido e valores numéricos via `CurrencyInput`. Substitui o antigo `TransactionAmountFields` |
 | `TransactionDateField` | `src/components/TransactionDateField.tsx` | Input `type="date"` padronizado com `APP_START_DATE` como mínimo |
 | `TransactionCategorySelect` | `src/components/TransactionCategorySelect.tsx` | Select de categoria padronizado com `Select` component |
 | `TransactionDescriptionField` | `src/components/TransactionDescriptionField.tsx` | Input de descrição padronizado |
 
-### 2.3 Modais de Transação
+### 2.3 Inputs Monetários
 
 | Componente | Arquivo | Função |
 |-----------|---------|--------|
-| `ExpenseFormModal` | `src/components/ExpenseFormModal.tsx` | Gerencia o ciclo completo (cadastro, edição e deleção) de despesas. Inclui lógica de competência de cartões, peso de inclusão em relatórios (`report_weight`), parcelamento, e vínculo com dívidas. Refatorado para usar os 4 sub-componentes acima. |
-| `IncomeFormModal` | `src/components/IncomeFormModal.tsx` | Gerencia o ciclo de rendas. Trata de forma especial estornos automáticos de cartões de crédito. Refatorado para usar os 4 sub-componentes acima. |
+| `CurrencyInput` | `src/components/CurrencyInput.tsx` | Input monetário com máscara reversa (estilo Nubank). `type="text"`, `inputMode="numeric"`, `pattern="[0-9]*"`. Formatação em tempo real via `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`. Recebe `value: number` e emite `onChange(e, numericValue: number)`. Usa `prevValueRef` para evitar re-renders desnecessários. |
+| `TransactionCurrencyFields` | `src/components/TransactionCurrencyFields.tsx` | Par de inputs (valor + valor no relatório) com sincronização automática via `useFormAmountSync`. Substitui `TransactionAmountFields`. |
 
-### 2.4 Dashboard e Widgets
+**Arquivos removidos:** `AmountInput.tsx` e `TransactionAmountFields.tsx` (substituídos pelos componentes acima).
+
+### 2.4 Modais de Transação
+
+| Componente | Arquivo | Função |
+|-----------|---------|--------|
+| `ExpenseFormModal` | `src/components/ExpenseFormModal.tsx` | Gerencia o ciclo completo (cadastro, edição e deleção) de despesas. Inclui lógica de competência de cartões, peso de inclusão em relatórios (`report_weight`), parcelamento, e vínculo com dívidas. Refatorado para usar os 4 sub-componentes acima e `CurrencyInput`. |
+| `IncomeFormModal` | `src/components/IncomeFormModal.tsx` | Gerencia o ciclo de rendas. Trata de forma especial estornos automáticos de cartões de crédito. Refatorado para usar os 4 sub-componentes acima e `CurrencyInput`. |
+
+### 2.5 Dashboard e Widgets
 
 O dashboard foi refatorado para um sistema de **widget cards** configuráveis pelo usuário. Cada widget possui um **summary** (badge no header do card) e um **detail** (conteúdo principal, carregado com lazy loading via `Suspense`).
 
@@ -144,7 +153,7 @@ O dashboard foi refatorado para um sistema de **widget cards** configuráveis pe
 - **Contexto**: `DashboardDataContext` com hooks focados (`useDashboardFinances`, `useDashboardBudget`, `useDashboardInsightsContext`, `useDashboardPortfolioContext`, `useDashboardActions`)
 - **Redundâncias corrigidas**: `ActionsSummary` não repete savings rate do Health; `LimitsOverviewDetail` não repete barra de orçamento do FinancialHealthDetail no estado vazio
 
-### 2.5 Elementos Flutuantes
+### 2.6 Elementos Flutuantes
 
 | Componente | Função |
 |-----------|--------|
@@ -152,14 +161,14 @@ O dashboard foi refatorado para um sistema de **widget cards** configuráveis pe
 | `FloatingSideStack` | Painel lateral direito para ações flutuantes |
 | `FloatingActionHub` | Hub unificado para ScrollToTop e NotificationsWidget — ~50 linhas, 4 useEffects, com lógica extraída para `hooks/useScrollToTop.ts` + `utils/haptics.ts` |
 
-### 2.6 Componentes de Layout
+### 2.7 Componentes de Layout
 
 | Componente | Função |
 |-----------|--------|
 | `Layout.tsx` | Layout responsivo: mobile bottom nav (5 tabs + sheet "Mais"), desktop sidebar colapsável |
 | `IconButton.tsx` | Botão de ícone padronizado — usa `@/components/Button` custom com `size="icon"` |
 
-### 2.7 Componentes UI — Arquitetura de Camadas
+### 2.8 Componentes UI — Arquitetura de Camadas
 
 O sistema de componentes segue uma arquitetura de duas camadas:
 
@@ -300,7 +309,7 @@ usePageActions([{ icon: Plus, label: 'Adicionar', intent: 'primary', onClick: fn
 
 ### 3.4 `useFormAmountSync` — Sincronização de Valores
 
-Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar `amount` e `report_amount`. Embutido no componente `TransactionAmountFields`.
+Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar `amount` e `report_amount`. Trabalha com valores **numéricos** (não strings), pois o `CurrencyInput` já entrega o valor limpo. Embutido no componente `TransactionCurrencyFields`.
 
 ### 3.5 Demais Hooks
 
@@ -606,6 +615,7 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Responsividade mobile do dashboard** | Ajustes de layout: gaps reduzidos, textos menores no mobile, flex-wrap em headers, line-clamp nos insights, badge de status oculto no mobile, investimentos ocultos em telas < 640px, ícones e botões compactados. | Melhoria | ✅ |
 | — | **Mínimo de 2 widgets visíveis** | `toggleVisibility` no `useDashboardLayout` agora bloqueia ocultação se restariam menos de 2 widgets visíveis. | Segurança | ✅ |
 | — | **Aprendizado de recorrências** | `RecurringExpenseDetailModal` com feedback do usuário (confirmar/ignorar/restaurar) via `recurringExpenseLearning.ts`. Detecção refinada com `matchedExpenseIds` e `occurrencesByMonth` preenchidos. | Novo | ✅ |
+| — | **CurrencyInput + máscara reversa** | Novo componente `CurrencyInput.tsx` com máscara reversa estilo Nubank (`Intl.NumberFormat` com `style: currency`), `type="text"`, `inputMode="numeric"`, `pattern="[0-9]*"`. Substituição de `AmountInput.tsx` e `TransactionAmountFields.tsx` em ~18 arquivos. Migração de todos os formulários financeiros para valores numéricos. | Novo | ✅ |
 
 ### Validação final
 
@@ -614,15 +624,9 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 - ✅ Testes: 425/425 passando (35 arquivos)
 - ✅ UI Guardrails: 21 na baseline
 - ✅ `as any` em produção: 0
-
-### Validação final
-
-- ✅ Build: OK
-- ✅ Typecheck: 0 erros
-- ✅ Testes: 425/425 passando (35 arquivos)
-- ✅ UI Guardrails: 21 na baseline
-- ✅ `as any` em produção: 0 (5 em gráficos Recharts)
 - ✅ Non-null assertions em produção: 0
+- ✅ `AmountInput.tsx` removido (substituído por `CurrencyInput.tsx`)
+- ✅ `TransactionAmountFields.tsx` removido (substituído por `TransactionCurrencyFields.tsx`)
 
 ### Melhorias adicionais (pós-refatoração)
 

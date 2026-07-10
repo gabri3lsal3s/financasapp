@@ -1,4 +1,5 @@
 import Input from '@/components/Input'
+import CurrencyInput from '@/components/CurrencyInput'
 import Select from '@/components/Select'
 import { formatCurrency, formatDate, parseMoneyInput } from '@/utils/format'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
@@ -138,12 +139,10 @@ export default function MissingDraftCard({
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => onUpdateDate(event.target.value)}
             />
 
-            <Input
+            <CurrencyInput
               label="Valor"
-              type="text"
-              inputMode="decimal"
-              value={draft.amount}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => onUpdateAmount(event.target.value)}
+              value={parseMoneyInput(draft.amount) || 0}
+              onChange={(_e, val) => onUpdateAmount(String(val))}
             />
 
             <Input

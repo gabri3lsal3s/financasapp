@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Modal from '@/components/Modal'
 import NumberInput from '@/components/NumberInput'
+import CurrencyInput from '@/components/CurrencyInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import Button from '@/components/Button'
@@ -44,7 +45,7 @@ export default function AssetConfigModal({
   const [applicationDate, setApplicationDate] = useState<string>('')
 
   // Valor Manual específicos
-  const [manualCurrentValue, setManualCurrentValue] = useState<string>('0')
+  const [manualCurrentValue, setManualCurrentValue] = useState<number>(0)
 
   // Overrides manuais quantitativos
   const [manualRoic, setManualRoic] = useState<string>('')
@@ -91,7 +92,7 @@ export default function AssetConfigModal({
         setContractRate(String(def.contract_rate ?? 0))
         setMaturityDate(def.maturity_date ?? '')
         setApplicationDate(def.application_date ?? '')
-        setManualCurrentValue(String(def.manual_current_value ?? 0))
+        setManualCurrentValue(def.manual_current_value ?? 0)
         
         // Overrides
         setManualRoic(def.manual_roic != null ? String(def.manual_roic) : '')
@@ -115,7 +116,7 @@ export default function AssetConfigModal({
         setContractRate('0')
         setMaturityDate('')
         setApplicationDate('')
-        setManualCurrentValue('0')
+        setManualCurrentValue(0)
 
         // Overrides reset
         setManualRoic('')
@@ -222,7 +223,7 @@ export default function AssetConfigModal({
         contract_rate: pricingMode === 'fixed_income' ? parseFloat(contractRate) : 0,
         maturity_date: pricingMode === 'fixed_income' && maturityDate ? maturityDate : null,
         application_date: pricingMode === 'fixed_income' && applicationDate ? applicationDate : null,
-        manual_current_value: pricingMode === 'manual_value' ? parseFloat(manualCurrentValue) : null,
+        manual_current_value: pricingMode === 'manual_value' ? manualCurrentValue : null,
         manual_value_updated_at: pricingMode === 'manual_value' ? new Date().toISOString() : null,
         
         // Overrides
@@ -466,14 +467,11 @@ export default function AssetConfigModal({
         {pricingMode === 'manual_value' && (
           <div className="space-y-1 p-3 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in">
             <FieldLabel>Valor Atual do Ativo (Moeda Local)</FieldLabel>
-            <NumberInput
-              step={0.01}
-              min={0}
+            <CurrencyInput
               value={manualCurrentValue}
-              onChange={(e) => setManualCurrentValue(e.target.value)}
+              onChange={(_e, val) => setManualCurrentValue(val)}
               placeholder="Ex: 50000.00"
               required
-              hideSpinButtons
             />
           </div>
         )}

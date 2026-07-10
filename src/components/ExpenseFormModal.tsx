@@ -4,21 +4,17 @@ import { ptBR } from 'date-fns/locale'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ConfirmModal from '@/components/ConfirmModal'
-import TransactionAmountFields from '@/components/TransactionAmountFields'
 import TransactionDateField from '@/components/TransactionDateField'
 import TransactionCategorySelect from '@/components/TransactionCategorySelect'
 import TransactionDescriptionField from '@/components/TransactionDescriptionField'
-import Input from '@/components/Input'
 import NumberInput from '@/components/NumberInput'
 import Select from '@/components/Select'
 import Checkbox from '@/components/Checkbox'
+import CurrencyInput from '@/components/CurrencyInput'
+import TransactionCurrencyFields from '@/components/TransactionCurrencyFields'
 import { useDebts } from '@/hooks/useDebts'
 import { Expense, Category, CreditCard } from '@/types'
-import {
-  formatMoneyInput,
-  parseMoneyInput,
-  roundToDecimals,
-} from '@/utils/format'
+import { roundToDecimals } from '@/utils/format'
 import { splitAmountIntoInstallments } from '@/utils/creditCardBilling'
 
 interface ExpenseFormModalProps {
@@ -55,8 +51,8 @@ export default function ExpenseFormModal({
 }: ExpenseFormModalProps) {
   const { createDebt } = useDebts()
   const [formData, setFormData] = useState({
-    amount: '',
-    report_amount: '',
+    amount: 0,
+    report_amount: 0,
     date: format(new Date(), 'yyyy-MM-dd'),
     installment_total: '1',
     payment_method: 'other',
@@ -67,11 +63,11 @@ export default function ExpenseFormModal({
   })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [createLinkedDebt, setCreateLinkedDebt] = useState(false)
-  const [linkedDebtAmount, setLinkedDebtAmount] = useState('')
+  const [linkedDebtAmount, setLinkedDebtAmount] = useState(0)
   const [isDebtAmountEdited, setIsDebtAmountEdited] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const handleExpenseAmountChanged = (nextAmount: string) => {
+  const handleExpenseAmountChanged = (nextAmount: number) => {
     if (!isDebtAmountEdited) {
       setLinkedDebtAmount(nextAmount)
     }
@@ -81,10 +77,8 @@ export default function ExpenseFormModal({
     if (isOpen) {
       if (editingExpense) {
         setFormData({
-          amount: formatMoneyInput(editingExpense.amount),
-          report_amount: formatMoneyInput(
-            editingExpense.amount * (editingExpense.report_weight ?? 1)
-          ),
+          amount: editingExpense.amount,
+          report_amount: editingExpense.amount * (editingExpense.report_weight ?? 1),
           date: editingExpense.date,
           installment_total: String(editingExpense.installment_total || 1),
           payment_method: editingExpense.payment_method || 'other',
@@ -94,12 +88,12 @@ export default function ExpenseFormModal({
           bill_competence: editingExpense.bill_competence || '',
         })
         setCreateLinkedDebt(false)
-        setLinkedDebtAmount('')
+        setLinkedDebtAmount(0)
         setIsDebtAmountEdited(false)
       } else {
         setFormData({
-          amount: defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '',
-          report_amount: defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '',
+          amount: defaultValues?.amount ?? 0,
+          report_amount: defaultValues?.amount ?? 0,
           date: defaultValues?.date || format(new Date(), 'yyyy-MM-dd'),
           installment_total: '1',
           payment_method: 'other',
@@ -109,7 +103,7 @@ export default function ExpenseFormModal({
           bill_competence: '',
         })
         setCreateLinkedDebt(false)
-        setLinkedDebtAmount(defaultValues?.amount ? formatMoneyInput(defaultValues.amount) : '')
+        setLinkedDebtAmount(defaultValues?.amount ?? 0)
         setIsDebtAmountEdited(false)
       }
     }
@@ -122,15 +116,13 @@ export default function ExpenseFormModal({
     if (saving) return
     if (!formData.amount || !formData.category_id) return
 
-    const amount = parseMoneyInput(formData.amount)
+    const amount = formData.amount
     if (isNaN(amount) || amount <= 0) {
       alert('Por favor, insira um valor válido maior que zero')
       return
     }
 
-    const reportAmount = formData.report_amount
-      ? parseMoneyInput(formData.report_amount)
-      : amount
+    const reportAmount = formData.report_amount || amount
     if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
       alert('O valor no relatório deve estar entre 0 e o valor da despesa')
       return
@@ -159,16 +151,15 @@ export default function ExpenseFormModal({
         alert('Por favor, informe o valor da cobrança.')
         return
       }
-      const parsedVal = parseMoneyInput(linkedDebtAmount)
-      if (isNaN(parsedVal) || parsedVal <= 0) {
+      if (isNaN(linkedDebtAmount) || linkedDebtAmount <= 0) {
         alert('Por favor, insira um valor de cobrança válido maior que zero.')
         return
       }
-      if (parsedVal > amount) {
+      if (linkedDebtAmount > amount) {
         alert('O valor da cobrança não pode ser maior que o valor da despesa.')
         return
       }
-      parsedDebtAmount = parsedVal
+      parsedDebtAmount = linkedDebtAmount
     }
 
     const expenseData: Omit<Expense, 'id' | 'created_at' | 'category'> = {
@@ -271,16 +262,13 @@ export default function ExpenseFormModal({
         />
       )}
     >
-      <TransactionAmountFields
+      <TransactionCurrencyFields
         amount={formData.amount}
         reportAmount={formData.report_amount}
         onSetAmounts={(next) =>
           setFormData((prev) => ({ ...prev, ...next }))
         }
         onAmountChanged={handleExpenseAmountChanged}
-        onReportAmountBlur={(formatted) =>
-          setFormData((prev) => ({ ...prev, report_amount: formatted }))
-        }
       />
 
       <TransactionDateField
@@ -405,22 +393,13 @@ export default function ExpenseFormModal({
 
       {!editingExpense && createLinkedDebt && (
         <div className="animate-surface-enter w-full pb-2">
-          <Input
-            label="Valor da cobrança (R$)"
-            type="text"
-            inputMode="decimal"
+          <CurrencyInput
+            label="Valor da cobrança"
             value={linkedDebtAmount}
-            onChange={(e) => {
-              setLinkedDebtAmount(e.target.value)
+            onChange={(_e, val) => {
+              setLinkedDebtAmount(val)
               setIsDebtAmountEdited(true)
             }}
-            onBlur={() => {
-              const parsed = parseMoneyInput(linkedDebtAmount)
-              if (!Number.isNaN(parsed) && parsed >= 0) {
-                setLinkedDebtAmount(formatMoneyInput(parsed))
-              }
-            }}
-            placeholder="0,00"
             required
           />
         </div>

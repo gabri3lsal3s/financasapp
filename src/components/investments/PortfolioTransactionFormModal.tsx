@@ -4,6 +4,7 @@ import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import ModalFieldRow from '@/components/ModalFieldRow'
 import NumberInput from '@/components/NumberInput'
+import CurrencyInput from '@/components/CurrencyInput'
 import Input from '@/components/Input'
 import FieldLabel from '@/components/FieldLabel'
 import Select from '@/components/Select'
@@ -37,7 +38,7 @@ export default function PortfolioTransactionFormModal({
 }: PortfolioTransactionFormModalProps) {
   const [ticker, setTicker] = useState('CAIXA')
   const [operationType, setOperationType] = useState<PortfolioOperationType>('buy')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(0)
   const [quantity, setQuantity] = useState('1')
   const [price, setPrice] = useState('')
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -71,23 +72,23 @@ export default function PortfolioTransactionFormModal({
       const isIncome = ['dividend', 'jcp', 'fii_yield'].includes(editingTransaction.operation_type)
 
       if (isCash) {
-        setAmount(String(editingTransaction.price))
+        setAmount(editingTransaction.price)
         setQuantity('1')
         setPrice(String(editingTransaction.price))
       } else if (isIncome) {
         const totalVal = Number(editingTransaction.quantity) * Number(editingTransaction.price)
-        setAmount(String(totalVal))
+        setAmount(totalVal)
         setQuantity('1')
         setPrice(String(totalVal))
       } else {
-        setAmount('')
+        setAmount(0)
         setQuantity(String(editingTransaction.quantity))
         setPrice(String(editingTransaction.price))
       }
     } else {
       setTicker('CAIXA')
       setOperationType('buy')
-      setAmount('')
+      setAmount(0)
       setQuantity('1')
       setPrice('')
       setDate(format(new Date(), 'yyyy-MM-dd'))
@@ -210,7 +211,7 @@ export default function PortfolioTransactionFormModal({
       let unitPrice = 0
 
       if (isCashType || isIncomeType) {
-        unitPrice = parseFloat(amount)
+        unitPrice = amount
         qty = 1
         if (isNaN(unitPrice) || unitPrice <= 0) {
           throw new Error(isCashType ? 'Insira um valor de caixa válido.' : 'Insira um valor de provento válido.')
@@ -374,9 +375,8 @@ export default function PortfolioTransactionFormModal({
           <ModalFooter
             formId={formId}
             onCancel={onClose}
-            submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Transação'}
-            submitDisabled={saving || 
-              ((isCashType || isIncomeType) && !amount.trim()) || 
+            submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Transação'}              submitDisabled={saving || 
+              ((isCashType || isIncomeType) && !amount) || 
               (!(isCashType || isIncomeType) && (!ticker.trim() || !price.trim()))}
             loading={saving}
             deleteLabel={isEditing ? 'Excluir lançamento' : undefined}
@@ -408,12 +408,11 @@ export default function PortfolioTransactionFormModal({
                   const qtyVal = parseFloat(quantity)
                   const priceVal = parseFloat(price)
                   if (!isNaN(qtyVal) && !isNaN(priceVal)) {
-                    setAmount(String(qtyVal * priceVal))
+                    setAmount(qtyVal * priceVal)
                   }
                 } else if (!isIncome && wasIncome) {
-                  const amountVal = parseFloat(amount)
-                  if (!isNaN(amountVal)) {
-                    setPrice(String(amountVal))
+                  if (!isNaN(amount)) {
+                    setPrice(String(amount))
                     setQuantity('1')
                   }
                 }
@@ -448,17 +447,12 @@ export default function PortfolioTransactionFormModal({
 
           {/* Inputs Condicionais */}
           {isCashType || isIncomeType ? (
-            <NumberInput
-              label={isCashType ? "Valor em Caixa (R$)" : `Valor do Provento (${currency === 'USD' ? '$' : 'R$'})`}
+            <CurrencyInput
+              label={isCashType ? "Valor em Caixa" : "Valor do Provento"}
               required
-              step={0.01}
-              min={0}
-              placeholder={isCashType ? "Ex: 5000.00" : "Ex: 150.00"}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(_e, val) => setAmount(val)}
               className="font-semibold rounded-xl text-base"
-              prefix={currency === 'USD' ? '$' : 'R$'}
-              hideSpinButtons
             />
           ) : (
             <ModalFieldRow>
@@ -589,7 +583,7 @@ export default function PortfolioTransactionFormModal({
 
           {/* Visualizador de Total + Impacto no Caixa */}
           {!isCashType && ((isIncomeType && amount) || (!isIncomeType && quantity && price)) && (() => {
-            const totalTxValue = isIncomeType ? parseFloat(amount || '0') : (parseFloat(quantity || '0') * parseFloat(price || '0'))
+            const totalTxValue = isIncomeType ? (amount || 0) : (parseFloat(quantity || '0') * parseFloat(price || '0'))
             if (isNaN(totalTxValue) || totalTxValue <= 0) return null
 
             const isCashInflow = ['sell', 'dividend', 'jcp', 'fii_yield'].includes(operationType)

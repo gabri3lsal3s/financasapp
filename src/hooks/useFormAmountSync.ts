@@ -1,13 +1,12 @@
 import { useCallback } from 'react'
-import { parseMoneyInput } from '@/utils/format'
 
 interface UseFormAmountSyncOptions {
-  /** Valor atual do campo amount no formData */
-  amount: string
-  /** Valor atual do campo report_amount no formData */
-  reportAmount: string
+  /** Valor atual do campo amount no formData (numérico) */
+  amount: number
+  /** Valor atual do campo report_amount no formData (numérico) */
+  reportAmount: number
   /** Callback para atualizar ambos os campos de uma vez */
-  setAmounts: (next: { amount: string; report_amount: string }) => void
+  setAmounts: (next: { amount: number; report_amount: number }) => void
 }
 
 interface UseFormAmountSyncReturn {
@@ -16,19 +15,20 @@ interface UseFormAmountSyncReturn {
    * Sincroniza automaticamente `report_amount` enquanto os dois valores forem iguais.
    * Assim que o usuário editar `report_amount` separadamente, a sincronização é interrompida.
    */
-  handleAmountChange: (nextAmount: string) => void
+  handleAmountChange: (nextAmount: number) => void
 }
 
 /**
  * Hook que encapsula a lógica de sincronização entre os campos `amount` e `report_amount`
  * compartilhada entre ExpenseFormModal e IncomeFormModal.
  *
- * Regra de sincronização:
- * - Enquanto `report_amount === amount` (ou `report_amount` estiver vazio), os dois se movem juntos.
- * - Assim que o usuário altera `report_amount` para um valor diferente de `amount`, a sincronização é suspensa.
+ * Agora trabalha com valores numéricos (não strings formatadas), pois o CurrencyInput
+ * já entrega o valor limpo.
  *
- * A formatação no blur e o cálculo de `report_weight` são delegados ao componente `AmountInput`
- * e ao caller, mantendo o hook focado exclusivamente na sincronização.
+ * Regra de sincronização:
+ * - Enquanto `report_amount === amount` (ou `report_amount` for 0), os dois se movem juntos.
+ * - Assim que o usuário altera `report_amount` para um valor diferente de `amount`, a sincronização é suspensa.
+ * - Uma vez suspensa, permanece suspensa até o usuário redefinir `report_amount`.
  */
 export function useFormAmountSync({
   amount,
@@ -36,15 +36,12 @@ export function useFormAmountSync({
   setAmounts,
 }: UseFormAmountSyncOptions): UseFormAmountSyncReturn {
   const handleAmountChange = useCallback(
-    (nextAmount: string) => {
-      const prevAmount = parseMoneyInput(amount)
-      const prevReportAmount = parseMoneyInput(reportAmount)
-
+    (nextAmount: number) => {
+      // Se report_amount for 0 (vazio/não definido), sincroniza
+      // Se report_amount for igual ao amount anterior (±1 centavo), sincroniza
       const shouldSyncReportAmount =
-        !reportAmount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
+        reportAmount === 0 ||
+        Math.abs(reportAmount - amount) < 0.009
 
       setAmounts({
         amount: nextAmount,
@@ -56,3 +53,4 @@ export function useFormAmountSync({
 
   return { handleAmountChange }
 }
+

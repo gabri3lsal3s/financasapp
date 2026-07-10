@@ -26,7 +26,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { supabase } from '@/lib/supabase'
 import type { Debt, Expense } from '@/types'
 import { useSearchHighlight } from '@/utils/pageTitles'
-import { formatCurrency, formatDate, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals, formatMonth } from '@/utils/format'
+import { formatCurrency, formatDate, getCurrentMonthString, roundToDecimals, formatMonth } from '@/utils/format'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import RowButton from '@/components/RowButton'
 import type { BillExpenseItem, BillPaymentDisplayItem } from '@/utils/creditCardBilling'
@@ -270,10 +270,10 @@ export default function Contas() {
       modals.setEditingRefundPaymentItem(paymentItem)
       modals.setEditingRefundIncomeId(parsedRefund.incomeId)
       modals.setEditingRefundIncomeInitialData({
-        amount: formatMoneyInput(data.amount),
+        amount: data.amount,
         report_amount: data.report_weight !== undefined && data.report_weight !== null
-          ? formatMoneyInput(roundToDecimals(data.amount * data.report_weight, 2))
-          : '',
+          ? roundToDecimals(data.amount * data.report_weight, 2)
+          : 0,
         date: data.date,
         income_category_id: data.income_category_id,
         description: data.description || '',
@@ -802,14 +802,14 @@ export default function Contas() {
   const handleConfirmIntegrated = async () => {
     if (!modals.selectedDebtForIntegrated || !modals.linkedExpense) return
 
-    const parsedVal = parseMoneyInput(modals.integratedReportValueInput)
-    if (Number.isNaN(parsedVal) || parsedVal < 0 || parsedVal > modals.linkedExpense.amount) {
+    const finalValue = modals.integratedReportValueInput
+    if (Number.isNaN(finalValue) || finalValue < 0 || finalValue > modals.linkedExpense.amount) {
       alert(`Valor inválido. Deve ser entre 0 e ${formatCurrency(modals.linkedExpense.amount)}.`)
       return
     }
 
     try {
-      const reportWeight = modals.linkedExpense.amount > 0 ? roundToDecimals(parsedVal / modals.linkedExpense.amount, 4) : 1
+      const reportWeight = modals.linkedExpense.amount > 0 ? roundToDecimals(finalValue / modals.linkedExpense.amount, 4) : 1
       const { error: updateExpenseError } = await updateExpense(modals.linkedExpense.id, {
         report_weight: reportWeight,
       })
@@ -892,7 +892,7 @@ export default function Contas() {
 
               modals.setLinkedExpense(expense)
               modals.setSelectedDebtForIntegrated(debt)
-              modals.setIntegratedReportValueInput(formatMoneyInput(finalValue))
+              modals.setIntegratedReportValueInput(finalValue)
               modals.setIsIntegratedModalOpen(true)
               return
             }

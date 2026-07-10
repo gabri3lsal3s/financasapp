@@ -16,7 +16,7 @@ import { useExpenseCategoryLimits } from '@/hooks/useExpenseCategoryLimits'
 import { useIncomeCategoryExpectations } from '@/hooks/useIncomeCategoryExpectations'
 import { usePaletteColors } from '@/hooks/usePaletteColors'
 import { assignUniquePaletteColors, getCategoryColorForPalette } from '@/utils/categoryColors'
-import { addMonths, formatMoneyInput, getCurrentMonthString, parseMoneyInput, roundToDecimals } from '@/utils/format'
+import { addMonths, getCurrentMonthString, roundToDecimals } from '@/utils/format'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { Category, IncomeCategory } from '@/types'
@@ -131,8 +131,8 @@ export default function Categories() {
   const swipeHandlers = useSwipeMonth(currentMonth, handleMonthChange)
   const [savingExpenseLimitIds, setSavingExpenseLimitIds] = useState<string[]>([])
   const [savingIncomeExpectationIds, setSavingIncomeExpectationIds] = useState<string[]>([])
-  const [expenseLimitInputs, setExpenseLimitInputs] = useState<Record<string, string>>({})
-  const [incomeExpectationInputs, setIncomeExpectationInputs] = useState<Record<string, string>>({})
+  const [expenseLimitInputs, setExpenseLimitInputs] = useState<Record<string, number>>({})
+  const [incomeExpectationInputs, setIncomeExpectationInputs] = useState<Record<string, number>>({})
   const { colorPalette } = usePaletteColors()
   
   // Dashboard & UX Refactoring states
@@ -524,23 +524,23 @@ export default function Categories() {
   // sortedCategories and sortedIncomeCategories removed — now handled inside ExpenseCategoryGrid and IncomeCategoryGrid components
 
   useEffect(() => {
-    const nextInputs: Record<string, string> = {}
+    const nextInputs: Record<string, number> = {}
     categories.forEach((category) => {
       const limitAmount = expenseLimitMap.get(category.id)
       nextInputs[category.id] = limitAmount !== null && limitAmount !== undefined
-        ? formatMoneyInput(limitAmount)
-        : ''
+        ? limitAmount
+        : 0
     })
     setExpenseLimitInputs(nextInputs)
   }, [categories, expenseLimitMap])
 
   useEffect(() => {
-    const nextInputs: Record<string, string> = {}
+    const nextInputs: Record<string, number> = {}
     incomeCategories.forEach((category) => {
       const expectedAmount = incomeExpectationMap.get(category.id)
       nextInputs[category.id] = expectedAmount !== null && expectedAmount !== undefined
-        ? formatMoneyInput(expectedAmount)
-        : ''
+        ? expectedAmount
+        : 0
     })
     setIncomeExpectationInputs(nextInputs)
   }, [incomeCategories, incomeExpectationMap])
@@ -557,52 +557,40 @@ export default function Categories() {
     loadingPreviousExpectations
 
   const saveExpenseLimit = async (categoryId: string) => {
-    const rawValue = (expenseLimitInputs[categoryId] || '').trim()
-    const parsed = rawValue ? parseMoneyInput(rawValue) : Number.NaN
+    const rawValue = expenseLimitInputs[categoryId] ?? 0
 
-    if (rawValue && (Number.isNaN(parsed) || parsed < 0)) {
+    if (rawValue < 0) {
       alert('Informe um valor válido para o limite da categoria.')
       return
     }
 
-    const amount = rawValue ? roundToDecimals(parsed, 2) : null
+    const amount = rawValue > 0 ? roundToDecimals(rawValue, 2) : null
 
     setSavingExpenseLimitIds((prev) => [...prev, categoryId])
     const { error } = await setCategoryLimit(categoryId, amount)
 
     if (error) {
       alert(`Erro ao salvar limite: ${error}`)
-    } else {
-      setExpenseLimitInputs((prev) => ({
-        ...prev,
-        [categoryId]: amount === null ? '' : formatMoneyInput(amount),
-      }))
     }
 
     setSavingExpenseLimitIds((prev) => prev.filter((id) => id !== categoryId))
   }
 
   const saveIncomeExpectation = async (incomeCategoryId: string) => {
-    const rawValue = (incomeExpectationInputs[incomeCategoryId] || '').trim()
-    const parsed = rawValue ? parseMoneyInput(rawValue) : Number.NaN
+    const rawValue = incomeExpectationInputs[incomeCategoryId] ?? 0
 
-    if (rawValue && (Number.isNaN(parsed) || parsed < 0)) {
+    if (rawValue < 0) {
       alert('Informe um valor válido para a expectativa da categoria de renda.')
       return
     }
 
-    const amount = rawValue ? roundToDecimals(parsed, 2) : null
+    const amount = rawValue > 0 ? roundToDecimals(rawValue, 2) : null
 
     setSavingIncomeExpectationIds((prev) => [...prev, incomeCategoryId])
     const { error } = await setIncomeCategoryExpectation(incomeCategoryId, amount)
 
     if (error) {
       alert(`Erro ao salvar expectativa: ${error}`)
-    } else {
-      setIncomeExpectationInputs((prev) => ({
-        ...prev,
-        [incomeCategoryId]: amount === null ? '' : formatMoneyInput(amount),
-      }))
     }
 
     setSavingIncomeExpectationIds((prev) => prev.filter((id) => id !== incomeCategoryId))
@@ -654,12 +642,12 @@ export default function Categories() {
                   const limitAmount = expenseLimitMap.get(id)
                   setExpenseLimitInputs(prev => ({
                     ...prev,
-                    [id]: limitAmount !== null && limitAmount !== undefined ? formatMoneyInput(limitAmount) : ''
+                    [id]: limitAmount ?? 0
                   }))
                 }}
                 onSaveLimit={saveExpenseLimit}
                 onCancelEditLimit={() => setEditingCategoryId(null)}
-                onSetLimitInput={(id, value) =>
+                onSetLimitInput={(id, value: number) =>
                   setExpenseLimitInputs((prev) => ({ ...prev, [id]: value }))
                 }
                 onAddCategory={() => handleOpenCategoryModal()}
@@ -682,12 +670,12 @@ export default function Categories() {
                   const expectationAmount = incomeExpectationMap.get(id)
                   setIncomeExpectationInputs(prev => ({
                     ...prev,
-                    [id]: expectationAmount !== null && expectationAmount !== undefined ? formatMoneyInput(expectationAmount) : ''
+                    [id]: expectationAmount ?? 0
                   }))
                 }}
                 onSaveExpectation={saveIncomeExpectation}
                 onCancelEditExpectation={() => setEditingCategoryId(null)}
-                onSetExpectationInput={(id, value) =>
+                onSetExpectationInput={(id, value: number) =>
                   setIncomeExpectationInputs((prev) => ({ ...prev, [id]: value }))
                 }
                 onAddCategory={() => handleOpenCategoryModal()}

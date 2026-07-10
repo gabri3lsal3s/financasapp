@@ -19,8 +19,8 @@ export interface DeleteModalState {
 }
 
 export interface RefundIncomeInitialData {
-  amount: string
-  report_amount: string
+  amount: number
+  report_amount: number
   date: string
   income_category_id: string
   description: string
@@ -56,7 +56,7 @@ export interface UseContasModalsReturn {
   isIntegratedModalOpen: boolean
   selectedDebtForIntegrated: Debt | null
   linkedExpense: Expense | null
-  integratedReportValueInput: string
+  integratedReportValueInput: number
   isPayableConfirmModalOpen: boolean
   selectedDebtForPayableExpense: Debt | null
   isPayableExpenseModalOpen: boolean
@@ -103,7 +103,7 @@ export interface UseContasModalsReturn {
   setIsIntegratedModalOpen: (v: boolean) => void
   setSelectedDebtForIntegrated: (debt: Debt | null) => void
   setLinkedExpense: (expense: Expense | null) => void
-  setIntegratedReportValueInput: (v: string) => void
+  setIntegratedReportValueInput: (v: number) => void
   setIsPayableConfirmModalOpen: (v: boolean) => void
   setSelectedDebtForPayableExpense: (debt: Debt | null) => void
   setIsPayableExpenseModalOpen: (v: boolean) => void
@@ -122,7 +122,7 @@ export interface UseContasModalsReturn {
   handleConfirmIntegrated: (
     selectedDebtForIntegrated: Debt | null,
     linkedExpense: Expense | null,
-    integratedReportValueInput: string,
+    integratedReportValueInput: number,
     updateExpense: (id: string, data: any) => Promise<{ error: string | null }>,
     updateDebt: (id: string, data: any) => Promise<{ error: string | null }>,
   ) => Promise<void>
@@ -137,7 +137,7 @@ export interface UseContasModalsReturn {
     setIntegratedModals: {
       setLinkedExpense: (e: Expense | null) => void
       setSelectedDebtForIntegrated: (d: Debt | null) => void
-      setIntegratedReportValueInput: (v: string) => void
+      setIntegratedReportValueInput: (v: number) => void
       setIsIntegratedModalOpen: (v: boolean) => void
       setSelectedDebtForIncome: (d: Debt | null) => void
       setIsIncomeConfirmModalOpen: (v: boolean) => void
@@ -180,7 +180,7 @@ export function useContasModals(): UseContasModalsReturn {
   const [isIntegratedModalOpen, setIsIntegratedModalOpen] = useState(false)
   const [selectedDebtForIntegrated, setSelectedDebtForIntegrated] = useState<Debt | null>(null)
   const [linkedExpense, setLinkedExpense] = useState<Expense | null>(null)
-  const [integratedReportValueInput, setIntegratedReportValueInput] = useState('')
+  const [integratedReportValueInput, setIntegratedReportValueInput] = useState(0)
   const [isPayableConfirmModalOpen, setIsPayableConfirmModalOpen] = useState(false)
   const [selectedDebtForPayableExpense, setSelectedDebtForPayableExpense] = useState<Debt | null>(null)
   const [isPayableExpenseModalOpen, setIsPayableExpenseModalOpen] = useState(false)
@@ -344,14 +344,14 @@ export function useContasModals(): UseContasModalsReturn {
   const handleConfirmIntegrated = useCallback(async (
     debt: Debt | null,
     linkedExp: Expense | null,
-    reportValueInput: string,
+    reportValueInput: number,
     updateExpense: (id: string, data: any) => Promise<{ error: string | null }>,
     updateDebt: (id: string, data: any) => Promise<{ error: string | null }>,
   ) => {
     if (!debt || !linkedExp) return
-    const { formatCurrency, parseMoneyInput, roundToDecimals } = await import('@/utils/format')
+    const { formatCurrency, roundToDecimals } = await import('@/utils/format')
 
-    const parsedVal = parseMoneyInput(reportValueInput)
+    const parsedVal = reportValueInput
     if (Number.isNaN(parsedVal) || parsedVal < 0 || parsedVal > linkedExp.amount) {
       alert(`Valor inválido. Deve ser entre 0 e ${formatCurrency(linkedExp.amount)}.`)
       return
@@ -402,7 +402,7 @@ export function useContasModals(): UseContasModalsReturn {
     setIntegratedModals: {
       setLinkedExpense: (e: Expense | null) => void
       setSelectedDebtForIntegrated: (d: Debt | null) => void
-      setIntegratedReportValueInput: (v: string) => void
+      setIntegratedReportValueInput: (v: number) => void
       setIsIntegratedModalOpen: (v: boolean) => void
       setSelectedDebtForIncome: (d: Debt | null) => void
       setIsIncomeConfirmModalOpen: (v: boolean) => void
@@ -424,13 +424,13 @@ export function useContasModals(): UseContasModalsReturn {
             if (fetchExpenseError) throw fetchExpenseError
 
             if (expense) {
-              const { roundToDecimals, formatMoneyInput } = await import('@/utils/format')
+              const { roundToDecimals } = await import('@/utils/format')
               const currentReportValue = roundToDecimals(expense.amount * (expense.report_weight ?? 1), 2)
               const finalValue = Math.max(0, roundToDecimals(currentReportValue - debt.amount, 2))
 
               setIntegratedModals.setLinkedExpense(expense)
               setIntegratedModals.setSelectedDebtForIntegrated(debt)
-              setIntegratedModals.setIntegratedReportValueInput(formatMoneyInput(finalValue))
+              setIntegratedModals.setIntegratedReportValueInput(finalValue)
               setIntegratedModals.setIsIntegratedModalOpen(true)
               return
             }

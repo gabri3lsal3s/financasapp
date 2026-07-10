@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Plus, Pencil, Trash2, Check, X, TrendingUp } from 'lucide-react'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import Input from '@/components/Input'
+import CurrencyInput from '@/components/CurrencyInput'
 import EmptyState from '@/components/EmptyState'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import { formatCurrency } from '@/utils/format'
@@ -20,13 +20,13 @@ interface IncomeCategoryGridProps {
   incomesKpis: { expectationSum: number; receivedSum: number; remaining: number; percentage: number }
   savingIncomeExpectationIds: string[]
   editingCategoryId: string | null
-  incomeExpectationInputs: Record<string, string>
+  incomeExpectationInputs: Record<string, number>
   onEditCategory: (category: IncomeCategory) => void
   onDeleteCategory: (category: IncomeCategory) => void
   onEditExpectation: (categoryId: string) => void
   onSaveExpectation: (incomeCategoryId: string) => Promise<void>
   onCancelEditExpectation: () => void
-  onSetExpectationInput: (categoryId: string, value: string) => void
+  onSetExpectationInput: (categoryId: string, value: number) => void
   onAddCategory: () => void
 }
 
@@ -242,14 +242,11 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
                   <div className="pt-3 border-t border-glass/30 flex items-center justify-between gap-2 h-9 flex-shrink-0">
                     {isEditing ? (
                       <div className="flex items-center gap-1.5 w-full">
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={incomeExpectationInputs[cat.id] || ''}
-                          onChange={(event) => onSetExpectationInput(cat.id, event.target.value)}
+                        <CurrencyInput
+                          value={incomeExpectationInputs[cat.id] || 0}
+                          onChange={(_e, val) => onSetExpectationInput(cat.id, val)}
                           placeholder="Meta (ex: 2000)"
                           className="w-full h-8 text-xs py-1"
-                          autoFocus
                         />
                         <Button
                           type="button"

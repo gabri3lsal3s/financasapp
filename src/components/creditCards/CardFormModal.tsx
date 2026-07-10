@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Input from '@/components/Input'
+import CurrencyInput from '@/components/CurrencyInput'
 import NumberInput from '@/components/NumberInput'
 import Select from '@/components/Select'
 import ModalForm from '@/components/ModalForm'
@@ -28,7 +29,7 @@ interface CardFormModalProps {
 type CardFormState = {
   name: string
   brand: string
-  limit_total: string
+  limit_total: number
   closing_day: string
   due_day: string
   color: string
@@ -38,7 +39,7 @@ type CardFormState = {
 const DEFAULT_FORM: CardFormState = {
   name: '',
   brand: '',
-  limit_total: '',
+  limit_total: 0,
   closing_day: '8',
   due_day: '15',
   color: CREDIT_CARD_DEFAULT_COLOR,
@@ -61,7 +62,7 @@ export default function CardFormModal({
         setForm({
           name: editingCard.name,
           brand: editingCard.brand || '',
-          limit_total: editingCard.limit_total ? String(editingCard.limit_total) : '',
+          limit_total: editingCard.limit_total ?? 0,
           closing_day: String(editingCard.closing_day),
           due_day: String(editingCard.due_day),
           color: editingCard.color || CREDIT_CARD_DEFAULT_COLOR,
@@ -92,7 +93,7 @@ export default function CardFormModal({
       return
     }
 
-    const limitTotal = form.limit_total ? Number(form.limit_total) : null
+    const limitTotal = form.limit_total || null
     if (limitTotal !== null && (!Number.isFinite(limitTotal) || limitTotal < 0)) {
       alert('O limite deve ser zero ou maior.')
       return
@@ -142,13 +143,10 @@ export default function CardFormModal({
         placeholder="Ex: Visa, Master"
       />
 
-      <NumberInput
+      <CurrencyInput
         label="Limite total (opcional)"
-        min={0}
-        step={0.01}
         value={form.limit_total}
-        onChange={(event) => setForm((prev) => ({ ...prev, limit_total: event.target.value }))}
-        hideSpinButtons
+        onChange={(_e, val) => setForm((prev) => ({ ...prev, limit_total: val }))}
       />
 
       <div className="modal-field-row">

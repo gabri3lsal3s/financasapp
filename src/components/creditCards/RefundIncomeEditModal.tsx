@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
+import CurrencyInput from '@/components/CurrencyInput'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import {
   APP_START_DATE,
-  formatMoneyInput,
-  parseMoneyInput,
 } from '@/utils/format'
 
 interface RefundIncomeEditModalProps {
@@ -21,8 +20,8 @@ interface RefundIncomeEditModalProps {
   }) => Promise<void>
   onDelete: () => Promise<void>
   initialData: {
-    amount: string
-    report_amount: string
+    amount: number
+    report_amount: number
     date: string
     income_category_id: string
     description: string
@@ -32,16 +31,16 @@ interface RefundIncomeEditModalProps {
 }
 
 type RefundIncomeFormState = {
-  amount: string
-  report_amount: string
+  amount: number
+  report_amount: number
   date: string
   income_category_id: string
   description: string
 }
 
 const DEFAULT_FORM = (): RefundIncomeFormState => ({
-  amount: '',
-  report_amount: '',
+  amount: 0,
+  report_amount: 0,
   date: '',
   income_category_id: '',
   description: '',
@@ -70,15 +69,11 @@ export default function RefundIncomeEditModal({
     }
   }, [isOpen, initialData])
 
-  const handleAmountChange = (nextAmount: string) => {
+  const handleAmountChange = (nextAmount: number) => {
     setForm((prev) => {
-      const prevAmount = parseMoneyInput(prev.amount)
-      const prevReportAmount = parseMoneyInput(prev.report_amount)
       const shouldSyncReportAmount =
-        !prev.report_amount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
+        prev.report_amount === 0 ||
+        Math.abs(prev.report_amount - prev.amount) < 0.009
 
       return {
         ...prev,
@@ -91,15 +86,13 @@ export default function RefundIncomeEditModal({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    const amountBase = parseMoneyInput(form.amount)
+    const amountBase = form.amount
     if (Number.isNaN(amountBase) || amountBase <= 0) {
       alert('Informe o valor base do estorno.')
       return
     }
 
-    const reportAmount = form.report_amount
-      ? parseMoneyInput(form.report_amount)
-      : amountBase
+    const reportAmount = form.report_amount || amountBase
 
     if (
       Number.isNaN(reportAmount) ||
@@ -136,40 +129,19 @@ export default function RefundIncomeEditModal({
         />
       )}
     >
-      <Input
+      <CurrencyInput
         label="Valor"
-        type="text"
-        inputMode="decimal"
         value={form.amount}
-        onChange={(event) => handleAmountChange(event.target.value)}
-        onBlur={() => {
-          const parsed = parseMoneyInput(form.amount)
-          if (!Number.isNaN(parsed) && parsed >= 0) {
-            handleAmountChange(formatMoneyInput(parsed))
-          }
-        }}
-        placeholder="0,00"
+        onChange={(_e, val) => handleAmountChange(val)}
         required
       />
 
-      <Input
+      <CurrencyInput
         label="Valor no relatório (opcional)"
-        type="text"
-        inputMode="decimal"
         value={form.report_amount}
-        onChange={(event) =>
-          setForm((prev) => ({ ...prev, report_amount: event.target.value }))
+        onChange={(_e, val) =>
+          setForm((prev) => ({ ...prev, report_amount: val }))
         }
-        onBlur={() => {
-          if (!form.report_amount) return
-          const parsed = parseMoneyInput(form.report_amount)
-          if (!Number.isNaN(parsed) && parsed >= 0) {
-            setForm((prev) => ({
-              ...prev,
-              report_amount: formatMoneyInput(parsed),
-            }))
-          }
-        }}
         placeholder="Se vazio, usa o valor total"
       />
 

@@ -1,4 +1,5 @@
 import Input from '@/components/Input'
+import CurrencyInput from '@/components/CurrencyInput'
 import { formatCurrency, formatDate } from '@/utils/format'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
@@ -156,14 +157,12 @@ export default function ConflictDraftCard({
               }}
             />
 
-            <Input
+            <CurrencyInput
               label="Valor sugerido"
-              type="text"
-              inputMode="decimal"
-              value={draft.amount}
+              value={Number(draft.amount || conflict.official.amount || 0)}
               disabled={draft.applied}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                onUpdateAmount(event.target.value)
+              onChange={(_e, val) => {
+                onUpdateAmount(String(val))
               }}
             />
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import Input from '@/components/Input'
-import NumberInput from '@/components/NumberInput'
+import CurrencyInput from '@/components/CurrencyInput'
 import Select from '@/components/Select'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
@@ -25,7 +25,7 @@ interface DebtFormModalProps {
 type DebtFormState = {
   name: string
   type: 'payable' | 'receivable'
-  amount: string
+  amount: number
   due_date: string
   description: string
   status: 'pending' | 'paid'
@@ -34,7 +34,7 @@ type DebtFormState = {
 const DEFAULT_DEBT_FORM = (): DebtFormState => ({
   name: '',
   type: 'payable',
-  amount: '',
+  amount: 0,
   due_date: format(new Date(), 'yyyy-MM-dd'),
   description: '',
   status: 'pending',
@@ -55,7 +55,7 @@ export default function DebtFormModal({
         setForm({
           name: editingDebt.name,
           type: editingDebt.type,
-          amount: String(editingDebt.amount),
+          amount: editingDebt.amount,
           due_date: editingDebt.due_date,
           description: editingDebt.description || '',
           status: editingDebt.status,
@@ -74,8 +74,7 @@ export default function DebtFormModal({
       return
     }
 
-    const parsedAmount = Number(form.amount)
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    if (!Number.isFinite(form.amount) || form.amount <= 0) {
       alert('Informe um valor maior que zero.')
       return
     }
@@ -83,7 +82,7 @@ export default function DebtFormModal({
     await onSubmit({
       name: form.name.trim(),
       type: form.type,
-      amount: parsedAmount,
+      amount: form.amount,
       due_date: form.due_date,
       description: form.description.trim(),
       status: form.status,
@@ -137,17 +136,13 @@ export default function DebtFormModal({
         required
       />
 
-      <NumberInput
-        label="Valor (R$)"
-        min={0.01}
-        step={0.01}
+      <CurrencyInput
+        label="Valor"
         value={form.amount}
-        onChange={(e) =>
-          setForm((prev) => ({ ...prev, amount: e.target.value }))
+        onChange={(_e, val) =>
+          setForm((prev) => ({ ...prev, amount: val }))
         }
-        placeholder="0,00"
         required
-        hideSpinButtons
       />
 
       <Input

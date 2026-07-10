@@ -1,6 +1,6 @@
 # Minhas Finanças — Guia Completo do Sistema
 
-> **Versão:** 1.1.0 | **Última atualização:** Julho de 2026
+> **Versão:** 1.2.0 | **Última atualização:** Julho de 2026
 > **Stack:** React 18 + TypeScript + Vite + Tailwind CSS + Supabase
 
 ---
@@ -305,7 +305,8 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 
 | Componente | Função |
 |------------|--------|
-| `TransactionAmountFields` | Par de inputs (valor + peso relatório) com sincronização |
+| `TransactionCurrencyFields` | Par de inputs (valor + peso relatório) com sincronização e valores numéricos via `CurrencyInput` |
+| `CurrencyInput` | Input monetário com máscara reversa estilo Nubank (`Intl.NumberFormat`, `inputMode="numeric"`) |
 | `TransactionDateField` | Input de data padronizado |
 | `TransactionCategorySelect` | Select de categoria |
 | `TransactionDescriptionField` | Input de descrição |
@@ -772,7 +773,7 @@ npm run preview   # Preview do build
 |--------|---------|-----------|
 | Dev | `npm run dev` | Ambiente de desenvolvimento |
 | Build | `npm run build` | Typecheck + Vite build |
-| Test | `npm run test:run` | 267 testes Vitest |
+| Test | `npm run test:run` | 425 testes Vitest (35 arquivos) |
 | UI Guardrails | `npm run guardrails:ui` | Validação de estilos |
 | Lint | `npm run lint` | Guardrails + ESLint |
 
@@ -794,6 +795,8 @@ npm run preview   # Preview do build
 | Total componentes | **130+** |
 | Total hooks | **40+** |
 | Total migrations | **43** |
+| Inputs financeiros padronizados | **CurrencyInput** (máscara reversa) em ~18 formulários |
+| Arquivos removidos | `AmountInput.tsx`, `TransactionAmountFields.tsx` |
 
 ---
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import CurrencyInput from '@/components/CurrencyInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import ModalForm from '@/components/ModalForm'
@@ -6,8 +7,6 @@ import ModalFooter from '@/components/ModalFooter'
 import type { CreditCard } from '@/types'
 import {
   APP_START_DATE,
-  formatMoneyInput,
-  parseMoneyInput,
   roundToDecimals,
 } from '@/utils/format'
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
@@ -32,8 +31,8 @@ interface ExpenseEditModalProps {
 }
 
 type ExpenseFormState = {
-  amount: string
-  report_amount: string
+  amount: number
+  report_amount: number
   date: string
   installment_total: string
   payment_method: string
@@ -43,8 +42,8 @@ type ExpenseFormState = {
 }
 
 const DEFAULT_EXPENSE_FORM = (): ExpenseFormState => ({
-  amount: '',
-  report_amount: '',
+  amount: 0,
+  report_amount: 0,
   date: '',
   installment_total: '1',
   payment_method: 'other',
@@ -68,14 +67,12 @@ export default function ExpenseEditModal({
   useEffect(() => {
     if (isOpen && expenseItem) {
       setForm({
-        amount: formatMoneyInput(Math.abs(expenseItem.amount)),
+        amount: Math.abs(expenseItem.amount),
         report_amount:
           expenseItem.report_weight !== undefined &&
           expenseItem.report_weight !== null
-            ? formatMoneyInput(
-                roundToDecimals(Math.abs(expenseItem.amount) * expenseItem.report_weight, 2)
-              )
-            : '',
+            ? roundToDecimals(Math.abs(expenseItem.amount) * expenseItem.report_weight, 2)
+            : 0,
         date: expenseItem.date,
         installment_total: '1',
         payment_method: expenseItem.payment_method || 'credit_card',
@@ -86,15 +83,11 @@ export default function ExpenseEditModal({
     }
   }, [isOpen, expenseItem])
 
-  const handleAmountChange = (nextAmount: string) => {
+  const handleAmountChange = (nextAmount: number) => {
     setForm((prev) => {
-      const prevAmount = parseMoneyInput(prev.amount)
-      const prevReportAmount = parseMoneyInput(prev.report_amount)
       const shouldSyncReportAmount =
-        !prev.report_amount ||
-        (!Number.isNaN(prevAmount) &&
-          !Number.isNaN(prevReportAmount) &&
-          Math.abs(prevReportAmount - prevAmount) < 0.009)
+        prev.report_amount === 0 ||
+        Math.abs(prev.report_amount - prev.amount) < 0.009
 
       return {
         ...prev,
@@ -107,15 +100,13 @@ export default function ExpenseEditModal({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    const amountBase = parseMoneyInput(form.amount)
+    const amountBase = form.amount
     if (Number.isNaN(amountBase) || amountBase <= 0) {
       alert('Informe o valor base da despesa.')
       return
     }
 
-    const reportAmount = form.report_amount
-      ? parseMoneyInput(form.report_amount)
-      : amountBase
+    const reportAmount = form.report_amount || amountBase
 
     if (
       Number.isNaN(reportAmount) ||
@@ -159,40 +150,19 @@ export default function ExpenseEditModal({
         />
       )}
     >
-      <Input
+      <CurrencyInput
         label="Valor"
-        type="text"
-        inputMode="decimal"
         value={form.amount}
-        onChange={(event) => handleAmountChange(event.target.value)}
-        onBlur={() => {
-          const parsed = parseMoneyInput(form.amount)
-          if (!Number.isNaN(parsed) && parsed >= 0) {
-            handleAmountChange(formatMoneyInput(parsed))
-          }
-        }}
-        placeholder="0,00"
+        onChange={(_e, val) => handleAmountChange(val)}
         required
       />
 
-      <Input
+      <CurrencyInput
         label="Valor no relatório (opcional)"
-        type="text"
-        inputMode="decimal"
         value={form.report_amount}
-        onChange={(event) =>
-          setForm((prev) => ({ ...prev, report_amount: event.target.value }))
+        onChange={(_e, val) =>
+          setForm((prev) => ({ ...prev, report_amount: val }))
         }
-        onBlur={() => {
-          if (!form.report_amount) return
-          const parsed = parseMoneyInput(form.report_amount)
-          if (!Number.isNaN(parsed) && parsed >= 0) {
-            setForm((prev) => ({
-              ...prev,
-              report_amount: formatMoneyInput(parsed),
-            }))
-          }
-        }}
         placeholder="Se vazio, usa o valor total"
       />
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import Input from '@/components/Input'
-import NumberInput from '@/components/NumberInput'
+import CurrencyInput from '@/components/CurrencyInput'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import type { BillPaymentDisplayItem } from '@/utils/creditCardBilling'
@@ -25,18 +25,18 @@ export default function BillPaymentModal({
   editingPayment,
   loading,
 }: BillPaymentModalProps) {
-  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentAmount, setPaymentAmount] = useState(0)
   const [paymentDate, setPaymentDate] = useState('')
   const [paymentNote, setPaymentNote] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       if (editingPayment) {
-        setPaymentAmount(String(Math.abs(editingPayment.amount) || ''))
+        setPaymentAmount(Math.abs(editingPayment.amount) || 0)
         setPaymentDate(editingPayment.payment_date || format(new Date(), 'yyyy-MM-dd'))
         setPaymentNote(editingPayment.note || '')
       } else {
-        setPaymentAmount('')
+        setPaymentAmount(0)
         setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
         setPaymentNote('')
       }
@@ -46,13 +46,12 @@ export default function BillPaymentModal({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
-    const parsedAmount = Number(paymentAmount)
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
       alert('Informe um valor de pagamento maior que zero.')
       return
     }
 
-    await onSubmit(parsedAmount, paymentDate, paymentNote.trim())
+    await onSubmit(paymentAmount, paymentDate, paymentNote.trim())
   }
 
   return (
@@ -72,14 +71,11 @@ export default function BillPaymentModal({
         />
       )}
     >
-      <NumberInput
+      <CurrencyInput
         label="Valor pago"
-        min={0.01}
-        step={0.01}
         value={paymentAmount}
-        onChange={(event) => setPaymentAmount(event.target.value)}
+        onChange={(_e, val) => setPaymentAmount(val)}
         required
-        hideSpinButtons
       />
 
       <Input
