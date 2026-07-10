@@ -705,7 +705,7 @@ export default function CreditCardCsvReconciliationPanel({
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black ${
                     isActive ? 'bg-primary text-secondary' : isCompleted ? 'bg-income text-white' : 'bg-secondary text-secondary border border-primary'
                   }`}>
-                    {isCompleted ? '✓' : index + 1}
+                    {isCompleted ? <Check size={10} className="inline-block" /> : index + 1}
                   </span>
                   <span>{stepItem.label}</span>
                   {stepItem.count !== undefined && stepItem.count > 0 && (
@@ -828,7 +828,7 @@ export default function CreditCardCsvReconciliationPanel({
           {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length > 0 && (
             <div className="bg-[color-mix(in_srgb,var(--color-warning)_6%,var(--glass-layer-panel))] border border-[color-mix(in_srgb,var(--color-warning)_20%,var(--glass-border))] p-3.5 rounded-2xl max-w-md mx-auto shadow-sm">
               <p className="text-xs text-warning leading-normal font-bold">
-                ⚠ Identificamos {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length} lançamentos no sistema que não constam no arquivo oficial.
+                <AlertTriangle size={14} className="inline-block align-text-top mr-1 text-warning" /> Identificamos {suspiciousItems.filter((item) => !fixedSuspiciousIds.has(String(item.id || ''))).length} lançamentos no sistema que não constam no arquivo oficial.
               </p>
             </div>
           )}

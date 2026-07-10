@@ -6,7 +6,7 @@
  *
  * Este arquivo mantém re-exports para compatibilidade com imports existentes.
  *
- * ⚠️ Para novo código, importe diretamente de `@/components/ui/skeleton`.
+ * Para novo código, importe diretamente de `@/components/ui/skeleton`.
  */
 export {
   Skeleton,

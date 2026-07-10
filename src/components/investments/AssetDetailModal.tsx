@@ -14,7 +14,7 @@ import {
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import type { PortfolioTransaction, PortfolioQuantPreferences } from '@/types'
 import { getQuantitativeScoreDetails } from '@/utils/quantamentalEngine'
-import { Settings2, History, ClipboardCheck } from 'lucide-react'
+import { Settings2, History, ClipboardCheck, AlertTriangle } from 'lucide-react'
 import { Z_INDEX } from '@/constants/zIndex'
 import {
   ResponsiveContainer,
@@ -351,7 +351,7 @@ export default function AssetDetailModal({
 
               {position.is_decayed && (
                 <div className="p-2.5 bg-expense/10 border border-expense/25 rounded-xl text-[10px] text-secondary font-semibold leading-relaxed flex items-start gap-2">
-                  <span className="text-expense">⚠️</span>
+                  <AlertTriangle size={14} className="text-expense shrink-0" />
                   <span>
                     Avaliação qualitativa (Scuttlebutt) expirada
                     {position.scuttlebutt_last_updated && (

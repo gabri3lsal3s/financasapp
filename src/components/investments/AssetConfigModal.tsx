@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 import { logger } from '@/utils/logger'
 import { getAssetMetadata } from '@/utils/assetClassifier'
 import { formatNumberWithTwoDecimalsBR, formatDateTime } from '@/utils/format'
+import { AlertTriangle } from 'lucide-react'
 
 interface AssetConfigModalProps {
   isOpen: boolean
@@ -185,7 +186,7 @@ export default function AssetConfigModal({
     if (Math.abs(numManual - numApi) > 0.01) {
       return (
         <div className="text-[8px] text-warning font-black mt-1 flex items-center justify-between bg-warning/10 p-1 px-1.5 rounded-lg border border-warning/20 animate-pulse">
-          <span>⚠️ Contrasta com a API ({formatNumberWithTwoDecimalsBR(apiVal)}{isPercentage ? '%' : ''})</span>
+          <span><AlertTriangle size={10} className="inline-block align-text-top mr-0.5 text-warning" /> Contrasta com a API ({formatNumberWithTwoDecimalsBR(apiVal)}{isPercentage ? '%' : ''})</span>
           <button 
             type="button" 
             onClick={onReset} 

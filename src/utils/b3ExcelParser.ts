@@ -165,13 +165,13 @@ export function validateB3MovementHeaders(headers: string[]): B3HeaderValidation
 
 function formatHeaderValidationError(validation: B3HeaderValidation): string {
   const lines: string[] = [
-    '⚠️ A planilha enviada não tem o formato esperado da B3.',
+    '[AVISO] A planilha enviada não tem o formato esperado da B3.',
     '',
     `Colunas encontradas no arquivo (${validation.foundHeaders.length}): ${validation.foundHeaders.join(', ') || '(nenhuma)'}`,
   ]
 
   if (validation.missing.length > 0) {
-    lines.push('', '❌ Colunas obrigatórias ausentes:')
+    lines.push('', '[ERRO] Colunas obrigatórias ausentes:')
     for (const col of validation.missing) {
       const suggestions: Record<string, string> = {
         Data: 'Espere um cabeçalho como "Data", "Data de Movimentação" ou "Dt. Movimentação"',
@@ -180,9 +180,9 @@ function formatHeaderValidationError(validation: B3HeaderValidation): string {
       }
       lines.push(`  • "${col}" — ${suggestions[col] || ''}`)
     }
-    lines.push('', '💡 Dica: Exporte o relatório pelo menu Investimentos → Movimentações (.xlsx) da sua corretora.')
+    lines.push('', 'Dica: Exporte o relatório pelo menu Investimentos → Movimentações (.xlsx) da sua corretora.')
   } else {
-    lines.push('', '✅ Todas as colunas obrigatórias identificadas!')
+    lines.push('', 'Todas as colunas obrigatórias identificadas!')
     lines.push('', `   Data: ${validation.found.date}`)
     lines.push(`   Movimentação: ${validation.found.operationType}`)
     lines.push(`   Produto: ${validation.found.product}`)

@@ -840,8 +840,9 @@ describe('classifyBySignals', () => {
     expect(exactResult.baseConfidence).toBeCloseTo(0.95, 10)
 
     // Same data but without monthsWithExact -> falls through to name-only
+    // monthsWithApprox=2 + nameMatch → Priority 7 (0.65) para 3+ meses
     const nameResult = classifyBySignals(0, 2, sig)
-    expect(nameResult.baseConfidence).toBe(0.60)
+    expect(nameResult.baseConfidence).toBe(0.65)
   })
 
   it('correctly prioritizes name+category (0.85) over name-only (0.60)', () => {

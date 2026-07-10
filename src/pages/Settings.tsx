@@ -592,7 +592,7 @@ export default function Settings() {
               {!biometricAvailable && (
                 <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning)]/10 p-3">
                   <p className="text-sm text-primary">
-                    ⚠️ Este navegador ou dispositivo não suporta autenticação biométrica (WebAuthn).
+                    <AlertTriangle size={16} className="text-warning shrink-0 mr-1 inline-block align-middle" /> Este navegador ou dispositivo não suporta autenticação biométrica (WebAuthn).
                     Use Chrome, Safari ou Edge em um dispositivo com biometria ou Windows Hello.
                   </p>
                 </div>

@@ -3,6 +3,7 @@ import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
 import { formatCurrency } from '@/utils/format'
+import { Landmark, DollarSign, FileText, Save } from 'lucide-react'
 import type { PortfolioAssetIndexer } from '@/types'
 
 export interface AssetYieldDraft {
@@ -51,7 +52,7 @@ export default function AssetYieldConfigCard({
               {asset.ticker}
             </strong>
             <span className="text-[9px] text-secondary font-bold uppercase tracking-wider mt-0.5 block">
-              {asset.isTreasury ? '🏛️ Tesouro Direto' : isFixed ? '💰 Renda Fixa' : '📝 Valor Manual'}
+              {asset.isTreasury ? <><Landmark size={14} className="inline-block align-text-top" /> Tesouro Direto</> : isFixed ? <><DollarSign size={14} className="inline-block align-text-top" /> Renda Fixa</> : <><FileText size={14} className="inline-block align-text-top" /> Valor Manual</>}
             </span>
           </div>
           <span className="px-2 py-0.5 bg-balance/10 text-balance rounded-lg text-[9px] uppercase font-bold font-mono">
@@ -155,7 +156,7 @@ export default function AssetYieldConfigCard({
               onClick={onSave}
               className="w-full h-10 flex items-center justify-center gap-1 font-bold text-[11px]"
             >
-              💾 Salvar Rentabilidade
+              <Save size={14} /> Salvar Rentabilidade
             </Button>
           </div>
         </div>

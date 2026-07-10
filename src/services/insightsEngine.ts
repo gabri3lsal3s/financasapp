@@ -475,7 +475,12 @@ export function classifyBySignals(
     return { recType: 'subscription', baseConfidence: 0.90 + bonus }
   }
 
-  // Nome + Categoria conhecidos em 2+ meses → subscription (identificação forte)
+  // Nome + Categoria em 3+ meses → subscription (confiança alta)
+  if (monthsWithApprox >= 2 && nameMatch && categoryMatch) {
+    return { recType: 'subscription', baseConfidence: 0.88 }
+  }
+
+  // Nome + Categoria conhecidos em 1+ meses → subscription (identificação forte)
   if (monthsWithApprox >= 1 && nameMatch && categoryMatch) {
     return { recType: 'subscription', baseConfidence: 0.85 }
   }
@@ -495,7 +500,12 @@ export function classifyBySignals(
     return { recType: 'subscription', baseConfidence: 0.70 }
   }
 
-  // Nome conhecido com valor aproximado (até 50%) → subscription (baixa confiança)
+  // Nome conhecido com valor aproximado (até 50%) em 2+ meses → subscription (média)
+  if (monthsWithApprox >= 2 && nameMatch) {
+    return { recType: 'subscription', baseConfidence: 0.65 }
+  }
+
+  // Nome conhecido com valor aproximado (até 50%) em 1 mês → subscription (baixa)
   if (monthsWithApprox >= 1 && nameMatch) {
     return { recType: 'subscription', baseConfidence: 0.60 }
   }
@@ -648,8 +658,12 @@ function detectRecurringExpenses(
     const avgHistoricalReport = monthsWithApprox > 0 ? totalHistoricalReport / monthsWithApprox : 0
     const monthlyAmount = Math.round((currentReportTotal + avgHistoricalReport) / 2 * 100) / 100
 
-    // Confiança final: base + bônus por meses encontrados
-    const monthsBonus = Math.min(1, (monthsFound - 1) * 0.05)
+    // ── Confiança final: base + bônus não-linear por meses encontrados ──
+    // 2 meses: +0.05 | 3 meses: +0.10 | 4 meses: +0.18 | 5+ meses: +0.28
+    const baseMonthsBonus = (monthsFound - 1) * 0.05
+    const extraMonthsBonus = monthsFound >= 4 ? (monthsFound - 3) * 0.08 : 0
+    const monthsBonus = Math.min(1, baseMonthsBonus + extraMonthsBonus)
+
     const totalRatio = Math.max(currentTotal, avgHistoricalRaw) / Math.max(Math.min(currentTotal, avgHistoricalRaw), 0.01)
     const variance = Math.max(0, totalRatio - 1)
     const variancePenalty = recType === 'subscription' ? variance * 0.3 : variance * 0.8
@@ -674,7 +688,10 @@ function detectRecurringExpenses(
       monthsFound,
       confidence,
       recurrenceType: recType,
-      nature: recType === 'subscription' && signals.exactValue ? 'fixed' : 'variable',
+      // nature é 'fixed' apenas se TODOS os meses tiverem valor exato (±5%)
+      // monthsWithExact conta meses com ±10%, signal exige ±5% — usamos monthsWithExact
+      // como proxy: se todos os meses históricos batem ±10%, provavelmente é fixo
+      nature: recType === 'subscription' && signals.exactValue && monthsWithExact === monthsWithApprox ? 'fixed' : 'variable',
       isIgnored: isSubscriptionIgnored(currentItems[0].description),
       incomePercentage,
       tier,
@@ -765,7 +782,10 @@ function detectRecurringExpenses(
     const avgSimilarRaw = totalSimilarRaw / monthsWithSimilar
     const avgSimilarReport = totalSimilarReport / monthsWithSimilar
     const monthlyAmount = Math.round((currentCatReport + avgSimilarReport) / 2 * 100) / 100
-    const monthsBonus = Math.min(1, (monthsFound - 1) / 4)
+    // ── Bônus não-linear para 'similar': 2m→+0.25, 3m→+0.55, 4m→+0.75
+    const baseSimilarBonus = (monthsFound - 1) / 4
+    const extraSimilarBonus = monthsFound >= 4 ? 0.20 : monthsFound >= 3 ? 0.10 : 0
+    const monthsBonus = Math.min(1, baseSimilarBonus + extraSimilarBonus)
     const totalRatio = Math.max(currentCatRaw, avgSimilarRaw) / Math.max(Math.min(currentCatRaw, avgSimilarRaw), 0.01)
     const variance = Math.max(0, totalRatio - 1)
     const confidence = Math.round(Math.max(0.1, Math.min(0.5, 0.3 - variance * 0.5 + monthsBonus * 0.2)) * 100) / 100
