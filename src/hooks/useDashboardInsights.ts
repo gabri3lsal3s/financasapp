@@ -1,5 +1,4 @@
 import { useMemo, useCallback, useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import {
@@ -7,15 +6,18 @@ import {
   computeStructuredInsights,
   type StructuredInsights,
 } from '@/services/insightsEngine'
+import {
+  loadPinnedAnalysis,
+  savePinnedAnalysis,
+  clearPinnedAnalysis as clearPinned,
+  type PinnedAnalysisPref,
+} from '@/services/userPreferencesService'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface PinnedInsightData {
-  text: string
-  dataHash: string
-}
+export type PinnedInsightData = PinnedAnalysisPref
 
 export interface UseDashboardInsightsReturn {
   insights: StructuredInsights
@@ -68,24 +70,14 @@ export function useDashboardInsights(input: AnalysisInput): UseDashboardInsights
   /* ── Has new data since last pin? ── */
   const hasNewData = !!(pinnedInsight && pinnedInsight.dataHash !== currentHash)
 
-  /* ── Load pinned insight from Supabase ── */
+  /* ── Load pinned insight from userPreferencesService ── */
   const loadPinnedInsight = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from('pinned_ai_analyses')
-        .select('pinned_analysis')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (error) throw error
-      if (data?.pinned_analysis) {
-        const pa = data.pinned_analysis as PinnedInsightData & { queryText?: string }
+      const data = await loadPinnedAnalysis()
+      if (data) {
         setPinnedInsight({
-          text: pa.text || pa.queryText || 'Análise Financeira',
-          dataHash: pa.dataHash || '',
+          text: data.text || 'Análise Financeira',
+          dataHash: data.dataHash || '',
         })
       }
     } catch (err) {
@@ -105,18 +97,7 @@ export function useDashboardInsights(input: AnalysisInput): UseDashboardInsights
         text: `Resumo Financeiro - ${input.currentMonth}`,
         dataHash: currentHash,
       }
-
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        await supabase
-          .from('pinned_ai_analyses')
-          .upsert({
-            user_id: user.id,
-            pinned_analysis: newPinned,
-            updated_at: new Date().toISOString(),
-          })
-      }
-
+      await savePinnedAnalysis(newPinned)
       setPinnedInsight(newPinned)
     } catch (err) {
       logger.error('Erro ao atualizar insight fixado:', err)
@@ -128,14 +109,7 @@ export function useDashboardInsights(input: AnalysisInput): UseDashboardInsights
   /* ── Clear pinned insight ── */
   const clearPinnedInsight = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      await supabase
-        .from('pinned_ai_analyses')
-        .delete()
-        .eq('user_id', user.id)
-
+      await clearPinned()
       setPinnedInsight(null)
     } catch (err) {
       logger.error('Erro ao limpar insight fixado:', err)

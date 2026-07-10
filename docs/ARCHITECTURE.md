@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — Detecção inteligente de despesas recorrentes em 3 níveis (`subscription`/`recurring`/`similar`) + **detecção por sinais** (nome, categoria, valor exato) + **separação raw/report** (comparação usa valor bruto, exibição usa valor do relatório) no `insightsEngine.ts`.
+> **Última atualização:** Julho de 2026 — Dashboard refatorado: widget card system com grid personalizável (6 widgets: health, actions, subscriptions, categories, limits, flow), `useDashboardLayout` com persistência em `user_preferences`, `DashboardDataContext` com hooks focados, novos componentes `DashboardCategoryDetailModal` e `InsightsDetail`, refatoração de icones e headers padronizados, remoção de ~2.060 linhas de dead code, correção de redundância (ActionsSummary sem savings rate, LimitsOverviewDetail sem barra de orçamento duplicada).
 
 ---
 
@@ -110,13 +110,37 @@ Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModa
 | `ExpenseFormModal` | `src/components/ExpenseFormModal.tsx` | Gerencia o ciclo completo (cadastro, edição e deleção) de despesas. Inclui lógica de competência de cartões, peso de inclusão em relatórios (`report_weight`), parcelamento, e vínculo com dívidas. Refatorado para usar os 4 sub-componentes acima. |
 | `IncomeFormModal` | `src/components/IncomeFormModal.tsx` | Gerencia o ciclo de rendas. Trata de forma especial estornos automáticos de cartões de crédito. Refatorado para usar os 4 sub-componentes acima. |
 
-### 2.4 Dashboard e KPIs
+### 2.4 Dashboard e Widgets
+
+O dashboard foi refatorado para um sistema de **widget cards** configuráveis pelo usuário. Cada widget possui um **summary** (badge no header do card) e um **detail** (conteúdo principal, carregado com lazy loading via `Suspense`).
+
+#### Widgets Disponíveis
+
+| ID | Widget | Summary | Detail |
+|----|--------|---------|--------|
+| `health` | Situação Financeira | Saldo + taxa de poupança + badge | Budget usage bar, disponível/mês, projeção |
+| `actions` | Insights Financeiros | Contagem de sugestões de otimização | Cards de insights (poupança, variação, top categoria, limites, pico semanal) |
+| `subscriptions` | Gastos Recorrentes | Nº de assinaturas + total/mês | Lista de despesas recorrentes com indicadores de confiança |
+| `categories` | Gastos por Categoria | Top 3 categorias + total | Stacked bar + lista de categorias com % e valor (clicável → modal de detalhamento) |
+| `limits` | Limites de Orçamento | % usado + contagem de excedidos | Lista de categorias com atenção (clicável → modal de detalhamento) |
+| `flow` | Fluxo Diário | Total rendas/despesas/investimentos | Gráfico de fluxo diário interativo |
+
+#### Arquitetura dos Widgets
 
 | Componente | Função |
 |-----------|--------|
-| `DashboardKpis.tsx` | Renderiza a grade padrão de KPIs do Dashboard (Rendas, Despesas, Investimentos e Saldo) |
-| `KpiCard.tsx` | Card individual de KPI com ícone, valor, glow e tooltip |
-| `FloatingActionHub.tsx` | Consolida `ScrollToTop` + `NotificationsWidget` em um portal único, substituindo ~14 imports |
+| `WidgetCard.tsx` | Card base padronizado (header com ícone sem fundo, título, subtitle, summary badge + conteúdo com Suspense) |
+| `DashboardWidgetGrid.tsx` | Grid de widgets visíveis, gerencia estado do modal de detalhamento de categoria via `CategoryDetailContext` |
+| `WidgetSettingsSheet.tsx` | Sheet de personalização: reordenação via drag-and-drop (dnd-kit) e toggle de visibilidade por widget |
+| `useDashboardLayout.ts` | Hook que gerencia ordem/visibilidade dos widgets, com persistência em `user_preferences` (Supabase + localStorage) |
+| `DashboardCategoryDetailModal.tsx` | Modal de detalhamento de categoria (transactions filtradas por categoria, busca textual, total e % do total) |
+
+#### Resumo da Refatoração
+
+- **Antigos componentes removidos** (~2.060 linhas deletadas): `DashboardKpis`, `ActionsEconomyCard`, `DailyBudgetAdvisor`, `DailyFlowCard`, `FinancialHealthCard`, `LimitsControl`, `MonthlyOverviewChart`, `SmartLimitSuggestions`, `ExpenseCategoryRowButton`, `MobileChartSwitcher`
+- **Widget cards**: `WidgetCard` com `!p-0` (padrão `KpiCard`), header padronizado, sem collapse/expand, ícones sem fundo
+- **Contexto**: `DashboardDataContext` com hooks focados (`useDashboardFinances`, `useDashboardBudget`, `useDashboardInsightsContext`, `useDashboardPortfolioContext`, `useDashboardActions`)
+- **Redundâncias corrigidas**: `ActionsSummary` não repete savings rate do Health; `LimitsOverviewDetail` não repete barra de orçamento do FinancialHealthDetail no estado vazio
 
 ### 2.5 Elementos Flutuantes
 
@@ -292,6 +316,8 @@ Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar
 | `useCalculatorPanel` | Drag/resize do painel da calculadora |
 | `useScrollToTop` | Scroll-to-top com pull gesture e haptics |
 | `useDashboardInsights` | Insights estruturados (assinaturas, despesas recorrentes, desafios, limites) |
+| `useDashboardData` | Hook principal que orquestra todos os dados do dashboard (expenses, incomes, limites, investimentos, insights) — exposto via `DashboardDataContext` |
+| `useDashboardLayout` | Ordem e visibilidade dos widgets do dashboard com persistência em `user_preferences` (Supabase + localStorage) |
 | `useReportCustomPeriod` | Hook de período customizado para Reports (data loading, memoização, auto-reload) |
 
 ---
@@ -570,12 +596,17 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Componentes padronizados: FieldLabel e SectionHeader** | Criação de `FieldLabel.tsx` (uppercase, font-black, text-secondary) e `SectionHeader.tsx` (duas APIs: children+as+bordered e title+description+action). Migração de ~50 labels raw em 5 arquivos | Melhoria | ✅ |
 | — | **NumberInput padronizado em todo o app** | Migração de `Input type="number"` para `NumberInput` com spin buttons em 7 arquivos (ExpenseFormModal, CardFormModal, CycleConfigModal, LimitSuggestionsModal, DebtFormModal, BillPaymentModal, CorrectionsMissingTab) | Melhoria | ✅ |
 | — | **Overflow DECIMAL(15,2) no motor de rentabilidade** | Aumento de precisão de `DECIMAL(15,2)` para `DECIMAL(18,2)` em 12 colunas (migration). Adição de arredondamento defensivo (`round2`) antes do upsert em `portfolioTwrEngine.ts`, `portfolioHistoricalRecalc.ts` e `daily-close/index.ts` | Bug Fix | ✅ |
+| — | **Dashboard refatorado: widget card system** | Substituição de 10+ componentes antigos por sistema de 6 widgets configuráveis (WidgetCard, DashboardWidgetGrid, WidgetSettingsSheet). Uso de `useDashboardLayout` com persistência. Criação de `DashboardDataContext` com hooks focados. | Refatoração | ✅ |
+| — | **DashboardCategoryDetailModal** | Novo modal de detalhamento de categoria no dashboard, consumindo dados do contexto (expenses/incomes), com busca textual, total e % do total. | Novo | ✅ |
+| — | **InsightsDetail substitui ActionsEconomyDetail** | Novo componente baseado em FinancialInsights do reports, consumindo dados do dashboard context. | Melhoria | ✅ |
+| — | **Redundância: ActionsSummary sem savings rate** | ActionsSummary mudou de `useDashboardFinances` (savingsRate que duplicava HealthSummary) para `useDashboardInsightsContext` (contagem de sugestões de otimização). | Melhoria | ✅ |
+| — | **Redundância: LimitsOverviewDetail sem barra duplicada** | Estado vazio do LimitsOverviewDetail agora mostra apenas mensagem, sem a barra de progresso que duplicava FinancialHealthDetail. | Melhoria | ✅ |
 
 ### Validação final
 
 - ✅ Build: OK
 - ✅ Typecheck: 0 erros
-- ✅ Testes: 290/290 passando (31 arquivos, 4.15s)
+- ✅ Testes: 425/425 passando (35 arquivos)
 - ✅ UI Guardrails: 21 na baseline
 - ✅ `as any` em produção: 0 (5 em gráficos Recharts)
 - ✅ Non-null assertions em produção: 0

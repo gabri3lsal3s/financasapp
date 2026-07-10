@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo } from 'react'
 import { useCategories } from '@/hooks/useCategories'
 import { useIncomeCategories } from '@/hooks/useIncomeCategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
@@ -17,7 +17,8 @@ import { useBudgetLimits } from '@/hooks/useBudgetLimits'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { generateOptimizationSuggestions } from '@/services/insightsEngine'
 import type { AnalysisInput } from '@/services/insightsEngine'
-import type { PortfolioTransaction } from '@/types'
+import type { Expense, Income, PortfolioTransaction } from '@/types'
+import { applyReportWeight } from '@/utils/reportWeight'
 
 /* ------------------------------------------------------------------ */
 /*  Return Type                                                        */
@@ -37,6 +38,10 @@ export interface DashboardData {
   balance: number
   savingsRate: number
 
+  // Raw data arrays (for modals/drill-down)
+  expenses: Expense[]
+  incomes: Income[]
+
   // Budget
   spendingCalcs: ReturnType<typeof useSpendingCalculations>
   spendingProjection: ReturnType<typeof useSpendingProjection>
@@ -46,6 +51,10 @@ export interface DashboardData {
 
   // Chart
   dailyFlowData: Array<{ day: string; Rendas: number; Despesas: number; Investimentos: number }>
+
+  // Derived
+  previousMonthExpenseTotal: number
+  weekdayExpenseData: Array<{ dia: string; Despesas: number }>
 
   // Insights & Optimization
   insights: ReturnType<typeof useDashboardInsights>['insights']
@@ -63,6 +72,8 @@ export interface DashboardData {
   creditCards: ReturnType<typeof useCreditCards>['creditCards']
   currentMonthExpenseLimitMap: Map<string, number | null>
   reallocationRecommendation: ReturnType<typeof useBudgetLimits>['reallocationRecommendation']
+  expenseByCategory: ReturnType<typeof useBudgetLimits>['expenseByCategory']
+  categoriesAttentionList: ReturnType<typeof useBudgetLimits>['categoriesAttentionList']
 
   // Mutation helpers
   createExpense: ReturnType<typeof useExpenses>['createExpense']
@@ -113,25 +124,17 @@ export function useDashboardData(): DashboardData {
   const { limits: currentMonthExpenseLimits, loading: expenseLimitsLoading, setCategoryLimit, refreshLimits } = useExpenseCategoryLimits(currentMonth)
   const { limits: previousMonthExpenseLimits, loading: previousExpenseLimitsLoading } = useExpenseCategoryLimits(previousMonth)
 
-  // ── Helpers ──
-  const expenseAmountForDashboard = useCallback(
-    (amount: number, reportWeight?: number | null) => amount * (reportWeight ?? 1),
-    [],
-  )
-  const incomeAmountForDashboard = useCallback(
-    (amount: number, reportWeight?: number | null) => amount * (reportWeight ?? 1),
-    [],
-  )
+  // O reportWeight é aplicado inline via applyReportWeight (utilitário puro)
 
   // ── Totals ──
   const totalExpenses = useMemo(
-    () => expenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0),
-    [expenses, expenseAmountForDashboard],
+    () => expenses.reduce((sum, exp) => sum + applyReportWeight(exp.amount, exp.report_weight), 0),
+    [expenses],
   )
 
   const totalIncomes = useMemo(
-    () => incomes.reduce((sum, inc) => sum + incomeAmountForDashboard(inc.amount, inc.report_weight), 0),
-    [incomes, incomeAmountForDashboard],
+    () => incomes.reduce((sum, inc) => sum + applyReportWeight(inc.amount, inc.report_weight), 0),
+    [incomes],
   )
 
   const portfolioMonthFlow = useMemo(
@@ -149,8 +152,8 @@ export function useDashboardData(): DashboardData {
   const loading = expensesLoading || incomesLoading || expenseLimitsLoading || previousExpenseLimitsLoading
 
   const previousMonthExpenseTotal = useMemo(
-    () => previousMonthExpenses.reduce((sum, exp) => sum + expenseAmountForDashboard(exp.amount, exp.report_weight), 0),
-    [previousMonthExpenses, expenseAmountForDashboard],
+    () => previousMonthExpenses.reduce((sum, exp) => sum + applyReportWeight(exp.amount, exp.report_weight), 0),
+    [previousMonthExpenses],
   )
 
   // ── Budget Hooks ──
@@ -165,6 +168,7 @@ export function useDashboardData(): DashboardData {
     totalLimits,
     limitUsedPercentage,
     progressColor,
+    categoriesAttentionList,
   } = useBudgetLimits(
     categories,
     expenses,
@@ -172,7 +176,6 @@ export function useDashboardData(): DashboardData {
     previousMonthExpenseLimits,
     totalExpenses,
     totalIncomes,
-    expenseAmountForDashboard,
     colorPalette,
     getCategoryColorForPalette,
     setCategoryLimit,
@@ -196,13 +199,13 @@ export function useDashboardData(): DashboardData {
     const map = new Map<string, number>()
     incomes.forEach((inc) => {
       const name = inc.income_category?.name || 'Outros'
-      const amount = incomeAmountForDashboard(inc.amount, inc.report_weight)
+      const amount = applyReportWeight(inc.amount, inc.report_weight)
       map.set(name, (map.get(name) || 0) + amount)
     })
     return Array.from(map.entries())
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total)
-  }, [incomes, incomeAmountForDashboard])
+  }, [incomes])
 
   const spendingPace = useMemo(() => {
     if (totalIncomes <= 0 || totalExpenses <= 0) return null
@@ -231,10 +234,10 @@ export function useDashboardData(): DashboardData {
       if (Number.isNaN(localDate.getTime())) return
       const dayOfWeek = localDate.getDay()
       const mondayFirstIndex = (dayOfWeek + 6) % 7
-      totals[mondayFirstIndex].Despesas += expenseAmountForDashboard(expense.amount, expense.report_weight)
+      totals[mondayFirstIndex].Despesas += applyReportWeight(expense.amount, expense.report_weight)
     })
     return totals
-  }, [expenses, currentMonth, expenseAmountForDashboard])
+  }, [expenses, currentMonth])
 
   const expensesWithLimit = useMemo(() => {
     return categories
@@ -320,13 +323,13 @@ export function useDashboardData(): DashboardData {
     incomes.forEach((income) => {
       const day = new Date(`${income.date}T00:00:00`).getDate()
       if (day >= 1 && day <= daysInMonth) {
-        series[day - 1].Rendas += incomeAmountForDashboard(income.amount, income.report_weight)
+        series[day - 1].Rendas += applyReportWeight(income.amount, income.report_weight)
       }
     })
     expenses.forEach((expense) => {
       const day = new Date(`${expense.date}T00:00:00`).getDate()
       if (day >= 1 && day <= daysInMonth) {
-        series[day - 1].Despesas += expenseAmountForDashboard(expense.amount, expense.report_weight)
+        series[day - 1].Despesas += applyReportWeight(expense.amount, expense.report_weight)
       }
     })
     const portfolioByDay = portfolioInvestmentByDay(portfolioTransactions, currentMonth, daysInMonth)
@@ -335,7 +338,7 @@ export function useDashboardData(): DashboardData {
     })
 
     return series
-  }, [currentMonth, incomes, expenses, portfolioTransactions, incomeAmountForDashboard, expenseAmountForDashboard])
+  }, [currentMonth, incomes, expenses, portfolioTransactions])
 
   return {
     loading,
@@ -347,12 +350,16 @@ export function useDashboardData(): DashboardData {
     totalInvestments,
     balance,
     savingsRate,
+    expenses,
+    incomes,
     spendingCalcs,
     spendingProjection,
     totalLimits,
     limitUsedPercentage,
     progressColor,
     dailyFlowData,
+    previousMonthExpenseTotal,
+    weekdayExpenseData,
     insights,
     refreshInsights,
     optimizationSummary,
@@ -364,6 +371,8 @@ export function useDashboardData(): DashboardData {
     creditCards,
     currentMonthExpenseLimitMap,
     reallocationRecommendation,
+    expenseByCategory,
+    categoriesAttentionList,
     createExpense,
     createIncome,
     setCategoryLimit,

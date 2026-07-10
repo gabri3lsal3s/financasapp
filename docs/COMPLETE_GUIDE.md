@@ -328,17 +328,18 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 
 | Componente | Função |
 |------------|--------|
-| `DashboardKpis` | Grade de 4 KPIs (Rendas, Despesas, Investimentos, Saldo) |
-| `KpiCard` | Card individual com ícone, glow e ferramentas |
-| `DailyFlowChart` | Gráfico de fluxo diário |
-| `MonthlyOverviewChart` | Evolução mensal |
-| `DailyBudgetAdvisor` | Orçamento diário sugerido |
-| `LimitsControl` | Controle de limites por categoria |
-| `FinancialHealthCard` | Card único de saúde financeira (saldo, diário, barra de orçamento, projeção) |
-| `ActionsEconomyCard` | Centro de Ações e Economia (alertas, quick wins, despesas recorrentes, padrões similares) |
-| `DailyFlowCard` | Gráfico de fluxo diário (collapsible) |
-| `SimilarPatternRow` | Sub-componente para exibição de padrões similares de gasto por categoria |
-| `RecurringExpensesSection` | Seção de despesas recorrentes com indicadores de confiança e meses detectados |
+| `WidgetCard` | Card base padronizado: header (ícone sem fundo, título, subtitle, summary badge) + conteúdo com `Suspense` (lazy loading) |
+| `DashboardWidgetGrid` | Grid de widgets visíveis com `CategoryDetailContext` para modal de detalhamento |
+| `WidgetSettingsSheet` | Sheet de personalização: reordenação drag-and-drop + toggle visibilidade |
+| `DashboardCategoryDetailModal` | Modal de detalhamento de categoria (transactions filtradas, busca textual, total) |
+| `FinancialHealthDetail` | Budget usage bar, disponível/mês/dia, projeção de fim de mês |
+| `InsightsDetail` | Cards de insights financeiros (poupança, variação, top categoria, limites, pico semanal) |
+| `SubscriptionsDetail` | Lista de despesas recorrentes com classificação (subscription/recurring/similar) e indicadores de confiança |
+| `CategoryBreakdownDetail` | Stacked bar + lista de categorias com % e valor (linhas clicáveis → modal) |
+| `LimitsOverviewDetail` | Lista de categorias com atenção/limite estourado (linhas clicáveis → modal) |
+| `DailyFlowDetail` | Gráfico de fluxo diário interativo |
+| `DailyFlowChart` | Gráfico de fluxo diário (usado por DailyFlowDetail) |
+| `KpiCard` | Card individual de KPI com ícone, glow e tooltip |
 
 ### 5.7 Investimentos
 

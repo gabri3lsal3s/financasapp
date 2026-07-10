@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react'
 import type { Category, Expense, ExpenseCategoryMonthLimit } from '@/types'
 import type { ColorPalette } from '@/utils/categoryColors'
+import { applyReportWeight } from '@/utils/reportWeight'
 const EXPENSE_LIMIT_WARNING_THRESHOLD = 85
 
 export interface ReallocationRecommendation {
@@ -80,7 +81,6 @@ export function useBudgetLimits(
   previousMonthExpenseLimits: ExpenseCategoryMonthLimit[],
   totalExpenses: number,
   totalIncomes: number,
-  expenseAmountForDashboard: (amount: number, reportWeight?: number | null) => number,
   colorPalette: ColorPalette,
   getCategoryColorForPalette: (color: string, palette: ColorPalette) => string,
   setCategoryLimit: (categoryId: string, amount: number | null) => Promise<{ data: unknown; error: string | null }>,
@@ -119,14 +119,14 @@ export function useBudgetLimits(
       const color = getCategoryColorForPalette(rawColor, colorPalette)
       const current = map.get(key)
       if (current) {
-        current.value += expenseAmountForDashboard(expense.amount, expense.report_weight)
+        current.value += applyReportWeight(expense.amount, expense.report_weight)
         current.baseValue += expense.amount
       } else {
-        map.set(key, { categoryId, name, color, iconName, value: expenseAmountForDashboard(expense.amount, expense.report_weight), baseValue: expense.amount })
+        map.set(key, { categoryId, name, color, iconName, value: applyReportWeight(expense.amount, expense.report_weight), baseValue: expense.amount })
       }
     })
     return Array.from(map.values()).sort((a, b) => b.value - a.value)
-  }, [expenses, categories, colorPalette, expenseAmountForDashboard, getCategoryColorForPalette])
+  }, [expenses, categories, colorPalette, getCategoryColorForPalette])
 
   // ── Reallocation recommendation ──
   const reallocationRecommendation = useMemo((): ReallocationRecommendation | null => {

@@ -47,3 +47,10 @@ export const applyReportWeightToBillRow = <T extends BillRowWithWeight>(
     base_amount: baseAmount,
   }
 }
+
+/**
+ * Alias para getWeightedReportAmount — usado no Dashboard e hooks afins.
+ * Aplica o report_weight a um valor monetário.
+ * Se reportWeight não for informado, retorna o valor original.
+ */
+export const applyReportWeight = getWeightedReportAmount
