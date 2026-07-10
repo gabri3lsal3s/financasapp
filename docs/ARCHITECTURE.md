@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — Dashboard refatorado: widget card system com grid personalizável (6 widgets: health, actions, subscriptions, categories, limits, flow), `useDashboardLayout` com persistência em `user_preferences`, `DashboardDataContext` com hooks focados, novos componentes `DashboardCategoryDetailModal` e `InsightsDetail`, refatoração de icones e headers padronizados, remoção de ~2.060 linhas de dead code, correção de redundância (ActionsSummary sem savings rate, LimitsOverviewDetail sem barra de orçamento duplicada).
+> **Última atualização:** Julho de 2026 — Aprendizado de recorrências: `RecurringExpenseDetailModal` com feedback do usuário (confirmar/ignorar ocorrências), `recurringExpenseLearning.ts` para persistência, refinamento da detecção com `matchedExpenseIds` e `occurrencesByMonth`. Correção de bugs de tipo (TS6133, TS2345) no modal e na detecção similar.
 
 ---
 
@@ -120,7 +120,7 @@ O dashboard foi refatorado para um sistema de **widget cards** configuráveis pe
 |----|--------|---------|--------|
 | `health` | Situação Financeira | Saldo + taxa de poupança + badge | Budget usage bar, disponível/mês, projeção |
 | `actions` | Insights Financeiros | Contagem de sugestões de otimização | Cards de insights (poupança, variação, top categoria, limites, pico semanal) |
-| `subscriptions` | Gastos Recorrentes | Nº de assinaturas + total/mês | Lista de despesas recorrentes com indicadores de confiança |
+| `subscriptions` | Gastos Recorrentes | Nº de assinaturas + total/mês | Lista de despesas recorrentes com indicadores de confiança, linhas clicáveis → modal de detalhamento com feedback do usuário |
 | `categories` | Gastos por Categoria | Top 3 categorias + total | Stacked bar + lista de categorias com % e valor (clicável → modal de detalhamento) |
 | `limits` | Limites de Orçamento | % usado + contagem de excedidos | Lista de categorias com atenção (clicável → modal de detalhamento) |
 | `flow` | Fluxo Diário | Total rendas/despesas/investimentos | Gráfico de fluxo diário interativo |
@@ -134,6 +134,8 @@ O dashboard foi refatorado para um sistema de **widget cards** configuráveis pe
 | `WidgetSettingsSheet.tsx` | Sheet de personalização: reordenação via drag-and-drop (dnd-kit) e toggle de visibilidade por widget |
 | `useDashboardLayout.ts` | Hook que gerencia ordem/visibilidade dos widgets, com persistência em `user_preferences` (Supabase + localStorage) |
 | `DashboardCategoryDetailModal.tsx` | Modal de detalhamento de categoria (transactions filtradas por categoria, busca textual, total e % do total) |
+| `RecurringExpenseDetailModal.tsx` | Modal de detalhamento de despesa recorrente com todas as ocorrências, feedback do usuário (confirmar/ignorar/restaurar) |
+| `recurringExpenseLearning.ts` | Utilitário de aprendizado do usuário sobre recorrências (dismiss/confirm/clear com persistência localStorage) |
 
 #### Resumo da Refatoração
 
@@ -603,6 +605,7 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Redundância: LimitsOverviewDetail sem barra duplicada** | Estado vazio do LimitsOverviewDetail agora mostra apenas mensagem, sem a barra de progresso que duplicava FinancialHealthDetail. | Melhoria | ✅ |
 | — | **Responsividade mobile do dashboard** | Ajustes de layout: gaps reduzidos, textos menores no mobile, flex-wrap em headers, line-clamp nos insights, badge de status oculto no mobile, investimentos ocultos em telas < 640px, ícones e botões compactados. | Melhoria | ✅ |
 | — | **Mínimo de 2 widgets visíveis** | `toggleVisibility` no `useDashboardLayout` agora bloqueia ocultação se restariam menos de 2 widgets visíveis. | Segurança | ✅ |
+| — | **Aprendizado de recorrências** | `RecurringExpenseDetailModal` com feedback do usuário (confirmar/ignorar/restaurar) via `recurringExpenseLearning.ts`. Detecção refinada com `matchedExpenseIds` e `occurrencesByMonth` preenchidos. | Novo | ✅ |
 
 ### Validação final
 

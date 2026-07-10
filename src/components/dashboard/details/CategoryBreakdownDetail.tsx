@@ -53,10 +53,10 @@ export default function CategoryBreakdownDetail() {
             >
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="flex items-center gap-1 text-[10px] text-primary truncate">
-                  {getCategoryIcon(item.name, 12, item.iconName)}
-                  {item.name}
-                </span>
+              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-primary truncate">
+                {getCategoryIcon(item.name, 12, item.iconName)}
+                {item.name}
+              </span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[9px] text-secondary/60 w-8 text-right font-mono">{formatNumberWithTwoDecimalsBR(pct)}%</span>

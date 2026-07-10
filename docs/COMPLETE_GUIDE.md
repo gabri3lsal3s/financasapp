@@ -332,6 +332,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `DashboardWidgetGrid` | Grid de widgets visíveis com `CategoryDetailContext` para modal de detalhamento |
 | `WidgetSettingsSheet` | Sheet de personalização: reordenação drag-and-drop + toggle visibilidade |
 | `DashboardCategoryDetailModal` | Modal de detalhamento de categoria (transactions filtradas, busca textual, total) |
+| `RecurringExpenseDetailModal` | Modal de detalhamento de despesa recorrente com ocorrências e feedback do usuário (confirmar/ignorar/restaurar) |
 | `FinancialHealthDetail` | Budget usage bar, disponível/mês/dia, projeção de fim de mês |
 | `InsightsDetail` | Cards de insights financeiros (poupança, variação, top categoria, limites, pico semanal) |
 | `SubscriptionsDetail` | Lista de despesas recorrentes com classificação (subscription/recurring/similar) e indicadores de confiança |
@@ -446,6 +447,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `offlineQueue.ts` | Fila de operações offline |
 | `profileDisplayName.ts` | Nome de exibição do perfil |
 | `reportWeight.ts` | `getWeightedReportAmount` para ajuste por peso |
+| `recurringExpenseLearning.ts` | Aprendizado do usuário sobre recorrências: `dismissOccurrence`, `confirmOccurrence`, `clearOccurrenceFeedback` com persistência em localStorage |
 | `solar.ts` | Utilitários solares |
 
 ### 7.2 Utilitários Financeiros

@@ -66,7 +66,7 @@ export default function LimitsOverviewDetail() {
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-              <span className="flex items-center gap-1 text-[10px] text-primary truncate">
+              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-primary truncate">
                 {getCategoryIcon(item.name, 12, item.iconName)}
                 {item.name}
               </span>

@@ -101,14 +101,13 @@ function SortableRow({
       </span>
 
       {/* Info */}
-      <div className="min-w-0 flex-1">
-        <p className={cn(
-          'text-[11px] font-bold truncate',
-          isVisible ? 'text-primary' : 'text-secondary/50',
-        )}>
-          {widget.title}
-        </p>
-        <p className="text-[8px] text-secondary/50 truncate">{widget.subtitle}</p>
+      <div className="min-w-0 flex-1">          <p className={cn(
+            'text-xs font-bold truncate',
+            isVisible ? 'text-primary' : 'text-secondary/50',
+          )}>
+            {widget.title}
+          </p>
+          <p className="text-[9px] text-secondary/50 truncate">{widget.subtitle}</p>
       </div>
 
       {/* Ações */}

@@ -168,6 +168,10 @@ export interface RecurringExpenseInfo {
   savingsIfCut: number
   /** Razão para a classificação */
   tierReason: string
+  /** IDs das despesas que compõem esta recorrência, agrupadas por mês */
+  matchedExpenseIds: string[]
+  /** Mapa de mês → valor para cada ocorrência */
+  occurrencesByMonth: Array<{ month: string; amount: number; expenseId: string; date: string }>
 }
 
 export interface StructuredInsights {
@@ -688,9 +692,8 @@ function detectRecurringExpenses(
       monthsFound,
       confidence,
       recurrenceType: recType,
-      // nature é 'fixed' apenas se TODOS os meses tiverem valor exato (±5%)
-      // monthsWithExact conta meses com ±10%, signal exige ±5% — usamos monthsWithExact
-      // como proxy: se todos os meses históricos batem ±10%, provavelmente é fixo
+      matchedExpenseIds: [],
+      occurrencesByMonth: [],
       nature: recType === 'subscription' && signals.exactValue && monthsWithExact === monthsWithApprox ? 'fixed' : 'variable',
       isIgnored: isSubscriptionIgnored(currentItems[0].description),
       incomePercentage,
@@ -809,6 +812,8 @@ function detectRecurringExpenses(
       monthsFound,
       confidence,
       recurrenceType: 'similar',
+      matchedExpenseIds: [],
+      occurrencesByMonth: [],
       nature: 'variable',
       isIgnored: false,
       incomePercentage,
