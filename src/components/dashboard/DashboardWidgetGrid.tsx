@@ -1,5 +1,5 @@
 import { lazy, Component, useState, createContext, useContext, type ReactNode } from 'react'
-import { Settings, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SECTION_GAP, CONTENT_MAX_WIDTH } from '@/constants/layout'
 import type { WidgetId, DashboardWidgetMeta } from '@/hooks/useDashboardLayout'
@@ -71,7 +71,6 @@ interface DashboardWidgetGridProps {
     visibleWidgets: DashboardWidgetMeta[]
     loaded: boolean
   }
-  onOpenSettings: () => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,7 +95,7 @@ const WIDGET_MAP: Record<WidgetId, WidgetComponents> = {
 /*  Componente                                                         */
 /* ------------------------------------------------------------------ */
 
-export default function DashboardWidgetGrid({ layout, onOpenSettings }: DashboardWidgetGridProps) {
+export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps) {
   const { visibleWidgets, loaded } = layout
   const [detailTarget, setDetailTarget] = useState<CategoryDetailTarget | null>(null)
 
@@ -104,18 +103,8 @@ export default function DashboardWidgetGrid({ layout, onOpenSettings }: Dashboar
 
   return (
     <CategoryDetailContext.Provider value={setDetailTarget}>
-      <div className={cn(CONTENT_MAX_WIDTH, 'relative')}>
-        {/* Botão de personalização */}
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="absolute top-0 right-0 w-8 h-8 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/50 hover:text-secondary transition-colors z-10"
-          title="Personalizar Dashboard"
-        >
-          <Settings size={16} />
-        </button>
-
-        <div className={cn(SECTION_GAP, 'pt-10')}>
+      <div className={cn(CONTENT_MAX_WIDTH)}>
+        <div className={cn(SECTION_GAP)}>
           {visibleWidgets.map((widget) => {
             const comps = WIDGET_MAP[widget.id]
             if (!comps) return null

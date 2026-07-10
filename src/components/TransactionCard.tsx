@@ -104,14 +104,14 @@ function MobileLayout({
               <div className="flex items-center gap-2.5 flex-shrink-0">
                 <div className="flex flex-col items-end">
                   {showOriginalAmount && (
-                    <p className="flex items-center gap-1 justify-end mb-0.5">
+                    <div className="flex items-center gap-1 justify-end mb-0.5">
                       <span
                         className="text-[10px] line-through text-secondary opacity-60"
                       >
                         {formatCurrency(originalAmount)}
                       </span>
                       <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
-                    </p>
+                    </div>
                   )}
                   <div className="flex items-center gap-2">
                     <p
@@ -311,12 +311,12 @@ function DesktopLayout({
               {/* Value */}
               <div className="flex flex-col items-end justify-center min-w-[110px] text-right flex-shrink-0 ml-auto">
                 {showOriginalAmount && (
-                  <p className="flex items-center gap-1 justify-end mb-0.5">
+                  <div className="flex items-center gap-1 justify-end mb-0.5">
                     <span className="text-[10px] line-through text-secondary opacity-60">
                       {formatCurrency(originalAmount)}
                     </span>
                     <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
-                  </p>
+                  </div>
                 )}
                 <p className="text-base font-extrabold leading-tight font-mono text-primary">
                   {formatCurrency(amount)}

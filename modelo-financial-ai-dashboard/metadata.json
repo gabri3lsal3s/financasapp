@@ -1,6 +1,0 @@
-{
-  "name": "Financial AI Dashboard",
-  "description": "A highly polished, minimalist mobile web financial dashboard with a conversational AI assistant, expense tracking, income logging, and interactive data insights.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

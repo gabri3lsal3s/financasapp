@@ -3,7 +3,7 @@ import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import { SkeletonDashboard } from '@/components/Skeleton'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, TrendingDown, PiggyBank, Plus } from 'lucide-react'
+import { TrendingUp, TrendingDown, PiggyBank, Plus, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   CARD_PADDING_XL,
@@ -104,15 +104,23 @@ function DashboardContent() {
   }, [])
 
   usePageActions(
-    [{
-      icon: Plus,
-      label: 'Lançamento',
-      intent: 'primary',
-      actionRole: 'launch',
-      compactOnMobile: false,
-      onClick: () => dispatch({ type: 'OPEN', modal: 'selector' }),
-      disabled: categories.length === 0 && incomeCategories.length === 0,
-    }],
+    [
+      {
+        icon: Plus,
+        label: 'Lançamento',
+        intent: 'primary',
+        actionRole: 'launch',
+        compactOnMobile: false,
+        onClick: () => dispatch({ type: 'OPEN', modal: 'selector' }),
+        disabled: categories.length === 0 && incomeCategories.length === 0,
+      },
+      {
+        icon: Settings,
+        label: 'Personalizar',
+        intent: 'neutral',
+        onClick: () => dispatch({ type: 'OPEN', modal: 'settings' }),
+      },
+    ],
     isAnyModalOpen,
   )
 
@@ -120,7 +128,7 @@ function DashboardContent() {
   return (
     <div className="min-h-[calc(100vh-12rem)] flex flex-col">
       <div className={cn(CONTENT_PADDING, PAGE_ENTER_ANIMATION)}>
-        {loading ? (
+        {loading || !layout.loaded ? (
           <div className="animate-fade-in">
             <SkeletonDashboard />
           </div>
@@ -146,7 +154,6 @@ function DashboardContent() {
         ) : (
           <DashboardWidgetGrid
             layout={layout}
-            onOpenSettings={() => dispatch({ type: 'OPEN', modal: 'settings' })}
           />
         )}
       </div>

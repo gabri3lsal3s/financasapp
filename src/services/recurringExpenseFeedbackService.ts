@@ -5,6 +5,12 @@ import type { UserFeedback } from '@/utils/recurringExpenseLearning'
 const TAG = '[recurringExpenseFeedbackService]'
 
 /* ------------------------------------------------------------------ */
+/*  Cache de sessão — evita repetir chamadas Supabase que falharam     */
+/* ------------------------------------------------------------------ */
+
+let _supabaseFailed = false
+
+/* ------------------------------------------------------------------ */
 /*  Constantes                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -41,6 +47,8 @@ function writeLocal(feedbacks: UserFeedback[]): void {
 /* ------------------------------------------------------------------ */
 
 async function loadFromSupabase(): Promise<UserFeedback[] | null> {
+  if (_supabaseFailed) return null // cache de sessão: não repete chamadas que já falharam
+
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
@@ -57,11 +65,14 @@ async function loadFromSupabase(): Promise<UserFeedback[] | null> {
     return data.feedback as unknown as UserFeedback[]
   } catch (err) {
     logger.warn(TAG, 'Erro ao carregar do Supabase, usando localStorage:', err)
+    _supabaseFailed = true // marca cache para evitar repetição
     return null
   }
 }
 
 async function saveToSupabase(feedbacks: UserFeedback[]): Promise<void> {
+  if (_supabaseFailed) return // cache de sessão: não tenta salvar se já falhou antes
+
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -76,6 +87,7 @@ async function saveToSupabase(feedbacks: UserFeedback[]): Promise<void> {
     if (error) throw error
   } catch (err) {
     logger.warn(TAG, 'Erro ao salvar no Supabase:', err)
+    _supabaseFailed = true // marca cache para evitar repetição
   }
 }
 
