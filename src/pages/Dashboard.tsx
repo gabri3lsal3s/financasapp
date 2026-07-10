@@ -126,7 +126,7 @@ function DashboardContent() {
 
   // ── Render ──
   return (
-    <div className="min-h-[calc(100vh-12rem)] flex flex-col">
+    <div className="min-h-[calc(100dvh-12rem)] flex flex-col">
       <div className={cn(CONTENT_PADDING, PAGE_ENTER_ANIMATION)}>
         {loading || !layout.loaded ? (
           <div className="animate-fade-in">

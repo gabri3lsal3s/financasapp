@@ -319,7 +319,7 @@ function LayoutInner({ children }: LayoutProps) {
           {/* Desktop Sidebar: ocultada no mobile */}
           <aside
             ref={desktopMenuRef}
-            className={`glass-sidebar sticky top-5 h-[calc(100vh-2.5rem)] overflow-y-auto motion-emphasis hidden lg:block ${
+            className={`glass-sidebar sticky top-5 h-[calc(100dvh-2.5rem)] overflow-y-auto motion-emphasis hidden lg:block ${
               isDesktopMenuExpanded ? 'w-72' : 'w-20'
             }`}
           >

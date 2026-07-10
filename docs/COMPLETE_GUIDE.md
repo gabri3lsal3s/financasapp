@@ -1,6 +1,6 @@
 # Minhas Finanças — Guia Completo do Sistema
 
-> **Versão:** 1.3.0 | **Última atualização:** Julho de 2026
+> **Versão:** 1.4.0 | **Última atualização:** Julho de 2026 — Compatibilidade iOS PWA completa, zoom prevention, splash screens
 > **Stack:** React 18 + TypeScript + Vite + Tailwind CSS + Supabase
 
 ---

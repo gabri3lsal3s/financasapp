@@ -1247,7 +1247,7 @@ export default function Reports() {
 
   if (loadingState) {
     return (
-      <div className="min-h-[calc(100vh-12rem)] flex flex-col">
+      <div className="min-h-[calc(100dvh-12rem)] flex flex-col">
         <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
           <SkeletonReports />
         </div>
@@ -1256,7 +1256,7 @@ export default function Reports() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
+    <div className="min-h-[calc(100dvh-12rem)] flex flex-col" {...swipeHandlers}>
 
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
         {/* Seletor de período — mesmo padrão das páginas de despesas e rendimentos */}

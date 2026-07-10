@@ -2,7 +2,7 @@
 
 Este documento descreve detalhadamente a estrutura técnica, os padrões de design e o fluxo de dados da aplicação **Minhas Finanças**. Ele serve como guia de onboarding e de governança técnica para garantir a consistência do ecossistema.
 
-> **Última atualização:** Julho de 2026 — Dashboard mobile: KPI bar fixa no topo, widgets colapsáveis no mobile, summary badges removidos dos headers, Fluxo Diário fixo (não configurável no settings) e sempre expandido após KPIs. Botão de configurar dashboard movido para FAB hub. Skeleton refatorado para espelhar o novo layout.
+> **Última atualização:** Julho de 2026 — PWA/iOS: meta tags standalone, apple-touch-icons PNG, splash screens, 100dvh, font-size 16px inputs iOS, overscroll-behavior standalone, ZoomPrevention component. Dashboard: KPI bar fixa no topo, widgets colapsáveis no mobile, Fluxo Diário fixo.
 
 ---
 

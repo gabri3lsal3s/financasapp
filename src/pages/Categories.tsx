@@ -597,7 +597,7 @@ export default function Categories() {
   }
 
   return (
-    <div className="animate-page-enter min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
+    <div className="animate-page-enter min-h-[calc(100dvh-12rem)] flex flex-col" {...swipeHandlers}>
       <div className="p-4 lg:p-6 space-y-5 lg:space-y-6">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
 

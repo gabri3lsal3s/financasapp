@@ -2,12 +2,32 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- iOS Standalone Mode (Tela Cheia) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Finanças" />
+
+    <!-- Favicon com fallback PNG -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/svg+xml" href="/pwa-192x192.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
+
+    <!-- Apple Touch Icons (PNG obrigatório no iOS) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167x167.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />
+
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="Aplicativo para organização de finanças pessoais mensais" />
+
+    <!-- Facebook/Twitter meta tags -->
+    <meta property="og:title" content="Minhas Finanças" />
+    <meta property="og:description" content="Aplicativo para organização de finanças pessoais mensais" />
+    <meta property="og:type" content="website" />
+
     <title>Minhas Finanças</title>
   </head>
   <body>

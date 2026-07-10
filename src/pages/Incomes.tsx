@@ -148,7 +148,7 @@ export default function Incomes() {
   }, [searchParams, setSearchParams, incomeCategories, currentMonth])
 
   return (
-    <div className="min-h-[calc(100vh-12rem)] flex flex-col" {...swipeHandlers}>
+    <div className="min-h-[calc(100dvh-12rem)] flex flex-col" {...swipeHandlers}>
       <div className="p-4 lg:p-6 animate-page-enter">
         <MonthSelector value={currentMonth} onChange={handleMonthChange} isOnline={isOnline} />
         <MonthTransitionView month={currentMonth}>

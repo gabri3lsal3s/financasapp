@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseWarning from './components/SupabaseWarning'
 import NetworkStatusToast from './components/NetworkStatusToast'
+import ZoomPrevention from './components/ZoomPrevention'
 import { ConflictResolutionModal } from './components/ConflictResolutionModal'
 import { Toaster } from 'react-hot-toast'
 import Loader from './components/Loader'
@@ -57,6 +58,7 @@ function App() {
       <ThemeProvider>
         <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: true }}>
           <NotificationsProvider>
+            <ZoomPrevention />
             <SupabaseWarning />
             <NetworkStatusToast />
             <ConflictResolutionModal />

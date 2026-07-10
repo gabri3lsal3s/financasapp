@@ -10,13 +10,47 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: false,
-      includeAssets: ['pwa-192x192.svg', 'pwa-512x512.svg', 'apple-touch-icon.svg'],
+      includeAssets: [
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'apple-touch-icon-180x180.png',
+        'apple-touch-icon-152x152.png',
+        'apple-touch-icon-167x167.png',
+        'apple-touch-icon-120x120.png',
+        'favicon-32x32.png',
+        'splash-*.png',
+      ],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,json,woff2}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,json,woff2}'],
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
         navigateFallbackAllowlist: [/^\/[^.]*$/],
-        runtimeCaching: [],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /^https?:\/\/.*\/rest\/v1\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 24 * 60 * 60,
+              },
+              networkTimeoutSeconds: 5,
+            },
+          },
+          {
+            urlPattern: /^https?:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
+              },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: true,
@@ -55,7 +89,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Vendors
           react: ['react', 'react-dom', 'react-router-dom'],
           supabase: ['@supabase/supabase-js'],
           radix: [
@@ -85,8 +118,3 @@ export default defineConfig({
     clearMocks: true,
   },
 })
-
-
-
-
-

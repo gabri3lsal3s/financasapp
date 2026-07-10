@@ -34,7 +34,7 @@ Aplicação web premium de controle financeiro pessoal com **arquitetura Offline
 | **Gráficos** | Recharts 2 |
 | **Backend** | Supabase (PostgreSQL, Auth, Realtime, Edge Functions) |
 | **Testes** | Vitest + Testing Library |
-| **PWA** | vite-plugin-pwa (Service Worker, cache 75 entradas) |
+| **PWA** | vite-plugin-pwa (Service Worker, cache 75 entradas), **iOS compatível** (meta tags, splash screens, apple-touch-icons PNG, 100dvh, zoom prevention) |
 
 ---
 
