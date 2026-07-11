@@ -54,7 +54,7 @@ function parseRawToNumeric(raw: string): number {
  * CurrencyInput — Input monetário com máscara reversa (estilo Nubank).
  *
  * Características:
- * - type="text" + inputMode="numeric" + pattern="[0-9]*" (teclado numérico no iOS)
+ * - type="text" + inputMode="numeric" (teclado numérico no iOS/Android)
  * - Formatação em tempo real: "123456" → "R$ 1.234,56"
  * - Valor exibido inclui o símbolo "R$" via Intl.NumberFormat (style: currency)
  * - Recebe value numérico (number) e emite onChange com (event, numericValue)
@@ -132,7 +132,6 @@ export default function CurrencyInput({
           id={inputId}
           type="text"
           inputMode="numeric"
-          pattern="[0-9]*"
           value={displayValue}
           onChange={handleChange}
           placeholder={placeholder}
