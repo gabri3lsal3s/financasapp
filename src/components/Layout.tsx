@@ -6,6 +6,7 @@ import FloatingSideStack from '@/components/FloatingSideStack'
 import FloatingActionHub from '@/components/FloatingActionHub'
 import PageActionButtonHub from '@/components/PageActionButtonHub'
 import AppTopBar from '@/components/AppTopBar'
+import PullToRefresh from '@/components/PullToRefresh'
 import { FloatingActionsProvider } from '@/contexts/FloatingActionsContext'
 import Button from '@/components/Button'
 import { isCalculatorElement } from '@/utils/calculator'
@@ -445,9 +446,11 @@ function LayoutInner({ children }: LayoutProps) {
           <main className="relative pt-[calc(0.5rem+env(safe-area-inset-top))] glass-main-padding lg:pt-0 lg:safe-area-bottom min-h-screen">
             <AppTopBar />
             <div className="w-full max-w-7xl mx-auto px-4 lg:px-6 pb-0 lg:pb-[74px]">
-              <section key={location.pathname} className="relative animate-page-enter">
-                {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
-              </section>
+              <PullToRefresh>
+                <section key={location.pathname} className="relative animate-page-enter">
+                  {shouldShowOfflinePlaceholder ? <OfflinePlaceholder /> : children}
+                </section>
+              </PullToRefresh>
             </div>
           </main>
         </div>
