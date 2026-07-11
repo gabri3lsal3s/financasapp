@@ -1,7 +1,6 @@
 import { TrendingUp, TrendingDown, Wallet, Percent } from 'lucide-react'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
-import FinancialInsights from '@/components/reports/FinancialInsights'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 import WeekdayExpenseChart from '@/components/reports/WeekdayExpenseChart'
 import MonthCompositionChart from '@/components/reports/MonthCompositionChart'
@@ -192,21 +191,6 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
         />
       )}
 
-      {/* Insights Mensais */}
-      <div className="order-last lg:order-none">
-        <FinancialInsights
-          viewMode={viewMode === 'custom' ? 'month' : viewMode}
-          periodLabel={activePeriodLabel}
-          incomeTotal={activeSummary.total_income}
-          expenseTotal={activeSummary.total_expenses}
-          savingsRate={activeSavingsRate}
-          categoryExpenses={activeExpenseCategories}
-          previousExpenseTotal={viewMode === 'custom' ? 0 : previousMonthExpenseTotal}
-          weekdayExpenses={activeWeekdayExpenseData}
-          limitsExceededCount={activeLimitsExceededCount}
-        />
-      </div>
-
       <div className="space-y-6">
         {/* Estação de Gráficos */}
         <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
@@ -214,23 +198,23 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
                 {monthChartTab === 'daily' ? 'Fluxo Diário Consolidado' :
-                 monthChartTab === 'weekly' ? 'Fluxo por Dia da Semana' :
-                 monthChartTab === 'composition' ? 'Composição de Saldo' :
-                 monthChartTab === 'balance' ? 'Saldo Acumulado' :
-                 'Evolução por Categoria'}
+                  monthChartTab === 'weekly' ? 'Fluxo por Dia da Semana' :
+                    monthChartTab === 'composition' ? 'Composição de Saldo' :
+                      monthChartTab === 'balance' ? 'Saldo Acumulado' :
+                        'Evolução por Categoria'}
               </h3>
               <p className="text-[10px] text-secondary mt-0.5">
                 {monthChartTab === 'daily'
                   ? `Rendas, despesas e investimentos por dia em ${activePeriodLabel}`
-                 : monthChartTab === 'weekly'
-                  ? (topWeekdayExpense && topWeekdayExpense.Despesas > 0
-                    ? `Maior gasto: ${topWeekdayExpense.dia} (${formatCurrency(topWeekdayExpense.Despesas)})`
-                    : `Distribuição semanal — despesas, rendas e investimentos em ${activePeriodLabel}`)
-                 : monthChartTab === 'composition'
-                  ? `Proporções e saldos consolidados no período`
-                 : monthChartTab === 'balance'
-                  ? `Evolução do patrimônio líquido acumulado no período`
-                  : `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} no período`}
+                  : monthChartTab === 'weekly'
+                    ? (topWeekdayExpense && topWeekdayExpense.Despesas > 0
+                      ? `Maior gasto: ${topWeekdayExpense.dia} (${formatCurrency(topWeekdayExpense.Despesas)})`
+                      : `Distribuição semanal — despesas, rendas e investimentos em ${activePeriodLabel}`)
+                    : monthChartTab === 'composition'
+                      ? `Proporções e saldos consolidados no período`
+                      : monthChartTab === 'balance'
+                        ? `Evolução do patrimônio líquido acumulado no período`
+                        : `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} no período`}
               </p>
             </div>
 

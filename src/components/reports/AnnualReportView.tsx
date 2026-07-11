@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { TrendingUp, TrendingDown, Wallet, Percent } from 'lucide-react'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
-import FinancialInsights from '@/components/reports/FinancialInsights'
 import AnnualFlowChart from '@/components/reports/AnnualFlowChart'
 import CumulativeBalanceChart from '@/components/reports/CumulativeBalanceChart'
 import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
@@ -175,19 +174,6 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
         />
       )}
 
-      {/* Insights Anuais */}
-      <div className="order-last lg:order-none">
-        <FinancialInsights
-          viewMode="year"
-          periodLabel={String(selectedYear)}
-          incomeTotal={annualTotals.income}
-          expenseTotal={annualTotals.expenses}
-          savingsRate={annualSavingsRate}
-          categoryExpenses={categoryExpenses}
-          previousExpenseTotal={previousYearTotals.expenses}
-        />
-      </div>
-
       <div className="space-y-6">
         {/* Gráficos de Fluxo/Evolução */}
         <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
@@ -195,13 +181,13 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
                 {annualChartType === 'flow' ? 'Fluxo Mensal' :
-                 annualChartType === 'balance' ? 'Saldo Acumulado' :
-                 `Evolução por Categoria`}
+                  annualChartType === 'balance' ? 'Saldo Acumulado' :
+                    `Evolução por Categoria`}
               </h3>
               <p className="text-[10px] text-secondary mt-0.5">
                 {annualChartType === 'flow' ? `Entradas, saídas e investimentos mensais em ${selectedYear}` :
-                 annualChartType === 'balance' ? `Evolução do patrimônio líquido acumulado em ${selectedYear}` :
-                 `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} em ${selectedYear}`}
+                  annualChartType === 'balance' ? `Evolução do patrimônio líquido acumulado em ${selectedYear}` :
+                    `Histórico mensal detalhado de ${evolutionType === 'expense' ? 'despesas' : 'rendas'} em ${selectedYear}`}
               </p>
             </div>
 

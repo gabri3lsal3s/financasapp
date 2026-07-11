@@ -1,4 +1,3 @@
-import { Landmark } from 'lucide-react'
 import Card from '@/components/Card'
 import { formatCurrency } from '@/utils/format'
 
@@ -22,10 +21,9 @@ export default function ReportPendingDebtsWidget({
   return (
     <Card className="border border-glass surface-glass shadow-sm transition-all duration-300 p-4 sm:p-5">
       <div className="flex items-center gap-3 border-b border-glass/40 pb-3 mb-4">
-        <Landmark className="text-secondary" size={20} />
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-            Projeção de Pendências (A Pagar & Receber)
+            Projeção de Pendências
           </h3>
           <p className="text-[10px] text-secondary mt-0.5">
             Valores em aberto com vencimento em {periodLabel}
@@ -50,19 +48,17 @@ export default function ReportPendingDebtsWidget({
           </span>
         </div>
         <div
-          className={`flex flex-col p-3 rounded-xl border ${
-            balanceProj >= 0
-              ? 'bg-income/5 border-income/10'
-              : 'bg-expense/5 border-expense/10'
-          }`}
+          className={`flex flex-col p-3 rounded-xl border ${balanceProj >= 0
+            ? 'bg-income/5 border-income/10'
+            : 'bg-expense/5 border-expense/10'
+            }`}
         >
           <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">
             Impacto Projetado no Saldo
           </span>
           <span
-            className={`text-lg font-extrabold font-mono mt-1 ${
-              balanceProj >= 0 ? 'text-income' : 'text-expense'
-            }`}
+            className={`text-lg font-extrabold font-mono mt-1 ${balanceProj >= 0 ? 'text-income' : 'text-expense'
+              }`}
           >
             {balanceProj >= 0 ? '+' : ''}
             {formatCurrency(balanceProj)}
