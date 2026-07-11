@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { TrendingUp, TrendingDown, Wallet, Percent } from 'lucide-react'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
@@ -26,7 +25,6 @@ export interface AnnualReportViewProps {
   prevMonthlySummaries: Array<{ month: string; total_income: number; total_expenses: number; total_investments: number; balance: number }>
   annualTotals: { income: number; expenses: number; investments: number; balance: number }
   previousYearTotals: { income: number; expenses: number; investments: number; balance: number }
-  categoryExpenses: Array<{ category_id: string; category_name: string; total: number; color: string }>
   annualChartType: 'flow' | 'balance' | 'trend'
   onAnnualChartTypeChange: (v: 'flow' | 'balance' | 'trend') => void
   evolutionType: 'expense' | 'income'
@@ -62,7 +60,6 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
     prevMonthlySummaries,
     annualTotals,
     previousYearTotals,
-    categoryExpenses,
     annualChartType,
     onAnnualChartTypeChange,
     evolutionType,
@@ -90,10 +87,6 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
     pendingInfo,
   } = props
 
-  const annualSavingsRate = useMemo(
-    () => (annualTotals.income > 0 ? (annualTotals.balance / annualTotals.income) * 100 : 0),
-    [annualTotals],
-  )
 
   const trendSeries = evolutionType === 'expense' ? annualExpenseTrendSeries : annualIncomeTrendSeries
   const trendVisibleData = evolutionType === 'expense' ? annualExpenseTrendVisibleData : annualIncomeTrendVisibleData

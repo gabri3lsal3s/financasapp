@@ -1333,7 +1333,6 @@ export default function Reports() {
                 prevMonthlySummaries={prevMonthlySummaries}
                 annualTotals={annualTotals}
                 previousYearTotals={previousYearTotals}
-                categoryExpenses={categoryExpenses}
                 annualChartType={annualChartType}
                 onAnnualChartTypeChange={setAnnualChartType}
                 evolutionType={evolutionType}
