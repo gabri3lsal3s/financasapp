@@ -61,7 +61,7 @@ export default function RefundModal({
       <CurrencyInput
         label="Valor do estorno"
         value={refundAmount}
-        onChange={(_e, val) => setRefundAmount(val)}
+        onChange={(_e, val) => setRefundAmount(val ?? 0)}
         required
       />
 

@@ -244,7 +244,7 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
                       <div className="flex items-center gap-1.5 w-full">
                         <CurrencyInput
                           value={incomeExpectationInputs[cat.id] || 0}
-                          onChange={(_e, val) => onSetExpectationInput(cat.id, val)}
+                          onChange={(_e, val) => onSetExpectationInput(cat.id, val ?? 0)}
                           placeholder="Meta (ex: 2000)"
                           className="w-full h-8 text-xs py-1"
                         />

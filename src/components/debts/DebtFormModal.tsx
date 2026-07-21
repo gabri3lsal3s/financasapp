@@ -141,7 +141,7 @@ export default function DebtFormModal({
         label="Valor"
         value={form.amount}
         onChange={(_e, val) =>
-          setForm((prev) => ({ ...prev, amount: val }))
+          setForm((prev) => ({ ...prev, amount: val ?? 0 }))
         }
         required
       />

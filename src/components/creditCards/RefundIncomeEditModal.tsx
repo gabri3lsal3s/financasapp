@@ -136,7 +136,7 @@ export default function RefundIncomeEditModal({
       <CurrencyInput
         label="Valor"
         value={form.amount}
-        onChange={(_e, val) => handleAmountChange(val)}
+        onChange={(_e, val) => handleAmountChange(val ?? 0)}
         required
       />
 
@@ -144,7 +144,7 @@ export default function RefundIncomeEditModal({
         label="Valor no relatório (opcional)"
         value={form.report_amount}
         onChange={(_e, val) =>
-          setForm((prev) => ({ ...prev, report_amount: val }))
+          setForm((prev) => ({ ...prev, report_amount: val ?? 0 }))
         }
         placeholder="Se vazio, usa o valor total"
       />

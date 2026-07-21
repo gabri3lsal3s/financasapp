@@ -146,7 +146,7 @@ export default function CardFormModal({
       <CurrencyInput
         label="Limite total (opcional)"
         value={form.limit_total}
-        onChange={(_e, val) => setForm((prev) => ({ ...prev, limit_total: val }))}
+        onChange={(_e, val) => setForm((prev) => ({ ...prev, limit_total: val ?? 0 }))}
       />
 
       <div className="modal-field-row">

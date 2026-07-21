@@ -454,7 +454,7 @@ export default function PortfolioTransactionFormModal({
               label={isCashType ? "Valor do Lançamento em Caixa" : "Valor do Provento"}
               required
               value={amount}
-              onChange={(_e, val) => setAmount(val)}
+              onChange={(_e, val) => setAmount(val ?? 0)}
               className="font-semibold rounded-xl text-base"
             />
           ) : (
@@ -474,7 +474,7 @@ export default function PortfolioTransactionFormModal({
                 label="Preço Unitário"
                 required
                 value={parseFloat(price) || 0}
-                onChange={(_e, val) => setPrice(val > 0 ? String(val) : '')}
+                onChange={(_e, val) => setPrice((val ?? 0) > 0 ? String(val ?? 0) : '')}
                 className="font-semibold rounded-xl text-sm"
               />
             </ModalFieldRow>
@@ -485,7 +485,7 @@ export default function PortfolioTransactionFormModal({
             <CurrencyInput
               label="Saldo Atual do Ativo (Extrato - Opcional)"
               value={manualCurrentValue}
-              onChange={(_e, val) => setManualCurrentValue(val)}
+              onChange={(_e, val) => setManualCurrentValue(val ?? 0)}
               placeholder="Ex: 5000,00"
               className="font-semibold rounded-xl text-sm"
             />

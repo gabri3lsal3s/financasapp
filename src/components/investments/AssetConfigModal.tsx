@@ -248,7 +248,7 @@ export default function AssetConfigModal({
             <FieldLabel>Valor Atual do Ativo (Moeda Local)</FieldLabel>
             <CurrencyInput
               value={manualCurrentValue}
-              onChange={(_e, val) => setManualCurrentValue(val)}
+              onChange={(_e, val) => setManualCurrentValue(val ?? 0)}
               placeholder="Ex: 50000.00"
               required
             />

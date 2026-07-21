@@ -186,7 +186,7 @@ export default function SmartAporteSimulator({
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-3 items-end">
           <CurrencyInput
             value={aporteInput}
-            onChange={(_e, val) => setAporteInput(val)}
+            onChange={(_e, val) => setAporteInput(val ?? 0)}
             placeholder="0,00"
             className="h-10 text-sm font-mono font-bold rounded-2xl"
           />

@@ -226,7 +226,7 @@ export default function QuickBalanceUpdateModal({
                   <CurrencyInput
                     label="Novo Saldo Atual (R$)"
                     value={row.currentInputValue}
-                    onChange={(_e, val) => handleValueChange(idx, val)}
+                    onChange={(_e, val) => handleValueChange(idx, val ?? 0)}
                     placeholder="Ex: 5000.00"
                     required
                   />

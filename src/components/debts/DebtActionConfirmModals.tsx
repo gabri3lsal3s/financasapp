@@ -151,7 +151,7 @@ export function IntegratedDebtModal({
             <CurrencyInput
               label="Valor final no relatório da despesa"
               value={reportValueInput}
-              onChange={(_e, val) => onReportValueChange(val)}
+              onChange={(_e, val) => onReportValueChange(val ?? 0)}
               required
             />
             <p className="text-[10px] text-secondary">

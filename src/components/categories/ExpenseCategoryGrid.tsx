@@ -255,7 +255,7 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
                         <div className="flex items-center gap-1.5 w-full">
                           <CurrencyInput
                             value={expenseLimitInputs[cat.id] || 0}
-                            onChange={(_e, val) => onSetLimitInput(cat.id, val)}
+                            onChange={(_e, val) => onSetLimitInput(cat.id, val ?? 0)}
                             placeholder="Limite (ex: 500)"
                             className="w-full h-8 text-xs py-1"
                           />

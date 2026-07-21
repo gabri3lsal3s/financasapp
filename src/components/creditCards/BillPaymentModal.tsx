@@ -74,7 +74,7 @@ export default function BillPaymentModal({
       <CurrencyInput
         label="Valor pago"
         value={paymentAmount}
-        onChange={(_e, val) => setPaymentAmount(val)}
+        onChange={(_e, val) => setPaymentAmount(val ?? 0)}
         required
       />
 

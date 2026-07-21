@@ -406,7 +406,7 @@ export default function ExpenseFormModal({
             label="Valor da cobrança"
             value={linkedDebtAmount}
             onChange={(_e, val) => {
-              setLinkedDebtAmount(val)
+              setLinkedDebtAmount(val ?? 0)
               setIsDebtAmountEdited(true)
             }}
             required
