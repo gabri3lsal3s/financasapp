@@ -27,7 +27,7 @@ export function IncomeConfirmModal({
       title="Confirmar Recebimento"
       footer={
         <div className="flex w-full flex-col gap-2">
-          <Button variant="primary" fullWidth onClick={onConfirmWithIncome}>
+          <Button variant="income" fullWidth onClick={onConfirmWithIncome}>
             Receber e Criar Renda
           </Button>
           <Button variant="outline" fullWidth onClick={onConfirmWithoutIncome}>
@@ -105,7 +105,7 @@ export function IntegratedDebtModal({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={onConfirm}>
+          <Button variant="income" onClick={onConfirm}>
             Confirmar e Atualizar Despesa
           </Button>
         </div>
@@ -189,7 +189,7 @@ export function PayableConfirmModal({
       title="Confirmar Pagamento"
       footer={
         <div className="flex w-full flex-col gap-2">
-          <Button variant="primary" fullWidth onClick={onConfirmWithExpense}>
+          <Button variant="expense" fullWidth onClick={onConfirmWithExpense}>
             Pagar e Cadastrar Despesa
           </Button>
           <Button variant="outline" fullWidth onClick={onConfirmWithoutExpense}>

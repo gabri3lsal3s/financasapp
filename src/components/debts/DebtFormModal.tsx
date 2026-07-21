@@ -100,6 +100,7 @@ export default function DebtFormModal({
           formId={formId}
           onCancel={onClose}
           submitLabel={editingDebt ? 'Salvar Alterações' : 'Salvar Lançamento'}
+          submitVariant={form.type === 'payable' ? 'expense' : 'income'}
           submitDisabled={loading}
         />
       )}

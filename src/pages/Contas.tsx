@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
 import { usePageActions } from '@/hooks/usePageActions'
 import Card from '@/components/Card'
 import KpiCard from '@/components/KpiCard'
@@ -35,10 +36,10 @@ import { Calendar, FileUp, Pencil, Plus, Wallet, Undo2, Scale, CheckCircle2, Cre
 
 import { useSearchParams } from 'react-router-dom'
 import { buildRefundNote, parseRefundNote } from '@/pages/creditCards/refundNote'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import GlassChoiceCard from '@/components/GlassChoiceCard'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import ModalIntro from '@/components/ModalIntro'
+import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
+import { CARD_BASE, CARD_PADDING } from '@/constants/layout'
 
 // Componentes refatorados de Cartão e Dívidas
 import CreditCardTimeline from '@/components/creditCards/CreditCardTimeline'
@@ -134,10 +135,30 @@ export default function Contas() {
     [creditCards],
   )
 
+  const [debtFilter, setDebtFilter] = useState<'all' | 'payable' | 'receivable'>('all')
+
   // Pendências ativas (não pagas)
   const pendingDebts = useMemo(() => {
     return debts.filter((d) => d.status === 'pending')
   }, [debts])
+
+  const payablePendingCount = useMemo(
+    () => debts.filter((d) => d.status === 'pending' && d.type === 'payable').length,
+    [debts],
+  )
+  const receivablePendingCount = useMemo(
+    () => debts.filter((d) => d.status === 'pending' && d.type === 'receivable').length,
+    [debts],
+  )
+
+  const filteredPendingDebts = useMemo(() => {
+    return debts.filter((d) => {
+      if (d.status !== 'pending') return false
+      if (debtFilter === 'payable') return d.type === 'payable'
+      if (debtFilter === 'receivable') return d.type === 'receivable'
+      return true
+    })
+  }, [debts, debtFilter])
 
   // Pendências confirmadas (pagas) no mês selecionado
   const confirmedDebts = useMemo(() => {
@@ -974,176 +995,182 @@ export default function Contas() {
               />
             </div>
 
-            <Tabs defaultValue="cards" className="w-full">
-              <TabsList className="grid grid-cols-2 w-full max-w-md mb-6 mx-auto">
-                <TabsTrigger value="cards" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-2 px-1 sm:px-2">
-                  <CreditCardIcon size={14} />
-                  Cartões ({activeCards.length})
-                </TabsTrigger>
-                <TabsTrigger value="debts" className="text-[11px] sm:text-xs font-bold gap-1 sm:gap-2 px-1 sm:px-2">
-                  <Scale size={14} />
-                  Pendências ({pendingDebts.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="cards" className="space-y-4 outline-none animate-surface-enter">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-glass pb-2">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                      <CreditCardIcon size={18} className="text-primary-light" />
-                      Cartões de Crédito
-                    </h2>
-                    <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
-                      {activeCards.length}
-                    </span>
+            <div className="space-y-6">
+              {/* SEÇÃO 1: CARTÕES DE CRÉDITO */}
+              <section className={cn("space-y-3", CARD_BASE, CARD_PADDING)}>
+                <div className="flex items-center justify-between border-b border-glass pb-3">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <CreditCardIcon size={16} className="shrink-0 text-primary/60 sm:text-primary/70" />
+                    <div className="min-w-0">
+                      <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary truncate flex items-center gap-1.5">
+                        Cartões de Crédito
+                        <span className="text-xs font-medium text-secondary font-sans">
+                          ({activeCards.length})
+                        </span>
+                      </h2>
+                      <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">Faturas e ciclo de competência ativa</p>
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={modals.openCreateCardModal}
+                    className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 bg-secondary/20 hover:bg-secondary/40 border border-glass shrink-0"
+                  >
+                    <Plus size={14} />
+                    Novo Cartão
+                  </Button>
+                </div>
 
-                  {activeCards.length === 0 ? (
-                    <EmptyState
-                      icon={<CreditCardIcon size={28} />}
-                      title="Nenhum cartão cadastrado"
-                      description="Cadastre seu primeiro cartão de crédito para começar a gerenciar suas faturas."
-                      action={{
-                        label: 'Cadastrar primeiro cartão',
-                        onClick: modals.openCreateCardModal,
-                        variant: 'primary',
-                      }}
-                    />
-                  ) : (
-                    <div className="space-y-3">
-                      {activeCards.map((card) => {
-                        const totalPrevisto = Number(expensesByCard[card.id] || 0)
-                        const totalPago = Number(paymentsByCard[card.id] || 0)
-                        const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
-                        const billItems = billItemsByCard[card.id] || []
-                        const monthlyCycle = monthlyCyclesByCard[card.id]
-                        const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
-                        const effectiveDueDay = monthlyCycle?.due_day || card.due_day
-                        const isExpanded = !!expandedItems[card.id]
+                {activeCards.length === 0 ? (
+                  <EmptyState
+                    icon={<CreditCardIcon size={28} />}
+                    title="Nenhum cartão cadastrado"
+                    description="Cadastre seu primeiro cartão de crédito para começar a gerenciar suas faturas."
+                    action={{
+                      label: 'Cadastrar primeiro cartão',
+                      onClick: modals.openCreateCardModal,
+                      variant: 'primary',
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {activeCards.map((card) => {
+                      const totalPrevisto = Number(expensesByCard[card.id] || 0)
+                      const totalPago = Number(paymentsByCard[card.id] || 0)
+                      const saldoAberto = roundToDecimals(totalPrevisto - totalPago, 2)
+                      const billItems = billItemsByCard[card.id] || []
+                      const monthlyCycle = monthlyCyclesByCard[card.id]
+                      const effectiveClosingDay = monthlyCycle?.closing_day || card.closing_day
+                      const effectiveDueDay = monthlyCycle?.due_day || card.due_day
+                      const isExpanded = !!expandedItems[card.id]
 
-                        return (
-                          <Card key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300">
-                            {/* Header Accordion */}
-                            <div 
-                              className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
-                              onClick={() => toggleExpand(card.id)}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                <span
-                                  className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full shadow-sm shrink-0"
-                                  style={{ backgroundColor: card.color || 'var(--color-primary)' }}
-                                />
-                                <div className="text-left min-w-0">
-                                  <p className="text-xs sm:text-sm font-bold text-primary truncate">{card.name}</p>
-                                  <p className="text-[10px] sm:text-[11px] text-secondary mt-0.5 truncate">
-                                    {card.brand || 'Crédito'} • Fechamento: {effectiveClosingDay} • Vencimento: {effectiveDueDay}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
-                                <div className="text-right">
-                                  <p className="text-[10px] sm:text-xs text-secondary leading-tight flex items-center justify-end gap-1">
-                                    Fatura Atual
-                                    {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
-                                      <InfoTooltip
-                                        content={WEIGHT_TOOLTIPS.billActualValue}
-                                        iconSize={10}
-                                      />
-                                    )}
-                                  </p>
-                                  <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">
-                                    {formatCurrency(baseExpensesByCard[card.id] ?? totalPrevisto)}
-                                  </p>
-                                  {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
-                                    <p className="text-[9px] text-secondary/50 font-sans mt-0.5">
-                                      Relatório: {formatCurrency(totalPrevisto)}
-                                    </p>
-                                  )}
-                                </div>
-                                {isExpanded ? (
-                                  <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
-                                ) : (
-                                  <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
-                                )}
+                      return (
+                        <Card key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300">
+                          {/* Header Accordion */}
+                          <div 
+                            className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
+                            onClick={() => toggleExpand(card.id)}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span
+                                className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full shadow-sm shrink-0"
+                                style={{ backgroundColor: card.color || 'var(--color-primary)' }}
+                              />
+                              <div className="text-left min-w-0">
+                                <p className="text-xs sm:text-sm font-bold text-primary truncate">{card.name}</p>
+                                <p className="text-[10px] sm:text-[11px] text-secondary mt-0.5 truncate">
+                                  {card.brand || 'Crédito'} • Fechamento: dia {effectiveClosingDay} • Vencimento: dia {effectiveDueDay}
+                                </p>
                               </div>
                             </div>
 
-                            {/* Expanded content */}
-                            {isExpanded && (
-                              <div className="p-4 border-t border-glass bg-secondary/5 space-y-6 animate-surface-enter text-left w-full">
-                                
-                                {/* Linha do tempo (Timeline) */}
-                                <CreditCardTimeline
-                                  card={card}
-                                  currentMonth={currentMonth}
-                                  totalPrevisto={totalPrevisto}
-                                  totalPago={totalPago}
-                                  saldoAberto={saldoAberto}
-                                  monthlyCycle={monthlyCycle}
-                                  baseExpense={baseExpensesByCard[card.id]}
-                                />
+                            <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+                              <div className="text-right">
+                                <p className="text-[10px] sm:text-xs text-secondary leading-tight flex items-center justify-end gap-1">
+                                  Fatura Atual
+                                  {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
+                                    <InfoTooltip
+                                      content={WEIGHT_TOOLTIPS.billActualValue}
+                                      iconSize={10}
+                                    />
+                                  )}
+                                </p>
+                                <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">
+                                  {formatCurrency(baseExpensesByCard[card.id] ?? totalPrevisto)}
+                                </p>
+                                {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
+                                  <p className="text-[9px] text-secondary/50 font-sans mt-0.5">
+                                    Relatório: {formatCurrency(totalPrevisto)}
+                                  </p>
+                                )}
+                              </div>
+                              {isExpanded ? (
+                                <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                              ) : (
+                                <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                              )}
+                            </div>
+                          </div>
 
-                                {/* Ações do Cartão */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-secondary/20 p-2.5 sm:p-3 rounded-xl border border-glass">
-                                  <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Ações do Cartão</span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    <IconButton
-                                      size="sm"
-                                      icon={<Pencil size={14} />}
-                                      onClick={() => modals.openEditCardModal(card)}
-                                      label="Editar Cartão"
-                                      title="Editar configurações do cartão"
-                                    />
-                                    <IconButton
-                                      size="sm"
-                                      icon={<Calendar size={14} />}
-                                      onClick={() => modals.openCycleModal(card)}
-                                      label="Ajustar Ciclo"
-                                      title="Ajustar fechamento/vencimento do mês"
-                                    />
-                                    <IconButton
-                                      size="sm"
-                                      icon={<Undo2 size={14} />}
-                                      onClick={() => modals.openRefundModal(card.id)}
-                                      label="Estorno"
-                                      title="Registrar estorno"
-                                    />
-                                    <IconButton
-                                      size="sm"
-                                      icon={<Wallet size={14} />}
-                                      onClick={() => modals.openPaymentModal(card.id)}
-                                      label="Pagar Fatura"
-                                      title="Registrar pagamento"
-                                    />
-                                    <IconButton
-                                      size="sm"
-                                      icon={<FileUp size={14} />}
-                                      onClick={() => modals.setReconciliationCardId(card.id)}
-                                      label="CSV"
-                                      title="Anexar CSV"
-                                    />
-                                  </div>
+                          {/* Expanded content */}
+                          {isExpanded && (
+                            <div className="p-4 border-t border-glass bg-secondary/5 space-y-5 animate-surface-enter text-left w-full">
+                              
+                              {/* Linha do tempo (Timeline) */}
+                              <CreditCardTimeline
+                                card={card}
+                                currentMonth={currentMonth}
+                                totalPrevisto={totalPrevisto}
+                                totalPago={totalPago}
+                                saldoAberto={saldoAberto}
+                                monthlyCycle={monthlyCycle}
+                                baseExpense={baseExpensesByCard[card.id]}
+                              />
+
+                              {/* Ações do Cartão */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-secondary/20 p-2.5 sm:p-3 rounded-xl border border-glass">
+                                <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Ações do Cartão</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Pencil size={14} />}
+                                    onClick={() => modals.openEditCardModal(card)}
+                                    label="Editar Cartão"
+                                    title="Editar configurações do cartão"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Calendar size={14} />}
+                                    onClick={() => modals.openCycleModal(card)}
+                                    label="Ajustar Ciclo"
+                                    title="Ajustar fechamento/vencimento do mês"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Undo2 size={14} />}
+                                    onClick={() => modals.openRefundModal(card.id)}
+                                    label="Estorno"
+                                    title="Registrar estorno"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<Wallet size={14} />}
+                                    onClick={() => modals.openPaymentModal(card.id)}
+                                    label="Pagar Fatura"
+                                    title="Registrar pagamento"
+                                  />
+                                  <IconButton
+                                    size="sm"
+                                    icon={<FileUp size={14} />}
+                                    onClick={() => modals.setReconciliationCardId(card.id)}
+                                    label="CSV"
+                                    title="Anexar CSV"
+                                  />
                                 </div>
+                              </div>
 
+                              {/* Grid de 2 subcolunas internas quando expandido: Lançamentos + Pagamentos */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Lançamentos da Fatura */}
-                                <div className="space-y-3">
+                                <div className="space-y-2.5 bg-secondary/10 p-3 rounded-xl border border-glass">
                                   <div className="flex items-center justify-between border-b border-glass pb-1.5">
                                     <h4 className="text-[11px] font-black uppercase tracking-wider text-primary">
-                                      Lançamentos da fatura ({currentMonth})
+                                      Lançamentos ({currentMonth})
                                     </h4>
-                                    <span className="text-[10px] bg-secondary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                                    <span className="text-[10px] bg-secondary border border-primary/20 px-2 py-0.5 rounded-full font-semibold text-secondary">
                                       {billItems.length} {billItems.length === 1 ? 'item' : 'itens'}
                                     </span>
                                   </div>
                                   {billItems.length === 0 ? (
-                                    <p className="text-xs text-secondary italic">Sem lançamentos registrados nesta competência.</p>
+                                    <p className="text-xs text-secondary italic py-2">Sem lançamentos nesta competência.</p>
                                   ) : (
-                                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                                    <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                                       {billItems.map((item) => (
                                         <BillExpenseRowButton
                                           key={item.id}
-                                          item={item}                                           onOpen={modals.openExpenseEditModal}
+                                          item={item}
+                                          onOpen={modals.openExpenseEditModal}
                                         />
                                       ))}
                                     </div>
@@ -1151,19 +1178,19 @@ export default function Contas() {
                                 </div>
 
                                 {/* Pagamentos e Ajustes */}
-                                <div className="space-y-3">
+                                <div className="space-y-2.5 bg-secondary/10 p-3 rounded-xl border border-glass">
                                   <div className="flex items-center justify-between border-b border-glass pb-1.5">
                                     <h4 className="text-[11px] font-black uppercase tracking-wider text-primary">
-                                      Pagamentos e Ajustes ({currentMonth})
+                                      Pagamentos ({currentMonth})
                                     </h4>
-                                    <span className="text-[10px] bg-secondary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
+                                    <span className="text-[10px] bg-secondary border border-primary/20 px-2 py-0.5 rounded-full font-semibold text-secondary">
                                       {(paymentItemsByCard[card.id] || []).length} {(paymentItemsByCard[card.id] || []).length === 1 ? 'registro' : 'registros'}
                                     </span>
                                   </div>
                                   {(paymentItemsByCard[card.id] || []).length === 0 ? (
-                                    <p className="text-xs text-secondary italic">Sem pagamentos registrados nesta competência.</p>
+                                    <p className="text-xs text-secondary italic py-2">Sem pagamentos registrados nesta competência.</p>
                                   ) : (
-                                    <div className="max-h-60 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                                    <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                                       {(paymentItemsByCard[card.id] || []).map((payment) => {
                                         const refundMeta = parseRefundNote(payment.note)
                                         return (
@@ -1189,232 +1216,292 @@ export default function Contas() {
                                         )
                                       })}
                                     </div>
-                                  )}    </div>
-  </div>
-)
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
 
-}
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="debts" className="space-y-4 outline-none animate-surface-enter">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-glass pb-2">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                      <Scale size={18} className="text-primary-light" />
-                      Pendências
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-tertiary border border-primary px-2 py-0.5 rounded-full font-semibold text-secondary">
-                        {pendingDebts.length}
-                      </span>
+              {/* SEÇÃO 2: PENDÊNCIAS (A PAGAR E A RECEBER) */}
+              <section className={cn("space-y-3", CARD_BASE, CARD_PADDING)}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-glass pb-3">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Scale size={16} className="shrink-0 text-primary/60 sm:text-primary/70" />
+                    <div className="min-w-0">
+                      <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary truncate flex items-center gap-1.5">
+                        Pendências
+                        <span className="text-xs font-medium text-secondary font-sans">
+                          ({pendingDebts.length})
+                        </span>
+                      </h2>
+                      <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">Dívidas a pagar e créditos a receber</p>
                     </div>
                   </div>
 
-                  {pendingDebts.length === 0 ? (
-                    <EmptyState
-                      icon={<Scale size={28} />}
-                      title="Nenhuma pendência ativa"
-                      description="Você não possui dívidas ou contas a receber pendentes para este período."
-                      action={{
-                        label: 'Nova Pendência',
-                        onClick: modals.openCreateDebtModal,
-                        variant: 'primary',
-                      }}
-                    />
-                  ) : (
-                    <div className="space-y-3">
-                      {pendingDebts.map((debt) => {
-                        const isExpanded = !!expandedItems[debt.id]
-                        const isPayable = debt.type === 'payable'
-                        const isPaid = debt.status === 'paid'
+                  <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+                    {/* Filtros rápidos em Chips/Pills */}
+                    <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-glass text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setDebtFilter('all')}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          debtFilter === 'all'
+                            ? 'bg-primary text-secondary-contrast shadow-sm font-bold'
+                            : 'text-secondary hover:text-primary'
+                        }`}
+                      >
+                        Todas ({pendingDebts.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDebtFilter('payable')}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          debtFilter === 'payable'
+                            ? 'bg-expense text-white shadow-sm font-bold'
+                            : 'text-secondary hover:text-expense'
+                        }`}
+                      >
+                        Pagar ({payablePendingCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDebtFilter('receivable')}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          debtFilter === 'receivable'
+                            ? 'bg-income text-white shadow-sm font-bold'
+                            : 'text-secondary hover:text-income'
+                        }`}
+                      >
+                        Receber ({receivablePendingCount})
+                      </button>
+                    </div>
 
-                        return (
-                          <Card key={debt.id} id={`item-${debt.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
-                            {/* Color bar indicator for type */}
-                            <div 
-                              className={`absolute left-0 top-0 bottom-0 w-1 ${
-                                isPayable ? 'bg-expense' : 'bg-income'
-                              }`}
-                            />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={modals.openCreateDebtModal}
+                      className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 bg-secondary/20 hover:bg-secondary/40 border border-glass shrink-0"
+                    >
+                      <Plus size={14} />
+                      Nova Pendência
+                    </Button>
+                  </div>
+                </div>
 
-                            {/* Accordion Header */}
-                            <div 
-                              className="p-3 sm:p-4 pl-4 sm:pl-5 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
-                              onClick={() => toggleExpand(debt.id)}
-                            >
-                              <div className="min-w-0 flex-1 text-left">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className="text-xs sm:text-sm font-bold text-primary truncate max-w-[140px] sm:max-w-none">{debt.name}</p>
-                                  <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-wider shrink-0 ${
-                                    isPayable ? 'text-expense' : 'text-income'
-                                  }`}>
-                                    {isPayable ? 'A Pagar' : 'A Receber'}
-                                  </span>
-                                  {debt.expense_id && (
-                                    <span 
-                                      className="inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-primary shrink-0 cursor-help" 
-                                      title="Esta pendência está integrada a uma despesa e as alterações serão sincronizadas."
-                                    >
-                                      <Link2 size={10} className="stroke-[3]" />
-                                      Integrada
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-secondary font-mono mt-1 flex flex-wrap items-center gap-1.5">
-                                  <span>Venc.: {formatDate(debt.due_date)}</span>
-                                  <span className="text-[8px] bg-secondary/80 text-secondary px-1 py-0.5 rounded font-sans font-bold">
-                                    Ref: {formatMonth(debt.due_date.substring(0, 7))}
-                                  </span>
-                                </div>
-                              </div>
+                {filteredPendingDebts.length === 0 ? (
+                  <EmptyState
+                    icon={<Scale size={28} />}
+                    title={debtFilter === 'all' ? 'Nenhuma pendência ativa' : debtFilter === 'payable' ? 'Nenhuma conta a pagar' : 'Nenhum valor a receber'}
+                    description={
+                      debtFilter === 'all'
+                        ? 'Você não possui dívidas ou contas a receber pendentes para este período.'
+                        : debtFilter === 'payable'
+                        ? 'Você não possui contas a pagar pendentes.'
+                        : 'Você não possui valores a receber pendentes.'
+                    }
+                    action={{
+                      label: 'Nova Pendência',
+                      onClick: modals.openCreateDebtModal,
+                      variant: 'primary',
+                    }}
+                  />
+                ) : (
+                  <div className="space-y-2.5">
+                    {filteredPendingDebts.map((debt) => {
+                      const isExpanded = !!expandedItems[debt.id]
+                      const isPayable = debt.type === 'payable'
+                      const isPaid = debt.status === 'paid'
 
-                              <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
-                                <div className="text-right">
-                                  <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider block ${
-                                    isPaid ? 'text-income' : 'text-warning'
-                                  }`}>
-                                    {isPaid ? 'Pago' : 'Pendente'}
+                      return (
+                        <Card key={debt.id} id={`item-${debt.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
+                          {/* Color bar indicator for type */}
+                          <div 
+                            className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                              isPayable ? 'bg-expense' : 'bg-income'
+                            }`}
+                          />
+
+                          {/* Accordion Header */}
+                          <div 
+                            className="p-3 sm:p-4 pl-4 sm:pl-5 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
+                            onClick={() => toggleExpand(debt.id)}
+                          >
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-xs sm:text-sm font-bold text-primary truncate max-w-[180px] sm:max-w-none">{debt.name}</p>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                                  isPayable 
+                                    ? 'bg-expense/10 border-expense/20 text-expense' 
+                                    : 'bg-income/10 border-income/20 text-income'
+                                }`}>
+                                  {isPayable ? 'A Pagar' : 'A Receber'}
+                                </span>
+                                {debt.expense_id && (
+                                  <span 
+                                    className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-balance/10 border border-balance/20 text-balance px-2 py-0.5 rounded-md shrink-0 cursor-help" 
+                                    title="Esta pendência está integrada a uma despesa e as alterações serão sincronizadas."
+                                  >
+                                    <Link2 size={10} className="stroke-[3]" />
+                                    Integrada
                                   </span>
-                                  <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">{formatCurrency(debt.amount)}</p>
-                                </div>
-                                {isExpanded ? (
-                                  <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
-                                ) : (
-                                  <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
                                 )}
+                              </div>
+                              <div className="text-[10px] text-secondary font-mono mt-1 flex flex-wrap items-center gap-2">
+                                <span>Vencimento: {formatDate(debt.due_date)}</span>
+                                <span className="text-[9px] bg-secondary/80 text-secondary px-1.5 py-0.5 rounded font-sans font-bold">
+                                  Ref: {formatMonth(debt.due_date.substring(0, 7))}
+                                </span>
                               </div>
                             </div>
 
-                            {/* Accordion Body */}
-                            {isExpanded && (
-                              <div className="p-4 pl-5 border-t border-glass bg-secondary/5 space-y-4 animate-surface-enter text-left">
-                                {debt.description && (
-                                  <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Descrição</p>
-                                    <p className="text-xs text-primary leading-relaxed whitespace-pre-wrap">{debt.description}</p>
-                                  </div>
-                                )}
+                            <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+                              <div className="text-right">
+                                <span className={`text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border block text-center ${
+                                  isPaid 
+                                    ? 'bg-income/10 border-income/20 text-income' 
+                                    : 'bg-warning/10 border-warning/20 text-warning-light'
+                                }`}>
+                                  {isPaid ? 'Pago' : 'Pendente'}
+                                </span>
+                                <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-1">{formatCurrency(debt.amount)}</p>
+                              </div>
+                              {isExpanded ? (
+                                <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                              ) : (
+                                <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
+                              )}
+                            </div>
+                          </div>
 
-                                {debt.expense && (
-                                  <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 sm:p-4 space-y-3 relative overflow-hidden select-text">
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/30" />
-                                    
-                                    <div className="flex items-center gap-1.5">
-                                      <Link2 size={12} className="text-primary stroke-[2.5]" />
-                                      <span className="text-[10px] uppercase font-black tracking-wider text-primary">Despesa Integrada Relacionada</span>
+                          {/* Accordion Body */}
+                          {isExpanded && (
+                            <div className="p-4 pl-5 border-t border-glass bg-secondary/5 space-y-4 animate-surface-enter text-left">
+                              {debt.description && (
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Descrição</p>
+                                  <p className="text-xs text-primary leading-relaxed whitespace-pre-wrap">{debt.description}</p>
+                                </div>
+                              )}
+
+                              {debt.expense && (
+                                <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 sm:p-4 space-y-3 relative overflow-hidden select-text">
+                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/30" />
+                                  
+                                  <div className="flex items-center gap-1.5">
+                                    <Link2 size={12} className="text-primary stroke-[2.5]" />
+                                    <span className="text-[10px] uppercase font-black tracking-wider text-primary">Despesa Integrada Relacionada</span>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
+                                    <div>
+                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Descrição original:</span>
+                                      <span className="text-primary font-semibold block sm:truncate">{debt.expense.description || 'Sem descrição'}</span>
                                     </div>
-                                    
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
-                                      <div>
-                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Descrição original:</span>
-                                        <span className="text-primary font-semibold block sm:truncate">{debt.expense.description || 'Sem descrição'}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Valor da Despesa:</span>
-                                        <span className="text-primary font-extrabold font-mono text-sm">{formatCurrency(debt.expense.amount)}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Data de Lançamento:</span>
-                                        <span className="text-primary font-mono">{formatDate(debt.expense.date)}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Meio de Pagamento / Categoria:</span>
-                                        <span className="text-primary block sm:truncate" title={
-                                          debt.expense.payment_method === 'credit_card'
-                                            ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
-                                            : `${debt.expense.payment_method || 'Outro'}${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
-                                        }>
-                                          {debt.expense.payment_method === 'credit_card'
-                                            ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})`
-                                            : debt.expense.payment_method === 'pix' ? 'Pix'
-                                            : debt.expense.payment_method === 'cash' ? 'Dinheiro'
-                                            : debt.expense.payment_method === 'debit' ? 'Débito'
-                                            : debt.expense.payment_method === 'transfer' ? 'Transferência'
-                                            : debt.expense.payment_method || 'Outro'}
-                                          {debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}
-                                        </span>
-                                      </div>
+                                    <div>
+                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Valor da Despesa:</span>
+                                      <span className="text-primary font-extrabold font-mono text-sm">{formatCurrency(debt.expense.amount)}</span>
                                     </div>
-                                  </div>
-                                )}
-
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                                  <div className="w-full sm:w-auto">
-                                    <Button 
-                                      size="sm" 
-                                      variant={isPaid ? 'outline' : 'primary'}
-                                      onClick={() => handleToggleDebtStatus(debt)}
-                                      className="w-full sm:w-auto flex items-center justify-center gap-1.5"
-                                    >
-                                      <Check size={14} />
-                                      {isPaid ? 'Marcar como Pendente' : isPayable ? 'Confirmar Pagamento' : 'Confirmar Recebimento'}
-                                    </Button>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:w-auto">
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline" 
-                                      onClick={() => modals.openEditDebtModal(debt)}
-                                      className="w-full sm:w-auto flex items-center justify-center gap-1.5"
-                                    >
-                                      <Pencil size={13} />
-                                      Editar
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline" 
-                                      onClick={() => handleDeleteDebt(debt.id)}
-                                      className="text-expense border-expense/20 hover:bg-expense/10 w-full sm:w-auto flex items-center justify-center gap-1.5"
-                                    >
-                                      <Trash2 size={13} />
-                                      Excluir
-                                    </Button>
+                                    <div>
+                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Data de Lançamento:</span>
+                                      <span className="text-primary font-mono">{formatDate(debt.expense.date)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Meio de Pagamento / Categoria:</span>
+                                      <span className="text-primary block sm:truncate" title={
+                                        debt.expense.payment_method === 'credit_card'
+                                          ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
+                                          : `${debt.expense.payment_method || 'Outro'}${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
+                                      }>
+                                        {debt.expense.payment_method === 'credit_card'
+                                          ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})`
+                                          : debt.expense.payment_method === 'pix' ? 'Pix'
+                                          : debt.expense.payment_method === 'cash' ? 'Dinheiro'
+                                          : debt.expense.payment_method === 'debit' ? 'Débito'
+                                          : debt.expense.payment_method === 'transfer' ? 'Transferência'
+                                          : debt.expense.payment_method || 'Outro'}
+                                        {debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  )}
+                              )}
 
-                  {confirmedDebts.length > 0 && (
-                    <div className="space-y-3 pt-4 border-t border-glass mt-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
-                          <CheckCircle2 size={14} className="text-income" />
-                          Confirmadas no Mês ({confirmedDebts.length})
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        {confirmedDebts.map((debt) => (
-                          <div 
-                            key={debt.id}
-                            id={`item-${debt.id}`}
-                            className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-income/5 border border-income/10 text-xs hover:bg-income/10 hover:border-income/20 transition-all select-none cursor-pointer"
-                            title="Clique para reabrir esta pendência"
-                            onClick={() => handleToggleDebtStatus(debt)}
-                          >
-                            <CheckCircle2 size={13} className="text-income shrink-0 group-hover:scale-110 transition-transform stroke-[2.5]" />
-                            <span className="font-semibold text-primary truncate max-w-[120px]">{debt.name}</span>
-                            <span className="text-income font-bold font-mono text-[10px]">{formatCurrency(debt.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-glass/50">
+                                <div className="w-full sm:w-auto">
+                                  <Button 
+                                    size="sm" 
+                                    variant={isPaid ? 'outline' : isPayable ? 'expense' : 'income'}
+                                    onClick={() => handleToggleDebtStatus(debt)}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-1.5 font-bold"
+                                  >
+                                    <Check size={14} />
+                                    {isPaid ? 'Marcar como Pendente' : isPayable ? 'Confirmar Pagamento' : 'Confirmar Recebimento'}
+                                  </Button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:w-auto">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => modals.openEditDebtModal(debt)}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-1.5"
+                                  >
+                                    <Pencil size={13} />
+                                    Editar
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => handleDeleteDebt(debt.id)}
+                                    className="text-expense border-expense/20 hover:bg-expense/10 w-full sm:w-auto flex items-center justify-center gap-1.5"
+                                  >
+                                    <Trash2 size={13} />
+                                    Excluir
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {confirmedDebts.length > 0 && (
+                  <div className="space-y-2.5 pt-3.5 border-t border-glass mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className="text-income" />
+                        Confirmadas no Mês ({confirmedDebts.length})
+                      </span>
                     </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {confirmedDebts.map((debt) => (
+                        <div 
+                          key={debt.id}
+                          id={`item-${debt.id}`}
+                          className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-income/5 border border-income/10 text-xs hover:bg-income/10 hover:border-income/20 transition-all select-none cursor-pointer"
+                          title="Clique para reabrir esta pendência"
+                          onClick={() => handleToggleDebtStatus(debt)}
+                        >
+                          <CheckCircle2 size={13} className="text-income shrink-0 group-hover:scale-110 transition-transform stroke-[2.5]" />
+                          <span className="font-semibold text-primary truncate max-w-[140px]">{debt.name}</span>
+                          <span className="text-income font-bold font-mono text-[10px]">{formatCurrency(debt.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
           </MonthTransitionView>
         )}
       </div>
@@ -1556,28 +1643,30 @@ export default function Contas() {
         })()}
       </Modal>
 
-      {/* MODAL: SELETOR DE NOVO LANÇAMENTO */}
+      {/* MODAL: SELETOR DE NOVO LANÇAMENTO (PADRÃO DASHBOARD) */}
       <Modal
         isOpen={modals.isAddSelectorOpen}
         onClose={() => modals.setIsAddSelectorOpen(false)}
-        title="Novo Registro"
+        title="Novo lançamento em Contas"
       >
         <div className="modal-body-stack">
-          <ModalIntro align="center">Escolha o tipo de registro que deseja adicionar:</ModalIntro>
+          <ModalIntro align="center">Escolha o tipo de registro que deseja adicionar em Contas:</ModalIntro>
           <ModalChoiceGrid>
-            <GlassChoiceCard
+            <QuickLaunchOption
               label="Cartão de Crédito"
               icon={<CreditCardIcon size={24} />}
-              intent="balance"
+              borderHoverClass="hover:border-balance"
+              iconWrapClass="bg-balance/10 text-balance"
               onClick={() => {
                 modals.setIsAddSelectorOpen(false)
                 modals.openCreateCardModal()
               }}
             />
-            <GlassChoiceCard
-              label="Pendência (Pagar/Receber)"
+            <QuickLaunchOption
+              label="Pendência"
               icon={<Scale size={24} />}
-              intent="neutral"
+              borderHoverClass="hover:border-expense"
+              iconWrapClass="bg-expense/10 text-expense"
               onClick={() => {
                 modals.setIsAddSelectorOpen(false)
                 modals.openCreateDebtModal()
