@@ -32,7 +32,7 @@ interface ExpenseEditModalProps {
 
 type ExpenseFormState = {
   amount: number
-  report_amount: number
+  report_amount: number | null
   date: string
   installment_total: string
   payment_method: string
@@ -43,7 +43,7 @@ type ExpenseFormState = {
 
 const DEFAULT_EXPENSE_FORM = (): ExpenseFormState => ({
   amount: 0,
-  report_amount: 0,
+  report_amount: null,
   date: '',
   installment_total: '1',
   payment_method: 'other',
@@ -66,13 +66,15 @@ export default function ExpenseEditModal({
 
   useEffect(() => {
     if (isOpen && expenseItem) {
+      const rw = expenseItem.report_weight
+      const initialReportAmount =
+        rw !== undefined && rw !== null
+          ? (rw === 1 ? null : roundToDecimals(Math.abs(expenseItem.amount) * rw, 2))
+          : null
+
       setForm({
         amount: Math.abs(expenseItem.amount),
-        report_amount:
-          expenseItem.report_weight !== undefined &&
-          expenseItem.report_weight !== null
-            ? roundToDecimals(Math.abs(expenseItem.amount) * expenseItem.report_weight, 2)
-            : 0,
+        report_amount: initialReportAmount,
         date: expenseItem.date,
         installment_total: '1',
         payment_method: expenseItem.payment_method || 'credit_card',
@@ -86,7 +88,7 @@ export default function ExpenseEditModal({
   const handleAmountChange = (nextAmount: number) => {
     setForm((prev) => {
       const shouldSyncReportAmount =
-        prev.report_amount === 0 ||
+        typeof prev.report_amount === 'number' &&
         Math.abs(prev.report_amount - prev.amount) < 0.009
 
       return {
@@ -106,7 +108,10 @@ export default function ExpenseEditModal({
       return
     }
 
-    const reportAmount = form.report_amount || amountBase
+    const reportAmount =
+      form.report_amount !== null && form.report_amount !== undefined
+        ? form.report_amount
+        : amountBase
 
     if (
       Number.isNaN(reportAmount) ||

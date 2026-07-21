@@ -52,7 +52,7 @@ export default function IncomeFormModal({
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     amount: 0,
-    report_amount: 0,
+    report_amount: null as number | null,
     date: format(new Date(), 'yyyy-MM-dd'),
     income_category_id: '',
     description: '',
@@ -68,10 +68,16 @@ export default function IncomeFormModal({
   } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const isRefundIncome = (income: Income | null) =>
-    [REFUND_INCOME_CATEGORY_NAME, LEGACY_REFUND_INCOME_CATEGORY_NAME].includes(
-      String(income?.income_category?.name || '').trim()
+  const isRefundIncome = (income: Income) => {
+    const category = incomeCategories.find(
+      (c) => c.id === income.income_category_id
     )
+    const categoryName = String(category?.name || '').trim()
+    return [
+      REFUND_INCOME_CATEGORY_NAME,
+      LEGACY_REFUND_INCOME_CATEGORY_NAME,
+    ].includes(categoryName)
+  }
 
   const loadRefundOrigin = async (incomeId: string) => {
     try {
@@ -114,9 +120,15 @@ export default function IncomeFormModal({
   useEffect(() => {
     if (isOpen) {
       if (editingIncome) {
+        const rw = editingIncome.report_weight
+        const initialReportAmount =
+          rw !== undefined && rw !== null
+            ? (rw === 1 ? null : roundToDecimals(editingIncome.amount * rw, 2))
+            : null
+
         setFormData({
           amount: editingIncome.amount,
-          report_amount: editingIncome.amount * (editingIncome.report_weight ?? 1),
+          report_amount: initialReportAmount,
           date: editingIncome.date,
           income_category_id: editingIncome.income_category_id,
           description: editingIncome.description || '',
@@ -132,7 +144,7 @@ export default function IncomeFormModal({
       } else {
         setFormData({
           amount: 0,
-          report_amount: 0,
+          report_amount: null,
           date: format(new Date(), 'yyyy-MM-dd'),
           income_category_id: incomeCategories[0]?.id || '',
           description: '',
@@ -188,7 +200,10 @@ export default function IncomeFormModal({
       return
     }
 
-    const reportAmount = formData.report_amount || amount
+    const reportAmount =
+      formData.report_amount !== null && formData.report_amount !== undefined
+        ? formData.report_amount
+        : amount
     if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
       alert('O valor no relatório deve estar entre 0 e o valor da renda')
       return

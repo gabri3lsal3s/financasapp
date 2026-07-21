@@ -4,9 +4,9 @@ import { useFormAmountSync } from '@/hooks/useFormAmountSync'
 
 interface TransactionCurrencyFieldsProps {
   amount: number
-  reportAmount: number
+  reportAmount: number | null
   /** Atualiza amount e report_amount no formData do pai (valores numéricos) */
-  onSetAmounts: (next: { amount: number; report_amount: number }) => void
+  onSetAmounts: (next: { amount: number; report_amount: number | null }) => void
   /** Efeito colateral quando o amount muda (ex: sync linkedDebt no ExpenseForm) */
   onAmountChanged?: (nextAmount: number) => void
 }
@@ -14,11 +14,8 @@ interface TransactionCurrencyFieldsProps {
 /**
  * Par de campos Valor + Valor no relatório com sincronização automática.
  *
- * Versão numérica que substitui TransactionAmountFields, usando CurrencyInput
- * com máscara reversa (estilo Nubank) em vez de AmountInput.
- *
- * Enquanto report_amount ≈ amount, os dois se movem juntos.
- * Assim que o usuário edita report_amount separadamente, a sincronização é suspensa.
+ * Se reportAmount for null (vazio), o campo exibe o placeholder e usa o valor total.
+ * Se reportAmount for 0, o campo exibe "R$ 0,00" e a despesa/renda é zerada no relatório.
  */
 export default function TransactionCurrencyFields({
   amount,
@@ -33,9 +30,10 @@ export default function TransactionCurrencyFields({
   })
 
   const handleAmountCurrencyChange = useCallback(
-    (_e: React.ChangeEvent<HTMLInputElement>, numericValue: number) => {
-      handleAmountChange(numericValue)
-      onAmountChanged?.(numericValue)
+    (_e: React.ChangeEvent<HTMLInputElement>, numericValue: number | null) => {
+      const nextVal = numericValue ?? 0
+      handleAmountChange(nextVal)
+      onAmountChanged?.(nextVal)
     },
     [handleAmountChange, onAmountChanged],
   )

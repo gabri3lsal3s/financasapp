@@ -4,14 +4,14 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 interface CurrencyInputProps {
-  /** Valor numérico real (ex: 1234.56 para R$ 1.234,56) */
-  value: number
+  /** Valor numérico real (ex: 1234.56 para R$ 1.234,56). Pode ser null se vazio */
+  value?: number | null
   /**
    * Callback disparado a cada digitação.
-   * @param e Evento original do input (para preventDefault, stopPropagation, etc.)
-   * @param numericValue Valor numérico limpo (float), pronto para salvar no banco
+   * @param e Evento original do input
+   * @param numericValue Valor numérico limpo (float) ou null se o campo foi limpo
    */
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>, numericValue: number) => void
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>, numericValue: number | null) => void
   label?: string
   error?: string
   helperText?: string
@@ -30,23 +30,24 @@ const BRL_FORMATTER = new Intl.NumberFormat('pt-BR', {
 
 /**
  * Formata um valor numérico para exibição no padrão brasileiro com moeda.
- * Ex: 1234.56 → "R$ 1.234,56"
+ * Ex: 1234.56 → "R$ 1.234,56" | 0 → "R$ 0,00" | null → ""
  */
-function formatCurrencyDisplay(value: number): string {
-  if (!Number.isFinite(value)) return ''
+function formatCurrencyDisplay(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return ''
   return BRL_FORMATTER.format(value)
 }
 
 /**
  * Converte uma string de entrada (com formatação) para valor numérico centesimal.
  * Remove tudo que não é dígito, converte para inteiro e divide por 100.
- * Ex: "R$ 1.234,56" → 1234.56 | "abc123" → 1.23
+ * Retorna null se não houver dígitos (campo vazio).
+ * Ex: "R$ 1.234,56" → 1234.56 | "0" → 0 | "" → null
  */
-function parseRawToNumeric(raw: string): number {
+function parseRawToNumeric(raw: string): number | null {
   const digits = raw.replace(/\D/g, '')
-  if (!digits) return 0
+  if (!digits) return null
   const cents = parseInt(digits, 10)
-  if (Number.isNaN(cents)) return 0
+  if (Number.isNaN(cents)) return null
   return cents / 100
 }
 
@@ -57,8 +58,9 @@ function parseRawToNumeric(raw: string): number {
  * - type="text" + inputMode="numeric" (teclado numérico no iOS/Android)
  * - Formatação em tempo real: "123456" → "R$ 1.234,56"
  * - Valor exibido inclui o símbolo "R$" via Intl.NumberFormat (style: currency)
- * - Recebe value numérico (number) e emite onChange com (event, numericValue)
- * - Placeholder "0,00" por padrão
+ * - Recebe value numérico ou null (number | null) e emite onChange com (event, numericValue | null)
+ * - Exibe "R$ 0,00" quando o valor é explicitamente 0
+ * - Exibe placeholder quando o valor é null/undefined
  */
 export default function CurrencyInput({
   value,
@@ -86,7 +88,7 @@ export default function CurrencyInput({
     if (prevValueRef.current === value) return
     prevValueRef.current = value
 
-    if (value > 0) {
+    if (value !== null && value !== undefined) {
       setDisplayValue(formatCurrencyDisplay(value))
     } else {
       setDisplayValue('')
@@ -97,15 +99,15 @@ export default function CurrencyInput({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value
 
-      // Extrai dígitos e converte para valor centesimal
+      // Extrai dígitos e converte para valor centesimal (ou null se vazio)
       const numericValue = parseRawToNumeric(raw)
-      const formatted = numericValue > 0 ? formatCurrencyDisplay(numericValue) : ''
+      const formatted = formatCurrencyDisplay(numericValue)
 
       // Atualiza display local e referência
       setDisplayValue(formatted)
       prevValueRef.current = numericValue
 
-      // Dispara callback com valor numérico limpo
+      // Dispara callback com valor numérico limpo ou null
       onChange?.(e, numericValue)
 
       // Move cursor para o fim (comportamento Nubank)

@@ -3,33 +3,21 @@ import { useCallback } from 'react'
 interface UseFormAmountSyncOptions {
   /** Valor atual do campo amount no formData (numérico) */
   amount: number
-  /** Valor atual do campo report_amount no formData (numérico) */
-  reportAmount: number
+  /** Valor atual do campo report_amount no formData (numérico ou null) */
+  reportAmount: number | null
   /** Callback para atualizar ambos os campos de uma vez */
-  setAmounts: (next: { amount: number; report_amount: number }) => void
+  setAmounts: (next: { amount: number; report_amount: number | null }) => void
 }
 
 interface UseFormAmountSyncReturn {
   /**
    * Handler para mudança do campo `amount`.
-   * Sincroniza automaticamente `report_amount` enquanto os dois valores forem iguais.
-   * Assim que o usuário editar `report_amount` separadamente, a sincronização é interrompida.
+   * Sincroniza automaticamente `report_amount` apenas se reportAmount for numérico e igual ao amount anterior.
+   * Se reportAmount for null (vazio) ou 0/customizado, não altera report_amount.
    */
   handleAmountChange: (nextAmount: number) => void
 }
 
-/**
- * Hook que encapsula a lógica de sincronização entre os campos `amount` e `report_amount`
- * compartilhada entre ExpenseFormModal e IncomeFormModal.
- *
- * Agora trabalha com valores numéricos (não strings formatadas), pois o CurrencyInput
- * já entrega o valor limpo.
- *
- * Regra de sincronização:
- * - Enquanto `report_amount === amount` (ou `report_amount` for 0), os dois se movem juntos.
- * - Assim que o usuário altera `report_amount` para um valor diferente de `amount`, a sincronização é suspensa.
- * - Uma vez suspensa, permanece suspensa até o usuário redefinir `report_amount`.
- */
 export function useFormAmountSync({
   amount,
   reportAmount,
@@ -37,10 +25,9 @@ export function useFormAmountSync({
 }: UseFormAmountSyncOptions): UseFormAmountSyncReturn {
   const handleAmountChange = useCallback(
     (nextAmount: number) => {
-      // Se report_amount for 0 (vazio/não definido), sincroniza
-      // Se report_amount for igual ao amount anterior (±1 centavo), sincroniza
+      // Sincroniza report_amount se for numérico e igual ao amount anterior (±1 centavo)
       const shouldSyncReportAmount =
-        reportAmount === 0 ||
+        typeof reportAmount === 'number' &&
         Math.abs(reportAmount - amount) < 0.009
 
       setAmounts({

@@ -52,7 +52,7 @@ export default function ExpenseFormModal({
   const { createDebt } = useDebts()
   const [formData, setFormData] = useState({
     amount: 0,
-    report_amount: 0,
+    report_amount: null as number | null,
     date: format(new Date(), 'yyyy-MM-dd'),
     installment_total: '1',
     payment_method: 'other',
@@ -76,9 +76,15 @@ export default function ExpenseFormModal({
   useEffect(() => {
     if (isOpen) {
       if (editingExpense) {
+        const rw = editingExpense.report_weight
+        const initialReportAmount =
+          rw !== undefined && rw !== null
+            ? (rw === 1 ? null : roundToDecimals(editingExpense.amount * rw, 2))
+            : null
+
         setFormData({
           amount: editingExpense.amount,
-          report_amount: editingExpense.amount * (editingExpense.report_weight ?? 1),
+          report_amount: initialReportAmount,
           date: editingExpense.date,
           installment_total: String(editingExpense.installment_total || 1),
           payment_method: editingExpense.payment_method || 'other',
@@ -93,7 +99,7 @@ export default function ExpenseFormModal({
       } else {
         setFormData({
           amount: defaultValues?.amount ?? 0,
-          report_amount: defaultValues?.amount ?? 0,
+          report_amount: null,
           date: defaultValues?.date || format(new Date(), 'yyyy-MM-dd'),
           installment_total: '1',
           payment_method: 'other',
@@ -122,7 +128,10 @@ export default function ExpenseFormModal({
       return
     }
 
-    const reportAmount = formData.report_amount || amount
+    const reportAmount =
+      formData.report_amount !== null && formData.report_amount !== undefined
+        ? formData.report_amount
+        : amount
     if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
       alert('O valor no relatório deve estar entre 0 e o valor da despesa')
       return

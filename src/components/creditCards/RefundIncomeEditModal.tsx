@@ -32,7 +32,7 @@ interface RefundIncomeEditModalProps {
 
 type RefundIncomeFormState = {
   amount: number
-  report_amount: number
+  report_amount: number | null
   date: string
   income_category_id: string
   description: string
@@ -40,7 +40,7 @@ type RefundIncomeFormState = {
 
 const DEFAULT_FORM = (): RefundIncomeFormState => ({
   amount: 0,
-  report_amount: 0,
+  report_amount: null,
   date: '',
   income_category_id: '',
   description: '',
@@ -59,9 +59,10 @@ export default function RefundIncomeEditModal({
 
   useEffect(() => {
     if (isOpen && initialData) {
+      const isDefaultFullAmount = initialData.report_amount === initialData.amount
       setForm({
         amount: initialData.amount,
-        report_amount: initialData.report_amount,
+        report_amount: isDefaultFullAmount ? null : initialData.report_amount,
         date: initialData.date,
         income_category_id: initialData.income_category_id,
         description: initialData.description,
@@ -72,7 +73,7 @@ export default function RefundIncomeEditModal({
   const handleAmountChange = (nextAmount: number) => {
     setForm((prev) => {
       const shouldSyncReportAmount =
-        prev.report_amount === 0 ||
+        typeof prev.report_amount === 'number' &&
         Math.abs(prev.report_amount - prev.amount) < 0.009
 
       return {
@@ -92,7 +93,10 @@ export default function RefundIncomeEditModal({
       return
     }
 
-    const reportAmount = form.report_amount || amountBase
+    const reportAmount =
+      form.report_amount !== null && form.report_amount !== undefined
+        ? form.report_amount
+        : amountBase
 
     if (
       Number.isNaN(reportAmount) ||
