@@ -1008,7 +1008,7 @@ export default function Contas() {
                           ({activeCards.length})
                         </span>
                       </h2>
-                      <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">Faturas e ciclo de competência ativa</p>
+                      <p className="text-xs text-secondary mt-0.5 truncate">Faturas e ciclo de competência ativa</p>
                     </div>
                   </div>
                   <Button
@@ -1046,7 +1046,7 @@ export default function Contas() {
                       const isExpanded = !!expandedItems[card.id]
 
                       return (
-                        <Card key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300">
+                        <div key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden rounded-2xl border border-glass surface-glass shadow-sm transition-all duration-300">
                           {/* Header Accordion */}
                           <div 
                             className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
@@ -1110,7 +1110,7 @@ export default function Contas() {
 
                               {/* Ações do Cartão */}
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-secondary/20 p-2.5 sm:p-3 rounded-xl border border-glass">
-                                <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">Ações do Cartão</span>
+                                <span className="text-xs uppercase font-bold text-secondary tracking-wider">Ações do Cartão</span>
                                 <div className="flex flex-wrap gap-1.5">
                                   <IconButton
                                     size="sm"
@@ -1155,15 +1155,15 @@ export default function Contas() {
                                 {/* Lançamentos da Fatura */}
                                 <div className="space-y-2.5 bg-secondary/10 p-3 rounded-xl border border-glass">
                                   <div className="flex items-center justify-between border-b border-glass pb-1.5">
-                                    <h4 className="text-[11px] font-black uppercase tracking-wider text-primary">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
                                       Lançamentos ({currentMonth})
                                     </h4>
-                                    <span className="text-[10px] bg-secondary border border-primary/20 px-2 py-0.5 rounded-full font-semibold text-secondary">
+                                    <span className="text-xs font-medium text-secondary">
                                       {billItems.length} {billItems.length === 1 ? 'item' : 'itens'}
                                     </span>
                                   </div>
                                   {billItems.length === 0 ? (
-                                    <p className="text-xs text-secondary italic py-2">Sem lançamentos nesta competência.</p>
+                                    <p className="text-xs text-secondary py-2">Sem lançamentos nesta competência.</p>
                                   ) : (
                                     <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                                       {billItems.map((item) => (
@@ -1180,15 +1180,15 @@ export default function Contas() {
                                 {/* Pagamentos e Ajustes */}
                                 <div className="space-y-2.5 bg-secondary/10 p-3 rounded-xl border border-glass">
                                   <div className="flex items-center justify-between border-b border-glass pb-1.5">
-                                    <h4 className="text-[11px] font-black uppercase tracking-wider text-primary">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
                                       Pagamentos ({currentMonth})
                                     </h4>
-                                    <span className="text-[10px] bg-secondary border border-primary/20 px-2 py-0.5 rounded-full font-semibold text-secondary">
+                                    <span className="text-xs font-medium text-secondary">
                                       {(paymentItemsByCard[card.id] || []).length} {(paymentItemsByCard[card.id] || []).length === 1 ? 'registro' : 'registros'}
                                     </span>
                                   </div>
                                   {(paymentItemsByCard[card.id] || []).length === 0 ? (
-                                    <p className="text-xs text-secondary italic py-2">Sem pagamentos registrados nesta competência.</p>
+                                    <p className="text-xs text-secondary py-2">Sem pagamentos registrados nesta competência.</p>
                                   ) : (
                                     <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                                       {(paymentItemsByCard[card.id] || []).map((payment) => {
@@ -1205,7 +1205,7 @@ export default function Contas() {
                                                     ? (refundMeta.description || 'Estorno de compra')
                                                     : (payment.note || 'Pagamento de fatura')}
                                                 </p>
-                                                <p className="text-[10px] text-secondary mt-0.5 font-mono">
+                                                <p className="text-xs text-secondary mt-0.5 font-mono">
                                                   {formatDate(payment.payment_date)}
                                                   {refundMeta.isRefund ? ' • Estorno' : ''}
                                                 </p>
@@ -1221,7 +1221,7 @@ export default function Contas() {
                               </div>
                             </div>
                           )}
-                        </Card>
+                        </div>
                       )
                     })}
                   </div>
@@ -1240,7 +1240,7 @@ export default function Contas() {
                           ({pendingDebts.length})
                         </span>
                       </h2>
-                      <p className="text-[10px] sm:text-xs text-secondary mt-0.5 truncate">Dívidas a pagar e créditos a receber</p>
+                      <p className="text-xs text-secondary mt-0.5 truncate">Dívidas a pagar e créditos a receber</p>
                     </div>
                   </div>
 
@@ -1319,7 +1319,7 @@ export default function Contas() {
                       const isPaid = debt.status === 'paid'
 
                       return (
-                        <Card key={debt.id} id={`item-${debt.id}`} className="p-0 overflow-hidden border border-glass transition-all duration-300 relative">
+                        <div key={debt.id} id={`item-${debt.id}`} className="p-0 overflow-hidden rounded-2xl border border-glass surface-glass shadow-sm transition-all duration-300 relative">
                           {/* Color bar indicator for type */}
                           <div 
                             className={`absolute left-0 top-0 bottom-0 w-1.5 ${
@@ -1335,7 +1335,7 @@ export default function Contas() {
                             <div className="min-w-0 flex-1 text-left">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-xs sm:text-sm font-bold text-primary truncate max-w-[180px] sm:max-w-none">{debt.name}</p>
-                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
                                   isPayable 
                                     ? 'bg-expense/10 border-expense/20 text-expense' 
                                     : 'bg-income/10 border-income/20 text-income'
@@ -1344,7 +1344,7 @@ export default function Contas() {
                                 </span>
                                 {debt.expense_id && (
                                   <span 
-                                    className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-balance/10 border border-balance/20 text-balance px-2 py-0.5 rounded-md shrink-0 cursor-help" 
+                                    className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider bg-balance/10 border border-balance/20 text-balance px-2 py-0.5 rounded-md shrink-0 cursor-help" 
                                     title="Esta pendência está integrada a uma despesa e as alterações serão sincronizadas."
                                   >
                                     <Link2 size={10} className="stroke-[3]" />
@@ -1352,9 +1352,9 @@ export default function Contas() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-secondary font-mono mt-1 flex flex-wrap items-center gap-2">
-                                <span>Vencimento: {formatDate(debt.due_date)}</span>
-                                <span className="text-[9px] bg-secondary/80 text-secondary px-1.5 py-0.5 rounded font-sans font-bold">
+                              <div className="text-xs text-secondary mt-1 flex flex-wrap items-center gap-2">
+                                <span className="font-mono">Vencimento: {formatDate(debt.due_date)}</span>
+                                <span className="text-xs bg-secondary/80 text-secondary px-1.5 py-0.5 rounded font-sans font-bold">
                                   Ref: {formatMonth(debt.due_date.substring(0, 7))}
                                 </span>
                               </div>
@@ -1362,7 +1362,7 @@ export default function Contas() {
 
                             <div className="flex items-center gap-3 sm:gap-5 shrink-0">
                               <div className="text-right">
-                                <span className={`text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border block text-center ${
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border block text-center ${
                                   isPaid 
                                     ? 'bg-income/10 border-income/20 text-income' 
                                     : 'bg-warning/10 border-warning/20 text-warning-light'
@@ -1384,49 +1384,54 @@ export default function Contas() {
                             <div className="p-4 pl-5 border-t border-glass bg-secondary/5 space-y-4 animate-surface-enter text-left">
                               {debt.description && (
                                 <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Descrição</p>
+                                  <p className="text-xs font-bold text-secondary uppercase tracking-wider">Descrição</p>
                                   <p className="text-xs text-primary leading-relaxed whitespace-pre-wrap">{debt.description}</p>
                                 </div>
                               )}
 
                               {debt.expense && (
-                                <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 sm:p-4 space-y-3 relative overflow-hidden select-text">
-                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/30" />
-                                  
-                                  <div className="flex items-center gap-1.5">
-                                    <Link2 size={12} className="text-primary stroke-[2.5]" />
-                                    <span className="text-[10px] uppercase font-black tracking-wider text-primary">Despesa Integrada Relacionada</span>
+                                <div className="rounded-xl overflow-hidden border border-balance/20 bg-balance/5 relative">
+                                  {/* Barra lateral de destaque */}
+                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-balance" />
+
+                                  {/* Header da seção integrada */}
+                                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-balance/10 bg-balance/5">
+                                    <Link2 size={13} className="text-balance shrink-0 stroke-[2.5]" />
+                                    <span className="text-xs uppercase font-bold tracking-wider text-balance">
+                                      Despesa Integrada Relacionada
+                                    </span>
                                   </div>
-                                  
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-xs">
-                                    <div>
-                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Descrição original:</span>
-                                      <span className="text-primary font-semibold block sm:truncate">{debt.expense.description || 'Sem descrição'}</span>
+
+                                  {/* Grid de dados */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 px-4 py-3 text-xs">
+                                    <div className="space-y-0.5">
+                                      <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Descrição original</p>
+                                      <p className="text-xs font-semibold text-primary">{debt.expense.description || 'Sem descrição'}</p>
                                     </div>
-                                    <div>
-                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Valor da Despesa:</span>
-                                      <span className="text-primary font-extrabold font-mono text-sm">{formatCurrency(debt.expense.amount)}</span>
+                                    <div className="space-y-0.5">
+                                      <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Valor da despesa</p>
+                                      <p className="text-sm font-bold font-mono text-expense">{formatCurrency(debt.expense.amount)}</p>
                                     </div>
-                                    <div>
-                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Data de Lançamento:</span>
-                                      <span className="text-primary font-mono">{formatDate(debt.expense.date)}</span>
+                                    <div className="space-y-0.5">
+                                      <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Data de lançamento</p>
+                                      <p className="text-xs font-mono text-primary">{formatDate(debt.expense.date)}</p>
                                     </div>
-                                    <div>
-                                      <span className="text-[10px] text-secondary uppercase font-bold tracking-wider block mb-0.5">Meio de Pagamento / Categoria:</span>
-                                      <span className="text-primary block sm:truncate" title={
+                                    <div className="space-y-0.5">
+                                      <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Meio / Categoria</p>
+                                      <p className="text-primary truncate" title={
                                         debt.expense.payment_method === 'credit_card'
                                           ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
                                           : `${debt.expense.payment_method || 'Outro'}${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`
                                       }>
                                         {debt.expense.payment_method === 'credit_card'
-                                          ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})`
+                                          ? `Cartão (${debt.expense.credit_card?.name || 'Crédito'})`
                                           : debt.expense.payment_method === 'pix' ? 'Pix'
                                           : debt.expense.payment_method === 'cash' ? 'Dinheiro'
                                           : debt.expense.payment_method === 'debit' ? 'Débito'
                                           : debt.expense.payment_method === 'transfer' ? 'Transferência'
                                           : debt.expense.payment_method || 'Outro'}
                                         {debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}
-                                      </span>
+                                      </p>
                                     </div>
                                   </div>
                                 </div>
@@ -1468,7 +1473,7 @@ export default function Contas() {
                               </div>
                             </div>
                           )}
-                        </Card>
+                        </div>
                       )
                     })}
                   </div>
@@ -1477,7 +1482,7 @@ export default function Contas() {
                 {confirmedDebts.length > 0 && (
                   <div className="space-y-2.5 pt-3.5 border-t border-glass mt-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
+                      <span className="text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
                         <CheckCircle2 size={14} className="text-income" />
                         Confirmadas no Mês ({confirmedDebts.length})
                       </span>

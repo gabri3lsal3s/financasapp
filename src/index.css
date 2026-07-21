@@ -2204,10 +2204,6 @@ nav.glass-bottom-nav {
   z-index: var(--z-decoration);
 }
 
-.glass-timeline-card:hover {
-  border-color: var(--glass-border-strong);
-  box-shadow: var(--glass-shadow-panel);
-}
 
 .glass-timeline-card:hover::before {
   opacity: 0.8;
