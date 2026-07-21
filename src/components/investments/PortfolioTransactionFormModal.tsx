@@ -6,11 +6,10 @@ import ModalFieldRow from '@/components/ModalFieldRow'
 import NumberInput from '@/components/NumberInput'
 import CurrencyInput from '@/components/CurrencyInput'
 import Input from '@/components/Input'
-import FieldLabel from '@/components/FieldLabel'
 import Select from '@/components/Select'
 import { supabase } from '@/lib/supabase'
-import type { PortfolioTransaction, PortfolioOperationType, PortfolioPricingMode } from '@/types'
-import { detectDefaultCurrency, isCashTicker } from '@/utils/assetClassifier'
+import type { PortfolioTransaction, PortfolioOperationType } from '@/types'
+import { detectDefaultCurrency, isCashTicker, requiresMarketQuote } from '@/utils/assetClassifier'
 import { formatCurrencyByCode } from '@/utils/format'
 import { fetchPortfolioCashContext, reconcileCashOffsetOnTransactionSave, deleteCashOffsetTransactions } from '@/services/cashOffsetService'
 import { cleanupOrphanPortfolioTickers } from '@/services/portfolioOrphanCleanup'
@@ -24,6 +23,7 @@ interface PortfolioTransactionFormModalProps {
   onClose: () => void
   portfolioId: string
   editingTransaction: PortfolioTransaction | null
+  initialTicker?: string
   onSaved: () => void
   zIndexClass?: ZIndexElevated
 }
@@ -33,38 +33,28 @@ export default function PortfolioTransactionFormModal({
   onClose,
   portfolioId,
   editingTransaction,
+  initialTicker,
   onSaved,
   zIndexClass,
 }: PortfolioTransactionFormModalProps) {
   const [ticker, setTicker] = useState('CAIXA')
   const [operationType, setOperationType] = useState<PortfolioOperationType>('buy')
+  const [registrationType, setRegistrationType] = useState<'manual' | 'b3'>('manual')
+  const [manualCurrentValue, setManualCurrentValue] = useState<number>(0)
   const [amount, setAmount] = useState(0)
   const [quantity, setQuantity] = useState('1')
   const [price, setPrice] = useState('')
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [pricingMode, setPricingMode] = useState<PortfolioPricingMode>('market')
   const [currency, setCurrency] = useState<'BRL' | 'USD'>('BRL')
   const [saving, setSaving] = useState(false)
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false)
   const [cashBalance, setCashBalance] = useState<number>(0)
 
-  // Renda Fixa específicos
-  const [indexer, setIndexer] = useState<'none' | 'cdi' | 'selic' | 'ipca'>('none')
-  const [indexerPercent, setIndexerPercent] = useState<string>('100')
-  const [contractRate, setContractRate] = useState<string>('0')
-  const [maturityDate, setMaturityDate] = useState<string>('')
-  const [applicationDate, setApplicationDate] = useState<string>('')
-
-  // Meta e Valor Atual
-  const [targetPercentage, setTargetPercentage] = useState<string>('0')
-  const [manualCurrentValue, setManualCurrentValue] = useState<number>(0)
-
-
   const isEditing = !!editingTransaction
   const isCashType = isCashTicker(ticker)
   const isIncomeType = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
 
-  // Carregar dados da transação ao abrir
+  // Carregar dados da transação ou ticker inicial ao abrir
   useEffect(() => {
     if (!isOpen) return
 
@@ -91,130 +81,79 @@ export default function PortfolioTransactionFormModal({
         setPrice(String(editingTransaction.price))
       }
     } else {
-      setTicker('CAIXA')
+      setTicker(initialTicker ? initialTicker.toUpperCase().trim() : 'CAIXA')
       setOperationType('buy')
       setAmount(0)
       setQuantity('1')
       setPrice('')
+      setManualCurrentValue(0)
       setDate(format(new Date(), 'yyyy-MM-dd'))
-      setIndexer('none')
-      setIndexerPercent('100')
-      setContractRate('0')
-      setMaturityDate('')
-      setApplicationDate('')
     }
-  }, [isOpen, editingTransaction])
+  }, [isOpen, editingTransaction, initialTicker])
 
-  // Carregar saldo em caixa do portfólio
+  // Carregar saldo em caixa do portfólio e identificar o tipo de lançamento automaticamente
   useEffect(() => {
     if (!isOpen || !portfolioId) return
 
-    const fetchCash = async () => {
+    const fetchCashAndDef = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: pData } = await supabase
           .from('portfolios')
           .select('cash_balance')
           .eq('id', portfolioId)
           .maybeSingle()
 
-        if (!error && data) {
-          setCashBalance(Number(data.cash_balance) || 0)
+        if (pData) {
+          setCashBalance(Number(pData.cash_balance) || 0)
+        }
+
+        if (ticker) {
+          const tickerUpper = ticker.toUpperCase().trim()
+          if (isCashTicker(tickerUpper)) {
+            setRegistrationType('manual')
+            return
+          }
+
+          const { data: defData } = await supabase
+            .from('portfolio_asset_definitions')
+            .select('is_b3_linked, pricing_mode, manual_current_value')
+            .eq('portfolio_id', portfolioId)
+            .eq('ticker', tickerUpper)
+            .maybeSingle()
+
+          if (defData) {
+            const isB3 = defData.is_b3_linked || defData.pricing_mode === 'market'
+            setRegistrationType(isB3 ? 'b3' : 'manual')
+            if (defData.manual_current_value != null) {
+              setManualCurrentValue(Number(defData.manual_current_value))
+            }
+          } else {
+            // Reconhecimento automático: Ativos B3 (Ações/FIIs/BDRs) e Internacionais (ETFs/US Stocks)
+            const isMarketQuoteRequired = requiresMarketQuote(tickerUpper)
+            setRegistrationType(isMarketQuoteRequired ? 'b3' : 'manual')
+          }
         }
       } catch (err) {
-        logger.warn('Erro ao buscar saldo em caixa no modal:', err)
+        logger.warn('Erro ao buscar contexto do portfólio no modal:', err)
       }
     }
 
-    fetchCash()
-  }, [isOpen, portfolioId])
+    void fetchCashAndDef()
+  }, [isOpen, portfolioId, ticker])
+
+  // Ajustar moeda dinamicamente conforme o ticker
+  useEffect(() => {
+    if (!isOpen || !ticker) return
+    const tickerUpper = ticker.toUpperCase().trim()
+    setCurrency(detectDefaultCurrency(tickerUpper))
+  }, [ticker, isOpen])
 
   // Ajustar tipo de operação se o ticker mudar para CAIXA
   useEffect(() => {
     if (isCashType && !['buy', 'sell'].includes(operationType)) {
       setOperationType('buy')
     }
-  }, [ticker])
-
-  // Buscar definição do ativo para precificação e moeda
-  useEffect(() => {
-    if (!isOpen || !portfolioId) return
-    const tickerUpper = ticker.toUpperCase().trim()
-    if (!tickerUpper || isCashType) return
-
-    let isSubscribed = true
-
-    const fetchDef = async () => {
-      try {
-        const { data: def } = await supabase
-          .from('portfolio_asset_definitions')
-          .select('pricing_mode, currency, indexer, indexer_percent, contract_rate, maturity_date, application_date, manual_current_value')
-          .eq('portfolio_id', portfolioId)
-          .eq('ticker', tickerUpper)
-          .maybeSingle()
-
-        const { data: target } = await supabase
-          .from('target_allocations')
-          .select('target_percentage')
-          .eq('portfolio_id', portfolioId)
-          .eq('ticker', tickerUpper)
-          .maybeSingle()
-
-        if (!isSubscribed) return
-
-        if (def) {
-          setPricingMode(def.pricing_mode)
-          setCurrency(def.currency || 'BRL')
-          setIndexer(def.indexer || 'none')
-          setIndexerPercent(String(def.indexer_percent ?? 100))
-          setContractRate(String(def.contract_rate ?? 0))
-          setMaturityDate(def.maturity_date ?? '')
-          setApplicationDate(def.application_date ?? '')
-          setManualCurrentValue(Number(def.manual_current_value) || 0)
-        } else {
-          // Novo ativo: sugerir parâmetros usando assetClassifier
-          const isFixed = ['CDI', 'SELIC', 'IPCA', 'TESOURO', 'CDB', 'LCI', 'LCA', 'DEBENTURE'].some(rf => tickerUpper.includes(rf))
-          const suggestedMode = isFixed ? 'manual_value' : 'market'
-          setPricingMode(suggestedMode)
-          setCurrency(detectDefaultCurrency(tickerUpper))
-          setIndexer('none')
-          setIndexerPercent('100')
-          setContractRate('0')
-          setMaturityDate('')
-          setApplicationDate('')
-          setManualCurrentValue(0)
-        }
-
-        if (target && target.target_percentage !== undefined && target.target_percentage !== null) {
-          setTargetPercentage(String(target.target_percentage))
-        } else {
-          setTargetPercentage('0')
-        }
-
-      } catch (err) {
-        logger.error('Erro ao carregar definição do ativo:', err)
-      }
-    }
-
-
-    const timer = setTimeout(fetchDef, 300)
-    return () => {
-      isSubscribed = false
-      clearTimeout(timer)
-    }
-  }, [ticker, isOpen, portfolioId])
-
-  const PRICING_MODES: PortfolioPricingMode[] = ['market', 'fixed_income', 'manual_value', 'cash']
-
-  const handlePricingModeChange = (e: { target: { value: string } }) => {
-    const val = e.target.value
-    if ((PRICING_MODES as string[]).includes(val)) {
-      setPricingMode(val as PortfolioPricingMode)
-    }
-  }
-
-  const handleCurrencyChange = (e: { target: { value: string } }) => {
-    setCurrency(e.target.value as 'BRL' | 'USD')
-  }
+  }, [ticker, isCashType, operationType])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -283,10 +222,7 @@ export default function PortfolioTransactionFormModal({
         txId = inserted.id
       }
 
-      // Salvar/Atualizar definição do ativo
-      const finalPricingMode = isCashType ? 'cash' : pricingMode
-      const finalCurrency = isCashType ? 'BRL' : currency
-
+      // Salvar/Atualizar vínculo de precificação do ativo (Mercado vs Manual)
       if (!isCashType) {
         const { data: existingDef } = await supabase
           .from('portfolio_asset_definitions')
@@ -295,79 +231,42 @@ export default function PortfolioTransactionFormModal({
           .eq('ticker', tickerUpper)
           .maybeSingle()
 
-        const manualValToSave = finalPricingMode === 'manual_value' && manualCurrentValue > 0 ? manualCurrentValue : null
+        const isB3 = registrationType === 'b3'
+        const pricingMode = isB3 ? 'market' : 'manual_value'
 
         const defPayload = {
           portfolio_id: portfolioId,
           ticker: tickerUpper,
-          pricing_mode: finalPricingMode,
-          is_b3_linked: finalPricingMode === 'market',
-          currency: finalCurrency,
-          indexer: finalPricingMode === 'fixed_income' ? indexer : 'none',
-          indexer_percent: finalPricingMode === 'fixed_income' ? parseFloat(indexerPercent) : 100,
-          contract_rate: finalPricingMode === 'fixed_income' ? parseFloat(contractRate) : 0,
-          maturity_date: finalPricingMode === 'fixed_income' && maturityDate ? maturityDate : null,
-          application_date: finalPricingMode === 'fixed_income' && applicationDate ? applicationDate : null,
-          manual_current_value: manualValToSave,
-          manual_value_updated_at: manualValToSave ? new Date().toISOString() : null,
+          pricing_mode: pricingMode,
+          is_b3_linked: isB3,
+          currency: currency,
+          manual_current_value: registrationType === 'manual' && manualCurrentValue > 0 ? manualCurrentValue : null,
+          manual_value_updated_at: registrationType === 'manual' && manualCurrentValue > 0 ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),
         }
 
         if (existingDef) {
-          const { error: defErr } = await supabase
+          await supabase
             .from('portfolio_asset_definitions')
             .update(defPayload)
             .eq('id', existingDef.id)
-          if (defErr) throw defErr
         } else {
-          const { error: defErr } = await supabase
-            .from('portfolio_asset_definitions')
-            .insert(defPayload)
-          if (defErr) throw defErr
+          await supabase.from('portfolio_asset_definitions').insert(defPayload)
         }
 
-        if (manualValToSave && manualValToSave > 0) {
-          const qtyNum = parseFloat(quantity) || 1
-          const unitPrice = qtyNum > 0 ? manualValToSave / qtyNum : manualValToSave
+        // Se o valor manual foi atualizado, registrar no histórico diário de preços
+        if (registrationType === 'manual' && manualCurrentValue > 0) {
           await supabase.from('asset_price_daily').upsert(
             {
               ticker: tickerUpper,
-              price_date: new Date().toISOString().slice(0, 10),
-              close_price: unitPrice,
+              price_date: date,
+              close_price: manualCurrentValue,
               source: 'manual_update',
             },
             { onConflict: 'ticker,price_date' }
           )
         }
-
-
-        // Salvar/Atualizar Meta na Carteira (%)
-        const targetPct = parseFloat(targetPercentage)
-        if (!isNaN(targetPct)) {
-          const { data: existingTarget } = await supabase
-            .from('target_allocations')
-            .select('id')
-            .eq('portfolio_id', portfolioId)
-            .eq('ticker', tickerUpper)
-            .maybeSingle()
-
-          if (existingTarget) {
-            await supabase
-              .from('target_allocations')
-              .update({ target_percentage: targetPct })
-              .eq('id', existingTarget.id)
-          } else if (targetPct > 0) {
-            await supabase
-              .from('target_allocations')
-              .insert({
-                portfolio_id: portfolioId,
-                ticker: tickerUpper,
-                target_percentage: targetPct,
-              })
-          }
-        }
       }
-
 
       // Reconciliar caixa automaticamente
       const context = await fetchPortfolioCashContext(portfolioId)
@@ -376,7 +275,7 @@ export default function PortfolioTransactionFormModal({
         transactionId: txId,
         amount: qty * unitPrice,
         date,
-        assetPricingMode: finalPricingMode,
+        assetPricingMode: isCashType ? 'cash' : (registrationType === 'b3' ? 'market' : 'manual_value'),
         operationType,
         transactions: context.transactions,
         definitions: context.definitions,
@@ -444,7 +343,8 @@ export default function PortfolioTransactionFormModal({
           <ModalFooter
             formId={formId}
             onCancel={onClose}
-            submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Transação'}              submitDisabled={saving || 
+            submitLabel={isEditing ? 'Salvar alterações' : 'Salvar Transação'}
+            submitDisabled={saving || 
               ((isCashType || isIncomeType) && !amount) || 
               (!(isCashType || isIncomeType) && (!ticker.trim() || !price.trim()))}
             loading={saving}
@@ -454,13 +354,47 @@ export default function PortfolioTransactionFormModal({
         )}
       >
         <div className="space-y-4 text-left">
+          {/* Tipo de Lançamento (Segmented Control Pill Bar) */}
+          <div className="flex items-center justify-between gap-3 p-2 px-3 rounded-2xl bg-glass/5 border border-glass/20 text-xs select-none">
+            <span className="font-black text-secondary text-[10px] uppercase tracking-widest">
+              Precificação
+            </span>
+
+            <div className="bg-glass/10 p-0.5 rounded-xl border border-glass/20 flex gap-0.5">
+              <button
+                type="button"
+                onClick={() => setRegistrationType('manual')}
+                className={`px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-all duration-200 ease-out ${
+                  registrationType === 'manual'
+                    ? 'bg-glass-strong text-primary shadow-xs border border-glass/40 font-black'
+                    : 'text-secondary hover:text-primary hover:bg-glass/5 font-medium'
+                }`}
+                title="Cotação e saldo definidos manualmente por extrato"
+              >
+                Manual
+              </button>
+              <button
+                type="button"
+                onClick={() => setRegistrationType('b3')}
+                className={`px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-all duration-200 ease-out ${
+                  registrationType === 'b3'
+                    ? 'bg-glass-strong text-income shadow-xs border border-income/30 font-black'
+                    : 'text-secondary hover:text-primary hover:bg-glass/5 font-medium'
+                }`}
+                title="Cotação automática via B3 ou Yahoo Finance"
+              >
+                Mercado (B3 / Yahoo)
+              </button>
+            </div>
+          </div>
+
           {/* Seletor de Ticker e Tipo */}
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Ativo (Ticker)"
               type="text"
               required
-              placeholder="Ex: WEGE3, CAIXA, VOO"
+              placeholder="Ex: WEGE3, VOO, CAIXA, AAPL"
               value={ticker}
               onChange={(e) => setTicker(e.target.value.toUpperCase())}
               className="h-10 w-full uppercase font-mono"
@@ -517,7 +451,7 @@ export default function PortfolioTransactionFormModal({
           {/* Inputs Condicionais */}
           {isCashType || isIncomeType ? (
             <CurrencyInput
-              label={isCashType ? "Valor em Caixa" : "Valor do Provento"}
+              label={isCashType ? "Valor do Lançamento em Caixa" : "Valor do Provento"}
               required
               value={amount}
               onChange={(_e, val) => setAmount(val)}
@@ -546,110 +480,66 @@ export default function PortfolioTransactionFormModal({
             </ModalFieldRow>
           )}
 
-          {/* Precificação, Moeda e Meta na Carteira */}
-          {!isCashType && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <FieldLabel>Precificação</FieldLabel>
-                <Select
-                  value={pricingMode}
-                  onChange={handlePricingModeChange}
-                  options={[
-                    { value: 'manual_value', label: 'Valor Manual' },
-                    { value: 'market', label: 'Cotação B3' },
-                  ]}
-                />
-              </div>
-              <div className="space-y-1">
-                <FieldLabel>Moeda</FieldLabel>
-                <Select
-                  value={currency}
-                  onChange={handleCurrencyChange}
-                  options={[
-                    { value: 'BRL', label: 'BRL (R$)' },
-                    { value: 'USD', label: 'USD ($)' }
-                  ]}
-                />
-              </div>
-              <div className="space-y-1">
-                <FieldLabel>Meta na Carteira</FieldLabel>
-                <NumberInput
-                  step={0.1}
-                  min={0}
-                  max={100}
-                  value={targetPercentage}
-                  onChange={(e) => setTargetPercentage(e.target.value)}
-                  placeholder="Ex: 5.0"
-                  suffix="%"
-                  hideSpinButtons
-                />
-              </div>
-            </div>
+          {/* Campo de Saldo Atual para Ativos Manuais */}
+          {registrationType === 'manual' && !isCashType && (
+            <CurrencyInput
+              label="Saldo Atual do Ativo (Extrato - Opcional)"
+              value={manualCurrentValue}
+              onChange={(_e, val) => setManualCurrentValue(val)}
+              placeholder="Ex: 5000,00"
+              className="font-semibold rounded-xl text-sm"
+            />
           )}
 
-          {/* Saldo Atual no Extrato para Valor Manual */}
-          {!isCashType && pricingMode === 'manual_value' && (
-            <div className="p-3 bg-glass/5 rounded-2xl border border-glass/25 text-left text-xs space-y-2 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-primary block">Saldo Atual no Extrato (Opcional)</span>
-                <span className="text-[10px] text-secondary font-mono font-bold">
-                  {currency === 'USD' ? '$' : 'R$'}
-                </span>
-              </div>
-              <CurrencyInput
-                value={manualCurrentValue}
-                onChange={(_e, val) => setManualCurrentValue(val)}
-                placeholder="Ex: 5150.00"
-              />
-              <p className="text-secondary/80 text-[10px]">
-                Preencha caso já queira definir o valor atual no extrato. Se mantido em zero, o valor de compra será considerado como saldo inicial.
-              </p>
-            </div>
-          )}
+          {/* Demonstrativo Discreto de Valor Total e Saldo em Caixa */}
+          {(() => {
+            const txVal = isCashType || isIncomeType ? amount : (parseFloat(quantity || '0') * parseFloat(price || '0'))
+            if (isNaN(txVal) || txVal <= 0) return null
 
-          {/* Visualizador de Total + Impacto no Caixa */}
-          {!isCashType && ((isIncomeType && amount) || (!isIncomeType && quantity && price)) && (() => {
-            const totalTxValue = isIncomeType ? (amount || 0) : (parseFloat(quantity || '0') * parseFloat(price || '0'))
-            if (isNaN(totalTxValue) || totalTxValue <= 0) return null
+            let isOutflow = false
+            let isInflow = false
 
-            const isCashInflow = ['sell', 'dividend', 'jcp', 'fii_yield'].includes(operationType)
-            const isCashOutflow = ['buy', 'subscription'].includes(operationType)
-
-            let cashText = ''
-            let cashVal = 0
-            let isWarning = false
-
-            if (isCashOutflow) {
-              if (cashBalance >= totalTxValue) {
-                cashText = 'Saldo em caixa restante'
-                cashVal = cashBalance - totalTxValue
-              } else {
-                cashText = 'Aporte adicional necessário'
-                cashVal = totalTxValue - cashBalance
-                isWarning = true
-              }
-            } else if (isCashInflow) {
-              cashText = 'Novo saldo em caixa'
-              cashVal = cashBalance + totalTxValue
+            if (isCashType) {
+              isOutflow = operationType === 'sell'
+              isInflow = operationType === 'buy'
+            } else {
+              isOutflow = ['buy', 'subscription'].includes(operationType)
+              isInflow = ['sell', 'dividend', 'jcp', 'fii_yield'].includes(operationType)
             }
 
+            const finalCashBalance = isOutflow
+              ? cashBalance - txVal
+              : isInflow
+              ? cashBalance + txVal
+              : cashBalance
+
+            const isDeficit = finalCashBalance < 0
+
             return (
-              <div className="p-4 bg-glass/5 border border-glass/40 rounded-2xl animate-fade-in text-left space-y-3 select-none">
-                <div>
-                  <span className="text-[10px] text-secondary font-bold uppercase tracking-wider block">Valor Total do Lançamento</span>
-                  <span className="text-xl font-mono font-black text-primary mt-0.5 block">
-                    {formatCurrencyByCode(totalTxValue, currency === 'USD' ? 'USD' : 'BRL')}
+              <div className="p-3 bg-glass/5 border border-glass/20 rounded-xl animate-fade-in text-xs space-y-2 select-none">
+                <div className="flex items-center justify-between text-secondary">
+                  <span className="font-medium text-[11px]">Valor Total</span>
+                  <span className="font-mono font-bold text-primary text-sm">
+                    {formatCurrencyByCode(txVal, currency === 'USD' ? 'USD' : 'BRL')}
                   </span>
                 </div>
 
-                {(isCashOutflow || isCashInflow) && (
-                  <div className="pt-3 border-t border-glass/25 flex justify-between items-center text-[10px] uppercase tracking-wider font-black">
-                    <span className="text-secondary">{cashText}:</span>
-                    <span className={`font-mono text-xs ${isWarning ? 'text-expense bg-expense/10 px-2 py-0.5 rounded-lg border border-expense/20' : 'text-income bg-income/10 px-2 py-0.5 rounded-lg border border-income/20'}`}>
-                      {formatCurrencyByCode(cashVal, currency === 'USD' ? 'USD' : 'BRL')}
+                <div className="pt-2 border-t border-glass/15 flex items-center justify-between text-[11px]">
+                  <span className="text-secondary font-medium">Saldo em caixa</span>
+                  <div className="flex items-center gap-1.5 font-mono">
+                    <span className="text-secondary font-medium">{formatCurrencyByCode(cashBalance, 'BRL')}</span>
+                    <span className="text-secondary/60">→</span>
+                    <span
+                      className={`font-semibold ${
+                        isDeficit ? 'text-expense font-bold' : 'text-income'
+                      }`}
+                    >
+                      {isDeficit
+                        ? `Aporte necessário: ${formatCurrencyByCode(Math.abs(finalCashBalance), 'BRL')}`
+                        : formatCurrencyByCode(finalCashBalance, 'BRL')}
                     </span>
                   </div>
-                )}
+                </div>
               </div>
             )
           })()}

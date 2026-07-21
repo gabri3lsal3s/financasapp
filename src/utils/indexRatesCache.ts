@@ -1,4 +1,4 @@
-import { annualToDailyRate, countBusinessDays, eachBusinessDayBetween, parseLocalDate } from './fixedIncomeCurve'
+import { annualToDailyRate, eachBusinessDayBetween } from './fixedIncomeCurve'
 
 export interface IndexRatesMap {
   [indexer: string]: Record<string, number> // data -> taxa diária (ex: '2024-05-10' -> 0.000412)

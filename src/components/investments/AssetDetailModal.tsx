@@ -11,7 +11,7 @@ import {
 } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import type { PortfolioTransaction } from '@/types'
-import { Settings2, History } from 'lucide-react'
+import { Settings2, History, Plus } from 'lucide-react'
 import { Z_INDEX } from '@/constants/zIndex'
 import {
   ResponsiveContainer,
@@ -33,6 +33,7 @@ interface AssetDetailModalProps {
   onOpenAssetConfig: (ticker: string) => void
   onEditTransaction: (tx: PortfolioTransaction) => void
   onViewInLedger: (ticker: string) => void
+  onNewTransaction?: (ticker: string) => void
 }
 
 export default function AssetDetailModal({
@@ -42,7 +43,8 @@ export default function AssetDetailModal({
   transactions,
   onOpenAssetConfig,
   onEditTransaction,
-  onViewInLedger
+  onViewInLedger,
+  onNewTransaction
 }: AssetDetailModalProps) {
   const animProps = useMemo(() => chartAnimProps(), [])
 
@@ -130,7 +132,21 @@ export default function AssetDetailModal({
       title={`Detalhamento: ${position.ticker}`}
       size="lg"
       footer={(
-        <div className="flex gap-3 w-full">
+        <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+          {onNewTransaction && (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                onClose()
+                onNewTransaction(position.ticker)
+              }}
+              className="flex-1 rounded-xl h-10 text-xs font-black uppercase tracking-wider gap-1.5 flex items-center justify-center"
+            >
+              <Plus size={14} />
+              <span>+ Lançar Transação</span>
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"

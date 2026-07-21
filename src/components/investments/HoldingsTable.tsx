@@ -87,7 +87,7 @@ export default function HoldingsTable({
         {onOpenQuickUpdate && (
           <Button
             type="button"
-            variant="glass"
+            variant="outline"
             onClick={onOpenQuickUpdate}
             className="h-10 px-3.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 shrink-0"
           >

@@ -13,6 +13,7 @@ interface MonthlyActivityCardProps {
   onPrevMonth: () => void
   onNextMonth: () => void
   canNavNext: boolean
+  cashValue?: number
 }
 
 export default function MonthlyActivityCard({
@@ -21,6 +22,7 @@ export default function MonthlyActivityCard({
   onPrevMonth,
   onNextMonth,
   canNavNext,
+  cashValue = 0
 }: MonthlyActivityCardProps) {
   const summary = useMemo(() => {
     let monthInvested = 0
@@ -53,13 +55,20 @@ export default function MonthlyActivityCard({
   }, [transactions, monthNavDate])
 
   return (
-    <Card className="md:col-span-2 border border-glass bg-glass/5 rounded-3xl p-4 lg:p-5 flex flex-col gap-3 text-left">
-      {/* Header com navegação */}
-      <div className="flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase text-secondary tracking-wider">
-          Atividade Mensal
-        </span>
-        <div className="flex items-center gap-1">
+    <Card className="w-full border border-glass bg-glass/5 rounded-3xl p-4 lg:p-5 flex flex-col gap-3 text-left">
+      {/* Header com navegação e caixa */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-glass/20 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase text-secondary tracking-wider">
+            Atividade Mensal
+          </span>
+          <span className="text-[10px] text-secondary font-medium">|</span>
+          <span className="text-[10px] font-bold text-primary font-mono">
+            Caixa em Custódia: <span className="text-income font-black">{formatCurrency(cashValue)}</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 self-end sm:self-auto">
           <button
             type="button"
             onClick={onPrevMonth}
@@ -85,12 +94,12 @@ export default function MonthlyActivityCard({
 
       {/* Conteúdo */}
       {!summary.hasActivity ? (
-        <p className="text-[10px] text-secondary font-medium">
-          Nenhuma movimentação neste mês.
+        <p className="text-[10px] text-secondary font-medium py-1">
+          Nenhuma movimentação de investimentos neste mês.
         </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="p-2 rounded-xl border border-glass/30 bg-glass/5">
+          <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Investido
             </span>
@@ -98,7 +107,7 @@ export default function MonthlyActivityCard({
               {formatCurrency(summary.monthInvested)}
             </span>
           </div>
-          <div className="p-2 rounded-xl border border-glass/30 bg-glass/5">
+          <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Retirado
             </span>
@@ -106,7 +115,7 @@ export default function MonthlyActivityCard({
               {formatCurrency(summary.monthWithdrawn)}
             </span>
           </div>
-          <div className="p-2 rounded-xl border border-glass/30 bg-glass/5">
+          <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Proventos
             </span>
@@ -114,7 +123,7 @@ export default function MonthlyActivityCard({
               {formatCurrency(summary.monthIncome)}
             </span>
           </div>
-          <div className="p-2 rounded-xl border border-glass/30 bg-glass/5">
+          <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Fluxo Líquido
             </span>

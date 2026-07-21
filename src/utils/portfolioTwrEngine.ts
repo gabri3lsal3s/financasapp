@@ -1,5 +1,4 @@
 import { sortTransactionsStably } from './portfolioOperations'
-import { calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
 import { isCashTicker } from './assetClassifier'
 import { evaluateAssetPositionAtDate } from './assetValuationEngine'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
