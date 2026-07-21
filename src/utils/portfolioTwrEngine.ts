@@ -1,6 +1,7 @@
 import { sortTransactionsStably } from './portfolioOperations'
 import { calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
 import { isCashTicker } from './assetClassifier'
+import { evaluateAssetPositionAtDate } from './assetValuationEngine'
 import type { PortfolioAssetDefinition, PortfolioTransaction } from '@/types'
 
 export interface DailyShareRow {
@@ -180,81 +181,27 @@ export function calculateSnapshotValuation(
     const rawTxs = sortTransactionsStably(txByTicker[ticker] ?? [])
     const txs = adjustTransactionsForSplits(rawTxs)
     const definition = defByTicker[ticker]
-
-    let quantity = 0
-    let totalCost = 0
     const isCash = cashTickers.has(ticker)
 
-    for (const tx of txs) {
-      const q = Number(tx.quantity)
-      const p = Number(tx.price)
+    const valResult = evaluateAssetPositionAtDate({
+      ticker,
+      transactions: txs,
+      definition,
+      asOfDate,
+      priceMap,
+      pricesToday,
+      indexRates,
+      vnaMap,
+      isCash
+    })
 
-      if (tx.operation_type === 'buy' || tx.operation_type === 'subscription') {
-        if (isCash) {
-          totalCost += q * p
-          quantity = totalCost
-        } else {
-          quantity += q
-          totalCost += q * p
-        }
-      } else if (tx.operation_type === 'sell') {
-        if (isCash) {
-          totalCost = Math.max(0, totalCost - q * p)
-          quantity = totalCost
-        } else if (quantity > 0) {
-          const pm = totalCost / quantity
-          quantity = Math.max(0, quantity - q)
-          totalCost = quantity * pm
-        }
-      }
-    }
+    if (valResult.quantity <= 0 && valResult.costBasis <= 0) continue
 
-    if (quantity <= 0 && totalCost <= 0) continue
-
-    const pricingMode = isCash ? 'cash' : (definition?.pricing_mode ?? 'market')
-    let totalValue = 0
-
-    if (pricingMode === 'fixed_income') {
-      const idx = (definition?.indexer ?? 'none').toLowerCase()
-      const activeRates = indexRates[idx] ?? {}
-      totalValue = calculateLotBasedFixedIncomeValue({
-        transactions: txs,
-        ticker,
-        definition: definition!,
-        asOfDate,
-        indexRates: activeRates,
-        vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined
-      })
-    } else if (pricingMode === 'manual_value') {
-      totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0
-    } else if (pricingMode === 'cash') {
-      totalValue = totalCost
+    if (valResult.pricingMode === 'cash') {
+      cashValue += valResult.totalValue
     } else {
-      const tickerPrices = priceMap[ticker]
-      let dayPrice = 0
-
-      if (tickerPrices && tickerPrices[asOfDate] !== undefined) {
-        dayPrice = tickerPrices[asOfDate]
-      } else if (tickerPrices) {
-        const priceDates = Object.keys(tickerPrices).sort()
-        let lastPrice = 0
-        for (const pd of priceDates) {
-          if (pd > asOfDate) break
-          lastPrice = tickerPrices[pd]
-        }
-        dayPrice = lastPrice
-      } else {
-        dayPrice = pricesToday[ticker] ?? 0
-      }
-
-      totalValue = quantity * (dayPrice > 0 ? dayPrice : (quantity > 0 ? totalCost / quantity : 0))
-    }
-
-    if (pricingMode === 'cash') {
-      cashValue += totalValue
-    } else {
-      investedValue += totalValue
-      investedCostBasis += totalCost
+      investedValue += valResult.totalValue
+      investedCostBasis += valResult.costBasis
     }
   }
 
@@ -265,6 +212,7 @@ export function calculateSnapshotValuation(
     investedCostBasis
   }
 }
+
 
 function computeDayCashFlow(
   dayTxs: PortfolioTransaction[],

@@ -2,69 +2,46 @@ import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
 import CurrencyInput from '@/components/CurrencyInput'
 import Button from '@/components/Button'
-import { formatCurrency, formatPercentBR, formatNumberBR, formatNumberWithTwoDecimalsBR } from '@/utils/format'
+import { formatCurrency, formatPercentBR, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
-import { PortfolioQuantPreferences, PortfolioGroupTarget } from '@/types'
-import { simulateSmartAporte, SmartAporteSuggestion } from '@/utils/quantamentalEngine'
-import { ArrowUpCircle, Info, Sparkles, Terminal, ChevronDown, ChevronUp, ClipboardCheck, AlertTriangle, CheckCircle, PiggyBank, ArrowUpRight } from 'lucide-react'
-import ScuttlebuttEvaluationModal from '@/components/investments/ScuttlebuttEvaluationModal'
+import type { PortfolioGroupTarget } from '@/types'
+import { simulateRebalanceAporte, type RebalanceSuggestion } from '@/utils/rebalanceSimulator'
+import { ArrowUpCircle, Info, Sparkles, PiggyBank, ArrowUpRight, CheckCircle, AlertTriangle } from 'lucide-react'
 
 interface SmartAporteSimulatorProps {
   portfolioId: string
   positions: ValuedPosition[]
-  preferences: PortfolioQuantPreferences | null
+  preferences?: unknown
   groupTargets: PortfolioGroupTarget[]
   totalValue: number
   cashValue: number
 }
 
 export default function SmartAporteSimulator({
-  portfolioId,
   positions,
-  preferences,
   groupTargets,
   totalValue,
   cashValue
 }: SmartAporteSimulatorProps) {
   const [aporteInput, setAporteInput] = useState(0)
   const [simulationResult, setSimulationResult] = useState<{
-    suggestions: SmartAporteSuggestion[]
+    suggestions: RebalanceSuggestion[]
     fallbackAmount: number
-    routingLog: string[]
   } | null>(null)
-  const [showLog, setShowLog] = useState(false)
-  const [selectedTickerForScuttlebutt, setSelectedTickerForScuttlebutt] = useState<string | null>(null)
-
-  const defaultPreferences = useMemo<PortfolioQuantPreferences>(() => {
-    return preferences || {
-      portfolio_id: '',
-      tier_s_limit: 20,
-      tier_a_limit: 10,
-      tier_b_limit: 5,
-      tier_c_limit: 0,
-      max_sector_acoes: 30,
-      max_sector_fiis: 45,
-      min_roic_excelente: 15,
-      max_divida_ebitda: 2.5,
-      scuttlebutt_decay_days: 365
-    }
-  }, [preferences])
 
   const handleSimulate = () => {
     if (isNaN(aporteInput) || aporteInput <= 0) return
-    const amount = aporteInput
 
-    const result = simulateSmartAporte(
+    const result = simulateRebalanceAporte(
       positions,
-      defaultPreferences,
       groupTargets,
       totalValue,
-      amount
+      aporteInput
     )
     setSimulationResult(result)
   }
 
-  // Insights da carteira (fundido de InvestmentsInsights)
+  // Insights resumidos da carteira
   const insights = useMemo(() => {
     const list: Array<{
       id: string; title: string; description: string; type: 'success' | 'warning' | 'info'; icon: React.ReactNode
@@ -77,30 +54,21 @@ export default function SmartAporteSimulator({
     if (cashPct > 20) {
       list.push({
         id: 'cash_excess', title: 'Caixa Elevado',
-        description: `Seu saldo em caixa representa ${formatPercentBR(cashPct, 1)} da carteira. Considere alocar o excedente via simulador abaixo.`,
+        description: `Seu saldo em caixa representa ${formatPercentBR(cashPct, 1)} da carteira. Considere alocar o excedente.`,
         type: 'warning',
         icon: <PiggyBank size={14} />
       })
     } else if (cashPct >= 5 && cashPct <= 20) {
       list.push({
         id: 'cash_healthy', title: 'Caixa Equilibrado',
-        description: `Você tem ${formatPercentBR(cashPct, 1)} da carteira em caixa — patamar saudável de liquidez.`,
+        description: `Você tem ${formatPercentBR(cashPct, 1)} da carteira em caixa — liquidez saudável.`,
         type: 'success',
         icon: <CheckCircle size={14} />
-      })
-    } else if (cashPct > 0) {
-      list.push({
-        id: 'cash_low', title: 'Caixa Baixo',
-        description: `Seu caixa representa apenas ${formatPercentBR(cashPct, 1)} da carteira. Pouca liquidez para novos aportes.`,
-        type: 'info',
-        icon: <Info size={14} />
       })
     }
 
     // Insight de concentração
-    const nonCashPositions = positions.filter(p => 
-      !['CAIXA', 'SALDO_INV', 'SALDO EM CAIXA', 'SALDO_EM_CAIXA'].includes(p.ticker.toUpperCase())
-    )
+    const nonCashPositions = positions.filter(p => p.pricing_mode !== 'cash')
     const maxAsset = nonCashPositions.reduce((max, current) => 
       (current.current_percentage > (max?.current_percentage || 0)) ? current : max
     , null as ValuedPosition | null)
@@ -127,7 +95,7 @@ export default function SmartAporteSimulator({
         : `${top1.ticker} (${formatCurrency(top1.gap_financial)})`
       list.push({
         id: 'priority_buys', title: 'Aportes Prioritários',
-        description: `Para aproximar dos alvos, priorize: ${text}.`,
+        description: `Maior defasagem: ${text}.`,
         type: 'info',
         icon: <ArrowUpRight size={14} />
       })
@@ -136,7 +104,10 @@ export default function SmartAporteSimulator({
     return list
   }, [positions, cashValue, totalValue])
 
-  const hasTargets = useMemo(() => groupTargets.some(g => g.group_type === 'class'), [groupTargets])
+  const hasTargets = useMemo(() => {
+    return groupTargets.some(g => g.group_type === 'class' && g.target_percentage > 0) ||
+      positions.some(p => p.target_percentage > 0)
+  }, [groupTargets, positions])
 
   if (!hasTargets) {
     return (
@@ -145,9 +116,9 @@ export default function SmartAporteSimulator({
           <Info size={18} />
         </div>
         <div className="space-y-1">
-          <h4 className="text-sm font-black text-primary uppercase tracking-wider">Simulador Smart Aporte</h4>
+          <h4 className="text-sm font-black text-primary uppercase tracking-wider">Simulador de Aporte</h4>
           <p className="text-xs text-secondary font-medium max-w-sm mx-auto leading-relaxed">
-            Defina as metas de alocação macro das classes em "Limites de Exposição" para habilitar a simulação inteligente de aportes.
+            Defina metas de alocação em "Limites de Exposição" ou na configuração individual dos ativos para habilitar a simulação de rebalanceamento.
           </p>
         </div>
       </Card>
@@ -161,10 +132,10 @@ export default function SmartAporteSimulator({
         <div>
           <h4 className="text-sm font-black text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles size={16} className="text-primary animate-pulse" />
-            <span>Simulador Smart Aporte</span>
+            <span>Simulador de Aporte por Rebalanceamento</span>
           </h4>
           <p className="text-[10px] text-secondary font-medium">
-            Roteamento matemático inteligente do seu aporte baseado em Tiers, travas e defasagens
+            Calcule a distribuição ideal do seu investimento para equilibrar a carteira segundo suas metas
           </p>
         </div>
       </div>
@@ -194,58 +165,68 @@ export default function SmartAporteSimulator({
         </div>
       )}
 
-      {/* Input de Aporte */}
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-3 items-end">
-        <div className="space-y-1">
+      {/* Input de Aporte + Ação Rápida */}
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
           <label className="text-[9px] uppercase font-black text-secondary tracking-wider block">
             Valor Disponível para Aporte
           </label>
+          {cashValue > 0 && (
+            <button
+              type="button"
+              onClick={() => setAporteInput(cashValue)}
+              className="text-[9px] font-black uppercase text-brand hover:text-brand-strong transition-colors flex items-center gap-1"
+            >
+              <PiggyBank size={11} />
+              <span>Usar Saldo em Caixa ({formatCurrency(cashValue)})</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-3 items-end">
           <CurrencyInput
             value={aporteInput}
             onChange={(_e, val) => setAporteInput(val)}
             placeholder="0,00"
             className="h-10 text-sm font-mono font-bold rounded-2xl"
           />
+          <Button
+            onClick={handleSimulate}
+            disabled={!aporteInput || aporteInput <= 0}
+            variant="balance"
+            className="h-10 rounded-2xl font-black uppercase text-[10px] tracking-widest"
+          >
+            Simular
+          </Button>
         </div>
-        <Button
-          onClick={handleSimulate}
-          disabled={!aporteInput || aporteInput <= 0}
-          variant="balance"
-          className="h-10 rounded-2xl font-black uppercase text-[10px] tracking-widest"
-        >
-          Simular
-        </Button>
       </div>
 
       {/* Resultados da Simulação */}
       {simulationResult && (
-        <div className="space-y-4 animate-fade-in">
-          {/* Título de Resultados */}
-          <div className="border-t border-glass/20 pt-4">
-            <span className="text-[10px] uppercase font-black text-secondary tracking-wider block">
-              Sugestões de Alocação
-            </span>
-          </div>
+        <div className="space-y-4 animate-fade-in border-t border-glass/20 pt-4">
+          <span className="text-[10px] uppercase font-black text-secondary tracking-wider block">
+            Sugestões de Rebalanceamento
+          </span>
 
-          {/* Fallback de Caixa / Reserva Tática */}
+          {/* Sobra de Caixa */}
           {simulationResult.fallbackAmount > 0 && (
             <div className="p-3 bg-warning/10 border border-warning/25 rounded-2xl flex items-start gap-2.5">
               <Info size={16} className="text-warning shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <span className="text-[10px] font-black text-warning uppercase tracking-wider block">
-                  Caixa / Reserva Tática
+                  Caixa / Sobra do Aporte
                 </span>
                 <p className="text-[10px] text-secondary font-medium leading-relaxed">
-                  R$ <strong>{formatCurrency(simulationResult.fallbackAmount)}</strong> foram direcionados para o Caixa da carteira devido ao arredondamento de cotas ou à falta de espaço de novos aportes nos ativos em linha.
+                  R$ <strong>{formatCurrency(simulationResult.fallbackAmount)}</strong> permanecerão em Caixa devido ao valor unitário de cotas ou por posições já estarem alinhadas com as metas.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Tabela/Lista de Ativos Sugeridos */}
+          {/* Lista de Ativos Sugeridos */}
           {simulationResult.suggestions.length === 0 ? (
             <div className="text-center py-6 text-xs text-secondary font-bold">
-              Nenhuma compra sugerida para a carteira. Todo o aporte foi direcionado para Caixa.
+              Todas as posições estão em linha com suas metas. Todo o valor permanecerá em Caixa.
             </div>
           ) : (
             <div className="space-y-3">
@@ -259,50 +240,32 @@ export default function SmartAporteSimulator({
                     <div className="space-y-2 flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-black text-primary font-mono">{suggestion.ticker}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                          suggestion.convictionTier === 'S' ? 'bg-tier-s/15 text-tier-s' :
-                          suggestion.convictionTier === 'A' ? 'bg-tier-a/15 text-tier-a' :
-                          suggestion.convictionTier === 'B' ? 'bg-tier-b/15 text-tier-b' :
-                          'bg-tier-c/15 text-tier-c'
-                        }`}>
-                          Tier {suggestion.convictionTier}
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-glass/10 text-secondary font-bold">
+                          {suggestion.assetClass}
                         </span>
-                        <span className="text-[9px] font-bold text-secondary font-mono">
-                          Score: {formatNumberBR(suggestion.qualityScore, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTickerForScuttlebutt(suggestion.ticker)}
-                          className="p-1 rounded bg-glass/10 text-secondary hover:bg-glass/25 hover:text-primary transition-all duration-200"
-                          title="Avaliar Qualitativo (Scuttlebutt)"
-                        >
-                          <ClipboardCheck size={11} />
-                        </button>
                       </div>
 
                       {/* Comparativo de Peso */}
                       <div className="space-y-1 max-w-[280px]">
                         <div className="flex justify-between text-[9px] font-bold text-secondary font-mono">
                           <span>Atual: {formatPercentBR(suggestion.currentPercentage, 1)}</span>
-                          <span>Pós: {formatPercentBR(suggestion.newPercentage, 1)}</span>
-                          <span>Limite: {formatPercentBR(suggestion.absoluteLimit, 1)}</span>
+                          <span>Pós-Aporte: {formatPercentBR(suggestion.newPercentage, 1)}</span>
+                          {suggestion.targetPercentage > 0 && (
+                            <span>Meta: {formatPercentBR(suggestion.targetPercentage, 1)}</span>
+                          )}
                         </div>
                         <div className="w-full h-1.5 bg-glass/10 rounded-full overflow-hidden relative flex">
-                          {/* Percentual Atual (Cinza/Azul) */}
                           <div
                             className="h-full bg-glass/40 transition-all duration-500"
                             style={{ 
-                              width: `${Math.min(100, (suggestion.currentPercentage / (suggestion.absoluteLimit || 1)) * 100)}%` 
+                              width: `${Math.min(100, (suggestion.currentPercentage / (suggestion.targetPercentage || 100)) * 100)}%` 
                             }}
-                            title={`Atual: ${formatPercentBR(suggestion.currentPercentage, 1)}`}
                           />
-                          {/* Aporte Adicional (Verde) */}
                           <div
                             className="h-full bg-income transition-all duration-500"
                             style={{ 
-                              width: `${Math.min(100, ((suggestion.newPercentage - suggestion.currentPercentage) / (suggestion.absoluteLimit || 1)) * 100)}%` 
+                              width: `${Math.min(100, ((suggestion.newPercentage - suggestion.currentPercentage) / (suggestion.targetPercentage || 100)) * 100)}%` 
                             }}
-                            title={`Aporte: +${formatPercentBR(suggestion.newPercentage - suggestion.currentPercentage, 1)}`}
                           />
                         </div>
                       </div>
@@ -330,42 +293,7 @@ export default function SmartAporteSimulator({
               })}
             </div>
           )}
-
-          {/* Log de Roteamento Expansível */}
-          <div className="border border-glass/20 rounded-2xl overflow-hidden bg-glass/5">
-            <button
-              type="button"
-              onClick={() => setShowLog(!showLog)}
-              className="w-full p-3 flex justify-between items-center text-[10px] uppercase font-black tracking-wider text-secondary hover:bg-glass/5 transition-all"
-            >
-              <div className="flex items-center gap-1.5">
-                <Terminal size={14} className="text-secondary" />
-                <span>Log do Roteamento Financeiro</span>
-              </div>
-              {showLog ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            
-            {showLog && (
-              <div className="p-3 bg-black/40 border-t border-glass/10 font-mono text-[9px] leading-relaxed text-secondary-strong max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar text-left">
-                {simulationResult.routingLog.map((line, idx) => (
-                  <div key={idx} className={line.startsWith('[Classe') ? 'text-primary font-bold pt-1.5' : ''}>
-                    {line}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
-      )}
-      
-      {/* Modal de Avaliação Qualitativa */}
-      {selectedTickerForScuttlebutt && (
-        <ScuttlebuttEvaluationModal
-          isOpen={!!selectedTickerForScuttlebutt}
-          onClose={() => setSelectedTickerForScuttlebutt(null)}
-          portfolioId={portfolioId}
-          ticker={selectedTickerForScuttlebutt}
-        />
       )}
     </Card>
   )

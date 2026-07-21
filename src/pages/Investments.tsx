@@ -17,13 +17,14 @@ import LedgerBook from '@/components/investments/LedgerBook'
 import AssetClassAllocationCard from '@/components/investments/AssetClassAllocationCard'
 import ClassPerformanceCard from '@/components/investments/ClassPerformanceCard'
 import ExposureLimitsEditor from '@/components/investments/ExposureLimitsEditor'
-import QuantPreferencesEditor from '@/components/investments/QuantPreferencesEditor'
 import MonthlyActivityCard from '@/components/investments/MonthlyActivityCard'
 
 import AssetConfigModal from '@/components/investments/AssetConfigModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import InvestmentReconciliationModal from '@/components/investments/InvestmentReconciliationModal'
 import AssetDetailModal from '@/components/investments/AssetDetailModal'
+import QuickBalanceUpdateModal from '@/components/investments/QuickBalanceUpdateModal'
+
 
 import GlassChoiceCard from '@/components/GlassChoiceCard'
 import Modal from '@/components/Modal'
@@ -87,7 +88,11 @@ export default function Investments() {
   const [selectedAssetPosition, setSelectedAssetPosition] = useState<ValuedPosition | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
-  const isAnyInvestmentModalOpen = isSelectorOpen || isTxModalOpen || isReconciliationOpen || isConfigOpen || isDetailModalOpen
+  // Modal de Atualização Rápida de Saldos
+  const [isQuickUpdateOpen, setIsQuickUpdateOpen] = useState(false)
+
+  const isAnyInvestmentModalOpen = isSelectorOpen || isTxModalOpen || isReconciliationOpen || isConfigOpen || isDetailModalOpen || isQuickUpdateOpen
+
 
   usePageActions(
     [
@@ -209,7 +214,6 @@ export default function Investments() {
 
                 {/* Atividade Mensal Compacta + Saldo em Caixa */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
-                  {/* Card de Atividade Mensal (extraído em componente) */}
                   <MonthlyActivityCard
                     transactions={transactions}
                     monthNavDate={monthNavDate}
@@ -218,7 +222,7 @@ export default function Investments() {
                     canNavNext={canNavNext}
                   />
 
-                  {/* Saldo em Caixa (compacto) */}
+                  {/* Saldo em Caixa */}
                   <Card className="border border-glass bg-glass/5 rounded-3xl p-4 lg:p-5 flex flex-col justify-between text-left gap-2 relative overflow-hidden">
                     <div
                       className="absolute -top-8 -right-8 w-20 h-20 rounded-full blur-2xl pointer-events-none opacity-[0.08]"
@@ -259,7 +263,7 @@ export default function Investments() {
                   )}
                 </div>
 
-                {/* Smart Aporte (com insights fundidos) */}
+                {/* Simulador de Aporte */}
                 <SmartAporteSimulator
                   portfolioId={portfolioId}
                   positions={positions}
@@ -277,19 +281,16 @@ export default function Investments() {
                     <HoldingsTable
                       positions={positions}
                       onOpenAssetDetail={handleOpenAssetDetail}
+                      onOpenQuickUpdate={() => setIsQuickUpdateOpen(true)}
                     />
+
                     {portfolioId && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                      <div className="w-full">
                         <ExposureLimitsEditor
                           portfolioId={portfolioId}
                           positions={positions}
                           totalValue={totalValue}
                           groupTargets={groupTargets}
-                          onSaved={reload}
-                        />
-                        <QuantPreferencesEditor
-                          portfolioId={portfolioId}
-                          preferences={preferences}
                           onSaved={reload}
                         />
                       </div>
@@ -382,7 +383,6 @@ export default function Investments() {
             portfolioId={portfolioId}
             position={selectedAssetPosition}
             transactions={transactions}
-            preferences={preferences}
             onOpenAssetConfig={(ticker) => {
               setIsDetailModalOpen(false)
               handleOpenConfig(ticker)
@@ -393,8 +393,17 @@ export default function Investments() {
             }}
             onViewInLedger={handleViewInLedger}
           />
+
+          {/* Modal de Atualização Rápida de Saldos */}
+          <QuickBalanceUpdateModal
+            isOpen={isQuickUpdateOpen}
+            onClose={() => setIsQuickUpdateOpen(false)}
+            portfolioId={portfolioId}
+            onSaved={reload}
+          />
         </>
       )}
     </div>
+
   )
 }

@@ -180,10 +180,10 @@ export function useReconciliationFiles(existingTransactions: PortfolioTransactio
   // ── Process position file buffer ──
   const processPositionFileBuffer = useCallback(
     async (buffer: ArrayBuffer, name: string) => {
-      setPositionFileName(name)
       setPositionParseStatus('Lendo relatório de posição...')
       try {
         if (!isB3PositionWorkbook(buffer)) {
+          setPositionFileName('')
           setPositionParseStatus(
             'Este arquivo parece ser de movimentação, não de posição. No menu Investimentos → Posição atual, selecione a opção "Exportar Posição (.xlsx)" para gerar o relatório correto.',
           )
@@ -195,17 +195,20 @@ export function useReconciliationFiles(existingTransactions: PortfolioTransactio
           Object.keys(parsed.treasury).length +
           Object.keys(parsed.fixedIncome).length
         if (totalKeys === 0) {
+          setPositionFileName('')
           setPositionParseStatus(
             'Nenhum ativo de Renda Variável, Tesouro ou Renda Fixa encontrado na planilha de posição. Verifique se as abas contêm as colunas "Código de Negociação", "Produto" e "Quantidade".',
           )
           return null
         }
+        setPositionFileName(name)
         setOfficialPosition(parsed)
         recomputePositionValidation(parsed, b3ParsedPositions, systemPositions)
         setPositionParseStatus('')
         toast.success('Posição oficial carregada — validação atualizada.')
         return parsed
       } catch (err: unknown) {
+        setPositionFileName('')
         logger.error(err)
         const message = err instanceof Error ? err.message : 'Erro ao ler o relatório de posição.'
         setPositionParseStatus(

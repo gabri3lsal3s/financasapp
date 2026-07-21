@@ -154,10 +154,10 @@ export function useReconciliationState(
   // ── Process file buffer (orchestrates files + drafts + navigation) ──
   const processFileBuffer = useCallback(
     async (buffer: ArrayBuffer, name: string) => {
-      files.setFileName(name)
       files.setParseStatus('Lendo e interpretando planilha...')
       try {
         if (isB3PositionWorkbook(buffer)) {
+          files.setFileName('')
           files.setParseStatus(
             'Este é um arquivo de posição de custódia. A conciliação de posição é feita separadamente — use a área "2. Posição de Custódia" ao lado para carregá-lo, ou inicie uma conciliação apenas de posição.',
           )
@@ -166,10 +166,12 @@ export function useReconciliationState(
 
         const result = await files.processMovementFileBuffer(buffer)
         if (!result) {
+          files.setFileName('')
           files.setParseStatus('O arquivo enviado não contém lançamentos reconhecíveis ou está vazio.')
           return
         }
 
+        files.setFileName(name)
         files.setDetectedManualAssets(result.detectedManualAssets)
         files.setExcludedCount(result.excludedCount)
         files.setReconciliation(result.reconciliation)
@@ -180,6 +182,7 @@ export function useReconciliationState(
         files.setParseStatus('')
         setCurrentStep('summary')
       } catch (err: unknown) {
+        files.setFileName('')
         const message =
           err instanceof Error ? err.message : 'Erro ao carregar o arquivo Excel. Verifique se o formato está correto.'
         files.setParseStatus(message)
@@ -195,6 +198,7 @@ export function useReconciliationState(
       if (!file) return
       const buffer = await file.arrayBuffer()
       await processFileBuffer(buffer, file.name)
+      event.target.value = ''
     },
     [processFileBuffer],
   )
@@ -220,7 +224,7 @@ export function useReconciliationState(
       files.setDragActive(false)
       if (e.dataTransfer.files && e.dataTransfer.files[0]) {
         const file = e.dataTransfer.files[0]
-        if (file.name.endsWith('.xlsx')) {
+        if (file.name.toLowerCase().endsWith('.xlsx')) {
           const buffer = await file.arrayBuffer()
           await processFileBuffer(buffer, file.name)
         } else {
@@ -250,7 +254,7 @@ export function useReconciliationState(
       e.stopPropagation()
       files.setPositionDragActive(false)
       const file = e.dataTransfer.files?.[0]
-      if (file?.name.endsWith('.xlsx')) {
+      if (file?.name.toLowerCase().endsWith('.xlsx')) {
         const buffer = await file.arrayBuffer()
         await files.processPositionFileBuffer(buffer, file.name)
       } else {

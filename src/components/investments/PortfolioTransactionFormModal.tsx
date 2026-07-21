@@ -55,6 +55,11 @@ export default function PortfolioTransactionFormModal({
   const [maturityDate, setMaturityDate] = useState<string>('')
   const [applicationDate, setApplicationDate] = useState<string>('')
 
+  // Meta e Valor Atual
+  const [targetPercentage, setTargetPercentage] = useState<string>('0')
+  const [manualCurrentValue, setManualCurrentValue] = useState<number>(0)
+
+
   const isEditing = !!editingTransaction
   const isCashType = isCashTicker(ticker)
   const isIncomeType = ['dividend', 'jcp', 'fii_yield'].includes(operationType)
@@ -142,7 +147,14 @@ export default function PortfolioTransactionFormModal({
       try {
         const { data: def } = await supabase
           .from('portfolio_asset_definitions')
-          .select('pricing_mode, currency, indexer, indexer_percent, contract_rate, maturity_date, application_date')
+          .select('pricing_mode, currency, indexer, indexer_percent, contract_rate, maturity_date, application_date, manual_current_value')
+          .eq('portfolio_id', portfolioId)
+          .eq('ticker', tickerUpper)
+          .maybeSingle()
+
+        const { data: target } = await supabase
+          .from('target_allocations')
+          .select('target_percentage')
           .eq('portfolio_id', portfolioId)
           .eq('ticker', tickerUpper)
           .maybeSingle()
@@ -157,21 +169,32 @@ export default function PortfolioTransactionFormModal({
           setContractRate(String(def.contract_rate ?? 0))
           setMaturityDate(def.maturity_date ?? '')
           setApplicationDate(def.application_date ?? '')
+          setManualCurrentValue(Number(def.manual_current_value) || 0)
         } else {
-          // Novo ativo: sugerir parâmetros
+          // Novo ativo: sugerir parâmetros usando assetClassifier
           const isFixed = ['CDI', 'SELIC', 'IPCA', 'TESOURO', 'CDB', 'LCI', 'LCA', 'DEBENTURE'].some(rf => tickerUpper.includes(rf))
-          setPricingMode(isFixed ? 'fixed_income' : 'market')
+          const suggestedMode = isFixed ? 'manual_value' : 'market'
+          setPricingMode(suggestedMode)
           setCurrency(detectDefaultCurrency(tickerUpper))
           setIndexer('none')
           setIndexerPercent('100')
           setContractRate('0')
           setMaturityDate('')
           setApplicationDate('')
+          setManualCurrentValue(0)
         }
+
+        if (target && target.target_percentage !== undefined && target.target_percentage !== null) {
+          setTargetPercentage(String(target.target_percentage))
+        } else {
+          setTargetPercentage('0')
+        }
+
       } catch (err) {
         logger.error('Erro ao carregar definição do ativo:', err)
       }
     }
+
 
     const timer = setTimeout(fetchDef, 300)
     return () => {
@@ -272,6 +295,8 @@ export default function PortfolioTransactionFormModal({
           .eq('ticker', tickerUpper)
           .maybeSingle()
 
+        const manualValToSave = finalPricingMode === 'manual_value' && manualCurrentValue > 0 ? manualCurrentValue : null
+
         const defPayload = {
           portfolio_id: portfolioId,
           ticker: tickerUpper,
@@ -283,6 +308,8 @@ export default function PortfolioTransactionFormModal({
           contract_rate: finalPricingMode === 'fixed_income' ? parseFloat(contractRate) : 0,
           maturity_date: finalPricingMode === 'fixed_income' && maturityDate ? maturityDate : null,
           application_date: finalPricingMode === 'fixed_income' && applicationDate ? applicationDate : null,
+          manual_current_value: manualValToSave,
+          manual_value_updated_at: manualValToSave ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),
         }
 
@@ -298,7 +325,49 @@ export default function PortfolioTransactionFormModal({
             .insert(defPayload)
           if (defErr) throw defErr
         }
+
+        if (manualValToSave && manualValToSave > 0) {
+          const qtyNum = parseFloat(quantity) || 1
+          const unitPrice = qtyNum > 0 ? manualValToSave / qtyNum : manualValToSave
+          await supabase.from('asset_price_daily').upsert(
+            {
+              ticker: tickerUpper,
+              price_date: new Date().toISOString().slice(0, 10),
+              close_price: unitPrice,
+              source: 'manual_update',
+            },
+            { onConflict: 'ticker,price_date' }
+          )
+        }
+
+
+        // Salvar/Atualizar Meta na Carteira (%)
+        const targetPct = parseFloat(targetPercentage)
+        if (!isNaN(targetPct)) {
+          const { data: existingTarget } = await supabase
+            .from('target_allocations')
+            .select('id')
+            .eq('portfolio_id', portfolioId)
+            .eq('ticker', tickerUpper)
+            .maybeSingle()
+
+          if (existingTarget) {
+            await supabase
+              .from('target_allocations')
+              .update({ target_percentage: targetPct })
+              .eq('id', existingTarget.id)
+          } else if (targetPct > 0) {
+            await supabase
+              .from('target_allocations')
+              .insert({
+                portfolio_id: portfolioId,
+                ticker: tickerUpper,
+                target_percentage: targetPct,
+              })
+          }
+        }
       }
+
 
       // Reconciliar caixa automaticamente
       const context = await fetchPortfolioCashContext(portfolioId)
@@ -467,32 +536,27 @@ export default function PortfolioTransactionFormModal({
                 className="font-semibold rounded-xl text-sm"
                 hideSpinButtons
               />
-              <NumberInput
+              <CurrencyInput
                 label="Preço Unitário"
                 required
-                step="any"
-                min={0}
-                placeholder="Ex: 35.50"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                value={parseFloat(price) || 0}
+                onChange={(_e, val) => setPrice(val > 0 ? String(val) : '')}
                 className="font-semibold rounded-xl text-sm"
-                hideSpinButtons
               />
             </ModalFieldRow>
           )}
 
-          {/* Precificação e Moeda (inline) */}
+          {/* Precificação, Moeda e Meta na Carteira */}
           {!isCashType && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <FieldLabel>Forma de Precificação</FieldLabel>
+                <FieldLabel>Precificação</FieldLabel>
                 <Select
                   value={pricingMode}
                   onChange={handlePricingModeChange}
                   options={[
-                    { value: 'market', label: 'Mercado (B3/Yahoo)' },
-                    { value: 'fixed_income', label: 'Renda Fixa na Curva' },
                     { value: 'manual_value', label: 'Valor Manual' },
+                    { value: 'market', label: 'Cotação B3' },
                   ]}
                 />
               </div>
@@ -507,77 +571,39 @@ export default function PortfolioTransactionFormModal({
                   ]}
                 />
               </div>
-            </div>
-          )}
-
-          {/* Configuração de Renda Fixa (inline) */}
-          {!isCashType && pricingMode === 'fixed_income' && (
-            <div className="space-y-4 p-4 bg-glass/5 rounded-2xl border border-glass/25 animate-fade-in text-left">
-              <div className="text-[10px] uppercase font-black tracking-wider text-secondary border-b border-glass/10 pb-1">
-                Parâmetros de Renda Fixa
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <FieldLabel>Indexador</FieldLabel>
-                  <Select
-                    value={indexer}
-                    onChange={(e) => setIndexer(e.target.value as 'none' | 'cdi' | 'selic' | 'ipca')}
-                    options={[
-                      { value: 'none', label: 'Pré-fixado (Nenhum)' },
-                      { value: 'cdi', label: 'CDI' },
-                      { value: 'selic', label: 'SELIC' },
-                      { value: 'ipca', label: 'IPCA' }
-                    ]}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <FieldLabel>% do Indexador</FieldLabel>
-                  <NumberInput
-                    step={0.1}
-                    min={0}
-                    value={indexerPercent}
-                    onChange={(e) => setIndexerPercent(e.target.value)}
-                    placeholder="Ex: 100"
-                    disabled={indexer === 'none'}
-                    required
-                    suffix="%"
-                    hideSpinButtons
-                  />
-                </div>
-              </div>
-
               <div className="space-y-1">
-                <FieldLabel>Taxa Contratada a.a. (%)</FieldLabel>
+                <FieldLabel>Meta na Carteira</FieldLabel>
                 <NumberInput
-                  step={0.0001}
+                  step={0.1}
                   min={0}
-                  value={contractRate}
-                  onChange={(e) => setContractRate(e.target.value)}
-                  placeholder="Ex: 6.5"
-                  required
-                  suffix="% a.a."
+                  max={100}
+                  value={targetPercentage}
+                  onChange={(e) => setTargetPercentage(e.target.value)}
+                  placeholder="Ex: 5.0"
+                  suffix="%"
                   hideSpinButtons
                 />
               </div>
+            </div>
+          )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <FieldLabel>Data de Aporte</FieldLabel>
-                  <Input
-                    type="date"
-                    value={applicationDate}
-                    onChange={(e) => setApplicationDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <FieldLabel>Vencimento</FieldLabel>
-                  <Input
-                    type="date"
-                    value={maturityDate}
-                    onChange={(e) => setMaturityDate(e.target.value)}
-                  />
-                </div>
+          {/* Saldo Atual no Extrato para Valor Manual */}
+          {!isCashType && pricingMode === 'manual_value' && (
+            <div className="p-3 bg-glass/5 rounded-2xl border border-glass/25 text-left text-xs space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-primary block">Saldo Atual no Extrato (Opcional)</span>
+                <span className="text-[10px] text-secondary font-mono font-bold">
+                  {currency === 'USD' ? '$' : 'R$'}
+                </span>
               </div>
+              <CurrencyInput
+                value={manualCurrentValue}
+                onChange={(_e, val) => setManualCurrentValue(val)}
+                placeholder="Ex: 5150.00"
+              />
+              <p className="text-secondary/80 text-[10px]">
+                Preencha caso já queira definir o valor atual no extrato. Se mantido em zero, o valor de compra será considerado como saldo inicial.
+              </p>
             </div>
           )}
 

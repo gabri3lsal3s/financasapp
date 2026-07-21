@@ -212,10 +212,11 @@ export function toPricingMode(ticker: string): PortfolioPricingMode | null {
   const t = ticker.trim().toUpperCase()
   if (!t) return null
   if (isCashTicker(t)) return 'cash'
-  if (isFixedIncomeTicker(t)) return 'fixed_income'
+  if (isFixedIncomeTicker(t)) return 'manual_value'
   if (isB3VariableTicker(t)) return 'market'
   return null // outro tipo: manual ou internacional
 }
+
 
 /**
  * Detecta a moeda padrão de cotação de um ticker (alias para detectCurrency).
@@ -291,7 +292,15 @@ export function getAssetMetadata(ticker: string): { asset_class: string; sector:
     return { asset_class: 'Ações Nacionais', sector: 'Consumo e Indústria Geral' }
   }
 
-  // 6. Ações Internacionais (3-4 letras, sem números)
+  // 6. Renda Fixa (CDB, LCI, LCA, Tesouro, Debêntures etc)
+  if (
+    isFixedIncomeTicker(t) ||
+    ['CDI', 'SELIC', 'IPCA', 'TESOURO', 'LCI', 'LCA', 'CDB', 'CRI', 'CRA', 'CCB', 'DEBENTURE'].some(rf => t.includes(rf))
+  ) {
+    return { asset_class: 'Renda Fixa', sector: 'Títulos Públicos/Privados' }
+  }
+
+  // 7. Ações Internacionais (3-5 letras, sem números)
   if (/^[A-Z]{2,5}$/.test(t) && !['CDI', 'SELIC', 'IPCA', 'PRE'].includes(t)) {
     if (['AAPL', 'MSFT', 'GOOGL', 'GOOG', 'NVDA', 'AMD', 'INTC', 'META', 'NFLX'].includes(t)) {
       return { asset_class: 'Ações Internacionais', sector: 'Tecnologia' }
@@ -311,13 +320,6 @@ export function getAssetMetadata(ticker: string): { asset_class: string; sector:
     return { asset_class: 'Ações Internacionais', sector: 'EUA / Global Diversificado' }
   }
 
-  // 7. Renda Fixa
-  if (
-    isFixedIncomeTicker(t) ||
-    ['CDI', 'SELIC', 'IPCA', 'TESOURO', 'LCI', 'LCA', 'CDB', 'DEBENTURE'].some(rf => t.includes(rf))
-  ) {
-    return { asset_class: 'Renda Fixa', sector: 'Títulos Públicos/Privados' }
-  }
-
   return { asset_class: 'Outros', sector: 'Indefinido' }
+
 }

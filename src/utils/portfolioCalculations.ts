@@ -2,6 +2,7 @@ import type { PortfolioTransaction, PortfolioAssetDefinition, AssetPrice } from 
 import { calculateLotBasedFixedIncomeValue } from './fixedIncomeCurve'
 import { sortTransactionsStably } from './portfolioOperations'
 import { isCashTicker, getAssetMetadata, detectDefaultCurrency } from './assetClassifier'
+import { evaluateAssetPositionAtDate } from './assetValuationEngine'
 
 export interface ValuedPosition {
   ticker: string
@@ -23,30 +24,6 @@ export interface ValuedPosition {
   accumulated_dividends: number
   currency: 'BRL' | 'USD'
   usd_rate: number
-  
-  // Enquadramento e Quantamental (opcionais)
-  quality_score?: number
-  scuttlebutt_score?: number
-  quantitative_score?: number
-  conviction_tier?: 'S' | 'A' | 'B' | 'C'
-  absolute_limit?: number
-  enquadramento_state?: 'em_linha' | 'limite_atingido' | 'desenquadrado_excesso' | 'desenquadrado_obsoleto'
-  is_decayed?: boolean
-  scuttlebutt_last_updated?: string
-  fundamentals?: {
-    roic: number
-    dividend_yield: number
-    pe_ratio: number | null
-    ev_ebitda: number | null
-    net_debt_ebitda: number | null
-    pe_5y_average: number | null
-    ev_ebitda_5y_average: number | null
-    net_debt_trend_up_2y: boolean
-    p_vp?: number | null
-    vacancy?: number | null
-    etf_fee?: number | null
-    etf_tracking_error?: number | null
-  } | null
 }
 
 // detectDefaultCurrency e getAssetMetadata agora vêm de assetClassifier.ts
@@ -151,6 +128,10 @@ export function computePositions(
   let investedValue = 0
   let investedCostBasis = 0
 
+  const pricesTodayMap = Object.fromEntries(
+    Object.entries(prices).map(([t, p]) => [t, Number(p.current_price)])
+  )
+
   for (const ticker of tickers) {
     if (isCashTicker(ticker)) {
       continue
@@ -159,35 +140,29 @@ export function computePositions(
     const txs = sortTransactionsStably(txByTicker[ticker] ?? [])
     const definition = defByTicker[ticker]
 
-    let quantity = 0
-    let totalCost = 0
     let accumulatedDividends = 0
-
-    // Processar transações
     for (const tx of txs) {
       if (tx.date > asOfDate) continue
-
-      const type = tx.operation_type
-      const q = Number(tx.quantity)
-      const p = Number(tx.price)
-
-      if (type === 'buy' || type === 'subscription') {
-        quantity += q
-        totalCost += q * p
-      } else if (type === 'sell') {
-        if (quantity > 0) {
-          const pm = totalCost / quantity
-          quantity = Math.max(0, quantity - q)
-          totalCost = quantity * pm
-        }
-      } else if (type === 'split') {
-        quantity += q // split B3 é cotas adicionais
-      } else if (type === 'reverse_split') {
-        quantity = Math.max(0, quantity - q) // grupamento cancela cotas
-      } else if (['dividend', 'jcp', 'fii_yield'].includes(type)) {
-        accumulatedDividends += q * p
+      if (['dividend', 'jcp', 'fii_yield'].includes(tx.operation_type)) {
+        accumulatedDividends += Number(tx.quantity) * Number(tx.price)
       }
     }
+
+    const valResult = evaluateAssetPositionAtDate({
+      ticker,
+      transactions: txs,
+      definition,
+      asOfDate,
+      pricesToday: pricesTodayMap,
+      indexRates,
+      vnaMap
+    })
+
+    const quantity = valResult.quantity
+    const totalCost = valResult.costBasis
+    const totalValue = valResult.totalValue
+    const currentPrice = valResult.currentPrice
+    const pricingMode = valResult.pricingMode
 
     if (quantity <= 0 && totalCost <= 0 && accumulatedDividends <= 0) {
       continue
@@ -205,36 +180,6 @@ export function computePositions(
 
     const currency = definition?.currency || detectDefaultCurrency(ticker)
 
-    // Determinar preço atual e valoração
-    let currentPrice = 0
-    let totalValue = 0
-
-    const pricingMode = definition?.pricing_mode ?? 'market'
-
-    if (pricingMode === 'fixed_income') {
-      const idx = definition?.indexer ?? 'none'
-      const activeRates = indexRates[idx] ?? {}
-      totalValue = calculateLotBasedFixedIncomeValue({
-        transactions: txs,
-        ticker,
-        definition,
-        asOfDate,
-        indexRates: activeRates,
-        vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined
-      })
-      currentPrice = quantity > 0 ? totalValue / quantity : 0
-    } else if (pricingMode === 'manual_value') {
-      totalValue = quantity > 0 ? (definition?.manual_current_value ?? totalCost) : 0
-      currentPrice = quantity > 0 ? totalValue / quantity : 0
-    } else if (pricingMode === 'cash') {
-      totalValue = totalCost
-      currentPrice = 1.0
-      quantity = totalCost
-    } else {
-      currentPrice = prices[ticker]?.current_price ? Number(prices[ticker].current_price) : 0
-      totalValue = quantity * currentPrice
-    }
-
     const costBasis = totalCost
     const grossYield = totalValue - costBasis + accumulatedDividends
     const grossYieldPct = costBasis > 0 ? (grossYield / costBasis) * 100 : 0
@@ -251,6 +196,7 @@ export function computePositions(
         asOfDate,
         indexRates: activeRates,
         vnaToday: idx === 'ipca' ? vnaMap[asOfDate] : undefined,
+        vnaMap,
         returnNet: true
       })
       netYield = netVal - costBasis + accumulatedDividends
@@ -265,6 +211,7 @@ export function computePositions(
       )
     }
     const netYieldPct = costBasis > 0 ? (netYield / costBasis) * 100 : 0
+
 
     const valueBrl = currency === 'USD' ? totalValue * usdRate : totalValue
     const costBasisBrl = currency === 'USD' ? costBasis * usdRate : costBasis

@@ -134,6 +134,7 @@ export default function InvestmentReconciliationModal({
       const file = e.target.files?.[0]
       if (file) {
         await processPositionFileBuffer(await file.arrayBuffer(), file.name)
+        e.target.value = ''
       }
     },
     [processPositionFileBuffer],

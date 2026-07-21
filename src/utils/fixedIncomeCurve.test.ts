@@ -3,14 +3,14 @@ import { countBusinessDays, annualToDailyRate, calculateFixedIncomeValue, calcul
 
 describe('countBusinessDays', () => {
   it('counts weekends correctly', () => {
-    // 2026-06-01 é segunda-feira, 2026-06-08 é segunda-feira seguinte
+    // 2026-06-08 é segunda-feira, 2026-06-15 é segunda-feira seguinte
     // São 5 dias úteis (seg, ter, qua, qui, sex)
-    expect(countBusinessDays('2026-06-01', '2026-06-08')).toBe(5)
+    expect(countBusinessDays('2026-06-08', '2026-06-15')).toBe(5)
   })
 
   it('returns 0 for same day or inverted dates', () => {
-    expect(countBusinessDays('2026-06-01', '2026-06-01')).toBe(0)
-    expect(countBusinessDays('2026-06-08', '2026-06-01')).toBe(0)
+    expect(countBusinessDays('2026-06-08', '2026-06-08')).toBe(0)
+    expect(countBusinessDays('2026-06-15', '2026-06-08')).toBe(0)
   })
 })
 
@@ -30,8 +30,8 @@ describe('calculateFixedIncomeValue', () => {
       contractRateAnnual: 10.00, // 10% a.a.
       indexer: 'none',
       indexerPercent: 100,
-      applicationDate: '2026-06-01',
-      asOfDate: '2026-06-08', // 5 dias úteis
+      applicationDate: '2026-06-08',
+      asOfDate: '2026-06-15', // 5 dias úteis
       indexRates: {}
     })
 
@@ -43,11 +43,11 @@ describe('calculateFixedIncomeValue', () => {
   it('calculates CDI compound value correctly', () => {
     // Taxa diária fixa simulada de 0.04% ao dia (aproximadamente 10.6% a.a.)
     const indexRates = {
-      '2026-06-01': 0.0004,
-      '2026-06-02': 0.0004,
-      '2026-06-03': 0.0004,
-      '2026-06-04': 0.0004,
-      '2026-06-05': 0.0004,
+      '2026-06-08': 0.0004,
+      '2026-06-09': 0.0004,
+      '2026-06-10': 0.0004,
+      '2026-06-11': 0.0004,
+      '2026-06-12': 0.0004,
     }
 
     const val = calculateFixedIncomeValue({
@@ -55,8 +55,8 @@ describe('calculateFixedIncomeValue', () => {
       contractRateAnnual: 0,
       indexer: 'cdi',
       indexerPercent: 100,
-      applicationDate: '2026-06-01',
-      asOfDate: '2026-06-08', // 5 dias úteis
+      applicationDate: '2026-06-08',
+      asOfDate: '2026-06-15', // 5 dias úteis
       indexRates
     })
 
@@ -126,11 +126,11 @@ describe('calculateLotBasedFixedIncomeValue', () => {
 describe('calculateFixedIncomeValue case-insensitivity', () => {
   it('calculates value case-insensitively for indexers like CDI or SELIC', () => {
     const indexRates = {
-      '2026-06-01': 0.0004,
-      '2026-06-02': 0.0004,
-      '2026-06-03': 0.0004,
-      '2026-06-04': 0.0004,
-      '2026-06-05': 0.0004,
+      '2026-06-08': 0.0004,
+      '2026-06-09': 0.0004,
+      '2026-06-10': 0.0004,
+      '2026-06-11': 0.0004,
+      '2026-06-12': 0.0004,
     }
 
     const valUpper = calculateFixedIncomeValue({
@@ -138,8 +138,8 @@ describe('calculateFixedIncomeValue case-insensitivity', () => {
       contractRateAnnual: 0,
       indexer: 'CDI',
       indexerPercent: 100,
-      applicationDate: '2026-06-01',
-      asOfDate: '2026-06-08',
+      applicationDate: '2026-06-08',
+      asOfDate: '2026-06-15',
       indexRates
     })
 
@@ -148,8 +148,8 @@ describe('calculateFixedIncomeValue case-insensitivity', () => {
       contractRateAnnual: 0,
       indexer: 'cdi',
       indexerPercent: 100,
-      applicationDate: '2026-06-01',
-      asOfDate: '2026-06-08',
+      applicationDate: '2026-06-08',
+      asOfDate: '2026-06-15',
       indexRates
     })
 
@@ -157,4 +157,5 @@ describe('calculateFixedIncomeValue case-insensitivity', () => {
     expect(valUpper).toBeCloseTo(1000 * Math.pow(1.0004, 5), 4)
   })
 })
+
 

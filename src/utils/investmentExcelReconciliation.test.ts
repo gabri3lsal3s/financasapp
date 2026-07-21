@@ -663,3 +663,62 @@ describe('Integração: B3 → Reconciliação → Cash Offsets → TWR', () => 
     expect(dividends[0]?.price).toBe(0.5)
   })
 })
+
+describe('Robustez de Leitura de Planilhas B3', () => {
+  it('parsa movimentações quando os cabeçalhos começam após linhas de título (offset no topo)', () => {
+    const rows = [
+      ['RELATÓRIO DE MOVIMENTAÇÃO DE INVESTIMENTOS'],
+      ['Período: 01/01/2026 a 30/06/2026'],
+      [''], // linha em branco
+      ['Entrada/Saída', 'Data da Operação', 'Tipo da Operação', 'Código do Ativo', 'Instituição Financeira', 'Quantidade Negociada', 'Preço Médio', 'Valor Liquidado'],
+      ['Credito', '20/05/2026', 'Compra', 'PETR4 - PETROBRAS', 'CORRETORA XP', '100', '30.00', '3000.00'],
+      ['Credito', '25/05/2026', 'Dividendo', 'PETR4 - PETROBRAS', 'CORRETORA XP', '100', '0.50', '50.00'],
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Movimentações')
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+
+    const result = parseB3Excel(buffer)
+    expect(result.items).toHaveLength(2)
+    expect(result.items.find((i) => i.operation_type === 'buy')?.ticker).toBe('PETR4')
+    expect(result.items.find((i) => i.operation_type === 'dividend')?.total_value).toBe(50)
+  })
+
+  it('encontra a aba de movimentações quando a primeira aba é capa ou resumo', () => {
+    const coverSheet = XLSX.utils.aoa_to_sheet([['Resumo do Relatório'], ['Gerado em 21/07/2026']])
+    const movSheet = XLSX.utils.aoa_to_sheet([
+      ['Data', 'Movimentação', 'Produto', 'Quantidade', 'Preço unitário', 'Valor da Operação', 'Entrada/Saída'],
+      ['10/06/2026', 'Compra', 'VALE3', '50', '60.00', '3000.00', 'Credito'],
+    ])
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, coverSheet, 'Capa')
+    XLSX.utils.book_append_sheet(wb, movSheet, 'Movimentação')
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+
+    const result = parseB3Excel(buffer)
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].ticker).toBe('VALE3')
+  })
+
+  it('identifica corretamente planilha de posição com cabeçalho deslocado', () => {
+    const posRows = [
+      ['POSIÇÃO DE CUSTÓDIA - B3'],
+      [''],
+      ['Código de Negociação', 'Produto', 'Quantidade Disponível'],
+      ['BBAS3', 'BANCO DO BRASIL', '100'],
+      ['WEGE3', 'WEG S.A.', '50'],
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(posRows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Ações')
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+
+    expect(isB3PositionWorkbook(buffer)).toBe(true)
+    const parsedPos = parseB3PositionExcel(buffer)
+    expect(parsedPos.equity.BBAS3).toBe(100)
+    expect(parsedPos.equity.WEGE3).toBe(50)
+  })
+})
+

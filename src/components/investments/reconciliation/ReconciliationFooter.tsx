@@ -56,7 +56,7 @@ export default function ReconciliationFooter({
               Continuar Apenas com Posição <ArrowRight size={14} />
             </Button>
           )}
-          {fileName && (
+          {fileName && Boolean(reconciliation) && (
             <Button
               type="button"
               variant="primary"

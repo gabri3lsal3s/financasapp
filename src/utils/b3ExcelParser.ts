@@ -51,14 +51,41 @@ export interface B3PositionParseResult {
 }
 
 const B3_HEADER_ALIASES: Record<B3FieldKey, string[]> = {
-  direction: ['entrada/saida', 'entradasaida', 'sentido', 'tipo', 'entrada/saída'],
-  date: ['data', 'data de movimentacao', 'dt movimentacao', 'dia', 'data de movimentação'],
-  operationType: ['movimentacao', 'tipo movimentacao', 'operacao', 'tipo de movimentacao', 'movimentação', 'tipo movimentação'],
-  product: ['produto', 'ativo', 'ticker', 'descricao', 'descrição'],
-  institution: ['instituicao', 'corretora', 'agente', 'instituição'],
-  quantity: ['quantidade', 'qtd', 'quant'],
-  price: ['preco unitario', 'preco', 'valor unitario', 'preco unit', 'preço unitário', 'preço'],
-  totalValue: ['valor da operacao', 'valor total', 'valor', 'total', 'valor da operação'],
+  direction: [
+    'entrada/saida', 'entradasaida', 'sentido', 'tipo', 'entrada/saída',
+    'entrada / saída', 'entrada / saida', 'c/d', 'credito/debito', 'credito / debito',
+    'movimento', 'debito/credito', 'débito/crédito'
+  ],
+  date: [
+    'data', 'data de movimentacao', 'dt movimentacao', 'dia', 'data de movimentação',
+    'data da operacao', 'data operacao', 'data do negocio', 'data pregao', 'data liquidacao',
+    'data da operação', 'data operação', 'data liquidação', 'dt. movimentacao', 'dt. movimentação'
+  ],
+  operationType: [
+    'movimentacao', 'tipo movimentacao', 'operacao', 'tipo de movimentacao', 'movimentação',
+    'tipo movimentação', 'tipo de operacao', 'tipo operacao', 'tipo da operacao',
+    'historico', 'histórico', 'evento', 'tipo de operação', 'tipo operação'
+  ],
+  product: [
+    'produto', 'ativo', 'ticker', 'descricao', 'descrição', 'codigo', 'código',
+    'codigo de negociacao', 'código de negociação', 'codigo do ativo', 'código do ativo',
+    'papel', 'discriminacao', 'discriminação'
+  ],
+  institution: [
+    'instituicao', 'corretora', 'agente', 'instituição', 'instituicao financeira',
+    'instituição financeira', 'custodiante', 'agente custodiante'
+  ],
+  quantity: [
+    'quantidade', 'qtd', 'quant', 'qtd.', 'quantidade negociada', 'quant.'
+  ],
+  price: [
+    'preco unitario', 'preco', 'valor unitario', 'preco unit', 'preço unitário', 'preço',
+    'preco (r$)', 'preço (r$)', 'preco medio', 'preço médio', 'valor unitario (r$)', 'valor unitário (r$)'
+  ],
+  totalValue: [
+    'valor da operacao', 'valor total', 'valor', 'total', 'valor da operação',
+    'valor (r$)', 'valor liquidado', 'valor negociado', 'valor liquido', 'valor líquido', 'financeiro'
+  ],
 }
 
 const normalizeHeader = (value: string) =>
@@ -485,6 +512,14 @@ export const mapB3OperationType = (
 
 export const parseB3Date = (val: unknown): string | null => {
   if (val === undefined || val === null) return null
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null
+    const year = val.getFullYear()
+    const month = String(val.getMonth() + 1).padStart(2, '0')
+    const day = String(val.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const str = String(val).trim()
   if (!str) return null
 
@@ -499,14 +534,21 @@ export const parseB3Date = (val: unknown): string | null => {
     return `${year}-${month}-${day}`
   }
 
-  const matchDmy = str.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/)
+  const matchDmy = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/)
   if (matchDmy) {
-    return `${matchDmy[3]}-${matchDmy[2]}-${matchDmy[1]}`
+    const day = matchDmy[1].padStart(2, '0')
+    const month = matchDmy[2].padStart(2, '0')
+    let year = matchDmy[3]
+    if (year.length === 2) year = `20${year}`
+    return `${year}-${month}-${day}`
   }
 
-  const matchYmd = str.match(/^(\d{4})[/-](\d{2})[/-](\d{2})$/)
+  const matchYmd = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/)
   if (matchYmd) {
-    return `${matchYmd[1]}-${matchYmd[2]}-${matchYmd[3]}`
+    const year = matchYmd[1]
+    const month = matchYmd[2].padStart(2, '0')
+    const day = matchYmd[3].padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   return null
@@ -519,7 +561,7 @@ export const parseNumericValue = (val: unknown): number => {
   const raw = String(val).trim().replace(/\s+/g, '').replace(/[R$]/gi, '')
   if (!raw || raw === '-') return 0
 
-  if (/,\d{1,2}$/.test(raw)) {
+  if (/,\d+$/.test(raw)) {
     const cleaned = raw.replace(/\./g, '').replace(',', '.')
     const num = Number(cleaned)
     return isNaN(num) ? 0 : num
@@ -620,39 +662,117 @@ export const deduplicateB3Items = (items: B3TransactionItem[]): { items: B3Trans
   return { items: filtered, stats }
 }
 
+function findMovementHeaderRow(rows: unknown[][]): {
+  headerRowIndex: number
+  headers: string[]
+  mapping: Record<B3FieldKey, number>
+} {
+  let bestRowIndex = -1
+  let bestMapping: Record<B3FieldKey, number> = {
+    direction: -1,
+    date: -1,
+    operationType: -1,
+    product: -1,
+    institution: -1,
+    quantity: -1,
+    price: -1,
+    totalValue: -1,
+  }
+  let maxFoundCount = -1
+
+  const maxScanRows = Math.min(rows.length, 25)
+  for (let r = 0; r < maxScanRows; r += 1) {
+    const row = rows[r]
+    if (!row || !Array.isArray(row)) continue
+    const candidateHeaders = row.map((h) => String(h ?? '').trim())
+
+    const mapping: Record<B3FieldKey, number> = {
+      direction: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.direction),
+      date: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.date),
+      operationType: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.operationType),
+      product: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.product),
+      institution: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.institution),
+      quantity: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.quantity),
+      price: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.price),
+      totalValue: findHeaderIndex(candidateHeaders, B3_HEADER_ALIASES.totalValue),
+    }
+
+    const mandatoryCount =
+      (mapping.date >= 0 ? 1 : 0) +
+      (mapping.product >= 0 ? 1 : 0) +
+      (mapping.operationType >= 0 ? 1 : 0)
+
+    const totalFound =
+      mandatoryCount +
+      (mapping.direction >= 0 ? 1 : 0) +
+      (mapping.quantity >= 0 ? 1 : 0) +
+      (mapping.price >= 0 ? 1 : 0) +
+      (mapping.totalValue >= 0 ? 1 : 0) +
+      (mapping.institution >= 0 ? 1 : 0)
+
+    if (mandatoryCount === 3) {
+      return { headerRowIndex: r, headers: candidateHeaders, mapping }
+    }
+
+    if (totalFound > maxFoundCount) {
+      maxFoundCount = totalFound
+      bestRowIndex = r
+      bestMapping = mapping
+    }
+  }
+
+  const defaultRow = bestRowIndex >= 0 ? bestRowIndex : 0
+  const defaultHeaders = ((rows[defaultRow] as unknown[]) ?? []).map((h) => String(h ?? '').trim())
+  return { headerRowIndex: defaultRow, headers: defaultHeaders, mapping: bestMapping }
+}
+
 export const parseB3Excel = (fileBuffer: ArrayBuffer): B3ParseResult => {
   const data = new Uint8Array(fileBuffer)
   const workbook = XLSX.read(data, { type: 'array' })
-  const sheetName = workbook.SheetNames[0]
-  if (!sheetName) {
+  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
     return { items: [], ignoredByMovement: 0, dedupe: { ignoredInternal: 0, ignoredCorporate: 0, dedupedTrades: 0 } }
   }
 
-  const worksheet = workbook.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 })
+  let selectedRows: unknown[][] = []
+  let selectedHeaderRowIndex = 0
+  let selectedHeaders: string[] = []
+  let selectedMapping: Record<B3FieldKey, number> = {
+    direction: -1, date: -1, operationType: -1, product: -1, institution: -1, quantity: -1, price: -1, totalValue: -1
+  }
+  let foundValidSheet = false
 
-  if (rows.length < 2) {
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName]
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 })
+    if (rows.length < 2) continue
+
+    const { headerRowIndex, headers, mapping } = findMovementHeaderRow(rows as unknown[][])
+    if (mapping.date >= 0 && mapping.product >= 0 && mapping.operationType >= 0) {
+      selectedRows = rows as unknown[][]
+      selectedHeaderRowIndex = headerRowIndex
+      selectedHeaders = headers
+      selectedMapping = mapping
+      foundValidSheet = true
+      break
+    } else if (!foundValidSheet && rows.length > selectedRows.length) {
+      selectedRows = rows as unknown[][]
+      selectedHeaderRowIndex = headerRowIndex
+      selectedHeaders = headers
+      selectedMapping = mapping
+    }
+  }
+
+  if (selectedRows.length < 2) {
     return { items: [], ignoredByMovement: 0, dedupe: { ignoredInternal: 0, ignoredCorporate: 0, dedupedTrades: 0 } }
   }
 
-  const headers = (rows[0] as unknown[]).map((h) => String(h || '').trim())
-  const dataRows = rows.slice(1)
-
-  const mapping: Record<B3FieldKey, number> = {
-    direction: findHeaderIndex(headers, B3_HEADER_ALIASES.direction),
-    date: findHeaderIndex(headers, B3_HEADER_ALIASES.date),
-    operationType: findHeaderIndex(headers, B3_HEADER_ALIASES.operationType),
-    product: findHeaderIndex(headers, B3_HEADER_ALIASES.product),
-    institution: findHeaderIndex(headers, B3_HEADER_ALIASES.institution),
-    quantity: findHeaderIndex(headers, B3_HEADER_ALIASES.quantity),
-    price: findHeaderIndex(headers, B3_HEADER_ALIASES.price),
-    totalValue: findHeaderIndex(headers, B3_HEADER_ALIASES.totalValue),
-  }
-
-  if (mapping.date < 0 || mapping.product < 0 || mapping.operationType < 0) {
-    const validation = validateB3MovementHeaders(headers)
+  if (selectedMapping.date < 0 || selectedMapping.product < 0 || selectedMapping.operationType < 0) {
+    const validation = validateB3MovementHeaders(selectedHeaders)
     throw new Error(formatHeaderValidationError(validation))
   }
+
+  const dataRows = selectedRows.slice(selectedHeaderRowIndex + 1)
+  const mapping = selectedMapping
 
   const items: B3TransactionItem[] = []
   let ignoredByMovement = 0
@@ -771,21 +891,43 @@ export const parseB3PositionExcel = (fileBuffer: ArrayBuffer): B3PositionParseRe
     const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 })
     if (rows.length < 2) continue
 
-    const headers = (rows[0] as unknown[]).map((h) => String(h || '').trim())
-    const codeIdx = findHeaderIndex(headers, [
-      'codigo de negociacao',
-      'código de negociação',
-      'codigo isin',
-      'código isin',
-      'codigo',
-    ])
-    const productIdx = findHeaderIndex(headers, ['produto', 'ativo'])
-    const qtyIdx = findHeaderIndex(headers, ['quantidade', 'quantidade disponivel', 'quantidade disponível'])
+    let headerRowIdx = -1
+    let codeIdx = -1
+    let productIdx = -1
+    let qtyIdx = -1
 
-    if (qtyIdx < 0) continue
+    const maxScan = Math.min(rows.length, 25)
+    for (let r = 0; r < maxScan; r += 1) {
+      const candidateRow = rows[r] as unknown[]
+      if (!candidateRow || !Array.isArray(candidateRow)) continue
+      const candidateHeaders = candidateRow.map((h) => String(h ?? '').trim())
+
+      const cIdx = findHeaderIndex(candidateHeaders, [
+        'codigo de negociacao',
+        'código de negociação',
+        'codigo isin',
+        'código isin',
+        'codigo',
+        'código',
+        'papel',
+        'ticker',
+      ])
+      const pIdx = findHeaderIndex(candidateHeaders, ['produto', 'ativo', 'descricao', 'descrição'])
+      const qIdx = findHeaderIndex(candidateHeaders, ['quantidade', 'quantidade disponivel', 'quantidade disponível', 'qtd', 'qtd.'])
+
+      if (qIdx >= 0 && (cIdx >= 0 || pIdx >= 0)) {
+        headerRowIdx = r
+        codeIdx = cIdx
+        productIdx = pIdx
+        qtyIdx = qIdx
+        break
+      }
+    }
+
+    if (headerRowIdx < 0 || qtyIdx < 0) continue
 
     let sheetCount = 0
-    ;(rows.slice(1) as unknown[][]).forEach((row) => {
+    ;(rows.slice(headerRowIdx + 1) as unknown[][]).forEach((row) => {
       if (!row || row.length === 0 || isPositionTotalRow(row)) return
 
       let ticker = ''
@@ -845,14 +987,30 @@ export const isB3PositionWorkbook = (fileBuffer: ArrayBuffer): boolean => {
       const key = normalizeHeader(name)
       return POSITION_EQUITY_SHEETS.has(key) || key.includes('tesouro') || key.includes('rendafixa')
     })
-    if (!hasPositionSheet) return false
 
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1 })
-    const headers = ((rows[0] as unknown[]) ?? []).map((h) => String(h || '').trim())
-    const hasTradingCode = findHeaderIndex(headers, ['codigo de negociacao', 'código de negociação']) >= 0
-    const hasMovement = findHeaderIndex(headers, B3_HEADER_ALIASES.operationType) >= 0
-    return hasTradingCode && !hasMovement
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName]
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })
+      const maxScan = Math.min(rows.length, 25)
+      for (let r = 0; r < maxScan; r += 1) {
+        const candidateRow = rows[r] as unknown[]
+        if (!candidateRow || !Array.isArray(candidateRow)) continue
+        const headers = candidateRow.map((h) => String(h ?? '').trim())
+        const hasTradingCode = findHeaderIndex(headers, [
+          'codigo de negociacao',
+          'código de negociação',
+          'codigo isin',
+          'código isin',
+          'quantidade disponivel',
+          'quantidade disponível',
+        ]) >= 0
+        const hasMovement = findHeaderIndex(headers, B3_HEADER_ALIASES.operationType) >= 0
+
+        if (hasTradingCode && !hasMovement) return true
+        if (hasPositionSheet && !hasMovement && findHeaderIndex(headers, B3_HEADER_ALIASES.quantity) >= 0) return true
+      }
+    }
+    return false
   } catch {
     return false
   }
