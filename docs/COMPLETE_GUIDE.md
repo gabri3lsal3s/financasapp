@@ -296,6 +296,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `ModalInfoPanel` | Painel informativo |
 | `ModalSummaryPanel` | Painel de resumo |
 | `ModalIntro` | Tela introdutória |
+| `AuthShell` | Scaffold DRY das telas de auth/onboarding (`components/auth/AuthShell.tsx`): fundo centralizado + glow + marca vetorial + título — usado em Login, Register, ForgotPassword, ResetPassword e OnboardingCategories com cards `surface-glass border-glass` e banners unificados nos tokens danger/success |
 
 ### 5.4 Formulários de Transação
 

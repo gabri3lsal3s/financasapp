@@ -6,6 +6,7 @@ import TransactionRow from '@/components/TransactionRow'
 import Input from '@/components/Input'
 import Button from '@/components/Button'
 import CategoryDetailMiniChart from '@/components/reports/CategoryDetailMiniChart'
+import AmountText from '@/components/ui/amount-text'
 import {
   formatCurrency,
   formatMonth,
@@ -427,9 +428,7 @@ export default function CategoryDetailModal({
               <p className="text-[10px] text-secondary uppercase font-bold tracking-wider">
                 Total no período selecionado
               </p>
-              <p className="text-lg font-bold text-primary font-mono mt-0.5">
-                {formatCurrency(detailCurrentTotal)}
-              </p>
+              <AmountText value={detailCurrentTotal} size="lg" weight="bold" className="mt-0.5 block" />
             </div>
 
             {/* Listagem Simplificada */}
@@ -517,9 +516,7 @@ export default function CategoryDetailModal({
                         <p className="text-[10px] text-secondary">
                           Total em {period === 'year' ? selectedYear : formatMonth(selectedMonth)}
                         </p>
-                        <p className="text-lg font-bold text-primary font-mono leading-tight">
-                          {formatCurrency(detailCurrentTotal)}
-                        </p>
+                        <AmountText value={detailCurrentTotal} size="lg" weight="bold" className="block" />
                       </div>
                       {detailDifferencePct !== null && (
                         <span
@@ -540,26 +537,25 @@ export default function CategoryDetailModal({
                     </div>
                     <div className="mt-2.5 pt-2.5 border-t border-glass flex justify-between text-xs text-secondary">
                       <span>Período anterior:</span>
-                      <span className="font-semibold text-primary font-mono">
-                        {formatCurrency(detailPreviousTotal)}
-                      </span>
+                      <AmountText value={detailPreviousTotal} size="sm" weight="semibold" />
                     </div>
                     <div className="mt-1 flex justify-between text-xs text-secondary">
                       <span>Variação absoluta:</span>
-                      <span
-                        className={`font-semibold ${
+                      <AmountText
+                        value={detailDifference}
+                        size="sm"
+                        weight="semibold"
+                        tone={
                           detailDifference >= 0
                             ? type === 'expense'
-                              ? 'text-expense'
-                              : 'text-income'
+                              ? 'expense'
+                              : 'income'
                             : type === 'expense'
-                            ? 'text-income'
-                            : 'text-expense'
-                        }`}
-                      >
-                        {detailDifference >= 0 ? '+' : ''}
-                        {formatCurrency(detailDifference)}
-                      </span>
+                              ? 'income'
+                              : 'expense'
+                        }
+                        forceSign
+                      />
                     </div>
                   </div>
                 </div>
@@ -575,9 +571,9 @@ export default function CategoryDetailModal({
                         <div>
                           <div className="flex justify-between text-xs text-secondary mb-1">
                             <span>Consumo do Limite</span>
-                            <span className="font-semibold text-primary font-mono">
-                              {formatCurrency(detailMonthlyGoal.currentAmount ?? 0)} de{' '}
-                              {formatCurrency(detailMonthlyGoal.targetAmount ?? 0)}
+                            <span className="inline-flex items-center gap-1">
+                              <AmountText value={detailMonthlyGoal.currentAmount ?? 0} size="sm" weight="semibold" /> de{' '}
+                              <AmountText value={detailMonthlyGoal.targetAmount ?? 0} size="sm" weight="semibold" />
                             </span>
                           </div>
                           {/* Progress Bar */}

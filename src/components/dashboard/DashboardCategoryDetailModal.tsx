@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Search, TrendingDown, TrendingUp } from 'lucide-react'
 import { useDashboardData } from '@/contexts/dashboardDataContext'
-import { formatCurrency, formatPercentBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { formatPercentBR } from '@/utils/format'
 import { applyReportWeight } from '@/utils/reportWeight'
 import Modal from '@/components/Modal'
 import TransactionRow from '@/components/TransactionRow'
@@ -106,9 +107,7 @@ export default function DashboardCategoryDetailModal({
               <p className="text-[10px] text-secondary uppercase font-bold tracking-wider">
                 Total em {ctx.currentMonth}
               </p>
-              <p className="text-lg font-extrabold text-primary font-mono mt-0.5">
-                {formatCurrency(total)}
-              </p>
+              <AmountText value={total} size="lg" weight="extrabold" className="mt-0.5 block" />
             </div>
             <span
               className="text-[10px] font-bold px-2 py-1 rounded-full"

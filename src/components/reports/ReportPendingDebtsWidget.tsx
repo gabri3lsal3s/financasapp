@@ -1,6 +1,6 @@
 import Card from '@/components/Card'
 import { Eyebrow } from '@/components/ui/eyebrow'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 
 interface ReportPendingDebtsWidgetProps {
   payables: number
@@ -36,17 +36,13 @@ export default function ReportPendingDebtsWidget({
           <Eyebrow tone="expense">
             A Pagar Pendente
           </Eyebrow>
-          <span className="text-lg font-extrabold text-expense font-mono mt-1">
-            {formatCurrency(payables)}
-          </span>
+          <AmountText value={payables} size="lg" weight="extrabold" tone="expense" className="mt-1 block" />
         </div>
         <div className="flex flex-col p-3 rounded-xl bg-income/5 border border-income/10">
           <Eyebrow tone="income">
             A Receber Pendente
           </Eyebrow>
-          <span className="text-lg font-extrabold text-income font-mono mt-1">
-            {formatCurrency(receivables)}
-          </span>
+          <AmountText value={receivables} size="lg" weight="extrabold" tone="income" className="mt-1 block" />
         </div>
         <div
           className={`flex flex-col p-3 rounded-xl border ${balanceProj >= 0
@@ -57,13 +53,14 @@ export default function ReportPendingDebtsWidget({
           <Eyebrow>
             Impacto Projetado no Saldo
           </Eyebrow>
-          <span
-            className={`text-lg font-extrabold font-mono mt-1 ${balanceProj >= 0 ? 'text-income' : 'text-expense'
-              }`}
-          >
-            {balanceProj >= 0 ? '+' : ''}
-            {formatCurrency(balanceProj)}
-          </span>
+          <AmountText
+            value={balanceProj}
+            size="lg"
+            weight="extrabold"
+            tone={balanceProj >= 0 ? 'income' : 'expense'}
+            forceSign
+            className="mt-1 block"
+          />
         </div>
       </div>
     </Card>

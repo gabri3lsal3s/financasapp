@@ -1,7 +1,8 @@
 import { useMemo, useState, useCallback } from 'react'
 import { X, Check, Undo2, Calendar, TrendingUp, TrendingDown } from 'lucide-react'
 import { useDashboardData } from '@/contexts/dashboardDataContext'
-import { formatCurrency, formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { formatDate } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import Modal from '@/components/Modal'
 import {
@@ -149,7 +150,7 @@ export default function RecurringExpenseDetailModal({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs font-bold text-primary font-mono">{formatCurrency(item.monthlyAmount)}</p>
+              <AmountText value={item.monthlyAmount} size="sm" weight="bold" className="text-xs block" />
               <p className="text-[8px] text-secondary/60">Confiança: {Math.round(item.confidence * 100)}%</p>
             </div>
           </div>
@@ -194,7 +195,7 @@ export default function RecurringExpenseDetailModal({
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] font-bold text-primary font-mono">{formatCurrency(occ.amount)}</span>
+                    <AmountText value={occ.amount} size="xs" weight="bold" />
                     {occ.isDismissed ? (
                       <button
                         type="button"

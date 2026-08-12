@@ -1,4 +1,5 @@
 import { useDashboardBudget } from '@/contexts/dashboardDataContext'
+import AmountText from '@/components/ui/amount-text'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import { getCategoryIcon } from '@/utils/categoryIcons'
@@ -79,7 +80,7 @@ export default function LimitsOverviewDetail() {
                 {item.statusLabel}
               </span>
               <span className="text-[9px] font-mono text-secondary/60 w-8 sm:w-10 text-right">{formatNumberWithTwoDecimalsBR(item.usagePercentage)}%</span>
-              <span className="text-[10px] font-bold text-primary font-mono w-14 sm:w-16 text-right">{formatCurrency(item.value)}</span>
+              <AmountText value={item.value} size="xs" weight="bold" className="w-14 sm:w-16 text-right" />
             </div>
           </button>
         ))}

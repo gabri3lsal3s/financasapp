@@ -9,6 +9,7 @@ import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
 import ReportUnifiedCompositionCard from '@/components/reports/ReportUnifiedCompositionCard'
 import ReportPendingDebtsWidget from '@/components/reports/ReportPendingDebtsWidget'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
+import AmountText from '@/components/ui/amount-text'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { TrendSeriesMeta, DetailType, ExpenseCategorySummary } from '@/types/reports'
 
@@ -119,7 +120,7 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <KpiCard
           title={viewMode === 'custom' ? "Rendas no período" : "Rendas do mês"}
-          value={formatCurrency(activeSummary.total_income)}
+          value={<AmountText value={activeSummary.total_income} size="md" weight="extrabold" tone="income" nowrap />}
           subtext="Receitas consolidadas"
           icon={<TrendingUp size={16} />}
           glowColor="var(--color-income)"
@@ -133,7 +134,7 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
         />
         <KpiCard
           title={viewMode === 'custom' ? "Despesas no período" : "Despesas do mês"}
-          value={formatCurrency(activeSummary.total_expenses)}
+          value={<AmountText value={activeSummary.total_expenses} size="md" weight="extrabold" tone="expense" nowrap />}
           subtext="Despesas consolidadas"
           icon={<TrendingDown size={16} />}
           glowColor="var(--color-expense)"
@@ -148,7 +149,7 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
         />
         <KpiCard
           title={viewMode === 'custom' ? "Investimentos no período" : "Investimentos do mês"}
-          value={formatCurrency(activeSummary.total_investments)}
+          value={<AmountText value={activeSummary.total_investments} size="md" weight="extrabold" tone="balance" nowrap />}
           subtext="Investimentos em ativos"
           icon={<Wallet size={16} />}
           glowColor="var(--color-balance)"
@@ -276,7 +277,7 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
           <div className="w-full mt-2">
             {monthChartTab === 'daily' && (
               <DailyFlowChart
-                data={activeDailyConsolidatedData as any}
+                data={activeDailyConsolidatedData as Parameters<typeof DailyFlowChart>[0]['data']}
                 hiddenSeries={hiddenDailyConsolidatedSeries}
                 onToggleSeries={onToggleDailyConsolidatedSeries}
                 xAxisKey="label"
@@ -287,13 +288,13 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
             )}
             {monthChartTab === 'composition' && (
               <MonthCompositionChart
-                data={activeQuickData as any}
+                data={activeQuickData as unknown as Parameters<typeof MonthCompositionChart>[0]['data']}
                 hiddenSeries={hiddenMonthCompositionSeries}
                 onToggleSeries={onToggleMonthCompositionSeries}
               />
             )}
             {viewMode === 'custom' && monthChartTab === 'balance' && (
-              <CumulativeBalanceChart data={customCumulativeBalanceData as any} />
+              <CumulativeBalanceChart data={customCumulativeBalanceData as Parameters<typeof CumulativeBalanceChart>[0]['data']} />
             )}
             {viewMode === 'custom' && monthChartTab === 'trend' && (
               <>

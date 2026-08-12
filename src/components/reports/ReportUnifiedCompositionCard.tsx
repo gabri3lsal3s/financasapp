@@ -5,7 +5,8 @@ import ReportsCategoryRowButton from '@/components/reports/ReportsCategoryRowBut
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
 import CategoryPieChart from '@/components/reports/CategoryPieChart'
 import { getStaggerClass } from '@/constants/animation'
-import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { PieDatum, DetailType } from '@/types/reports'
 
 interface ReportUnifiedCompositionCardProps {
@@ -146,9 +147,7 @@ export default function ReportUnifiedCompositionCard({
                             </span>
                             <span className="text-xs font-semibold text-primary truncate">{item.name}</span>
                           </div>
-                          <span className="text-xs font-bold text-primary font-mono shrink-0">
-                            {formatCurrency(item.value)}
-                          </span>
+                          <AmountText value={item.value} size="xs" weight="bold" className="text-xs shrink-0" />
                         </div>
 
                         <div className="text-[9px] text-secondary font-medium mt-1 truncate">

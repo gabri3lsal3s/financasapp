@@ -7,7 +7,7 @@ import CategoryTrendChart from '@/components/reports/CategoryTrendChart'
 import ReportUnifiedCompositionCard from '@/components/reports/ReportUnifiedCompositionCard'
 import ReportPendingDebtsWidget from '@/components/reports/ReportPendingDebtsWidget'
 import ReportsTabButton from '@/components/reports/ReportsTabButton'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { TrendSeriesMeta, DetailType } from '@/types/reports'
 
 interface PendingInfo {
@@ -99,7 +99,7 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <KpiCard
           title="Rendas no ano"
-          value={formatCurrency(annualTotals.income)}
+          value={<AmountText value={annualTotals.income} size="md" weight="extrabold" tone="income" nowrap />}
           subtext={`Total acumulado em ${selectedYear}`}
           icon={<TrendingUp size={16} />}
           glowColor="var(--color-income)"
@@ -113,7 +113,7 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
         />
         <KpiCard
           title="Despesas no ano"
-          value={formatCurrency(annualTotals.expenses)}
+          value={<AmountText value={annualTotals.expenses} size="md" weight="extrabold" tone="expense" nowrap />}
           subtext={`Total acumulado em ${selectedYear}`}
           icon={<TrendingDown size={16} />}
           glowColor="var(--color-expense)"
@@ -128,7 +128,7 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
         />
         <KpiCard
           title="Investimentos no ano"
-          value={formatCurrency(annualTotals.investments)}
+          value={<AmountText value={annualTotals.investments} size="md" weight="extrabold" tone="balance" nowrap />}
           subtext={`Total acumulado em ${selectedYear}`}
           icon={<Wallet size={16} />}
           glowColor="var(--color-balance)"
@@ -142,7 +142,15 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
         />
         <KpiCard
           title="Saldo anual"
-          value={formatCurrency(annualTotals.balance)}
+          value={
+            <AmountText
+              value={annualTotals.balance}
+              size="md"
+              weight="extrabold"
+              tone={annualTotals.balance >= 0 ? 'income' : 'expense'}
+              nowrap
+            />
+          }
           subtext="Balanço final consolidado"
           icon={<Percent size={16} />}
           glowColor={annualTotals.balance >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
@@ -228,13 +236,13 @@ export default function AnnualReportView(props: AnnualReportViewProps) {
           <div className="w-full mt-2">
             {annualChartType === 'flow' && (
               <AnnualFlowChart
-                data={monthlyData as any}
+                data={monthlyData as Parameters<typeof AnnualFlowChart>[0]['data']}
                 hiddenSeries={hiddenAnnualFlowSeries}
                 onToggleSeries={onToggleAnnualFlowSeries}
               />
             )}
             {annualChartType === 'balance' && (
-              <CumulativeBalanceChart data={cumulativeBalanceData as any} />
+              <CumulativeBalanceChart data={cumulativeBalanceData as Parameters<typeof CumulativeBalanceChart>[0]['data']} />
             )}
             {annualChartType === 'trend' && (
               <>

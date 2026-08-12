@@ -1,5 +1,6 @@
 import { useDashboardFinances, useDashboardBudget } from '@/contexts/dashboardDataContext'
-import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import { AlertTriangle, Check, Calendar } from 'lucide-react'
 
@@ -30,9 +31,9 @@ export default function FinancialHealthDetail() {
           </div>
           <p className="text-[10px] text-secondary font-medium">
             {totalLimits > 0 ? (
-              <>Utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> de <strong className="text-primary">{formatCurrency(totalLimits)}</strong></>
+              <>Utilizou <AmountText value={totalExpenses} size="xs" /> de <AmountText value={totalLimits} size="xs" /></>
             ) : totalIncomes > 0 ? (
-              <>Utilizou <strong className="text-primary">{formatCurrency(totalExpenses)}</strong> de <strong className="text-primary">{formatCurrency(totalIncomes)}</strong></>
+              <>Utilizou <AmountText value={totalExpenses} size="xs" /> de <AmountText value={totalIncomes} size="xs" /></>
             ) : null}
           </p>
         </div>
@@ -42,21 +43,23 @@ export default function FinancialHealthDetail() {
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-glass p-3 bg-secondary/5">
           <p className="text-[9px] text-secondary font-bold uppercase">Disponível/mês</p>
-          <p className={cn(
-            'text-sm font-extrabold font-mono mt-0.5',
-            spendingCalcs.monthlyAvailable < 0 ? 'text-expense' : 'text-income',
-          )}>
-            {formatCurrency(spendingCalcs.monthlyAvailable)}
-          </p>
+          <AmountText
+            value={spendingCalcs.monthlyAvailable}
+            size="sm"
+            weight="extrabold"
+            tone={spendingCalcs.monthlyAvailable < 0 ? 'expense' : 'income'}
+            className="mt-0.5 block"
+          />
         </div>
         <div className="rounded-xl border border-glass p-3 bg-secondary/5">
           <p className="text-[9px] text-secondary font-bold uppercase">Disponível/dia</p>
-          <p className={cn(
-            'text-sm font-extrabold font-mono mt-0.5',
-            spendingCalcs.monthlyAvailable < 0 ? 'text-expense' : 'text-primary',
-          )}>
-            {formatCurrency(spendingCalcs.dailyAvailable)}
-          </p>
+          <AmountText
+            value={spendingCalcs.dailyAvailable}
+            size="sm"
+            weight="extrabold"
+            tone={spendingCalcs.monthlyAvailable < 0 ? 'expense' : 'default'}
+            className="mt-0.5 block"
+          />
         </div>
       </div>
 
@@ -68,18 +71,20 @@ export default function FinancialHealthDetail() {
               <Calendar size={11} />
               Projeção
             </span>
-            <span className={cn(
-              'text-[10px] font-bold font-mono',
-              spendingProjection.onTrack ? 'text-income' : 'text-expense',
-            )}>
-              {formatCurrency(spendingProjection.projectedSurplus)}
+            <span className="flex items-center">
+              <AmountText
+                value={spendingProjection.projectedSurplus}
+                size="xs"
+                weight="bold"
+                tone={spendingProjection.onTrack ? 'income' : 'expense'}
+              />
               <span className="text-[8px] font-normal text-secondary ml-1">
                 {spendingProjection.onTrack ? 'superávit' : 'déficit'}
               </span>
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-secondary">
-            <span>Ritmo: <strong className="text-primary">{formatCurrency(spendingProjection.dailyBurnRate)}</strong>/dia</span>
+            <span>Ritmo: <AmountText value={spendingProjection.dailyBurnRate} size="xs" />/dia</span>
             <span>
               {spendingProjection.onTrack
                 ? <span className="text-income flex items-center gap-1"><Check size={10} /> No rumo</span>

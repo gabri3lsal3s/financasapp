@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useDashboardInsightsContext } from '@/contexts/dashboardDataContext'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { cn } from '@/lib/utils'
 import { ignoreSubscription, restoreSubscription } from '@/utils/ignoredSubscriptions'
 import {
@@ -60,8 +60,9 @@ function ExpenseRow({
       </div>
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <div className="text-right">
-          <p className="text-[10px] sm:text-xs font-bold text-primary font-mono">{formatCurrency(item.monthlyAmount)}</p>
-          <p className="text-[8px] text-secondary/60 hidden sm:block">{formatCurrency(item.annualAmount)}/ano</p>
+          <AmountText value={item.monthlyAmount} size="xs" weight="bold" className="sm:text-xs block" />
+          <AmountText value={item.annualAmount} size="xs" tone="muted" weight="semibold" className="text-[8px] hidden sm:block" />
+          <span className="text-[8px] text-secondary/60 hidden sm:inline">/ano</span>
         </div>
         {showDismiss && !item.isIgnored && (
           <span onClick={(e) => { e.stopPropagation(); onDismiss?.(item.description) }} className="w-5 sm:w-6 h-5 sm:h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-secondary shrink-0" title="Ignorar">
@@ -100,10 +101,10 @@ export default function SubscriptionsDetail() {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-xs font-bold text-primary">{formatCurrency(totalMonthly)}<span className="text-[8px] font-normal text-secondary/60">/mês</span></span>
-        <span className="text-[9px] text-secondary/60">{formatCurrency(totalAnnual)}/ano</span>
+        <span className="flex items-center gap-1"><AmountText value={totalMonthly} size="sm" weight="bold" className="text-xs" /><span className="text-[8px] font-normal text-secondary/60">/mês</span></span>
+        <span className="flex items-center gap-0.5"><AmountText value={totalAnnual} size="xs" tone="muted" />/ano</span>
         {cuttableMonthly > 0 && (
-          <span className="text-[8px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-md whitespace-nowrap">Cortável: {formatCurrency(cuttableMonthly)}/mês</span>
+          <span className="text-[8px] font-bold text-income bg-income/10 px-1.5 py-0.5 rounded-md whitespace-nowrap flex items-center gap-0.5">Cortável: <AmountText value={cuttableMonthly} size="xs" weight="bold" tone="income" />/mês</span>
         )}
       </div>
 

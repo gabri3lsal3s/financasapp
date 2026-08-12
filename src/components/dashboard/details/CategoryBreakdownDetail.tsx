@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useDashboardBudget } from '@/contexts/dashboardDataContext'
+import AmountText from '@/components/ui/amount-text'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import { useOpenCategoryDetail } from '@/components/dashboard/categoryDetailContext'
@@ -60,7 +61,7 @@ export default function CategoryBreakdownDetail() {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[9px] text-secondary/60 w-8 text-right font-mono">{formatNumberWithTwoDecimalsBR(pct)}%</span>
-                <span className="text-[10px] font-bold text-primary font-mono w-20 text-right">{formatCurrency(item.value)}</span>
+                <AmountText value={item.value} size="xs" weight="bold" className="w-20 text-right" />
               </div>
             </button>
           )
@@ -70,7 +71,7 @@ export default function CategoryBreakdownDetail() {
       {/* Total */}
       <div className="flex items-center justify-between border-t border-glass/30 pt-2 px-1">
         <span className="text-[10px] font-bold text-secondary">Total</span>
-        <span className="text-sm font-extrabold text-primary font-mono">{formatCurrency(total)}</span>
+        <AmountText value={total} size="sm" weight="extrabold" />
       </div>
     </div>
   )

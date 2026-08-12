@@ -1,5 +1,6 @@
 import RowButton from '@/components/RowButton'
-import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { AlertTriangle } from 'lucide-react'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 
@@ -61,8 +62,8 @@ export default function ReportsCategoryRowButton({
           <span className="text-xs font-semibold text-primary truncate">{categoryName}</span>
         </div>
 
-        <span className="text-xs font-bold text-primary font-mono shrink-0 flex flex-col items-end">
-          <span>{formatCurrency(total)}</span>
+        <span className="shrink-0 flex flex-col items-end">
+          <AmountText value={total} size="xs" weight="bold" className="text-xs" />
         </span>
       </div>
 
