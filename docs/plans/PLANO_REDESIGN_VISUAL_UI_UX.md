@@ -174,10 +174,12 @@
   glow na cor e % utilizado.
 * **Critérios:** **480 testes verdes**; tsc/lint/guardrails (allowlist consciente)/build OK.
 
-### R11 — Dashboard Premium (Hero, Bento Grid & Sparkline)
-* **Hero:** gradiente obsidian + sparkline com pulso + pílulas de variação com micro-spring.
-* **Widgets:** press físico (TactilePress), borda refratária, ícone glass com glow.
-* **Critérios:** snapshot de primitivos atualizado; testes verdes.
+### R11 — Dashboard Premium (Hero, Bento Grid & Sparkline) ✅ (12/08)
+* **Hero:** `glass-refract` + glow ambiente obsidian (radial `color-mix` sem cor hardcoded),
+  label "Gastos acumulados no mês" → `Eyebrow`, sparkline com pulso fluorescente (R8).
+* **Widgets (`WidgetCard`):** borda refratária (substitui `shadow-sm`), ícone do widget em
+  badge de vidro com borda, hover `border-glass-strong`.
+* **Critérios:** **480 testes verdes**; tsc/lint/guardrails/build OK.
 
 ### R12 — Relatórios, Investimentos, Settings & Auth (polimento final + QA mobile)
 * Charts com tooltips glass consistentes; KPIs (já AmountText) sem regressão.

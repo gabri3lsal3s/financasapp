@@ -51,8 +51,8 @@ export default function WidgetCard({ widget, summary, detail, disableCollapse }:
   return (
     <Card
       className={cn(
-        '!p-0 rounded-2xl border border-glass surface-glass shadow-sm transition-all duration-300',
-        'hover:border-glass-strong hover:shadow-md',
+        '!p-0 rounded-2xl border border-glass surface-glass glass-refract transition-all duration-300',
+        'hover:border-glass-strong',
       )}
     >
       {/* ── Header (sempre visível) ── */}
@@ -84,7 +84,9 @@ export default function WidgetCard({ widget, summary, detail, disableCollapse }:
           /* ── Desktop / disableCollapse: layout horizontal clássico com resumo ── */
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <Icon size={16} className="shrink-0 text-primary/60 sm:text-primary/70" />
+              <span className="w-8 h-8 rounded-lg surface-glass border border-glass flex items-center justify-center shrink-0 text-primary/70">
+                <Icon size={15} />
+              </span>
               <div className="min-w-0">
                 <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary truncate">
                   {widget.title}

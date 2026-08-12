@@ -37,8 +37,13 @@ export default function DashboardHero() {
       : null
 
   return (
-    <div className="modal-panel-glass border border-glass rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-page-enter">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="modal-panel-glass glass-refract border border-glass rounded-2xl p-5 sm:p-6 relative overflow-hidden animate-page-enter">
+      {/* Glow ambiente obsidian (R11) */}
+      <div
+        className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full opacity-50"
+        style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 70%)' }}
+      />
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <Eyebrow>Saldo Consolidado</Eyebrow>
           <AnimatedNumber
@@ -68,9 +73,7 @@ export default function DashboardHero() {
       {currentSpendingCurve.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">
-              Gastos acumulados no mês
-            </span>
+            <Eyebrow>Gastos acumulados no mês</Eyebrow>
           </div>
           <ComparisonSparkline
             data={currentSpendingCurve}
