@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TactilePress > renderiza o conteúdo filho (snapshot) 1`] = `
+<div
+  class="will-change-transform rounded-xl"
+  tabindex="0"
+>
+  <span>
+    Card clicável
+  </span>
+</div>
+`;
