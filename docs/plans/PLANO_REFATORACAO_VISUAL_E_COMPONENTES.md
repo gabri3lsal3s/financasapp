@@ -409,8 +409,19 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | 2 | Bottom Sheets | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · dragToDismiss no sheet + TransactionDetailDrawer + fim da sanfona inline |
 | 3 | Contas.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1795 → 233 linhas** · 5 novos módulos + 3 hooks |
 | 4 | Reports.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1452 → 211 linhas** · hook de dados + cabeçalho extraídos |
-| 5 | Settings + Categories | ⬜ Pendente | — | — |
+| 5 | Settings + Categories | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **Settings 824→127** e **Categories 716→164** |
 | 6 | Shell + CSS | ⬜ Pendente | — | — |
+
+### Fase 5 — Registro de mudanças
+- `src/pages/Settings.tsx`: **824 → 127 linhas** (−85%). Orquestrador enxuto com abas modulares.
+- Criado `src/hooks/useSettingsAdmin.ts`: lógica do painel admin (listar usuários, aprovar/bloquear/recusar/excluir, modal de exclusão).
+- Criado `src/hooks/useSettingsSecurity.ts`: biometria WebAuthn (registro/remoção) + exclusão da própria conta via RPC.
+- Criado `src/components/settings/`: `SettingsTabs` (navegação de abas), `AdminPanel`, `AppearancePanel` (tema, calculadora, lembretes), `SecurityPanel` (biometria, zona de perigo), `SettingsModals` (2 modais de confirmação), `SettingRow` (linha de configuração compartilhada).
+- Estado da aba ativa derivado de `searchParams` (como no original) — botão voltar do navegador e deep-links `?view` preservados (correção do revisor).
+- `src/pages/Categories.tsx`: **716 → 164 linhas** (−77%).
+- Criado `src/hooks/useCategoriesData.ts`: CRUD de categorias, sugestões de orçamento, limites, expectativas, KPIs consolidados e mapas de cor.
+- Criado `src/utils/categorySuggestions.ts`: `detectSuggestionRuleFromName` extraído para util reutilizável.
+- Criado `src/components/categories/CategoriesTabs.tsx` (tabs mobile) e `CategoriesModals.tsx` (3 modais centralizados).
 
 ### Fase 4 — Registro de mudanças
 - `src/pages/Reports.tsx`: **1.452 → 211 linhas** (−85%). Orquestrador enxuto: page actions, swipes, render dos views e modal de detalhe.

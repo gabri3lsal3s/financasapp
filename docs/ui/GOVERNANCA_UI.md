@@ -158,6 +158,21 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Views | `src/components/reports/AnnualReportView.tsx` / `MonthlyReportView.tsx` | Renderização anual/mensal (pré-existentes) |
 | Detalhe | `src/components/reports/CategoryDetailModal.tsx` | Drill-down de categoria (pré-existente) |
 
+**Páginas Settings e Categories (Fase 5 — orquestradores enxutos):**
+
+| Componente/Hook | Arquivo | Responsabilidade |
+|-----------------|---------|------------------|
+| Lógica admin | `src/hooks/useSettingsAdmin.ts` | Painel admin (aprovar/bloquear/recusar/excluir usuários) |
+| Lógica segurança | `src/hooks/useSettingsSecurity.ts` | Biometria WebAuthn + exclusão da conta |
+| Abas de Configurações | `src/components/settings/SettingsTabs.tsx` | Navegação Aparência/Segurança/Admin |
+| Painéis | `src/components/settings/{AdminPanel,AppearancePanel,SecurityPanel}.tsx` | Conteúdo de cada aba |
+| Modais de Configurações | `src/components/settings/SettingsModals.tsx` | Exclusão de conta e de usuário |
+| Linha de configuração | `src/components/settings/SettingRow.tsx` | Layout título + controle (compartilhado) |
+| Dados de Categorias | `src/hooks/useCategoriesData.ts` | CRUD, sugestões, limites, expectativas, KPIs |
+| Sugestões | `src/utils/categorySuggestions.ts` | `detectSuggestionRuleFromName` (util reutilizável) |
+| Tabs de Categorias | `src/components/categories/CategoriesTabs.tsx` | Orçamentos/Metas (mobile) |
+| Modais de Categorias | `src/components/categories/CategoriesModals.tsx` | Form, exclusão e sugestões |
+
 **Página Contas (Fase 3 — orquestrador enxuto):**
 
 | Componente/Hook | Arquivo | Responsabilidade |
