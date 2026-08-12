@@ -139,7 +139,7 @@ export default function RecurringExpenseDetailModal({
               <span className={cn(
                 'w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold',
                 item.recurrenceType === 'subscription' ? 'bg-balance/10 text-balance' :
-                item.recurrenceType === 'recurring' ? 'bg-warning/10 text-warning' : 'bg-secondary/10 text-secondary',
+                item.recurrenceType === 'recurring' ? 'bg-warning/10 text-warning' : 'bg-tertiary/10 text-secondary',
               )}>
                 <Icon size={13} />
               </span>
@@ -199,7 +199,7 @@ export default function RecurringExpenseDetailModal({
                       <button
                         type="button"
                         onClick={() => handleClear(occ.expenseId)}
-                        className="w-6 h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-secondary/40 hover:text-primary"
+                        className="w-6 h-6 rounded-lg hover:bg-tertiary/40 flex items-center justify-center text-secondary/40 hover:text-primary"
                         title="Restaurar"
                       >
                         <Undo2 size={11} />
@@ -208,7 +208,7 @@ export default function RecurringExpenseDetailModal({
                       <button
                         type="button"
                         onClick={() => handleClear(occ.expenseId)}
-                        className="w-6 h-6 rounded-lg hover:bg-secondary/10 flex items-center justify-center text-income/60 hover:text-income"
+                        className="w-6 h-6 rounded-lg hover:bg-tertiary/40 flex items-center justify-center text-income/60 hover:text-income"
                         title="Remover confirmação"
                       >
                         <Undo2 size={11} />

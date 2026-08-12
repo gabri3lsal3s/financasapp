@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Search, TrendingDown, TrendingUp } from 'lucide-react'
 import { useDashboardData } from '@/contexts/DashboardDataContext'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatPercentBR } from '@/utils/format'
 import { applyReportWeight } from '@/utils/reportWeight'
 import Modal from '@/components/Modal'
 import TransactionRow from '@/components/TransactionRow'
@@ -88,7 +88,7 @@ export default function DashboardCategoryDetailModal({
         <div className="flex items-center gap-2">
           <div
             className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${color}20` }}
+            style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
           >
             <Icon size={12} style={{ color }} />
           </div>
@@ -113,11 +113,11 @@ export default function DashboardCategoryDetailModal({
             <span
               className="text-[10px] font-bold px-2 py-1 rounded-full"
               style={{
-                backgroundColor: `${color}15`,
+                backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`,
                 color,
               }}
             >
-              {pctOfTotal.toFixed(1)}% do total
+              {formatPercentBR(pctOfTotal, 1)} do total
             </span>
           </div>
           <p className="text-[10px] text-secondary mt-2">

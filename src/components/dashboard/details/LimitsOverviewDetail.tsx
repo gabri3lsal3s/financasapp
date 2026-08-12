@@ -12,7 +12,7 @@ export default function LimitsOverviewDetail() {
     return (
       <div className="py-4 text-center">
         <p className="text-[10px] text-secondary">
-          Tudo dentro do orçamento! 🎉
+          Tudo dentro do orçamento!
         </p>
       </div>
     )

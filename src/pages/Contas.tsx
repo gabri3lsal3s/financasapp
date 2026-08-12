@@ -1246,39 +1246,42 @@ export default function Contas() {
                   <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
                     {/* Filtros rápidos em Chips/Pills */}
                     <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-xl border border-glass text-xs font-semibold">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
                         onClick={() => setDebtFilter('all')}
-                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                        className={`h-auto min-h-0 px-2.5 py-1 rounded-lg transition-all ${
                           debtFilter === 'all'
-                            ? 'bg-primary text-secondary-contrast shadow-sm font-bold'
+                            ? 'bg-primary text-white shadow-sm font-bold'
                             : 'text-secondary hover:text-primary'
                         }`}
                       >
                         Todas ({pendingDebts.length})
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="ghost"
                         onClick={() => setDebtFilter('payable')}
-                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                        className={`h-auto min-h-0 px-2.5 py-1 rounded-lg transition-all ${
                           debtFilter === 'payable'
                             ? 'bg-expense text-white shadow-sm font-bold'
                             : 'text-secondary hover:text-expense'
                         }`}
                       >
                         Pagar ({payablePendingCount})
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="ghost"
                         onClick={() => setDebtFilter('receivable')}
-                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                        className={`h-auto min-h-0 px-2.5 py-1 rounded-lg transition-all ${
                           debtFilter === 'receivable'
                             ? 'bg-income text-white shadow-sm font-bold'
                             : 'text-secondary hover:text-income'
                         }`}
                       >
                         Receber ({receivablePendingCount})
-                      </button>
+                      </Button>
                     </div>
 
                     <Button

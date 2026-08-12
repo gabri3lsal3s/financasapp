@@ -191,7 +191,7 @@ export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps
         onClose={() => setDetailTarget(null)}
         categoryId={detailTarget?.categoryId ?? ''}
         categoryName={detailTarget?.categoryName ?? ''}
-        color={detailTarget?.color ?? '#888'}
+        color={detailTarget?.color ?? 'var(--color-text-secondary)'}
         type={detailTarget?.type ?? 'expense'}
       />
     </CategoryDetailContext.Provider>
