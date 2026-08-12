@@ -11,6 +11,7 @@ import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import RowButton from '@/components/RowButton'
 import { formatDate, roundToDecimals } from '@/utils/format'
 import AmountText from '@/components/ui/amount-text'
+import TactilePress from '@/components/ui/tactile'
 import { CARD_BASE, CARD_PADDING } from '@/constants/layout'
 import { parseRefundNote } from '@/utils/refundNote'
 import type { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
@@ -115,9 +116,9 @@ export default function CreditCardSection({
             const isExpanded = !!expandedItems[card.id]
 
             return (
-              <div key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden rounded-2xl border border-glass surface-glass shadow-sm transition-all duration-300">
+              <div key={card.id} id={`credit-card-${card.id}`} className="p-0 overflow-hidden rounded-2xl border border-glass surface-glass glass-refract transition-all duration-300">
                 {/* Header Accordion */}
-                <div
+                <TactilePress
                   className="p-3 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none hover:bg-secondary/20 transition-colors"
                   onClick={() => onToggleExpand(card.id)}
                 >
@@ -157,7 +158,7 @@ export default function CreditCardSection({
                       <ChevronDown size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
                     )}
                   </div>
-                </div>
+                </TactilePress>
 
                 {/* Expanded content */}
                 {isExpanded && (

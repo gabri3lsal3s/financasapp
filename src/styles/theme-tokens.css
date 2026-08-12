@@ -398,6 +398,9 @@ html:not([data-color-palette]) {
   --glass-shadow-sheet: 0 -16px 48px -12px var(--ambient-glow-primary);
   --glass-shadow-sidebar: 0 12px 40px -10px var(--ambient-glow-primary);
   --glass-shadow-nav: 0 8px 32px -10px var(--ambient-glow-secondary);
+  /* 8.1 — Borda refratária metálica (inset highlight + sombra profunda) adaptada ao tema */
+  --glass-refract: inset 0 1px 0 0 color-mix(in srgb, var(--ds-color-text-primary) 8%, transparent), 0 4px 20px -6px var(--ambient-glow-primary);
+  --glass-refract-strong: inset 0 1px 0 0 color-mix(in srgb, var(--ds-color-text-primary) 14%, transparent), 0 8px 28px -8px var(--ambient-glow-primary);
   --glass-shadow-tooltip: 0 12px 32px -5px var(--ambient-glow-primary);
   --glass-inset-highlight: inset 0 1px 0 color-mix(in srgb, var(--ds-color-text-primary) 6%, transparent);
 

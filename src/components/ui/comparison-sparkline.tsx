@@ -81,6 +81,20 @@ export default function ComparisonSparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+
+      {/* Ponto de pulso fluorescente no último valor (Fase 8) */}
+      {(() => {
+        const lastVal = current[current.length - 1]
+        const range = max - baseMin || 1
+        const lastX = width
+        const lastY = height - ((lastVal - baseMin) / range) * (height - 8) - 4
+        return (
+          <g transform={`translate(${lastX}, ${lastY})`} pointerEvents="none">
+            <circle r="4.5" fill="currentColor" className="animate-ping opacity-75" />
+            <circle r="3" fill="currentColor" className="drop-shadow-[0_0_6px_currentColor]" />
+          </g>
+        )
+      })()}
     </svg>
   )
 }

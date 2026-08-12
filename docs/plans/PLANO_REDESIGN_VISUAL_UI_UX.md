@@ -115,18 +115,70 @@
 
 ## 8. Roteiro Executivo de Implementação em 8 Fases (Com Fase 8 Agressiva)
 
+> **v3.6 (12/08/2026):** A Fase 8 original foi desdobrada em **R8–R12** (Redesign Agressivo
+> Página por Página, mobile-first) após auditoria de cobertura: o shell (R2) já estava pronto,
+> mas o pacote visual de alto impacto (bordas refratárias, micro-springs, cartões 3D, feed tátil)
+> nunca havia sido implementado. As fases R8–R12 executam a Fase 8 do plano + varredura completa
+> página por página.
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │ FASE 1: Fundação, Tokens Sóbrios de Fintech & Superfícies de Vidro                       │
-│ FASE 2: Shell, Navegação Silenciosa, FAB e TopBar                                        │
-│ FASE 3: Dashboard (Home) — Bento Grid Aberto & Reorganizável                              │
-│ FASE 4: Extrato de Despesas, Rendas e Padronização de Bottom Sheets                      │
-│ FASE 5: Contas, Faturas com Cores dos Bancos, Conciliação CSV e Dívidas                  │
-│ FASE 6: Relatórios (Visão Mensal Padrão), Categorias e Configurações                     │
-│ FASE 7: Auth, Onboarding & PWA Offline                                                   │
-│ FASE 8: Redesign Visual Agressivo de Alto Impacto (Obsidian Premium & Micro-Springs)      │
+│ FASE 2: Shell, Navegação Silenciosa, FAB e TopBar  ✅ JÁ ENTREGUE                       │
+│ FASE 3: Dashboard (Home) — Bento Grid Aberto & Reorganizável  ✅ JÁ ENTREGUE            │
+│ FASE 4: Extrato de Despesas, Rendas e Padronização de Bottom Sheets  ✅ JÁ ENTREGUE      │
+│ FASE 5: Contas, Faturas com Cores dos Bancos, Conciliação CSV e Dívidas  ✅ JÁ ENTREGUE  │
+│ FASE 6: Relatórios (Visão Mensal Padrão), Categorias e Configurações  ✅ JÁ ENTREGUE     │
+│ FASE 7: Auth, Onboarding & PWA Offline  ✅ JÁ ENTREGUE                                   │
+│ FASE 8 (REDESIGN AGRESSIVO — v3.6 desdobrada em R8–R12):                                │
+│   R8 — Fundação Obsidian Premium & Micro-Interações (global)                             │
+│   R9 — Despesas & Rendas: Feed Tátil Premium (mobile-first)                              │
+│   R10 — Contas & Faturas: Cartões Apple Wallet 3D                                        │
+│   R11 — Dashboard Premium (Hero, Bento Grid & Sparkline com pulso)                       │
+│   R12 — Relatórios, Investimentos, Settings & Auth (polimento final + QA mobile)         │
 └──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### R8 — Fundação Obsidian Premium & Micro-Interações (impacto global) ✅ (12/08)
+* **8.1 Bordas Refratárias Metálicas (L1):** tokens `--glass-refract`/`--glass-refract-strong`
+  (inset highlight + sombra profunda, theme-aware via `color-mix` — sem cor hardcoded),
+  utilities `.glass-refract`/`.glass-refract-strong`, aplicadas em `.glass-card-interactive`
+  (global, com hover `refract + panel`) e nos KPI cards de Categorias e accordion de cartões.
+* **8.2 Micro-Springs Físicos (framer-motion):** primitivo `ui/tactile.tsx` (`TactilePress`,
+  spring `stiffness: 450, damping: 25`, `scale: 0.985` whileTap / `1.01` whileHover, respeita
+  `prefers-reduced-motion`) + 3 testes; aplicado no accordion de cartões, tiles "Novo
+  Orçamento/Nova Meta" e disponível para o feed (R9) e widgets (R11).
+* **8.3 Pulso Fluorescente no Sparkline:** edição do usuário validada (NaN-guards ok,
+  `overflow-visible` no SVG evita clipping) + `pointer-events-none` no grupo do pulso.
+* **Critérios:** 0 mudança de contrato; **480 testes verdes** (3 novos); guardrails verde; build OK.
+
+### R9 — Despesas & Rendas: Feed Tátil Premium (mobile-first)
+* **Feed de Alta Densidade Tactile (8.4):** `TransactionCard` — ícone de categoria em círculo
+  de vidro com glow na cor (`box-shadow: 0 0 12px var(--category-color-alpha)`), tags de
+  parcela/competência em vidro flutuante, montante com `AmountText`, micro-press no toque.
+* **Headers de página:** título com `Eyebrow`, contadores de itens, ações consistentes.
+* **Bottom Sheets:** 100% harmonia (pill, título, corpo rolável `max-h-[85vh]`, footer `pb-safe`).
+* **Critérios:** testes de conciliação/fatura verdes; tsc/lint/guardrails/build.
+
+### R10 — Contas & Faturas: Cartões Apple Wallet 3D
+* **Tilt 3D no hover (desktop):** `perspective: 1000px` + transform no mousemove (máx ±6°),
+  reset no mouseleave; mobile permanece estático (sem conflito de gestos).
+* **Chip Holográfico SVG + selo da bandeira:** microchips metálicos e reflexos (Visa, Master,
+  Elo, Amex) em `ui/card-hologram.tsx`.
+* **Barra de Limite Térmica:** gradiente esmeralda → coral conforme consumo ≥ 80%.
+* **Critérios:** banco branding preservado; timeline intacta; testes verdes.
+
+### R11 — Dashboard Premium (Hero, Bento Grid & Sparkline)
+* **Hero:** gradiente obsidian + sparkline com pulso + pílulas de variação com micro-spring.
+* **Widgets:** press físico (TactilePress), borda refratária, ícone glass com glow.
+* **Critérios:** snapshot de primitivos atualizado; testes verdes.
+
+### R12 — Relatórios, Investimentos, Settings & Auth (polimento final + QA mobile)
+* Charts com tooltips glass consistentes; KPIs (já AmountText) sem regressão.
+* Investimentos na mesma linguagem obsidian (cards, tabelas, pie legend).
+* Settings/Auth: touch targets ≥ 44px, safe-areas, revisão final mobile-first.
+* **Critérios:** suite completa verde + build + guardrails; docs atualizadas; commit final.
+
 
 ---
 

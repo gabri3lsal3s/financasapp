@@ -7,6 +7,7 @@ import EmptyState from '@/components/EmptyState'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import AmountText from '@/components/ui/amount-text'
 import { Eyebrow } from '@/components/ui/eyebrow'
+import TactilePress from '@/components/ui/tactile'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import { getStaggerClass } from '@/constants/animation'
@@ -94,15 +95,15 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
     <div className="space-y-4 lg:space-y-6">
       {/* KPIs de Despesas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
+        <Card className="p-4 border border-glass surface-glass glass-refract flex flex-col justify-between">
           <Eyebrow tracking="widest">Limite Definido</Eyebrow>
           <AmountText value={expensesKpis.limitSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
-        <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
+        <Card className="p-4 border border-glass surface-glass glass-refract flex flex-col justify-between">
           <Eyebrow tracking="widest">Total Gasto</Eyebrow>
           <AmountText value={expensesKpis.spentSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
-        <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
+        <Card className="p-4 border border-glass surface-glass glass-refract flex flex-col justify-between">
           <Eyebrow tracking="widest">Disponível</Eyebrow>
           <AmountText
             value={expensesKpis.remaining}
@@ -112,7 +113,7 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
             className="mt-2"
           />
         </Card>
-        <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
+        <Card className="p-4 border border-glass surface-glass glass-refract flex flex-col justify-between">
           <div className="flex justify-between items-center">
             <Eyebrow tracking="widest">Uso Geral</Eyebrow>
             <span className="text-xs font-bold text-primary font-mono">{Math.round(expensesKpis.percentage)}%</span>
@@ -331,13 +332,13 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
             })}
 
             {categories.length < 15 && (
-              <div
+              <TactilePress
                 onClick={onAddCategory}
-                className="cursor-pointer flex flex-col items-center justify-center gap-2 p-4 bg-secondary/5 border border-dashed border-glass hover:border-glass-strong hover:bg-secondary/10 rounded-xl transition-all select-none animate-stagger-item h-full min-h-[140px] text-secondary hover:text-primary hover:scale-[1.002]"
+                className="cursor-pointer flex flex-col items-center justify-center gap-2 p-4 bg-secondary/5 border border-dashed border-glass hover:border-glass-strong hover:bg-secondary/10 rounded-xl transition-all select-none animate-stagger-item h-full min-h-[140px] text-secondary hover:text-primary"
               >
                 <Plus size={20} className="text-secondary" />
                 <span className="text-xs font-bold uppercase tracking-wider">Novo Orçamento</span>
-              </div>
+              </TactilePress>
             )}
           </div>
         )}
