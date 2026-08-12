@@ -140,7 +140,7 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Card | `src/components/Card.tsx` | Agrupamento visual |
 | Ícone | `src/components/IconButton.tsx` | Ações compactas |
 | Número animado | `src/components/ui/animated-number.tsx` | Contadores de KPI (respeita `prefers-reduced-motion`) |
-| Layout | `src/components/Layout.tsx` | Shell autenticado + nav |
+| Layout | `src/components/Layout.tsx` | Shell autenticado + nav (orquestrador enxuto, 125 linhas) |
 
 ### Componentes de domínio (reutilizar antes de criar novos)
 
@@ -186,6 +186,21 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Navegação | `src/hooks/useContasNavigation.ts` | Deep-links `?month`, `?expand`, `?highlight`, `?card` |
 
 **Convenção:** `useContasModals` mantém **somente estado e ações de modais**; a lógica de mutação (Supabase/hooks) vive exclusivamente em `useContasActions` (não duplicar handlers em ambos).
+
+**Shell — Layout e AppTopBar (Fase 6 — orquestradores enxutos):**
+
+| Componente/Hook | Arquivo | Responsabilidade |
+|-----------------|---------|------------------|
+| Navegação (fonte única) | `src/constants/navigation.ts` | `NAV_ITEMS` (8 destinos), `MAIN_NAV_ITEMS`, `SETTINGS_NAV_ITEMS`, `MOBILE_MAIN_PATHS` |
+| Estado do shell | `src/hooks/useLayoutNavigation.ts` | Menus mobile/desktop, Escape/clique-fora, scroll-lock, logout, refs |
+| Menu mobile | `src/components/layout/MobileMenuSheet.tsx` | Bottom sheet "Mais Opções" (destinos secundários + logout) |
+| Bottom nav | `src/components/layout/MobileBottomNav.tsx` | 4 abas fixas (Início/Despesas/Rendas/Contas) + botão Mais |
+| Sidebar desktop | `src/components/layout/DesktopSidebar.tsx` | Expansível (persistida), perfil, grupos e logout |
+| Offline | `src/components/layout/OfflinePlaceholder.tsx` | Estado vazio de página online-only sem conexão |
+| Busca global | `src/components/topbar/SearchOverlay.tsx` | Overlay de busca via portal (debounce + resultados) |
+| Notificações | `src/components/topbar/NotificationsOverlay.tsx` | Overlay de lembretes via portal |
+
+**Convenção shell:** refs passados por props devem ser tipados `React.Ref<T>` (não `RefObject<T | null>` — incompatível com `LegacyRef` dos elementos DOM).
 
 ---
 

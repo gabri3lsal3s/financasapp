@@ -1451,15 +1451,9 @@
     animation: month-selector-chevron-nudge-right 360ms var(--ds-motion-easing-emphasis);
   }
 
-  /* @deprecated — use MonthTransitionView + animate-month-shift-* */
-  .animate-month-change {
-    animation: month-shift-enter-neutral var(--ds-motion-duration-normal) var(--ds-motion-easing-standard) forwards;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .animate-page-enter,
     .animate-stagger-item,
-    .animate-month-change,
     .animate-month-shift-forward,
     .animate-month-shift-backward,
     .animate-month-shift-neutral,

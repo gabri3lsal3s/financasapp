@@ -46,8 +46,8 @@ Verificação empírica (wc -l, 12/08/2026):
 | `src/pages/Settings.tsx` | **816** | Abas de aparência, segurança biométrica e painel admin sem isolamento. | **< 150 linhas** (abas modulares) |
 | `src/pages/Categories.tsx` | **716** (não ~600 como na v1) | Listas de categorias de despesa/renda + grids existentes em `components/categories/`. | **< 180 linhas** |
 | `src/components/TransactionCard.tsx` | **359** | Expansão inline tipo sanfona causa layout shift; detalhes devem ir para bottom sheet. | **Feed Card + Bottom Sheet** |
-| `src/components/Layout.tsx` | **471** | Shell com navegação (8 destinos), lógica online/offline e FAB — candidato a decomposição leve. | **< 300 linhas** (navegação extraída) |
-| `src/components/AppTopBar.tsx` | **389** | Topbar com busca, sincronização e ações — extrair subcomponentes. | **< 200 linhas** |
+| `src/components/Layout.tsx` | **471 → 125** ✅ | Shell com navegação (8 destinos), lógica online/offline e FAB — decomposto (nav em `layout/`, estado em hook). | **< 300 linhas** ✅ |
+| `src/components/AppTopBar.tsx` | **389 → 126** ✅ | Topbar com busca, sincronização e ações — overlays extraídos para `topbar/`. | **< 200 linhas** ✅ |
 | `src/index.css` + `theme-tokens.css` | **~100 KB** (76 + 24) | Classes legadas duplicadas; enxugar progressivamente. | **< 80 KB** (sem regressão visual) |
 
 **Nota da v2:** as metas da v1 (< 180 linhas para Contas) eram irrealistas sem remover JSX estrutural do app. As metas acima preservam funcionalidade e são atingíveis por fase.
@@ -410,7 +410,16 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | 3 | Contas.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1795 → 233 linhas** · 5 novos módulos + 3 hooks |
 | 4 | Reports.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1452 → 211 linhas** · hook de dados + cabeçalho extraídos |
 | 5 | Settings + Categories | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **Settings 824→127** e **Categories 716→164** |
-| 6 | Shell + CSS | ⬜ Pendente | — | — |
+| 6 | Shell + CSS | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **Layout 471→125** e **AppTopBar 389→126** · navegação em constante + hook · overlays em `topbar/` · dead CSS removido |
+
+### Fase 6 — Registro de mudanças
+- `src/components/Layout.tsx`: **471 → 125 linhas** (−73%). Virou orquestrador enxuto do shell (menus, sidebar, topbar, FABs e calculadora).
+- Criado `src/constants/navigation.ts`: fonte única dos **8 destinos** (`NAV_ITEMS` + `MAIN_NAV_ITEMS`/`SETTINGS_NAV_ITEMS`/`MOBILE_MAIN_PATHS`) — substitui o array construído via IIFE no Layout.
+- Criado `src/hooks/useLayoutNavigation.ts`: estado dos menus mobile/desktop (expansão da sidebar persistida em `localStorage`), fechamento por Escape/clique-fora, trava de scroll do body, logout e refs — comportamentos idênticos ao original.
+- Criado `src/components/layout/`: `MobileMenuSheet` (bottom sheet "Mais Opções" com destinos secundários + logout), `MobileBottomNav` (4 abas fixas + botão Mais, `MOBILE_MAIN_PATHS`), `DesktopSidebar` (sidebar expansível com perfil, grupos e logout; `SidebarLink` compartilhado preservando a diferença de label) e `OfflinePlaceholder`.
+- `src/components/AppTopBar.tsx`: **389 → 126 linhas**. Overlays extraídos para `src/components/topbar/`: `SearchOverlay` (busca global via portal) e `NotificationsOverlay` (lembretes via portal) — movidos verbatim. Título colapsado (os dois ramos `isDashboard` eram idênticos — DRY).
+- Ref tipados como `Ref<T>` nas props dos componentes filhos (compatível com `LegacyRef` dos elementos e com o que `useRef` retorna no React 18).
+- `src/index.css`: removido `.animate-month-change` (marcado `@deprecated`, zero usos no código) + referência órfã na media query `prefers-reduced-motion` e o comentário órfão. `theme-tokens.css` inspecionado — sem dead code. 77.2 KB → 77.0 KB (limpeza conservadora, sem regressão visual).
 
 ### Fase 5 — Registro de mudanças
 - `src/pages/Settings.tsx`: **824 → 127 linhas** (−85%). Orquestrador enxuto com abas modulares.
