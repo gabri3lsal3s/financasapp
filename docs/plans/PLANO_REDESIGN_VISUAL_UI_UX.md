@@ -152,13 +152,16 @@
   `overflow-visible` no SVG evita clipping) + `pointer-events-none` no grupo do pulso.
 * **Critérios:** 0 mudança de contrato; **480 testes verdes** (3 novos); guardrails verde; build OK.
 
-### R9 — Despesas & Rendas: Feed Tátil Premium (mobile-first)
-* **Feed de Alta Densidade Tactile (8.4):** `TransactionCard` — ícone de categoria em círculo
-  de vidro com glow na cor (`box-shadow: 0 0 12px var(--category-color-alpha)`), tags de
-  parcela/competência em vidro flutuante, montante com `AmountText`, micro-press no toque.
-* **Headers de página:** título com `Eyebrow`, contadores de itens, ações consistentes.
-* **Bottom Sheets:** 100% harmonia (pill, título, corpo rolável `max-h-[85vh]`, footer `pb-safe`).
-* **Critérios:** testes de conciliação/fatura verdes; tsc/lint/guardrails/build.
+### R9 — Despesas & Rendas: Feed Tátil Premium (mobile-first) ✅ (12/08)
+* **Feed de Alta Densidade Tactile (8.4):** `TransactionCard` (mobile + desktop) — ícone de
+  categoria em **círculo de vidro com glow na cor** (`box-shadow: 0 0 14px color-mix(in srgb,
+  <cor> 30%, transparent)`), pills de parcela/competência em vidro flutuante agora **também no
+  mobile** (antes só desktop), montantes com `AmountText` (valor + original tachado), micro-press
+  físico com `TactilePress` (spring 450/25) no card inteiro, barra lateral de cor substituída
+  pelo badge de ícone no mobile.
+* **Headers de página:** labels "Parceladas" e "Despesas do mês" → `Eyebrow` (Expenses);
+  Incomes sem labels de seção (sem mudança). Bottom sheets já padronizados (R4).
+* **Critérios:** **480 testes verdes**; tsc/lint/guardrails/build OK.
 
 ### R10 — Contas & Faturas: Cartões Apple Wallet 3D
 * **Tilt 3D no hover (desktop):** `perspective: 1000px` + transform no mousemove (máx ±6°),

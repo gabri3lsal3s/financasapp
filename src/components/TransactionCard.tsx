@@ -3,7 +3,8 @@ import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import Card from '@/components/Card'
 import IconButton from '@/components/IconButton'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import TactilePress from '@/components/ui/tactile'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 
@@ -38,87 +39,81 @@ interface TransactionCardProps {
 function MobileLayout({
   title, subtitle, amount, originalAmount, dateLabel, categoryColor,
   categoryIconName, isOffline, onClick, staggerClass,
+  installmentInfo, billCompetenceLabel,
 }: TransactionCardProps) {
   const showOriginalAmount = originalAmount !== undefined && Math.abs(originalAmount - amount) > 0.009
 
   return (
-    <Card
-      onClick={onClick}
-      className={`w-full rounded-2xl surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
-    >
-      <div className="flex flex-1 h-full flex-col">
-        <div className="flex flex-1 items-stretch">
-          <div
-            className="w-[4px] flex-shrink-0 rounded-l-2xl"
-            style={{ backgroundColor: categoryColor }}
-          />
-          <div className="flex-1 px-4 py-3.5 flex flex-col justify-center min-w-0">
-            <div className="flex items-center justify-between gap-3 w-full">
-              <div className="flex-1 min-w-0">
-                <p
-                  className="text-sm font-semibold leading-snug flex items-center gap-2 w-full min-w-0 text-primary"
+    <TactilePress className="w-full">
+      <Card
+        onClick={onClick}
+        className={`w-full rounded-2xl surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
+      >
+        <div className="flex flex-1 h-full flex-col">
+          <div className="flex flex-1 items-stretch gap-3 px-3.5 py-3">
+            {/* Ícone de categoria em círculo de vidro com glow na cor (8.4) */}
+            <div className="flex items-center flex-shrink-0">
+              <span
+                className="flex items-center justify-center w-10 h-10 rounded-full surface-glass border border-glass"
+                style={{
+                  color: categoryColor,
+                  boxShadow: `0 0 14px color-mix(in srgb, ${categoryColor} 30%, transparent)`,
+                }}
+              >
+                {getCategoryIcon(subtitle, 17, categoryIconName)}
+              </span>
+            </div>
+
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <p className="text-sm font-semibold leading-snug flex items-center gap-2 w-full min-w-0 text-primary">
+                <span
+                  className="overflow-hidden whitespace-nowrap flex-grow"
+                  style={{
+                    maskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                  }}
                 >
-                  <span
-                    className="overflow-hidden whitespace-nowrap flex-grow"
-                    style={{
-                      maskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
-                      WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
-                    }}
-                  >
-                    {title}
+                  {title}
+                </span>
+                {isOffline && (
+                  <span title="Pendente de sincronização" className="flex-shrink-0 flex">
+                    <RefreshCw size={12} className="animate-spin text-[var(--ds-color-accent-primary)]" />
                   </span>
-                  {isOffline && (
-                    <span title="Pendente de sincronização" className="flex-shrink-0 flex">
-                      <RefreshCw size={12} className="animate-spin text-[var(--ds-color-accent-primary)]" />
-                    </span>
-                  )}
-                </p>
-                <div
-                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] leading-tight text-secondary"
-                >
-                  <div className="flex items-center gap-1.5 font-medium">
-                    <span
-                      style={{ color: categoryColor }}
-                      className="flex items-center justify-center flex-shrink-0"
-                    >
-                      {getCategoryIcon(subtitle, 12, categoryIconName)}
-                    </span>
-                    <span>{subtitle}</span>
-                  </div>
-                </div>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] leading-tight text-secondary">
+                <span className="font-medium">{subtitle}</span>
+                {installmentInfo && (
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border surface-glass border-glass text-secondary tracking-tight whitespace-nowrap">
+                    {installmentInfo}
+                  </span>
+                )}
+                {billCompetenceLabel && (
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border surface-glass border-glass text-secondary tracking-tight whitespace-nowrap">
+                    {billCompetenceLabel}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-2.5 flex-shrink-0">
-                <div className="flex flex-col items-end">
-                  {showOriginalAmount && (
-                    <div className="flex items-center gap-1 justify-end mb-0.5">
-                      <span
-                        className="text-[10px] line-through text-secondary opacity-60"
-                      >
-                        {formatCurrency(originalAmount)}
-                      </span>
-                      <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <p
-                      className="text-base font-bold leading-tight font-mono text-primary"
-                    >
-                      {formatCurrency(amount)}
-                    </p>
-                  </div>
-                  <div
-                    className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5 mt-0.5 text-[10px] font-medium tracking-tight text-secondary"
-                  >
-                    <span className="opacity-75 whitespace-nowrap">{dateLabel}</span>
-                  </div>
+            </div>
+
+            <div className="flex flex-col items-end justify-center flex-shrink-0">
+              {showOriginalAmount && (
+                <div className="flex items-center gap-1 justify-end mb-0.5">
+                  <span className="text-[10px] line-through text-secondary opacity-60">
+                    <AmountText value={originalAmount} size="xs" className="text-current" />
+                  </span>
+                  <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
                 </div>
-              </div>
+              )}
+              <AmountText value={amount} size="sm" />
+              <span className="opacity-75 whitespace-nowrap text-[10px] font-medium tracking-tight text-secondary mt-0.5">
+                {dateLabel}
+              </span>
             </div>
           </div>
         </div>
-
-      </div>
-    </Card>
+      </Card>
+    </TactilePress>
   )
 }
 
@@ -132,16 +127,13 @@ function DesktopLayout({
   const [day, month] = dateLabel.split('/')
 
   return (
-    <Card
-      onClick={onClick}
-      className={`w-full surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
-    >
-      <div className="flex flex-1 h-full flex-col">
-        <div className="flex flex-1 items-stretch">
-          <div
-            className="w-[3px] flex-shrink-0 rounded-l-sm"
-            style={{ backgroundColor: categoryColor }}
-          />
+    <TactilePress className="w-full">
+      <Card
+        onClick={onClick}
+        className={`w-full surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
+      >
+        <div className="flex flex-1 h-full flex-col">
+          <div className="flex flex-1 items-stretch">
           <div className="flex-1 px-3.5 py-3 flex flex-col justify-center min-w-0">
             <div className="flex items-center justify-between w-full gap-4 lg:gap-6">
               {/* Date block */}
@@ -171,8 +163,11 @@ function DesktopLayout({
                   )}
                 </p>
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold mt-0.5 animate-fade-in text-secondary/70">
-                  <span style={{ color: categoryColor }} className="flex items-center justify-center flex-shrink-0">
-                    {getCategoryIcon(subtitle, 12, categoryIconName)}
+                  <span
+                    style={{ color: categoryColor, boxShadow: `0 0 10px color-mix(in srgb, ${categoryColor} 28%, transparent)` }}
+                    className="flex items-center justify-center w-8 h-8 rounded-full surface-glass border border-glass flex-shrink-0"
+                  >
+                    {getCategoryIcon(subtitle, 14, categoryIconName)}
                   </span>
                   <span>{subtitle}</span>
                 </div>
@@ -208,14 +203,12 @@ function DesktopLayout({
                 {showOriginalAmount && (
                   <div className="flex items-center gap-1 justify-end mb-0.5">
                     <span className="text-[10px] line-through text-secondary opacity-60">
-                      {formatCurrency(originalAmount)}
+                      <AmountText value={originalAmount} size="xs" className="text-current" />
                     </span>
                     <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
                   </div>
                 )}
-                <p className="text-base font-extrabold leading-tight font-mono text-primary">
-                  {formatCurrency(amount)}
-                </p>
+                <AmountText value={amount} size="sm" weight="extrabold" />
               </div>
 
               {/* Quick Actions */}
@@ -239,7 +232,8 @@ function DesktopLayout({
           </div>
         </div>
       </div>
-    </Card>
+      </Card>
+    </TactilePress>
   )
 }
 

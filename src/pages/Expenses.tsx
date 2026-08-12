@@ -27,6 +27,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import EmptyState from '@/components/EmptyState'
+import { Eyebrow } from '@/components/ui/eyebrow'
 
 const PAYMENT_METHOD_LABELS: Record<NonNullable<Expense['payment_method']>, string> = {
   other: 'Outros',
@@ -315,7 +316,7 @@ export default function Expenses() {
             <div className="space-y-6">
               {installmentExpenses.length > 0 && (
                 <div className="space-y-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-secondary">Parceladas</p>
+                  <Eyebrow>Parceladas</Eyebrow>
                   <div className="flex flex-col gap-3 lg:gap-4">
                     {installmentExpenses.map((expense, index) => {
                       const category = categories.find((c) => c.id === expense.category_id)
@@ -357,7 +358,7 @@ export default function Expenses() {
               {monthExpenses.length > 0 && (
                 <div className="space-y-3">
                   {installmentExpenses.length > 0 && (
-                    <p className="text-xs font-medium uppercase tracking-wide text-secondary">Despesas do mês</p>
+                    <Eyebrow>Despesas do mês</Eyebrow>
                   )}
                   <div className="flex flex-col gap-3 lg:gap-4">
                     {monthExpenses.map((expense, index) => {
