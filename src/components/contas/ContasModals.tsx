@@ -22,7 +22,7 @@ import {
 } from '@/components/debts/DebtActionConfirmModals'
 import { Scale, CreditCard as CreditCardIcon } from 'lucide-react'
 import type { CreditCard, Category, IncomeCategory, Expense } from '@/types'
-import type { BillExpenseItem, BillPaymentDisplayItem } from '@/utils/creditCardBilling'
+import type { BillExpenseItem } from '@/utils/creditCardBilling'
 import type { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
 import type { UseContasModalsReturn } from '@/hooks/useContasModals'
 import type { UseContasActionsReturn } from '@/hooks/useContasActions'
@@ -36,7 +36,6 @@ interface ContasModalsProps {
   incomeCategories: IncomeCategory[]
   cycleCard: CreditCard | null
   billItemsByCard: Record<string, BillExpenseItem[]>
-  paymentItemsByCard: Record<string, BillPaymentDisplayItem[]>
   monthlyCyclesByCard: Record<string, MonthlyCycleRow>
   loading: boolean
   loadingCards: boolean
@@ -64,7 +63,6 @@ export default function ContasModals({
   incomeCategories,
   cycleCard,
   billItemsByCard,
-  paymentItemsByCard,
   monthlyCyclesByCard,
   loading,
   loadingCards,
@@ -202,7 +200,6 @@ export default function ContasModals({
             <CreditCardCsvReconciliationPanel
               card={card}
               currentMonth={currentMonth}
-              paymentItems={paymentItemsByCard[card.id] || []}
               categories={categories.map((category) => ({
                 id: category.id,
                 name: category.name,

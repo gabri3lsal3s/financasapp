@@ -215,7 +215,6 @@ export default function Contas() {
         incomeCategories={incomeCategories}
         cycleCard={cycleCard}
         billItemsByCard={billItemsByCard}
-        paymentItemsByCard={paymentItemsByCard}
         monthlyCyclesByCard={monthlyCyclesByCard}
         loading={loading}
         loadingCards={loadingCards}
