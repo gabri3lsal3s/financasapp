@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fetchAllPortfolioTransactions } from '@/services/cashOffsetService'
@@ -246,9 +247,9 @@ export function usePortfolioState() {
 
         return {
           ...pos,
-          target_percentage: Number(targetPct.toFixed(2)),
-          gap_financial: Number(gapFinancial.toFixed(2)),
-          gap_percentage: Number(gapPercentage.toFixed(2))
+          target_percentage: roundToDecimals(targetPct, 2),
+          gap_financial: roundToDecimals(gapFinancial, 2),
+          gap_percentage: roundToDecimals(gapPercentage, 2)
         }
       })
 

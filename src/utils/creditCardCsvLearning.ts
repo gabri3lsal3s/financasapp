@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 type CsvLearningEntry = {
   id: string
   officialDescription: string
@@ -138,7 +139,7 @@ export const suggestFromCreditCardCsvLearning = (officialDescription: string) =>
   return {
     categoryId: best.entry.categoryId,
     description: best.entry.suggestedDescription,
-    confidence: Number(best.score.toFixed(2)),
+    confidence: roundToDecimals(best.score, 2),
     sourceDescription: best.entry.officialDescription,
   }
 }

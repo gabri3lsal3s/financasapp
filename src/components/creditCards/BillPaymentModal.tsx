@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
+import { todayISO } from '@/utils/format'
 import Input from '@/components/Input'
 import CurrencyInput from '@/components/CurrencyInput'
 import ModalForm from '@/components/ModalForm'
@@ -33,11 +33,11 @@ export default function BillPaymentModal({
     if (isOpen) {
       if (editingPayment) {
         setPaymentAmount(Math.abs(editingPayment.amount) || 0)
-        setPaymentDate(editingPayment.payment_date || format(new Date(), 'yyyy-MM-dd'))
+        setPaymentDate(editingPayment.payment_date || todayISO())
         setPaymentNote(editingPayment.note || '')
       } else {
         setPaymentAmount(0)
-        setPaymentDate(format(new Date(), 'yyyy-MM-dd'))
+        setPaymentDate(todayISO())
         setPaymentNote('')
       }
     }

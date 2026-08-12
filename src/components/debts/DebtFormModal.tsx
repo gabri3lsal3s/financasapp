@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
+import { todayISO } from '@/utils/format'
 import Input from '@/components/Input'
 import CurrencyInput from '@/components/CurrencyInput'
 import Select from '@/components/Select'
@@ -35,7 +35,7 @@ const DEFAULT_DEBT_FORM = (): DebtFormState => ({
   name: '',
   type: 'payable',
   amount: 0,
-  due_date: format(new Date(), 'yyyy-MM-dd'),
+  due_date: todayISO(),
   description: '',
   status: 'pending',
 })

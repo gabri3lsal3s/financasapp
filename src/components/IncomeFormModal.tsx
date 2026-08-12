@@ -1,43 +1,43 @@
-import React, { useEffect, useState } from 'react'
-import { format } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
-import Modal from '@/components/Modal'
-import ModalForm from '@/components/ModalForm'
-import ModalFooter from '@/components/ModalFooter'
-import ConfirmModal from '@/components/ConfirmModal'
-import TransactionCurrencyFields from '@/components/TransactionCurrencyFields'
-import TransactionDateField from '@/components/TransactionDateField'
-import TransactionCategorySelect from '@/components/TransactionCategorySelect'
-import TransactionDescriptionField from '@/components/TransactionDescriptionField'
-import Select from '@/components/Select'
-import Button from '@/components/Button'
-import { Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { Income, IncomeCategory } from '@/types'
-import { logger } from '@/utils/logger'
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Modal from "@/components/Modal";
+import ModalForm from "@/components/ModalForm";
+import ModalFooter from "@/components/ModalFooter";
+import ConfirmModal from "@/components/ConfirmModal";
+import TransactionCurrencyFields from "@/components/TransactionCurrencyFields";
+import TransactionDateField from "@/components/TransactionDateField";
+import TransactionCategorySelect from "@/components/TransactionCategorySelect";
+import TransactionDescriptionField from "@/components/TransactionDescriptionField";
+import Select from "@/components/Select";
+import Button from "@/components/Button";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Income, IncomeCategory } from "@/types";
+import { logger } from "@/utils/logger";
 import {
   formatCurrency,
   formatDate,
   roundToDecimals,
-} from '@/utils/format'
+  todayISO,
+} from "@/utils/format";
 
-const REFUND_INCOME_CATEGORY_NAME = 'Estorno'
-const LEGACY_REFUND_INCOME_CATEGORY_NAME = 'Extorno'
-const REFUND_NOTE_PREFIX = '[REFUND]'
+const REFUND_INCOME_CATEGORY_NAME = "Estorno";
+const LEGACY_REFUND_INCOME_CATEGORY_NAME = "Extorno";
+const REFUND_NOTE_PREFIX = "[REFUND]";
 
 interface IncomeFormModalProps {
-  isOpen: boolean
-  onClose: () => void
-  editingIncome: Income | null
-  incomeCategories: IncomeCategory[]
+  isOpen: boolean;
+  onClose: () => void;
+  editingIncome: Income | null;
+  incomeCategories: IncomeCategory[];
   onCreate: (
-    income: Omit<Income, 'id' | 'created_at' | 'income_category'>
-  ) => Promise<{ data: Income | null; error: string | null }>
+    income: Omit<Income, "id" | "created_at" | "income_category">,
+  ) => Promise<{ data: Income | null; error: string | null }>;
   onUpdate: (
     id: string,
-    updates: Partial<Income>
-  ) => Promise<{ data: Income | null; error: string | null }>
-  onDelete: (id: string) => Promise<{ error: string | null }>
+    updates: Partial<Income>,
+  ) => Promise<{ data: Income | null; error: string | null }>;
+  onDelete: (id: string) => Promise<{ error: string | null }>;
 }
 
 export default function IncomeFormModal({
@@ -49,231 +49,231 @@ export default function IncomeFormModal({
   onUpdate,
   onDelete,
 }: IncomeFormModalProps) {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     amount: 0,
     report_amount: null as number | null,
-    date: format(new Date(), 'yyyy-MM-dd'),
-    income_category_id: '',
-    description: '',
-    type: 'other',
-  })
-  const [saving, setSaving] = useState(false)
+    date: todayISO(),
+    income_category_id: "",
+    description: "",
+    type: "other",
+  });
+  const [saving, setSaving] = useState(false);
 
-  const [refundOriginLoading, setRefundOriginLoading] = useState(false)
+  const [refundOriginLoading, setRefundOriginLoading] = useState(false);
   const [refundOrigin, setRefundOrigin] = useState<{
-    cardId: string
-    cardName: string
-    competence: string
-  } | null>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+    cardId: string;
+    cardName: string;
+    competence: string;
+  } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isRefundIncome = (income: Income) => {
     const category = incomeCategories.find(
-      (c) => c.id === income.income_category_id
-    )
-    const categoryName = String(category?.name || '').trim()
+      (c) => c.id === income.income_category_id,
+    );
+    const categoryName = String(category?.name || "").trim();
     return [
       REFUND_INCOME_CATEGORY_NAME,
       LEGACY_REFUND_INCOME_CATEGORY_NAME,
-    ].includes(categoryName)
-  }
+    ].includes(categoryName);
+  };
 
   const loadRefundOrigin = async (incomeId: string) => {
     try {
-      setRefundOriginLoading(true)
-      setRefundOrigin(null)
+      setRefundOriginLoading(true);
+      setRefundOrigin(null);
 
-      const likePattern = `${REFUND_NOTE_PREFIX}%\\"incomeId\\":\\"${String(incomeId)}\\"%`
+      const likePattern = `${REFUND_NOTE_PREFIX}%\\"incomeId\\":\\"${String(incomeId)}\\"%`;
 
       const { data: paymentRow, error: paymentError } = await supabase
-        .from('credit_card_bill_payments')
-        .select('credit_card_id, bill_competence, payment_date')
-        .like('note', likePattern)
-        .order('payment_date', { ascending: false })
+        .from("credit_card_bill_payments")
+        .select("credit_card_id, bill_competence, payment_date")
+        .like("note", likePattern)
+        .order("payment_date", { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .maybeSingle();
 
       if (paymentError || !paymentRow?.credit_card_id) {
-        return
+        return;
       }
 
       const { data: cardRow } = await supabase
-        .from('credit_cards')
-        .select('name')
-        .eq('id', String(paymentRow.credit_card_id))
-        .maybeSingle()
+        .from("credit_cards")
+        .select("name")
+        .eq("id", String(paymentRow.credit_card_id))
+        .maybeSingle();
 
       setRefundOrigin({
         cardId: String(paymentRow.credit_card_id),
-        cardName: String(cardRow?.name || 'Cartão'),
-        competence: String(paymentRow.bill_competence || ''),
-      })
+        cardName: String(cardRow?.name || "Cartão"),
+        competence: String(paymentRow.bill_competence || ""),
+      });
     } catch (e) {
-      logger.error('Erro ao buscar origem do estorno:', e)
+      logger.error("Erro ao buscar origem do estorno:", e);
     } finally {
-      setRefundOriginLoading(false)
+      setRefundOriginLoading(false);
     }
-  }
+  };
 
   // Sincronizar dados ao abrir
   useEffect(() => {
     if (isOpen) {
       if (editingIncome) {
-        const rw = editingIncome.report_weight
+        const rw = editingIncome.report_weight;
         const initialReportAmount =
           rw !== undefined && rw !== null
-            ? (rw === 1 ? null : roundToDecimals(editingIncome.amount * rw, 2))
-            : null
+            ? rw === 1
+              ? null
+              : roundToDecimals(editingIncome.amount * rw, 2)
+            : null;
 
         setFormData({
           amount: editingIncome.amount,
           report_amount: initialReportAmount,
           date: editingIncome.date,
           income_category_id: editingIncome.income_category_id,
-          description: editingIncome.description || '',
-          type: editingIncome.type || 'other',
-        })
+          description: editingIncome.description || "",
+          type: editingIncome.type || "other",
+        });
 
         if (isRefundIncome(editingIncome)) {
-          void loadRefundOrigin(editingIncome.id)
+          void loadRefundOrigin(editingIncome.id);
         } else {
-          setRefundOrigin(null)
-          setRefundOriginLoading(false)
+          setRefundOrigin(null);
+          setRefundOriginLoading(false);
         }
       } else {
         setFormData({
           amount: 0,
           report_amount: null,
-          date: format(new Date(), 'yyyy-MM-dd'),
-          income_category_id: incomeCategories[0]?.id || '',
-          description: '',
-          type: 'other',
-        })
-        setRefundOrigin(null)
-        setRefundOriginLoading(false)
+          date: todayISO(),
+          income_category_id: incomeCategories[0]?.id || "",
+          description: "",
+          type: "other",
+        });
+        setRefundOrigin(null);
+        setRefundOriginLoading(false);
       }
     }
-  }, [isOpen, editingIncome, incomeCategories])
-
+  }, [isOpen, editingIncome, incomeCategories]);
 
   const incomeCategoriesForManualCreation = incomeCategories.filter(
     (category) =>
-      String(category.name || '').trim().toLowerCase() !==
-      REFUND_INCOME_CATEGORY_NAME.toLowerCase()
-  )
+      String(category.name || "")
+        .trim()
+        .toLowerCase() !== REFUND_INCOME_CATEGORY_NAME.toLowerCase(),
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (saving) return
+    if (saving) return;
     if (editingIncome && isRefundIncome(editingIncome)) {
-      alert('Estornos devem ser editados pela tela de Cartões.')
-      return
+      alert("Estornos devem ser editados pela tela de Cartões.");
+      return;
     }
 
     if (!formData.amount || !formData.income_category_id) {
-      alert('Por favor, preencha todos os campos obrigatórios')
-      return
+      alert("Por favor, preencha todos os campos obrigatórios");
+      return;
     }
 
     if (!editingIncome) {
       const selectedCategory = incomeCategories.find(
-        (category) => category.id === formData.income_category_id
-      )
-      const selectedCategoryName = String(selectedCategory?.name || '').trim()
+        (category) => category.id === formData.income_category_id,
+      );
+      const selectedCategoryName = String(selectedCategory?.name || "").trim();
       if (
-        [REFUND_INCOME_CATEGORY_NAME, LEGACY_REFUND_INCOME_CATEGORY_NAME].includes(
-          selectedCategoryName
-        )
+        [
+          REFUND_INCOME_CATEGORY_NAME,
+          LEGACY_REFUND_INCOME_CATEGORY_NAME,
+        ].includes(selectedCategoryName)
       ) {
         alert(
-          'A categoria Estorno é reservada para lançamentos automáticos de estorno no cartão.'
-        )
-        return
+          "A categoria Estorno é reservada para lançamentos automáticos de estorno no cartão.",
+        );
+        return;
       }
     }
 
-    const amount = formData.amount
+    const amount = formData.amount;
     if (isNaN(amount) || amount <= 0) {
-      alert('Por favor, insira um valor válido maior que zero')
-      return
+      alert("Por favor, insira um valor válido maior que zero");
+      return;
     }
 
     const reportAmount =
       formData.report_amount !== null && formData.report_amount !== undefined
         ? formData.report_amount
-        : amount
+        : amount;
     if (isNaN(reportAmount) || reportAmount < 0 || reportAmount > amount) {
-      alert('O valor no relatório deve estar entre 0 e o valor da renda')
-      return
+      alert("O valor no relatório deve estar entre 0 e o valor da renda");
+      return;
     }
 
     const reportWeight =
-      amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1
+      amount > 0 ? roundToDecimals(reportAmount / amount, 4) : 1;
 
-    const incomeData: Omit<
-      Income,
-      'id' | 'created_at' | 'income_category'
-    > = {
+    const incomeData: Omit<Income, "id" | "created_at" | "income_category"> = {
       amount,
       report_weight: reportWeight,
       date: formData.date,
       income_category_id: formData.income_category_id,
-      type: formData.type as Income['type'],
+      type: formData.type as Income["type"],
       ...(formData.description && { description: formData.description }),
-    }
+    };
 
-    setSaving(true)
+    setSaving(true);
     try {
       if (editingIncome) {
-        const { error } = await onUpdate(editingIncome.id, incomeData)
+        const { error } = await onUpdate(editingIncome.id, incomeData);
         if (!error) {
-          onClose()
+          onClose();
         } else {
-          alert('Erro ao atualizar renda: ' + error)
+          alert("Erro ao atualizar renda: " + error);
         }
       } else {
-        const { error } = await onCreate(incomeData)
+        const { error } = await onCreate(incomeData);
         if (!error) {
-          onClose()
+          onClose();
         } else {
-          alert('Erro ao criar renda: ' + error)
+          alert("Erro ao criar renda: " + error);
         }
       }
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDeleteFromModal = () => {
-    if (!editingIncome) return
+    if (!editingIncome) return;
 
     if (isRefundIncome(editingIncome)) {
-      alert('Estornos devem ser excluídos pela tela de Cartões.')
-      return
+      alert("Estornos devem ser excluídos pela tela de Cartões.");
+      return;
     }
 
-    setShowDeleteConfirm(true)
-  }
+    setShowDeleteConfirm(true);
+  };
 
   const confirmDeleteIncome = async () => {
-    if (!editingIncome) return
+    if (!editingIncome) return;
 
-    const { error } = await onDelete(editingIncome.id)
+    const { error } = await onDelete(editingIncome.id);
     if (error) {
-      alert('Erro ao excluir renda: ' + error)
-      return
+      alert("Erro ao excluir renda: " + error);
+      return;
     }
 
-    setShowDeleteConfirm(false)
-    onClose()
-  }
+    setShowDeleteConfirm(false);
+    onClose();
+  };
 
-  const showRefund = editingIncome && isRefundIncome(editingIncome)
+  const showRefund = editingIncome && isRefundIncome(editingIncome);
 
   if (showRefund && editingIncome) {
-    const income = editingIncome
+    const income = editingIncome;
     return (
       <Modal
         isOpen={isOpen}
@@ -286,13 +286,15 @@ export default function IncomeFormModal({
             <p className="text-base font-semibold text-primary">
               {formatCurrency(income.amount)}
             </p>
-            <p className="text-xs text-secondary">Data: {formatDate(income.date)}</p>
             <p className="text-xs text-secondary">
-              Categoria:{' '}
+              Data: {formatDate(income.date)}
+            </p>
+            <p className="text-xs text-secondary">
+              Categoria:{" "}
               {income.income_category?.name || REFUND_INCOME_CATEGORY_NAME}
             </p>
             <p className="text-xs text-secondary">
-              Descrição: {income.description || 'Estorno de compra'}
+              Descrição: {income.description || "Estorno de compra"}
             </p>
           </div>
 
@@ -305,8 +307,9 @@ export default function IncomeFormModal({
             ) : refundOrigin ? (
               <>
                 <p className="text-sm text-primary">
-                  Este estorno foi criado no cartão <strong>{refundOrigin.cardName}</strong> na
-                  fatura <strong>{refundOrigin.competence}</strong>.
+                  Este estorno foi criado no cartão{" "}
+                  <strong>{refundOrigin.cardName}</strong> na fatura{" "}
+                  <strong>{refundOrigin.competence}</strong>.
                 </p>
                 <Button
                   type="button"
@@ -314,10 +317,10 @@ export default function IncomeFormModal({
                   onClick={() => {
                     navigate(
                       `/contas?month=${encodeURIComponent(
-                        refundOrigin.competence
-                      )}&card=${encodeURIComponent(refundOrigin.cardId)}`
-                    )
-                    onClose()
+                        refundOrigin.competence,
+                      )}&card=${encodeURIComponent(refundOrigin.cardId)}`,
+                    );
+                    onClose();
                   }}
                 >
                   Ir para fatura no cartão
@@ -325,100 +328,105 @@ export default function IncomeFormModal({
               </>
             ) : (
               <p className="text-sm text-secondary">
-                Não foi possível identificar a fatura/cartão de origem deste estorno.
+                Não foi possível identificar a fatura/cartão de origem deste
+                estorno.
               </p>
             )}
           </div>
         </div>
       </Modal>
-    )
+    );
   }
 
   return (
     <>
-    <ModalForm
-      isOpen={isOpen}
-      onClose={onClose}
-      title={editingIncome ? 'Editar renda' : 'Adicionar renda'}
-      onSubmit={handleSubmit}
-      footer={(formId) => (
-        <ModalFooter
-          formId={formId}
-          onCancel={onClose}
-          submitLabel={editingIncome ? 'Salvar alterações' : 'Salvar'}
-          submitDisabled={saving}
-          deleteLabel={editingIncome ? 'Excluir renda' : undefined}
-          onDelete={editingIncome ? handleDeleteFromModal : undefined}
-          loading={saving}
+      <ModalForm
+        isOpen={isOpen}
+        onClose={onClose}
+        title={editingIncome ? "Editar renda" : "Adicionar renda"}
+        onSubmit={handleSubmit}
+        footer={(formId) => (
+          <ModalFooter
+            formId={formId}
+            onCancel={onClose}
+            submitLabel={editingIncome ? "Salvar alterações" : "Salvar"}
+            submitDisabled={saving}
+            deleteLabel={editingIncome ? "Excluir renda" : undefined}
+            onDelete={editingIncome ? handleDeleteFromModal : undefined}
+            loading={saving}
+          />
+        )}
+      >
+        <TransactionCurrencyFields
+          amount={formData.amount}
+          reportAmount={formData.report_amount}
+          onSetAmounts={(next) => setFormData((prev) => ({ ...prev, ...next }))}
         />
-      )}
-    >
-      <TransactionCurrencyFields
-        amount={formData.amount}
-        reportAmount={formData.report_amount}
-        onSetAmounts={(next) =>
-          setFormData((prev) => ({ ...prev, ...next }))
-        }
-      />
 
-      <TransactionDateField
-        value={formData.date}
-        onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
-      />
+        <TransactionDateField
+          value={formData.date}
+          onChange={(val) => setFormData((prev) => ({ ...prev, date: val }))}
+        />
 
-      <TransactionCategorySelect
-        label="Categoria de Renda"
-        value={formData.income_category_id}
-        onChange={(val) => setFormData((prev) => ({ ...prev, income_category_id: val }))}
-        options={(editingIncome ? incomeCategories : incomeCategoriesForManualCreation).map(
-          (cat) => ({
+        <TransactionCategorySelect
+          label="Categoria de Renda"
+          value={formData.income_category_id}
+          onChange={(val) =>
+            setFormData((prev) => ({ ...prev, income_category_id: val }))
+          }
+          options={(editingIncome
+            ? incomeCategories
+            : incomeCategoriesForManualCreation
+          ).map((cat) => ({
             value: cat.id,
             label: cat.name,
-          })
+          }))}
+        />
+
+        <Select
+          label="Forma de recebimento"
+          value={formData.type}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, type: e.target.value }))
+          }
+          options={[
+            { value: "other", label: "Outros" },
+            { value: "cash", label: "Dinheiro" },
+            { value: "pix", label: "PIX" },
+            { value: "transfer", label: "Transferência" },
+          ]}
+        />
+
+        {!editingIncome && (
+          <p className="text-xs text-secondary">
+            A categoria Estorno é criada/gerenciada automaticamente pela tela de
+            cartões.
+          </p>
         )}
-      />
 
-      <Select
-        label="Forma de recebimento"
-        value={formData.type}
-        onChange={(e) =>
-          setFormData((prev) => ({ ...prev, type: e.target.value }))
-        }
-        options={[
-          { value: 'other', label: 'Outros' },
-          { value: 'cash', label: 'Dinheiro' },
-          { value: 'pix', label: 'PIX' },
-          { value: 'transfer', label: 'Transferência' },
-        ]}
-      />
+        <TransactionDescriptionField
+          value={formData.description}
+          onChange={(val) =>
+            setFormData((prev) => ({ ...prev, description: val }))
+          }
+          placeholder="Ex: Salário mensal, Projeto X..."
+        />
+      </ModalForm>
 
-      {!editingIncome && (
-        <p className="text-xs text-secondary">
-          A categoria Estorno é criada/gerenciada automaticamente pela tela de
-          cartões.
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Excluir renda"
+        confirmLabel="Excluir renda"
+        confirmVariant="danger"
+        requireCheckbox={true}
+        checkboxLabel="Estou ciente de que esta renda será excluída permanentemente."
+        onConfirm={() => void confirmDeleteIncome()}
+      >
+        <p className="text-sm text-primary">
+          Tem certeza que deseja excluir esta renda?
         </p>
-      )}
-
-      <TransactionDescriptionField
-        value={formData.description}
-        onChange={(val) => setFormData((prev) => ({ ...prev, description: val }))}
-        placeholder="Ex: Salário mensal, Projeto X..."
-      />
-
-    </ModalForm>
-
-    <ConfirmModal
-      isOpen={showDeleteConfirm}
-      onClose={() => setShowDeleteConfirm(false)}
-      title="Excluir renda"
-      confirmLabel="Excluir renda"
-      confirmVariant="danger"
-      requireCheckbox={true}
-      checkboxLabel="Estou ciente de que esta renda será excluída permanentemente."
-      onConfirm={() => void confirmDeleteIncome()}
-    >
-      <p className="text-sm text-primary">Tem certeza que deseja excluir esta renda?</p>
-    </ConfirmModal>
+      </ConfirmModal>
     </>
-  )
+  );
 }

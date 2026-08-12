@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 /**
  * Valor ponderado para relatórios (snapshot via report_weight no registro).
  */
@@ -20,7 +21,7 @@ export const computeReportWeightFromAmounts = (
 ): number => {
   if (!Number.isFinite(baseAmount) || baseAmount === 0) return 1
   const ratio = reportAmount / baseAmount
-  return Number.isFinite(ratio) ? Number(ratio.toFixed(4)) : 1
+  return Number.isFinite(ratio) ? roundToDecimals(ratio, 4) : 1
 }
 
 export type BillRowWithWeight = {
@@ -43,7 +44,7 @@ export const applyReportWeightToBillRow = <T extends BillRowWithWeight>(
   const weighted = getWeightedReportAmount(baseAmount, row.report_weight)
   return {
     ...row,
-    amount: Number(weighted.toFixed(2)),
+    amount: roundToDecimals(weighted, 2),
     base_amount: baseAmount,
   }
 }

@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
 import { similarity } from '@/utils/creditCardCsvLearning'
 
@@ -481,7 +482,7 @@ export const parseCreditCardInvoiceCsv = (content: string, provider: CreditCardC
     const parsedItem: OfficialInvoiceItem = {
       id: `official-${rowIndex}-${Math.random().toString(36).slice(2, 8)}`,
       date,
-      amount: Number(normalizedAmount.toFixed(2)),
+      amount: roundToDecimals(normalizedAmount, 2),
       description,
       kind: isRefund ? 'refund' : 'purchase',
       isRefund,
@@ -587,13 +588,13 @@ export const calculateInvoiceTotals = (
   const identifiedTotal = matchedTotal + conflictTotalBase // O que já temos no sistema que "bate"
   
   return {
-    officialTotal: Number(officialTotal.toFixed(2)),
-    matchedTotal: Number(matchedTotal.toFixed(2)),
-    conflictTotalBase: Number(conflictTotalBase.toFixed(2)),
-    conflictTotalSuggested: Number(conflictTotalSuggested.toFixed(2)),
-    missingTotal: Number(missingTotal.toFixed(2)),
-    identifiedTotal: Number(identifiedTotal.toFixed(2)),
-    difference: Number((officialTotal - identifiedTotal).toFixed(2))
+    officialTotal: roundToDecimals(officialTotal, 2),
+    matchedTotal: roundToDecimals(matchedTotal, 2),
+    conflictTotalBase: roundToDecimals(conflictTotalBase, 2),
+    conflictTotalSuggested: roundToDecimals(conflictTotalSuggested, 2),
+    missingTotal: roundToDecimals(missingTotal, 2),
+    identifiedTotal: roundToDecimals(identifiedTotal, 2),
+    difference: roundToDecimals((officialTotal - identifiedTotal), 2)
   }
 }
 
@@ -641,7 +642,7 @@ export const reconcileCreditCardBill = (
 
         const score = isExactDateAndAmount
           ? 1
-          : Number(((amountScore * 0.60 + dateScore * 0.30 + descriptionScore * 0.10) * signalMultiplier).toFixed(4))
+          : roundToDecimals(((amountScore * 0.60 + dateScore * 0.30 + descriptionScore * 0.10) * signalMultiplier), 4)
 
         return {
           existing,

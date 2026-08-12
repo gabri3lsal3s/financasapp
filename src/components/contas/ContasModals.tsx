@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { todayISO } from '@/utils/format'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
@@ -307,7 +307,7 @@ export default function ContasModals({
         defaultValues={modals.selectedDebtForPayableExpense ? {
           amount: modals.selectedDebtForPayableExpense.amount,
           description: modals.selectedDebtForPayableExpense.name,
-          date: modals.selectedDebtForPayableExpense.due_date || format(new Date(), 'yyyy-MM-dd'),
+          date: modals.selectedDebtForPayableExpense.due_date || todayISO(),
         } : undefined}
       />
 

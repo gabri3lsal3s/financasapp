@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 import { addMonths, format } from 'date-fns'
 import { applyReportWeightToBillRow } from '@/utils/reportWeight'
 
@@ -192,7 +193,7 @@ export const splitAmountIntoInstallments = (totalAmount: number, installments: n
 
   return Array.from({ length: installmentCount }, (_, index) => {
     const cents = baseInstallment + (index < remainder ? 1 : 0)
-    return Number((cents / 100).toFixed(2))
+    return roundToDecimals((cents / 100), 2)
   })
 }
 

@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 import type { ValuedPosition } from './portfolioCalculations'
 import type { PortfolioGroupTarget } from '@/types'
 
@@ -125,11 +126,11 @@ export function simulateRebalanceAporte(
         ticker: pos.ticker,
         quantity,
         price: pos.current_price,
-        totalBrl: Number(costBrl.toFixed(2)),
+        totalBrl: roundToDecimals(costBrl, 2),
         currency: pos.currency,
         currentPercentage: pos.current_percentage,
-        newPercentage: Number(newPercentage.toFixed(2)),
-        targetPercentage: Number(item.targetPct.toFixed(2)),
+        newPercentage: roundToDecimals(newPercentage, 2),
+        targetPercentage: roundToDecimals(item.targetPct, 2),
         assetClass: pos.asset_class
       })
     }
@@ -137,6 +138,6 @@ export function simulateRebalanceAporte(
 
   return {
     suggestions,
-    fallbackAmount: Number(remainingAporte.toFixed(2))
+    fallbackAmount: roundToDecimals(remainingAporte, 2)
   }
 }

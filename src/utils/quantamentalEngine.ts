@@ -1,3 +1,4 @@
+import { roundToDecimals } from '@/utils/format'
 import {
   ScuttlebuttAnswer,
   ScuttlebuttPillar,
@@ -49,7 +50,7 @@ export function calculateScuttlebuttScore(
 
     if (hasAnswers && totalActiveQuestionWeight > 0) {
       const pScore = (earnedQuestionWeight / totalActiveQuestionWeight) * 100
-      pillarScores[pillar.id] = Number(pScore.toFixed(2))
+      pillarScores[pillar.id] = roundToDecimals(pScore, 2)
       activePillarWeights[pillar.id] = Number(pillar.weight_percentage)
       totalActivePillarWeight += Number(pillar.weight_percentage)
     }
@@ -68,7 +69,7 @@ export function calculateScuttlebuttScore(
   }
 
   return {
-    score: Number(finalScore.toFixed(2)),
+    score: roundToDecimals(finalScore, 2),
     pillarScores,
     activePillarWeights
   }
@@ -732,7 +733,7 @@ export function simulateSmartAporte(
 
   return {
     suggestions,
-    fallbackAmount: Number(remainingAporte.toFixed(2)),
+    fallbackAmount: roundToDecimals(remainingAporte, 2),
     routingLog
   }
 }
