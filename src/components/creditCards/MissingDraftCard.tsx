@@ -5,39 +5,7 @@ import { formatCurrency, formatDate, parseMoneyInput } from '@/utils/format'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
 import ReconciliationAlert from '@/components/reconciliation/ReconciliationAlert'
-
-export interface MissingDraft {
-  id: string
-  selected: boolean
-  date: string
-  amount: string
-  description: string
-  category_id: string
-  learnedSuggestion: {
-    enabled: boolean
-    confidence?: number
-  }
-  possibleExistingMatch?: {
-    id: string
-    date: string
-    amount: number
-    description: string
-    paymentMethod: string
-    wrongDate: boolean
-    wrongPaymentMethod: boolean
-  } | null
-  official: {
-    isRefund: boolean
-    amount: number
-    date: string
-    description: string
-  }
-}
-
-interface CategoryOption {
-  id: string
-  name: string
-}
+import type { CategoryOption, MissingDraft } from '@/utils/csvReconciliationUi'
 
 interface MissingDraftCardProps {
   draft: MissingDraft

@@ -14,11 +14,11 @@ interface CsvReviewStepProps {
   draftByOfficialId: Record<string, MissingDraft>
 }
 
-const filterTabs: { id: FilterTab; label: string; color: string }[] = [
-  { id: 'all', label: 'Todos', color: 'primary' },
-  { id: 'missing', label: 'Faltando', color: 'expense' },
-  { id: 'conflicts', label: 'Conflitos', color: 'warning' },
-  { id: 'matched', label: 'Conciliados', color: 'income' },
+const filterTabs: { id: FilterTab; label: string }[] = [
+  { id: 'all', label: 'Todos' },
+  { id: 'missing', label: 'Faltando' },
+  { id: 'conflicts', label: 'Conflitos' },
+  { id: 'matched', label: 'Conciliados' },
 ]
 
 export default function CsvReviewStep({

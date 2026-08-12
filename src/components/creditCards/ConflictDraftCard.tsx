@@ -4,23 +4,7 @@ import { formatCurrency, formatDate } from '@/utils/format'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
 import ReconciliationAlert from '@/components/reconciliation/ReconciliationAlert'
-import type { InstallmentAnalysis } from '@/utils/creditCardCsvReconciliation'
-
-export interface ConflictDraft {
-  key: string
-  existingId: string
-  officialId: string
-  selected: boolean
-  applied: boolean
-  autoResolvedByInstallment: boolean
-  date: string
-  amount: string
-  existingDescription: string
-  officialDescription: string
-  installmentLabel?: string
-  isRefund: boolean
-  installmentAnalysis?: InstallmentAnalysis | null
-}
+import type { ConflictDraft } from '@/utils/csvReconciliationUi'
 
 interface ConflictDraftCardProps {
   draft: ConflictDraft
