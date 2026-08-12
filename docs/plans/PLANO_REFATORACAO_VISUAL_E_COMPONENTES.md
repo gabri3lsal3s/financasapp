@@ -42,7 +42,7 @@ Verificação empírica (wc -l, 12/08/2026):
 | Arquivo / Módulo | Linhas Atuais | Dores Identificadas | Meta Pós-Refatoração |
 | :--- | :--- | :--- | :--- |
 | `src/pages/Contas.tsx` | **1.792** | Orquestrador com 5 blocos grandes de JSX (cartões, faturas, conciliação CSV, dívidas, ~12 modais). Já consome hooks (`useContasBills`, `useContasModals`) e modais extraídos. | **< 250 linhas** (orquestrador + render de seções delegado) |
-| `src/pages/Reports.tsx` | **1.452** | Gráficos, métricas, exportação e filtros misturados; já existem 18 componentes em `components/reports/`. | **< 220 linhas** |
+| `src/pages/Reports.tsx` | **1.452 → 219** ✅ | Gráficos, métricas, exportação e filtros misturados; já existem 18 componentes em `components/reports/`. | **< 220 linhas** ✅ |
 | `src/pages/Settings.tsx` | **816** | Abas de aparência, segurança biométrica e painel admin sem isolamento. | **< 150 linhas** (abas modulares) |
 | `src/pages/Categories.tsx` | **716** (não ~600 como na v1) | Listas de categorias de despesa/renda + grids existentes em `components/categories/`. | **< 180 linhas** |
 | `src/components/TransactionCard.tsx` | **359** | Expansão inline tipo sanfona causa layout shift; detalhes devem ir para bottom sheet. | **Feed Card + Bottom Sheet** |
@@ -408,7 +408,7 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | 1 | Primitivos DRY + deps | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** (39 arquivos, +5 AnimatedNumber) · build OK · 4 pacotes Radix órfãos removidos |
 | 2 | Bottom Sheets | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · dragToDismiss no sheet + TransactionDetailDrawer + fim da sanfona inline |
 | 3 | Contas.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1795 → 233 linhas** · 5 novos módulos + 3 hooks |
-| 4 | Reports.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1452 → 211 linhas** · hook de dados + cabeçalho extraídos |
+| 4 | Reports.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1452 → 219 linhas** · hook de dados + cabeçalho extraídos (valor final pós-revisão: props focados no header) |
 | 5 | Settings + Categories | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **Settings 824→127** e **Categories 716→164** |
 | 6 | Shell + CSS | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **Layout 471→125** e **AppTopBar 389→126** · navegação em constante + hook · overlays em `topbar/` · dead CSS removido |
 
@@ -433,7 +433,7 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 - Criado `src/components/categories/CategoriesTabs.tsx` (tabs mobile) e `CategoriesModals.tsx` (3 modais centralizados).
 
 ### Fase 4 — Registro de mudanças
-- `src/pages/Reports.tsx`: **1.452 → 211 linhas** (−85%). Orquestrador enxuto: page actions, swipes, render dos views e modal de detalhe.
+- `src/pages/Reports.tsx`: **1.452 → 219 linhas** (−85%). Orquestrador enxuto: page actions, swipes, render dos views e modal de detalhe.
 - Criado `src/hooks/useReportsData.ts` (1.280 linhas): toda a lógica de dados da página — períodos disponíveis, carteira de investimentos do mês, mapas de cor, agregados anuais/mensais, período customizado, trends, daily/weekday consolidated, seletores "ativos" (mês vs custom) e toggles de séries. Ordem de hooks e deep-links (`?month`, `?view`, `?detailType`, `?detailCategoryId`) preservados fielmente.
 - Criado `src/components/reports/ReportsPageHeader.tsx`: seletor de período (mês/ano/custom), tabs de modo de visualização e badge de pesos — com props focados (sem acoplar ao objeto `data` inteiro, evitando re-render com arrays pesados).
 - `Reports.tsx` mantém apenas: `usePageActions` (comparação histórica + pesos), swipes de mês/ano e o render de `AnnualReportView`/`MonthlyReportView`/`EmptyState` + `CategoryDetailModal`.

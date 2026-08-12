@@ -58,17 +58,14 @@ export default function Reports() {
   const monthSwipe = useSwipeMonth(selectedMonth, setSelectedMonth)
 
   // Swipe de ano — ativo quando no modo ano
-  const yearSwipe = useSwipeYear(
-    selectedYear,
-    (year) => {
-      setSelectedYear(year)
-      const monthsForYear = availableMonths.filter((m) => m.startsWith(`${year}-`))
-      if (monthsForYear.length > 0) setSelectedMonth(monthsForYear[0])
-    }
-  )
+  const yearSwipe = useSwipeYear(selectedYear, (year) => {
+    setSelectedYear(year)
+    const monthsForYear = availableMonths.filter((m) => m.startsWith(`${year}-`))
+    if (monthsForYear.length > 0) setSelectedMonth(monthsForYear[0])
+  })
 
   // Handler combinado: delega ao hook correto conforme o modo ativo
-  const swipeHandlers = viewMode === 'month' ? monthSwipe : (viewMode === 'year' ? yearSwipe : {})
+  const swipeHandlers = viewMode === 'month' ? monthSwipe : viewMode === 'year' ? yearSwipe : {}
 
   if (loadingState) {
     return (
@@ -82,7 +79,6 @@ export default function Reports() {
 
   return (
     <div className="min-h-[calc(100dvh-12rem)] flex flex-col" {...swipeHandlers}>
-
       <div className="p-4 lg:p-6 space-y-6 animate-page-enter">
         <ReportsPageHeader
           viewMode={viewMode}
@@ -218,7 +214,6 @@ export default function Reports() {
         previousMonth={data.previousMonth}
         isCustomPeriod={viewMode === 'custom'}
       />
-
     </div>
   )
 }
