@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { SECTION_GAP, CONTENT_MAX_WIDTH, KPI_GRID, CARD_BASE_FLAT } from '@/constants/layout'
 import type { WidgetId, DashboardWidgetMeta } from '@/hooks/useDashboardLayout'
 import { useDashboardFinances } from '@/contexts/DashboardDataContext'
-import { formatCurrency } from '@/utils/format'
+import AmountText, { type AmountTone } from '@/components/ui/amount-text'
 import WidgetCard from '@/components/dashboard/WidgetCard'
 import DashboardCategoryDetailModal from '@/components/dashboard/DashboardCategoryDetailModal'
 
@@ -126,25 +126,25 @@ export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps
                 icon={<TrendingUp size={15} />}
                 label="Rendas"
                 value={totalIncomes}
-                color="text-income"
+                tone="income"
               />
               <KpiCard
                 icon={<TrendingDown size={15} />}
                 label="Despesas"
                 value={totalExpenses}
-                color="text-expense"
+                tone="expense"
               />
               <KpiCard
                 icon={<PiggyBank size={15} />}
                 label="Investimentos"
                 value={totalInvestments}
-                color="text-balance"
+                tone="balance"
               />
               <KpiCard
                 icon={<Wallet size={15} />}
                 label="Saldo"
                 value={balance}
-                color={balance >= 0 ? 'text-income' : 'text-expense'}
+                tone={balance >= 0 ? 'income' : 'expense'}
               />
             </div>
           )}
@@ -202,7 +202,7 @@ export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps
 /*  KpiCard interno                                                    */
 /* ------------------------------------------------------------------ */
 
-function KpiCard({ icon, label, value, color }: { icon: ReactNode; label: string; value: number; color: string }) {
+function KpiCard({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: AmountTone }) {
   return (
     <div className={cn(CARD_BASE_FLAT, 'p-3 sm:p-4 flex flex-col justify-between min-h-[72px] sm:min-h-0')}>
       <div className="flex items-center justify-between gap-2">
@@ -211,9 +211,13 @@ function KpiCard({ icon, label, value, color }: { icon: ReactNode; label: string
         </span>
         <span className="shrink-0 opacity-40">{icon}</span>
       </div>
-      <p className={cn('text-sm sm:text-base font-extrabold font-mono leading-tight mt-1', color)}>
-        {formatCurrency(value)}
-      </p>
+      <AmountText
+        value={value}
+        size="sm"
+        weight="extrabold"
+        tone={tone}
+        className="mt-1"
+      />
     </div>
   )
 }

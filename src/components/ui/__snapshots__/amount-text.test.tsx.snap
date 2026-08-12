@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AmountText > renderiza valor BRL formatado com classes padrão (snapshot) 1`] = `
+<span
+  class="font-mono tabular-nums tracking-tight text-base sm:text-lg text-primary font-bold"
+>
+  R$ 248,50
+</span>
+`;

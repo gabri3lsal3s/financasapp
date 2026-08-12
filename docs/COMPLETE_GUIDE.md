@@ -303,6 +303,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 |------------|--------|
 | `TransactionCurrencyFields` | Par de inputs (valor + peso relatório) com sincronização e valores numéricos via `CurrencyInput` |
 | `CurrencyInput` | Input monetário com máscara reversa estilo Nubank (`Intl.NumberFormat`, `inputMode="numeric"`) |
+| `AmountText` | Exibição padronizada de valores monetários (`ui/amount-text.tsx`): tabular-nums, tamanhos/tones/weights, formatação via `format.ts` — fonte única de tipografia de valores |
 | `TransactionDateField` | Input de data padronizado |
 | `TransactionCategorySelect` | Select de categoria |
 | `TransactionDescriptionField` | Input de descrição |

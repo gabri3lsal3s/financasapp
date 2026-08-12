@@ -140,6 +140,7 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Card | `src/components/Card.tsx` | Agrupamento visual |
 | Ícone | `src/components/IconButton.tsx` | Ações compactas |
 | Número animado | `src/components/ui/animated-number.tsx` | Contadores de KPI (respeita `prefers-reduced-motion`) |
+| Valor monetário | `src/components/ui/amount-text.tsx` | Tipografia tabular + formatação central via `format.ts` — **nunca formatar moeda à mão fora dele** |
 | Eyebrow | `src/components/ui/eyebrow.tsx` | Label uppercase `text-[10px]` com tone (`secondary`/`income`/`expense`), weight e tracking — substitui padrão inline repetido em 17 usos |
 | Card glass | `src/components/ui/glass-card.tsx` | Superfície `surface-glass` com variante `interactive` (hover-lift/press) para links clicáveis |
 | Layout | `src/components/Layout.tsx` | Shell autenticado + nav (orquestrador enxuto, 125 linhas) |
