@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { usePageActions } from '@/hooks/usePageActions'
 import SectionHeader from '@/components/SectionHeader'
+import PageHeader from '@/components/PageHeader'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import ThemeSwitcher from '@/components/ThemeSwitcher'
@@ -300,6 +301,13 @@ export default function Settings() {
   return (
     <div>
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 animate-page-enter">
+
+        {/* Cabeçalho de conteúdo da página */}
+        <PageHeader
+          title="Configurações"
+          subtitle="Ajuste o tema, a segurança e as preferências do app"
+          truncateSubtitleOnMobile
+        />
 
         {/* Navigation */}
         <Card className="animate-stagger-item delay-50">

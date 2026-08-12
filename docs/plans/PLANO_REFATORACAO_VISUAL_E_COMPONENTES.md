@@ -405,12 +405,18 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | Fase | Descrição | Status | Data | Validação |
 | :--- | :--- | :--- | :--- | :--- |
 | **0** | Saneamento da baseline de guardrails | ✅ **Concluída** | 12/08/2026 | guardrails:ui verde · tsc limpo · **438 testes OK** · build OK · lint sem erros novos |
-| 1 | Primitivos DRY + deps | ⬜ Pendente | — | — |
+| 1 | Primitivos DRY + deps | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** (39 arquivos, +5 AnimatedNumber) · build OK · 4 pacotes Radix órfãos removidos |
 | 2 | Bottom Sheets | ⬜ Pendente | — | — |
 | 3 | Contas.tsx | ⬜ Pendente | — | — |
 | 4 | Reports.tsx | ⬜ Pendente | — | — |
 | 5 | Settings + Categories | ⬜ Pendente | — | — |
 | 6 | Shell + CSS | ⬜ Pendente | — | — |
+
+### Fase 1 — Registro de mudanças
+- Criado `src/components/ui/animated-number.tsx`: contador animado com `requestAnimationFrame`, easing easeOutCubic, `prefers-reduced-motion` respeitado e formatação via `formatNumberBR` (Regra 3). Restrito a KPIs (Regra de performance). Teste: `animated-number.test.tsx` (5 casos).
+- Criado `src/components/PageHeader.tsx`: cabeçalho de conteúdo de página (`h2` — o `h1` global é do `AppTopBar`), com `title`, `subtitle`, `action` e `truncateSubtitleOnMobile` (mobile-only). Integrado no topo de `Settings.tsx`.
+- Removidos 4 pacotes Radix órfãos (sem uso no código): `@radix-ui/react-dropdown-menu`, `@radix-ui/react-scroll-area`, `@radix-ui/react-separator`, `@radix-ui/react-tooltip` — do `package.json` e do `manualChunks` em `vite.config.ts`.
+- Verificação DRY: `Skeleton.tsx` já era re-export puro de `ui/skeleton`; wrappers `Button/Card/Switch/Checkbox/Input/Modal` já delegam para `ui/` (adapters de API legada, sem duplicação). `Select.tsx` mantido como exceção documentada (features extras: sublabel, openUpward, sentinel de vazio).
 
 ### Fase 0 — Registro de mudanças
 - `DashboardCategoryDetailModal.tsx`: `.toFixed(1)` → `formatPercentBR(pctOfTotal, 1)` (Regra 3) e `${color}20/15` → `color-mix(in srgb, ...)` (Regra 1).

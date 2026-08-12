@@ -134,9 +134,10 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Confirmação | `src/components/ConfirmModal.tsx` | Delete e 2-step |
 | Footer modal | `src/components/ModalFooter.tsx` | Híbrido: ícones (mobile) / texto (desktop) |
 | Card de escolha | `src/components/GlassChoiceCard.tsx` | Seletores tipo "Novo lançamento" |
-| Cabeçalho | `src/components/PageHeader.tsx` | Único `h1` por página |
+| Cabeçalho | `src/components/PageHeader.tsx` | Cabeçalho de conteúdo (h2 — o h1 global é do `AppTopBar`) |
 | Card | `src/components/Card.tsx` | Agrupamento visual |
 | Ícone | `src/components/IconButton.tsx` | Ações compactas |
+| Número animado | `src/components/ui/animated-number.tsx` | Contadores de KPI (respeita `prefers-reduced-motion`) |
 | Layout | `src/components/Layout.tsx` | Shell autenticado + nav |
 
 ### Componentes de domínio (reutilizar antes de criar novos)
