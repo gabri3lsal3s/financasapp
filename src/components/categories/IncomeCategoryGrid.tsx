@@ -6,6 +6,7 @@ import CurrencyInput from '@/components/CurrencyInput'
 import EmptyState from '@/components/EmptyState'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import AmountText from '@/components/ui/amount-text'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import { getStaggerClass } from '@/constants/animation'
@@ -87,15 +88,15 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
       {/* KPIs de Rendas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Expectativa Total</span>
+          <Eyebrow tracking="widest">Expectativa Total</Eyebrow>
           <AmountText value={incomesKpis.expectationSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Recebido</span>
+          <Eyebrow tracking="widest">Total Recebido</Eyebrow>
           <AmountText value={incomesKpis.receivedSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Restante</span>
+          <Eyebrow tracking="widest">Meta Restante</Eyebrow>
           <AmountText
             value={Math.max(0, incomesKpis.remaining)}
             size="md"
@@ -105,7 +106,7 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Atingida</span>
+            <Eyebrow tracking="widest">Meta Atingida</Eyebrow>
             <span className="text-xs font-bold text-primary font-mono">{Math.round(incomesKpis.percentage)}%</span>
           </div>
           <div className="w-full h-2 rounded-full bg-secondary/15 mt-3 overflow-hidden">

@@ -190,7 +190,7 @@ export default function AssetDetailModal({
         {/* Grade de KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="rounded-2xl border border-glass surface-glass p-3.5 space-y-1">
-            <span className="text-[9px] uppercase font-black text-secondary tracking-wider block">Total Custodiado</span>
+            <Eyebrow weight="black" block>Total Custodiado</Eyebrow>
             <span className="block leading-tight">
               <AmountText value={valueInBrl} size="md" weight="extrabold" />
             </span>
@@ -202,7 +202,7 @@ export default function AssetDetailModal({
           </div>
 
           <div className="rounded-2xl border border-glass surface-glass p-3.5 space-y-1">
-            <span className="text-[9px] uppercase font-black text-secondary tracking-wider block">Rentabilidade</span>
+            <Eyebrow weight="black" block>Rentabilidade</Eyebrow>
             <span className={`text-base font-black font-mono block leading-tight ${isProfit ? 'text-income' : 'text-expense'}`}>
               {formatSignedPercentBR(position.gross_yield_pct)}
             </span>
@@ -215,7 +215,7 @@ export default function AssetDetailModal({
           </div>
 
           <div className="rounded-2xl border border-glass surface-glass p-3.5 space-y-1 col-span-2 sm:col-span-1">
-            <span className="text-[9px] uppercase font-black text-secondary tracking-wider block">Quantidade</span>
+            <Eyebrow weight="black" block>Quantidade</Eyebrow>
             <span className="text-base font-black font-mono text-primary block leading-tight">
               {formatQuantityBR(position.quantity, 6)}
             </span>

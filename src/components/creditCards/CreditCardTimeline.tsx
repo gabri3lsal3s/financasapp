@@ -5,6 +5,7 @@ import type { CreditCard } from '@/types'
 import { ensureHexColor } from '@/utils/colorValue'
 import { formatDate } from '@/utils/format'
 import AmountText from '@/components/ui/amount-text'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import { Z_INDEX } from '@/constants/zIndex'
 
 export type MonthlyCycleRow = {
@@ -300,9 +301,7 @@ export default function CreditCardTimeline({
           </div>
 
           <div className="absolute top-5 left-0 -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
-              Previsto
-            </span>
+            <Eyebrow>Previsto</Eyebrow>
             <AmountText value={baseExpense !== undefined ? baseExpense : totalPrevisto} size="sm" weight="extrabold" className="mt-0.5" nowrap />
             {baseExpense !== undefined && baseExpense !== totalPrevisto && (
               <span className="text-[9px] text-secondary/60 font-sans flex items-center gap-0.5 justify-center">
@@ -316,16 +315,12 @@ export default function CreditCardTimeline({
           </div>
 
           <div className="absolute top-5 left-1/2 -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
-              Pago
-            </span>
+            <Eyebrow>Pago</Eyebrow>
             <AmountText value={totalPago} size="sm" weight="extrabold" tone="income" className="mt-0.5" nowrap />
           </div>
 
           <div className="absolute top-5 left-full -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
-              Saldo
-            </span>
+            <Eyebrow>Saldo</Eyebrow>
             <AmountText value={saldoAberto} size="sm" weight="extrabold" tone={saldoAberto > 0.009 ? 'default' : 'muted'} className="mt-0.5" nowrap />
           </div>
         </div>
