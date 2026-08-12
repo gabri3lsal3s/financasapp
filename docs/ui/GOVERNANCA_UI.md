@@ -149,6 +149,15 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 - `ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`
 - `src/components/consulting/**` — assessoria
 
+**Página Relatórios (Fase 4 — orquestrador enxuto):**
+
+| Componente/Hook | Arquivo | Responsabilidade |
+|-----------------|---------|------------------|
+| Dados do relatório | `src/hooks/useReportsData.ts` | Toda a lógica de dados (períodos, agregados, trends, período custom, seletores ativos) |
+| Cabeçalho | `src/components/reports/ReportsPageHeader.tsx` | Seletor de período + tabs de modo + badge de pesos (props focados) |
+| Views | `src/components/reports/AnnualReportView.tsx` / `MonthlyReportView.tsx` | Renderização anual/mensal (pré-existentes) |
+| Detalhe | `src/components/reports/CategoryDetailModal.tsx` | Drill-down de categoria (pré-existente) |
+
 **Página Contas (Fase 3 — orquestrador enxuto):**
 
 | Componente/Hook | Arquivo | Responsabilidade |

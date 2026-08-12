@@ -408,9 +408,15 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | 1 | Primitivos DRY + deps | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** (39 arquivos, +5 AnimatedNumber) · build OK · 4 pacotes Radix órfãos removidos |
 | 2 | Bottom Sheets | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · dragToDismiss no sheet + TransactionDetailDrawer + fim da sanfona inline |
 | 3 | Contas.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1795 → 233 linhas** · 5 novos módulos + 3 hooks |
-| 4 | Reports.tsx | ⬜ Pendente | — | — |
+| 4 | Reports.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1452 → 211 linhas** · hook de dados + cabeçalho extraídos |
 | 5 | Settings + Categories | ⬜ Pendente | — | — |
 | 6 | Shell + CSS | ⬜ Pendente | — | — |
+
+### Fase 4 — Registro de mudanças
+- `src/pages/Reports.tsx`: **1.452 → 211 linhas** (−85%). Orquestrador enxuto: page actions, swipes, render dos views e modal de detalhe.
+- Criado `src/hooks/useReportsData.ts` (1.280 linhas): toda a lógica de dados da página — períodos disponíveis, carteira de investimentos do mês, mapas de cor, agregados anuais/mensais, período customizado, trends, daily/weekday consolidated, seletores "ativos" (mês vs custom) e toggles de séries. Ordem de hooks e deep-links (`?month`, `?view`, `?detailType`, `?detailCategoryId`) preservados fielmente.
+- Criado `src/components/reports/ReportsPageHeader.tsx`: seletor de período (mês/ano/custom), tabs de modo de visualização e badge de pesos — com props focados (sem acoplar ao objeto `data` inteiro, evitando re-render com arrays pesados).
+- `Reports.tsx` mantém apenas: `usePageActions` (comparação histórica + pesos), swipes de mês/ano e o render de `AnnualReportView`/`MonthlyReportView`/`EmptyState` + `CategoryDetailModal`.
 
 ### Fase 3 — Registro de mudanças
 - `src/pages/Contas.tsx`: **1.795 → 233 linhas** (−87%). Virou orquestrador enxuto: hooks de dados, memos de estado, render de seções e delegação de modais/handlers.
