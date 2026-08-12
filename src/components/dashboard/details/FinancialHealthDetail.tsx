@@ -1,4 +1,4 @@
-import { useDashboardFinances, useDashboardBudget } from '@/contexts/DashboardDataContext'
+import { useDashboardFinances, useDashboardBudget } from '@/contexts/dashboardDataContext'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import { AlertTriangle, Check, Calendar } from 'lucide-react'

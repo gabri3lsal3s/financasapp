@@ -22,12 +22,12 @@ import PortfolioTransactionFormModal from '@/components/investments/PortfolioTra
 import DashboardWidgetGrid from '@/components/dashboard/DashboardWidgetGrid'
 import WidgetSettingsSheet from '@/components/dashboard/WidgetSettingsSheet'
 import { useDashboardLayout } from '@/hooks/useDashboardLayout'
+import { DashboardDataProvider } from '@/contexts/DashboardDataContext'
 import {
-  DashboardDataProvider,
   useDashboardData,
   useDashboardActions,
   useDashboardPortfolioContext,
-} from '@/contexts/DashboardDataContext'
+} from '@/contexts/dashboardDataContext'
 import { initRecurringLearning } from '@/utils/recurringExpenseLearning'
 
 /* ------------------------------------------------------------------ */

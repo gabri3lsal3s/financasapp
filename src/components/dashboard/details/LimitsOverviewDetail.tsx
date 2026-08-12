@@ -1,8 +1,8 @@
-import { useDashboardBudget } from '@/contexts/DashboardDataContext'
+import { useDashboardBudget } from '@/contexts/dashboardDataContext'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import { useOpenCategoryDetail } from '@/components/dashboard/DashboardWidgetGrid'
+import { useOpenCategoryDetail } from '@/components/dashboard/categoryDetailContext'
 
 export default function LimitsOverviewDetail() {
   const { limitUsedPercentage, categoriesAttentionList } = useDashboardBudget()

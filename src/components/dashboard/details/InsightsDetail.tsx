@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useDashboardFinances, useDashboardBudget } from '@/contexts/DashboardDataContext'
+import { useDashboardFinances, useDashboardBudget } from '@/contexts/dashboardDataContext'
 import { formatCurrency, formatNumberWithTwoDecimalsBR, formatMonth } from '@/utils/format'
 import { Sparkles, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Calendar, Target } from 'lucide-react'
 

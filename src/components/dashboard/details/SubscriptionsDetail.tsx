@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useDashboardInsightsContext } from '@/contexts/DashboardDataContext'
+import { useDashboardInsightsContext } from '@/contexts/dashboardDataContext'
 import { formatCurrency } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import { ignoreSubscription, restoreSubscription } from '@/utils/ignoredSubscriptions'

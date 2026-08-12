@@ -51,6 +51,8 @@ export interface DashboardData {
 
   // Chart
   dailyFlowData: Array<{ day: string; Rendas: number; Despesas: number; Investimentos: number }>
+  /** Despesas diárias do mês anterior (sparkline comparativo do Hero). */
+  previousMonthDailyExpenses: Array<{ day: string; Despesas: number }>
 
   // Derived
   previousMonthExpenseTotal: number
@@ -279,7 +281,7 @@ export function useDashboardData(): DashboardData {
     weekdayExpenseData, limitsExceededCount, incomeByCategory,
     spendingPace, spendingProjection, balance,
     expenses, previousMonthExpenses, expensesMinus2, expensesMinus3,
-    categories, expensesWithLimit,
+    categories, expensesWithLimit, incomes.length,
   ])
 
   const { insights, refreshInsights } = useDashboardInsights(aiInput)
@@ -340,6 +342,25 @@ export function useDashboardData(): DashboardData {
     return series
   }, [currentMonth, incomes, expenses, portfolioTransactions])
 
+  // ── Despesas diárias do mês anterior (curva comparativa do Hero) ──
+  const previousMonthDailyExpenses = useMemo(() => {
+    const [year, month] = previousMonth.split('-').map(Number)
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const series = Array.from({ length: daysInMonth }, (_, index) => ({
+      day: String(index + 1).padStart(2, '0'),
+      Despesas: 0,
+    }))
+
+    previousMonthExpenses.forEach((expense) => {
+      const day = new Date(`${expense.date}T00:00:00`).getDate()
+      if (day >= 1 && day <= daysInMonth) {
+        series[day - 1].Despesas += applyReportWeight(expense.amount, expense.report_weight)
+      }
+    })
+
+    return series
+  }, [previousMonth, previousMonthExpenses])
+
   return {
     loading,
     hasMonthlyData,
@@ -358,6 +379,7 @@ export function useDashboardData(): DashboardData {
     limitUsedPercentage,
     progressColor,
     dailyFlowData,
+    previousMonthDailyExpenses,
     previousMonthExpenseTotal,
     weekdayExpenseData,
     insights,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useDashboardFinances } from '@/contexts/DashboardDataContext'
+import { useDashboardFinances } from '@/contexts/dashboardDataContext'
 import DailyFlowChart from '@/components/dashboard/DailyFlowChart'
 
 export default function DailyFlowDetail() {

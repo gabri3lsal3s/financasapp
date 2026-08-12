@@ -1,11 +1,16 @@
-import { lazy, Component, useState, createContext, useContext, type ReactNode } from 'react'
+import { lazy, Component, useState, type ReactNode } from 'react'
 import { AlertTriangle, TrendingUp, TrendingDown, PiggyBank, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SECTION_GAP, CONTENT_MAX_WIDTH, KPI_GRID, CARD_BASE_FLAT } from '@/constants/layout'
 import type { WidgetId, DashboardWidgetMeta } from '@/hooks/useDashboardLayout'
-import { useDashboardFinances } from '@/contexts/DashboardDataContext'
+import { useDashboardFinances } from '@/contexts/dashboardDataContext'
 import AmountText, { type AmountTone } from '@/components/ui/amount-text'
 import WidgetCard from '@/components/dashboard/WidgetCard'
+import DashboardHero from '@/components/dashboard/DashboardHero'
+import {
+  CategoryDetailContext,
+  type CategoryDetailTarget,
+} from '@/components/dashboard/categoryDetailContext'
 import DashboardCategoryDetailModal from '@/components/dashboard/DashboardCategoryDetailModal'
 
 /* ── Lazy imports dos details ── */
@@ -53,20 +58,6 @@ class ErrorFallback extends Component<ErrorFallbackProps, ErrorFallbackState> {
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
 /* ------------------------------------------------------------------ */
-
-export interface CategoryDetailTarget {
-  categoryId: string
-  categoryName: string
-  color: string
-  type: 'expense' | 'income'
-}
-
-/* Contexto para compartilhar o callback de abertura do modal */
-const CategoryDetailContext = createContext<((target: CategoryDetailTarget) => void) | null>(null)
-
-export function useOpenCategoryDetail() {
-  return useContext(CategoryDetailContext)
-}
 
 interface DashboardWidgetGridProps {
   layout: {
@@ -119,6 +110,9 @@ export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps
     <CategoryDetailContext.Provider value={setDetailTarget}>
       <div className={cn(CONTENT_MAX_WIDTH)}>
         <div className={cn(SECTION_GAP)}>
+          {/* ── Hero: Saldo consolidado + sparkline comparativo ── */}
+          <DashboardHero />
+
           {/* ── KPI Bar (mobile: 2×2, desktop: 4 colunas) ── */}
           {hasAnyData && (
             <div className={cn(KPI_GRID)}>

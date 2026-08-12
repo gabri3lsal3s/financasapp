@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Search, TrendingDown, TrendingUp } from 'lucide-react'
-import { useDashboardData } from '@/contexts/DashboardDataContext'
+import { useDashboardData } from '@/contexts/dashboardDataContext'
 import { formatCurrency, formatPercentBR } from '@/utils/format'
 import { applyReportWeight } from '@/utils/reportWeight'
 import Modal from '@/components/Modal'

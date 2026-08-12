@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react'
 import { X, Check, Undo2, Calendar, TrendingUp, TrendingDown } from 'lucide-react'
-import { useDashboardData } from '@/contexts/DashboardDataContext'
+import { useDashboardData } from '@/contexts/dashboardDataContext'
 import { formatCurrency, formatDate } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import Modal from '@/components/Modal'

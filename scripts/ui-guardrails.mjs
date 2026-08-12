@@ -7,6 +7,16 @@ const BASELINE_PATH = path.join(ROOT_DIR, 'docs', 'ui', 'guardrails-baseline.jso
 
 const FILE_EXTENSIONS = new Set(['.ts', '.tsx'])
 
+/**
+ * Módulos de dados com cores institucionais (marcas bancárias) — exceção
+ * consciente à regra ui-no-raw-hex-color: são dados de branding, não tokens
+ * de design (que continuam obrigatórios em toda a UI).
+ */
+const HEX_COLOR_DATA_ALLOWLIST = new Set([
+  'src/utils/bankBranding.ts',
+  'src/utils/bankBranding.test.ts',
+])
+
 const RULES = [
   {
     id: 'ui-no-direct-number-formatting',
@@ -20,7 +30,8 @@ const RULES = [
   {
     id: 'ui-no-raw-hex-color',
     description: 'Evitar cores HEX hardcoded; usar tokens do design system.',
-    appliesTo: (relativePath) => relativePath.startsWith('src/'),
+    appliesTo: (relativePath) =>
+      relativePath.startsWith('src/') && !HEX_COLOR_DATA_ALLOWLIST.has(relativePath),
     regex: /#[0-9a-fA-F]{3,8}\b/g,
   },
   {

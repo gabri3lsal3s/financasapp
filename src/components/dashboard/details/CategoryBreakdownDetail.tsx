@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { useDashboardBudget } from '@/contexts/DashboardDataContext'
+import { useDashboardBudget } from '@/contexts/dashboardDataContext'
 import { formatCurrency, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import { useOpenCategoryDetail } from '@/components/dashboard/DashboardWidgetGrid'
+import { useOpenCategoryDetail } from '@/components/dashboard/categoryDetailContext'
 
 export default function CategoryBreakdownDetail() {
   const { expenseByCategory } = useDashboardBudget()

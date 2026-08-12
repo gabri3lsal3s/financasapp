@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { resolveCardColor } from '@/utils/bankBranding'
 import { Plus, Pencil, Calendar, Undo2, Wallet, FileUp, ChevronUp, ChevronDown, CreditCard as CreditCardIcon } from 'lucide-react'
 import Button from '@/components/Button'
 import EmptyState from '@/components/EmptyState'
@@ -122,7 +123,7 @@ export default function CreditCardSection({
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
                       className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full shadow-sm shrink-0"
-                      style={{ backgroundColor: card.color || 'var(--color-primary)' }}
+                      style={{ backgroundColor: resolveCardColor(card.name, card.color) }}
                     />
                     <div className="text-left min-w-0">
                       <p className="text-xs sm:text-sm font-bold text-primary truncate">{card.name}</p>

@@ -141,6 +141,8 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Ícone | `src/components/IconButton.tsx` | Ações compactas |
 | Número animado | `src/components/ui/animated-number.tsx` | Contadores de KPI (respeita `prefers-reduced-motion`) |
 | Valor monetário | `src/components/ui/amount-text.tsx` | Tipografia tabular + formatação central via `format.ts` — **nunca formatar moeda à mão fora dele** |
+| Sparkline comparativo | `src/components/ui/comparison-sparkline.tsx` | Gráfico SVG duplo (atual × anterior, pontilhado) com fallback; lógica pura em `utils/comparisonSparkline.ts` (fora da regra de formatação direta) |
+| Cores institucionais | `src/utils/bankBranding.ts` | **Exceção governada** ao `ui-no-raw-hex-color`: dados de marca (15+ bancos), não tokens — allowlist em `scripts/ui-guardrails.mjs` |
 | Eyebrow | `src/components/ui/eyebrow.tsx` | Label uppercase `text-[10px]` com tone (`secondary`/`income`/`expense`), weight e tracking — substitui padrão inline repetido em 17 usos |
 | Card glass | `src/components/ui/glass-card.tsx` | Superfície `surface-glass` com variante `interactive` (hover-lift/press) para links clicáveis |
 | Layout | `src/components/Layout.tsx` | Shell autenticado + nav (orquestrador enxuto, 125 linhas) |
