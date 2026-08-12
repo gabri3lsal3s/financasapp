@@ -17,6 +17,7 @@ import { Plus, TrendingUp } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import TransactionCard from '@/components/TransactionCard'
+import TransactionDetailDrawer from '@/components/transactions/TransactionDetailDrawer'
 import IncomeFormModal from '@/components/IncomeFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -42,14 +43,7 @@ export default function Incomes() {
   useSearchHighlight()
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
-
-  const toggleExpand = (id: string, isDefaultExpanded: boolean) => {
-    setExpandedIds((prev) => ({
-      ...prev,
-      [id]: !(prev[id] !== undefined ? prev[id] : isDefaultExpanded),
-    }))
-  }
+  const [detailIncome, setDetailIncome] = useState<Income | null>(null)
   const { incomes, loading, createIncome, updateIncome, deleteIncome } = useIncomes(currentMonth)
   const { categories, loading: categoriesLoading } = useCategories()
   const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
@@ -115,14 +109,36 @@ export default function Incomes() {
     setEditingIncome(null)
   }
 
-  // Expande o card no mobile quando navega por resultado da busca
+  /** Abre o drawer de detalhes de uma renda (mobile: bottom sheet). */
+  const handleOpenDetail = (income: Income) => setDetailIncome(income)
+
+  /** Fecha o drawer e abre o formulário de edição.
+   *  Delay curto evita conflito de focus-trap entre dois Radix Dialogs no
+   *  mesmo tick (drawer fechando + form abrindo). */
+  const handleEditFromDetail = () => {
+    if (!detailIncome) return
+    const income = detailIncome
+    setDetailIncome(null)
+    setTimeout(() => handleOpenModal(income), 160)
+  }
+
+  /** Fecha o drawer e dispara o fluxo de exclusão existente. */
+  const handleDeleteFromDetail = async () => {
+    if (!detailIncome) return
+    const income = detailIncome
+    setDetailIncome(null)
+    setTimeout(() => setDeleteConfirmState({ isOpen: true, id: income.id }), 160)
+  }
+
+  // Abre o drawer de detalhes quando navega por resultado da busca
   useEffect(() => {
     const shouldExpand = searchParams.get('expand') === '1'
     const highlightId = searchParams.get('highlight')
     if (shouldExpand && highlightId && isMobile) {
-      setExpandedIds((prev) => ({ ...prev, [highlightId]: true }))
+      const target = incomes.find((i) => i.id === highlightId)
+      if (target) setDetailIncome(target)
     }
-  }, [searchParams, isMobile])
+  }, [searchParams, isMobile, incomes])
 
   useEffect(() => {
     const quickAdd = searchParams.get('quickAdd')
@@ -175,9 +191,6 @@ export default function Incomes() {
                 const [_, categoryIconName] = (category?.color || '').split('|')
                 const staggerClass = getStaggerClass(index)
 
-                const isDefaultExpanded = false
-                const isExpanded = expandedIds[income.id] !== undefined ? expandedIds[income.id] : isDefaultExpanded
-
                 return (
                   <div key={income.id} id={`item-${income.id}`}>
                     <TransactionCard
@@ -189,17 +202,8 @@ export default function Incomes() {
                       categoryColor={categoryColor}
                       categoryIconName={categoryIconName}
                       isOffline={income.id.startsWith('offline-')}
-                      onClick={() => handleOpenModal(income)}
+                      onClick={() => handleOpenDetail(income)}
                       staggerClass={staggerClass}
-                      isExpanded={isExpanded}
-                      onToggleExpand={() => toggleExpand(income.id, isDefaultExpanded)}
-                      onEdit={() => handleOpenModal(income)}
-                      onDelete={async () => {
-                        setDeleteConfirmState({
-                          isOpen: true,
-                          id: income.id,
-                        })
-                      }}
                       paymentLabel={INCOME_TYPE_LABELS[income.type || 'other']}
                       paymentColor={INCOME_TYPE_COLORS[income.type || 'other']}
                     />
@@ -210,6 +214,29 @@ export default function Incomes() {
           )}
         </MonthTransitionView>
       </div>
+
+      {/* Drawer de detalhes (mobile: bottom sheet com swipe-to-dismiss) */}
+      <TransactionDetailDrawer
+        isOpen={detailIncome !== null}
+        onClose={() => setDetailIncome(null)}
+        title={detailIncome?.description || detailIncome?.income_category?.name || 'Renda'}
+        subtitle={detailIncome?.income_category?.name || 'Sem categoria'}
+        amount={detailIncome ? getWeightedReportAmount(detailIncome.amount, detailIncome.report_weight) : 0}
+        originalAmount={detailIncome?.amount}
+        dateLabel={detailIncome ? formatDate(detailIncome.date).substring(0, 5) : ''}
+        categoryColor={detailIncome ? (() => {
+          const category = incomeCategories.find((c) => c.id === detailIncome.income_category_id)
+          return category?.color
+            ? getCategoryColorForPalette(category.color, colorPalette)
+            : 'var(--color-income)'
+        })() : 'var(--color-income)'}
+        categoryIconName={detailIncome ? (detailIncome.income_category?.color || '').split('|')[1] : undefined}
+        isOffline={detailIncome?.id.startsWith('offline-') ?? false}
+        paymentLabel={detailIncome ? INCOME_TYPE_LABELS[detailIncome.type || 'other'] : undefined}
+        paymentColor={detailIncome ? INCOME_TYPE_COLORS[detailIncome.type || 'other'] : undefined}
+        onEdit={handleEditFromDetail}
+        onDelete={handleDeleteFromDetail}
+      />
 
       <IncomeFormModal
         isOpen={isModalOpen}

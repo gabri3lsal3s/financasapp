@@ -151,6 +151,8 @@ export default function Modal({
         <SheetContent
           side="bottom"
           showCloseButton={false}
+          dragToDismiss
+          onDragDismiss={onClose}
           overlayClassName={stack.overlay}
           aria-describedby={undefined}
           onPointerDownOutside={(e) => {

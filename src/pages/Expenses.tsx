@@ -20,6 +20,7 @@ import { Plus, TrendingDown } from 'lucide-react'
 
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
+import TransactionDetailDrawer from '@/components/transactions/TransactionDetailDrawer'
 import ExpenseFormModal from '@/components/ExpenseFormModal'
 import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -70,14 +71,7 @@ export default function Expenses() {
   useSearchHighlight()
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonthString)
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
-
-  const toggleExpand = (id: string, isDefaultExpanded: boolean) => {
-    setExpandedIds((prev) => ({
-      ...prev,
-      [id]: !(prev[id] !== undefined ? prev[id] : isDefaultExpanded),
-    }))
-  }
+  const [detailExpense, setDetailExpense] = useState<Expense | null>(null)
   const { expenses, loading, createExpense, updateExpense, deleteExpense } = useExpenses(currentMonth)
   const { categories, loading: categoriesLoading } = useCategories()
   const { incomeCategories, loading: incomeCategoriesLoading } = useIncomeCategories()
@@ -158,6 +152,39 @@ export default function Expenses() {
     setEditingExpense(null)
   }
 
+  /** Abre o drawer de detalhes de uma despesa (mobile: bottom sheet). */
+  const handleOpenDetail = (expense: Expense) => setDetailExpense(expense)
+
+  /** Fecha o drawer e abre o formulário de edição.
+   *  Delay curto evita conflito de focus-trap entre dois Radix Dialogs no
+   *  mesmo tick (drawer fechando + form abrindo). */
+  const handleEditFromDetail = () => {
+    if (!detailExpense) return
+    const expense = detailExpense
+    setDetailExpense(null)
+    setTimeout(() => handleOpenModal(expense), 160)
+  }
+
+  /** Fecha o drawer e dispara o fluxo de exclusão existente. */
+  const handleDeleteFromDetail = async () => {
+    if (!detailExpense) return
+    const expense = detailExpense
+    setDetailExpense(null)
+    setTimeout(() => {
+      if (Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
+        setDeleteModalState({
+          isOpen: true,
+          type: 'expense',
+          id: expense.id,
+          installmentNumber: expense.installment_number || 1,
+          installmentTotal: expense.installment_total || 1,
+        })
+      } else {
+        setDeleteConfirmState({ isOpen: true, id: expense.id })
+      }
+    }, 160)
+  }
+
   const handleDeleteExpenseFromFormModal = async (id: string) => {
     const expense = expenses.find((e) => e.id === id)
     if (expense && Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
@@ -179,14 +206,15 @@ export default function Expenses() {
     }
   }
 
-  // Expande o card no mobile quando navega por resultado da busca
+  // Abre o drawer de detalhes quando navega por resultado da busca
   useEffect(() => {
     const shouldExpand = searchParams.get('expand') === '1'
     const highlightId = searchParams.get('highlight')
     if (shouldExpand && highlightId && isMobile) {
-      setExpandedIds((prev) => ({ ...prev, [highlightId]: true }))
+      const target = expenses.find((e) => e.id === highlightId)
+      if (target) setDetailExpense(target)
     }
-  }, [searchParams, isMobile])
+  }, [searchParams, isMobile, expenses])
 
   useEffect(() => {
     const quickAdd = searchParams.get('quickAdd')
@@ -301,9 +329,6 @@ export default function Expenses() {
                       const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
                       const staggerClass = getStaggerClass(index)
 
-                      const isDefaultExpanded = false
-                      const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
-
                       return (
                         <div key={expense.id} id={`item-${expense.id}`}>
                           <TransactionCard
@@ -315,31 +340,12 @@ export default function Expenses() {
                             categoryColor={categoryColor}
                             categoryIconName={categoryIconName}
                             isOffline={expense.id.startsWith('offline-')}
-                            onClick={() => handleOpenModal(expense)}
+                            onClick={() => handleOpenDetail(expense)}
                             staggerClass={staggerClass}
                             installmentInfo={`${expense.installment_number || 1}/${expense.installment_total}`}
                             paymentLabel={paymentLabel}
                             paymentColor={getPaymentMethodColor(expense)}
                             billCompetenceLabel={billCompetenceLabel}
-                            isExpanded={isExpanded}
-                            onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
-                            onEdit={() => handleOpenModal(expense)}
-                            onDelete={async () => {
-                              if (Number(expense.installment_total || 1) > 1 && expense.installment_group_id) {
-                                setDeleteModalState({
-                                  isOpen: true,
-                                  type: 'expense',
-                                  id: expense.id,
-                                  installmentNumber: expense.installment_number || 1,
-                                  installmentTotal: expense.installment_total || 1,
-                                })
-                              } else {
-                                setDeleteConfirmState({
-                                  isOpen: true,
-                                  id: expense.id,
-                                })
-                              }
-                            }}
                           />
                         </div>
                       )
@@ -366,9 +372,6 @@ export default function Expenses() {
                       const { dateLabel, billCompetenceLabel } = getCardDateAndCompetence(expense)
                       const staggerClass = getStaggerClass(index)
 
-                      const isDefaultExpanded = false
-                      const isExpanded = expandedIds[expense.id] !== undefined ? expandedIds[expense.id] : isDefaultExpanded
-
                       return (
                         <div key={expense.id} id={`item-${expense.id}`}>
                           <TransactionCard
@@ -380,20 +383,11 @@ export default function Expenses() {
                             categoryColor={categoryColor}
                             categoryIconName={categoryIconName}
                             isOffline={expense.id.startsWith('offline-')}
-                            onClick={() => handleOpenModal(expense)}
+                            onClick={() => handleOpenDetail(expense)}
                             staggerClass={staggerClass}
                             paymentLabel={paymentLabel}
                             paymentColor={getPaymentMethodColor(expense)}
                             billCompetenceLabel={billCompetenceLabel}
-                            isExpanded={isExpanded}
-                            onToggleExpand={() => toggleExpand(expense.id, isDefaultExpanded)}
-                            onEdit={() => handleOpenModal(expense)}
-                            onDelete={async () => {
-                              setDeleteConfirmState({
-                                isOpen: true,
-                                id: expense.id,
-                              })
-                            }}
                           />
                         </div>
                       )
@@ -405,6 +399,36 @@ export default function Expenses() {
           )}
         </MonthTransitionView>
       </div>
+
+      {/* Drawer de detalhes (mobile: bottom sheet com swipe-to-dismiss) */}
+      <TransactionDetailDrawer
+        isOpen={detailExpense !== null}
+        onClose={() => setDetailExpense(null)}
+        title={detailExpense?.description || detailExpense?.category?.name || 'Despesa'}
+        subtitle={detailExpense?.category?.name || 'Sem categoria'}
+        amount={detailExpense ? getWeightedReportAmount(detailExpense.amount, detailExpense.report_weight) : 0}
+        originalAmount={detailExpense?.amount}
+        dateLabel={detailExpense ? (() => {
+          const [, m, d] = detailExpense.date.split('-')
+          return `${d}/${m}`
+        })() : ''}
+        categoryColor={detailExpense ? (() => {
+          const category = categories.find((c) => c.id === detailExpense.category_id)
+          return category?.color
+            ? getCategoryColorForPalette(category.color, colorPalette)
+            : (detailExpense.category?.id
+              ? (categoryColorMap[detailExpense.category.id] || getCategoryColorForPalette(detailExpense.category.color, colorPalette))
+              : 'var(--color-expense)')
+        })() : 'var(--color-expense)'}
+        categoryIconName={detailExpense ? (detailExpense.category?.color || '').split('|')[1] : undefined}
+        isOffline={detailExpense?.id.startsWith('offline-') ?? false}
+        installmentInfo={detailExpense ? `${detailExpense.installment_number || 1}/${detailExpense.installment_total}` : undefined}
+        paymentLabel={detailExpense ? getPaymentMethodLabel(detailExpense) : undefined}
+        paymentColor={detailExpense ? getPaymentMethodColor(detailExpense) : undefined}
+        billCompetenceLabel={detailExpense ? getCardDateAndCompetence(detailExpense).billCompetenceLabel : undefined}
+        onEdit={handleEditFromDetail}
+        onDelete={handleDeleteFromDetail}
+      />
 
       <ExpenseFormModal
         isOpen={isModalOpen}

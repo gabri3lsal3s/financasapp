@@ -131,6 +131,8 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 | Seleção | `src/components/Select.tsx` | Listas fechadas |
 | Modal | `src/components/Modal.tsx` | Formulários e confirmações |
 | Form modal | `src/components/ModalForm.tsx` | Form com footer fixo |
+| Sheet (mobile) | `src/components/ui/sheet.tsx` | Bottom sheet com `dragToDismiss` (swipe fecha) — sem Vaul |
+| Detalhe de transação | `src/components/transactions/TransactionDetailDrawer.tsx` | Feed + bottom sheet (substitui sanfona inline) |
 | Confirmação | `src/components/ConfirmModal.tsx` | Delete e 2-step |
 | Footer modal | `src/components/ModalFooter.tsx` | Híbrido: ícones (mobile) / texto (desktop) |
 | Card de escolha | `src/components/GlassChoiceCard.tsx` | Seletores tipo "Novo lançamento" |

@@ -1,12 +1,10 @@
 import { RefreshCw, Pencil, Trash2 } from 'lucide-react'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
-import Button from '@/components/Button'
 import Card from '@/components/Card'
 import IconButton from '@/components/IconButton'
 import { formatCurrency } from '@/utils/format'
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 const getMonthAbbreviation = (month: string) => {
@@ -33,31 +31,19 @@ interface TransactionCardProps {
   paymentLabel?: string
   paymentColor?: string
   billCompetenceLabel?: string
-  isExpanded?: boolean
-  onToggleExpand?: () => void
   onEdit?: () => void
   onDelete?: () => void
 }
 
 function MobileLayout({
   title, subtitle, amount, originalAmount, dateLabel, categoryColor,
-  categoryIconName, isOffline, onClick, staggerClass, isExpanded,
-  onToggleExpand, onEdit, onDelete, paymentLabel, paymentColor,
-  installmentInfo, billCompetenceLabel,
+  categoryIconName, isOffline, onClick, staggerClass,
 }: TransactionCardProps) {
   const showOriginalAmount = originalAmount !== undefined && Math.abs(originalAmount - amount) > 0.009
 
-  const handleCardClick = () => {
-    if (onToggleExpand) {
-      onToggleExpand()
-    } else {
-      onClick()
-    }
-  }
-
   return (
     <Card
-      onClick={handleCardClick}
+      onClick={onClick}
       className={`w-full surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
     >
       <div className="flex flex-1 h-full flex-col">
@@ -131,97 +117,6 @@ function MobileLayout({
           </div>
         </div>
 
-        {/* Expanded area for mobile */}
-        <AnimatePresence initial={false}>
-          {isExpanded && onToggleExpand && (              <motion.div
-              key="expanded"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="mx-3.5 border-t border-glass" />
-              <div className="px-3.5 pt-2.5 pb-3.5 space-y-2.5">
-                <div
-                  className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px] leading-relaxed p-3 rounded-xl surface-glass border border-glass"
-                >
-                  <div>
-                    <span
-                      className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
-                    >
-                      Método
-                    </span>
-                    <span
-                      className="font-semibold font-mono truncate block text-[12px]"
-                      style={paymentColor ? { color: paymentColor } : { color: 'var(--ds-color-text-primary)' }}
-                    >
-                      {paymentLabel || 'Outros'}
-                    </span>
-                  </div>
-                  <div>
-                    <span
-                      className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
-                    >
-                      Data Completa
-                    </span>
-                    <span
-                      className="font-semibold font-mono block text-[12px] text-primary"
-                    >
-                      {dateLabel}
-                    </span>
-                  </div>
-                  {installmentInfo && (
-                    <div className="col-span-2 pt-2 border-t border-glass">
-                      <span
-                        className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
-                      >
-                        Parcelamento
-                      </span>
-                      <span className="font-semibold font-mono block text-[12px] text-primary">
-                        {installmentInfo}
-                      </span>
-                    </div>
-                  )}
-                  {billCompetenceLabel && (
-                    <div className="col-span-2 pt-2 border-t border-glass">
-                      <span
-                        className="text-[9px] uppercase font-bold tracking-widest block mb-0.5 text-secondary/70"
-                      >
-                        Fatura Competência
-                      </span>
-                      <span className="font-semibold font-mono block text-[12px] text-[var(--ds-color-accent-primary)]">
-                        {billCompetenceLabel}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 justify-end">
-                  {onDelete && (
-                    <Button
-                      type="button" size="sm" variant="expense"
-                      onClick={(e) => { e.stopPropagation(); onDelete() }}
-                      className="gap-1.5 select-none min-h-[44px]"
-                    >
-                      <Trash2 size={16} aria-hidden />
-                      <span className="text-xs font-bold">Excluir</span>
-                    </Button>
-                  )}
-                  {onEdit && (
-                    <Button
-                      type="button" size="sm" variant="outline"
-                      onClick={(e) => { e.stopPropagation(); onEdit() }}
-                      className="gap-1.5 select-none min-h-[44px]"
-                    >
-                      <Pencil size={16} aria-hidden />
-                      <span className="text-xs font-bold">Editar</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </Card>
   )

@@ -406,11 +406,18 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | :--- | :--- | :--- | :--- | :--- |
 | **0** | Saneamento da baseline de guardrails | ✅ **Concluída** | 12/08/2026 | guardrails:ui verde · tsc limpo · **438 testes OK** · build OK · lint sem erros novos |
 | 1 | Primitivos DRY + deps | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** (39 arquivos, +5 AnimatedNumber) · build OK · 4 pacotes Radix órfãos removidos |
-| 2 | Bottom Sheets | ⬜ Pendente | — | — |
+| 2 | Bottom Sheets | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · dragToDismiss no sheet + TransactionDetailDrawer + fim da sanfona inline |
 | 3 | Contas.tsx | ⬜ Pendente | — | — |
 | 4 | Reports.tsx | ⬜ Pendente | — | — |
 | 5 | Settings + Categories | ⬜ Pendente | — | — |
 | 6 | Shell + CSS | ⬜ Pendente | — | — |
+
+### Fase 2 — Registro de mudanças
+- `ui/sheet.tsx`: adicionadas props `dragToDismiss` e `onDragDismiss` — swipe-to-dismiss em bottom sheets (pointer events, threshold 96px, resistência 0.55, ignora controles interativos e scroll interno, `touch-action` desativado durante o gesto). Sem dependência nova (sem Vaul).
+- `Modal.tsx`: ativa `dragToDismiss` no sheet mobile (todos os modais ganham fechamento por gesto).
+- Criado `src/components/transactions/TransactionDetailDrawer.tsx`: bottom sheet (mobile) / dialog (desktop) com resumo, método, data, parcelamento, competência e ações Editar/Excluir.
+- `TransactionCard.tsx`: removida a expansão inline (sanfona) do mobile — feed limpo sem layout shift; detalhes delegados ao drawer. Props `isExpanded`/`onToggleExpand` removidas.
+- `Expenses.tsx` e `Incomes.tsx`: migrados para abrir o drawer no toque do card; edição/exclusão partem do drawer com delay de 160ms (evita conflito de focus-trap entre Radix Dialogs); fluxo `expand=1&highlight` da busca preservado (agora abre o drawer).
 
 ### Fase 1 — Registro de mudanças
 - Criado `src/components/ui/animated-number.tsx`: contador animado com `requestAnimationFrame`, easing easeOutCubic, `prefers-reduced-motion` respeitado e formatação via `formatNumberBR` (Regra 3). Restrito a KPIs (Regra de performance). Teste: `animated-number.test.tsx` (5 casos).
