@@ -4,7 +4,7 @@ import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
 import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import CreditCardCsvReconciliationPanel from '@/components/CreditCardCsvReconciliationPanel'
-import ExpenseFormModal from '@/components/ExpenseFormModal'
+import TransactionFormModal from '@/components/TransactionFormModal'
 import CardFormModal from '@/components/creditCards/CardFormModal'
 import BillPaymentModal from '@/components/creditCards/BillPaymentModal'
 import RefundModal from '@/components/creditCards/RefundModal'
@@ -289,7 +289,8 @@ export default function ContasModals({
       />
 
       {/* MODAL: CADASTRAR DESPESA VINCULADA AO PAGAR DÍVIDA */}
-      <ExpenseFormModal
+      <TransactionFormModal
+        type="expense"
         isOpen={modals.isPayableExpenseModalOpen}
         onClose={() => {
           modals.setIsPayableExpenseModalOpen(false)

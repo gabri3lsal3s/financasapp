@@ -151,7 +151,7 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 
 - `TransactionCard` — linha de despesa/renda
 - `DashboardKpis` — grade de KPIs
-- `ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`
+- `TransactionFormModal` (fusão DRY de despesas/rendas), `PortfolioTransactionFormModal`
 - `src/components/consulting/**` — assessoria
 
 **Página Relatórios (Fase 4 — orquestrador enxuto):**

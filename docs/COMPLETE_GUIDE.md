@@ -309,8 +309,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `TransactionDateField` | Input de data padronizado |
 | `TransactionCategorySelect` | Select de categoria |
 | `TransactionDescriptionField` | Input de descrição |
-| `ExpenseFormModal` | Modal completo de despesas |
-| `IncomeFormModal` | Modal completo de rendas |
+| `TransactionFormModal` | Modal unificado de despesas e rendas (`type: 'expense' \| 'income'`): valor/report, data, categoria, descrição, forma de pagamento/recebimento, parcelas, competência de fatura e cobrança vinculada (despesas); estornos somente-visualização (rendas) |
 
 ### 5.5 Componentes Flutuantes
 

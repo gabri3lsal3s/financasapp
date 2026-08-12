@@ -21,7 +21,7 @@ import { Plus, TrendingDown } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TransactionCard from '@/components/TransactionCard'
 import TransactionDetailDrawer from '@/components/transactions/TransactionDetailDrawer'
-import ExpenseFormModal from '@/components/ExpenseFormModal'
+import TransactionFormModal from '@/components/TransactionFormModal'
 import DeleteInstallmentsModal from '@/components/DeleteInstallmentsModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
@@ -430,7 +430,8 @@ export default function Expenses() {
         onDelete={handleDeleteFromDetail}
       />
 
-      <ExpenseFormModal
+      <TransactionFormModal
+        type="expense"
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         editingExpense={editingExpense}

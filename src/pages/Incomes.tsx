@@ -18,7 +18,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import TransactionCard from '@/components/TransactionCard'
 import TransactionDetailDrawer from '@/components/transactions/TransactionDetailDrawer'
-import IncomeFormModal from '@/components/IncomeFormModal'
+import TransactionFormModal from '@/components/TransactionFormModal'
 import { useSwipeMonth } from '@/hooks/useSwipeMonth'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -238,7 +238,8 @@ export default function Incomes() {
         onDelete={handleDeleteFromDetail}
       />
 
-      <IncomeFormModal
+      <TransactionFormModal
+        type="income"
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         editingIncome={editingIncome}

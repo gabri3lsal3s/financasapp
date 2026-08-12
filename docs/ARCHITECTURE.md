@@ -22,8 +22,7 @@ graph TD
         subgraph UIComponents [Componentes Padronizados Reutilizáveis]
             C_Card[TransactionCard / TransactionRow]
             C_Kpis[DashboardKpis]
-            C_ExpModal[ExpenseFormModal<br/>usa TransactionAmountFields<br/>TransactionDateField<br/>TransactionCategorySelect<br/>TransactionDescriptionField]
-            C_IncModal[IncomeFormModal<br/>usa mesmos sub-componentes]
+            C_TxModal[TransactionFormModal (fusão DRY)<br/>usa TransactionCurrencyFields<br/>TransactionDateField<br/>TransactionCategorySelect<br/>TransactionDescriptionField]
         end
         
         subgraph Hooks [Hooks Customizados & Lógica]
@@ -94,7 +93,7 @@ Para evitar redundância e garantir consistência estética extrema (em conformi
 
 ### 2.2 Sub-componentes de Formulário de Transação (Item 7)
 
-Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModal`:
+Extraídos para alimentar o `TransactionFormModal` unificado (fusão DRY de `ExpenseFormModal` + `IncomeFormModal`):
 
 | Componente | Arquivo | Função |
 |-----------|---------|--------|
@@ -116,8 +115,7 @@ Extraídos para eliminar duplicação entre `ExpenseFormModal` e `IncomeFormModa
 
 | Componente | Arquivo | Função |
 |-----------|---------|--------|
-| `ExpenseFormModal` | `src/components/ExpenseFormModal.tsx` | Gerencia o ciclo completo (cadastro, edição e deleção) de despesas. Inclui lógica de competência de cartões, peso de inclusão em relatórios (`report_weight`), parcelamento, e vínculo com dívidas. Refatorado para usar os 4 sub-componentes acima e `CurrencyInput`. |
-| `IncomeFormModal` | `src/components/IncomeFormModal.tsx` | Gerencia o ciclo de rendas. Trata de forma especial estornos automáticos de cartões de crédito. Refatorado para usar os 4 sub-componentes acima e `CurrencyInput`. |
+| `TransactionFormModal` | `src/components/TransactionFormModal.tsx` | Modal único (união discriminada `type: 'expense' \| 'income'`) que gerencia o ciclo completo (cadastro, edição e deleção) de despesas e rendas. Ramos específicos: despesas (competência de cartões, `report_weight`, parcelamento, vínculo com dívidas/cobranças, `defaultValues`) e rendas (estornos automáticos de cartões com modal somente-visualização). Substitui os antigos `ExpenseFormModal.tsx` + `IncomeFormModal.tsx` (removidos). |
 
 ### 2.5 Dashboard e Widgets
 
@@ -317,7 +315,7 @@ usePageActions([{ icon: Plus, label: 'Adicionar', intent: 'primary', onClick: fn
 
 ### 3.4 `useFormAmountSync` — Sincronização de Valores
 
-Hook compartilhado entre `ExpenseFormModal` e `IncomeFormModal` para sincronizar `amount` e `report_amount`. Trabalha com valores **numéricos** (não strings), pois o `CurrencyInput` já entrega o valor limpo. Embutido no componente `TransactionCurrencyFields`.
+Hook usado pelo `TransactionFormModal` unificado para sincronizar `amount` e `report_amount`. Trabalha com valores **numéricos** (não strings), pois o `CurrencyInput` já entrega o valor limpo. Embutido no componente `TransactionCurrencyFields`.
 
 ### 3.5 Demais Hooks
 
@@ -615,6 +613,7 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Auditoria C — primitivos Eyebrow/GlassCard** | Criados `ui/eyebrow.tsx` (labels uppercase com tone/weight/tracking) e `ui/glass-card.tsx`; 17 Eyebrows + 4 GlassCards migrados | Refatoração | ✅ |
 | — | **Auditoria D — decomposição de monolitos** | `CreditCardCsvReconciliationPanel` 1193→669 (9 componentes `Csv*` + `utils/csvReconciliationUi.ts`) e `FloatingCalculator` 1127→407 (3 hooks + CalculatorPanel/CalculatorKeypad); prop morta `paymentItems` removida; `PageHeaderActionButton` órfão removido | Refatoração | ✅ |
 | — | **Redesign R1 — AmountText + verificação de tokens** | Tokens de tema verificados já calibrados (bordas dinâmicas, cores semânticas, blur 16/24). Criado `ui/amount-text.tsx` (primitivo DRY de valor monetário, 7 testes) e aplicado na KPI bar do Dashboard via prop `tone` | Redesign | ✅ |
+| — | **Redesign R4 — TransactionFormModal (fusão DRY)** | `ExpenseFormModal` + `IncomeFormModal` fundidos em `TransactionFormModal.tsx` (união discriminada `type`); 4 callers atualizados (Expenses, Incomes, Dashboard ×2, ContasModals); estornos somente-visualização preservados; `loadRefundOrigin` movido para o effect (deps completas, sem disable); arrays vazios estáveis para hooks. Padrão de sheet já coberto pelo `Modal.tsx` (dragToDismiss + safe-area) | Redesign | ✅ |
 | — | **Redesign R3 — Hero do Dashboard + bank branding** | Novo `dashboard/DashboardHero.tsx` (saldo animado + pílula de variação + sparkline comparativo de gastos acumulados vs mês anterior) alimentado por `previousMonthDailyExpenses` (extensão aditiva que espelha `dailyFlowData`). Criados `ui/comparison-sparkline.tsx` (SVG puro, gradiente com `useId` sanitizado, token `--ds-color-text-secondary`), `utils/comparisonSparkline.ts` (path + acumulação) e `utils/bankBranding.ts` (cores institucionais de 15+ bancos, `resolveCardColor`, scrim — allowlist no `ui-guardrails.mjs`). DRY: `categoryDetailContext.ts` extraído do grid e `dashboardDataContext.ts` separado do Provider (`DashboardDataContext.tsx` exporta só o componente — 6 warnings react-refresh zerados). `CreditCardSection` usa cor do banco | Redesign | ✅ |
 | — | **NumberInput padronizado em todo o app** | Migração de `Input type="number"` para `NumberInput` com spin buttons em 7 arquivos (ExpenseFormModal, CardFormModal, CycleConfigModal, LimitSuggestionsModal, DebtFormModal, BillPaymentModal, CorrectionsMissingTab) | Melhoria | ✅ |
 | — | **Overflow DECIMAL(15,2) no motor de rentabilidade** | Aumento de precisão de `DECIMAL(15,2)` para `DECIMAL(18,2)` em 12 colunas (migration). Adição de arredondamento defensivo (`round2`) antes do upsert em `portfolioTwrEngine.ts`, `portfolioHistoricalRecalc.ts` e `daily-close/index.ts` | Bug Fix | ✅ |

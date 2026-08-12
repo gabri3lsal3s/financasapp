@@ -16,8 +16,7 @@ import QuickLaunchOption from '@/components/dashboard/QuickLaunchOption'
 import Modal from '@/components/Modal'
 import ModalIntro from '@/components/ModalIntro'
 import ModalChoiceGrid from '@/components/ModalChoiceGrid'
-import ExpenseFormModal from '@/components/ExpenseFormModal'
-import IncomeFormModal from '@/components/IncomeFormModal'
+import TransactionFormModal from '@/components/TransactionFormModal'
 import PortfolioTransactionFormModal from '@/components/investments/PortfolioTransactionFormModal'
 import DashboardWidgetGrid from '@/components/dashboard/DashboardWidgetGrid'
 import WidgetSettingsSheet from '@/components/dashboard/WidgetSettingsSheet'
@@ -191,7 +190,8 @@ function DashboardContent() {
         </div>
       </Modal>
 
-      <ExpenseFormModal
+      <TransactionFormModal
+        type="expense"
         isOpen={modal === 'expense'}
         onClose={() => dispatch({ type: 'CLOSE' })}
         editingExpense={null}
@@ -206,7 +206,8 @@ function DashboardContent() {
         onDelete={async () => ({ error: 'Não aplicável' })}
       />
 
-      <IncomeFormModal
+      <TransactionFormModal
+        type="income"
         isOpen={modal === 'income'}
         onClose={() => dispatch({ type: 'CLOSE' })}
         editingIncome={null}
