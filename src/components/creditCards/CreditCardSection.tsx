@@ -7,6 +7,7 @@ import IconButton from '@/components/IconButton'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import CreditCardTimeline from '@/components/creditCards/CreditCardTimeline'
+import CreditCardFace from '@/components/creditCards/CreditCardFace'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import RowButton from '@/components/RowButton'
 import { formatDate, roundToDecimals } from '@/utils/format'
@@ -163,6 +164,17 @@ export default function CreditCardSection({
                 {/* Expanded content */}
                 {isExpanded && (
                   <div className="p-4 border-t border-glass bg-secondary/5 space-y-5 animate-surface-enter text-left w-full">
+                    {/* Face do cartão (Apple Wallet 3D) */}
+                    <CreditCardFace
+                      cardName={card.name}
+                      brand={card.brand}
+                      color={resolveCardColor(card.name, card.color)}
+                      limitTotal={card.limit_total}
+                      currentBill={totalPrevisto}
+                      closingDay={effectiveClosingDay}
+                      dueDay={effectiveDueDay}
+                    />
+
                     {/* Linha do tempo (Timeline) */}
                     <CreditCardTimeline
                       card={card}

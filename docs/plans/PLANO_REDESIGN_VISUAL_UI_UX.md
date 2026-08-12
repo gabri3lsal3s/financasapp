@@ -163,13 +163,16 @@
   Incomes sem labels de seção (sem mudança). Bottom sheets já padronizados (R4).
 * **Critérios:** **480 testes verdes**; tsc/lint/guardrails/build OK.
 
-### R10 — Contas & Faturas: Cartões Apple Wallet 3D
-* **Tilt 3D no hover (desktop):** `perspective: 1000px` + transform no mousemove (máx ±6°),
-  reset no mouseleave; mobile permanece estático (sem conflito de gestos).
-* **Chip Holográfico SVG + selo da bandeira:** microchips metálicos e reflexos (Visa, Master,
-  Elo, Amex) em `ui/card-hologram.tsx`.
-* **Barra de Limite Térmica:** gradiente esmeralda → coral conforme consumo ≥ 80%.
-* **Critérios:** banco branding preservado; timeline intacta; testes verdes.
+### R10 — Contas & Faturas: Cartões Apple Wallet 3D ✅ (12/08)
+* **Face do cartão** `creditCards/CreditCardFace.tsx`: cor institucional do banco
+  (`resolveCardColor`) + `BANK_CARD_SCRIM` (contraste WCAG F2) + brilho refratário superior,
+  chip holográfico e selo da bandeira (`ui/card-hologram.tsx` — SVG puro, allowlist consciente
+  no guardrails como arte/marca), Fatura Atual com `AmountText`, ciclo (fecha/vence).
+* **Tilt 3D no hover (desktop):** `perspective: 1000px` + mousemove (máx ±6°, `preserve-3d`),
+  reset no mouseleave; mobile estático (sem conflito de gestos — gate `(hover: hover)`).
+* **Barra de Limite Térmica:** esmeralda → âmbar → coral conforme consumo 60/80%+, com
+  glow na cor e % utilizado.
+* **Critérios:** **480 testes verdes**; tsc/lint/guardrails (allowlist consciente)/build OK.
 
 ### R11 — Dashboard Premium (Hero, Bento Grid & Sparkline)
 * **Hero:** gradiente obsidian + sparkline com pulso + pílulas de variação com micro-spring.

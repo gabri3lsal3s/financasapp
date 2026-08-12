@@ -8,13 +8,15 @@ const BASELINE_PATH = path.join(ROOT_DIR, 'docs', 'ui', 'guardrails-baseline.jso
 const FILE_EXTENSIONS = new Set(['.ts', '.tsx'])
 
 /**
- * Módulos de dados com cores institucionais (marcas bancárias) — exceção
- * consciente à regra ui-no-raw-hex-color: são dados de branding, não tokens
- * de design (que continuam obrigatórios em toda a UI).
+ * Módulos de dados/arte com cores institucionais (marcas bancárias, chip
+ * holográfico) — exceção consciente à regra ui-no-raw-hex-color: são dados de
+ * branding/ilustração, não tokens de design (que continuam obrigatórios em
+ * toda a UI).
  */
 const HEX_COLOR_DATA_ALLOWLIST = new Set([
   'src/utils/bankBranding.ts',
   'src/utils/bankBranding.test.ts',
+  'src/components/ui/card-hologram.tsx',
 ])
 
 const RULES = [
