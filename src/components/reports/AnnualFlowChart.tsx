@@ -60,7 +60,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
           type="monotone" 
           dataKey="Rendas" 
           stroke="var(--color-income)" 
-          strokeWidth={2.5} 
+          strokeWidth={2} 
           dot={{ r: 4, strokeWidth: 1 }} 
           activeDot={{ r: 6 }}
           hide={hiddenSeries.includes('Rendas')} 
@@ -70,7 +70,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
           type="monotone" 
           dataKey="Despesas" 
           stroke="var(--color-expense)" 
-          strokeWidth={2.5} 
+          strokeWidth={2} 
           dot={{ r: 4, strokeWidth: 1 }} 
           activeDot={{ r: 6 }}
           hide={hiddenSeries.includes('Despesas')} 
@@ -80,7 +80,7 @@ export default function AnnualFlowChart({ data, hiddenSeries, onToggleSeries }: 
           type="monotone" 
           dataKey="Investimentos" 
           stroke="var(--color-balance)" 
-          strokeWidth={2.5} 
+          strokeWidth={2} 
           dot={{ r: 4, strokeWidth: 1 }} 
           activeDot={{ r: 6 }}
           hide={hiddenSeries.includes('Investimentos')} 

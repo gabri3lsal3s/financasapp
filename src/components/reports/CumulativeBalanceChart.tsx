@@ -53,7 +53,7 @@ export default function CumulativeBalanceChart({ data }: CumulativeBalanceChartP
           name="Saldo Acumulado"
           stroke="var(--color-primary)" 
           fill="url(#cumulativeBalanceGrad)" 
-          strokeWidth={2.5} 
+          strokeWidth={2} 
           {...animProps}
         />
 

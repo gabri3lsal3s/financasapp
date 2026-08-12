@@ -233,6 +233,7 @@ export default function CategoryFormModal({
   const [color, setColor] = useState(DEFAULT_CATEGORY_COLOR_HEX)
   const [icon, setIcon] = useState('Tag')
   const [suggestion, setSuggestion] = useState('outros')
+  const [iconSearch, setIconSearch] = useState('')
 
   const [userCustomizedColor, setUserCustomizedColor] = useState(false)
   const [userCustomizedIcon, setUserCustomizedIcon] = useState(false)
@@ -261,6 +262,7 @@ export default function CategoryFormModal({
         setUserCustomizedColor(false)
         setUserCustomizedIcon(false)
         setUserCustomizedSuggestion(false)
+        setIconSearch('')
       }
     }
   }, [isOpen, editingCategory])
@@ -314,6 +316,14 @@ export default function CategoryFormModal({
 
     await onSubmit(name.trim(), combinedColor)
   }
+
+  // Ícones filtrados pela busca (o selecionado permanece visível).
+  const normalizedIconSearch = iconSearch.trim().toLowerCase()
+  const iconEntries = normalizedIconSearch
+    ? Object.entries(AVAILABLE_ICONS).filter(
+        ([key]) => key.toLowerCase().includes(normalizedIconSearch) || key === icon,
+      )
+    : Object.entries(AVAILABLE_ICONS)
 
   return (
     <ModalForm
@@ -370,13 +380,23 @@ export default function CategoryFormModal({
           />
         )}
 
-        {/* Icon Picker */}
+        {/* Icon Picker — catálogo Lucide pesquisável */}
         <div className="space-y-2">
           <span className="text-[10px] font-bold text-secondary uppercase tracking-widest block">
             Selecione o Ícone
           </span>
+          <Input
+            type="search"
+            value={iconSearch}
+            onChange={(e) => setIconSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.preventDefault()
+            }}
+            aria-label="Buscar ícone"
+            placeholder="Buscar ícone..."
+          />
           <div className="grid grid-cols-7 gap-2 max-h-36 overflow-y-auto p-1 border border-glass rounded-xl surface-glass scrollbar-thin">
-            {Object.entries(AVAILABLE_ICONS).map(([key, Icon]) => {
+            {iconEntries.map(([key, Icon]) => {
               const isSelected = icon === key
               return (
                 <Button
@@ -404,6 +424,11 @@ export default function CategoryFormModal({
               )
             })}
           </div>
+          {normalizedIconSearch && iconEntries.length === 0 && (
+            <p className="text-[11px] text-secondary">
+              Nenhum ícone encontrado para "{iconSearch.trim()}".
+            </p>
+          )}
         </div>
 
         {/* Color Picker */}
