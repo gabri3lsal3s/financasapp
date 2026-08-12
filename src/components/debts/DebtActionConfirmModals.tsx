@@ -1,6 +1,7 @@
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import CurrencyInput from '@/components/CurrencyInput'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import { formatCurrency } from '@/utils/format'
 import type { Debt, Expense } from '@/types'
 
@@ -47,17 +48,17 @@ export function IncomeConfirmModal({
       <div className="space-y-4 text-left">
         <div className="modal-info-panel p-4 gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">
+            <Eyebrow>
               Descrição do Recebimento
-            </span>
+            </Eyebrow>
             <span className="text-xs font-bold text-primary truncate max-w-[200px]">
               {debt?.name}
             </span>
           </div>
           <div className="flex items-center justify-between border-t border-glass/40 pt-2.5">
-            <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">
+            <Eyebrow>
               Valor do Recebimento
-            </span>
+            </Eyebrow>
             <span className="text-base font-extrabold text-income font-mono">
               {debt ? formatCurrency(debt.amount) : ''}
             </span>
@@ -209,17 +210,17 @@ export function PayableConfirmModal({
       <div className="space-y-4 text-left">
         <div className="modal-info-panel p-4 gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">
+            <Eyebrow>
               Título da Pendência
-            </span>
+            </Eyebrow>
             <span className="text-xs font-bold text-primary truncate max-w-[200px]">
               {debt?.name}
             </span>
           </div>
           <div className="flex items-center justify-between border-t border-glass/40 pt-2.5">
-            <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">
+            <Eyebrow>
               Valor do Pagamento
-            </span>
+            </Eyebrow>
             <span className="text-base font-extrabold text-expense font-mono">
               {debt ? formatCurrency(debt.amount) : ''}
             </span>

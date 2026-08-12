@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import {
   Plus, Scale, Check, Pencil, Trash2, CheckCircle2, Link2, ChevronUp, ChevronDown,
 } from 'lucide-react'
@@ -214,19 +215,19 @@ export default function DebtsSection({
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 px-4 py-3 text-xs">
                           <div className="space-y-0.5">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Descrição original</p>
+                            <Eyebrow>Descrição original</Eyebrow>
                             <p className="text-xs font-semibold text-primary">{debt.expense.description || 'Sem descrição'}</p>
                           </div>
                           <div className="space-y-0.5">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Valor da despesa</p>
+                            <Eyebrow>Valor da despesa</Eyebrow>
                             <p className="text-sm font-bold font-mono text-expense">{formatCurrency(debt.expense.amount)}</p>
                           </div>
                           <div className="space-y-0.5">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Data de lançamento</p>
+                            <Eyebrow>Data de lançamento</Eyebrow>
                             <p className="text-xs font-mono text-primary">{formatDate(debt.expense.date)}</p>
                           </div>
                           <div className="space-y-0.5">
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-secondary">Meio / Categoria</p>
+                            <Eyebrow>Meio / Categoria</Eyebrow>
                             <p className="text-primary truncate" title={
                               debt.expense.payment_method === 'credit_card'
                                 ? `Cartão de Crédito (${debt.expense.credit_card?.name || 'Crédito'})${debt.expense.category?.name ? ` • ${debt.expense.category.name}` : ''}`

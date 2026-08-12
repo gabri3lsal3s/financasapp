@@ -14,6 +14,7 @@ import {
   requiresMarketQuote,
 } from "@/utils/assetClassifier";
 import { formatCurrencyByCode, todayISO } from "@/utils/format";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   fetchPortfolioCashContext,
   reconcileCashOffsetOnTransactionSave,
@@ -405,9 +406,9 @@ export default function PortfolioTransactionFormModal({
         <div className="space-y-4 text-left">
           {/* Tipo de Lançamento (Segmented Control Pill Bar) */}
           <div className="flex items-center justify-between gap-3 p-2 px-3 rounded-2xl bg-glass/5 border border-glass/20 text-xs select-none">
-            <span className="font-black text-secondary text-[10px] uppercase tracking-widest">
+            <Eyebrow weight="black" tracking="widest">
               Precificação
-            </span>
+            </Eyebrow>
 
             <div className="bg-glass/10 p-0.5 rounded-xl border border-glass/20 flex gap-0.5">
               <button

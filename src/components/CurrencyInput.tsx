@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useId, useRef } from 'react'
 import { Input as ShadcnInput } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { formatCurrency } from '@/utils/format'
 
 interface CurrencyInputProps {
   /** Valor numérico real (ex: 1234.56 para R$ 1.234,56). Pode ser null se vazio */
@@ -23,18 +24,14 @@ interface CurrencyInputProps {
   name?: string
 }
 
-const BRL_FORMATTER = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
-
 /**
- * Formata um valor numérico para exibição no padrão brasileiro com moeda.
+ * Formata um valor numérico para exibição no padrão brasileiro com moeda
+ * (helper central de @/utils/format — DRY).
  * Ex: 1234.56 → "R$ 1.234,56" | 0 → "R$ 0,00" | null → ""
  */
 function formatCurrencyDisplay(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return ''
-  return BRL_FORMATTER.format(value)
+  return formatCurrency(value)
 }
 
 /**

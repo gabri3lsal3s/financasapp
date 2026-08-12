@@ -26,12 +26,19 @@ for (const file of FILES) {
   code = code.replace(TODAY_PATTERN, 'todayISO()')
 
   // Adiciona todayISO ao import existente de '@/utils/format'
-  const formatImportMatch = code.match(/import\s*\{([^}]*)\}\s*from\s*'@\/utils\/format'/)
+  // (preserva imports multiline: insere na lista antes do fechamento)
+  const formatImportMatch = code.match(/import\s*\{([\s\S]*?)\}\s*from\s*'@\/utils\/format'/)
   if (formatImportMatch) {
     if (!formatImportMatch[1].includes('todayISO')) {
+      const importBody = formatImportMatch[1]
+      // Se o import for multiline, insere ', todayISO,' antes do '}'; senão, ', todayISO'
+      const isMultiLine = /\n/.test(importBody)
       code = code.replace(
         formatImportMatch[0],
-        formatImportMatch[0].replace(/([^}]*)\}/, `$1, todayISO }`)
+        formatImportMatch[0].replace(
+          /([\s\S]*)\}/,
+          isMultiLine ? `$1  todayISO,\n}` : `$1, todayISO }`
+        )
       )
     }
   } else {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import {
   formatCurrency,
   formatQuantityBR,
@@ -176,11 +177,11 @@ export default function AssetDetailModal({
         {/* Metadados Básicos */}
         <div className="flex items-center justify-between gap-3 bg-glass/5 p-3 rounded-2xl border border-glass/20">
           <div>
-            <span className="text-[10px] font-black text-secondary uppercase tracking-widest block">Classe de Ativo</span>
+            <Eyebrow weight="black" tracking="widest" block>Classe de Ativo</Eyebrow>
             <span className="text-sm font-black text-primary uppercase tracking-wider">{position.asset_class}</span>
           </div>
           <div className="text-right">
-            <span className="text-[10px] font-black text-secondary uppercase tracking-widest block">Setor</span>
+            <Eyebrow weight="black" tracking="widest" block>Setor</Eyebrow>
             <span className="text-sm font-bold text-primary">{position.sector}</span>
           </div>
         </div>
@@ -226,7 +227,7 @@ export default function AssetDetailModal({
         {/* Metas de Alocação Alvo */}
         <div className="space-y-2">
           <div className="flex justify-between items-center text-xs font-bold">
-            <span className="text-[10px] uppercase font-black text-secondary tracking-wider">Metas de Alocação</span>
+            <Eyebrow weight="black">Metas de Alocação</Eyebrow>
             <span className="text-primary font-mono">{formatPercentBR(position.current_percentage)} / {formatPercentBR(position.target_percentage)} alvo</span>
           </div>
           
@@ -258,7 +259,7 @@ export default function AssetDetailModal({
         {/* Gráfico de Evolução */}
         {chartData.length > 0 && (
           <div className="space-y-1.5">
-            <span className="text-[10px] uppercase font-black text-secondary tracking-wider">Histórico do Ativo</span>
+            <Eyebrow weight="black">Histórico do Ativo</Eyebrow>
             <div className="rounded-2xl border border-glass surface-glass p-3">
               <div className="h-[120px] w-full pr-3">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
@@ -331,7 +332,7 @@ export default function AssetDetailModal({
 
         {/* Lista de Transações */}
         <div className="space-y-2">
-          <span className="text-[10px] uppercase font-black text-secondary tracking-wider block">Histórico de Movimentações</span>
+          <Eyebrow weight="black" block>Histórico de Movimentações</Eyebrow>
           {assetTransactions.length === 0 ? (
             <p className="text-xs text-secondary italic">Nenhuma transação encontrada.</p>
           ) : (

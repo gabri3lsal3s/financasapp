@@ -1,4 +1,5 @@
 import Card from '@/components/Card'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import { formatCurrency } from '@/utils/format'
 
 interface ReportPendingDebtsWidgetProps {
@@ -32,17 +33,17 @@ export default function ReportPendingDebtsWidget({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col p-3 rounded-xl bg-expense/5 border border-expense/10">
-          <span className="text-[10px] uppercase font-bold text-expense/80 tracking-wider">
+          <Eyebrow tone="expense">
             A Pagar Pendente
-          </span>
+          </Eyebrow>
           <span className="text-lg font-extrabold text-expense font-mono mt-1">
             {formatCurrency(payables)}
           </span>
         </div>
         <div className="flex flex-col p-3 rounded-xl bg-income/5 border border-income/10">
-          <span className="text-[10px] uppercase font-bold text-income/80 tracking-wider">
+          <Eyebrow tone="income">
             A Receber Pendente
-          </span>
+          </Eyebrow>
           <span className="text-lg font-extrabold text-income font-mono mt-1">
             {formatCurrency(receivables)}
           </span>
@@ -53,9 +54,9 @@ export default function ReportPendingDebtsWidget({
             : 'bg-expense/5 border-expense/10'
             }`}
         >
-          <span className="text-[10px] uppercase font-bold text-secondary tracking-wider">
+          <Eyebrow>
             Impacto Projetado no Saldo
-          </span>
+          </Eyebrow>
           <span
             className={`text-lg font-extrabold font-mono mt-1 ${balanceProj >= 0 ? 'text-income' : 'text-expense'
               }`}

@@ -2,6 +2,7 @@ import type { Ref } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, LogOut, Menu, X } from 'lucide-react'
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEMS, type NavItem } from '@/constants/navigation'
+import { Eyebrow } from '@/components/ui/eyebrow'
 
 interface DesktopSidebarProps {
   isExpanded: boolean
@@ -79,7 +80,7 @@ export default function DesktopSidebar({
       <div className={`px-3 py-4 border-b border-glass flex items-center ${isExpanded ? 'justify-between' : 'justify-center'}`}>
         {isExpanded && (
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-widest text-secondary">Bem-vindo</p>
+            <Eyebrow weight="normal" tracking="widest">Bem-vindo</Eyebrow>
             <h2 className="text-lg font-bold text-primary truncate">Finanças</h2>
             {profileEmail && (
               <p className="text-xs text-secondary truncate">{profileEmail}</p>

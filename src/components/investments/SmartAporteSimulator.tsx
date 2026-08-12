@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
 import CurrencyInput from '@/components/CurrencyInput'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import Button from '@/components/Button'
 import { formatCurrency, formatPercentBR, formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
@@ -204,9 +205,9 @@ export default function SmartAporteSimulator({
       {/* Resultados da Simulação */}
       {simulationResult && (
         <div className="space-y-4 animate-fade-in border-t border-glass/20 pt-4">
-          <span className="text-[10px] uppercase font-black text-secondary tracking-wider block">
+          <Eyebrow weight="black" block>
             Sugestões de Rebalanceamento
-          </span>
+          </Eyebrow>
 
           {/* Sobra de Caixa */}
           {simulationResult.fallbackAmount > 0 && (

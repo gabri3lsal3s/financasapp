@@ -2,6 +2,7 @@ import type { Ref } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart3, LogOut, PiggyBank, Settings, Tags } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { GlassCard } from '@/components/ui/glass-card'
 import Button from '@/components/Button'
 import { isCalculatorElement } from '@/utils/calculator'
 
@@ -47,38 +48,34 @@ export default function MobileMenuSheet({
         </SheetHeader>
         <div className="p-5 overflow-y-auto max-h-[calc(85vh-5.5rem)]">
           <div className="grid grid-cols-2 gap-3">
-            <Link
-              to="/investments"
-              className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-            >
-              <PiggyBank size={20} className="text-secondary mb-2" />
-              <span className="text-xs font-bold text-primary">Investimentos</span>
-            </Link>
-            {isOnline && (
-              <Link
-                to="/reports"
-                className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-              >
-                <BarChart3 size={20} className="text-secondary mb-2" />
-                <span className="text-xs font-bold text-primary">Relatórios</span>
+            <GlassCard interactive className="flex flex-col items-center justify-center p-4">
+              <Link to="/investments" className="flex flex-col items-center justify-center w-full">
+                <PiggyBank size={20} className="text-secondary mb-2" />
+                <span className="text-xs font-bold text-primary">Investimentos</span>
               </Link>
+            </GlassCard>
+            {isOnline && (
+              <GlassCard interactive className="flex flex-col items-center justify-center p-4">
+                <Link to="/reports" className="flex flex-col items-center justify-center w-full">
+                  <BarChart3 size={20} className="text-secondary mb-2" />
+                  <span className="text-xs font-bold text-primary">Relatórios</span>
+                </Link>
+              </GlassCard>
             )}
             {isOnline && (
-              <Link
-                to="/categories"
-                className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-              >
-                <Tags size={20} className="text-secondary mb-2" />
-                <span className="text-xs font-bold text-primary">Categorias</span>
-              </Link>
+              <GlassCard interactive className="flex flex-col items-center justify-center p-4">
+                <Link to="/categories" className="flex flex-col items-center justify-center w-full">
+                  <Tags size={20} className="text-secondary mb-2" />
+                  <span className="text-xs font-bold text-primary">Categorias</span>
+                </Link>
+              </GlassCard>
             )}
-            <Link
-              to="/settings"
-              className="flex flex-col items-center justify-center p-4 surface-glass border border-glass rounded-2xl motion-standard hover-lift-subtle press-subtle select-none"
-            >
-              <Settings size={20} className="text-secondary mb-2" />
-              <span className="text-xs font-bold text-primary">Ajustes</span>
-            </Link>
+            <GlassCard interactive className="flex flex-col items-center justify-center p-4">
+              <Link to="/settings" className="flex flex-col items-center justify-center w-full">
+                <Settings size={20} className="text-secondary mb-2" />
+                <span className="text-xs font-bold text-primary">Ajustes</span>
+              </Link>
+            </GlassCard>
 
             <Button
               variant="danger"
