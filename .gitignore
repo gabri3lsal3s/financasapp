@@ -35,3 +35,6 @@ env
 
 
 
+
+# Arquivos de debug/diagnostico (nao versionar)
+tmp/
