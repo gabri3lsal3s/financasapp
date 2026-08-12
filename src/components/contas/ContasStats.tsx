@@ -1,5 +1,5 @@
 import KpiCard from '@/components/KpiCard'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { Scale, TrendingUp, TrendingDown, CreditCard as CreditCardIcon } from 'lucide-react'
 
 export interface ContasStatsData {
@@ -18,7 +18,7 @@ export default function ContasStats({ stats }: { stats: ContasStatsData }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 text-left items-stretch">
       <KpiCard
         title="Faturas em Aberto"
-        value={formatCurrency(stats.totalFaturasAberto)}
+        value={<AmountText value={stats.totalFaturasAberto} size="md" weight="extrabold" tone="default" nowrap />}
         icon={<CreditCardIcon size={16} />}
         glowColor="var(--color-primary)"
         showGlow={true}
@@ -26,7 +26,7 @@ export default function ContasStats({ stats }: { stats: ContasStatsData }) {
       />
       <KpiCard
         title="Contas a Pagar"
-        value={formatCurrency(stats.totalPagar)}
+        value={<AmountText value={stats.totalPagar} size="md" weight="extrabold" tone="expense" nowrap />}
         icon={<TrendingDown size={16} />}
         glowColor="var(--color-expense)"
         showGlow={true}
@@ -34,7 +34,7 @@ export default function ContasStats({ stats }: { stats: ContasStatsData }) {
       />
       <KpiCard
         title="Contas a Receber"
-        value={formatCurrency(stats.totalReceber)}
+        value={<AmountText value={stats.totalReceber} size="md" weight="extrabold" tone="income" nowrap />}
         icon={<TrendingUp size={16} />}
         glowColor="var(--color-income)"
         showGlow={true}
@@ -43,14 +43,17 @@ export default function ContasStats({ stats }: { stats: ContasStatsData }) {
       <KpiCard
         title="Saldo Pendente"
         value={
-          <span className={stats.saldoLiquido >= 0 ? 'text-income' : 'text-expense'}>
-            {formatCurrency(stats.saldoLiquido)}
-          </span>
+          <AmountText
+            value={stats.saldoLiquido}
+            size="md"
+            weight="extrabold"
+            tone={stats.saldoLiquido >= 0 ? 'income' : 'expense'}
+            nowrap
+          />
         }
         icon={<Scale size={16} />}
         glowColor={stats.saldoLiquido >= 0 ? 'var(--color-income)' : 'var(--color-expense)'}
         showGlow={true}
-        valueTooltip={formatCurrency(stats.saldoLiquido)}
         index={4}
       />
     </div>

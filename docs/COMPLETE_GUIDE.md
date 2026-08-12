@@ -306,6 +306,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | `AmountText` | Exibição padronizada de valores monetários (`ui/amount-text.tsx`): tabular-nums, tamanhos/tones/weights, formatação via `format.ts` — fonte única de tipografia de valores |
 | `ComparisonSparkline` | Sparkline comparativo SVG (`ui/comparison-sparkline.tsx`): curva atual sólida × mês anterior pontilhada, com fallback para linha única; path/acumulação em `utils/comparisonSparkline.ts` |
 | `bankBranding` | Cores institucionais de 15+ bancos (`utils/bankBranding.ts`): `getBankBrandColor`, `resolveCardColor` (marca → escolha manual → padrão) e `getBankScrimColor` — usados no `CreditCardSection` e no futuro cartão do Hero |
+| `debtStatus` | Status de dívidas por vencimento (`utils/debtStatus.ts`): `getDebtDueStatus` (Quitada/Atrasada/Vence Hoje/Vence em Breve/A Vencer) + rótulos — usado nos chips do `DebtsSection`; contas a pagar/receber com AmountText no `ContasStats` |
 | `TransactionDateField` | Input de data padronizado |
 | `TransactionCategorySelect` | Select de categoria |
 | `TransactionDescriptionField` | Input de descrição |

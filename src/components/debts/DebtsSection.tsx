@@ -6,8 +6,17 @@ import {
 import Button from '@/components/Button'
 import EmptyState from '@/components/EmptyState'
 import { formatCurrency, formatDate, formatMonth } from '@/utils/format'
+import { getDebtDueStatus, DEBT_DUE_STATUS_LABEL, type DebtDueStatus } from '@/utils/debtStatus'
 import { CARD_BASE, CARD_PADDING } from '@/constants/layout'
 import type { Debt } from '@/types'
+
+const DUE_STATUS_CLASSES: Record<DebtDueStatus, string> = {
+  paid: 'bg-income/10 border-income/20 text-income',
+  overdue: 'bg-expense/10 border-expense/20 text-expense',
+  due_today: 'bg-warning/10 border-warning/20 text-warning',
+  due_soon: 'bg-warning/10 border-warning/20 text-warning',
+  pending: 'bg-secondary/10 border-primary/20 text-secondary',
+}
 
 type DebtFilter = 'all' | 'payable' | 'receivable'
 
@@ -141,6 +150,8 @@ export default function DebtsSection({
             const isPayable = debt.type === 'payable'
             const isPaid = debt.status === 'paid'
 
+            const dueStatus = getDebtDueStatus(debt)
+
             return (
               <div key={debt.id} id={`item-${debt.id}`} className="p-0 overflow-hidden rounded-2xl border border-glass surface-glass shadow-sm transition-all duration-300 relative">
                 {/* Color bar indicator for type */}
@@ -179,10 +190,8 @@ export default function DebtsSection({
 
                   <div className="flex items-center gap-3 sm:gap-5 shrink-0">
                     <div className="text-right">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border block text-center ${
-                        isPaid ? 'bg-income/10 border-income/20 text-income' : 'bg-warning/10 border-warning/20 text-warning-light'
-                      }`}>
-                        {isPaid ? 'Pago' : 'Pendente'}
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border block text-center ${DUE_STATUS_CLASSES[dueStatus]}`}>
+                        {DEBT_DUE_STATUS_LABEL[dueStatus]}
                       </span>
                       <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-1">{formatCurrency(debt.amount)}</p>
                     </div>
