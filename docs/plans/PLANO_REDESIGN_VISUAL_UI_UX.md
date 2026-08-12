@@ -181,11 +181,15 @@
   badge de vidro com borda, hover `border-glass-strong`.
 * **Critérios:** **480 testes verdes**; tsc/lint/guardrails/build OK.
 
-### R12 — Relatórios, Investimentos, Settings & Auth (polimento final + QA mobile)
-* Charts com tooltips glass consistentes; KPIs (já AmountText) sem regressão.
-* Investimentos na mesma linguagem obsidian (cards, tabelas, pie legend).
-* Settings/Auth: touch targets ≥ 44px, safe-areas, revisão final mobile-first.
-* **Critérios:** suite completa verde + build + guardrails; docs atualizadas; commit final.
+### R12 — Relatórios, Investimentos, Settings & Auth (polimento final + QA mobile) ✅ (12/08)
+* **KpiCard** (Reports/ContasStats/Investimentos): borda refratária `glass-refract` no lugar de
+  `shadow-sm` + título → `Eyebrow tracking="widest"` — linguagem obsidian unificada nos KPIs
+  de todo o app (PortfolioKpiBar herda automaticamente).
+* **Reports:** KPI panels de `MonthlyReportView` e `AnnualReportView` com `glass-refract`.
+* **Auth:** marca circular do `AuthShell` em vidro (`surface-glass glass-refract + ring-glass`).
+* **QA mobile:** touch targets ≥44px e safe-areas já garantidos pelo shell (R2); charts com
+  tooltips glass consolidados; suite completa verde.
+* **Critérios:** **480 testes verdes**; tsc/lint/guardrails/build OK; docs atualizadas; push.
 
 
 ---

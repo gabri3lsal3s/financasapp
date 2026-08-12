@@ -1,5 +1,6 @@
 import { CSSProperties, ReactNode } from 'react'
 import Card from '@/components/Card'
+import { Eyebrow } from '@/components/ui/eyebrow'
 import { Sparkline } from '@/components/reports/reportsChartShared'
 import { formatNumberWithTwoDecimalsBR } from '@/utils/format'
 import { cn } from '@/lib/utils'
@@ -64,7 +65,7 @@ export default function KpiCard({
   return (
     <Card
       className={cn(
-        'h-full relative overflow-hidden flex flex-col !p-3 sm:!p-5 border border-glass surface-glass transition-all hover:border-glass-strong hover:shadow-md',
+        'h-full relative overflow-hidden flex flex-col !p-3 sm:!p-5 border border-glass surface-glass glass-refract transition-all hover:border-glass-strong',
         delayClass,
         className
       )}
@@ -73,9 +74,9 @@ export default function KpiCard({
     >
       <div className="flex items-start justify-between gap-3 w-full">
         <div className="min-w-0 flex-1 pr-8 sm:pr-0 text-left">
-          <p className="text-[9px] xs:text-[10px] font-bold uppercase tracking-widest text-secondary leading-tight whitespace-normal sm:truncate">
+          <Eyebrow tracking="widest" block className="leading-tight whitespace-normal sm:truncate">
             {title}
-          </p>
+          </Eyebrow>
           {typeof value === 'string' || typeof value === 'number' ? (
             <p
               className="text-[clamp(11px,3.3vw,1.25rem)] font-extrabold font-mono text-primary mt-1.5 xs:mt-2.5 leading-none whitespace-nowrap"

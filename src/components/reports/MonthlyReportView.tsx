@@ -191,7 +191,7 @@ export default function MonthlyReportView(props: MonthlyReportViewProps) {
 
       <div className="space-y-6">
         {/* Estação de Gráficos */}
-        <Card className="border border-glass surface-glass p-4 sm:p-5 shadow-sm transition-all duration-300">
+        <Card className="border border-glass surface-glass glass-refract p-4 sm:p-5 transition-all duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 border-b border-glass/40 pb-3">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-primary">

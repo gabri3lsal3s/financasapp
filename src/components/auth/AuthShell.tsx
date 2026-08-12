@@ -46,7 +46,7 @@ export default function AuthShell({
         <div>
           <div
             className={cn(
-              'mx-auto flex items-center justify-center rounded-full bg-tertiary ring-1 ring-glass',
+              'mx-auto flex items-center justify-center rounded-full surface-glass glass-refract ring-1 ring-glass',
               markClassName,
             )}
           >
