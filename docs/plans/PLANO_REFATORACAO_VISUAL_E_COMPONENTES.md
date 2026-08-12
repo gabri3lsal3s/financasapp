@@ -407,10 +407,22 @@ npm run test:run -- src/components/uiPrimitivesSnapshot.test.ts src/components/u
 | **0** | Saneamento da baseline de guardrails | ✅ **Concluída** | 12/08/2026 | guardrails:ui verde · tsc limpo · **438 testes OK** · build OK · lint sem erros novos |
 | 1 | Primitivos DRY + deps | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** (39 arquivos, +5 AnimatedNumber) · build OK · 4 pacotes Radix órfãos removidos |
 | 2 | Bottom Sheets | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · dragToDismiss no sheet + TransactionDetailDrawer + fim da sanfona inline |
-| 3 | Contas.tsx | ⬜ Pendente | — | — |
+| 3 | Contas.tsx | ✅ **Concluída** | 12/08/2026 | guardrails verde · tsc limpo · **443 testes OK** · build OK · **1795 → 233 linhas** · 5 novos módulos + 3 hooks |
 | 4 | Reports.tsx | ⬜ Pendente | — | — |
 | 5 | Settings + Categories | ⬜ Pendente | — | — |
 | 6 | Shell + CSS | ⬜ Pendente | — | — |
+
+### Fase 3 — Registro de mudanças
+- `src/pages/Contas.tsx`: **1.795 → 233 linhas** (−87%). Virou orquestrador enxuto: hooks de dados, memos de estado, render de seções e delegação de modais/handlers.
+- Criado `src/components/creditCards/CreditCardSection.tsx` (287 linhas): seção 1 — cartões de crédito (accordion, timeline, ações do cartão, lançamentos e pagamentos). Presentacional puro via props.
+- Criado `src/components/debts/DebtsSection.tsx` (319 linhas): seção 2 — pendências (filtros em chips, accordion, despesa integrada, confirmadas do mês).
+- Criado `src/components/contas/ContasModals.tsx` (360 linhas): os 14 modais da página (cartão, ciclo, estorno, pagamento, conciliação CSV, seletor de lançamento, confirmações de dívida, exclusão em lote, confirm genérico) centralizados em um componente.
+- Criado `src/components/contas/ContasStats.tsx`: grid de 4 KPIs (faturas abertas, pagar, receber, saldo pendente).
+- Criado `src/hooks/useContasActions.ts` (771 linhas): 23 handlers de negócio com `useCallback` (cartões, faturas, estornos, ciclos, pendências, integrações) — lógica idêntica ao original, agora tipada e isolada.
+- Criado `src/hooks/useContasDerivedData.ts`: memos derivados (cartões ativos, pendências, filtros, confirmadas, stats de KPI).
+- Criado `src/hooks/useContasNavigation.ts`: 4 effects de navegação (mês inicial via `?month`, carregamento de fatura, expansão via `?expand&highlight`, scroll até `?card`) — deep-links preservados.
+- `useContasModals.ts`: removidos 5 handlers mortos (duplicavam os do `useContasActions` — DRY completo).
+- `src/pages/creditCards/refundNote.ts` movido para `src/utils/refundNote.ts` (helpers de domínio não pertencem a `pages/`) — imports de `useContasBills`, `useContasActions` e `CreditCardSection` atualizados.
 
 ### Fase 2 — Registro de mudanças
 - `ui/sheet.tsx`: adicionadas props `dragToDismiss` e `onDragDismiss` — swipe-to-dismiss em bottom sheets (pointer events, threshold 96px, resistência 0.55, ignora controles interativos e scroll interno, `touch-action` desativado durante o gesto). Sem dependência nova (sem Vaul).

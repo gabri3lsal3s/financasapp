@@ -16,7 +16,7 @@ import {
   type BillPaymentRowInput,
 } from '@/utils/creditCardBilling'
 import { shiftMonth } from '@/utils/creditCardMonthSelection'
-import { parseRefundNote } from '@/pages/creditCards/refundNote'
+import { parseRefundNote } from '@/utils/refundNote'
 import type { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
 
 type PaymentItem = BillPaymentDisplayItem

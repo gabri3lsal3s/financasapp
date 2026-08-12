@@ -149,6 +149,20 @@ Título do header: uppercase automático via `Modal`. Footer fixo fora da área 
 - `ExpenseFormModal`, `IncomeFormModal`, `PortfolioTransactionFormModal`
 - `src/components/consulting/**` — assessoria
 
+**Página Contas (Fase 3 — orquestrador enxuto):**
+
+| Componente/Hook | Arquivo | Responsabilidade |
+|-----------------|---------|------------------|
+| Seção cartões | `src/components/creditCards/CreditCardSection.tsx` | Accordion de cartões, timeline, ações, lançamentos/pagamentos |
+| Seção pendências | `src/components/debts/DebtsSection.tsx` | Filtros, lista de dívidas, despesa integrada, confirmadas |
+| Modais | `src/components/contas/ContasModals.tsx` | Os 14 modais da página (renderização única) |
+| KPIs | `src/components/contas/ContasStats.tsx` | Grid de 4 cards de resumo |
+| Ações de negócio | `src/hooks/useContasActions.ts` | 23 handlers com `useCallback` (DRY — único lugar de mutação) |
+| Dados derivados | `src/hooks/useContasDerivedData.ts` | Memos de cartões ativos, pendências e stats |
+| Navegação | `src/hooks/useContasNavigation.ts` | Deep-links `?month`, `?expand`, `?highlight`, `?card` |
+
+**Convenção:** `useContasModals` mantém **somente estado e ações de modais**; a lógica de mutação (Supabase/hooks) vive exclusivamente em `useContasActions` (não duplicar handlers em ambos).
+
 ---
 
 ## 4. Padrão de página
