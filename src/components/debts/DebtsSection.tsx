@@ -5,7 +5,8 @@ import {
 } from 'lucide-react'
 import Button from '@/components/Button'
 import EmptyState from '@/components/EmptyState'
-import { formatCurrency, formatDate, formatMonth } from '@/utils/format'
+import { formatDate, formatMonth } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { getDebtDueStatus, DEBT_DUE_STATUS_LABEL, type DebtDueStatus } from '@/utils/debtStatus'
 import { CARD_BASE, CARD_PADDING } from '@/constants/layout'
 import type { Debt } from '@/types'
@@ -193,7 +194,7 @@ export default function DebtsSection({
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border block text-center ${DUE_STATUS_CLASSES[dueStatus]}`}>
                         {DEBT_DUE_STATUS_LABEL[dueStatus]}
                       </span>
-                      <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-1">{formatCurrency(debt.amount)}</p>
+                      <p className="mt-1"><AmountText value={debt.amount} size="sm" /></p>
                     </div>
                     {isExpanded ? (
                       <ChevronUp size={14} className="text-secondary sm:w-[16px] sm:h-[16px]" />
@@ -229,7 +230,7 @@ export default function DebtsSection({
                           </div>
                           <div className="space-y-0.5">
                             <Eyebrow>Valor da despesa</Eyebrow>
-                            <p className="text-sm font-bold font-mono text-expense">{formatCurrency(debt.expense.amount)}</p>
+                            <p><AmountText value={debt.expense.amount} size="sm" tone="expense" /></p>
                           </div>
                           <div className="space-y-0.5">
                             <Eyebrow>Data de lançamento</Eyebrow>
@@ -318,7 +319,7 @@ export default function DebtsSection({
               >
                 <CheckCircle2 size={13} className="text-income shrink-0 group-hover:scale-110 transition-transform stroke-[2.5]" />
                 <span className="font-semibold text-primary truncate max-w-[140px]">{debt.name}</span>
-                <span className="text-income font-bold font-mono text-[10px]">{formatCurrency(debt.amount)}</span>
+                <span><AmountText value={debt.amount} size="xs" tone="income" /></span>
               </div>
             ))}
           </div>

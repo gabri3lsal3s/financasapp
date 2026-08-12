@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import Card from '@/components/Card'
-import { formatCurrency, formatMonth } from '@/utils/format'
+import { formatMonth } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { PortfolioTransaction } from '@/types'
 import { isPortfolioIncomeType } from '@/utils/portfolioOperations'
 import { isCashTicker } from '@/utils/assetClassifier'
@@ -64,7 +65,7 @@ export default function MonthlyActivityCard({
           </span>
           <span className="text-[10px] text-secondary font-medium">|</span>
           <span className="text-[10px] font-bold text-primary font-mono">
-            Caixa em Custódia: <span className="text-income font-black">{formatCurrency(cashValue)}</span>
+            Caixa em Custódia: <span className="text-income font-black"><AmountText value={cashValue} size="xs" className="text-current" /></span>
           </span>
         </div>
 
@@ -103,37 +104,38 @@ export default function MonthlyActivityCard({
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Investido
             </span>
-            <span className="text-xs font-black text-primary font-mono block mt-0.5">
-              {formatCurrency(summary.monthInvested)}
+            <span className="block mt-0.5">
+              <AmountText value={summary.monthInvested} size="xs" weight="extrabold" />
             </span>
           </div>
           <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Retirado
             </span>
-            <span className="text-xs font-black text-primary font-mono block mt-0.5">
-              {formatCurrency(summary.monthWithdrawn)}
+            <span className="block mt-0.5">
+              <AmountText value={summary.monthWithdrawn} size="xs" weight="extrabold" />
             </span>
           </div>
           <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Proventos
             </span>
-            <span className="text-xs font-black text-income font-mono block mt-0.5">
-              {formatCurrency(summary.monthIncome)}
+            <span className="block mt-0.5">
+              <AmountText value={summary.monthIncome} size="xs" weight="extrabold" tone="income" />
             </span>
           </div>
           <div className="p-2.5 rounded-xl border border-glass/30 bg-glass/5">
             <span className="text-[8px] font-bold text-secondary uppercase tracking-wider block leading-tight">
               Fluxo Líquido
             </span>
-            <span
-              className={`text-xs font-black font-mono block mt-0.5 ${
-                summary.netFlow >= 0 ? 'text-income' : 'text-expense'
-              }`}
-            >
-              {summary.netFlow >= 0 ? '+' : ''}
-              {formatCurrency(summary.netFlow)}
+            <span className="block mt-0.5">
+              <AmountText
+                value={summary.netFlow}
+                size="xs"
+                weight="extrabold"
+                tone={summary.netFlow >= 0 ? 'income' : 'expense'}
+                forceSign
+              />
             </span>
           </div>
         </div>

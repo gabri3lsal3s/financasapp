@@ -5,7 +5,7 @@ import Button from '@/components/Button'
 import CurrencyInput from '@/components/CurrencyInput'
 import EmptyState from '@/components/EmptyState'
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import { getStaggerClass } from '@/constants/animation'
@@ -95,21 +95,21 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Limite Definido</span>
-          <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-            {formatCurrency(expensesKpis.limitSum)}
-          </span>
+          <AmountText value={expensesKpis.limitSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Gasto</span>
-          <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-            {formatCurrency(expensesKpis.spentSum)}
-          </span>
+          <AmountText value={expensesKpis.spentSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Disponível</span>
-          <span className={`text-base sm:text-lg font-extrabold font-mono mt-2 ${expensesKpis.remaining >= 0 ? 'text-income' : 'text-expense'}`}>
-            {formatCurrency(expensesKpis.remaining)}
-          </span>
+          <AmountText
+            value={expensesKpis.remaining}
+            size="md"
+            weight="extrabold"
+            tone={expensesKpis.remaining >= 0 ? 'income' : 'expense'}
+            className="mt-2"
+          />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <div className="flex justify-between items-center">
@@ -231,7 +231,7 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
 
                     <div className="space-y-2 pt-1">
                       <div className="flex justify-between items-end text-xs text-secondary">
-                        <span>Gasto: <strong className="text-primary">{formatCurrency(spent)}</strong></span>
+                        <span>Gasto: <strong className="text-primary"><AmountText value={spent} size="xs" /></strong></span>
                         {hasLimit && (
                           <span className="font-mono text-[10px]">{Math.round(spentPct)}%</span>
                         )}
@@ -241,7 +241,7 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
                         if (base === spent) return null
                         return (
                           <p className="text-[9px] text-secondary/50 flex items-center gap-1">
-                            <span>Valor base: {formatCurrency(base)}</span>
+                            <span>Valor base: <AmountText value={base} size="xs" className="text-current" /></span>
                             <InfoTooltip content={WEIGHT_TOOLTIPS.baseValueExpense} iconSize={8} />
                           </p>
                         )
@@ -296,7 +296,7 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
                           >
                             <span>Sugerido:</span>
                             <span className="font-bold underline">
-                              {formatCurrency(Math.round((averageIncome * getCategoryPercentageSuggestion(cat)) / 1000) * 10)}
+                              <AmountText value={Math.round((averageIncome * getCategoryPercentageSuggestion(cat)) / 1000) * 10} size="xs" className="text-current" />
                             </span>
                             <span>({getCategoryPercentageSuggestion(cat)}% da renda)</span>
                           </Button>
@@ -305,10 +305,10 @@ export default function ExpenseCategoryGrid(props: ExpenseCategoryGridProps) {
                     ) : (
                       <>
                         <div className="text-xs text-secondary truncate">
-                          Limite: <span className="text-primary font-bold">{hasLimit ? formatCurrency(limitAmount) : 'Não definido'}</span>
+                          Limite: <span className="text-primary font-bold">{hasLimit ? <AmountText value={limitAmount} size="xs" /> : 'Não definido'}</span>
                           {!hasLimit && averageIncome > 0 && (
                             <span className="text-[10px] text-secondary/70 block mt-0.5">
-                              Sugestão: {formatCurrency(Math.round((averageIncome * getCategoryPercentageSuggestion(cat)) / 1000) * 10)}
+                              Sugestão: <AmountText value={Math.round((averageIncome * getCategoryPercentageSuggestion(cat)) / 1000) * 10} size="xs" className="text-current" />
                             </span>
                           )}
                         </div>

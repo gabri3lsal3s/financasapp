@@ -1,4 +1,5 @@
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
 import ReconciliationSideBySide from '@/components/reconciliation/ReconciliationSideBySide'
@@ -42,7 +43,7 @@ export default function ComparisonRowCard({ row, draft, index }: ComparisonRowCa
     <div className="space-y-1">
       <p className="text-sm text-primary mt-1 break-words font-sans">{row.official.description}</p>
       <p className="text-xs text-secondary mt-1 font-mono">
-        {formatDate(row.official.date)} • {formatCurrency(Number(row.official.amount || 0))}
+        {formatDate(row.official.date)} • <AmountText value={Number(row.official.amount || 0)} size="xs" className="text-current" />
         {installment}
       </p>
       {row.official.isRefund && (
@@ -64,7 +65,7 @@ export default function ComparisonRowCard({ row, draft, index }: ComparisonRowCa
             {row.current.description || row.current.category_name || 'Sem descrição'}
           </p>
           <p className="text-xs text-secondary mt-1 font-mono">
-            {formatDate(row.current.date)} • {formatCurrency(Number(row.current.base_amount ?? row.current.amount ?? 0))}
+            {formatDate(row.current.date)} • <AmountText value={Number(row.current.base_amount ?? row.current.amount ?? 0)} size="xs" className="text-current" />
           </p>
         </>
       ) : draft ? (

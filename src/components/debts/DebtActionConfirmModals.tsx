@@ -2,7 +2,7 @@ import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import CurrencyInput from '@/components/CurrencyInput'
 import { Eyebrow } from '@/components/ui/eyebrow'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { Debt, Expense } from '@/types'
 
 // 1. CONFIRMAR RECEBIMENTO (CRIAR RENDA)
@@ -59,8 +59,8 @@ export function IncomeConfirmModal({
             <Eyebrow>
               Valor do Recebimento
             </Eyebrow>
-            <span className="text-base font-extrabold text-income font-mono">
-              {debt ? formatCurrency(debt.amount) : ''}
+            <span>
+              {debt ? <AmountText value={debt.amount} size="md" weight="extrabold" tone="income" /> : ''}
             </span>
           </div>
         </div>
@@ -124,26 +124,24 @@ export function IntegratedDebtModal({
               <span className="text-secondary font-semibold">
                 Valor Total da Despesa:
               </span>
-              <p className="font-mono text-sm font-bold text-primary">
-                {formatCurrency(linkedExpense.amount)}
+              <p>
+                <AmountText value={linkedExpense.amount} size="sm" />
               </p>
             </div>
             <div>
               <span className="text-secondary font-semibold">
                 Valor Atual no Relatório:
               </span>
-              <p className="font-mono text-sm font-bold text-primary">
-                {formatCurrency(
-                  linkedExpense.amount * (linkedExpense.report_weight ?? 1)
-                )}
+              <p>
+                <AmountText value={linkedExpense.amount * (linkedExpense.report_weight ?? 1)} size="sm" />
               </p>
             </div>
             <div className="col-span-2 border-t border-glass pt-2 mt-1">
               <span className="text-secondary font-semibold">
                 Valor do Pagamento/Recebimento:
               </span>
-              <p className="font-mono text-sm font-bold text-income">
-                {formatCurrency(debt.amount)}
+              <p>
+                <AmountText value={debt.amount} size="sm" tone="income" />
               </p>
             </div>
           </div>
@@ -221,8 +219,8 @@ export function PayableConfirmModal({
             <Eyebrow>
               Valor do Pagamento
             </Eyebrow>
-            <span className="text-base font-extrabold text-expense font-mono">
-              {debt ? formatCurrency(debt.amount) : ''}
+            <span>
+              {debt ? <AmountText value={debt.amount} size="md" weight="extrabold" tone="expense" /> : ''}
             </span>
           </div>
         </div>

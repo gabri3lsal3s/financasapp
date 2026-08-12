@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase'
 import ModalForm from '@/components/ModalForm'
 import ModalFooter from '@/components/ModalFooter'
 import CurrencyInput from '@/components/CurrencyInput'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 
 import toast from 'react-hot-toast'
 import { logger } from '@/utils/logger'
@@ -216,8 +217,8 @@ export default function QuickBalanceUpdateModal({
                     <span className="text-[9px] uppercase tracking-wider font-bold text-secondary block">
                       Valor Salvo Anterior
                     </span>
-                    <span className="text-xs font-mono font-bold text-secondary">
-                      {formatCurrency(row.manual_current_value)}
+                    <span>
+                      <AmountText value={row.manual_current_value} size="xs" tone="muted" />
                     </span>
                   </div>
                 </div>

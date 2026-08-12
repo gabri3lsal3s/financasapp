@@ -1,6 +1,7 @@
 import { addMonths, format } from 'date-fns'
 import Button from '@/components/Button'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationAlert from '@/components/reconciliation/ReconciliationAlert'
 
@@ -62,7 +63,7 @@ export default function SuspiciousDraftCard({
           {item.description || 'Sem descrição'}
         </p>
         <p className="text-xs text-secondary mt-0.5 font-medium font-mono">
-          {formatDate(item.date)} • {formatCurrency(Math.abs(Number(item.base_amount ?? item.amount ?? 0)))}
+          {formatDate(item.date)} • <AmountText value={Math.abs(Number(item.base_amount ?? item.amount ?? 0))} size="xs" className="text-current" />
           {item.category_name ? ` • ${item.category_name}` : ''}
           {item.installment_number && item.installment_total
             ? ` • Parcela ${item.installment_number}/${item.installment_total}`

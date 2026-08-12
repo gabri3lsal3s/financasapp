@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { portfolioOperationLabel } from '@/utils/portfolioOperations'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationSideBySide from '@/components/reconciliation/ReconciliationSideBySide'
@@ -55,8 +55,8 @@ export default function InvestmentConflictCard({ draft, onToggleSelect }: Invest
         </div>
         <div>
           <span>Preço</span>
-          <span className={cn('block font-bold text-primary', isPriceDiff ? 'text-warning' : '')}>
-            {formatCurrency(draft.existing.price)}
+          <span className={cn('block font-bold', isPriceDiff ? 'text-warning' : 'text-primary')}>
+            <AmountText value={draft.existing.price} size="xs" className="text-current" />
           </span>
         </div>
       </div>
@@ -89,8 +89,8 @@ export default function InvestmentConflictCard({ draft, onToggleSelect }: Invest
         </div>
         <div>
           <span>Preço</span>
-          <span className={cn('block font-bold text-primary', isPriceDiff ? 'text-balance font-extrabold' : '')}>
-            {formatCurrency(draft.official.price)}
+          <span className={cn('block font-bold', isPriceDiff ? 'text-balance font-extrabold' : 'text-primary')}>
+            <AmountText value={draft.official.price} size="xs" className="text-current" />
           </span>
         </div>
       </div>

@@ -9,7 +9,8 @@ import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import CreditCardTimeline from '@/components/creditCards/CreditCardTimeline'
 import BillExpenseRowButton from '@/components/creditCards/BillExpenseRowButton'
 import RowButton from '@/components/RowButton'
-import { formatCurrency, formatDate, roundToDecimals } from '@/utils/format'
+import { formatDate, roundToDecimals } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { CARD_BASE, CARD_PADDING } from '@/constants/layout'
 import { parseRefundNote } from '@/utils/refundNote'
 import type { MonthlyCycleRow } from '@/components/creditCards/CreditCardTimeline'
@@ -141,12 +142,12 @@ export default function CreditCardSection({
                           <InfoTooltip content={WEIGHT_TOOLTIPS.billActualValue} iconSize={10} />
                         )}
                       </p>
-                      <p className="text-xs sm:text-sm font-bold text-primary font-mono mt-0.5">
-                        {formatCurrency(baseExpensesByCard[card.id] ?? totalPrevisto)}
+                      <p className="mt-0.5">
+                        <AmountText value={baseExpensesByCard[card.id] ?? totalPrevisto} size="sm" />
                       </p>
                       {baseExpensesByCard[card.id] !== undefined && baseExpensesByCard[card.id] !== totalPrevisto && (
                         <p className="text-[9px] text-secondary/50 font-sans mt-0.5">
-                          Relatório: {formatCurrency(totalPrevisto)}
+                          Relatório: <AmountText value={totalPrevisto} size="xs" className="text-current" />
                         </p>
                       )}
                     </div>
@@ -267,7 +268,7 @@ export default function CreditCardSection({
                                         {refundMeta.isRefund ? ' • Estorno' : ''}
                                       </p>
                                     </div>
-                                    <p className="text-xs font-bold text-income font-mono">{formatCurrency(payment.amount)}</p>
+                                    <p><AmountText value={payment.amount} size="xs" tone="income" /></p>
                                   </div>
                                 </RowButton>
                               )

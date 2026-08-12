@@ -1,4 +1,4 @@
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { InvoiceTotals } from '@/utils/creditCardCsvReconciliation'
 import ComparisonRowCard from '@/components/creditCards/ComparisonRowCard'
 import type { ComparisonRow, MissingDraft } from '@/utils/csvReconciliationUi'
@@ -43,20 +43,20 @@ export default function CsvReviewStep({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-50">
           <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Oficial (Fatura)</p>
-          <p className="text-base font-bold text-primary">{formatCurrency(totals?.officialTotal || 0)}</p>
+          <p><AmountText value={totals?.officialTotal || 0} size="md" /></p>
         </div>
         <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-100">
           <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Identificado (Base)</p>
-          <p className="text-base font-bold text-primary">{formatCurrency(totals?.identifiedTotal || 0)}</p>
+          <p><AmountText value={totals?.identifiedTotal || 0} size="md" /></p>
         </div>
         <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-150">
           <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Sugestões</p>
-          <p className="text-base font-bold text-primary text-accent">{formatCurrency(totals?.missingTotal || 0)}</p>
+          <p><AmountText value={totals?.missingTotal || 0} size="md" className="text-accent" /></p>
         </div>
         <div className="modal-panel-glass p-3 text-center animate-stagger-item delay-200">
           <p className="text-[10px] text-secondary font-bold uppercase tracking-wider mb-1">Diferença</p>
-          <p className={`text-sm font-black ${Math.abs(totals?.difference || 0) < 0.05 ? 'text-income' : 'text-expense'}`}>
-            {formatCurrency(totals?.difference || 0)}
+          <p>
+            <AmountText value={totals?.difference || 0} size="sm" tone={Math.abs(totals?.difference || 0) < 0.05 ? 'income' : 'expense'} />
           </p>
         </div>
       </div>

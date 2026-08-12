@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from 'react'
 import Card from '@/components/Card'
 import ViewModeToggle from '@/components/ViewModeToggle'
 import PortfolioPieChart from '@/components/investments/PortfolioPieChart'
-import { formatCurrency, formatPercentBR, formatSignedPercentBR } from '@/utils/format'
+import { formatPercentBR, formatSignedPercentBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import type { PortfolioGroupTarget, PortfolioTransaction } from '@/types'
 import {
@@ -250,7 +251,7 @@ export default function AssetAnalyticsCard({
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                       <span className="font-extrabold text-primary truncate">{item.name}</span>
-                      <span className="font-mono text-secondary shrink-0">({formatCurrency(item.currentValue)})</span>
+                      <span className="font-mono text-secondary shrink-0">(<AmountText value={item.currentValue} size="xs" className="text-current" />)</span>
                     </div>
 
                     <div className="flex items-center gap-2 font-mono text-xs">
@@ -332,8 +333,8 @@ export default function AssetAnalyticsCard({
                         {formatPercentBR(item.percentage, 1)} da carteira
                       </span>
                     </div>
-                    <span className="text-xs font-black text-primary font-mono shrink-0">
-                      {formatCurrency(item.totalValue)}
+                    <span>
+                      <AmountText value={item.totalValue} size="xs" weight="extrabold" />
                     </span>
                   </div>
 
@@ -375,8 +376,8 @@ export default function AssetAnalyticsCard({
                     {item.accumulatedDividends > 0 && (
                       <div className="flex items-center justify-between pt-1 border-t border-glass/20">
                         <span className="text-secondary font-bold">Proventos</span>
-                        <span className="font-black font-mono text-income">
-                          {formatCurrency(item.accumulatedDividends)}
+                        <span>
+                          <AmountText value={item.accumulatedDividends} size="xs" weight="extrabold" tone="income" />
                         </span>
                       </div>
                     )}

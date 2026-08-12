@@ -3,7 +3,8 @@ import { Check } from 'lucide-react'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import type { BillExpenseItem } from '@/utils/creditCardBilling'
-import { formatCurrency, formatDate, roundToDecimals } from '@/utils/format'
+import { formatDate, roundToDecimals } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 
 interface BillExpenseRowButtonProps {
   item: BillExpenseItem
@@ -46,12 +47,12 @@ export default function BillExpenseRowButton({
         </div>
 
         <div className="flex flex-col items-end shrink-0 text-right">
-          <p className={`text-xs sm:text-sm font-bold ${baseAmount < 0 ? 'text-income' : 'text-primary'} font-mono`}>
-            {formatCurrency(baseAmount)}
+          <p>
+            <AmountText value={baseAmount} size="sm" tone={baseAmount < 0 ? 'income' : 'default'} />
           </p>
           {hasDifference && (
             <p className="text-[9px] sm:text-[10px] text-secondary flex items-center gap-1 justify-end">
-              <span>Relatório: {formatCurrency(weightedAmount)}</span>
+              <span>Relatório: <AmountText value={weightedAmount} size="xs" className="text-current" /></span>
               <InfoTooltip
                 content={WEIGHT_TOOLTIPS.billRowWeight}
                 iconSize={10}

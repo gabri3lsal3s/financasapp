@@ -3,7 +3,8 @@ import Card from '@/components/Card'
 import InfoTooltip from '@/components/InfoTooltip'
 import { INVESTMENT_TOOLTIPS } from '@/constants/tooltips'
 import ViewModeToggle from '@/components/ViewModeToggle'
-import { formatCurrency, formatNumberBR, formatChartYAxisCurrency } from '@/utils/format'
+import { formatNumberBR, formatChartYAxisCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import {
   AreaChart,
   Area,
@@ -136,8 +137,8 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
                               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
                               <span className="text-[10px] font-bold text-secondary">Bruto:</span>
                             </div>
-                            <span className="text-xs font-black text-primary font-mono">
-                              {formatCurrency(data.grossPL)}
+                            <span>
+                              <AmountText value={data.grossPL} size="xs" weight="extrabold" />
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
@@ -145,8 +146,8 @@ export default function EvolutionChart({ shareHistory }: EvolutionChartProps) {
                               <span className="w-1.5 h-1.5 rounded-full border border-dashed border-[var(--color-text-secondary)] bg-transparent" />
                               <span className="text-[10px] font-bold text-secondary">Investido:</span>
                             </div>
-                            <span className="text-xs font-black text-secondary font-mono">
-                              {formatCurrency(data.investedPL)}
+                            <span>
+                              <AmountText value={data.investedPL} size="xs" weight="extrabold" tone="muted" />
                             </span>
                           </div>
                         </div>

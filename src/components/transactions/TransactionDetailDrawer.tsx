@@ -3,7 +3,7 @@ import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 
 interface TransactionDetailDrawerProps {
@@ -96,12 +96,12 @@ export default function TransactionDetailDrawer({
               {showOriginalAmount && (
                 <div className="flex items-center gap-1 justify-end mb-0.5">
                   <span className="text-[10px] line-through text-secondary opacity-60">
-                    {formatCurrency(originalAmount)}
+                    <AmountText value={originalAmount} size="xs" className="text-current" />
                   </span>
                   <InfoTooltip content={WEIGHT_TOOLTIPS.transactionValue} iconSize={8} />
                 </div>
               )}
-              <p className="text-base font-bold font-mono text-primary">{formatCurrency(amount)}</p>
+              <p><AmountText value={amount} size="md" /></p>
             </div>
           </div>
         </div>

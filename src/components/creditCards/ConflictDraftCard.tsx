@@ -1,6 +1,7 @@
 import Input from '@/components/Input'
 import CurrencyInput from '@/components/CurrencyInput'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
 import ReconciliationAlert from '@/components/reconciliation/ReconciliationAlert'
@@ -66,13 +67,13 @@ export default function ConflictDraftCard({
             {conflict.official.description || conflict.existing.description}
           </p>
           <p className="text-xs text-secondary mt-0.5 font-mono leading-relaxed">
-            Sistema: {formatDate(conflict.existing.date)} ({formatCurrency(Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0))}) <br />
-            Oficial: {formatDate(conflict.suggestedUpdate.date)} ({formatCurrency(Number(conflict.official.amount || 0))})
+            Sistema: {formatDate(conflict.existing.date)} (<AmountText value={Number(conflict.existing.base_amount ?? conflict.existing.amount ?? 0)} size="xs" className="text-current" />) <br />
+            Oficial: {formatDate(conflict.suggestedUpdate.date)} (<AmountText value={Number(conflict.official.amount || 0)} size="xs" className="text-current" />)
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm font-bold text-accent">
-            {formatCurrency(Number(draft.amount || conflict.official.amount || 0))}
+          <p>
+            <AmountText value={Number(draft.amount || conflict.official.amount || 0)} size="sm" className="text-accent" />
           </p>
           {!draft.applied && (
             <p className="text-[10px] text-secondary mt-1.5 font-medium">

@@ -1,5 +1,5 @@
 import { Checkbox } from '@/components/ui/checkbox'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { portfolioOperationLabel } from '@/utils/portfolioOperations'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
@@ -38,7 +38,7 @@ export default function B3AdjustmentCard({ adj, isChecked, onToggle }: B3Adjustm
         <p className="text-[9.5px] text-secondary mt-1 font-mono">
           {portfolioOperationLabel(adj.operation_type)} de{' '}
           <strong className="text-primary font-bold">{adj.quantity}</strong> un a{' '}
-          <strong className="text-primary font-bold">{formatCurrency(adj.price)}</strong> em{' '}
+          <strong className="text-primary font-bold"><AmountText value={adj.price} size="xs" /></strong> em{' '}
           <span className="underline">{adj.date}</span>.
         </p>
       </div>

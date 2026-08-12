@@ -33,7 +33,8 @@ import type {
   IncomeCategory,
   CreditCard,
 } from '@/types'
-import { roundToDecimals, todayISO, formatCurrency, formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { roundToDecimals, todayISO, formatDate } from '@/utils/format'
 import { splitAmountIntoInstallments } from '@/utils/creditCardBilling'
 import { logger } from '@/utils/logger'
 
@@ -569,7 +570,7 @@ export default function TransactionFormModal(props: TransactionFormModalProps) {
         <div className="modal-form-stack w-full">
           <div className="modal-panel-glass space-y-2 p-3">
             <p className="text-xs text-secondary">Valor</p>
-            <p className="text-base font-semibold text-primary">{formatCurrency(income.amount)}</p>
+            <p><AmountText value={income.amount} size="md" weight="semibold" /></p>
             <p className="text-xs text-secondary">Data: {formatDate(income.date)}</p>
             <p className="text-xs text-secondary">
               Categoria: {income.income_category?.name || REFUND_INCOME_CATEGORY_NAME}

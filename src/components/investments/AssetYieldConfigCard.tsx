@@ -2,7 +2,7 @@ import Button from '@/components/Button'
 import NumberInput from '@/components/NumberInput'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { Landmark, DollarSign, FileText, Save } from 'lucide-react'
 import type { PortfolioAssetIndexer } from '@/types'
 
@@ -59,7 +59,7 @@ export default function AssetYieldConfigCard({
             Aporte: {asset.date}
           </span>
           <span className="rounded-lg border border-glass modal-panel-glass px-2 py-0.5 text-[9px] font-bold font-mono text-secondary">
-            Qtd: {asset.quantity} • {formatCurrency(parseFloat(asset.price))}
+            Qtd: {asset.quantity} • <AmountText value={parseFloat(asset.price)} size="xs" className="text-current" />
           </span>
         </div>
 

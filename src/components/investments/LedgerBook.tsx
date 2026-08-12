@@ -4,7 +4,8 @@ import Select from '@/components/Select'
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { formatCurrency, formatQuantityBR, formatDate } from '@/utils/format'
+import { formatQuantityBR, formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { PortfolioTransaction } from '@/types'
 import { Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -358,11 +359,11 @@ export default function LedgerBook({
                       <td className="py-3 px-3 text-right font-mono text-secondary">
                         {formatQuantityBR(Number(tx.quantity), 6)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-secondary">
-                        {formatCurrency(Number(tx.price))}
+                      <td className="py-3 px-3 text-right">
+                        <AmountText value={Number(tx.price)} size="xs" tone="muted" />
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-primary font-black">
-                        {formatCurrency(total)}
+                      <td className="py-3 px-4 text-right">
+                        <AmountText value={total} size="xs" weight="extrabold" />
                       </td>
                     </tr>
                   )
@@ -449,13 +450,13 @@ export default function LedgerBook({
                         </span>
                       </div>
                       <div className="text-[10px] text-secondary font-medium font-mono truncate">
-                        {formatDate(tx.date)} • {formatQuantityBR(Number(tx.quantity), 4)} un x {formatCurrency(Number(tx.price))}
+                        {formatDate(tx.date)} • {formatQuantityBR(Number(tx.quantity), 4)} un x <AmountText value={Number(tx.price)} size="xs" className="text-current" />
                       </div>
                     </div>
                     
                     <div className="text-right shrink-0">
-                      <span className="text-sm font-black text-primary font-mono block">
-                        {formatCurrency(total)}
+                      <span className="block">
+                        <AmountText value={total} size="sm" weight="extrabold" />
                       </span>
                     </div>
                   </button>

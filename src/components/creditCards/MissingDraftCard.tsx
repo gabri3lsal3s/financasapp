@@ -1,7 +1,8 @@
 import Input from '@/components/Input'
 import CurrencyInput from '@/components/CurrencyInput'
 import Select from '@/components/Select'
-import { formatCurrency, formatDate, parseMoneyInput } from '@/utils/format'
+import { formatDate, parseMoneyInput } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
 import ReconciliationAlert from '@/components/reconciliation/ReconciliationAlert'
@@ -58,9 +59,9 @@ export default function MissingDraftCard({
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm font-bold text-primary">
+          <p>
             {draft.official.isRefund ? '-' : ''}
-            {formatCurrency(parseMoneyInput(draft.amount) || 0)}
+            <AmountText value={parseMoneyInput(draft.amount) || 0} size="sm" />
           </p>
           <p className="text-[10px] text-secondary mt-1.5 font-medium">
             {draft.selected ? '✓ Selecionado' : 'Clique para selecionar'}
@@ -86,8 +87,8 @@ export default function MissingDraftCard({
                 Encontrado no sistema com outra data/forma de pagamento. Se selecionado, será corrigido automaticamente para corresponder ao CSV oficial.
               </p>
               <div className="text-[11px] text-secondary space-y-0.5 bg-primary/25 p-2 rounded mt-2 font-mono border border-glass">
-                <p>Oficial: {formatDate(draft.official.date)} • {formatCurrency(Number(draft.official.amount || 0))} • {draft.official.description}</p>
-                <p>Sistema: {formatDate(draft.possibleExistingMatch.date)} • {formatCurrency(Number(draft.possibleExistingMatch.amount || 0))} • {draft.possibleExistingMatch.description || 'Sem descrição'}</p>
+                <p>Oficial: {formatDate(draft.official.date)} • <AmountText value={Number(draft.official.amount || 0)} size="xs" className="text-current" /> • {draft.official.description}</p>
+                <p>Sistema: {formatDate(draft.possibleExistingMatch.date)} • <AmountText value={Number(draft.possibleExistingMatch.amount || 0)} size="xs" className="text-current" /> • {draft.possibleExistingMatch.description || 'Sem descrição'}</p>
               </div>
             </div>
           </ReconciliationAlert>

@@ -304,7 +304,7 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 |------------|--------|
 | `TransactionCurrencyFields` | Par de inputs (valor + peso relatório) com sincronização e valores numéricos via `CurrencyInput` |
 | `CurrencyInput` | Input monetário com máscara reversa estilo Nubank (`Intl.NumberFormat`, `inputMode="numeric"`) |
-| `AmountText` | Exibição padronizada de valores monetários (`ui/amount-text.tsx`): tabular-nums, tamanhos/tones/weights, formatação via `format.ts` — fonte única de tipografia de valores |
+| `AmountText` | Exibição padronizada de valores monetários (`ui/amount-text.tsx`): tabular-nums, tamanhos/tones/weights, formatação via `format.ts` — fonte única de tipografia de valores. Adotado na varredura R7+ em ~40 componentes (Dashboard details, Reports, Categorias, CreditCards, Dívidas, Investimentos, Transactions); strings (tooltips, tickFormatter do recharts, textos de insights) seguem via `format.ts` |
 | `ComparisonSparkline` | Sparkline comparativo SVG (`ui/comparison-sparkline.tsx`): curva atual sólida × mês anterior pontilhada, com fallback para linha única; path/acumulação em `utils/comparisonSparkline.ts` |
 | `bankBranding` | Cores institucionais de 15+ bancos (`utils/bankBranding.ts`): `getBankBrandColor`, `resolveCardColor` (marca → escolha manual → padrão) e `getBankScrimColor` — usados no `CreditCardSection` e no futuro cartão do Hero |
 | `debtStatus` | Status de dívidas por vencimento (`utils/debtStatus.ts`): `getDebtDueStatus` (Quitada/Atrasada/Vence Hoje/Vence em Breve/A Vencer) + rótulos — usado nos chips do `DebtsSection`; contas a pagar/receber com AmountText no `ContasStats` |

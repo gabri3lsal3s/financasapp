@@ -3,7 +3,8 @@ import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import type { CreditCard } from '@/types'
 import { ensureHexColor } from '@/utils/colorValue'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { formatDate } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { Z_INDEX } from '@/constants/zIndex'
 
 export type MonthlyCycleRow = {
@@ -302,12 +303,10 @@ export default function CreditCardTimeline({
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
               Previsto
             </span>
-            <span className="text-sm font-extrabold text-primary font-mono mt-0.5 whitespace-nowrap">
-              {formatCurrency(baseExpense !== undefined ? baseExpense : totalPrevisto)}
-            </span>
+            <AmountText value={baseExpense !== undefined ? baseExpense : totalPrevisto} size="sm" weight="extrabold" className="mt-0.5" nowrap />
             {baseExpense !== undefined && baseExpense !== totalPrevisto && (
               <span className="text-[9px] text-secondary/60 font-sans flex items-center gap-0.5 justify-center">
-                <span>({formatCurrency(totalPrevisto)} no relatório)</span>
+                <span>(<AmountText value={totalPrevisto} size="xs" className="text-current" /> no relatório)</span>
                 <InfoTooltip
                   content={WEIGHT_TOOLTIPS.billReportValue}
                   iconSize={8}
@@ -320,18 +319,14 @@ export default function CreditCardTimeline({
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
               Pago
             </span>
-            <span className="text-sm font-extrabold text-income font-mono mt-0.5 whitespace-nowrap">
-              {formatCurrency(totalPago)}
-            </span>
+            <AmountText value={totalPago} size="sm" weight="extrabold" tone="income" className="mt-0.5" nowrap />
           </div>
 
           <div className="absolute top-5 left-full -translate-x-1/2 flex flex-col items-center w-36 text-center select-none">
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">
               Saldo
             </span>
-            <span className={`text-sm font-extrabold font-mono mt-0.5 whitespace-nowrap ${saldoAberto > 0.009 ? 'text-primary' : 'text-secondary'}`}>
-              {formatCurrency(saldoAberto)}
-            </span>
+            <AmountText value={saldoAberto} size="sm" weight="extrabold" tone={saldoAberto > 0.009 ? 'default' : 'muted'} className="mt-0.5" nowrap />
           </div>
         </div>
       </div>
@@ -386,12 +381,12 @@ export default function CreditCardTimeline({
                   {/* Metric details */}
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-[9px] font-bold text-secondary uppercase tracking-wider">{item.metricLabel}:</span>
-                    <span className={`text-xs font-extrabold font-mono ${isItemPaid ? 'text-income' : 'text-primary'}`}>
-                      {formatCurrency(item.metricVal)}
+                    <span>
+                      <AmountText value={item.metricVal} size="xs" weight="extrabold" tone={isItemPaid ? 'income' : 'default'} />
                     </span>
                     {item.extraMetric !== undefined && (
                       <span className="text-[9px] text-secondary/60 font-sans flex items-center gap-0.5">
-                        <span>({formatCurrency(item.extraMetric)} no relatório)</span><InfoTooltip
+                        <span>(<AmountText value={item.extraMetric} size="xs" className="text-current" /> no relatório)</span><InfoTooltip
                             content={WEIGHT_TOOLTIPS.billReportValue}
                             iconSize={8}
                           />

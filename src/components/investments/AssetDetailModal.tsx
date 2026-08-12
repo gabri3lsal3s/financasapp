@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import { Eyebrow } from '@/components/ui/eyebrow'
+import AmountText from '@/components/ui/amount-text'
 import {
   formatCurrency,
   formatQuantityBR,
@@ -190,8 +191,8 @@ export default function AssetDetailModal({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="rounded-2xl border border-glass surface-glass p-3.5 space-y-1">
             <span className="text-[9px] uppercase font-black text-secondary tracking-wider block">Total Custodiado</span>
-            <span className="text-base font-black font-mono text-primary block leading-tight">
-              {formatCurrency(valueInBrl)}
+            <span className="block leading-tight">
+              <AmountText value={valueInBrl} size="md" weight="extrabold" />
             </span>
             {position.currency === 'USD' && (
               <span className="text-[10px] font-mono text-secondary block">
@@ -208,7 +209,7 @@ export default function AssetDetailModal({
             <span className="text-[10px] text-secondary font-medium block">
               {isProfit ? 'Ganho: ' : 'Perda: '}
               <strong className={isProfit ? 'text-income' : 'text-expense'}>
-                {formatCurrency(Math.abs(absoluteGain))}
+                <AmountText value={Math.abs(absoluteGain)} size="xs" className="text-current" />
               </strong>
             </span>
           </div>
@@ -251,7 +252,7 @@ export default function AssetDetailModal({
           {position.target_percentage > 0 && (
             <div className="flex justify-between items-center text-[10px] text-secondary font-bold">
               <span>Desvio de alocação: <strong className={position.gap_percentage <= 0 ? 'text-income' : 'text-warning'}>{formatSignedPercentBR(position.gap_percentage)}</strong></span>
-              <span>GAP financeiro: <strong className={position.gap_financial <= 0 ? 'text-income' : 'text-warning'}>{formatCurrency(position.gap_financial)}</strong></span>
+              <span>GAP financeiro: <strong className={position.gap_financial <= 0 ? 'text-income' : 'text-warning'}><AmountText value={position.gap_financial} size="xs" className="text-current" /></strong></span>
             </div>
           )}
         </div>
@@ -295,7 +296,7 @@ export default function AssetDetailModal({
                               <span className="text-[9px] uppercase font-black text-secondary">{data.fullDate}</span>
                               <div className="flex justify-between items-center gap-2">
                                 <span className="text-secondary">Posição:</span>
-                                <span className="text-primary font-black font-mono">{formatCurrency(data.valorEstimado)}</span>
+                                <span><AmountText value={data.valorEstimado} size="xs" weight="extrabold" /></span>
                               </div>
                               <div className="flex justify-between items-center gap-2">
                                 <span className="text-secondary">Qtd:</span>
@@ -304,7 +305,7 @@ export default function AssetDetailModal({
                               {data.proventosAcumulados > 0 && (
                                 <div className="flex justify-between items-center gap-2 pt-1 border-t border-glass/25">
                                   <span className="text-income font-bold">Proventos:</span>
-                                  <span className="text-income font-black font-mono">{formatCurrency(data.proventosAcumulados)}</span>
+                                  <span><AmountText value={data.proventosAcumulados} size="xs" weight="extrabold" tone="income" /></span>
                                 </div>
                               )}
                             </div>
@@ -384,8 +385,8 @@ export default function AssetDetailModal({
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs font-black text-primary font-mono block">
-                        {formatCurrency(totalTx)}
+                      <span className="block">
+                        <AmountText value={totalTx} size="xs" weight="extrabold" />
                       </span>
                     </div>
                   </div>

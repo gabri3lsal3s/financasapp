@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react'
 import Card from '@/components/Card'
 import Input from '@/components/Input'
 import Button from '@/components/Button'
+import AmountText from '@/components/ui/amount-text'
 import { 
-  formatCurrency, 
   formatQuantityBR, 
   formatNumberWithTwoDecimalsBR, 
   formatPercentBR, 
@@ -129,7 +129,7 @@ export default function HoldingsTable({
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-sm font-black text-primary font-mono">{formatCurrency(classTotal)}</span>
+                <span><AmountText value={classTotal} size="sm" weight="extrabold" /></span>
                 <p className="text-[10px] text-secondary font-bold font-mono">{formatPercentBR(classAllocation)} da carteira</p>
               </div>
             </div>
@@ -186,8 +186,8 @@ export default function HoldingsTable({
                               {pos.currency === 'USD' ? '$' : 'R$'}{formatNumberWithTwoDecimalsBR(pos.current_price)}
                             </td>
                             {/* Total */}
-                            <td className="py-3 px-3 text-right font-mono text-primary font-black">
-                              {formatCurrency(valueInBrl)}
+                            <td className="py-3 px-3 text-right">
+                              <AmountText value={valueInBrl} size="xs" weight="extrabold" />
                             </td>
                             {/* Rentabilidade */}
                             <td className={`py-3 px-3 text-right font-mono ${isProfit ? 'text-income' : 'text-expense'}`}>
@@ -238,7 +238,7 @@ export default function HoldingsTable({
                         <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-semibold">
                           <div>
                             <span className="text-[8px] text-secondary uppercase tracking-wider block font-bold">Total Custodiado</span>
-                            <span className="text-sm font-black text-primary font-mono">{formatCurrency(valueInBrl)}</span>
+                            <span><AmountText value={valueInBrl} size="sm" weight="extrabold" /></span>
                           </div>
                           <div className="text-right">
                             <span className="text-[8px] text-secondary uppercase tracking-wider block font-bold">Rentabilidade</span>

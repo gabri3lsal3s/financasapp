@@ -5,7 +5,7 @@ import Button from '@/components/Button'
 import CurrencyInput from '@/components/CurrencyInput'
 import EmptyState from '@/components/EmptyState'
 import { getCategoryIcon } from '@/utils/categoryIcons'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import InfoTooltip from '@/components/InfoTooltip'
 import { WEIGHT_TOOLTIPS } from '@/constants/tooltips'
 import { getStaggerClass } from '@/constants/animation'
@@ -88,21 +88,20 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Expectativa Total</span>
-          <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-            {formatCurrency(incomesKpis.expectationSum)}
-          </span>
+          <AmountText value={incomesKpis.expectationSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Total Recebido</span>
-          <span className="text-base sm:text-lg font-extrabold font-mono text-primary mt-2">
-            {formatCurrency(incomesKpis.receivedSum)}
-          </span>
+          <AmountText value={incomesKpis.receivedSum} size="md" weight="extrabold" className="mt-2" />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Meta Restante</span>
-          <span className={`text-base sm:text-lg font-extrabold font-mono mt-2 ${incomesKpis.remaining <= 0 ? 'text-income' : 'text-warning'}`}>
-            {formatCurrency(Math.max(0, incomesKpis.remaining))}
-          </span>
+          <AmountText
+            value={Math.max(0, incomesKpis.remaining)}
+            size="md"
+            weight="extrabold"
+            className={`mt-2 ${incomesKpis.remaining <= 0 ? 'text-income' : 'text-warning'}`}
+          />
         </Card>
         <Card className="p-4 border border-glass surface-glass flex flex-col justify-between shadow-sm hover:shadow-md">
           <div className="flex justify-between items-center">
@@ -221,7 +220,7 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
 
                     <div className="space-y-2 pt-1">
                       <div className="flex justify-between items-end text-xs text-secondary">
-                        <span>Recebido: <strong className="text-primary">{formatCurrency(received)}</strong></span>
+                        <span>Recebido: <strong className="text-primary"><AmountText value={received} size="xs" /></strong></span>
                         {hasExpectation && (
                           <span className="font-mono text-[10px]">{Math.round(receivedPct)}%</span>
                         )}
@@ -231,7 +230,7 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
                         if (base === received) return null
                         return (
                           <p className="text-[9px] text-secondary/50 flex items-center gap-1">
-                            <span>Valor base: {formatCurrency(base)}</span>
+                            <span>Valor base: <AmountText value={base} size="xs" className="text-current" /></span>
                             <InfoTooltip content={WEIGHT_TOOLTIPS.baseValueIncome} iconSize={8} />
                           </p>
                         )
@@ -274,7 +273,7 @@ export default function IncomeCategoryGrid(props: IncomeCategoryGridProps) {
                     ) : (
                       <>
                         <div className="text-xs text-secondary truncate">
-                          Expectativa: <span className="text-primary font-bold">{hasExpectation ? formatCurrency(expectationAmount) : 'Não definida'}</span>
+                          Expectativa: <span className="text-primary font-bold">{hasExpectation ? <AmountText value={expectationAmount} size="xs" /> : 'Não definida'}</span>
                         </div>
                         <Button
                           type="button"

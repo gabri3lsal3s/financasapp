@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { formatCurrency, formatPercentBR } from '@/utils/format'
+import { formatPercentBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
 interface PieSlice {
@@ -107,8 +108,8 @@ export default function PortfolioPieChart({
                         </div>
                         <div className="flex justify-between gap-4 text-[10px]">
                           <span className="text-secondary font-bold">{valueLabel}:</span>
-                          <span className="text-primary font-black font-mono">
-                            {formatCurrency(item.value)}
+                          <span>
+                            <AmountText value={item.value} size="xs" weight="extrabold" />
                           </span>
                         </div>
                       </div>
@@ -143,8 +144,8 @@ export default function PortfolioPieChart({
                 <span className="font-mono text-secondary font-medium text-[11px]">
                   {formatPercentBR(item.percentage, 1)}
                 </span>
-                <span className="font-mono text-primary font-black text-right text-[11px] w-20 hidden xs:inline-block">
-                  {formatCurrency(item.value)}
+                <span className="w-20 hidden xs:inline-block text-right">
+                  <AmountText value={item.value} size="xs" weight="extrabold" />
                 </span>
               </div>
             </button>
@@ -153,8 +154,8 @@ export default function PortfolioPieChart({
           {/* Total */}
           <div className="flex items-center justify-between gap-2 text-xs border-t border-glass/30 pt-2 mt-1 px-2">
             <span className="font-black text-secondary uppercase tracking-wider text-[10px]">Total</span>
-            <span className="font-mono font-black text-primary text-[11px]">
-              {formatCurrency(total)}
+            <span>
+              <AmountText value={total} size="xs" weight="extrabold" />
             </span>
           </div>
         </div>

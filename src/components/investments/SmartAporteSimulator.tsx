@@ -4,6 +4,7 @@ import CurrencyInput from '@/components/CurrencyInput'
 import { Eyebrow } from '@/components/ui/eyebrow'
 import Button from '@/components/Button'
 import { formatCurrency, formatPercentBR, formatNumberWithTwoDecimalsBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import type { ValuedPosition } from '@/utils/portfolioCalculations'
 import type { PortfolioGroupTarget } from '@/types'
 import { simulateRebalanceAporte, type RebalanceSuggestion } from '@/utils/rebalanceSimulator'
@@ -179,7 +180,7 @@ export default function SmartAporteSimulator({
               className="text-[9px] font-black uppercase text-brand hover:text-brand-strong transition-colors flex items-center gap-1"
             >
               <PiggyBank size={11} />
-              <span>Usar Saldo em Caixa ({formatCurrency(cashValue)})</span>
+              <span>Usar Saldo em Caixa (<AmountText value={cashValue} size="xs" className="text-current" />)</span>
             </button>
           )}
         </div>
@@ -218,7 +219,7 @@ export default function SmartAporteSimulator({
                   Caixa / Sobra do Aporte
                 </span>
                 <p className="text-[10px] text-secondary font-medium leading-relaxed">
-                  R$ <strong>{formatCurrency(simulationResult.fallbackAmount)}</strong> permanecerão em Caixa devido ao valor unitário de cotas ou por posições já estarem alinhadas com as metas.
+                  R$ <strong><AmountText value={simulationResult.fallbackAmount} size="xs" /></strong> permanecerão em Caixa devido ao valor unitário de cotas ou por posições já estarem alinhadas com as metas.
                 </p>
               </div>
             </div>
@@ -282,7 +283,7 @@ export default function SmartAporteSimulator({
                           {suggestion.quantity} un @ {suggestion.currency === 'USD' ? '$' : 'R$'}{formatNumberWithTwoDecimalsBR(suggestion.price)}
                         </span>
                         <span className="text-[10px] text-secondary font-bold font-mono">
-                          Total: {formatCurrency(suggestion.totalBrl)}
+                          Total: <AmountText value={suggestion.totalBrl} size="xs" className="text-current" />
                         </span>
                       </div>
                       <div className="w-8 h-8 rounded-full bg-income/10 flex items-center justify-center text-income">

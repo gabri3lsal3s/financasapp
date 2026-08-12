@@ -1,5 +1,5 @@
 import Button from '@/components/Button'
-import { formatCurrency } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
 import ReconciliationCard from '@/components/reconciliation/ReconciliationCard'
 import ReconciliationBadge from '@/components/reconciliation/ReconciliationBadge'
 import type { PortfolioTransaction } from '@/types'
@@ -28,7 +28,7 @@ export default function SuspiciousInvestmentCard({ tx, onDelete }: SuspiciousInv
           <span className="mx-2">•</span>
           <span>Qtd: <strong>{tx.quantity}</strong></span>
           <span className="mx-2">•</span>
-          <span>Preço: <strong>{formatCurrency(tx.price)}</strong></span>
+          <span>Preço: <strong><AmountText value={tx.price} size="xs" /></strong></span>
         </div>
       </div>
       <Button
