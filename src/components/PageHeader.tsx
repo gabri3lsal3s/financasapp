@@ -6,7 +6,7 @@ interface PageHeaderProps {
   title: ReactNode
   /** Descrição/metadados abaixo do título. */
   subtitle?: ReactNode
-  /** Ações/CTAs alinhados à direita (ex.: Button, PageHeaderActions). */
+  /** Ações/CTAs alinhados à direita (ex.: Button). */
   action?: ReactNode
   className?: string
   /** Ocultar subtítulo em telas estreitas (mobile). Padrão: false. */

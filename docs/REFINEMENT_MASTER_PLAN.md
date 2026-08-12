@@ -119,6 +119,8 @@
 | 4.3 | `Contas.tsx` | 2.039 | 1.668 (-18%) | useContasBills, useContasModals | ✅ |
 | 4.4 | `FloatingActionHub.tsx` | 520 | ~50 (-90%) | useScrollToTop, haptics | ✅ |
 
+> **Auditoria A→D (12/08/2026):** `FloatingCalculator.tsx` reduzido ainda mais para **407 linhas** (3 hooks + `CalculatorPanel`/`CalculatorKeypad`) e `CreditCardCsvReconciliationPanel.tsx` decomposto de **1.193 → 669 linhas** (9 componentes `Csv*` + `utils/csvReconciliationUi.ts`).
+
 ### Fase 4.5 — Layout Alignment ✅
 
 | # | Item | Descrição | Status |
@@ -302,10 +304,10 @@ A correção do overflow DECIMAL(15,2) precisa ser aplicada via migration:
 
 | Arquivo | Linhas | Ação | Esforço |
 |---------|--------|------|---------|
-| `src/pages/Reports.tsx` | ~1.600 | Hook `useReportCustomPeriod` extraído (~250 linhas). Pendente: ReportSummarySection, ReportChartsSection, ReportInsightsSection | ~2h |
+| `src/pages/Reports.tsx` | ~1.600 | ✅ **Concluído** — orquestrador enxuto (Fase 4 do plano: 1452→219 linhas) | — |
 | `src/pages/Dashboard.tsx` | ~1.500 | DashboardSummaryCard + DashboardCategoryDetailModal extraídos (~400 linhas removidas). Pendente: seções restantes | ~1h |
 | `src/pages/Categories.tsx` | 1.252 | Componentização adicional das seções de KPI | ~2h |
-| `src/components/CreditCardCsvReconciliationPanel.tsx` | 1.193 | Extrair CsvUploadZone, CsvMatchTable | ~3h |
+| `src/components/CreditCardCsvReconciliationPanel.tsx` | 1.193 | ✅ **Concluído (Auditoria D)** — 1193→669 linhas: wizard extraído em 9 componentes `Csv*` + `utils/csvReconciliationUi.ts` | — |
 
 ### Testes Pendentes
 

@@ -314,10 +314,9 @@ Localizados em `src/components/ui/`: `button`, `card`, `input`, `select`, `switc
 | Componente | Função |
 |------------|--------|
 | `FloatingActionHub` | Portal único unificando ScrollToTop + NotificationsWidget (~50 linhas, 4 useEffects) |
-| `FloatingCalculator` | Calculadora científica flutuante (drag, resize) — lógica extraída (~1.107 linhas) |
+| `FloatingCalculator` | Calculadora científica flutuante (drag, resize) — orquestrador enxuto (407 linhas) + 3 hooks + `CalculatorPanel`/`CalculatorKeypad` |
 | `FloatingSideStack` | Painel lateral direito para ações |
 | `PageActionButtonHub` | Botão FAB de ações da página atual |
-| `PageHeaderActions` | Ações renderizadas pelo `usePageActions` |
 | `ReportPendingDebtsWidget` | Widget de projeção de pendências financeiras |
 | `ReportUnifiedCompositionCard` | Card de composição detalhada de relatórios |
 
@@ -503,8 +502,7 @@ O motor quantamental avalia cada ativo de forma **híbrida** (qualitativa + quan
 | Componente | Função |
 |------------|--------|
 | `src/utils/quantamentalEngine.ts` | Engine pura (testável sem browser) |
-| `src/hooks/usePortfolioState.ts` | Orquestração dos dados e integração Supabase |
-| `src/services/fundamentalsService.ts` | Busca e cache de fundamentos via Yahoo Finance |
+| `src/hooks/usePortfolioState.ts` | Orquestração dos dados e integração Supabase (fundamentos via `priceService` + cache `asset_fundamentals_cache` — `fundamentalsService.ts` removido na Auditoria A) |
 | `src/utils/assetClassifier.ts` | Classificação de ativos por ticker |
 
 ### 8.3 Avaliação Qualitativa (Scuttlebutt)

@@ -165,7 +165,7 @@ O botão de engrenagem para personalizar widgets foi **movido** do canto superio
 
 | Componente | Função |
 |-----------|--------|
-| `FloatingCalculator` | Calculadora flutuante (drag, resize, animação) — ~10 useEffects, com lógica extraída para 3 utils + 2 hooks |
+| `FloatingCalculator` | Calculadora flutuante (drag, resize, animação) — orquestrador enxuto (407 linhas) com lógica extraída em 3 hooks (`useCalculatorExpression`, `useCalculatorTargetInput`, `useCalculatorIconDrag`) + 2 componentes (`CalculatorPanel`, `CalculatorKeypad`) |
 | `FloatingSideStack` | Painel lateral direito para ações flutuantes |
 | `FloatingActionHub` | Hub unificado para ScrollToTop e NotificationsWidget — ~50 linhas, 4 useEffects, com lógica extraída para `hooks/useScrollToTop.ts` + `utils/haptics.ts` |
 
@@ -407,7 +407,7 @@ O hook genérico `useSupabaseTable` encapsula toda essa lógica automaticamente.
 │   │
 │   ├── contexts/               # Provedores (Auth, Notifications, FloatingActions)
 │   ├── pages/                  # Páginas principais roteadas
-│   ├── services/               # Regras de negócio (fundamentalsService, priceService, etc.)
+│   ├── services/               # Regras de negócio (priceService, insightsEngine, indexRatesFetcher, etc.)
 │   ├── types/                  # Contratos TypeScript de domínio
 │   └── utils/                  # quantamentalEngine, assetClassifier, helpers
 │
@@ -492,12 +492,9 @@ O sistema quantamental avalia cada ativo de forma híbrida (qualitativa + quanti
 | `checkScuttlebuttDecay()` | Verifica expiração do timestamp da última avaliação qualitativa |
 | `simulateSmartAporte()` | Roteamento inteligente de capital: defasagem macro → filtro micro → ordenação por qualidade → distribuição proporcional → travas setoriais → fallback caixa |
 
-### Serviço de Fundamentos (`src/services/fundamentalsService.ts`)
+### Serviço de Fundamentos (removido)
 
-| Função | Propósito |
-|--------|-----------|
-| `getMergedFundamentals()` | Mescla dados do cache da API (Yahoo Finance) com overrides manuais (`manual_*`) do usuário |
-| `fetchAndCacheFundamentals()` | Busca indicadores atualizados via Yahoo Finance e persiste no `asset_fundamentals_cache` |
+> **Removido na Auditoria A (12/08/2026):** `src/services/fundamentalsService.ts` (e os demais serviços de IA `geminiService`, `naturalLanguageParser`, `aiIcons`) não possuíam nenhum import no projeto — funcionalidade de insights/IA desativada da UI. A busca de fundamentos hoje flui pela `priceService` e pelo cache `asset_fundamentals_cache`.
 
 ### Classificador de Ativos (`src/utils/assetClassifier.ts`)
 
@@ -613,6 +610,10 @@ Controlado via `VITE_LOG_LEVEL` (default: `'warn'` em produção).
 | — | **Saneamento de types any em cache e reconciliação** | Substituição de explicit any por tipos fortemente tipados | Melhoria | ✅ |
 | — | **Bug Fix — Select.Item value="" no Radix UI** | Uso de sentinel value `__empty__` no Select.tsx para evitar que opções com `value=""` causem erro no Radix Select.Item que rejeita strings vazias | Bug Fix | ✅ |
 | — | **Componentes padronizados: FieldLabel e SectionHeader** | Criação de `FieldLabel.tsx` (uppercase, font-black, text-secondary) e `SectionHeader.tsx` (duas APIs: children+as+bordered e title+description+action). Migração de ~50 labels raw em 5 arquivos | Melhoria | ✅ |
+| — | **Auditoria A — limpeza de lixo** | Removidos 19 arquivos órfãos confirmados (AnimatedListItem, ReportCharts, ui/badge, ui/select, ui/table, ColorPaletteSwitcher, AssetClassAllocationCard, etc.) + 4 serviços de IA desativados; `tmp/` fora do tracking; `@testing-library/dom` removida (transitiva) | Limpeza | ✅ |
+| — | **Auditoria B — DRY de utilitários** | `todayISO()` em `format.ts` (17× `format(new Date(),'yyyy-MM-dd')`) + 23× `Number(x.toFixed(n))` → `roundToDecimals(x, n)`; `CurrencyInput` usa `formatCurrency` central | Refatoração | ✅ |
+| — | **Auditoria C — primitivos Eyebrow/GlassCard** | Criados `ui/eyebrow.tsx` (labels uppercase com tone/weight/tracking) e `ui/glass-card.tsx`; 17 Eyebrows + 4 GlassCards migrados | Refatoração | ✅ |
+| — | **Auditoria D — decomposição de monolitos** | `CreditCardCsvReconciliationPanel` 1193→669 (9 componentes `Csv*` + `utils/csvReconciliationUi.ts`) e `FloatingCalculator` 1127→407 (3 hooks + CalculatorPanel/CalculatorKeypad); prop morta `paymentItems` removida; `PageHeaderActionButton` órfão removido | Refatoração | ✅ |
 | — | **NumberInput padronizado em todo o app** | Migração de `Input type="number"` para `NumberInput` com spin buttons em 7 arquivos (ExpenseFormModal, CardFormModal, CycleConfigModal, LimitSuggestionsModal, DebtFormModal, BillPaymentModal, CorrectionsMissingTab) | Melhoria | ✅ |
 | — | **Overflow DECIMAL(15,2) no motor de rentabilidade** | Aumento de precisão de `DECIMAL(15,2)` para `DECIMAL(18,2)` em 12 colunas (migration). Adição de arredondamento defensivo (`round2`) antes do upsert em `portfolioTwrEngine.ts`, `portfolioHistoricalRecalc.ts` e `daily-close/index.ts` | Bug Fix | ✅ |
 | — | **Dashboard refatorado: widget card system** | Substituição de 10+ componentes antigos por sistema de 6 widgets configuráveis (WidgetCard, DashboardWidgetGrid, WidgetSettingsSheet). Uso de `useDashboardLayout` com persistência. Criação de `DashboardDataContext` com hooks focados. | Refatoração | ✅ |
