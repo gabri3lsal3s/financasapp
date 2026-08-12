@@ -6,10 +6,10 @@ import { Plus, Check, ArrowRight, Tags, ArrowDownCircle, ArrowUpCircle } from 'l
 import Button from '@/components/Button'
 import Input from '@/components/Input'
 import Card from '@/components/Card'
+import AuthShell from '@/components/auth/AuthShell'
 import { generateCategoryColor } from '@/utils/categoryColors'
 import { getCategoryIcon } from '@/utils/categoryIcons'
 import { Category, IncomeCategory } from '@/types'
-import { Z_INDEX } from '@/constants/zIndex'
 
 export default function OnboardingCategories() {
   const navigate = useNavigate()
@@ -42,22 +42,14 @@ export default function OnboardingCategories() {
   const canFinish = categories.length > 0 && incomeCategories.length > 0
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
-      <div className="app-shell-glow" aria-hidden="true" />
-      <div className={`relative ${Z_INDEX.CONTENT} w-full max-w-xl space-y-8`}>
-        <div>
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-tertiary">
-            <Tags className="h-8 w-8 text-primary" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-primary">
-            Bem-vindo(a) ao Finanças!
-          </h2>
-          <p className="mt-2 text-center text-sm text-secondary px-4">
-            Para começar, precisamos criar suas primeiras categorias. Elas vão ajudar a organizar para onde vai o seu dinheiro e de onde ele vem.
-          </p>
-        </div>
-
-        <Card className="mt-8 space-y-8">
+    <AuthShell
+      title="Bem-vindo(a) ao Finanças!"
+      icon={<Tags className="h-8 w-8 text-primary" />}
+      subtitle="Para começar, precisamos criar suas primeiras categorias. Elas vão ajudar a organizar para onde vai o seu dinheiro e de onde ele vem."
+      maxWidth="xl"
+      markClassName="h-16 w-16"
+    >
+        <Card className="mt-8 space-y-8 surface-glass border border-glass">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Despesas */}
             <div className="space-y-4">
@@ -179,7 +171,6 @@ export default function OnboardingCategories() {
             </Button>
           </div>
         </Card>
-      </div>
-    </div>
+    </AuthShell>
   )
 }

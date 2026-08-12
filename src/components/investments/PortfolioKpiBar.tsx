@@ -1,5 +1,6 @@
 import KpiCard from '@/components/KpiCard'
-import { formatCurrency, formatSignedPercentBR } from '@/utils/format'
+import AmountText from '@/components/ui/amount-text'
+import { formatSignedPercentBR } from '@/utils/format'
 import { Wallet, ArrowUpRight, Percent, Coins } from 'lucide-react'
 import type { PortfolioShareDailyRow, PortfolioTransaction } from '@/types'
 
@@ -60,7 +61,7 @@ export default function PortfolioKpiBar({
       {/* Patrimônio Total */}
       <KpiCard
         title="Patrimônio Total"
-        value={formatCurrency(totalValue)}
+        value={<AmountText value={totalValue} size="md" weight="extrabold" tone="default" nowrap />}
         subtext="variação diária"
         icon={<Wallet size={16} />}
         glowColor="var(--color-primary)"
@@ -73,7 +74,7 @@ export default function PortfolioKpiBar({
       {/* Proventos Recebidos */}
       <KpiCard
         title="Proventos recebidos"
-        value={formatCurrency(totalEarnings)}
+        value={<AmountText value={totalEarnings} size="md" weight="extrabold" tone="income" nowrap />}
         subtext="total acumulado"
         icon={<Coins size={16} />}
         glowColor="var(--color-income)"
@@ -86,7 +87,16 @@ export default function PortfolioKpiBar({
       {/* Resultado Líquido */}
       <KpiCard
         title="Resultado Líquido"
-        value={(isProfit ? '+' : '') + formatCurrency(absoluteProfit)}
+        value={
+          <AmountText
+            value={absoluteProfit}
+            size="md"
+            weight="extrabold"
+            tone={isProfit ? 'income' : 'expense'}
+            forceSign
+            nowrap
+          />
+        }
         subtext="lucro acumulado"
         icon={<ArrowUpRight size={16} className={isProfit ? '' : 'rotate-90'} />}
         glowColor={isProfit ? 'var(--color-income)' : 'var(--color-expense)'}

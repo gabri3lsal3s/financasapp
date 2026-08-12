@@ -5,8 +5,8 @@ import { UserPlus, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
+import AuthShell from '@/components/auth/AuthShell';
 import { getErrorMessage } from '@/utils/errorMessage';
-import { Z_INDEX } from '@/constants/zIndex';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -55,21 +55,14 @@ export default function Register() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-secondary px-4 py-12 sm:px-6 lg:px-8 animate-page-enter">
-      <div className="app-shell-glow" aria-hidden="true" />
-      <div className={`relative ${Z_INDEX.CONTENT} w-full max-w-md space-y-8`}>
-        <div>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary">
-            <UserPlus className="h-6 w-6 text-primary" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-primary">
-            Crie sua conta
-          </h2>
-        </div>
+    <AuthShell
+      title="Crie sua conta"
+      icon={<UserPlus className="h-6 w-6 text-primary" />}
+    >
 
 
         {isRegistered ? (
-          <Card className="mt-8 text-center animate-surface-enter">
+          <Card className="mt-8 text-center animate-surface-enter surface-glass border border-glass">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success)]/10 mb-4">
               <Mail className="h-8 w-8 text-[var(--color-success)]" />
             </div>
@@ -95,13 +88,13 @@ export default function Register() {
         ) : (
           <>
             {error && (
-              <div className="flex items-center space-x-2 rounded-md bg-[var(--color-intent-danger)]/10 p-4 text-[var(--color-intent-danger)]">
+              <div className="flex items-center space-x-2 rounded-md bg-[var(--color-danger)]/10 p-4 text-[var(--color-danger)]">
                 <AlertCircle className="h-5 w-5 flex-shrink-0" />
                 <p className="text-sm font-medium">{error}</p>
               </div>
             )}
 
-            <Card className="mt-8">
+            <Card className="mt-8 surface-glass border border-glass">
               <form className="space-y-6" onSubmit={handleRegister}>
                 <div className="space-y-4">
                   <div className="relative">
@@ -184,7 +177,6 @@ export default function Register() {
             </p>
           </>
         )}
-      </div>
-    </div>
+    </AuthShell>
   );
 }
