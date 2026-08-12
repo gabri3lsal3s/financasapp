@@ -158,24 +158,27 @@ export default function DashboardWidgetGrid({ layout }: DashboardWidgetGridProps
             />
           )}
 
-          {/* ── Demais widgets (colapsáveis no mobile) ── */}
-          {otherWidgets.map((widget) => {
-            const comps = WIDGET_MAP[widget.id]
-            if (!comps) return null
+          {/* ── Demais widgets sempre abertos e organizados em grade de 2 colunas no desktop ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {otherWidgets.map((widget) => {
+              const comps = WIDGET_MAP[widget.id]
+              if (!comps) return null
 
-            return (
-              <WidgetCard
-                key={widget.id}
-                widget={widget}
-                summary={<comps.Summary />}
-                detail={
-                  <ErrorFallback>
-                    <comps.Detail />
-                  </ErrorFallback>
-                }
-              />
-            )
-          })}
+              return (
+                <WidgetCard
+                  key={widget.id}
+                  widget={widget}
+                  disableCollapse
+                  summary={<comps.Summary />}
+                  detail={
+                    <ErrorFallback>
+                      <comps.Detail />
+                    </ErrorFallback>
+                  }
+                />
+              )
+            })}
+          </div>
         </div>
       </div>
 

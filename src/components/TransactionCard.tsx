@@ -44,15 +44,15 @@ function MobileLayout({
   return (
     <Card
       onClick={onClick}
-      className={`w-full surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
+      className={`w-full rounded-2xl surface-glass-strong glass-card-interactive hover:border-glass transition-colors cursor-pointer p-0 overflow-hidden animate-stagger-item flex flex-col focus:ring-0 focus:outline-none ${staggerClass ?? ''}`}
     >
       <div className="flex flex-1 h-full flex-col">
         <div className="flex flex-1 items-stretch">
           <div
-            className="w-[3px] flex-shrink-0 rounded-l-sm"
+            className="w-[4px] flex-shrink-0 rounded-l-2xl"
             style={{ backgroundColor: categoryColor }}
           />
-          <div className="flex-1 px-3.5 py-3 flex flex-col justify-center min-w-0">
+          <div className="flex-1 px-4 py-3.5 flex flex-col justify-center min-w-0">
             <div className="flex items-center justify-between gap-3 w-full">
               <div className="flex-1 min-w-0">
                 <p
